@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found — RailroadRadar</title>
+  <style>
+    :root {
+      --primary-color: #07093e;
+      --accent-color: #f1f2f2;
+      --light-text: #fff;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #07093e;
+      background-image:
+        url('https://i.postimg.cc/YSgrjhMx/Background-Right-Top.png'),
+        url('https://i.postimg.cc/c1vD3YVL/Backgrond404.png');
+      background-position:
+        top -40px right -60px,
+        bottom left -80px;
+      background-repeat: no-repeat, no-repeat;
+      background-size:
+        min(480px, 60vw),
+        min(520px, 70vw);
+      color: var(--light-text);
+    }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 60px;
+      background-color: #07093e;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      z-index: 9999;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+      border-bottom: 1px solid #1a3a5f;
+    }
+    .header-logo {
+      height: 40px;
+      margin-right: 12px;
+    }
+    .header-title {
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .main {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px 100px;
+      text-align: center;
+    }
+    .error-message {
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      max-width: 520px;
+      line-height: 1.35;
+      margin: 0 0 14px 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      letter-spacing: 0.2px;
+    }
+    .error-code-line {
+      font-size: 18px;
+      font-weight: 600;
+      color: #a8c0e0;
+      margin: 0 0 28px 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      letter-spacing: 0.3px;
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background-color 0.2s ease, transform 0.15s ease;
+    }
+    .btn-primary {
+      background-color: #0ac700;
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: #089e00;
+    }
+    .btn-secondary {
+      background-color: transparent;
+      color: #ffffff;
+      border: 1px solid #a8c0e0;
+    }
+    .btn-secondary:hover {
+      background-color: rgba(255,255,255,0.1);
+      border-color: #ffffff;
+    }
+    .train-hint {
+      margin-top: 36px;
+      font-size: 13px;
+      color: #7a9bb8;
+    }
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #07093e;
+      color: white;
+      padding: 10px 20px;
+      font-size: 13px;
+      z-index: 999;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+      border-top: 1px solid #1a3a5f;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .footer a {
+      color: #a8c0e0;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .footer a:hover {
+      color: #ffffff;
+      text-decoration: underline;
+    }
+    .footer .copyright {
+      color: #a8c0e0;
+    }
+    @media (max-width: 480px) {
+      .error-code {
+        font-size: 72px;
+      }
+      .error-title {
+        font-size: 22px;
+      }
+      .header-title {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="https://www.railroadradar.com/" style="display:flex; align-items:center; text-decoration:none;">
+      <img src="https://i.postimg.cc/W18XKxcx/Stay-Off-The-Tracks-5.png" alt="RailroadRadar" class="header-logo">
+    </a>
+  </div>
+
+  <div class="main">
+    <p class="error-message">
+      Looks like this track doesn’t go anywhere.
+    </p>
+    <div class="error-code-line">404 · Page Not Found</div>
+    <div class="btn-row">
+      <a href="https://www.railroadradar.com/" class="btn btn-primary">Back to Live Map</a>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      <span class="copyright">© 2026 RailroadRadar</span>
+      <span style="color:#4a6fa5;">|</span>
+      <a href="https://www.railroadradar.com/policies/terms-of-use" target="_blank">Terms of Use</a>
+      <a href="https://www.railroadradar.com/policies/privacy" target="_blank">Privacy Policy</a>
+    </div>
+    <div></div>
+  </div>
+</body>
+</html>
