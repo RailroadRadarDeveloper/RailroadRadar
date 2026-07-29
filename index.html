@@ -1,0 +1,3830 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RailroadRadar</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" defer></script>
+  <script src="https://unpkg.com/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.js" defer></script>
+
+  <!-- No Firebase / Account features -->
+
+  <style>
+    :root {
+      --primary-color: #0c2340;
+      --secondary-color: #0c2340;
+      --accent-color: #f1f2f2;
+      --text-color: #333;
+      --light-text: #fff;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--accent-color);
+    }
+    #map {
+      height: calc(100vh - 60px);
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      margin-top: 60px;
+      z-index: 1;
+    }
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 60px;
+      background-color: var(--primary-color);
+      display: flex;
+      align-items: center;
+      padding: 0 16px; /* Added breathing room on the right */
+      z-index: 9999;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .header-logo {
+      height: 40px;
+      margin-right: 10px;
+    }
+    .header-search-container {
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      margin: 0 10px;
+      position: relative;
+    }
+    .header-search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      background-color: white;
+      padding-right: 80px;
+    }
+    .header-search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: white;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 10000;
+      display: none;
+    }
+    .header-search-results.active {
+      display: block;
+    }
+    .search-type-menu {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #f1f2f2;
+      border: 1px solid #0c2340;
+      border-radius: 12px;
+      font-size: 11px;
+      padding: 2px 8px;
+      color: #0c2340;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .search-type-menu:hover {
+      background: #e0e0e0;
+    }
+    .search-type-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: white;
+      border: 1px solid #0c2340;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 10001;
+      min-width: 110px;
+      display: none;
+    }
+    .search-type-dropdown.show {
+      display: block;
+    }
+    .search-type-option {
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .search-type-option:hover {
+      background: #f5f5f5;
+    }
+    .search-type-option.active {
+      background: #0c2340;
+      color: white;
+      font-weight: bold;
+    }
+    .menu-button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      margin-right: 8px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      transition: background-color 0.2s ease;
+    }
+    .menu-button:hover {
+      background-color: rgba(255,255,255,0.15);
+    }
+    .control-panel {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1100px;
+      max-height: calc(100vh - 90px);
+      background-color: white;
+      z-index: 1000;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+      border-radius: 0;
+      padding: 25px 40px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .control-panel.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .control-panel h2 {
+      color: var(--primary-color);
+      margin-top: 0;
+      border-bottom: 2px solid var(--secondary-color);
+      padding-bottom: 10px;
+    }
+    .control-panel h3 {
+      color: var(--primary-color);
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .close-panel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 32px;
+      cursor: pointer;
+      color: var(--primary-color);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .train-icon {
+      display: block;
+      transform-origin: center center;
+    }
+    .legend {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .legend-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 10px;
+    }
+    .train-popup {
+      font-size: 14px;
+      min-width: 280px;
+      max-width: 520px;
+      width: max-content;
+      overflow: hidden;
+      border-radius: 6px;
+      box-shadow: none;
+      border: none;
+      background: transparent;
+      font-family: 'Segoe UI', system_ui, sans-serif;
+    }
+
+    /* ========== CLEAN + FULL-WIDTH TRAIN POPUP ========== */
+    .train-popup-header {
+      background: linear-gradient(145deg, #0c2340 0%, #132d52 100%);
+      color: white;
+      padding: 14px 16px;
+      border-radius: 0;
+      position: relative;
+    }
+    .train-popup-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(to right, #27ae60, #f1c40f);
+    }
+
+    .train-popup-header .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .route-pill {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+
+    .cape-badge {
+      background: #e67e22;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .alert-pill {
+      background: #e74c3c;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .dest-title {
+      margin: 0 0 8px 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    .status-row {
+      margin-top: 2px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .status-pill.status-on-time { background: #d4edda; color: #155724; }
+    .status-pill.status-delayed { background: #fff3cd; color: #856404; }
+    .status-pill.status-very-delayed { background: #f8d7da; color: #721c24; }
+    .status-pill.status-scheduled { background: #d1ecf1; color: #0c5460; }
+    .status-pill.status-passed { background: #e2e3e5; color: #383d41; }
+
+    .train-popup-body {
+      padding: 14px 16px;
+      background: #fff;
+    }
+
+    .quick-status {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .status-desc {
+      margin: 0;
+      font-size: 14px;
+      color: #333;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+      margin-bottom: 14px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #f0f2f5;
+    }
+    .info-item:last-child, .info-item:nth-child(3) {
+      border-bottom: none;
+    }
+    .info-label {
+      font-size: 10px;
+      color: #7f8c9a;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .info-value {
+      font-size: 14.5px;
+      color: #1a1f2e;
+      font-weight: 700;
+      word-break: break-all;
+      hyphens: auto;
+    }
+
+    .alert-banner {
+      background: #fff8e1;
+      border-left: 4px solid #f39c12;
+      padding: 9px 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #8d6e00;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .meta-row {
+      font-size: 11.5px;
+      color: #7f8c9a;
+      margin-bottom: 10px;
+    }
+
+    .stops-wrapper {
+      margin-top: 2px;
+    }
+    .stops-header h4 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+      color: #0c2340;
+      font-weight: 700;
+    }
+
+    .train-popup-footer {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #f4f6f9;
+      border-top: 1px solid #e6e9ef;
+      border-radius: 0;
+    }
+    .popup-action-btn {
+      flex: 1;
+      padding: 9px 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .history-btn {
+      background: #27ae60;
+      color: white;
+    }
+    .history-btn:hover {
+      background: #219653;
+    }
+    .refresh-btn {
+      background: #0c2340;
+      color: white;
+    }
+    .refresh-btn:hover {
+      background: #1a3a5f;
+    }
+
+    .stops-loading {
+      text-align: center;
+      padding: 12px;
+      color: #7f8c9a;
+      font-size: 13px;
+    }
+
+    .stops-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 230px;
+      overflow-y: auto;
+      border: 1px solid #e6e9ef;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .stops-list li {
+      display: flex;
+      align-items: flex-start;
+      padding: 7px 10px;
+      border-bottom: 1px solid #f0f2f5;
+      font-size: 12px;
+      gap: 8px;
+    }
+    .stops-list li:last-child {
+      border-bottom: none;
+    }
+    .stops-list li.completed {
+      opacity: 0.7;
+    }
+    .stop-time {
+      font-weight: 700;
+      color: #0c2340;
+      min-width: 48px;
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+    .stop-name {
+      flex: 1;
+      color: #2c3e50;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .stop-status {
+      font-weight: 700;
+      font-size: 11px;
+      padding: 1px 7px;
+      border-radius: 3px;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 2px;
+    }
+    .stop-status.status-on-time { background: #d4edda; color: #155724; }
+    .stop-status.status-delayed { background: #fff3cd; color: #856404; }
+    .stop-status.status-very-delayed { background: #f8d7da; color: #721c24; }
+    .stop-status.status-scheduled { background: #d1ecf1; color: #0c5460; }
+    .stop-status.status-passed { background: #e2e3e5; color: #555; }
+
+    .track-badge {
+      background: #0c2340;
+      color: white;
+      font-size: 10px;
+      padding: 0 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+      font-weight: 600;
+    }
+
+    /* Legacy support */
+    .status-on-time, .status-delayed, .status-very-delayed, .status-scheduled, .status-passed {
+      font-weight: 600;
+    }
+    .train-popup h3 { display: none; }
+    .status-on-time {
+      color: #2ecc71;
+      font-weight: bold;
+    }
+    .status-delayed {
+      color: #f39c12;
+      font-weight: bold;
+    }
+    .status-very-delayed {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    .status-scheduled {
+      color: #3498db;
+      font-weight: bold;
+    }
+    .status-passed {
+      color: #95a5a6;
+      font-weight: bold;
+    }
+    .refresh-button {
+      background-color: var(--secondary-color);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 0;
+      cursor: pointer;
+      margin-top: 10px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      width: 100%;
+    }
+    .refresh-button:hover {
+      background-color: #0a1c30;
+    }
+    .last-updated {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+      text-align: center;
+    }
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.1);
+      border-top-color: var(--secondary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .route-header {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: var(--primary-color);
+    }
+    .search-container {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--primary-color);
+      border-radius: 0;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    .search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      border: 1px solid #eee;
+      border-radius: 0;
+    }
+    .search-result {
+      padding: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      transition: background-color 0.2s;
+    }
+    .search-result:hover {
+      background-color: #f5f5f5;
+    }
+    .search-result-title {
+      font-weight: bold;
+      margin-bottom: 2px;
+      color: var(--primary-color);
+    }
+    .search-result-subtitle {
+      font-size: 12px;
+      color: #666;
+    }
+    .station-toggle {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .station-toggle input {
+      margin-right: 8px;
+    }
+    .station-toggle label {
+      cursor: pointer;
+    }
+    .station-icon {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+    .toggle-section {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+    }
+    .toggle-section div {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .toggle-section input {
+      margin-right: 8px;
+    }
+    .toggle-section label {
+      cursor: pointer;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.55);
+      z-index: 999;
+      display: none;
+      transition: opacity 0.2s ease;
+    }
+    .overlay.open {
+      display: block;
+      opacity: 1;
+    }
+    .station-popup {
+      font-size: 14px;
+      min-width: 280px;
+      max-width: 400px;
+      overflow-x: hidden;
+    }
+    .station-popup h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      border-bottom: 2px solid var(--secondary-color);
+      padding-bottom: 8px;
+      color: var(--primary-color);
+    }
+    .departures-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 250px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .departures-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px;
+      border-bottom: 1px solid #eee;
+      align-items: center;
+      word-wrap: break-word;
+    }
+    .departure-time {
+      font-weight: bold;
+      min-width: 60px;
+    }
+    .departure-destination {
+      flex-grow: 1;
+      margin: 0 10px;
+      word-wrap: break-word;
+    }
+    .stops-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 250px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .stops-list li {
+      padding: 3px 6px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stops-list li:last-child {
+      border-bottom: none;
+    }
+    .stop-time {
+      font-weight: bold;
+      min-width: 52px;
+      flex-shrink: 0;
+    }
+    .stop-name {
+      flex-grow: 1;
+      margin: 0 6px;
+      word-wrap: break-word;
+    }
+    .more-stops {
+      text-align: center;
+      font-style: italic;
+      color: #666;
+      margin-top: 5px;
+    }
+    .loading-departures {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(0,0,0,0.1);
+      border-top-color: var(--secondary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    .no-departures {
+      text-align: center;
+      padding: 10px;
+      color: #666;
+      font-style: italic;
+    }
+    .live-train-icon {
+      width: 16px;
+      height: 16px;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      margin-left: 5px;
+    }
+    .station-badge {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 0;
+      margin-left: 5px;
+    }
+    .track-badge {
+      display: inline-block;
+      background-color: #0c2340;
+      color: white;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 0;
+      margin-left: 5px;
+    }
+    .disclaimer {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #666;
+      text-align: left;
+    }
+    @media (max-width: 1200px) {
+      .control-panel {
+        width: 96%;
+        max-width: 1100px;
+      }
+    }
+    /* Completely remove Leaflet's default popup background / chrome */
+    .leaflet-popup-content-wrapper {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      padding: 0 !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: 520px;
+      width: max-content;
+      overflow-x: hidden;
+      overflow-y: auto;
+      max-height: 380px;
+      word-wrap: break-word;
+      background: transparent !important;
+    }
+    .leaflet-popup-tip-container {
+      display: none !important;
+    }
+    .leaflet-popup-tip {
+      display: none !important;
+    }
+    .leaflet-popup {
+      margin-bottom: 0 !important;
+    }
+    .alert-icon {
+      vertical-align: middle;
+      width: 20px;
+      height: 20px;
+    }
+    .train-label {
+      background-color: rgba(255, 255, 255, 0.8);
+      border: 1px solid #ccc;
+      padding: 2px 5px;
+      font-size: 12px;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .leaflet-marker-icon {
+     max-width: 32px !important;
+     max-height: 32px !important;
+   }
+   .train-icon {
+     width: 32px !important;
+     height: 32px !important;
+   }
+   .legend-icon {
+     width: 24px !important;
+     height: 24px !important;
+   }
+   .live-train-icon {
+     width: 16px !important;
+     height: 16px !important;
+   }
+   .header-logo {
+     height: 40px !important;
+   }
+   .alert-signup-section {
+     margin: 20px 0;
+     padding: 15px;
+     background: #f8f9fa;
+     border-radius: 0;
+     border: 1px solid #ddd;
+   }
+   .alert-signup-section h3 {
+     margin-top: 0;
+     color: var(--primary-color);
+   }
+   .alert-signup-section p {
+     font-size: 13px;
+     color: #555;
+     margin: 8px 0 12px;
+   }
+   .alert-signup-section input[type="text"],
+   .alert-signup-section input[type="tel"] {
+     width: 100%;
+     padding: 10px;
+     margin: 8px 0;
+     border: 1px solid var(--primary-color);
+     border-radius: 0;
+     box-sizing: border-box;
+     font-size: 14px;
+   }
+   .alert-signup-section button {
+     width: 100%;
+     padding: 12px;
+     margin: 10px 0 0;
+     background: var(--primary-color);
+     color: white;
+     border: none;
+     border-radius: 0;
+     font-weight: bold;
+     cursor: pointer;
+   }
+   .alert-signup-section button:hover {
+     background: #0a1c30;
+   }
+   #signup-status {
+     margin-top: 12px;
+     font-size: 13px;
+     text-align: center;
+     color: #444;
+     min-height: 40px;
+   }
+   #signup-status.success { color: #27ae60; }
+   #signup-status.error { color: #e74c3c; }
+   .panel-tabs {
+     display: flex;
+     margin: 0 -20px 20px -20px;
+     border-bottom: 1px solid #eee;
+   }
+   .tab-button {
+     flex: 1;
+     padding: 12px 10px;
+     background: #f8f9fa;
+     border: none;
+     font-weight: bold;
+     color: var(--primary-color);
+     cursor: pointer;
+     transition: background-color 0.2s, border-bottom 0.2s;
+     border-bottom: 3px solid transparent;
+   }
+   .tab-button:hover {
+     background: #f1f2f2;
+   }
+   .tab-button.active {
+     background-color: var(--primary-color);
+     color: var(--light-text);
+     border-bottom: 3px solid var(--accent-color);
+   }
+   .tab-content {
+     display: none;
+   }
+   .tab-content.active {
+     display: block;
+   }
+   .alerts-list {
+     max-height: 350px;
+     overflow-y: auto;
+     padding-right: 5px;
+   }
+   .alert-item {
+     background-color: #fff3cd;
+     border-left: 5px solid #ffc107;
+     padding: 12px 15px;
+     margin-bottom: 12px;
+     border-radius: 0;
+     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+   }
+   .alert-item:last-child {
+     margin-bottom: 0;
+   }
+   .alert-item strong {
+     display: block;
+     margin-bottom: 6px;
+     color: #322f30;
+     font-size: 15px;
+   }
+   .alert-item p {
+     margin: 0 0 8px 0;
+     font-size: 13px;
+     line-height: 1.4;
+     color: #555;
+   }
+   .alert-item a {
+     font-size: 12px;
+     color: var(--primary-color);
+     text-decoration: underline;
+   }
+   .cabcar-report-btn {
+     margin-top: 16px;
+     text-transform: uppercase;
+     font-size: 14px;
+     text-decoration: none;
+     cursor: pointer;
+     display: block;
+     width: 100%;
+     padding: 12px;
+     font-family: inherit;
+     text-shadow: none;
+     user-select: none;
+     transition: all 0.1s ease-in;
+     background-color: #07093e;
+     border: 1px solid #07093e;
+     color: #FFFFFF;
+     text-align: center;
+     border-radius: 0;
+     font-weight: bold;
+   }
+   .cabcar-report-btn:hover {
+     background-color: #0a1c30;
+     transform: translateY(-1px);
+   }
+   .stops-list li.completed img.checkmark {
+     width: 13px !important;
+     height: 13px !important;
+     vertical-align: middle;
+     margin-left: 4px;
+     flex-shrink: 0;
+   }
+
+   /* Footer Styles */
+   .footer {
+     position: fixed;
+     bottom: 0;
+     left: 0;
+     right: 0;
+     background-color: #0c2340;
+     color: white;
+     padding: 10px 20px;
+     font-size: 13px;
+     z-index: 999;
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+   }
+   .footer-left {
+     display: flex;
+     align-items: center;
+     gap: 15px;
+   }
+   .footer a {
+     color: #a8c0e0;
+     text-decoration: none;
+     transition: color 0.2s ease;
+   }
+   .footer a:hover {
+     color: #ffffff;
+     text-decoration: underline;
+   }
+   .footer .copyright {
+     color: #a8c0e0;
+   }
+   .view-mode-buttons {
+     display: flex;
+     gap: 10px;
+     margin-top: 10px;
+   }
+   .view-mode-btn {
+     flex: 1;
+     padding: 10px;
+     font-size: 14px;
+     font-weight: bold;
+     border: none;
+     border-radius: 0;
+     cursor: pointer;
+     transition: all 0.2s ease;
+   }
+   .view-mode-btn.active {
+     background-color: #0c2340;
+     color: white;
+   }
+   .view-mode-btn.inactive {
+     background-color: #f1f2f2;
+     color: #0c2340;
+     border: 1px solid #0c2340;
+   }
+   .special-last-trip {
+     background: #f8f9fa;
+     border: 1px solid #ddd;
+     padding: 8px 12px;
+     margin-bottom: 6px;
+     font-size: 12px;
+   }
+
+   /* Firebase Account Styles */
+   .auth-form {
+     max-width: 320px;
+     margin: 0 auto;
+   }
+   .auth-form input {
+     width: 100%;
+     padding: 12px;
+     margin: 8px 0;
+     border: 1px solid #0c2340;
+     border-radius: 0;
+     font-size: 15px;
+     box-sizing: border-box;
+   }
+   .auth-form button {
+     width: 100%;
+     padding: 14px;
+     margin: 12px 0 0;
+     background: #0c2340;
+     color: white;
+     border: none;
+     font-weight: bold;
+     font-size: 15px;
+     cursor: pointer;
+   }
+   .auth-form button:hover {
+     background: #0a1c30;
+   }
+   .auth-switch {
+     text-align: center;
+     margin-top: 15px;
+     font-size: 14px;
+   }
+   .auth-switch a {
+     color: #0c2340;
+     font-weight: bold;
+     text-decoration: underline;
+     cursor: pointer;
+   }
+   .user-info {
+     text-align: center;
+     padding: 20px 0;
+   }
+   .user-email {
+     font-size: 18px;
+     color: #0c2340;
+     font-weight: bold;
+     margin-bottom: 20px;
+   }
+   .favorite-card {
+     background: #f8f9fa;
+     border: 1px solid #ddd;
+     padding: 12px 15px;
+     margin-bottom: 10px;
+     border-radius: 0;
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+   }
+   .favorite-info {
+     flex-grow: 1;
+   }
+   .favorite-info strong {
+     color: #0c2340;
+   }
+   .remove-fav {
+     background: #e74c3c;
+     color: white;
+     border: none;
+     padding: 6px 12px;
+     font-size: 12px;
+     cursor: pointer;
+     border-radius: 0;
+   }
+   .remove-fav:hover {
+     background: #c0392b;
+   }
+
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="https://i.postimg.cc/W18XKxcx/Stay-Off-The-Tracks-5.png" alt="Stay Off The Tracks Logo" class="header-logo">
+    
+    <div class="header-search-container">
+      <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains or stations..." aria-label="Search for trains or stations">
+      
+      <!-- Search Type Menu -->
+      <div class="search-type-menu" id="search-type-menu">All ▼</div>
+      <div class="search-type-dropdown" id="search-type-dropdown">
+        <div class="search-type-option active" data-type="all">All (Trains + Stations)</div>
+        <div class="search-type-option" data-type="train">Trains only</div>
+        <div class="search-type-option" data-type="station">Stations only</div>
+      </div>
+      
+      <div id="header-search-results" class="header-search-results"></div>
+    </div>
+
+    <!-- Header simplified - no auth -->
+
+    <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false" style="margin-left: 8px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+    </div>
+  </div>
+  <div id="map"></div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0c2340; display: flex; align-items: center; justify-content: center; z-index: 100000; flex-direction: column; color: white; font-family: 'Segoe UI', sans-serif;">
+    <img src="https://i.postimg.cc/W18XKxcx/Stay-Off-The-Tracks-5.png" alt="RailroadRadar" style="height: 80px; margin-bottom: 30px; filter: brightness(1.1);">
+    <div style="width: 280px; height: 6px; background: #1a3a5f; border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+      <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.3s ease;"></div>
+    </div>
+    <div id="loading-text" style="font-size: 15px; opacity: 0.9;">Loading map and trains...</div>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <div class="control-panel" id="control-panel">
+    <button class="close-panel" id="close-panel" aria-label="Close menu">×</button>
+    <div class="panel-tabs">
+      <button class="tab-button active" onclick="switchTab(0)">Controls</button>
+      <button class="tab-button" onclick="switchTab(1)">Service Alerts</button>
+      <button class="tab-button" onclick="switchTab(2)">Vehicle Alerts</button>
+      <button class="tab-button" onclick="switchTab(3)">History / Past Trips</button>
+    </div>
+
+    <!-- Tab 0: Controls -->
+    <div id="tab-content-0" class="tab-content active">
+      <div class="toggle-section" style="margin-top:0; padding-top:0; border-top:none;">
+        <h3>View Mode</h3>
+        <div class="view-mode-buttons">
+          <button onclick="window.location.href='#'" class="view-mode-btn active">Commuter Rail</button>
+          <button onclick="window.location.href='https://www.railroadradar.com/subway'" class="view-mode-btn inactive">Subway</button>
+        </div>
+      </div>
+
+      <div class="toggle-section">
+        <h3>Map Layers</h3>
+        <div><input type="checkbox" id="show-orm" checked><label for="show-orm">Show OpenRailwayMap</label></div>
+        <div><input type="checkbox" id="show-routes" checked><label for="show-routes">Show Routes</label></div>
+      </div>
+      <div class="toggle-section">
+        <h3>Markers</h3>
+        <div class="station-toggle">
+          <input type="checkbox" id="show-stations" checked>
+          <img src="https://i.postimg.cc/gjwV0kj6/Needham-Heights-1.png" class="station-icon" alt="Station">
+          <label for="show-stations">Show Stations</label>
+        </div>
+        <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
+        <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
+        <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
+      </div>
+      <div class="legend">
+        <div class="route-header">Train Status</div>
+        <div class="legend-item"><img src="https://iili.io/3l1ouDP.png" class="legend-icon" alt="On time"><span>On time (0-5 min delay)</span></div>
+        <div class="legend-item"><img src="https://iili.io/3l1oRx1.png" class="legend-icon" alt="Delayed"><span>Delayed (5-15 min)</span></div>
+        <div class="legend-item"><img src="https://iili.io/3l1oTOB.png" class="legend-icon" alt="Very delayed"><span>Very delayed (>15 min)</span></div>
+        <div class="legend-item"><img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" class="legend-icon" alt="Live train"><span>Live train data available</span></div>
+      </div>
+      <button id="refresh-button" class="refresh-button">Refresh Data</button>
+      <div id="last-updated" class="last-updated">Last updated: Never</div>
+      <div class="disclaimer"><p>Train data is provided by MassDOT and MBTA. RailroadRadar is not responsible for inaccuracies.</p></div>
+      <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">Reports</h3>
+      <a id="cabcar-report-btn" class="cabcar-report-btn lightbox-260964784794073">Cabcar Pairing Report</a>
+    </div>
+
+    <!-- Tab 1: Service Alerts -->
+    <div id="tab-content-1" class="tab-content">
+      <h3>MBTA Service Alerts</h3>
+      <div id="alerts-list" class="alerts-list"></div>
+      <button class="refresh-button" onclick="checkServiceAlerts()">Refresh Alerts</button>
+    </div>
+
+    <!-- Tab 2: Vehicle Alerts -->
+    <div id="tab-content-2" class="tab-content">
+      <div class="alert-signup-section" style="background:#fff8e1; border-color:#f39c12;">
+        <h3>Live Vehicle Alerts (SMS) — <span style="color:#e67e22;">Coming Soon</span></h3>
+        <p style="color:#856404;">
+          Real-time SMS alerts for specific vehicles are under development.<br>
+          You'll be able to subscribe for text updates when a train goes live.
+        </p>
+        <input type="text" id="signup-vehicle" placeholder="Vehicle ID (e.g. 1851)" maxlength="6" disabled style="background:#f5f5f5; cursor:not-allowed;">
+        <input type="tel" id="signup-phone" placeholder="Your 10-digit US phone" pattern="[0-9]{10}" disabled style="background:#f5f5f5; cursor:not-allowed;">
+        <button id="signup-button" disabled style="background:#ccc; cursor:not-allowed;">Subscribe (Coming Soon)</button>
+        <div id="signup-status" style="color:#856404; font-size:13px;">Feature coming in a future update.</div>
+      </div>
+    </div>
+
+    <!-- Tab 3: History -->
+    <div id="tab-content-3" class="tab-content">
+      <h3>History / Past Trips</h3>
+      
+      <div style="margin-bottom:20px; padding:15px; background:#f8f9fa; border:1px solid #ddd;">
+        <h4 style="margin:0 0 10px 0; color:#0c2340;">Last Trip + Current Status for Special Units</h4>
+        <button onclick="showLastTripsForSpecialUnits()" class="refresh-button" style="background:#27ae60; margin-bottom:10px;">Show Last Trip + Current Status</button>
+        <div id="special-last-trips" style="max-height:300px; overflow-y:auto; font-size:12px;"></div>
+      </div>
+
+      <div class="history-controls">
+        <p style="color:#27ae60; font-weight:bold;">Search past trips</p>
+        
+        <div style="margin-top:12px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+          
+          <!-- Vehicle ID -->
+          <div>
+            <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">Vehicle ID</label>
+            <input id="history-vehicle" type="text" placeholder="e.g. 1800" style="width:110px; padding:6px 8px;">
+          </div>
+
+          <!-- Route Dropdown -->
+          <div>
+            <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">Route</label>
+            <select id="history-route" style="width:170px; padding:6px 8px;">
+              <option value="">All Routes</option>
+              <option value="CapeFlyer">CapeFLYER</option>
+              <option value="Needham">Needham</option>
+              <option value="Greenbush">Greenbush</option>
+              <option value="Middleborough">Middleborough/Lakeville</option>
+              <option value="Kingston">Kingston</option>
+              <option value="Providence">Providence/Stoughton</option>
+              <option value="Franklin">Franklin/Foxboro</option>
+              <option value="Worcester">Worcester</option>
+              <option value="Fitchburg">Fitchburg</option>
+              <option value="Haverhill">Haverhill</option>
+              <option value="Lowell">Lowell</option>
+              <option value="Newburyport">Newburyport/Rockport</option>
+            </select>
+          </div>
+
+          <!-- Date Range -->
+          <div>
+            <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">From Date</label>
+            <input type="date" id="history-from-date" style="padding:5px 8px; width:130px;">
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">To Date</label>
+            <input type="date" id="history-to-date" style="padding:5px 8px; width:130px;">
+          </div>
+
+          <button onclick="loadHistoricalData()" class="refresh-button" style="height:34px; padding:0 16px;">Load Trips</button>
+        </div>
+
+        <div id="history-status" style="margin-top:10px; font-size:13px; min-height:22px;"></div>
+      </div>
+      <div id="history-results" style="max-height:400px; overflow-y:auto; margin-top:15px; font-size:13px;"></div>
+    </div>
+
+    </div>
+  </div>
+
+  <!-- No auth / account modals (removed) -->
+
+  <!-- Toast Notification -->
+  <div id="notification" style="display:none; position:fixed; top:70px; left:50%; transform:translateX(-50%); background:#0c2340; color:white; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:100000; font-size:14px; max-width:90%; text-align:center;">
+    <span id="notification-text"></span>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      <span class="copyright">© 2026 RailroadRadar</span>
+      <span style="color:#4a6fa5;">|</span>
+      <a href="https://www.railroadradar.com/policies/terms-of-use" target="_blank">Terms of Use</a>
+      <a href="https://www.railroadradar.com/policies/privacy" target="_blank">Privacy Policy</a>
+    </div>
+    <div></div>
+  </div>
+
+  <!-- Jotform scripts (unchanged) -->
+  <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
+
+  <script>
+    // No Firebase / auth / account features (removed)
+
+    // Global error handler (simplified)
+    window.addEventListener('error', function(e) {
+      console.error('%c[Global Error]', 'color:#e74c3c', e.message);
+    });
+
+    // No auth / favorites functions (removed)
+
+    // No account UI functions
+
+    async function updateUserEmail() {
+      if (!currentUser) {
+        showNotification('You must be logged in.', 'error');
+        return;
+      }
+
+      const newEmail = document.getElementById('new-email').value.trim();
+      if (!newEmail) {
+        showNotification('Please enter a new email address.', 'error');
+        return;
+      }
+
+      try {
+        await currentUser.updateEmail(newEmail);
+        showNotification('Email updated successfully!');
+        document.getElementById('new-email').value = '';
+        // Refresh the display
+        document.getElementById('current-email-display').textContent = newEmail;
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          showNotification('For security, please log out and log back in, then try again.', 'error');
+        } else if (error.code === 'auth/multi-factor-auth-required') {
+          showNotification('This action requires 2-Factor Authentication (2FA). Please complete MFA verification in your account settings.', 'error');
+        } else {
+          showNotification('Failed to update email: ' + error.message, 'error');
+        }
+      }
+    }
+
+    async function updateUserPassword() {
+      if (!currentUser) {
+        showNotification('You must be logged in.', 'error');
+        return;
+      }
+
+      const newPassword = document.getElementById('new-password').value.trim();
+      if (!newPassword || newPassword.length < 6) {
+        showNotification('Password must be at least 6 characters.', 'error');
+        return;
+      }
+
+      try {
+        await currentUser.updatePassword(newPassword);
+        showNotification('Password changed successfully!');
+        document.getElementById('new-password').value = '';
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          showNotification('For security, please log out and log back in, then try again.', 'error');
+        } else if (error.code === 'auth/multi-factor-auth-required') {
+          showNotification('This action requires 2-Factor Authentication (2FA). Please complete MFA verification in your account settings.', 'error');
+        } else {
+          showNotification('Failed to change password: ' + error.message, 'error');
+        }
+      }
+    }
+
+    async function deleteUserAccount() {
+      if (!currentUser) return;
+
+      const confirmDelete = confirm('Are you sure you want to permanently delete your account? This cannot be undone.');
+      if (!confirmDelete) return;
+
+      try {
+        // Delete user document from Firestore first
+        await db.collection('users').doc(currentUser.uid).delete();
+        
+        // Delete the Firebase Auth user
+        await currentUser.delete();
+        
+        showNotification('Your account has been permanently deleted.');
+        userFavorites = [];
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          showNotification('For security, please log out and log back in, then try deleting again.', 'error');
+        } else if (error.code === 'auth/multi-factor-auth-required') {
+          showNotification('This action requires 2-Factor Authentication (2FA). Please complete MFA verification in your account settings.', 'error');
+        } else {
+          showNotification('Failed to delete account: ' + error.message, 'error');
+        }
+      }
+    }
+
+    function updateAuthUI() {
+      const loggedOut = document.getElementById('auth-logged-out');
+      const loggedIn = document.getElementById('auth-logged-in');
+      const emailDisplay = document.getElementById('user-email-display');
+
+      if (!loggedOut || !loggedIn) return;
+
+      if (currentUser) {
+        loggedOut.style.display = 'none';
+        loggedIn.style.display = 'block';
+        emailDisplay.textContent = currentUser.email;
+      } else {
+        loggedOut.style.display = 'block';
+        loggedIn.style.display = 'none';
+      }
+    }
+
+    // No favorites functions (removed)
+
+    // ==================== ORIGINAL CODE (kept mostly intact) ====================
+    document.addEventListener('DOMContentLoaded', async function() {
+
+      const map = L.map('map').setView([43.0, -71.5], 7);
+      const accessToken = 'pk.eyJ1Ijoibm9ydGhlYXN0YW10cmFrcmFpbGZhbmFsdCIsImEiOiJjbHBrZmYybTEwOGtlMmlub2QxenZrOXBvIn0.PgtqrDBtzuOVrKN5Uctx7Q';
+      const mapboxLayer = L.tileLayer('https://api.mapbox.com/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}{r}?access_token=' + accessToken, {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: true,
+        maxZoom: 20
+      }).addTo(map);
+      const ormOverlay = L.tileLayer('https://tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors | © OpenRailwayMap (CC-BY-SA)'
+      }).addTo(map);
+      L.control.layers({ "Mapbox": mapboxLayer }, { "OpenRailwayMap": ormOverlay }).addTo(map);
+
+      // Prevent extreme label overlapping when zoomed out
+      map.on('zoomend', () => {
+        if (typeof updateTrainLabelsVisibility === 'function') {
+          updateTrainLabelsVisibility();
+        }
+      });
+
+      let specialIcons = {};
+      let searchMode = 'all';
+
+      // ============================================================
+      // SPECIAL ICONS — Google Apps Script is the single source of truth
+      // (CapeFLYER is the only exception and has its own status-based icons below)
+      // ============================================================
+      const CAPE_FLYER_ICONS = {
+        onTime: "https://i.postimg.cc/wTKSy2br/Needham-Heights.png",
+        delayed: "https://i.postimg.cc/xTrWJ5F4/Needham-Heights-(1).png",
+        veryDelayed: "https://i.postimg.cc/YqcJGRyy/Needham-Heights-(2).png"
+      };
+
+      async function loadSpecialIcons() {
+        specialIcons = {};
+
+        // Load ONLY from Google Apps Script (user's single source of truth)
+        try {
+          const url = 'https://script.google.com/macros/s/AKfycbxEURlP0tOjri2yWKi93PxNueuGI7xyfqEWzSGGfDAMkr1hmJLLenfRsSmTq5B-F6h2/exec';
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          data.forEach(row => {
+            const vid = (
+              row.VehicleID || row.vehicle_id || row['Vehicle ID'] || 
+              row.vehicleId || row.ID || row.id || row.Name || row.name || 
+              row.Train || row.train || ''
+            ).toString().trim();
+
+            if (!vid) return;
+
+            const onTime = (row.OnTimeIcon || '').toString().trim();
+            const delayed = (row.DelayedIcon || '').toString().trim();
+            const veryDelayed = (row.VeryDelayedIcon || '').toString().trim();
+
+            if (onTime || delayed || veryDelayed) {
+              const displayName = (
+                row.Name || row.name || row['Train Name'] || row['Special Name'] || 
+                row.Label || row.label || vid
+              ).toString().trim();
+
+              specialIcons[vid] = {
+                name: displayName,
+                onTime: onTime || 'https://iili.io/3l1ouDP.png',
+                delayed: delayed || 'https://iili.io/3l1oRx1.png',
+                veryDelayed: veryDelayed || 'https://iili.io/3l1oTOB.png'
+              };
+            }
+          });
+
+          console.log('%c[SpecialIcons] Loaded successfully from Google Apps Script', 'color:#27ae60');
+        } catch (e) {
+          console.error('%c[SpecialIcons] Failed to load from Google Apps Script', 'color:#e74c3c', e);
+          specialIcons = {};
+        }
+      }
+
+      function createTrainIcon(delayMinutes, vehicleId) {
+        // CapeFLYER gets its own dedicated status-based icons (highest priority)
+        if (trainInfo[vehicleId] && trainInfo[vehicleId].isCapeFlyer) {
+          const key = (delayMinutes === null || delayMinutes <= 5) ? 'onTime' 
+                     : (delayMinutes <= 15) ? 'delayed' 
+                     : 'veryDelayed';
+          return L.icon({
+            iconUrl: CAPE_FLYER_ICONS[key],
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -16],
+            className: 'train-icon'
+          });
+        }
+
+        // All other special/heritage units come ONLY from Google Apps Script
+        if (specialIcons[vehicleId]) {
+          const key = (delayMinutes === null || delayMinutes <= 5) ? 'onTime' 
+                     : (delayMinutes <= 15) ? 'delayed' 
+                     : 'veryDelayed';
+          return L.icon({
+            iconUrl: specialIcons[vehicleId][key],
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -16],
+            className: 'train-icon'
+          });
+        }
+
+        // Default icons for regular trains
+        const defaultUrl = (delayMinutes === null || delayMinutes <= 5) ? 'https://iili.io/3l1ouDP.png'
+                          : (delayMinutes <= 15) ? 'https://iili.io/3l1oRx1.png'
+                          : 'https://iili.io/3l1oTOB.png';
+        return L.icon({
+          iconUrl: defaultUrl,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -16],
+          className: 'train-icon'
+        });
+      }
+
+      const mbtaAPIKey = '56faf0d5c1b246f982c52a944e271ff9';
+      const vehicleUrl = 'https://api-v3.mbta.com/vehicles?filter[route_type]=2&include=trip,route,stop';
+      const routesUrl = 'https://api-v3.mbta.com/routes?filter[type]=2';
+      const stopsUrl = 'https://api-v3.mbta.com/stops?filter[route_type]=2&include=route';
+      const scheduleUrl = 'https://api-v3.mbta.com/schedules';
+      const predictionsUrl = 'https://api-v3.mbta.com/predictions';
+      const alertsUrl = 'https://api-v3.mbta.com/alerts?filter[route_type]=2';
+      const amtrakUrl = 'https://script.google.com/macros/s/AKfycbxxg60IL4e_KApbx9pY7FDHFfotomrhMLqNuvKQaUj5kPd9pQvArMTnXXkyyr6n0j20/exec';
+
+      // ==================== DETAILED FETCH LOGGING ====================
+      const FetchStats = {
+        start(label) { return { label, start: performance.now() }; },
+        end(stat, extra = {}) {
+          const ms = (performance.now() - stat.start).toFixed(0);
+          const details = Object.entries(extra).map(([k,v]) => `${k}:${v}`).join(' | ');
+          console.log(`%c[${stat.label}] ${ms}ms${details ? ' • '+details : ''}`, 'color:#3498db; font-size:11px; font-family:monospace');
+        },
+        error(label, err) {
+          console.error(`%c[${label}] FAILED`, 'color:#e74c3c; font-weight:bold', err?.message || err);
+        }
+      };
+
+      const markers = {};
+      const trainLastSeen = {};
+      const routeLines = {};
+      const routeColors = {};
+      const stationMarkers = {};
+      const trainInfo = {};
+      const stationInfo = {};
+      const tripStopsCache = {};
+      const stationDeparturesCache = {};
+      const liveTrainTrips = new Set();
+      const stationsByName = {};
+      let schedules = {};
+      let highlightedMarker = null;
+      let highlightedStation = null;
+      let showStations = true;
+      let showTrainLabels = true;   // Default ON
+      let showRoutes = true;
+      let showOnlySpecial = false;
+
+      const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
+
+      await loadSpecialIcons();
+
+      function createStationIcon() {
+        return L.icon({ iconUrl: 'https://i.postimg.cc/gjwV0kj6/Needham-Heights-1.png', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9] });
+      }
+
+      function extractTrackNumber(platformName, platformDesc) {
+        if (platformDesc) {
+          const m = platformDesc.match(/track\s+(\d+)/i) || platformDesc.match(/platform\s+(\d+)/i);
+          if (m) return m[1];
+        }
+        if (platformName) {
+          const m = platformName.match(/track\s+(\d+)/i) || platformName.match(/platform\s+(\d+)/i) || platformName.match(/-(\d+)$/) || platformName.match(/\s(\d+)$/);
+          if (m) return m[1];
+        }
+        return null;
+      }
+
+      function extractTrainNumber(tripId) {
+        if (!tripId) return null;
+        const parts = tripId.split('-');
+        return parts.length > 2 ? parts[2] : null;
+      }
+
+      async function getOnTimeStatus(tripIds) {
+        if (!tripIds.length) return {};
+        try {
+          const res = await fetch(`https://api-v3.mbta.com/predictions?filter[trip]=${tripIds.join(',')}&include=schedule`, { headers: { 'x-api-key': mbtaAPIKey } });
+          const data = await res.json();
+          const onTimeStatus = {};
+          liveTrainTrips.clear();
+          data.data.forEach(p => {
+            const tripId = p.relationships.trip.data.id;
+            const stopId = p.relationships.stop.data.id;
+            const key = `${tripId}-${stopId}`;
+            let delayMinutes = null;
+            let status = p.attributes.status || "Unknown";
+            if (!p.attributes.status) {
+              const sched = data.included.find(i => i.type === "schedule" && i.relationships.trip.data.id === tripId && i.relationships.stop.data.id === stopId);
+              if (sched) {
+                const useArrival = p.attributes.arrival_time && sched.attributes.arrival_time;
+                const useDep = p.attributes.departure_time && sched.attributes.departure_time;
+                let pred, schedTime;
+                if (useArrival) { pred = new Date(p.attributes.arrival_time); schedTime = new Date(sched.attributes.arrival_time); }
+                else if (useDep) { pred = new Date(p.attributes.departure_time); schedTime = new Date(sched.attributes.departure_time); }
+                if (pred && schedTime) {
+                  delayMinutes = (pred - schedTime) / 60000;
+                  status = Math.abs(delayMinutes) <= 5 ? "On Time" : delayMinutes > 5 ? `Delayed ${Math.round(delayMinutes)} min` : `Early ${Math.round(Math.abs(delayMinutes))} min`;
+                }
+              }
+            }
+            liveTrainTrips.add(tripId);
+            onTimeStatus[key] = { delayMinutes, status, isLive: true };
+          });
+          return onTimeStatus;
+        } catch (e) { return {}; }
+      }
+
+      function haversine(lat1, lon1, lat2, lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
+        const R = 3958.8; // Earth radius in miles
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      async function getTripStops(tripId) {
+        if (tripStopsCache[tripId] && (Date.now() - tripStopsCache[tripId].timestamp) < 300000) return tripStopsCache[tripId].stops;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout to prevent hanging
+          const [schedRes, predRes] = await Promise.all([
+            fetch(`https://api-v3.mbta.com/schedules?filter[trip]=${tripId}&include=stop`, { 
+              headers: { 'x-api-key': mbtaAPIKey },
+              signal: controller.signal 
+            }),
+            fetch(`https://api-v3.mbta.com/predictions?filter[trip]=${tripId}`, { 
+              headers: { 'x-api-key': mbtaAPIKey },
+              signal: controller.signal 
+            })
+          ]);
+          clearTimeout(timeoutId);
+          const schedData = await schedRes.json();
+          const predData = await predRes.json();
+          const stops = [];
+          const now = new Date();
+          if (schedData.data?.length) {
+            const all = schedData.data.map(s => {
+              const stopId = s.relationships.stop.data.id;
+              const stopInfo = schedData.included.find(i => i.type === "stop" && i.id === stopId);
+              const schedTime = s.attributes.departure_time ? new Date(s.attributes.departure_time) : (s.attributes.arrival_time ? new Date(s.attributes.arrival_time) : null);
+              const pred = predData.data.find(p => p.relationships.stop.data.id === stopId);
+              const predTime = pred ? (pred.attributes.departure_time ? new Date(pred.attributes.departure_time) : (pred.attributes.arrival_time ? new Date(pred.attributes.arrival_time) : null)) : null;
+              let delay = null, status = "Scheduled", isLive = !!predTime;
+              if (predTime && schedTime) {
+                delay = (predTime - schedTime) / 60000;
+                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+              }
+              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const isCompleted = (predTime || schedTime) ? (predTime || schedTime) < now : false;
+              if (isCompleted) status = "Passed";
+              return {
+                id: stopId,
+                name: stopInfo?.attributes.name || "Unknown",
+                scheduledTime: schedTime,
+                predictedTime: predTime,
+                delayMinutes: delay,
+                delayStatus: status,
+                isLive,
+                trackNumber: track,
+                formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
+                formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
+                isCompleted,
+                lat: stopInfo?.attributes?.latitude || null,
+                lng: stopInfo?.attributes?.longitude || null
+              };
+            }).sort((a,b) => a.scheduledTime - b.scheduledTime);
+            stops.push(...all);
+
+            // Compute cumulative miles along the journey (from first stop)
+            if (stops.length > 0) {
+              stops[0].cumulativeMiles = 0;
+              for (let i = 1; i < stops.length; i++) {
+                const prev = stops[i-1];
+                const curr = stops[i];
+                if (prev.lat != null && prev.lng != null && curr.lat != null && curr.lng != null) {
+                  const dist = haversine(prev.lat, prev.lng, curr.lat, curr.lng);
+                  curr.cumulativeMiles = (prev.cumulativeMiles || 0) + dist;
+                } else {
+                  curr.cumulativeMiles = prev.cumulativeMiles || 0;
+                }
+              }
+            }
+          }
+          tripStopsCache[tripId] = { stops, timestamp: Date.now() };
+          return stops;
+        } catch (e) { 
+          if (e.name === 'AbortError') {
+            console.warn(`getTripStops timed out for trip ${tripId}`);
+          }
+          return []; 
+        }
+      }
+
+      async function getStationDepartures(stationIds) {
+        if (!Array.isArray(stationIds)) stationIds = [stationIds];
+        const key = stationIds.sort().join('-');
+        if (stationDeparturesCache[key] && (Date.now() - stationDeparturesCache[key].timestamp) < 300000) return stationDeparturesCache[key].departures;
+        try {
+          const [predRes, schedRes] = await Promise.all([
+            fetch(`https://api-v3.mbta.com/predictions?filter[stop]=${stationIds.join(',')}&include=trip,route,schedule,stop&sort=departure_time`, { headers: { 'x-api-key': mbtaAPIKey } }),
+            fetch(`https://api-v3.mbta.com/schedules?filter[stop]=${stationIds.join(',')}&include=trip,route,stop&sort=departure_time`, { headers: { 'x-api-key': mbtaAPIKey } })
+          ]);
+          const predData = await predRes.json();
+          const schedData = await schedRes.json();
+          const departures = [];
+          const now = new Date();
+          const processed = new Set();
+          if (predData.data?.length) {
+            predData.data.forEach(p => {
+              if (!p.attributes.departure_time) return;
+              const depTime = new Date(p.attributes.departure_time);
+              if (depTime < now) return;
+              const tripId = p.relationships.trip.data?.id;
+              const stopId = p.relationships.stop.data?.id;
+              const tKey = `${tripId}-${stopId}`;
+              if (!tripId || processed.has(tKey)) return;
+              processed.add(tKey);
+              const tripInfo = predData.included?.find(i => i.type === "trip" && i.id === tripId);
+              const routeInfo = predData.included?.find(i => i.type === "route" && i.id === p.relationships.route.data?.id);
+              const stopInfo = predData.included?.find(i => i.type === "stop" && i.id === stopId);
+              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const sched = predData.included?.find(i => i.type === "schedule" && i.relationships.trip.data?.id === tripId && i.relationships.stop.data?.id === stopId);
+              let schedDep = null, delay = null, status = "On Time";
+              if (sched?.attributes.departure_time) {
+                schedDep = new Date(sched.attributes.departure_time);
+                delay = (depTime - schedDep) / 60000;
+                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+              }
+              const mins = Math.floor((depTime - now) / 60000);
+              if (mins > 0 && mins < 60) status = `in ${mins} min`;
+              departures.push({
+                tripId, routeId: p.relationships.route.data?.id, stopId,
+                stopName: stopInfo?.attributes.name || "Unknown",
+                trackNumber: track,
+                routeName: routeInfo?.attributes.long_name || "Unknown",
+                destination: tripInfo?.attributes.headsign || "Unknown",
+                scheduledDeparture: schedDep || depTime,
+                predictedDeparture: depTime,
+                delayMinutes: delay,
+                status,
+                isLive: true,
+                formattedScheduledTime: (schedDep || depTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+              });
+            });
+          }
+          if (schedData.data?.length) {
+            schedData.data.forEach(s => {
+              if (!s.attributes.departure_time) return;
+              const depTime = new Date(s.attributes.departure_time);
+              if (depTime < now) return;
+              const tripId = s.relationships.trip.data?.id;
+              const stopId = s.relationships.stop.data?.id;
+              const tKey = `${tripId}-${stopId}`;
+              if (!tripId || processed.has(tKey)) return;
+              processed.add(tKey);
+              const tripInfo = schedData.included?.find(i => i.type === "trip" && i.id === tripId);
+              const routeInfo = schedData.included?.find(i => i.type === "route" && i.id === s.relationships.route.data?.id);
+              const stopInfo = schedData.included?.find(i => i.type === "stop" && i.id === stopId);
+              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const isLive = liveTrainTrips.has(tripId);
+              const mins = Math.floor((depTime - now) / 60000);
+              let status = (mins > 0 && mins < 60) ? `in ${mins} min` : "Scheduled";
+              departures.push({
+                tripId, routeId: s.relationships.route.data?.id, stopId,
+                stopName: stopInfo?.attributes.name || "Unknown",
+                trackNumber: track,
+                routeName: routeInfo?.attributes.long_name || "Unknown",
+                destination: tripInfo?.attributes.headsign || "Unknown",
+                scheduledDeparture: depTime,
+                predictedDeparture: null,
+                delayMinutes: null,
+                status,
+                isLive,
+                formattedScheduledTime: depTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+              });
+            });
+          }
+          departures.sort((a,b) => (a.predictedDeparture || a.scheduledDeparture) - (b.predictedDeparture || b.scheduledDeparture));
+          const limited = departures.slice(0, 15);
+          stationDeparturesCache[key] = { departures: limited, timestamp: Date.now() };
+          return limited;
+        } catch (e) { return []; }
+      }
+
+      // Enrich completed stops with actual times from Google Apps Script history (with timeout + better matching)
+      async function enrichStopsWithActualTimes(stops, vehicleId) {
+        if (!stops?.length || !vehicleId) return stops;
+        const historyUrl = 'https://script.google.com/macros/s/AKfycbxQq01qr_-gtYVLeiSmkhkXDW0Tqm0KuivK_r98ZnLuVZ2gmuazJ7Hkgbgo6MKoD0uKbA/exec';
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const url = `${historyUrl}?vehicle=${encodeURIComponent(vehicleId)}`;
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (!res.ok) return stops;
+          const json = await res.json();
+          let points = (json.data || []).filter(p => {
+            const vid = String(p.vehicle_id || p.vehicle || '').trim();
+            return vid === String(vehicleId).trim();
+          });
+          if (!points.length) return stops;
+
+          // Sort oldest → newest
+          points.sort((a, b) => {
+            const ta = new Date(a.timestamp || a.time || a.last_updated || a.date || 0);
+            const tb = new Date(b.timestamp || b.time || b.last_updated || b.date || 0);
+            return ta - tb;
+          });
+
+          // Keep only today's points (or last 6 hours) to stay relevant to current trip
+          const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+          points = points.filter(p => {
+            const t = new Date(p.timestamp || p.time || p.last_updated || p.date || 0);
+            return t.getTime() > sixHoursAgo;
+          });
+
+          const completedStops = stops.filter(s => s.isCompleted);
+          if (!completedStops.length) return stops;
+
+          // --- Strategy 1: Name match ---
+          completedStops.forEach(stop => {
+            const stopName = (stop.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            let best = null;
+            let bestDiff = Infinity;
+            points.forEach(p => {
+              const pName = (p.stop_name || p.station || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const pTime = new Date(p.timestamp || p.time || p.last_updated || p.date || 0);
+              if (!pTime || isNaN(pTime) || !pName) return;
+              if (pName.includes(stopName) || stopName.includes(pName) || pName === stopName) {
+                const target = stop.predictedTime || stop.scheduledTime || pTime;
+                const diff = Math.abs(pTime - target);
+                if (diff < bestDiff && diff < 45 * 60 * 1000) {
+                  bestDiff = diff;
+                  best = pTime;
+                }
+              }
+            });
+            if (best) {
+              stop.actualTime = best;
+              stop.formattedActualTime = best.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+          });
+
+          // --- Strategy 2: Sequential time matching for remaining unmatched completed stops ---
+          // Walk through history points and assign the closest reasonable time to each completed stop in order
+          const unmatched = completedStops.filter(s => !s.actualTime);
+          if (unmatched.length && points.length) {
+            let pointIdx = 0;
+            unmatched.forEach(stop => {
+              const target = stop.predictedTime || stop.scheduledTime;
+              if (!target) return;
+              let best = null;
+              let bestDiff = Infinity;
+              // Look for a history point near the expected time
+              for (let i = pointIdx; i < points.length; i++) {
+                const pTime = new Date(points[i].timestamp || points[i].time || points[i].last_updated || points[i].date || 0);
+                if (!pTime || isNaN(pTime)) continue;
+                const diff = Math.abs(pTime - target);
+                if (diff < bestDiff && diff < 40 * 60 * 1000) {
+                  bestDiff = diff;
+                  best = pTime;
+                  pointIdx = i; // move forward so later stops get later points
+                }
+                // Stop searching if we've gone well past the target
+                if (pTime - target > 50 * 60 * 1000) break;
+              }
+              if (best) {
+                stop.actualTime = best;
+                stop.formattedActualTime = best.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+            });
+          }
+        } catch (e) {
+          // Timeout/abort is normal when the history endpoint is slow – stay silent
+          if (e.name !== 'AbortError' && e.name !== 'TimeoutError') {
+            console.warn('History enrich failed', e.message || e);
+          }
+        }
+        return stops;
+      }
+
+      function buildStopsHtml(stops, currentLat = null, currentLng = null) {
+        if (!stops?.length) return '<div class="no-departures">No stops found</div>';
+        return `<div class="upcoming-stops"><h4>Stops</h4><ul class="stops-list">${ 
+          stops.map(stop => {
+            let cls = 'status-on-time', disp = stop.formattedPredictedTime || stop.formattedScheduledTime || 'Scheduled';
+            if (stop.isCompleted) {
+              if (stop.formattedActualTime) {
+                disp = `<span style="background:#27ae60;color:white;padding:1px 6px;border-radius:3px;font-size:11px;">Actual</span> ${stop.formattedActualTime}`;
+              } else {
+                disp = stop.formattedPredictedTime || stop.formattedScheduledTime || 'Passed';
+              }
+              if (stop.delayMinutes > 15) cls = 'status-very-delayed';
+              else if (stop.delayMinutes > 5) cls = 'status-delayed';
+              else cls = 'status-passed';
+            } else if (!stop.predictedTime) {
+              cls = 'status-scheduled';
+              disp = 'Scheduled';
+            } else if (stop.delayMinutes > 15) { cls = 'status-very-delayed'; disp = `Now ${stop.formattedPredictedTime}`; }
+            else if (stop.delayMinutes > 5) { cls = 'status-delayed'; disp = `Now ${stop.formattedPredictedTime}`; }
+            const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
+            const done = stop.isCompleted ? `<img src="https://i.postimg.cc/wBWNG26K/Completed.png" class="checkmark">` : '';
+            
+            let mileageInfo = '';
+            if (stop.cumulativeMiles != null) {
+              mileageInfo = `Journey mile: ${stop.cumulativeMiles.toFixed(1)} mi`;
+            }
+            if (!stop.isCompleted && currentLat != null && currentLng != null && stop.lat != null && stop.lng != null) {
+              const distAway = haversine(currentLat, currentLng, stop.lat, stop.lng);
+              if (mileageInfo) mileageInfo += ' • ';
+              mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
+            }
+            const extraHtml = mileageInfo ? `<br><small style="color:#555; font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
+            
+            // Left column shows actual time when we have it, otherwise scheduled
+            const leftTime = (stop.isCompleted && stop.formattedActualTime) ? stop.formattedActualTime : stop.formattedScheduledTime;
+            
+            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span><span class="stop-status ${cls}">${disp}</span></li>`;
+          }).join('')
+        }</ul></div>`;
+      }
+
+      // ==================== AMTRAK + LOGGING (Final) ====================
+      function createAmtrakIcon(trainNum, statusMsg = '') {
+        const isDelayed = /late|delay/i.test(statusMsg || '');
+        const bgColor = isDelayed ? '#c0392b' : '#003087';
+        return L.divIcon({
+          className: 'amtrak-marker',
+          html: `<div style="background:${bgColor};color:white;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);">${trainNum}</div>`,
+          iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13]
+        });
+      }
+
+      function buildAmtrakStopsHtml(stations) {
+        if (!stations?.length) return '<div class="no-departures">No stop data</div>';
+        let html = '<div class="upcoming-stops"><h4>Upcoming Stops</h4><ul class="stops-list">';
+        stations.forEach(s => {
+          const code = s.code || '—';
+          const time = s.estArr || s.schArr || s.postArr;
+          const tStr = time ? new Date(time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+          const comment = s.estArrCmnt || s.postCmnt || '';
+          html += `<li><span class="stop-time">${tStr}</span><span class="stop-name">${code} ${comment ? `<small style="color:#e67e22">(${comment})</small>` : ''}</span></li>`;
+        });
+        return html + '</ul></div>';
+      }
+
+      function createAmtrakPopupContent(vid, t) {
+        const num = t.trainNum || vid.replace('amtrak-','');
+        const status = t.statusMsg || t.trainState || 'Unknown';
+        const speed = t.velocity != null ? Math.round(t.velocity) : 0;
+        return `<div class="train-popup"><div class="train-popup-content">
+          <h3 style="color:#003087">🚄 Amtrak ${num}</h3>
+          <p><strong>Route:</strong> ${t.routeName || 'Amtrak'}</p>
+          <p><strong>Status:</strong> <span class="${/late|delay/i.test(status)?'status-delayed':'status-on-time'}">${status}</span></p>
+          <p><strong>Speed:</strong> ${speed} mph</p>
+          ${buildAmtrakStopsHtml(t.stations)}
+          <button class="refresh-button" onclick="refreshAmtrakTrain('${vid}')" style="margin-top:8px;background:#003087">Refresh Amtrak</button>
+        </div></div>`;
+      }
+
+      window.refreshAmtrakTrain = async () => fetchAmtrakTrains();
+
+      function updateAmtrakVisibility() {
+        Object.values(amtrakMarkers).forEach(m => showAmtrak ? map.addLayer(m) : map.removeLayer(m));
+      }
+
+      async function fetchAmtrakTrains() {
+        const stat = FetchStats.start('Amtrak');
+        try {
+          const res = await fetch(amtrakUrl);
+          const text = await res.text();
+
+          // Proxy sometimes returns plain "Not found" or HTML instead of JSON
+          if (!text || text.trim() === 'Not found' || text.trim().startsWith('<')) {
+            console.warn('%c[Amtrak] Proxy returned no data (Not found). Skipping Amtrak update.', 'color:#f39c12');
+            FetchStats.end(stat, { status: 'no-data' });
+            return;
+          }
+
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (parseErr) {
+            console.warn('%c[Amtrak] Invalid JSON from proxy:', 'color:#f39c12', text.substring(0, 80));
+            FetchStats.end(stat, { status: 'bad-json' });
+            return;
+          }
+
+          if (data && data.error) {
+            console.warn('%c[Amtrak] Proxy error:', 'color:#f39c12', data.error);
+            FetchStats.end(stat, { status: 'proxy-error' });
+            return;
+          }
+
+          const now = Date.now();
+          let created = 0, updated = 0, skipped = 0;
+
+          Object.keys(data).forEach(k => {
+            const arr = data[k];
+            if (!arr?.length) { skipped++; return; }
+
+            const t = arr.find(x => x.lat != null && x.lon != null) || arr[0];
+            if (!t || t.lat == null) { skipped++; return; }
+
+            const vid = `amtrak-${t.objectID || k}`;
+            const lat = parseFloat(t.lat);
+            const lng = parseFloat(t.lon);
+            if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
+
+            amtrakTrainInfo[vid] = { ...t, id: vid, trainNum: k, lat, lng };
+
+            const icon = createAmtrakIcon(k, t.statusMsg || '');
+
+            if (amtrakMarkers[vid]) {
+              amtrakMarkers[vid].setLatLng([lat, lng]);
+              amtrakMarkers[vid].setIcon(icon);
+              updated++;
+            } else {
+              const m = L.marker([lat, lng], { icon });
+              m.bindPopup(createAmtrakPopupContent(vid, t), { maxWidth: 400 });
+              m.bindTooltip(`Amtrak ${k}`, { permanent: false, direction: 'bottom', className: 'train-label' });
+              amtrakMarkers[vid] = m;
+              if (showAmtrak) m.addTo(map);
+              created++;
+            }
+            amtrakLastSeen[vid] = now;
+          });
+
+          FetchStats.end(stat, {
+            received: Object.keys(data).length,
+            created,
+            updated,
+            skipped,
+            active: Object.keys(amtrakMarkers).length
+          });
+
+          updateAmtrakVisibility();
+
+        } catch (e) {
+          FetchStats.error('Amtrak', e);
+          console.warn('%c[Amtrak] Common causes: 1) Proxy not deployed as "Anyone"  2) Wrong URL (use the /exec Web App URL, not Library URL)  3) Proxy script has an error', 'color:#f39c12');
+        }
+      }
+
+      async function fetchStations() {
+        try {
+          const res = await fetch(stopsUrl, { headers: { 'x-api-key': mbtaAPIKey } });
+          const data = await res.json();
+          data.data.forEach(stop => {
+            const id = stop.id, name = stop.attributes.name, lat = stop.attributes.latitude, lng = stop.attributes.longitude;
+            if (lat && lng) {
+              stationInfo[id] = { id, name, lat, lng, routes: [] };
+              const key = name.toLowerCase();
+              if (!stationsByName[key]) stationsByName[key] = { name, stopIds: [], lat: 0, lng: 0, routes: [] };
+              stationsByName[key].stopIds.push(id);
+              stationsByName[key].lat += lat;
+              stationsByName[key].lng += lng;
+            }
+          });
+          if (data.included) {
+            data.included.forEach(item => {
+              if (item.type === 'route') {
+                const rid = item.id, rname = item.attributes.long_name;
+                data.data.forEach(s => {
+                  if (s.relationships?.route?.data?.some(r => r.id === rid)) {
+                    if (stationInfo[s.id]) {
+                      stationInfo[s.id].routes.push({ id: rid, name: rname });
+                      const skey = s.attributes.name.toLowerCase();
+                      if (stationsByName[skey]) {
+                        if (!stationsByName[skey].routes.find(r => r.id === rid)) stationsByName[skey].routes.push({ id: rid, name: rname });
+                      }
+                    }
+                  }
+                });
+              }
+            });
+          }
+          for (const skey in stationsByName) {
+            const g = stationsByName[skey];
+            const n = g.stopIds.length;
+            g.lat /= n; g.lng /= n;
+            const m = L.marker([g.lat, g.lng], { icon: createStationIcon(), zIndexOffset: -1000 });
+            m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, { maxWidth: 400 });
+            m.on('popupopen', async () => {
+              const deps = await getStationDepartures(g.stopIds);
+              m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
+            });
+            stationMarkers[g.stopIds[0]] = m;
+            if (showStations) m.addTo(map);
+          }
+        } catch (e) { console.error("Stations error", e); }
+      }
+
+      function createStationPopupContent(name, ids, deps, n) {
+        let html = '';
+        if (!deps.length) html = '<div class="no-departures">No upcoming departures</div>';
+        else {
+          html = `<div class="upcoming-stops"><h4>Next Departures <small>(click for full schedule)</small></h4><ul class="departures-list">${ 
+            deps.map(d => {
+              let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
+              const live = d.isLive ? `<span class="live-indicator"><img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" class="live-train-icon"></span>` : '';
+              const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
+              const trk = d.trackNumber ? `<span class="track-badge">Track ${d.trackNumber}</span>` : '';
+              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\\'")}', '${d.destination.replace(/'/g,"\\'")}')" style="cursor:pointer">
+                <span class="departure-time">${d.formattedScheduledTime}</span>
+                <span class="departure-destination">${d.destination || d.routeName} ${plat} ${trk} ${live}</span>
+                <span class="departure-status ${cls}">${d.status}</span>
+              </li>`;
+            }).join('')
+          }</ul></div>`;
+        }
+        const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
+        return `<div class="station-popup"><h3>${name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3>${n>1 ? `<p><strong>Platforms:</strong> ${n}</p>` : ''}${html}<button class="refresh-button" onclick="refreshStationDepartures('${idsStr}', 'mbta')">Refresh</button></div>`;
+      }
+
+      window.refreshStationDepartures = async function(idsStr, type) {
+        const ids = idsStr.split(',');
+        const m = stationMarkers[ids[0]];
+        if (m && m.isPopupOpen()) {
+          const nm = stationInfo[ids[0]].name;
+          m.getPopup().setContent(`<div class="station-popup"><h3>${nm}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading...</div></div>`);
+          delete stationDeparturesCache[ids.sort().join('-')];
+          const deps = await getStationDepartures(ids);
+          m.getPopup().setContent(createStationPopupContent(nm, ids, deps, ids.length));
+        }
+      };
+
+      async function fetchRouteShapes() {
+        try {
+          const r = await fetch(routesUrl, { headers: { 'x-api-key': mbtaAPIKey } });
+          const rd = await r.json();
+          rd.data.forEach(rt => routeColors[rt.id] = `#${rt.attributes.color || '800080'}`);
+
+          // Ensure CapeFlyer gets a nice distinct color
+          if (!routeColors['CapeFlyer']) {
+            routeColors['CapeFlyer'] = '#00ccff'; // Cyan for CapeFLYER (requested by user)
+          }
+
+          // Process all normal commuter rail routes first
+          for (const rid of rd.data.map(r => r.id)) {
+            let shapes = [];
+            let url = `https://api-v3.mbta.com/shapes?filter[route]=${rid}&page[limit]=1000`;
+            let more = true;
+
+            while (more) {
+              try {
+                const sr = await fetch(url, { headers: { 'x-api-key': mbtaAPIKey } });
+                if (!sr.ok) break;
+                const sd = await sr.json();
+                if (sd.data) {
+                  sd.data.forEach(s => {
+                    if (s.attributes?.polyline) shapes.push(s.attributes.polyline);
+                  });
+                }
+                url = sd.links?.next;
+                more = !!url;
+              } catch (shapeErr) {
+                more = false;
+              }
+            }
+
+            const grp = L.layerGroup();
+            shapes.forEach(pl => {
+              if (pl) {
+                const pts = L.Polyline.fromEncoded(pl).getLatLngs();
+                grp.addLayer(L.polyline(pts, { color: routeColors[rid] || '#800080', weight: 3, opacity: 0.7 }));
+              }
+            });
+
+            routeLines[rid] = grp;
+            if (showRoutes && shapes.length > 0) {
+              grp.addTo(map);
+            }
+          }
+
+          // === CAPEFLYER ROUTE LINE (improved detection) ===
+          // Try to find and load CapeFLYER route shapes
+          try {
+            let capeFlyerRouteId = 'CapeFlyer';
+
+            // First, try to discover the actual route ID (in case it's different)
+            try {
+              const routeListRes = await fetch('https://api-v3.mbta.com/routes?filter[type]=2', { 
+                headers: { 'x-api-key': mbtaAPIKey } 
+              });
+              const routeList = await routeListRes.json();
+              const capeRoute = routeList.data.find(r => 
+                r.attributes.long_name?.toLowerCase().includes('cape') ||
+                r.id.toLowerCase().includes('cape') ||
+                r.attributes.short_name?.toLowerCase().includes('cape')
+              );
+              if (capeRoute) {
+                capeFlyerRouteId = capeRoute.id;
+                console.log('%c[CapeFLYER] Discovered route ID:', 'color:#e67e22', capeFlyerRouteId);
+              }
+            } catch (_) {}
+
+            // Now load shapes for the (possibly discovered) CapeFLYER route
+            let shapes = [];
+            let url = `https://api-v3.mbta.com/shapes?filter[route]=${capeFlyerRouteId}&page[limit]=1000`;
+            let more = true;
+
+            while (more) {
+              const sr = await fetch(url, { headers: { 'x-api-key': mbtaAPIKey } });
+              if (!sr.ok) break;
+              const sd = await sr.json();
+              if (sd.data) {
+                sd.data.forEach(s => { if (s.attributes?.polyline) shapes.push(s.attributes.polyline); });
+              }
+              url = sd.links?.next;
+              more = !!url;
+            }
+
+            if (shapes.length > 0) {
+              const grp = L.layerGroup();
+              shapes.forEach(pl => {
+                const pts = L.Polyline.fromEncoded(pl).getLatLngs();
+                grp.addLayer(L.polyline(pts, { color: '#00ccff', weight: 3, opacity: 0.75 }));
+              });
+              routeLines['CapeFlyer'] = grp;
+              if (showRoutes) grp.addTo(map);
+              // Note: L.layerGroup does not support bringToBack(), so we skip it.
+              // CapeFLYER line will usually render fine on top or we can improve z-order later if needed.
+              console.log('%c[CapeFLYER] Route line loaded successfully', 'color:#27ae60');
+            } else {
+              console.log('%c[CapeFLYER] No shapes found for route ID:', 'color:#f39c12', capeFlyerRouteId);
+            }
+          } catch (e) {
+            console.log('%c[CapeFLYER] Could not load route line', 'color:#e74c3c', e.message);
+          }
+        } catch (e) { console.error("Routes error", e); }
+      }
+
+      async function fetchTrainAlerts(tripIds, routeIds) {
+        try {
+          if (!tripIds.length && !routeIds.length) return {};
+          const url = `${alertsUrl}${tripIds.length ? `&filter[trip]=${tripIds.join(',')}` : ''}${routeIds.length ? `&filter[route]=${routeIds.join(',')}` : ''}`;
+          const res = await fetch(url, { headers: { 'x-api-key': mbtaAPIKey } });
+          const d = await res.json();
+          const alerts = {};
+          (d.data || []).forEach(a => {
+            const active = (a.attributes.active_period || []).some(p => {
+              const st = p.start ? new Date(p.start) : new Date();
+              const en = p.end ? new Date(p.end) : new Date(Date.now() + 86400000);
+              return st <= new Date() && new Date() <= en;
+            });
+            if (!active) return;
+            (a.attributes.informed_entity || []).forEach(ent => {
+              if (ent.trip && tripIds.includes(ent.trip)) {
+                alerts[ent.trip] = { hasAlert: true, shortHeader: a.attributes.short_header || a.attributes.header || 'Alert' };
+              }
+            });
+          });
+          return alerts;
+        } catch (e) { return {}; }
+      }
+
+      async function fetchTrains() {
+        try {
+          const res = await fetch(vehicleUrl, { headers: { 'x-api-key': mbtaAPIKey } });
+          const data = await res.json();
+          const tripIds = data.data.map(v => v.relationships.trip.data?.id).filter(Boolean);
+          const routeIds = data.data.map(v => v.relationships.route.data?.id).filter(Boolean);
+          const [onTime, alerts] = await Promise.all([getOnTimeStatus(tripIds), fetchTrainAlerts(tripIds, routeIds)]);
+          const now = Date.now();
+          Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
+          data.data.forEach(v => {
+            const vid = v.id, lat = v.attributes.latitude, lng = v.attributes.longitude, bearing = v.attributes.bearing;
+            const status = v.attributes.current_status, tripId = v.relationships.trip.data?.id, routeId = v.relationships.route.data?.id;
+            const stopId = v.relationships.stop.data?.id, speedMps = v.attributes.speed;
+            if (!lat || !lng || !tripId || !routeId) return;
+            let head = "Unknown", rname = "Unknown", sname = "Unknown", track = null;
+            if (data.included) {
+              const t = data.included.find(i => i.type === "trip" && i.id === tripId);
+              if (t) head = t.attributes.headsign || "Unknown";
+              const r = data.included.find(i => i.type === "route" && i.id === routeId);
+              if (r) rname = r.attributes.long_name || "Unknown";
+              if (stopId) {
+                const s = data.included.find(i => i.type === "stop" && i.id === stopId);
+                if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = extractTrackNumber(s.attributes.name, s.attributes.description); }
+              }
+            }
+
+            // === CAPEFLYER DETECTION (robust) ===
+            let displayRouteName = rname;
+            let isCapeFlyer = false;
+            const headLower = (head || '').toLowerCase();
+            const routeLower = (rname || '').toLowerCase();
+            if (headLower.includes('hyannis') || 
+                routeLower.includes('cape') || 
+                routeLower.includes('flyer') ||
+                headLower.includes('cape flyer')) {
+              displayRouteName = 'CapeFLYER';
+              isCapeFlyer = true;
+            }
+
+            const k = `${tripId}-${stopId}`;
+            const ts = onTime[k] || {};
+            const delay = ts.delayMinutes, dstatus = ts.status || "Scheduled", live = ts.isLive || false;
+            const al = alerts[tripId] || { hasAlert: false, shortHeader: '' };
+            const mph = (speedMps != null && status !== "STOPPED_AT") ? speedMps * 2.23694 : 0;
+            trainInfo[vid] = { 
+              id: vid, tripId, routeId, 
+              routeName: displayRouteName, 
+              destination: head, 
+              status, delayStatus: dstatus, delayMinutes: delay, isLive: live, 
+              lat, lng, stopName: sname, trackNumber: track, speedMph: mph, 
+              hasAlert: al.hasAlert, alertHeader: al.shortHeader,
+              isCapeFlyer 
+            };
+            if (markers[vid]) {
+              markers[vid].setLatLng([lat, lng]);
+              if (bearing !== null) markers[vid].setRotationAngle(bearing);
+              markers[vid].setIcon(createTrainIcon(delay, vid));
+              if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
+              markers[vid]._info = [`Line: ${rname}`, `Trip: ${extractTrainNumber(tripId) || tripId}`, `Vehicle: ${vid}`, `Destination: ${head}`, `Next Stop: ${sname}`, `Speed: ${Math.round(mph)} mph`, `Status: ${dstatus}`];
+              if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(markers[vid]._info[markers[vid]._infoIndex]);
+            } else {
+              const icon = createTrainIcon(delay, vid);
+              const m = L.marker([lat, lng], { icon, rotationAngle: bearing || 0, rotationOrigin: 'center center' });
+              m.bindPopup(createTrainPopupContent(vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert), { maxWidth: 520, minWidth: 280 });
+              m.on('popupopen', async () => {
+                updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
+                let stops = await getTripStops(tripId).catch(() => []);
+                // Show schedule/prediction stops immediately
+                updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
+                // Then try to enrich with actual times from history (non-blocking for the user)
+                stops = await enrichStopsWithActualTimes(stops, vid);
+                if (m.isPopupOpen()) {
+                  updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
+                }
+              });
+              m._info = [`Line: ${rname}`, `Trip: ${extractTrainNumber(tripId) || tripId}`, `Vehicle: ${vid}`, `Destination: ${head}`, `Next Stop: ${sname}`, `Speed: ${Math.round(mph)} mph`, `Status: ${dstatus}`];
+              m._infoIndex = 0;
+              // Only add label if user wants it AND we're zoomed in enough
+              const zoom = map.getZoom();
+              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                m.getTooltip().setContent(m._info[0]);
+              }
+              markers[vid] = m;
+              m.addTo(map);
+            }
+            trainLastSeen[vid] = now;
+          });
+          // 12-minute timeout for better CapeFLYER / special service support
+          Object.keys(trainLastSeen).forEach(vid => {
+            if (now - trainLastSeen[vid] > 12 * 60 * 1000 && markers[vid]) {
+              map.removeLayer(markers[vid]);
+              delete markers[vid];
+              delete trainLastSeen[vid];
+              delete trainInfo[vid];
+            }
+          });
+          updateTrainVisibility();
+          document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+        } catch (e) {
+          document.getElementById('last-updated').textContent = `Error: ${e.message}`;
+        }
+      }
+
+      function updateTrainVisibility() {
+        Object.values(markers).forEach(m => {
+          const vid = Object.keys(markers).find(k => markers[k] === m);
+          if (showOnlySpecial && vid && !specialIcons[vid]) {
+            if (map.hasLayer(m)) map.removeLayer(m);
+          } else if (!map.hasLayer(m)) map.addLayer(m);
+        });
+      }
+
+      async function fetchSchedules() {
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const res = await fetch(`${scheduleUrl}?filter[date]=${today}&filter[route_type]=2&include=trip,stop,route`, { headers: { 'x-api-key': mbtaAPIKey } });
+          
+          if (!res.ok) {
+            console.warn("Schedules API returned", res.status, "- skipping schedule data for today");
+            schedules = {};
+            return;
+          }
+          
+          const data = await res.json();
+          
+          if (!data.data || !Array.isArray(data.data)) {
+            console.warn("No schedule data available for today");
+            schedules = {};
+            return;
+          }
+          
+          schedules = {};
+          data.data.forEach(s => {
+            const tid = s.relationships?.trip?.data?.id;
+            if (!tid) return;
+            const num = extractTrainNumber(tid);
+            if (!num) return;
+            if (!schedules[num]) schedules[num] = [];
+            const sid = s.relationships?.stop?.data?.id;
+            const stop = data.included?.find(i => i.type === 'stop' && i.id === sid);
+            schedules[num].push({
+              stopName: stop?.attributes?.name || 'Unknown',
+              arrTime: s.attributes?.arrival_time ? new Date(s.attributes.arrival_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—',
+              depTime: s.attributes?.departure_time ? new Date(s.attributes.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—',
+              sequence: s.attributes?.stop_sequence || 0
+            });
+          });
+          Object.keys(schedules).forEach(k => schedules[k].sort((a,b) => a.sequence - b.sequence));
+        } catch (e) { 
+          console.error("Schedules error", e); 
+          schedules = {};
+        }
+      }
+
+      function createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops = null, track = null, mph = null, hasAlert = false) {
+        let txt = status === "INCOMING_AT" ? `Arriving at ${sname}` : status === "STOPPED_AT" ? `Stopped at ${sname}` : `On the way to ${sname}`;
+        
+        let statusPillClass = (delay === null || Math.abs(delay) <= 5) ? "status-on-time" 
+                            : (delay <= 15) ? "status-delayed" 
+                            : "status-very-delayed";
+
+        const trk = track || '—';
+        const spd = mph !== null ? Math.round(mph) : 0;
+        
+        const al = hasAlert 
+          ? `<div class="alert-banner"><img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ${trainInfo[vid]?.alertHeader || 'Active Service Alert'}</div>` 
+          : '';
+        
+        const lastSeenTime = trainLastSeen[vid] 
+          ? new Date(trainLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
+          : '—';
+
+        let currentLat = null, currentLng = null;
+        if (vid && trainInfo[vid]) {
+          currentLat = trainInfo[vid].lat;
+          currentLng = trainInfo[vid].lng;
+        }
+        
+        const stopsHtml = stops === null 
+          ? `<div class="stops-loading"><span class="loading"></span> Loading stops...</div>` 
+          : buildStopsHtml(stops, currentLat, currentLng);
+        
+        const capeBadge = (trainInfo[vid] && trainInfo[vid].isCapeFlyer) 
+          ? `<span class="cape-badge">CapeFLYER</span>` 
+          : '';
+        
+        const historyBtn = `<button class="popup-action-btn history-btn" onclick="loadHistoryForVehicle('${vid}'); document.getElementById('control-panel').classList.add('open'); document.getElementById('overlay').classList.add('open');">View History</button>`;
+        const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshTrainStops('${tid}', '${vid}')">Refresh</button>`;
+
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rname}</span>
+                ${capeBadge}
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${extractTrainNumber(tid) || tid}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${hasAlert ? `<img src="https://i.postimg.cc/3xMFGsJX/Alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">` : ''}
+              </div>
+            </div>
+
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${txt}</p>
+                <span class="status-pill ${statusPillClass}">${dstatus}</span>
+              </div>
+
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Vehicle</span>
+                  <span class="info-value">${vid}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Trip</span>
+                  <span class="info-value">${tid}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Track</span>
+                  <span class="info-value">${trk}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Speed</span>
+                  <span class="info-value">${spd} mph</span>
+                </div>
+              </div>
+
+              ${al}
+
+              <div class="meta-row">
+                Last seen: <strong style="color:#0c2340">${lastSeenTime}</strong>
+              </div>
+
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+
+            <div class="train-popup-footer">
+              ${historyBtn}
+              ${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+
+      function scrollStopsListToNextStop(popup) {
+        if (!popup || !popup._contentNode) return;
+
+        // Always keep the main popup content at the top
+        popup._contentNode.scrollTop = 0;
+
+        const list = popup._contentNode.querySelector('.stops-list');
+        if (!list) return;
+
+        // Find the first non-completed stop and scroll *only* the inner stops list
+        const nextStopLi = list.querySelector('li:not(.completed)');
+        if (nextStopLi) {
+          const listRect = list.getBoundingClientRect();
+          const liRect = nextStopLi.getBoundingClientRect();
+          const offset = liRect.top - listRect.top + list.scrollTop;
+
+          list.scrollTo({
+            top: offset,
+            behavior: 'smooth'
+          });
+        }
+      }
+
+      function updateTrainPopupContent(m, vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert) {
+        m.getPopup().setContent(createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert));
+        m.getPopup().update();
+        // Auto-scroll stops list so the next upcoming stop is at the top
+        scrollStopsListToNextStop(m.getPopup());
+      }
+
+      window.refreshTrainStops = async function(tid, vid) {
+        const m = markers[vid];
+        if (m && m.isPopupOpen()) {
+          const t = trainInfo[vid];
+          updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, null, t.trackNumber, t.speedMph, t.hasAlert);
+          let stops = await getTripStops(tid).catch(() => []);
+          // Show immediately
+          updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, stops, t.trackNumber, t.speedMph, t.hasAlert);
+          // Then enrich
+          stops = await enrichStopsWithActualTimes(stops, vid);
+          if (m.isPopupOpen()) {
+            updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, stops, t.trackNumber, t.speedMph, t.hasAlert);
+          }
+        }
+      };
+
+      window.openTrainSchedule = async function(tid, rname = '', dest = '') {
+        let found = null;
+        for (const v in trainInfo) if (trainInfo[v].tripId === tid) { found = v; break; }
+        if (found && markers[found]) {
+          map.flyTo([trainInfo[found].lat, trainInfo[found].lng], 14, { animate: true });
+          setTimeout(() => markers[found].openPopup(), 1500);
+          return;
+        }
+        map.closePopup();
+        try {
+          const stops = await getTripStops(tid);
+          const title = rname ? `${rname} to ${dest}` : `Trip ${tid}`;
+          L.popup({ maxWidth: 520, minWidth: 280 }).setLatLng(map.getCenter()).setContent(`<div class="train-popup"><h3>${title}</h3><p><strong>Trip:</strong> ${tid}</p><p><em>(Scheduled — no live vehicle yet)</em></p>${buildStopsHtml(stops)}</div>`).openOn(map);
+        } catch (e) { showNotification('Could not load schedule.', 'error'); }
+      };
+
+      function updateStationVisibility() {
+        Object.values(stationMarkers).forEach(m => {
+          if (showStations) { if (!map.hasLayer(m)) map.addLayer(m); }
+          else { if (map.hasLayer(m)) map.removeLayer(m); }
+        });
+      }
+
+      function toggleRoutes(show) {
+        showRoutes = show;
+        Object.values(routeLines).forEach(l => { if (show) { if (!map.hasLayer(l)) map.addLayer(l); } else { if (map.hasLayer(l)) map.removeLayer(l); } });
+      }
+
+      function toggleTrainLabels(show) {
+        showTrainLabels = show;
+        updateTrainLabelsVisibility();
+      }
+
+      // Controls label visibility based on both user toggle + current zoom level
+      function updateTrainLabelsVisibility() {
+        const zoom = map.getZoom();
+        const shouldShow = showTrainLabels && zoom >= LABEL_MIN_ZOOM;
+
+        Object.values(markers).forEach(m => {
+          if (shouldShow) {
+            if (!m.getTooltip()) {
+              m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+              if (m._info && m._infoIndex !== undefined) {
+                m.getTooltip().setContent(m._info[m._infoIndex]);
+              }
+            }
+          } else if (m.getTooltip()) {
+            m.unbindTooltip();
+          }
+        });
+      }
+
+      function resetAllMarkerHighlights() {
+        if (highlightedMarker && map.hasLayer(highlightedMarker)) { highlightedMarker.getElement().classList.remove('highlighted-train'); highlightedMarker = null; }
+        if (highlightedStation && map.hasLayer(highlightedStation)) { highlightedStation.getElement().classList.remove('highlighted-station'); highlightedStation = null; }
+        map.closePopup();
+      }
+
+      // Search Type Menu Logic
+      const searchMenu = document.getElementById('search-type-menu');
+      const searchDropdown = document.getElementById('search-type-dropdown');
+      const searchOptions = document.querySelectorAll('.search-type-option');
+      const searchInput = document.getElementById('header-search-input');
+
+      searchMenu.addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        searchDropdown.classList.toggle('show');
+      });
+
+      searchOptions.forEach(option => {
+        option.addEventListener('click', () => {
+          searchOptions.forEach(o => o.classList.remove('active'));
+          option.classList.add('active');
+          
+          searchMode = option.dataset.type;
+          searchMenu.textContent = option.textContent + ' ▼';
+          searchDropdown.classList.remove('show');
+          
+          if (searchMode === 'all') searchInput.placeholder = 'Search trains or stations...';
+          else if (searchMode === 'train') searchInput.placeholder = 'Search trains...';
+          else searchInput.placeholder = 'Search stations...';
+          
+          if (searchInput.value.trim().length >= 2) {
+            const event = new Event('input');
+            searchInput.dispatchEvent(event);
+          }
+        });
+      });
+
+      document.addEventListener('click', () => {
+        searchDropdown.classList.remove('show');
+      });
+
+      function setupSearch() {
+        const results = document.getElementById('header-search-results');
+        
+        searchInput.addEventListener('input', () => {
+          resetAllMarkerHighlights();
+          const q = searchInput.value.trim().toLowerCase();
+          results.innerHTML = '';
+          if (q.length < 2) { results.classList.remove('active'); return; }
+          results.classList.add('active');
+          
+          if (searchMode === 'all' || searchMode === 'train') {
+            searchTrains(q, results);
+          }
+          if (searchMode === 'all' || searchMode === 'station') {
+            searchStations(q, results);
+          }
+        });
+        
+        document.addEventListener('click', e => {
+          if (!searchInput.contains(e.target) && !results.contains(e.target)) {
+            results.classList.remove('active');
+          }
+        });
+      }
+
+      function searchTrains(q, container) {
+        const res = [];
+        for (const vid in trainInfo) {
+          const t = trainInfo[vid];
+          if (vid.toLowerCase().includes(q) || t.routeName.toLowerCase().includes(q) || t.destination.toLowerCase().includes(q)) {
+            res.push({ 
+              type: 'train',
+              id: vid, 
+              title: `<i>${t.routeName} to ${t.destination}${t.hasAlert ? ' <img src="https://i.postimg.cc/Xvf0qMDm/Untitled-design-38.png" class="alert-icon">' : ''}</i>`, 
+              subtitle: `Train ID: ${vid}, Speed: ${Math.round(t.speedMph)} mph`, 
+              lat: t.lat, 
+              lng: t.lng 
+            });
+          }
+        }
+        res.forEach(r => {
+          const d = document.createElement('div');
+          d.className = 'search-result';
+          d.innerHTML = `<div class="search-result-title">${r.title}</div><div class="search-result-subtitle">${r.subtitle}</div>`;
+          d.onclick = () => {
+            map.setView([r.lat, r.lng], 15);
+            if (highlightedMarker) highlightedMarker.getElement().classList.remove('highlighted-train');
+            const m = markers[r.id];
+            if (m) { m.openPopup(); m.getElement().classList.add('highlighted-train'); highlightedMarker = m; }
+            container.classList.remove('active');
+            document.getElementById('control-panel').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+          };
+          container.appendChild(d);
+        });
+      }
+
+      function searchStations(q, container) {
+        const res = [];
+        for (const skey in stationsByName) {
+          if (skey.includes(q)) {
+            const g = stationsByName[skey];
+            res.push({ 
+              type: 'station',
+              id: g.stopIds[0], 
+              title: g.name, 
+              subtitle: g.stopIds.length > 1 ? `${g.stopIds.length} platforms` : 'MBTA Station', 
+              lat: g.lat, 
+              lng: g.lng 
+            });
+          }
+        }
+        res.forEach(r => {
+          const d = document.createElement('div');
+          d.className = 'search-result';
+          d.innerHTML = `<div class="search-result-title">${r.title}</div><div class="search-result-subtitle">${r.subtitle}</div>`;
+          d.onclick = () => {
+            map.setView([r.lat, r.lng], 15);
+            if (highlightedStation) highlightedStation.getElement().classList.remove('highlighted-station');
+            const m = stationMarkers[r.id];
+            if (m) { m.openPopup(); m.getElement().classList.add('highlighted-station'); highlightedStation = m; }
+            container.classList.remove('active');
+            document.getElementById('control-panel').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+          };
+          container.appendChild(d);
+        });
+      }
+
+      function updateLabels() {
+        Object.values(markers).forEach(m => {
+          if (m.getTooltip()) {
+            m._infoIndex = (m._infoIndex + 1) % m._info.length;
+            m.getTooltip().setContent(m._info[m._infoIndex]);
+          }
+        });
+      }
+
+      document.getElementById('show-stations').addEventListener('change', e => { showStations = e.target.checked; updateStationVisibility(); });
+      document.getElementById('show-orm').addEventListener('change', e => { if (e.target.checked) ormOverlay.addTo(map); else map.removeLayer(ormOverlay); });
+      document.getElementById('show-routes').addEventListener('change', e => toggleRoutes(e.target.checked));
+
+      // Safe localStorage wrapper (prevents crashes in sandboxed iframes / Google Sites)
+      const safeStorage = {
+        get(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        },
+        set(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {
+            // Silently fail in sandboxed environments
+          }
+        }
+      };
+
+      // Load persisted UI preferences (safe)
+      // Train labels now default to ON
+      const savedShowLabels = safeStorage.get('rr_showLabels');
+      const savedShowSpecial = safeStorage.get('rr_showOnlySpecial') === 'true';
+
+      // Default to ON unless user explicitly turned it off
+      const labelsEnabled = savedShowLabels === null || savedShowLabels === 'true';
+
+      if (labelsEnabled) {
+        document.getElementById('show-labels').checked = true;
+        toggleTrainLabels(true); // This will call updateTrainLabelsVisibility()
+      } else {
+        document.getElementById('show-labels').checked = false;
+        toggleTrainLabels(false);
+      }
+
+      if (savedShowSpecial) {
+        document.getElementById('show-only-special').checked = true;
+        showOnlySpecial = true;
+        updateTrainVisibility();
+      }
+
+      document.getElementById('show-labels').addEventListener('change', e => {
+        toggleTrainLabels(e.target.checked);
+        safeStorage.set('rr_showLabels', e.target.checked);
+      });
+      document.getElementById('show-only-special').addEventListener('change', e => {
+        showOnlySpecial = e.target.checked;
+        updateTrainVisibility();
+        safeStorage.set('rr_showOnlySpecial', e.target.checked);
+      });
+      document.getElementById('show-amtrak').addEventListener('change', e => {
+        showAmtrak = e.target.checked;
+        updateAmtrakVisibility();
+      });
+      document.getElementById('refresh-button').addEventListener('click', async function() {
+        this.disabled = true; this.innerHTML = '<span class="loading"></span> Refreshing...';
+        Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
+        Object.keys(stationDeparturesCache).forEach(k => delete stationDeparturesCache[k]);
+        await fetchTrains();
+        await fetchSchedules();
+        await fetchAmtrakTrains();
+        this.disabled = false; this.textContent = 'Refresh Data';
+      });
+
+      L.Polyline.fromEncoded = function(encoded, options) {
+        const points = []; let index = 0, lat = 0, lng = 0;
+        while (index < encoded.length) {
+          let b, shift = 0, result = 0;
+          do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          lat += ((result & 1) ? ~(result >> 1) : (result >> 1));
+          shift = 0; result = 0;
+          do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          lng += ((result & 1) ? ~(result >> 1) : (result >> 1));
+          points.push([lat / 1e5, lng / 1e5]);
+        }
+        return new L.Polyline(points, options);
+      };
+
+      window.switchTab = function(i) {
+        document.querySelectorAll('.tab-button').forEach((b, idx) => b.classList.toggle('active', idx === i));
+        document.querySelectorAll('.tab-content').forEach((c, idx) => c.classList.toggle('active', idx === i));
+      };
+
+      let currentAlerts = [];
+      function renderAlerts() {
+        const el = document.getElementById('alerts-list');
+        if (!el) return;
+        if (!currentAlerts.length) {
+          el.innerHTML = `<p class="no-departures" style="padding:20px 10px;">No active MBTA service alerts.<br>All trains operating normally!</p>`;
+          return;
+        }
+        el.innerHTML = currentAlerts.map(a => `<div class="alert-item"><strong>${a.header}</strong>${a.description ? `<p>${a.description}</p>` : ''}${a.url ? `<p><a href="${a.url}" target="_blank">More details →</a></p>` : ''}</div>`).join('');
+      }
+
+      window.checkServiceAlerts = async function() {
+        try {
+          const res = await fetch(alertsUrl, { headers: { 'x-api-key': mbtaAPIKey } });
+          const data = await res.json();
+          currentAlerts = [];
+          (data.data || []).forEach(a => {
+            const active = (a.attributes.active_period || []).some(p => {
+              const st = p.start ? new Date(p.start) : new Date();
+              const en = p.end ? new Date(p.end) : new Date(Date.now() + 86400000);
+              return st <= new Date() && new Date() <= en;
+            });
+            if (active) currentAlerts.push({ header: a.attributes.header || a.attributes.short_header || 'Service Alert', description: a.attributes.description || '', url: a.attributes.url || '' });
+          });
+          renderAlerts();
+        } catch (e) {
+          const el = document.getElementById('alerts-list');
+          if (el) el.innerHTML = `<div class="no-departures" style="padding:20px 10px;">Error loading alerts.</div>`;
+        }
+      };
+
+      setInterval(updateLabels, 5000);
+
+      fetchRouteShapes();
+      fetchStations();
+      await fetchSchedules();
+      fetchTrains();
+      fetchAmtrakTrains();
+      setupSearch();
+      checkServiceAlerts();
+      setInterval(fetchTrains, 60000);
+      setInterval(fetchAmtrakTrains, 60000);
+      setInterval(fetchSchedules, 300000);
+      setInterval(checkServiceAlerts, 300000);
+
+      // Vehicle alert signup (unchanged)
+      const signupBtn = document.getElementById('signup-button');
+      const signupStat = document.getElementById('signup-status');
+      if (signupBtn) {
+        signupBtn.addEventListener('click', async () => {
+          const vid = document.getElementById('signup-vehicle').value.trim();
+          const phone = document.getElementById('signup-phone').value.trim();
+          if (!vid || isNaN(vid)) { signupStat.textContent = 'Enter a valid vehicle ID'; signupStat.className = 'error'; return; }
+          if (!phone || phone.length !== 10 || isNaN(phone)) { signupStat.textContent = 'Enter a 10-digit phone number'; signupStat.className = 'error'; return; }
+          signupStat.textContent = 'Sending to Zapier...';
+          try {
+            const fd = new URLSearchParams();
+            fd.append('vehicleId', vid);
+            fd.append('phoneNumber', phone);
+            const r = await fetch('https://hooks.zapier.com/hooks/catch/YOUR_ZAPIER_WEBHOOK_ID_HERE/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd.toString() });
+            const txt = await r.text();
+            signupStat.textContent = txt || 'Subscribed successfully!';
+            signupStat.className = r.ok ? 'success' : 'error';
+            if (r.ok) { document.getElementById('signup-vehicle').value = ''; document.getElementById('signup-phone').value = ''; }
+          } catch (err) {
+            signupStat.textContent = 'Error: ' + err.message;
+            signupStat.className = 'error';
+          }
+        });
+      }
+
+      const menuButton = document.getElementById('menu-button');
+      const closePanel = document.getElementById('close-panel');
+      const controlPanel = document.getElementById('control-panel');
+      const overlay = document.getElementById('overlay');
+
+      function toggleMenu() {
+        const isOpen = controlPanel.classList.contains('open');
+        controlPanel.classList.toggle('open');
+        overlay.classList.toggle('open');
+        menuButton.setAttribute('aria-expanded', !isOpen);
+      }
+
+      menuButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+
+      closePanel.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+
+      overlay.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && controlPanel.classList.contains('open')) {
+          toggleMenu();
+        }
+      });
+
+      window.loadHistoryForVehicle = function(vehicleId) {
+        document.getElementById('history-vehicle').value = vehicleId;
+        switchTab(3);
+        setTimeout(() => {
+          loadHistoricalData();
+        }, 150);
+      };
+
+      const historyApiUrl = 'https://script.google.com/macros/s/AKfycbxQq01qr_-gtYVLeiSmkhkXDW0Tqm0KuivK_r98ZnLuVZ2gmuazJ7Hkgbgo6MKoD0uKbA/exec';
+      let historicalData = [];
+      let historicalTrips = [];
+      let currentVehicleFilter = '';
+
+      // Helper: fetch with timeout (improved error messages)
+      async function fetchWithTimeout(url, timeoutMs = 180000) { // 3 minutes max - very generous
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+          controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'AbortError'));
+        }, timeoutMs);
+        
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeout);
+          return res;
+        } catch (err) {
+          clearTimeout(timeout);
+          
+          if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+            throw new Error(`Request timed out after ${timeoutMs}ms`);
+          }
+          throw err;
+        }
+      }
+
+      window.showLastTripsForSpecialUnits = async function() {
+        const container = document.getElementById('special-last-trips');
+        container.innerHTML = `
+          <div style="padding:15px; text-align:center; color:#666;">
+            <span class="loading"></span> 
+            Loading last trips for special units...<br>
+            <small style="color:#999;">Google Apps Script can take up to 30 seconds</small>
+          </div>
+        `;
+
+        // After 30 seconds, show a friendly "still waiting" message (but keep loading)
+        const slowLoadingTimer = setTimeout(() => {
+          container.innerHTML = `
+            <div style="padding:15px; text-align:center; color:#666;">
+              <span class="loading"></span> 
+              This is taking a while... Thanks for standing by.<br>
+              <small style="color:#999;">Google Apps Script is still processing</small>
+            </div>
+          `;
+        }, 30000);
+
+        console.log('%c[SpecialUnits] Starting load...', 'color:#3498db');
+
+        if (!specialIcons || Object.keys(specialIcons).length === 0) {
+          console.warn('%c[SpecialUnits] specialIcons is empty!', 'color:#e74c3c');
+          container.innerHTML = '<p style="color:#e74c3c; padding:10px;">No special units loaded. Check your Google Sheet connection.</p>';
+          return;
+        }
+
+        const vehicleIds = Object.keys(specialIcons);
+        console.log(`%c[SpecialUnits] Found ${vehicleIds.length} special units`, 'color:#3498db');
+
+        // Fetch all special units in parallel (much faster than sequential)
+        const fetchPromises = vehicleIds.map(async (vid) => {
+          try {
+            console.log(`%c[SpecialUnits] Fetching history for ${vid}...`, 'color:#9b59b6');
+            const url = `${historyApiUrl}?vehicle=${encodeURIComponent(vid)}`;
+            const res = await fetchWithTimeout(url); // uses 30s default timeout
+            
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}`);
+            }
+            
+            const json = await res.json();
+            
+            let allData = (json.data || []).filter(point => {
+              const pointVid = String(point.vehicle_id || point.vehicle || point.VehicleID || '').trim();
+              return pointVid === String(vid).trim();
+            });
+
+            let latestTrip = null;
+            if (allData.length > 0) {
+              allData.sort((a, b) => {
+                const ta = new Date(a.timestamp || a.time || a.last_updated || a.date || 0);
+                const tb = new Date(b.timestamp || b.time || b.last_updated || b.date || 0);
+                return tb - ta;
+              });
+              const latest = allData[0];
+              const tripDate = new Date(latest.timestamp || latest.time || latest.last_updated || latest.date);
+              latestTrip = {
+                date: tripDate,
+                route: latest.route_name || latest.route || 'Unknown Route',
+                tripNum: latest.trip_id || latest.trip_number || latest.trip || 'N/A',
+                // Cabcar pairing info from Google Apps Script
+                cabcarPairing: latest.cabcar_pairing || latest.paired_with || latest.rear_cabcar || latest.consist || null
+              };
+            }
+
+            const isLive = !!trainInfo[vid];
+            const currentStatus = isLive 
+              ? `<img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"> LIVE on map right now` 
+              : `Not currently active`;
+
+            console.log(`%c[SpecialUnits] ✓ ${vid} done`, 'color:#27ae60');
+            
+            return {
+              vehicleId: vid,
+              name: specialIcons[vid]?.name || vid,
+              lastTrip: latestTrip,
+              currentStatus: currentStatus,
+              isLive: isLive
+            };
+          } catch (e) {
+            console.error(`%c[SpecialUnits] Error for ${vid}:`, 'color:#e74c3c', e.message || e);
+            return {
+              vehicleId: vid,
+              name: specialIcons[vid]?.name || vid,
+              lastTrip: null,
+              currentStatus: `Error loading data`,
+              isLive: false
+            };
+          }
+        });
+
+        const settledResults = await Promise.allSettled(fetchPromises);
+        clearTimeout(slowLoadingTimer); // Stop the "taking a while" message once done
+        const results = settledResults.map(r => r.value);
+
+        console.log(`%c[SpecialUnits] Finished. ${results.length} results`, 'color:#27ae60');
+
+        if (results.length === 0) {
+          container.innerHTML = '<p style="color:#e74c3c; padding:10px;">No special units found.</p>';
+          return;
+        }
+
+        let html = '';
+        results.forEach(r => {
+          const tripInfo = r.lastTrip 
+            ? `${r.lastTrip.date.toLocaleDateString()} ${r.lastTrip.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}<br>
+               <span style="color:#0c2340;">Trip #:</span> ${r.lastTrip.tripNum} &nbsp;•&nbsp; <span style="color:#0c2340;">Route:</span> ${r.lastTrip.route}`
+            : `<span style="color:#999;">No historical data</span>`;
+
+          const pairingInfo = r.lastTrip?.cabcarPairing 
+            ? `<br><span style="color:#0c2340;">Cabcar Pairing:</span> ${r.lastTrip.cabcarPairing}`
+            : '';
+
+          html += `
+            <div class="special-last-trip" style="${r.isLive ? 'border-left: 4px solid #27ae60;' : ''}">
+              <strong>${r.name}</strong><br>
+              <span style="color:#0c2340;">Last Trip:</span> ${tripInfo}${pairingInfo}<br>
+              <span style="color:#0c2340;">Current Status:</span> ${r.currentStatus}
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      };
+
+      window.loadHistoricalData = async function() {
+        const statusEl = document.getElementById('history-status');
+        const vehicleInput = document.getElementById('history-vehicle').value.trim();
+        const routeSelect = document.getElementById('history-route').value.trim().toLowerCase();
+        const fromDateStr = document.getElementById('history-from-date').value;
+        const toDateStr = document.getElementById('history-to-date').value;
+        const resultsEl = document.getElementById('history-results');
+
+        historicalData = [];
+        historicalTrips = [];
+        resultsEl.innerHTML = '';
+
+        currentVehicleFilter = vehicleInput;
+
+        let url = historyApiUrl;
+        if (vehicleInput) url += (url.includes('?') ? '&' : '?') + `vehicle=${encodeURIComponent(vehicleInput)}`;
+
+        let statusText = 'Loading historical trips';
+        if (vehicleInput) statusText += ` for Vehicle <strong>${vehicleInput}</strong>`;
+        if (routeSelect) statusText += `${vehicleInput ? ' and' : ' for'} Route <strong>${routeSelect}</strong>`;
+        if (fromDateStr || toDateStr) statusText += ' with date filter';
+        statusEl.innerHTML = statusText + '...';
+
+        try {
+          const res = await fetch(url);
+          const json = await res.json();
+          let allData = json.data || [];
+
+          // Filter by Vehicle ID, Route, and Date Range
+          const fromDate = fromDateStr ? new Date(fromDateStr) : null;
+          const toDate = toDateStr ? new Date(toDateStr + 'T23:59:59') : null; // include full end day
+
+          historicalData = allData.filter(point => {
+            const vidMatch = !vehicleInput || 
+              String(point.vehicle_id || '').trim() === String(vehicleInput).trim();
+            
+            const routeName = (point.route_name || point.route || '').toString().toLowerCase();
+            const routeMatch = !routeSelect || routeName.includes(routeSelect);
+
+            // Date filtering
+            let dateMatch = true;
+            if (fromDate || toDate) {
+              const pointDateStr = point.timestamp || point.time || point.last_updated || point.date;
+              if (pointDateStr) {
+                const pointDate = new Date(pointDateStr);
+                if (fromDate && pointDate < fromDate) dateMatch = false;
+                if (toDate && pointDate > toDate) dateMatch = false;
+              } else {
+                dateMatch = false; // no date info → exclude when filtering by date
+              }
+            }
+
+            return vidMatch && routeMatch && dateMatch;
+          });
+
+          if (historicalData.length === 0) {
+            let msg = 'No historical data found';
+            if (vehicleInput) msg += ` for Vehicle <strong>${vehicleInput}</strong>`;
+            if (routeSelect) msg += `${vehicleInput ? ' and' : ' for'} Route <strong>${routeSelect}</strong>`;
+            if (fromDateStr || toDateStr) msg += ' in selected date range';
+            resultsEl.innerHTML = `<p style="color:#e74c3c;">${msg}.</p>`;
+            statusEl.innerHTML = '<span style="color:#e74c3c;">No matching data</span>';
+            return;
+          }
+
+          historicalData.sort((a, b) => {
+            const ta = new Date(a.timestamp || a.time || a.last_updated || a.date || 0);
+            const tb = new Date(b.timestamp || b.time || b.last_updated || b.date || 0);
+            return ta - tb;
+          });
+
+          historicalTrips = [];
+          let currentTrip = [];
+          let lastTime = null;
+          historicalData.forEach(point => {
+            const tStr = point.timestamp || point.time || point.last_updated || point.date;
+            const curr = tStr ? new Date(tStr) : new Date(0);
+            if (lastTime && (curr - lastTime) > 30 * 60 * 1000 && curr > 0) {
+              if (currentTrip.length > 0) historicalTrips.push(currentTrip);
+              currentTrip = [point];
+            } else {
+              currentTrip.push(point);
+            }
+            lastTime = curr;
+          });
+          if (currentTrip.length > 0) historicalTrips.push(currentTrip);
+
+          let html = `<p><strong>${historicalTrips.length} previous trips found</strong> (${historicalData.length} positions)`;
+          if (vehicleInput || routeSelect || fromDateStr || toDateStr) {
+            html += ` <span style="color:#27ae60; font-weight:bold;">— `;
+            const parts = [];
+            if (vehicleInput) parts.push(`Vehicle ${vehicleInput}`);
+            if (routeSelect) parts.push(`Route: ${routeSelect}`);
+            if (fromDateStr || toDateStr) parts.push('Date filtered');
+            html += parts.join(' • ');
+            html += `</span>`;
+          }
+          html += `</p><div style="margin-top:10px;">`;
+
+          historicalTrips.forEach((trip, idx) => {
+            const start = new Date(trip[0].timestamp || trip[0].time || trip[0].last_updated || trip[0].date);
+            const end = new Date(trip[trip.length - 1].timestamp || trip[trip.length - 1].time || trip[trip.length - 1].last_updated || trip[trip.length - 1].date);
+            const route = trip[0].route_name || trip[0].route || 'Unknown Route';
+            const dur = Math.round((end - start) / 60000);
+            
+            const tripNum = trip[0].trip_id || trip[0].trip_number || trip[0].trip || 'N/A';
+            
+            html += `
+              <div style="border:1px solid #ddd; padding:10px; margin-bottom:8px; border-radius:0; background:#f8f9fa; font-size:12px;">
+                <strong>Trip ${idx + 1}</strong> &nbsp;|&nbsp; <span style="color:#0c2340; font-weight:700;">Trip #: ${tripNum}</span> &nbsp;|&nbsp; ${start.toLocaleDateString()} ${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} → ${end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}<br>
+                <span style="color:#0c2340; font-weight:600;">${route}</span> &nbsp;•&nbsp; <small>${trip.length} positions • ${dur} min</small><br>
+                <div style="margin-top:6px;">
+                  <button onclick="showTripSchedule(${idx})" class="refresh-button" style="width:100%; padding:6px; font-size:11px;">Show Stops &amp; Times</button>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          resultsEl.innerHTML = html;
+
+          statusEl.innerHTML = `<span style="color:#27ae60;">Loaded ${historicalTrips.length} trips — ${currentVehicleFilter ? `ONLY Vehicle ${currentVehicleFilter}` : 'all vehicles'}</span>`;
+
+        } catch (e) {
+          statusEl.innerHTML = `<span style="color:#e74c3c;">Error: ${e.message}</span>`;
+        }
+      };
+
+      window.showTripSchedule = function(tripIndex) {
+        const trip = historicalTrips[tripIndex];
+        if (!trip) return;
+
+        const uniqueStops = [];
+        const seen = new Set();
+        trip.forEach(point => {
+          const stopKey = (point.stop_name || point.station || `Position ${point.latitude},${point.longitude}`).toLowerCase().trim();
+          if (!seen.has(stopKey)) {
+            seen.add(stopKey);
+            uniqueStops.push(point);
+          }
+        });
+
+        const tripNum = trip[0].trip_id || trip[0].trip_number || trip[0].trip || 'N/A';
+
+        let html = `<h4 style="margin-bottom:4px; font-size:13px;">Trip ${tripIndex + 1} &nbsp;|&nbsp; Trip #: <strong style="color:#0c2340;">${tripNum}</strong></h4>`;
+        if (currentVehicleFilter) html += `<p style="font-size:10px; color:#27ae60; margin-bottom:4px;">Vehicle ID: <strong>${currentVehicleFilter}</strong></p>`;
+        html += '<ul class="stops-list" style="max-height:320px; overflow-y:auto; border:1px solid #eee; border-radius:0; padding:1px 3px;">';
+        
+        uniqueStops.forEach((point, i) => {
+          const tStr = point.timestamp || point.time || point.last_updated || point.date;
+          const actualTime = tStr ? new Date(tStr).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+          const loc = point.stop_name || point.station || `Position ${i+1}`;
+          
+          html += `
+            <li style="padding:2px 4px; font-size:10.5px; line-height:1.1;">
+              <span class="stop-time" style="font-size:10.5px;">${actualTime}</span>
+              <span class="stop-name" style="font-size:10.5px;">${loc}</span>
+            </li>
+          `;
+        });
+        
+        html += '</ul>';
+        html += `<button class="refresh-button" onclick="document.getElementById('history-results').innerHTML = '';" style="margin-top:6px; padding:4px; font-size:11px;">Close</button>`;
+        document.getElementById('history-results').innerHTML = html;
+      };
+
+      console.log('%cRailroadRadar v4 with Firebase ready', 'color:#0c2340');
+
+      // Hide loading screen once everything is loaded
+      const loadingScreen = document.getElementById('loading-screen');
+      if (loadingScreen) {
+        // Simulate progress completion
+        const loadingBar = document.getElementById('loading-bar');
+        const loadingText = document.getElementById('loading-text');
+        if (loadingBar) loadingBar.style.width = '100%';
+        if (loadingText) loadingText.textContent = 'Ready!';
+        
+        setTimeout(() => {
+          if (loadingScreen) loadingScreen.style.opacity = '0';
+          setTimeout(() => {
+            if (loadingScreen) loadingScreen.style.display = 'none';
+          }, 400);
+        }, 600);
+      }
+
+    });
+
+    // No auth modals / functions
+
+    async function loginUserFromModal() {
+      console.log('%c[Login] Login button clicked - starting 2FA flow', 'color:#3498db');
+      
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+      
+      if (!email || !password) {
+        showNotification('Please enter email and password', 'error');
+        return;
+      }
+
+      if (!auth) {
+        showNotification('Firebase is still loading. Please wait a moment and try again.', 'error');
+        return;
+      }
+
+      // Store credentials for after 2FA verification
+      pendingLoginEmail = email;
+      pendingLoginPassword = password;
+
+      // Send verification code via email FIRST (before any sign-in)
+      const emailSent = await sendEmailVerificationCode(email);
+      
+      if (emailSent) {
+        // Show 2FA modal - user is NOT signed in yet
+        showEmailCodeModal(email);
+      } else {
+        // Email failed - clear pending credentials
+        clearPendingLoginState();
+      }
+    }
+
+    async function forgotPassword() {
+      const email = document.getElementById('login-email').value.trim();
+      
+      console.log('%c[ForgotPassword] Function called with email:', 'color:#3498db', email);
+      
+      if (!email) {
+        console.warn('%c[ForgotPassword] No email entered', 'color:#e74c3c');
+        showNotification('Please enter your email address first.', 'error');
+        return;
+      }
+      
+      if (!auth) {
+        console.error('%c[ForgotPassword] Firebase auth not ready', 'color:#e74c3c');
+        showNotification('Firebase is still loading. Please try again.', 'error');
+        return;
+      }
+
+      try {
+        console.log('%c[ForgotPassword] Sending password reset email to:', 'color:#3498db', email);
+        await auth.sendPasswordResetEmail(email);
+        console.log('%c[ForgotPassword] ✅ Password reset email sent successfully!', 'color:#27ae60');
+        showNotification('Password reset email sent! Check your inbox (and spam folder).');
+        hideAuthModal();
+      } catch (error) {
+        console.error('%c[ForgotPassword] ❌ Error sending reset email:', 'color:#e74c3c', error);
+        
+        if (error.code === 'auth/user-not-found') {
+          showNotification('No account found with that email address.', 'error');
+        } else if (error.code === 'auth/invalid-email') {
+          showNotification('Please enter a valid email address.', 'error');
+        } else {
+          showNotification('Failed to send reset email: ' + error.message, 'error');
+        }
+      }
+    }
+
+    // ==================== EMAIL VERIFICATION CODE (2FA) ====================
+    let pendingVerificationEmail = null;
+    let pendingVerificationCode = null;
+
+    async function sendTestEmail() {
+      if (!currentUser || !currentUser.email) {
+        showNotification('You must be logged in to test email.', 'error');
+        return;
+      }
+
+      if (!emailjsInitialized || !window.emailjs) {
+        showNotification('EmailJS is not initialized.', 'error');
+        return;
+      }
+
+      try {
+        await emailjs.send(
+          "service_3ui902p",
+          "template_64go7ci",
+          {
+            to_email: currentUser.email,
+            verification_code: "123456",
+            app_name: "RailroadRadar TEST"
+          }
+        );
+        showNotification(`Test email sent to ${currentUser.email}! Check your inbox.`, 'success');
+      } catch (error) {
+        console.error('%c[TestEmail] Failed:', 'color:#e74c3c', error);
+        showNotification('Test email failed: ' + (error.text || error.message), 'error');
+      }
+    }
+
+    async function sendEmailVerificationCode(email) {
+      console.log('%c[Email2FA] sendEmailVerificationCode called for:', 'color:#9b59b6', email);
+      
+      if (!email) {
+        showNotification('No email provided for 2FA.', 'error');
+        return false;
+      }
+
+      // Generate 6-digit code (ONLY sent via email - never shown in console)
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      pendingVerificationEmail = email;
+      pendingVerificationCode = code;
+
+      // Store in Firestore for verification
+      if (db) {
+        try {
+          const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+          await db.collection('emailVerificationCodes').doc(email).set({
+            code: code,
+            expiresAt: expiresAt,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (e) {
+          console.warn('%c[Email2FA] Could not save to Firestore', 'color:#f39c12');
+        }
+      }
+
+      // Send ONLY via EmailJS - no console fallback
+      if (!emailjsInitialized || !window.emailjs) {
+        showNotification('Email service not available. Please try again later.', 'error');
+        return false;
+      }
+
+      try {
+        await emailjs.send(
+          "service_3ui902p",
+          "template_64go7ci",
+          {
+            to_email: email,
+            verification_code: code,
+            app_name: "RailroadRadar"
+          }
+        );
+        console.log('%c[Email2FA] ✅ Verification code sent via EmailJS', 'color:#27ae60');
+        showNotification(`Verification code sent to ${email}`, 'success');
+        return true;
+      } catch (emailError) {
+        console.error('%c[Email2FA] EmailJS Error Details:', 'color:#e74c3c', emailError);
+        
+        // Provide helpful error message based on common issues
+        let errorMsg = 'Failed to send verification code.';
+        
+        if (emailError.status === 400) {
+          errorMsg = 'EmailJS template error. Check that your template has variables: {{to_email}}, {{verification_code}}, {{app_name}}';
+        } else if (emailError.status === 403) {
+          errorMsg = 'EmailJS access denied. Check your Service ID and make sure Gmail is connected.';
+        } else if (emailError.text && emailError.text.includes('template')) {
+          errorMsg = 'Template not found. Verify Template ID: template_64go7ci';
+        }
+        
+        showNotification(errorMsg, 'error');
+        return false;
+      }
+
+      return true;
+    }
+
+    async function verifyEmailCode(enteredCode) {
+      if (!pendingVerificationEmail || !pendingVerificationCode) {
+        showNotification('No pending verification. Please request a new code.', 'error');
+        return false;
+      }
+
+      if (enteredCode === pendingVerificationCode) {
+        console.log('%c[Email2FA] ✅ Code verified successfully! Completing login...', 'color:#27ae60');
+        
+        const email = pendingVerificationEmail;
+        
+        // Clear pending verification state
+        pendingVerificationEmail = null;
+        pendingVerificationCode = null;
+        
+        try {
+          await db.collection('emailVerificationCodes').doc(email).delete();
+        } catch (e) {}
+        
+        // NOW complete the login (only after correct code)
+        try {
+          if (pendingLoginPassword) {
+            await auth.signInWithEmailAndPassword(email, pendingLoginPassword);
+          } else {
+            // Google Sign-In path — popup already authenticated the user
+            console.log('%c[Email2FA] Google Sign-In code verified', 'color:#4285f4');
+          }
+          
+          clearPendingLoginState();
+          
+          document.getElementById('email-code-modal').style.display = 'none';
+          hideAuthModal();
+          showNotification('Logged in successfully!');
+          return true;
+        } catch (error) {
+          console.error('%c[Email2FA] Sign-in failed after code verification:', 'color:#e74c3c', error);
+          showNotification('Login failed. Please try again.', 'error');
+          clearPendingLoginState();
+          return false;
+        }
+      } else {
+        console.log('%c[Email2FA] ❌ Invalid code entered', 'color:#e74c3c');
+        return false;
+      }
+    }
+
+    function showEmailCodeModal(email) {
+      document.getElementById('email-code-modal').style.display = 'flex';
+      document.getElementById('email-code-input').value = '';
+      document.getElementById('email-code-error').textContent = '';
+      document.getElementById('email-code-input').focus();
+    }
+
+    function hideEmailCodeModal() {
+      document.getElementById('email-code-modal').style.display = 'none';
+      // If user cancels verification, clear pending login state
+      clearPendingLoginState();
+    }
+
+    async function submitEmailCode() {
+      const code = document.getElementById('email-code-input').value.trim();
+      const errorDiv = document.getElementById('email-code-error');
+      
+      if (!code || code.length !== 6) {
+        errorDiv.textContent = 'Please enter a valid 6-digit code';
+        return;
+      }
+
+      const isValid = await verifyEmailCode(code);
+      
+      if (isValid) {
+        document.getElementById('email-code-modal').style.display = 'none';
+        hideAuthModal();
+        showNotification('Logged in successfully!');
+      } else {
+        errorDiv.textContent = 'Invalid code. Please try again.';
+      }
+    }
+
+    async function resendEmailCode() {
+      if (!pendingVerificationEmail) {
+        showNotification('No email to resend to.', 'error');
+        return;
+      }
+      
+      document.getElementById('email-code-modal').style.display = 'none';
+      await sendEmailVerificationCode(pendingVerificationEmail);
+      showEmailCodeModal(pendingVerificationEmail);
+    }
+
+    async function signupUserFromModal() {
+      const email = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value.trim();
+      
+      if (!email || !password) {
+        showNotification('Please enter email and password', 'error');
+        return;
+      }
+      if (password.length < 6) {
+        showNotification('Password must be at least 6 characters', 'error');
+        return;
+      }
+
+      try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        await db.collection('users').doc(userCredential.user.uid).set({
+          email: email,
+          favorites: [],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        hideAuthModal();
+        showNotification('Account created! You are now logged in.');
+      } catch (error) {
+        showNotification('Error creating account: ' + error.message, 'error');
+      }
+    }
+
+    // Update header when auth state changes
+    function updateHeaderAuthUI(user) {
+      const userDiv = document.getElementById('header-user');
+      const emailSpan = document.getElementById('header-user-email');
+
+      if (user) {
+        userDiv.style.display = 'flex';
+        emailSpan.textContent = user.email.split('@')[0];
+      } else {
+        userDiv.style.display = 'none';
+      }
+    }
+
+    // Make sure updateAuthUI also updates the header (safe wrapper)
+    const originalUpdateAuthUI = window.updateAuthUI || function() {};
+    window.updateAuthUI = function() {
+      try {
+        originalUpdateAuthUI();
+      } catch (e) {}
+      try {
+        if (currentUser) {
+          updateHeaderAuthUI(currentUser);
+        } else {
+          updateHeaderAuthUI(null);
+        }
+      } catch (e) {
+        console.warn('Header auth UI update failed', e);
+      }
+    };
+
+    // ==================== ACCOUNT SETTINGS ====================
+    function showNotification(message, type = 'success') {
+      console.log(`[Notification] ${type}: ${message}`);
+      // Toast removed with account features
+    }
+
+    // ==================== 2FA / MFA SUPPORT ====================
+    function requireVerification() {
+      if (!currentUser) return false;
+      
+      const hasEmailVerified = currentUser.emailVerified;
+      
+      if (!hasEmailVerified) {
+        showNotification('You must verify your email before making account changes.', 'error');
+        
+        // Automatically send verification email
+        currentUser.sendEmailVerification().then(() => {
+          showNotification('Verification email sent! Please check your inbox and verify before making changes.', 'success');
+        }).catch(() => {
+          showNotification('Could not send verification email.', 'error');
+        });
+        return false;
+      }
+      return true;
+    }
+
+    function showMfaModal(resolver) {
+      mfaResolver = resolver;
+      document.getElementById('mfa-modal').style.display = 'flex';
+      document.getElementById('mfa-code').value = '';
+      document.getElementById('mfa-error').textContent = '';
+      document.getElementById('mfa-code').focus();
+    }
+
+    function cancelMfa() {
+      document.getElementById('mfa-modal').style.display = 'none';
+      mfaResolver = null;
+      showNotification('2FA verification cancelled.', 'error');
+    }
+
+    async function verifyMfaCode() {
+      const code = document.getElementById('mfa-code').value.trim();
+      const errorDiv = document.getElementById('mfa-error');
+      
+      if (!code || code.length !== 6) {
+        errorDiv.textContent = 'Please enter a valid 6-digit code';
+        return;
+      }
+
+      try {
+        const cred = firebase.auth.PhoneAuthProvider.credential(
+          mfaResolver.hints[0].verificationId || mfaResolver.hints[0].uid,
+          code
+        );
+        
+        const multiFactorAssertion = firebase.auth.PhoneMultiFactorGenerator.assertion(cred);
+        await mfaResolver.resolveSignIn(multiFactorAssertion);
+        
+        document.getElementById('mfa-modal').style.display = 'none';
+        showNotification('2FA verified successfully!');
+        mfaResolver = null;
+      } catch (error) {
+        errorDiv.textContent = 'Invalid code. Please try again.';
+        console.error('MFA verification failed:', error);
+      }
+    }
+
+    function showAccountSettings() {
+      if (!currentUser) {
+        showNotification('Please log in first', 'error');
+        return;
+      }
+      document.getElementById('account-settings-modal').style.display = 'flex';
+      document.getElementById('settings-current-email').textContent = currentUser.email;
+      // Clear inputs
+      document.getElementById('settings-new-email').value = '';
+      document.getElementById('settings-new-password').value = '';
+    }
+
+    function hideAccountSettings() {
+      document.getElementById('account-settings-modal').style.display = 'none';
+    }
+
+    async function updateUserEmail() {
+      if (!requireVerification()) return;
+      
+      const newEmail = document.getElementById('settings-new-email').value.trim();
+      if (!newEmail) {
+        showNotification('Please enter a new email address', 'error');
+        return;
+      }
+      if (!currentUser) return;
+
+      try {
+        await currentUser.updateEmail(newEmail);
+        showNotification('Email updated successfully!');
+        document.getElementById('settings-current-email').textContent = newEmail;
+        document.getElementById('header-user-email').textContent = newEmail.split('@')[0];
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          showNotification('For security, please log out and log back in before changing your email.', 'error');
+        } else if (error.code === 'auth/multi-factor-auth-required') {
+          const resolver = error.resolver;
+          showMfaModal(resolver);
+        } else {
+          showNotification('Failed to update email: ' + error.message, 'error');
+        }
+      }
+    }
+
+    async function updateUserPassword() {
+      if (!requireVerification()) return;
+      
+      const newPassword = document.getElementById('settings-new-password').value.trim();
+      if (!newPassword || newPassword.length < 6) {
+        showNotification('Password must be at least 6 characters', 'error');
+        return;
+      }
+      if (!currentUser) return;
+
+      try {
+        await currentUser.updatePassword(newPassword);
+        showNotification('Password updated successfully!');
+        document.getElementById('settings-new-password').value = '';
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          showNotification('For security, please log out and log back in before changing your password.', 'error');
+        } else if (error.code === 'auth/multi-factor-auth-required') {
+          const resolver = error.resolver;
+          showMfaModal(resolver);
+        } else {
+          showNotification('Failed to update password: ' + error.message, 'error');
+        }
+      }
+    }
+
+    async function deleteUserAccount() {
+      if (!currentUser) return;
+      if (!requireVerification()) return;
+      
+      const confirmDelete = confirm('Are you sure you want to permanently delete your account? This cannot be undone.');
+      if (!confirmDelete) return;
+
+      try {
+        // Delete user document from Firestore first
+        await db.collection('users').doc(currentUser.uid).delete();
+        
+        // Delete the Firebase Auth user
+        await currentUser.delete();
+        
+        showNotification('Account deleted successfully.');
+        hideAccountSettings();
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          showNotification('For security, please log out and log back in before deleting your account.', 'error');
+        } else if (error.code === 'auth/multi-factor-auth-required') {
+          const resolver = error.resolver;
+          showMfaModal(resolver);
+        } else {
+          showNotification('Failed to delete account: ' + error.message, 'error');
+        }
+      }
+    }
+  </script>
+</body>
+</html>
