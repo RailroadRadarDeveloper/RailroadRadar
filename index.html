@@ -72,16 +72,116 @@
       top: 100%;
       left: 0;
       right: 0;
-      background-color: white;
+      background-color: #f4f6f9;
       border-radius: 0 0 8px 8px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-      max-height: 300px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      max-height: 400px;
       overflow-y: auto;
       z-index: 10000;
       display: none;
+      border: 1px solid #dce1e8;
+      border-top: none;
+      padding: 8px;
     }
     .header-search-results.active {
       display: block;
+    }
+    .search-section-header {
+      padding: 6px 8px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7785;
+    }
+    .search-result {
+      background: white;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+      border: 1px solid #e6e9ef;
+    }
+    .search-result:last-child {
+      margin-bottom: 0;
+    }
+    .search-result:hover {
+      box-shadow: 0 3px 10px rgba(0,0,0,0.14);
+    }
+    .search-result-header {
+      background: linear-gradient(145deg, #07093e 0%, #07093e 100%);
+      color: white;
+      padding: 9px 12px;
+      font-size: 13.5px;
+      line-height: 1.3;
+      font-style: italic;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .search-result-header .route {
+      font-weight: 700;
+    }
+    .search-result-header .trip-num {
+      font-weight: 700;
+    }
+    .search-result-header .to-label {
+      font-weight: 500;
+      opacity: 0.85;
+    }
+    .search-result-header .dest {
+      font-weight: 700;
+    }
+    .search-result-body {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .search-result-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      color: #333;
+      font-weight: 600;
+    }
+    .search-result-meta .label {
+      font-size: 10px;
+      color: #7f8c9a;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-right: 3px;
+    }
+    .search-status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .search-status-pill.status-on-time { background: #d4edda; color: #155724; }
+    .search-status-pill.status-delayed { background: #fff3cd; color: #856404; }
+    .search-status-pill.status-very-delayed { background: #f8d7da; color: #721c24; }
+    .search-status-pill.status-scheduled { background: #d1ecf1; color: #0c5460; }
+    .search-station-result .search-result-header {
+      background: linear-gradient(145deg, #07093e 0%, #07093e 100%);
+    }
+    .search-no-results {
+      padding: 18px 12px;
+      text-align: center;
+      color: #7f8c9a;
+      font-size: 13px;
+      background: white;
+      border-radius: 4px;
     }
     .search-type-menu {
       position: absolute;
@@ -577,31 +677,7 @@
       margin-bottom: 8px;
       box-sizing: border-box;
     }
-    .search-results {
-      max-height: 200px;
-      overflow-y: auto;
-      margin-top: 10px;
-      border: 1px solid #eee;
-      border-radius: 0;
-    }
-    .search-result {
-      padding: 8px;
-      cursor: pointer;
-      border-bottom: 1px solid #eee;
-      transition: background-color 0.2s;
-    }
-    .search-result:hover {
-      background-color: #f5f5f5;
-    }
-    .search-result-title {
-      font-weight: bold;
-      margin-bottom: 2px;
-      color: var(--primary-color);
-    }
-    .search-result-subtitle {
-      font-size: 12px;
-      color: #666;
-    }
+    /* Legacy search styles (panel) kept minimal */
     .station-toggle {
       display: flex;
       align-items: center;
@@ -2750,6 +2826,11 @@
           if (searchMode === 'all' || searchMode === 'station') {
             searchStations(q, results);
           }
+
+          // Show friendly empty state when nothing matched
+          if (results.children.length === 0) {
+            results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${q}</strong>"</div>`;
+          }
         });
         
         document.addEventListener('click', e => {
@@ -2763,26 +2844,80 @@
         const res = [];
         for (const vid in trainInfo) {
           const t = trainInfo[vid];
-          if (vid.toLowerCase().includes(q) || t.routeName.toLowerCase().includes(q) || t.destination.toLowerCase().includes(q)) {
-            res.push({ 
-              type: 'train',
-              id: vid, 
-              title: `<i>${t.routeName} to ${t.destination}${t.hasAlert ? ' <img src="https://i.postimg.cc/Xvf0qMDm/Untitled-design-38.png" class="alert-icon">' : ''}</i>`, 
-              subtitle: `Train ID: ${vid}, Speed: ${Math.round(t.speedMph)} mph`, 
-              lat: t.lat, 
-              lng: t.lng 
-            });
+          if (vid.toLowerCase().includes(q) || 
+              (t.routeName || '').toLowerCase().includes(q) || 
+              (t.destination || '').toLowerCase().includes(q)) {
+            res.push({ type: 'train', id: vid, train: t });
           }
         }
+
+        if (res.length === 0) return;
+
+        const header = document.createElement('div');
+        header.className = 'search-section-header';
+        header.textContent = `Trains (${res.length})`;
+        container.appendChild(header);
+
         res.forEach(r => {
+          const t = r.train;
+          const delay = t.delayMinutes;
+          let statusClass = 'status-on-time';
+          let statusText = t.delayStatus || 'On Time';
+
+          if (delay === null || delay === undefined) {
+            statusClass = 'status-scheduled';
+            statusText = 'Scheduled';
+          } else if (Math.abs(delay) <= 5) {
+            statusClass = 'status-on-time';
+            statusText = 'On Time';
+          } else if (delay <= 15) {
+            statusClass = 'status-delayed';
+            statusText = `Delayed ${Math.round(delay)} min`;
+          } else {
+            statusClass = 'status-very-delayed';
+            statusText = `Delayed ${Math.round(delay)} min`;
+          }
+
+          const tripNum = extractTrainNumber(t.tripId) || t.tripId || '—';
+          const alertIcon = t.hasAlert 
+            ? ` <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">` 
+            : '';
+
+          // Determine next/current stop label from vehicle status
+          let stopLabel = 'Next';
+          let stopName = t.stopName || '—';
+          if (t.status === 'STOPPED_AT') stopLabel = 'At';
+          else if (t.status === 'INCOMING_AT') stopLabel = 'Arriving';
+
           const d = document.createElement('div');
           d.className = 'search-result';
-          d.innerHTML = `<div class="search-result-title">${r.title}</div><div class="search-result-subtitle">${r.subtitle}</div>`;
+          d.innerHTML = `
+            <div class="search-result-header">
+              <span class="route">${t.routeName || 'Unknown'}</span>
+              <span class="trip-num">${tripNum}</span>
+              <span class="to-label">to</span>
+              <span class="dest">${t.destination || '—'}</span>${alertIcon}
+            </div>
+            <div class="search-result-body">
+              <div class="search-result-meta">
+                <span><span class="label">Vehicle</span>${r.id}</span>
+              </div>
+              <div class="search-result-meta" style="margin-left:auto;">
+                <span><span class="label">Speed</span>${Math.round(t.speedMph || 0)} mph</span>
+                <span><span class="label">${stopLabel}</span>${stopName}</span>
+                <span class="search-status-pill ${statusClass}">${statusText}</span>
+              </div>
+            </div>
+          `;
           d.onclick = () => {
-            map.setView([r.lat, r.lng], 15);
-            if (highlightedMarker) highlightedMarker.getElement().classList.remove('highlighted-train');
+            map.setView([t.lat, t.lng], 15);
+            if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
             const m = markers[r.id];
-            if (m) { m.openPopup(); m.getElement().classList.add('highlighted-train'); highlightedMarker = m; }
+            if (m) { 
+              m.openPopup(); 
+              m.getElement()?.classList.add('highlighted-train'); 
+              highlightedMarker = m; 
+            }
             container.classList.remove('active');
             document.getElementById('control-panel').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
@@ -2799,22 +2934,43 @@
             res.push({ 
               type: 'station',
               id: g.stopIds[0], 
-              title: g.name, 
-              subtitle: g.stopIds.length > 1 ? `${g.stopIds.length} platforms` : 'MBTA Station', 
+              name: g.name, 
+              platforms: g.stopIds.length,
               lat: g.lat, 
               lng: g.lng 
             });
           }
         }
+
+        if (res.length === 0) return;
+
+        const header = document.createElement('div');
+        header.className = 'search-section-header';
+        header.textContent = `Stations (${res.length})`;
+        container.appendChild(header);
+
         res.forEach(r => {
           const d = document.createElement('div');
-          d.className = 'search-result';
-          d.innerHTML = `<div class="search-result-title">${r.title}</div><div class="search-result-subtitle">${r.subtitle}</div>`;
+          d.className = 'search-result search-station-result';
+          d.innerHTML = `
+            <div class="search-result-header">
+              <span class="route">${r.name}</span>
+            </div>
+            <div class="search-result-body">
+              <div class="search-result-meta">
+                <span>${r.platforms > 1 ? r.platforms + ' platforms' : 'MBTA Station'}</span>
+              </div>
+            </div>
+          `;
           d.onclick = () => {
             map.setView([r.lat, r.lng], 15);
-            if (highlightedStation) highlightedStation.getElement().classList.remove('highlighted-station');
+            if (highlightedStation) highlightedStation.getElement()?.classList.remove('highlighted-station');
             const m = stationMarkers[r.id];
-            if (m) { m.openPopup(); m.getElement().classList.add('highlighted-station'); highlightedStation = m; }
+            if (m) { 
+              m.openPopup(); 
+              m.getElement()?.classList.add('highlighted-station'); 
+              highlightedStation = m; 
+            }
             container.classList.remove('active');
             document.getElementById('control-panel').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
