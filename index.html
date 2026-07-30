@@ -1007,37 +1007,157 @@
      display: block;
    }
    .alerts-list {
-     max-height: 350px;
+     max-height: 420px;
      overflow-y: auto;
-     padding-right: 5px;
+     display: flex;
+     flex-direction: column;
+     gap: 10px;
    }
-   .alert-item {
-     background-color: #fff3cd;
-     border-left: 5px solid #ffc107;
-     padding: 12px 15px;
-     margin-bottom: 12px;
-     border-radius: 0;
-     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+   .alert-card {
+     background: #fff;
+     border: 1px solid #e0e4ea;
+     border-radius: 4px;
+     overflow: hidden;
    }
-   .alert-item:last-child {
-     margin-bottom: 0;
+   .alert-card-header {
+     background: #07093e;
+     color: #fff;
+     padding: 10px 14px;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 10px;
    }
-   .alert-item strong {
-     display: block;
-     margin-bottom: 6px;
-     color: #322f30;
-     font-size: 15px;
+   .alert-card-title {
+     font-size: 13.5px;
+     font-weight: 700;
+     line-height: 1.35;
+     margin: 0;
+     flex: 1;
    }
-   .alert-item p {
-     margin: 0 0 8px 0;
+   .alert-badge {
+     flex-shrink: 0;
+     font-size: 10px;
+     font-weight: 700;
+     text-transform: uppercase;
+     letter-spacing: 0.3px;
+     padding: 3px 8px;
+     border-radius: 3px;
+     background: rgba(255,255,255,0.18);
+     color: #fff;
+   }
+   .alert-badge.severe { background: #e74c3c; }
+   .alert-badge.warning { background: #f39c12; }
+   .alert-card-body {
+     padding: 12px 14px;
      font-size: 13px;
-     line-height: 1.4;
-     color: #555;
+     line-height: 1.45;
+     color: #333;
    }
-   .alert-item a {
+   .alert-card-body p {
+     margin: 0 0 8px 0;
+   }
+   .alert-meta {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 6px;
+     margin-top: 8px;
+   }
+   .alert-meta span {
+     font-size: 11px;
+     font-weight: 600;
+     background: #eef1f6;
+     color: #07093e;
+     padding: 3px 8px;
+     border-radius: 3px;
+   }
+   .alert-link {
+     display: inline-block;
+     margin-top: 8px;
      font-size: 12px;
-     color: var(--primary-color);
-     text-decoration: underline;
+     font-weight: 600;
+     color: #07093e;
+     text-decoration: none;
+   }
+   .alert-link:hover { text-decoration: underline; }
+   .alerts-empty {
+     text-align: center;
+     padding: 32px 16px;
+     background: #f8f9fb;
+     border: 1px solid #e0e4ea;
+     border-radius: 4px;
+     color: #5a6577;
+     font-size: 13px;
+   }
+   .alerts-empty strong {
+     display: block;
+     color: #07093e;
+     font-size: 14px;
+     margin-bottom: 4px;
+   }
+   .alerts-count {
+     font-size: 13px;
+     color: #7f8c9a;
+     margin: 0 0 10px 0;
+     font-weight: 600;
+   }
+   .location-section {
+     margin-top: 18px;
+     padding-top: 15px;
+     border-top: 1px solid #eee;
+   }
+   .location-section h3 {
+     margin-top: 0;
+   }
+   .location-btn {
+     width: 100%;
+     padding: 11px 14px;
+     background: #07093e;
+     color: white;
+     border: none;
+     font-weight: 700;
+     font-size: 14px;
+     cursor: pointer;
+     border-radius: 0;
+     margin-bottom: 8px;
+   }
+   .location-btn:hover { background: #0a0c4a; }
+   .location-btn:disabled {
+     background: #999;
+     cursor: not-allowed;
+   }
+   .location-status {
+     font-size: 12.5px;
+     color: #5a6577;
+     margin-bottom: 10px;
+     min-height: 18px;
+   }
+   .closest-trains-list {
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+   }
+   .closest-train-item {
+     background: #f8f9fb;
+     border: 1px solid #e0e4ea;
+     border-left: 3px solid #07093e;
+     padding: 10px 12px;
+     cursor: pointer;
+     font-size: 13px;
+   }
+   .closest-train-item:hover { background: #eef1f6; }
+   .closest-train-item .ct-route {
+     font-weight: 700;
+     color: #07093e;
+   }
+   .closest-train-item .ct-meta {
+     font-size: 12px;
+     color: #5a6577;
+     margin-top: 3px;
+   }
+   .closest-train-item .ct-dist {
+     font-weight: 700;
+     color: #07093e;
    }
    .cabcar-report-btn {
      margin-top: 16px;
@@ -1214,6 +1334,31 @@
      background: #c0392b;
    }
 
+    /* Offline banner */
+    .offline-banner {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      right: 0;
+      z-index: 100001;
+      background: #c0392b;
+      color: white;
+      text-align: center;
+      padding: 10px 16px;
+      font-size: 13.5px;
+      font-weight: 600;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .offline-banner.visible {
+      display: block;
+    }
+    .offline-banner a {
+      color: #fff;
+      text-decoration: underline;
+      margin-left: 8px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -1244,6 +1389,10 @@
       </svg>
     </button>
     </div>
+  </div>
+  <div id="offline-banner" class="offline-banner">
+    You're offline — live train data unavailable.
+    <a onclick="location.reload()">Retry</a>
   </div>
   <div id="map"></div>
 
@@ -1302,15 +1451,25 @@
       <button id="refresh-button" class="refresh-button">Refresh Data</button>
       <div id="last-updated" class="last-updated">Last updated: Never</div>
       <div class="disclaimer"><p>Train data is provided by MassDOT and MBTA. RailroadRadar is not responsible for inaccuracies.</p></div>
+      <div class="location-section">
+        <h3>My Location</h3>
+        <button id="location-btn" class="location-btn" onclick="requestUserLocation()">Show My Location</button>
+        <div id="location-status" class="location-status"></div>
+        <div id="closest-trains" class="closest-trains-list"></div>
+      </div>
+
       <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">Reports</h3>
       <a id="cabcar-report-btn" class="cabcar-report-btn lightbox-260964784794073">Cabcar Pairing Report</a>
     </div>
 
     <!-- Tab 1: Service Alerts -->
     <div id="tab-content-1" class="tab-content">
-      <h3>MBTA Service Alerts</h3>
-      <div id="alerts-list" class="alerts-list"></div>
-      <button class="refresh-button" onclick="checkServiceAlerts()">Refresh Alerts</button>
+      <h3 style="margin-bottom:4px;">MBTA Service Alerts</h3>
+      <p id="alerts-count" class="alerts-count"></p>
+      <div id="alerts-list" class="alerts-list">
+        <div class="alerts-empty"><strong>Loading alerts...</strong></div>
+      </div>
+      <button class="refresh-button" onclick="checkServiceAlerts()" style="margin-top:14px;">Refresh Alerts</button>
     </div>
 
     <!-- Tab 2: Vehicle Alerts -->
@@ -2523,6 +2682,10 @@
           });
           updateTrainVisibility();
           document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+          // Keep closest-trains list fresh when train positions update
+          if (userLat != null && userLng != null) {
+            renderClosestTrains(userLat, userLng);
+          }
         } catch (e) {
           document.getElementById('last-updated').textContent = `Error: ${e.message}`;
         }
@@ -3075,34 +3238,245 @@
       };
 
       let currentAlerts = [];
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
       function renderAlerts() {
         const el = document.getElementById('alerts-list');
+        const countEl = document.getElementById('alerts-count');
         if (!el) return;
+
+        if (countEl) {
+          countEl.textContent = currentAlerts.length
+            ? currentAlerts.length + ' active alert' + (currentAlerts.length === 1 ? '' : 's')
+            : '';
+        }
+
         if (!currentAlerts.length) {
-          el.innerHTML = `<p class="no-departures" style="padding:20px 10px;">No active MBTA service alerts.<br>All trains operating normally!</p>`;
+          el.innerHTML = '<div class="alerts-empty"><strong>No active service alerts</strong>All Commuter Rail trains are operating normally.</div>';
           return;
         }
-        el.innerHTML = currentAlerts.map(a => `<div class="alert-item"><strong>${a.header}</strong>${a.description ? `<p>${a.description}</p>` : ''}${a.url ? `<p><a href="${a.url}" target="_blank">More details →</a></p>` : ''}</div>`).join('');
+
+        let html = '';
+        currentAlerts.forEach(function(a) {
+          const badgeClass = a.severity === 'severe' ? 'severe' : (a.severity === 'warning' ? 'warning' : '');
+          const badgeLabel = a.severity === 'severe' ? 'Severe' : (a.severity === 'warning' ? 'Warning' : 'Info');
+          
+          let meta = '';
+          if (a.effect) meta += '<span>' + escapeHtml(a.effect) + '</span>';
+          if (a.routes && a.routes.length) {
+            a.routes.forEach(function(r) { meta += '<span>' + escapeHtml(r) + '</span>'; });
+          }
+
+          html += '<div class="alert-card">';
+          html += '<div class="alert-card-header">';
+          html += '<p class="alert-card-title">' + escapeHtml(a.header) + '</p>';
+          html += '<span class="alert-badge ' + badgeClass + '">' + badgeLabel + '</span>';
+          html += '</div>';
+          html += '<div class="alert-card-body">';
+          if (a.description) html += '<p>' + escapeHtml(a.description) + '</p>';
+          if (meta) html += '<div class="alert-meta">' + meta + '</div>';
+          if (a.url) html += '<a class="alert-link" href="' + escapeHtml(a.url) + '" target="_blank" rel="noopener">More details</a>';
+          html += '</div></div>';
+        });
+        el.innerHTML = html;
       }
 
       window.checkServiceAlerts = async function() {
+        const el = document.getElementById('alerts-list');
+        if (el) el.innerHTML = '<div class="alerts-empty"><strong>Loading alerts...</strong></div>';
         try {
           const res = await fetch(alertsUrl, { headers: { 'x-api-key': mbtaAPIKey } });
           const data = await res.json();
           currentAlerts = [];
-          (data.data || []).forEach(a => {
-            const active = (a.attributes.active_period || []).some(p => {
+          (data.data || []).forEach(function(a) {
+            const periods = a.attributes.active_period || [];
+            const active = periods.some(function(p) {
               const st = p.start ? new Date(p.start) : new Date();
               const en = p.end ? new Date(p.end) : new Date(Date.now() + 86400000);
               return st <= new Date() && new Date() <= en;
             });
-            if (active) currentAlerts.push({ header: a.attributes.header || a.attributes.short_header || 'Service Alert', description: a.attributes.description || '', url: a.attributes.url || '' });
+            if (!active) return;
+
+            const sev = Number(a.attributes.severity) || 0;
+            const effect = (a.attributes.effect || '').toUpperCase();
+            let severity = 'info';
+            if (sev >= 7 || effect === 'NO_SERVICE' || effect === 'SUSPENSION') severity = 'severe';
+            else if (sev >= 4 || effect === 'DETOUR' || effect === 'DELAY' || effect === 'SIGNIFICANT_DELAYS') severity = 'warning';
+
+            const routes = [];
+            (a.attributes.informed_entity || []).forEach(function(ent) {
+              if (ent.route && routes.indexOf(ent.route) === -1) routes.push(ent.route);
+            });
+
+            currentAlerts.push({
+              header: a.attributes.header || a.attributes.short_header || 'Service Alert',
+              description: a.attributes.description || '',
+              url: a.attributes.url || '',
+              severity: severity,
+              effect: effect ? effect.replace(/_/g, ' ') : '',
+              routes: routes
+            });
           });
+
+          currentAlerts.sort(function(a, b) {
+            const order = { severe: 0, warning: 1, info: 2 };
+            return (order[a.severity] || 3) - (order[b.severity] || 3);
+          });
+
           renderAlerts();
         } catch (e) {
-          const el = document.getElementById('alerts-list');
-          if (el) el.innerHTML = `<div class="no-departures" style="padding:20px 10px;">Error loading alerts.</div>`;
+          if (el) el.innerHTML = '<div class="alerts-empty"><strong>Could not load alerts</strong>Please try again.</div>';
         }
+      };
+
+      // ==================== USER LOCATION ====================
+      let userMarker = null;
+      let userLat = null;
+      let userLng = null;
+      let locationWatchId = null;
+      let hasCenteredOnUser = false;
+
+      function createUserLocationIcon() {
+        return L.divIcon({
+          className: 'user-location-marker',
+          html: '<div style="width:18px;height:18px;background:#2980b9;border:3px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.4);"></div>',
+          iconSize: [18, 18],
+          iconAnchor: [9, 9]
+        });
+      }
+
+      function findClosestTrains(lat, lng, limit) {
+        limit = limit || 5;
+        const results = [];
+        for (const vid in trainInfo) {
+          const t = trainInfo[vid];
+          if (t.lat == null || t.lng == null) continue;
+          const dist = haversine(lat, lng, t.lat, t.lng);
+          results.push({ vid: vid, train: t, distance: dist });
+        }
+        results.sort(function(a, b) { return a.distance - b.distance; });
+        return results.slice(0, limit);
+      }
+
+      function renderClosestTrains(lat, lng) {
+        const container = document.getElementById('closest-trains');
+        if (!container) return;
+        const closest = findClosestTrains(lat, lng, 5);
+        if (!closest.length) {
+          container.innerHTML = '<div style="font-size:12.5px;color:#7f8c9a;">No live trains found nearby.</div>';
+          return;
+        }
+        let html = '';
+        closest.forEach(function(item) {
+          const t = item.train;
+          const distStr = item.distance < 1
+            ? (item.distance * 5280).toFixed(0) + ' ft'
+            : item.distance.toFixed(1) + ' mi';
+          html += '<div class="closest-train-item" data-vid="' + item.vid + '">';
+          html += '<div class="ct-route">' + (t.routeName || 'Unknown') + ' to ' + (t.destination || '—') + '</div>';
+          html += '<div class="ct-meta">Vehicle ' + item.vid + ' · ' + Math.round(t.speedMph || 0) + ' mph · <span class="ct-dist">' + distStr + ' away</span></div>';
+          html += '</div>';
+        });
+        container.innerHTML = html;
+
+        container.querySelectorAll('.closest-train-item').forEach(function(el) {
+          el.addEventListener('click', function() {
+            const vid = el.getAttribute('data-vid');
+            const t = trainInfo[vid];
+            if (!t) return;
+            map.setView([t.lat, t.lng], 15);
+            if (markers[vid]) {
+              markers[vid].openPopup();
+              if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
+              markers[vid].getElement()?.classList.add('highlighted-train');
+              highlightedMarker = markers[vid];
+            }
+            document.getElementById('control-panel').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+          });
+        });
+      }
+
+      function onUserLocationUpdate(pos) {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+
+        const statusEl = document.getElementById('location-status');
+        const btn = document.getElementById('location-btn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Center on Me'; }
+        if (statusEl) statusEl.textContent = 'Tracking (' + userLat.toFixed(4) + ', ' + userLng.toFixed(4) + ')';
+
+        if (userMarker) {
+          userMarker.setLatLng([userLat, userLng]);
+        } else {
+          userMarker = L.marker([userLat, userLng], { icon: createUserLocationIcon(), zIndexOffset: 2000 });
+          userMarker.bindTooltip('You are here', { permanent: false, direction: 'top' });
+          userMarker.addTo(map);
+        }
+
+        // Only auto-center the map on the first successful fix
+        if (!hasCenteredOnUser) {
+          hasCenteredOnUser = true;
+          map.setView([userLat, userLng], 13);
+        }
+
+        renderClosestTrains(userLat, userLng);
+      }
+
+      function onUserLocationError(err) {
+        const statusEl = document.getElementById('location-status');
+        const btn = document.getElementById('location-btn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Show My Location'; }
+        let msg = 'Could not get location.';
+        if (err.code === 1) msg = 'Location permission denied. Tap the button to try again.';
+        else if (err.code === 2) msg = 'Location unavailable.';
+        else if (err.code === 3) msg = 'Location request timed out.';
+        if (statusEl) statusEl.textContent = msg;
+      }
+
+      function startLocationWatch() {
+        if (!navigator.geolocation) {
+          const statusEl = document.getElementById('location-status');
+          if (statusEl) statusEl.textContent = 'Geolocation is not supported by this browser.';
+          return;
+        }
+        // Avoid starting multiple watches
+        if (locationWatchId !== null) return;
+
+        const statusEl = document.getElementById('location-status');
+        const btn = document.getElementById('location-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Locating...'; }
+        if (statusEl) statusEl.textContent = 'Requesting location permission...';
+
+        locationWatchId = navigator.geolocation.watchPosition(
+          onUserLocationUpdate,
+          onUserLocationError,
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+      }
+
+      // Button: re-center map on user (or restart permission flow if needed)
+      window.requestUserLocation = function() {
+        if (userLat != null && userLng != null) {
+          map.setView([userLat, userLng], 14);
+          renderClosestTrains(userLat, userLng);
+          return;
+        }
+        // Permission may have been denied earlier — try starting watch again
+        if (locationWatchId !== null) {
+          navigator.geolocation.clearWatch(locationWatchId);
+          locationWatchId = null;
+        }
+        hasCenteredOnUser = false;
+        startLocationWatch();
       };
 
       setInterval(updateLabels, 5000);
@@ -3522,6 +3896,29 @@
 
       // Everything critical is loaded — hide the loading screen
       hideLoadingScreen();
+
+      // Offline / online detection
+      function updateOnlineStatus() {
+        const banner = document.getElementById('offline-banner');
+        if (!banner) return;
+        if (navigator.onLine) {
+          banner.classList.remove('visible');
+        } else {
+          banner.classList.add('visible');
+        }
+      }
+      window.addEventListener('online', function() {
+        updateOnlineStatus();
+        // Refresh data when connection returns
+        if (typeof fetchTrains === 'function') fetchTrains();
+        if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains();
+        if (typeof checkServiceAlerts === 'function') checkServiceAlerts();
+      });
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+
+      // Ask for location as soon as the map is ready; track movement continuously
+      startLocationWatch();
 
     });
 
@@ -4003,6 +4400,15 @@
           showNotification('Failed to delete account: ' + error.message, 'error');
         }
       }
+    }
+  </script>
+  <script>
+    try {
+      if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {
+        window.navigator.serviceWorker.register('/sw.js').catch(function () {});
+      }
+    } catch (e) {
+      // Service workers unavailable (sandboxed iframe, private mode, etc.)
     }
   </script>
 </body>
