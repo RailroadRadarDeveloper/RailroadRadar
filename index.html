@@ -5,6 +5,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Track MBTA Commuter Rail trains in real time. Interactive map with live positions, delays, station departures, service alerts, and trip history.">
+  <link rel="icon" type="image/png" href="https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png">
+  <link rel="apple-touch-icon" href="https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" defer></script>
   <script src="https://unpkg.com/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.js" defer></script>
@@ -52,17 +54,19 @@
       margin-right: 10px;
     }
     .header-search-container {
-      flex-grow: 1;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 280px;
+      max-width: 40vw;
       display: flex;
       align-items: center;
-      margin: 0 10px;
-      position: relative;
     }
     .header-search-input {
       width: 100%;
       padding: 8px 12px;
       border: none;
-      border-radius: 20px;
+      border-radius: 0;
       font-size: 14px;
       background-color: white;
       padding-right: 80px;
@@ -240,11 +244,13 @@
       align-items: center;
       justify-content: center;
       padding: 12px;
+      margin-left: auto;
       margin-right: 8px;
       width: 48px;
       height: 48px;
       border-radius: 50%;
       transition: background-color 0.2s ease;
+      flex-shrink: 0;
     }
     .menu-button:hover {
       background-color: rgba(255,255,255,0.15);
@@ -901,12 +907,50 @@
       height: 20px;
     }
     .train-label {
-      background-color: rgba(255, 255, 255, 0.8);
-      border: 1px solid #ccc;
-      padding: 2px 5px;
-      font-size: 12px;
+      background: linear-gradient(145deg, #07093e 0%, #0c1054 100%) !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 2px !important;
+      padding: 5px 10px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      font-style: italic !important;
+      font-family: 'Segoe UI', system-ui, sans-serif !important;
       white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+      letter-spacing: 0.15px;
+      line-height: 1.25 !important;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* No arrow / tip on train labels */
+    .train-label::before,
+    .leaflet-tooltip-bottom.train-label::before,
+    .leaflet-tooltip-top.train-label::before,
+    .leaflet-tooltip-left.train-label::before,
+    .leaflet-tooltip-right.train-label::before {
+      display: none !important;
+      border: none !important;
+    }
+    .leaflet-tooltip.train-label {
+      opacity: 1 !important;
+    }
+    .train-cluster-icon {
+      background: #07093e;
+      color: #fff;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      line-height: 1;
     }
     .leaflet-marker-icon {
      max-width: 32px !important;
@@ -1381,7 +1425,7 @@
 
     <!-- Header simplified - no auth -->
 
-    <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false" style="margin-left: 8px;">
+    <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false" >
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="3" y1="12" x2="21" y2="12"></line>
         <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -1438,6 +1482,7 @@
           <label for="show-stations">Show Stations</label>
         </div>
         <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
+        <div><input type="checkbox" id="show-clusters" checked><label for="show-clusters">Cluster Overlapping Trains</label></div>
         <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
         <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
       </div>
@@ -1699,7 +1744,7 @@
       L.control.layers({ "Mapbox": mapboxLayer }, { "OpenRailwayMap": ormOverlay }).addTo(map);
 
       // Prevent extreme label overlapping when zoomed out
-      map.on('zoomend', () => {
+      map.on('zoomend moveend', () => {
         if (typeof updateTrainLabelsVisibility === 'function') {
           updateTrainLabelsVisibility();
         }
@@ -1843,8 +1888,13 @@
       let highlightedStation = null;
       let showStations = true;
       let showTrainLabels = true;   // Default ON
+      let showClusters = true;      // Default ON — group overlapping trains
       let showRoutes = true;
       let showOnlySpecial = false;
+      let showAmtrak = true;
+      const amtrakMarkers = {};
+      const amtrakTrainInfo = {};
+      const amtrakLastSeen = {};
 
       const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
 
@@ -2641,8 +2691,15 @@
               if (bearing !== null) markers[vid].setRotationAngle(bearing);
               markers[vid].setIcon(createTrainIcon(delay, vid));
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
-              markers[vid]._info = [`Line: ${rname}`, `Trip: ${extractTrainNumber(tripId) || tripId}`, `Vehicle: ${vid}`, `Destination: ${head}`, `Next Stop: ${sname}`, `Speed: ${Math.round(mph)} mph`, `Status: ${dstatus}`];
-              if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(markers[vid]._info[markers[vid]._infoIndex]);
+              markers[vid]._info = [
+                rname || 'Unknown',
+                (extractTrainNumber(tripId) || tripId || '—') + ' to ' + (head || '—'),
+                'Vehicle ' + vid,
+                Math.round(mph) + ' mph',
+                dstatus || 'Scheduled',
+                'Next: ' + (sname || '—')
+              ];
+              if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(markers[vid]._info[markers[vid]._infoIndex % markers[vid]._info.length]);
             } else {
               const icon = createTrainIcon(delay, vid);
               const m = L.marker([lat, lng], { icon, rotationAngle: bearing || 0, rotationOrigin: 'center center' });
@@ -2658,7 +2715,14 @@
                   updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
                 }
               });
-              m._info = [`Line: ${rname}`, `Trip: ${extractTrainNumber(tripId) || tripId}`, `Vehicle: ${vid}`, `Destination: ${head}`, `Next Stop: ${sname}`, `Speed: ${Math.round(mph)} mph`, `Status: ${dstatus}`];
+              m._info = [
+                rname || 'Unknown',
+                (extractTrainNumber(tripId) || tripId || '—') + ' to ' + (head || '—'),
+                'Vehicle ' + vid,
+                Math.round(mph) + ' mph',
+                dstatus || 'Scheduled',
+                'Next: ' + (sname || '—')
+              ];
               m._infoIndex = 0;
               // Only add label if user wants it AND we're zoomed in enough
               const zoom = map.getZoom();
@@ -2681,6 +2745,7 @@
             }
           });
           updateTrainVisibility();
+          updateTrainLabelsVisibility();
           document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
           // Keep closest-trains list fresh when train positions update
           if (userLat != null && userLng != null) {
@@ -2698,6 +2763,10 @@
             if (map.hasLayer(m)) map.removeLayer(m);
           } else if (!map.hasLayer(m)) map.addLayer(m);
         });
+        // Re-run clustering so icons stay hidden under circles
+        if (typeof updateTrainLabelsVisibility === 'function') {
+          updateTrainLabelsVisibility();
+        }
       }
 
       async function fetchSchedules() {
@@ -2913,21 +2982,130 @@
         updateTrainLabelsVisibility();
       }
 
-      // Controls label visibility based on both user toggle + current zoom level
-      function updateTrainLabelsVisibility() {
-        const zoom = map.getZoom();
-        const shouldShow = showTrainLabels && zoom >= LABEL_MIN_ZOOM;
+      // ---- Label declutter / overlap clustering ----
+      let trainClusterMarkers = [];
+      const LABEL_CLUSTER_PX = 48; // pixel distance to treat labels as overlapping
 
-        Object.values(markers).forEach(m => {
-          if (shouldShow) {
-            if (!m.getTooltip()) {
-              m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-              if (m._info && m._infoIndex !== undefined) {
-                m.getTooltip().setContent(m._info[m._infoIndex]);
+      function clearTrainClusters() {
+        trainClusterMarkers.forEach(function(m) {
+          if (map.hasLayer(m)) map.removeLayer(m);
+        });
+        trainClusterMarkers = [];
+      }
+
+      function createClusterIcon(count) {
+        return L.divIcon({
+          className: '',
+          html: '<div class="train-cluster-icon">' + count + '</div>',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+      }
+
+      // Group markers that are within LABEL_CLUSTER_PX of each other (screen space)
+      // Considers all trains that *should* be visible (not only those currently on the map),
+      // so icons hidden under a cluster can reappear when the cluster breaks apart.
+      function groupOverlappingTrains() {
+        const items = [];
+        Object.keys(markers).forEach(function(vid) {
+          const m = markers[vid];
+          // Respect "show only special units" filter
+          if (showOnlySpecial && !specialIcons[vid]) return;
+          const ll = m.getLatLng();
+          if (!ll) return;
+          const pt = map.latLngToLayerPoint(ll);
+          items.push({ vid: vid, marker: m, pt: pt, latlng: ll });
+        });
+
+        const used = {};
+        const groups = [];
+
+        for (let i = 0; i < items.length; i++) {
+          if (used[items[i].vid]) continue;
+          const group = [items[i]];
+          used[items[i].vid] = true;
+
+          // Simple flood-fill style grouping
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (let j = 0; j < items.length; j++) {
+              if (used[items[j].vid]) continue;
+              for (let k = 0; k < group.length; k++) {
+                const dx = items[j].pt.x - group[k].pt.x;
+                const dy = items[j].pt.y - group[k].pt.y;
+                if (Math.sqrt(dx * dx + dy * dy) < LABEL_CLUSTER_PX) {
+                  group.push(items[j]);
+                  used[items[j].vid] = true;
+                  changed = true;
+                  break;
+                }
               }
             }
-          } else if (m.getTooltip()) {
-            m.unbindTooltip();
+          }
+          groups.push(group);
+        }
+        return groups;
+      }
+
+      // Controls label visibility based on user toggle, zoom, AND optional overlap clustering
+      // When clustering is on, hides individual train icons under a count circle
+      function updateTrainLabelsVisibility() {
+        const zoom = map.getZoom();
+        const shouldShowLabels = showTrainLabels && zoom >= LABEL_MIN_ZOOM;
+
+        clearTrainClusters();
+
+        // Clear individual labels first
+        Object.values(markers).forEach(function(m) {
+          if (m.getTooltip()) m.unbindTooltip();
+        });
+
+        const groups = groupOverlappingTrains();
+
+        groups.forEach(function(group) {
+          if (group.length === 1 || !showClusters) {
+            // Solo train, OR clustering disabled — show every icon + optional label
+            group.forEach(function(g) {
+              if (!map.hasLayer(g.marker)) g.marker.addTo(map);
+              if (shouldShowLabels) {
+                if (!g.marker.getTooltip()) {
+                  g.marker.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                }
+                if (g.marker._info && g.marker._infoIndex !== undefined) {
+                  g.marker.getTooltip().setContent(g.marker._info[g.marker._infoIndex % g.marker._info.length]);
+                }
+              }
+            });
+          } else {
+            // 2+ overlapping and clustering ON — hide individual icons + labels, show count circle
+            let sumLat = 0, sumLng = 0;
+            group.forEach(function(g) {
+              sumLat += g.latlng.lat;
+              sumLng += g.latlng.lng;
+              if (map.hasLayer(g.marker)) map.removeLayer(g.marker);
+              if (g.marker.getTooltip()) g.marker.unbindTooltip();
+            });
+            const center = L.latLng(sumLat / group.length, sumLng / group.length);
+
+            const cluster = L.marker(center, {
+              icon: createClusterIcon(group.length),
+              interactive: true,
+              zIndexOffset: 1500
+            });
+
+            cluster.on('click', function() {
+              map.setView(center, Math.min(map.getZoom() + 2, 18));
+            });
+
+            cluster.bindTooltip(group.length + ' trains — click to zoom', {
+              permanent: false,
+              direction: 'top',
+              className: 'train-label'
+            });
+
+            cluster.addTo(map);
+            trainClusterMarkers.push(cluster);
           }
         });
       }
@@ -3195,9 +3373,24 @@
         updateTrainVisibility();
       }
 
+      // Clusters default ON unless user explicitly turned them off
+      const savedShowClusters = safeStorage.get('rr_showClusters');
+      if (savedShowClusters === 'false') {
+        document.getElementById('show-clusters').checked = false;
+        showClusters = false;
+      } else {
+        document.getElementById('show-clusters').checked = true;
+        showClusters = true;
+      }
+
       document.getElementById('show-labels').addEventListener('change', e => {
         toggleTrainLabels(e.target.checked);
         safeStorage.set('rr_showLabels', e.target.checked);
+      });
+      document.getElementById('show-clusters').addEventListener('change', e => {
+        showClusters = e.target.checked;
+        updateTrainLabelsVisibility();
+        safeStorage.set('rr_showClusters', e.target.checked);
       });
       document.getElementById('show-only-special').addEventListener('change', e => {
         showOnlySpecial = e.target.checked;
@@ -3482,24 +3675,28 @@
       setInterval(updateLabels, 5000);
 
       // Sequenced initial load so the loading screen can describe each stage
-      setLoadingProgress(25, 'Loading route shapes...');
-      await fetchRouteShapes();
+      try {
+        setLoadingProgress(25, 'Loading route shapes...');
+        await fetchRouteShapes();
 
-      setLoadingProgress(40, 'Loading stations...');
-      await fetchStations();
+        setLoadingProgress(40, 'Loading stations...');
+        await fetchStations();
 
-      setLoadingProgress(55, 'Loading schedules...');
-      await fetchSchedules();
+        setLoadingProgress(55, 'Loading schedules...');
+        await fetchSchedules();
 
-      setLoadingProgress(70, 'Loading live trains...');
-      await fetchTrains();
+        setLoadingProgress(70, 'Loading live trains...');
+        await fetchTrains();
 
-      setLoadingProgress(85, 'Almost there...');
-      await fetchAmtrakTrains();
+        setLoadingProgress(85, 'Almost there...');
+        await fetchAmtrakTrains();
 
-      setLoadingProgress(92, 'Loading service alerts...');
-      setupSearch();
-      await checkServiceAlerts();
+        setLoadingProgress(92, 'Loading service alerts...');
+        setupSearch();
+        await checkServiceAlerts();
+      } catch (loadErr) {
+        console.error('[Init] Load error', loadErr);
+      }
 
       setInterval(fetchTrains, 60000);
       setInterval(fetchAmtrakTrains, 60000);
