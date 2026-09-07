@@ -10,9 +10,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" defer></script>
   <script src="https://unpkg.com/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.js" defer></script>
-
-  <!-- No Firebase / Account features -->
-
+  <!-- Firebase compat SDKs (v10.14.0) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --primary-color: #07093e;
@@ -53,14 +54,23 @@
       height: 40px;
       margin-right: 10px;
     }
-    .header-search-container {
+    .header-center {
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
-      width: 280px;
-      max-width: 40vw;
       display: flex;
       align-items: center;
+      gap: 10px;
+      max-width: calc(100vw - 180px);
+      z-index: 10000;
+    }
+    .header-search-container {
+      position: relative;
+      width: 280px;
+      max-width: 36vw;
+      display: flex;
+      align-items: center;
+      flex-shrink: 1;
     }
     .header-search-input {
       width: 100%;
@@ -335,7 +345,6 @@
       background: transparent;
       font-family: 'Segoe UI', system_ui, sans-serif;
     }
-
     /* ========== CLEAN + FULL-WIDTH TRAIN POPUP ========== */
     .train-popup-header {
       background: linear-gradient(145deg, #07093e 0%, #07093e 100%);
@@ -353,7 +362,6 @@
       height: 3px;
       background: linear-gradient(to right, #27ae60, #f1c40f);
     }
-
     .train-popup-header .header-top {
       display: flex;
       justify-content: space-between;
@@ -362,7 +370,6 @@
       gap: 8px;
       flex-wrap: wrap;
     }
-
     .route-pill {
       background: rgba(255,255,255,0.15);
       color: #fff;
@@ -373,7 +380,6 @@
       letter-spacing: 0.4px;
       white-space: nowrap;
     }
-
     .cape-badge {
       background: #e67e22;
       color: white;
@@ -383,7 +389,6 @@
       border-radius: 4px;
       white-space: nowrap;
     }
-
     .alert-pill {
       background: #e74c3c;
       color: white;
@@ -393,7 +398,6 @@
       border-radius: 4px;
       white-space: nowrap;
     }
-
     .dest-title {
       margin: 0 0 8px 0;
       font-size: 17px;
@@ -401,11 +405,9 @@
       color: #fff;
       line-height: 1.2;
     }
-
     .status-row {
       margin-top: 2px;
     }
-
     .status-pill {
       display: inline-flex;
       align-items: center;
@@ -421,12 +423,10 @@
     .status-pill.status-very-delayed { background: #f8d7da; color: #721c24; }
     .status-pill.status-scheduled { background: #d1ecf1; color: #0c5460; }
     .status-pill.status-passed { background: #e2e3e5; color: #383d41; }
-
     .train-popup-body {
       padding: 14px 16px;
       background: #fff;
     }
-
     .quick-status {
       margin-bottom: 12px;
       padding-bottom: 10px;
@@ -439,7 +439,6 @@
       font-weight: 600;
       line-height: 1.3;
     }
-
     .info-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -470,7 +469,6 @@
       word-break: break-all;
       hyphens: auto;
     }
-
     .alert-banner {
       background: #fff8e1;
       border-left: 4px solid #f39c12;
@@ -482,13 +480,11 @@
       align-items: center;
       gap: 7px;
     }
-
     .meta-row {
       font-size: 11.5px;
       color: #7f8c9a;
       margin-bottom: 10px;
     }
-
     .stops-wrapper {
       margin-top: 2px;
     }
@@ -498,7 +494,6 @@
       color: #07093e;
       font-weight: 700;
     }
-
     .train-popup-footer {
       display: flex;
       gap: 8px;
@@ -535,14 +530,12 @@
     .refresh-btn:hover {
       background: #07093e;
     }
-
     .stops-loading {
       text-align: center;
       padding: 12px;
       color: #7f8c9a;
       font-size: 13px;
     }
-
     .stops-list {
       list-style: none;
       padding: 0;
@@ -594,7 +587,6 @@
     .stop-status.status-very-delayed { background: #f8d7da; color: #721c24; }
     .stop-status.status-scheduled { background: #d1ecf1; color: #0c5460; }
     .stop-status.status-passed { background: #e2e3e5; color: #555; }
-
     .track-badge {
       background: #07093e;
       color: white;
@@ -604,7 +596,6 @@
       margin-left: 5px;
       font-weight: 600;
     }
-
     /* Legacy support */
     .status-on-time, .status-delayed, .status-very-delayed, .status-scheduled, .status-passed {
       font-weight: 600;
@@ -956,6 +947,16 @@
      max-width: 32px !important;
      max-height: 32px !important;
    }
+   .leaflet-marker-icon.amtrak-nec-icon {
+     max-width: 44px !important;
+     max-height: 44px !important;
+     width: 44px !important;
+     height: 44px !important;
+     object-fit: contain !important;
+   }
+   .leaflet-marker-icon.amtrak-acela-icon {
+     filter: drop-shadow(0 1px 2px rgba(0,0,0,.55));
+   }
    .train-icon {
      width: 32px !important;
      height: 32px !important;
@@ -1234,7 +1235,6 @@
      margin-left: 4px;
      flex-shrink: 0;
    }
-
    /* Footer Styles */
    .footer {
      position: fixed;
@@ -1300,131 +1300,69 @@
      font-size: 12px;
    }
 
-   /* Firebase Account Styles */
-   .auth-form {
-     max-width: 320px;
-     margin: 0 auto;
-   }
-   .auth-form input {
-     width: 100%;
-     padding: 12px;
-     margin: 8px 0;
-     border: 1px solid #07093e;
-     border-radius: 0;
-     font-size: 15px;
-     box-sizing: border-box;
-   }
-   .auth-form button {
-     width: 100%;
-     padding: 14px;
-     margin: 12px 0 0;
-     background: #07093e;
-     color: white;
-     border: none;
-     font-weight: bold;
-     font-size: 15px;
-     cursor: pointer;
-   }
-   .auth-form button:hover {
-     background: #07093e;
-   }
-   .auth-switch {
-     text-align: center;
-     margin-top: 15px;
-     font-size: 14px;
-   }
-   .auth-switch a {
-     color: #07093e;
-     font-weight: bold;
-     text-decoration: underline;
-     cursor: pointer;
-   }
-   .user-info {
-     text-align: center;
-     padding: 20px 0;
-   }
-   .user-email {
-     font-size: 18px;
-     color: #07093e;
-     font-weight: bold;
-     margin-bottom: 20px;
-   }
-   .favorite-card {
-     background: #f8f9fa;
-     border: 1px solid #ddd;
-     padding: 12px 15px;
-     margin-bottom: 10px;
-     border-radius: 0;
-     display: flex;
-     justify-content: space-between;
-     align-items: center;
-   }
-   .favorite-info {
-     flex-grow: 1;
-   }
-   .favorite-info strong {
-     color: #07093e;
-   }
-   .remove-fav {
-     background: #e74c3c;
-     color: white;
-     border: none;
-     padding: 6px 12px;
-     font-size: 12px;
-     cursor: pointer;
-     border-radius: 0;
-   }
-   .remove-fav:hover {
-     background: #c0392b;
-   }
-
-    /* Offline banner */
-    .offline-banner {
-      position: fixed;
-      top: 60px;
-      left: 0;
-      right: 0;
-      z-index: 100001;
-      background: #c0392b;
-      color: white;
-      text-align: center;
-      padding: 10px 16px;
-      font-size: 13.5px;
-      font-weight: 600;
-      display: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    /* Header Google auth */
+    .header-auth {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
     }
-    .offline-banner.visible {
-      display: block;
-    }
-    .offline-banner a {
-      color: #fff;
-      text-decoration: underline;
-      margin-left: 8px;
+    .header-auth-btn {
+      background: #fff;
+      color: #07093e;
+      border: none;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
       cursor: pointer;
+      border-radius: 0;
+      white-space: nowrap;
+    }
+    .header-auth-btn:hover { background: #e8eaf0; }
+    .header-auth-btn.sign-out {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.55);
+    }
+    .header-auth-btn.sign-out:hover { background: rgba(255,255,255,0.12); }
+    .header-auth-btn.delete-account {
+      background: transparent;
+      color: #ffb4b4;
+      border: 1px solid rgba(231,76,60,0.75);
+    }
+    .header-auth-btn.delete-account:hover { background: rgba(231,76,60,0.22); color: #fff; }
+    .header-user-label {
+      color: #fff;
+      font-size: 12px;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <img src="https://i.postimg.cc/W18XKxcx/Stay-Off-The-Tracks-5.png" alt="Stay Off The Tracks Logo" class="header-logo">
-    
-    <div class="header-search-container">
-      <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains or stations..." aria-label="Search for trains or stations">
-      
-      <!-- Search Type Menu -->
-      <div class="search-type-menu" id="search-type-menu">All ▼</div>
-      <div class="search-type-dropdown" id="search-type-dropdown">
-        <div class="search-type-option active" data-type="all">All (Trains + Stations)</div>
-        <div class="search-type-option" data-type="train">Trains only</div>
-        <div class="search-type-option" data-type="station">Stations only</div>
+    <div class="header-center">
+      <div class="header-search-container">
+        <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains or stations..." aria-label="Search for trains or stations">
+        <!-- Search Type Menu -->
+        <div class="search-type-menu" id="search-type-menu">All ▼</div>
+        <div class="search-type-dropdown" id="search-type-dropdown">
+          <div class="search-type-option active" data-type="all">All (Trains + Stations)</div>
+          <div class="search-type-option" data-type="train">Trains only</div>
+          <div class="search-type-option" data-type="station">Stations only</div>
+        </div>
+        <div id="header-search-results" class="header-search-results"></div>
       </div>
-      
-      <div id="header-search-results" class="header-search-results"></div>
+      <div class="header-auth" id="header-auth">
+        <button type="button" class="header-auth-btn" id="btn-google-signin">Sign up / Log in</button>
+        <span class="header-user-label" id="header-user-label" style="display:none;"></span>
+        <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" style="display:none;">Sign out</button>
+        <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" style="display:none;">Delete account</button>
+      </div>
     </div>
-
-    <!-- Header simplified - no auth -->
-
     <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false" >
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -1432,14 +1370,12 @@
         <line x1="3" y1="18" x2="21" y2="18"></line>
       </svg>
     </button>
-    </div>
   </div>
   <div id="offline-banner" class="offline-banner">
     You're offline — live train data unavailable.
     <a onclick="location.reload()">Retry</a>
   </div>
   <div id="map"></div>
-
   <!-- Loading Screen -->
   <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #07093e; display: flex; align-items: center; justify-content: center; z-index: 100000; flex-direction: column; color: white; font-family: 'Segoe UI', sans-serif; transition: opacity 0.4s ease;">
     <img src="https://i.postimg.cc/W18XKxcx/Stay-Off-The-Tracks-5.png" alt="RailroadRadar" style="height: 80px; margin-bottom: 30px; filter: brightness(1.1);">
@@ -1448,7 +1384,6 @@
     </div>
     <div id="loading-text" style="font-size: 15px; opacity: 0.9;">Starting up...</div>
   </div>
-
   <div class="overlay" id="overlay"></div>
   <div class="control-panel" id="control-panel">
     <button class="close-panel" id="close-panel" aria-label="Close menu">×</button>
@@ -1458,7 +1393,6 @@
       <button class="tab-button" onclick="switchTab(2)">Vehicle Alerts</button>
       <button class="tab-button" onclick="switchTab(3)">History / Past Trips</button>
     </div>
-
     <!-- Tab 0: Controls -->
     <div id="tab-content-0" class="tab-content active">
       <div class="toggle-section" style="margin-top:0; padding-top:0; border-top:none;">
@@ -1468,7 +1402,6 @@
           <button onclick="window.location.href='https://www.railroadradar.com/subway'" class="view-mode-btn inactive">Subway</button>
         </div>
       </div>
-
       <div class="toggle-section">
         <h3>Map Layers</h3>
         <div><input type="checkbox" id="show-orm" checked><label for="show-orm">Show OpenRailwayMap</label></div>
@@ -1502,11 +1435,7 @@
         <div id="location-status" class="location-status"></div>
         <div id="closest-trains" class="closest-trains-list"></div>
       </div>
-
-      <h3 style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">Reports</h3>
-      <a id="cabcar-report-btn" class="cabcar-report-btn lightbox-260964784794073">Cabcar Pairing Report</a>
     </div>
-
     <!-- Tab 1: Service Alerts -->
     <div id="tab-content-1" class="tab-content">
       <h3 style="margin-bottom:4px;">MBTA Service Alerts</h3>
@@ -1516,7 +1445,6 @@
       </div>
       <button class="refresh-button" onclick="checkServiceAlerts()" style="margin-top:14px;">Refresh Alerts</button>
     </div>
-
     <!-- Tab 2: Vehicle Alerts -->
     <div id="tab-content-2" class="tab-content">
       <div class="alert-signup-section" style="background:#fff8e1; border-color:#f39c12;">
@@ -1531,28 +1459,22 @@
         <div id="signup-status" style="color:#856404; font-size:13px;">Feature coming in a future update.</div>
       </div>
     </div>
-
     <!-- Tab 3: History -->
     <div id="tab-content-3" class="tab-content">
       <h3>History / Past Trips</h3>
-      
       <div style="margin-bottom:20px; padding:15px; background:#f8f9fa; border:1px solid #ddd;">
         <h4 style="margin:0 0 10px 0; color:#07093e;">Last Trip + Current Status for Special Units</h4>
         <button onclick="showLastTripsForSpecialUnits()" class="refresh-button" style="background:#27ae60; margin-bottom:10px;">Show Last Trip + Current Status</button>
         <div id="special-last-trips" style="max-height:300px; overflow-y:auto; font-size:12px;"></div>
       </div>
-
       <div class="history-controls">
         <p style="color:#27ae60; font-weight:bold;">Search past trips</p>
-        
         <div style="margin-top:12px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-          
           <!-- Vehicle ID -->
           <div>
             <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">Vehicle ID</label>
             <input id="history-vehicle" type="text" placeholder="e.g. 1800" style="width:110px; padding:6px 8px;">
           </div>
-
           <!-- Route Dropdown -->
           <div>
             <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">Route</label>
@@ -1572,7 +1494,6 @@
               <option value="Newburyport">Newburyport/Rockport</option>
             </select>
           </div>
-
           <!-- Date Range -->
           <div>
             <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">From Date</label>
@@ -1582,25 +1503,18 @@
             <label style="display:block; font-size:12px; margin-bottom:4px; font-weight:600;">To Date</label>
             <input type="date" id="history-to-date" style="padding:5px 8px; width:130px;">
           </div>
-
           <button onclick="loadHistoricalData()" class="refresh-button" style="height:34px; padding:0 16px;">Load Trips</button>
         </div>
-
         <div id="history-status" style="margin-top:10px; font-size:13px; min-height:22px;"></div>
       </div>
       <div id="history-results" style="max-height:400px; overflow-y:auto; margin-top:15px; font-size:13px;"></div>
     </div>
-
-    </div>
   </div>
-
   <!-- No auth / account modals (removed) -->
-
   <!-- Toast Notification -->
   <div id="notification" style="display:none; position:fixed; top:70px; left:50%; transform:translateX(-50%); background:#07093e; color:white; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:100000; font-size:14px; max-width:90%; text-align:center;">
     <span id="notification-text"></span>
   </div>
-
   <div class="footer">
     <div class="footer-left">
       <span class="copyright">© 2026 RailroadRadar</span>
@@ -1610,126 +1524,155 @@
     </div>
     <div></div>
   </div>
-
   <!-- Jotform scripts (unchanged) -->
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
-
   <script>
-    // No Firebase / auth / account features (removed)
-
-    // Global error handler (simplified)
+    // Global error handler
     window.addEventListener('error', function(e) {
       console.error('%c[Global Error]', 'color:#e74c3c', e.message);
     });
 
-    // No auth / favorites functions (removed)
+    // ==================== Firebase config (replace placeholders) ====================
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
+      authDomain: "railroadradar-accounts.firebaseapp.com",
+      projectId: "railroadradar-accounts",
+      storageBucket: "railroadradar-accounts.firebasestorage.app",
+      messagingSenderId: "896370923309",
+      appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
+    };
 
-    // No account UI functions
+    let firebaseApp = null;
+    let auth = null;
+    let db = null;
+    let currentUser = null;
 
-    async function updateUserEmail() {
-      if (!currentUser) {
-        showNotification('You must be logged in.', 'error');
-        return;
-      }
-
-      const newEmail = document.getElementById('new-email').value.trim();
-      if (!newEmail) {
-        showNotification('Please enter a new email address.', 'error');
-        return;
-      }
-
+    const firebaseConfigured = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_FIREBASE_API_KEY';
+    if (firebaseConfigured && typeof firebase !== 'undefined') {
       try {
-        await currentUser.updateEmail(newEmail);
-        showNotification('Email updated successfully!');
-        document.getElementById('new-email').value = '';
-        // Refresh the display
-        document.getElementById('current-email-display').textContent = newEmail;
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          showNotification('For security, please log out and log back in, then try again.', 'error');
-        } else if (error.code === 'auth/multi-factor-auth-required') {
-          showNotification('This action requires 2-Factor Authentication (2FA). Please complete MFA verification in your account settings.', 'error');
-        } else {
-          showNotification('Failed to update email: ' + error.message, 'error');
-        }
+        firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        console.log('%c[Firebase] Initialized', 'color:#27ae60');
+      } catch (e) {
+        console.error('%c[Firebase] Init failed', 'color:#e74c3c', e);
       }
+    } else {
+      console.warn('%c[Firebase] Not configured — set FIREBASE_CONFIG to enable Sign up / Log in', 'color:#f39c12');
     }
 
-    async function updateUserPassword() {
-      if (!currentUser) {
-        showNotification('You must be logged in.', 'error');
+    function showNotification(message, type) {
+      type = type || 'success';
+      const el = document.getElementById('notification');
+      const text = document.getElementById('notification-text');
+      if (!el || !text) {
+        console.log('[Notification]', type + ':', message);
         return;
       }
-
-      const newPassword = document.getElementById('new-password').value.trim();
-      if (!newPassword || newPassword.length < 6) {
-        showNotification('Password must be at least 6 characters.', 'error');
-        return;
-      }
-
-      try {
-        await currentUser.updatePassword(newPassword);
-        showNotification('Password changed successfully!');
-        document.getElementById('new-password').value = '';
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          showNotification('For security, please log out and log back in, then try again.', 'error');
-        } else if (error.code === 'auth/multi-factor-auth-required') {
-          showNotification('This action requires 2-Factor Authentication (2FA). Please complete MFA verification in your account settings.', 'error');
-        } else {
-          showNotification('Failed to change password: ' + error.message, 'error');
-        }
-      }
+      text.textContent = message;
+      el.style.display = 'block';
+      el.style.background = (type === 'error') ? '#c0392b' : '#07093e';
+      clearTimeout(showNotification._t);
+      showNotification._t = setTimeout(function() { el.style.display = 'none'; }, 4000);
     }
 
-    async function deleteUserAccount() {
-      if (!currentUser) return;
-
-      const confirmDelete = confirm('Are you sure you want to permanently delete your account? This cannot be undone.');
-      if (!confirmDelete) return;
-
-      try {
-        // Delete user document from Firestore first
-        await db.collection('users').doc(currentUser.uid).delete();
-        
-        // Delete the Firebase Auth user
-        await currentUser.delete();
-        
-        showNotification('Your account has been permanently deleted.');
-        userFavorites = [];
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          showNotification('For security, please log out and log back in, then try deleting again.', 'error');
-        } else if (error.code === 'auth/multi-factor-auth-required') {
-          showNotification('This action requires 2-Factor Authentication (2FA). Please complete MFA verification in your account settings.', 'error');
-        } else {
-          showNotification('Failed to delete account: ' + error.message, 'error');
-        }
-      }
-    }
-
-    function updateAuthUI() {
-      const loggedOut = document.getElementById('auth-logged-out');
-      const loggedIn = document.getElementById('auth-logged-in');
-      const emailDisplay = document.getElementById('user-email-display');
-
-      if (!loggedOut || !loggedIn) return;
-
-      if (currentUser) {
-        loggedOut.style.display = 'none';
-        loggedIn.style.display = 'block';
-        emailDisplay.textContent = currentUser.email;
+    function updateHeaderAuthUI(user) {
+      const btnIn = document.getElementById('btn-google-signin');
+      const btnOut = document.getElementById('btn-google-signout');
+      const btnDel = document.getElementById('btn-delete-account');
+      const label = document.getElementById('header-user-label');
+      if (!btnIn || !btnOut || !label) return;
+      if (user) {
+        btnIn.style.display = 'none';
+        btnOut.style.display = '';
+        if (btnDel) btnDel.style.display = '';
+        label.style.display = '';
+        label.textContent = user.displayName || user.email || 'Signed in';
+        label.title = user.email || '';
       } else {
-        loggedOut.style.display = 'block';
-        loggedIn.style.display = 'none';
+        btnIn.style.display = '';
+        btnOut.style.display = 'none';
+        if (btnDel) btnDel.style.display = 'none';
+        label.style.display = 'none';
+        label.textContent = '';
+        label.title = '';
       }
     }
 
-    // No favorites functions (removed)
+    
+    async function signInWithGoogle() {
+      if (!auth) {
+        showNotification('Firebase is not configured. See SETUP.md.', 'error');
+        return;
+      }
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+        showNotification('Signed in with Google');
+      } catch (e) {
+        console.error('[Auth] Sign-in failed', e);
+        showNotification('Sign-in failed: ' + (e.message || e), 'error');
+      }
+    }
+
+    async function signOutGoogle() {
+      if (!auth) return;
+      try {
+        await auth.signOut();
+        showNotification('Signed out');
+      } catch (e) {
+        showNotification('Sign-out failed: ' + (e.message || e), 'error');
+      }
+    }
+
+    async function deleteAccount() {
+      if (!auth || !auth.currentUser) {
+        showNotification('Sign in first to delete your account.', 'error');
+        return;
+      }
+      const ok = window.confirm('Permanently delete your RailroadRadar account? This cannot be undone.');
+      if (!ok) return;
+      const user = auth.currentUser;
+      try {
+        await user.delete();
+        showNotification('Account deleted');
+      } catch (e) {
+        if (e && e.code === 'auth/requires-recent-login') {
+          try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await user.reauthenticateWithPopup(provider);
+            await auth.currentUser.delete();
+            showNotification('Account deleted');
+          } catch (e2) {
+            console.error('[Auth] Delete after reauth failed', e2);
+            showNotification('Could not delete account: ' + (e2.message || e2), 'error');
+          }
+        } else {
+          console.error('[Auth] Delete failed', e);
+          showNotification('Could not delete account: ' + (e.message || e), 'error');
+        }
+      }
+    }
+
+    function wireAuthUI() {
+      const btnIn = document.getElementById('btn-google-signin');
+      const btnOut = document.getElementById('btn-google-signout');
+      const btnDel = document.getElementById('btn-delete-account');
+      if (btnIn) btnIn.addEventListener('click', signInWithGoogle);
+      if (btnOut) btnOut.addEventListener('click', signOutGoogle);
+      if (btnDel) btnDel.addEventListener('click', deleteAccount);
+      if (auth) {
+        auth.onAuthStateChanged(function(user) {
+          currentUser = user;
+          updateHeaderAuthUI(user);
+        });
+      } else {
+        updateHeaderAuthUI(null);
+      }
+    }
 
     // ==================== ORIGINAL CODE (kept mostly intact) ====================
     document.addEventListener('DOMContentLoaded', async function() {
-
       const map = L.map('map').setView([43.0, -71.5], 7);
       const accessToken = 'pk.eyJ1Ijoibm9ydGhlYXN0YW10cmFrcmFpbGZhbmFsdCIsImEiOiJjbHBrZmYybTEwOGtlMmlub2QxenZrOXBvIn0.PgtqrDBtzuOVrKN5Uctx7Q';
       const mapboxLayer = L.tileLayer('https://api.mapbox.com/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}{r}?access_token=' + accessToken, {
@@ -1742,17 +1685,14 @@
         attribution: '© OpenStreetMap contributors | © OpenRailwayMap (CC-BY-SA)'
       }).addTo(map);
       L.control.layers({ "Mapbox": mapboxLayer }, { "OpenRailwayMap": ormOverlay }).addTo(map);
-
       // Prevent extreme label overlapping when zoomed out
       map.on('zoomend moveend', () => {
         if (typeof updateTrainLabelsVisibility === 'function') {
           updateTrainLabelsVisibility();
         }
       });
-
       let specialIcons = {};
       let searchMode = 'all';
-
       // ============================================================
       // SPECIAL ICONS — Google Apps Script is the single source of truth
       // (CapeFLYER is the only exception and has its own status-based icons below)
@@ -1762,36 +1702,29 @@
         delayed: "https://i.postimg.cc/xTrWJ5F4/Needham-Heights-(1).png",
         veryDelayed: "https://i.postimg.cc/YqcJGRyy/Needham-Heights-(2).png"
       };
-
       async function loadSpecialIcons() {
         specialIcons = {};
-
         // Load ONLY from Google Apps Script (user's single source of truth)
         try {
           const url = 'https://script.google.com/macros/s/AKfycbxEURlP0tOjri2yWKi93PxNueuGI7xyfqEWzSGGfDAMkr1hmJLLenfRsSmTq5B-F6h2/exec';
           const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
-
           data.forEach(row => {
             const vid = (
               row.VehicleID || row.vehicle_id || row['Vehicle ID'] || 
               row.vehicleId || row.ID || row.id || row.Name || row.name || 
               row.Train || row.train || ''
             ).toString().trim();
-
             if (!vid) return;
-
             const onTime = (row.OnTimeIcon || '').toString().trim();
             const delayed = (row.DelayedIcon || '').toString().trim();
             const veryDelayed = (row.VeryDelayedIcon || '').toString().trim();
-
             if (onTime || delayed || veryDelayed) {
               const displayName = (
                 row.Name || row.name || row['Train Name'] || row['Special Name'] || 
                 row.Label || row.label || vid
               ).toString().trim();
-
               specialIcons[vid] = {
                 name: displayName,
                 onTime: onTime || 'https://iili.io/3l1ouDP.png',
@@ -1800,14 +1733,12 @@
               };
             }
           });
-
           console.log('%c[SpecialIcons] Loaded successfully from Google Apps Script', 'color:#27ae60');
         } catch (e) {
           console.error('%c[SpecialIcons] Failed to load from Google Apps Script', 'color:#e74c3c', e);
           specialIcons = {};
         }
       }
-
       function createTrainIcon(delayMinutes, vehicleId) {
         // CapeFLYER gets its own dedicated status-based icons (highest priority)
         if (trainInfo[vehicleId] && trainInfo[vehicleId].isCapeFlyer) {
@@ -1822,7 +1753,6 @@
             className: 'train-icon'
           });
         }
-
         // All other special/heritage units come ONLY from Google Apps Script
         if (specialIcons[vehicleId]) {
           const key = (delayMinutes === null || delayMinutes <= 5) ? 'onTime' 
@@ -1836,7 +1766,6 @@
             className: 'train-icon'
           });
         }
-
         // Default icons for regular trains
         const defaultUrl = (delayMinutes === null || delayMinutes <= 5) ? 'https://iili.io/3l1ouDP.png'
                           : (delayMinutes <= 15) ? 'https://iili.io/3l1oRx1.png'
@@ -1849,7 +1778,6 @@
           className: 'train-icon'
         });
       }
-
       const mbtaAPIKey = '56faf0d5c1b246f982c52a944e271ff9';
       const vehicleUrl = 'https://api-v3.mbta.com/vehicles?filter[route_type]=2&include=trip,route,stop';
       const routesUrl = 'https://api-v3.mbta.com/routes?filter[type]=2';
@@ -1857,8 +1785,7 @@
       const scheduleUrl = 'https://api-v3.mbta.com/schedules';
       const predictionsUrl = 'https://api-v3.mbta.com/predictions';
       const alertsUrl = 'https://api-v3.mbta.com/alerts?filter[route_type]=2';
-      const amtrakUrl = 'https://script.google.com/macros/s/AKfycbxxg60IL4e_KApbx9pY7FDHFfotomrhMLqNuvKQaUj5kPd9pQvArMTnXXkyyr6n0j20/exec';
-
+      const amtrakUrl = 'https://api-v3.amtraker.com/v3/trains';
       // ==================== DETAILED FETCH LOGGING ====================
       const FetchStats = {
         start(label) { return { label, start: performance.now() }; },
@@ -1871,7 +1798,6 @@
           console.error(`%c[${label}] FAILED`, 'color:#e74c3c; font-weight:bold', err?.message || err);
         }
       };
-
       const markers = {};
       const trainLastSeen = {};
       const routeLines = {};
@@ -1895,10 +1821,7 @@
       const amtrakMarkers = {};
       const amtrakTrainInfo = {};
       const amtrakLastSeen = {};
-
       const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
-
-
       // ---- Loading progress helper ----
       function setLoadingProgress(percent, message) {
         const bar = document.getElementById('loading-bar');
@@ -1906,7 +1829,6 @@
         if (bar) bar.style.width = Math.min(100, Math.max(0, percent)) + '%';
         if (txt) txt.textContent = message;
       }
-
       function hideLoadingScreen() {
         const loadingScreen = document.getElementById('loading-screen');
         if (!loadingScreen) return;
@@ -1918,15 +1840,13 @@
           }, 400);
         }, 350);
       }
-
       setLoadingProgress(8, 'Loading special train icons...');
       await loadSpecialIcons();
       setLoadingProgress(18, 'Special icons ready');
-
+      wireAuthUI();
       function createStationIcon() {
         return L.icon({ iconUrl: 'https://i.postimg.cc/gjwV0kj6/Needham-Heights-1.png', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9] });
       }
-
       function extractTrackNumber(platformName, platformDesc) {
         if (platformDesc) {
           const m = platformDesc.match(/track\s+(\d+)/i) || platformDesc.match(/platform\s+(\d+)/i);
@@ -1938,13 +1858,11 @@
         }
         return null;
       }
-
       function extractTrainNumber(tripId) {
         if (!tripId) return null;
         const parts = tripId.split('-');
         return parts.length > 2 ? parts[2] : null;
       }
-
       async function getOnTimeStatus(tripIds) {
         if (!tripIds.length) return {};
         try {
@@ -1978,7 +1896,6 @@
           return onTimeStatus;
         } catch (e) { return {}; }
       }
-
       function haversine(lat1, lon1, lat2, lon2) {
         if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
         const R = 3958.8; // Earth radius in miles
@@ -1990,7 +1907,6 @@
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
       }
-
       async function getTripStops(tripId) {
         if (tripStopsCache[tripId] && (Date.now() - tripStopsCache[tripId].timestamp) < 300000) return tripStopsCache[tripId].stops;
         try {
@@ -2043,7 +1959,6 @@
               };
             }).sort((a,b) => a.scheduledTime - b.scheduledTime);
             stops.push(...all);
-
             // Compute cumulative miles along the journey (from first stop)
             if (stops.length > 0) {
               stops[0].cumulativeMiles = 0;
@@ -2068,7 +1983,6 @@
           return []; 
         }
       }
-
       async function getStationDepartures(stationIds) {
         if (!Array.isArray(stationIds)) stationIds = [stationIds];
         const key = stationIds.sort().join('-');
@@ -2159,7 +2073,6 @@
           return limited;
         } catch (e) { return []; }
       }
-
       // Enrich completed stops with actual times from Google Apps Script history (with timeout + better matching)
       async function enrichStopsWithActualTimes(stops, vehicleId) {
         if (!stops?.length || !vehicleId) return stops;
@@ -2177,24 +2090,20 @@
             return vid === String(vehicleId).trim();
           });
           if (!points.length) return stops;
-
           // Sort oldest → newest
           points.sort((a, b) => {
             const ta = new Date(a.timestamp || a.time || a.last_updated || a.date || 0);
             const tb = new Date(b.timestamp || b.time || b.last_updated || b.date || 0);
             return ta - tb;
           });
-
           // Keep only today's points (or last 6 hours) to stay relevant to current trip
           const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
           points = points.filter(p => {
             const t = new Date(p.timestamp || p.time || p.last_updated || p.date || 0);
             return t.getTime() > sixHoursAgo;
           });
-
           const completedStops = stops.filter(s => s.isCompleted);
           if (!completedStops.length) return stops;
-
           // --- Strategy 1: Name match ---
           completedStops.forEach(stop => {
             const stopName = (stop.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -2218,7 +2127,6 @@
               stop.formattedActualTime = best.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
           });
-
           // --- Strategy 2: Sequential time matching for remaining unmatched completed stops ---
           // Walk through history points and assign the closest reasonable time to each completed stop in order
           const unmatched = completedStops.filter(s => !s.actualTime);
@@ -2256,7 +2164,6 @@
         }
         return stops;
       }
-
       function buildStopsHtml(stops, currentLat = null, currentLng = null) {
         if (!stops?.length) return '<div class="no-departures">No stops found</div>';
         return `<div class="upcoming-stops"><h4>Stops</h4><ul class="stops-list">${ 
@@ -2264,7 +2171,7 @@
             let cls = 'status-on-time', disp = stop.formattedPredictedTime || stop.formattedScheduledTime || 'Scheduled';
             if (stop.isCompleted) {
               if (stop.formattedActualTime) {
-                disp = `<span style="background:#27ae60;color:white;padding:1px 6px;border-radius:3px;font-size:11px;">Actual</span> ${stop.formattedActualTime}`;
+                disp = stop.formattedActualTime;
               } else {
                 disp = stop.formattedPredictedTime || stop.formattedScheduledTime || 'Passed';
               }
@@ -2278,7 +2185,6 @@
             else if (stop.delayMinutes > 5) { cls = 'status-delayed'; disp = `Now ${stop.formattedPredictedTime}`; }
             const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
             const done = stop.isCompleted ? `<img src="https://i.postimg.cc/wBWNG26K/Completed.png" class="checkmark">` : '';
-            
             let mileageInfo = '';
             if (stop.cumulativeMiles != null) {
               mileageInfo = `Journey mile: ${stop.cumulativeMiles.toFixed(1)} mi`;
@@ -2289,17 +2195,119 @@
               mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
             }
             const extraHtml = mileageInfo ? `<br><small style="color:#555; font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
-            
             // Left column shows actual time when we have it, otherwise scheduled
             const leftTime = (stop.isCompleted && stop.formattedActualTime) ? stop.formattedActualTime : stop.formattedScheduledTime;
-            
             return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span><span class="stop-status ${cls}">${disp}</span></li>`;
           }).join('')
         }</ul></div>`;
       }
-
       // ==================== AMTRAK + LOGGING (Final) ====================
-      function createAmtrakIcon(trainNum, statusMsg = '') {
+// NEC icon only while the train is GEOGRAPHICALLY on the corridor:
+      // WAS↔BOS for normal NEC trains; WAS↔NHV if the train uses the Springfield Line.
+      // Acela never uses this icon. Off-corridor (e.g. Silver Meteor in FL, Keystone west of PHL) → default marker.
+      const AMTRAK_NEC_ICON_URL = 'https://i.postimg.cc/KY53GJCC/Untitled-design-%281%29.png';
+      const AMTRAK_NEC_WAS_TO_NHV = [
+        [38.8969, -77.0062], // WAS
+        [39.1924, -76.6944], // BWI
+        [39.3073, -76.6155], // BAL
+        [39.7367, -75.5511], // WIL
+        [39.9556, -75.1821], // PHL
+        [40.2189, -74.7544], // TRE
+        [40.7346, -74.1638], // NWK
+        [40.7506, -73.9935], // NYP
+        [40.9118, -73.7842], // NRO
+        [41.0469, -73.5415], // STM
+        [41.2975, -72.9267]  // NHV
+      ];
+      const AMTRAK_NEC_NHV_TO_BOS = [
+        [41.2975, -72.9267], // NHV
+        [41.3459, -72.0930], // NLC (approx Old Saybrook/New London corridor)
+        [41.3543, -72.0930], // NLC
+        [41.3810, -71.9700], // MYS
+        [41.3810, -71.8300], // WLY
+        [41.4262, -71.4880], // KIN
+        [41.8293, -71.4130], // PVD
+        [42.2100, -71.1480], // RTE
+        [42.3473, -71.0755], // BBY
+        [42.3519, -71.0551]  // BOS
+      ];
+      const AMTRAK_NEC_WAS_TO_BOS = AMTRAK_NEC_WAS_TO_NHV.concat(AMTRAK_NEC_NHV_TO_BOS.slice(1));
+      function amtrakDistMiles(lat1, lon1, lat2, lon2) {
+        const R = 3958.8;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      // Distance from point to segment, miles (equirectangular local projection)
+      function amtrakDistToSegmentMiles(lat, lon, lat1, lon1, lat2, lon2) {
+        const x = lon, y = lat;
+        const x1 = lon1, y1 = lat1, x2 = lon2, y2 = lat2;
+        const dx = x2 - x1, dy = y2 - y1;
+        if (dx === 0 && dy === 0) return amtrakDistMiles(lat, lon, lat1, lon1);
+        let t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
+        t = Math.max(0, Math.min(1, t));
+        return amtrakDistMiles(lat, lon, y1 + t * dy, x1 + t * dx);
+      }
+      function amtrakDistToPolylineMiles(lat, lon, poly) {
+        let best = Infinity;
+        for (let i = 0; i < poly.length - 1; i++) {
+          const a = poly[i], b = poly[i + 1];
+          const d = amtrakDistToSegmentMiles(lat, lon, a[0], a[1], b[0], b[1]);
+          if (d < best) best = d;
+        }
+        return best;
+      }
+      function trainUsesSpringfieldLine(t) {
+        const codes = new Set(
+          (t.stations || []).map(function(s) { return String(s.code || '').toUpperCase(); }).filter(Boolean)
+        );
+        if (codes.has('SPG') || codes.has('WNL') || codes.has('HFD') || codes.has('GFD')) return true;
+        const o = String(t.origCode || '').toUpperCase();
+        const d = String(t.destCode || '').toUpperCase();
+        return o === 'SPG' || d === 'SPG' || o === 'GFD' || d === 'GFD';
+      }
+      // True only when the train's CURRENT lat/lon is on the NEC corridor segment.
+      function isOnNecCorridorNow(t) {
+        if (!t) return false;
+        const route = String(t.routeName || '');
+        // Never: Acela, or services that only touch NYP then leave onto other corridors
+        if (/acela/i.test(route)) return false;
+        if (/empire service|adirondack|maple leaf|ethan allen|downeaster/i.test(route)) return false;
+        const lat = parseFloat(t.lat);
+        const lon = parseFloat(t.lon != null ? t.lon : t.lng);
+        if (isNaN(lat) || isNaN(lon)) return false;
+        const poly = trainUsesSpringfieldLine(t) ? AMTRAK_NEC_WAS_TO_NHV : AMTRAK_NEC_WAS_TO_BOS;
+        // ~8 mi buffer: on the NEC alignment only (not whole multi-day trips)
+        return amtrakDistToPolylineMiles(lat, lon, poly) <= 8;
+      }
+      const AMTRAK_ACELA_ICON_URL = 'data:image/png;base64,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';
+      function isAcelaTrain(t) {
+        return /acela/i.test(String((t && t.routeName) || ''));
+      }
+      function createAmtrakIcon(trainNum, statusMsg, trainObj) {
+        // Acela: dedicated icon (Acela only runs on the NEC)
+        if (isAcelaTrain(trainObj)) {
+          return L.icon({
+            iconUrl: AMTRAK_ACELA_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon amtrak-acela-icon'
+          });
+        }
+        // Non-Acela: custom NEC icon only while geographically on the corridor
+        if (isOnNecCorridorNow(trainObj)) {
+          return L.icon({
+            iconUrl: AMTRAK_NEC_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon'
+          });
+        }
         const isDelayed = /late|delay/i.test(statusMsg || '');
         const bgColor = isDelayed ? '#c0392b' : '#003087';
         return L.divIcon({
@@ -2308,118 +2316,253 @@
           iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13]
         });
       }
-
-      function buildAmtrakStopsHtml(stations) {
-        if (!stations?.length) return '<div class="no-departures">No stop data</div>';
-        let html = '<div class="upcoming-stops"><h4>Upcoming Stops</h4><ul class="stops-list">';
-        stations.forEach(s => {
-          const code = s.code || '—';
-          const time = s.estArr || s.schArr || s.postArr;
-          const tStr = time ? new Date(time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
-          const comment = s.estArrCmnt || s.postCmnt || '';
-          html += `<li><span class="stop-time">${tStr}</span><span class="stop-name">${code} ${comment ? `<small style="color:#e67e22">(${comment})</small>` : ''}</span></li>`;
+      function formatAmtrakTime(iso) {
+        if (!iso) return '';
+        try {
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (_) { return ''; }
+      }
+      function parseAmtrakDelayMinutes(s) {
+        const cmnt = String((s && s.arrCmnt) || '') + ' ' + String((s && s.depCmnt) || '');
+        const m = cmnt.match(/(\d+)\s*min/i);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (/early/i.test(cmnt)) return -n;
+          return n;
+        }
+        const schIso = s && (s.schDep || s.schArr);
+        const liveIso = s && (s.dep || s.arr);
+        if (schIso && liveIso) {
+          const d = (new Date(liveIso) - new Date(schIso)) / 60000;
+          if (!isNaN(d)) return d;
+        }
+        return null;
+      }
+      // Map Amtrak station objects into the same shape MBTA buildStopsHtml expects
+      // so every train popup stop list uses one shared layout.
+      function amtrakStationsToStops(stations) {
+        return (stations || []).map(function(s) {
+          const st = String(s.status || '').toLowerCase();
+          const completed = st === 'departed';
+          const schIso = s.schDep || s.schArr || null;
+          const liveIso = s.dep || s.arr || null;
+          const schTime = schIso ? new Date(schIso) : null;
+          const liveTime = liveIso ? new Date(liveIso) : null;
+          const schOk = schTime && !isNaN(schTime.getTime());
+          const liveOk = liveTime && !isNaN(liveTime.getTime());
+          const formattedScheduled = formatAmtrakTime(s.schDep) || formatAmtrakTime(s.schArr) || '—';
+          const formattedLive = formatAmtrakTime(s.dep) || formatAmtrakTime(s.arr) || null;
+          return {
+            name: s.name || s.code || 'Unknown',
+            scheduledTime: schOk ? schTime : null,
+            predictedTime: (!completed && liveOk) ? liveTime : null,
+            delayMinutes: parseAmtrakDelayMinutes(s),
+            trackNumber: s.platform ? String(s.platform) : null,
+            formattedScheduledTime: formattedScheduled,
+            formattedPredictedTime: formattedLive,
+            formattedActualTime: (completed && formattedLive) ? formattedLive : null,
+            isCompleted: completed,
+            lat: (s.lat != null && s.lat !== '') ? parseFloat(s.lat) : null,
+            lng: (s.lon != null && s.lon !== '') ? parseFloat(s.lon) : ((s.lng != null && s.lng !== '') ? parseFloat(s.lng) : null)
+          };
         });
-        return html + '</ul></div>';
       }
-
+      function buildAmtrakStopsHtml(stations, currentLat, currentLng) {
+        const stops = amtrakStationsToStops(stations);
+        if (!stops.length) return '<div class="no-departures">No stop data</div>';
+        return buildStopsHtml(stops, currentLat, currentLng);
+      }
       function createAmtrakPopupContent(vid, t) {
-        const num = t.trainNum || vid.replace('amtrak-','');
-        const status = t.statusMsg || t.trainState || 'Unknown';
-        const speed = t.velocity != null ? Math.round(t.velocity) : 0;
-        return `<div class="train-popup"><div class="train-popup-content">
-          <h3 style="color:#003087">🚄 Amtrak ${num}</h3>
-          <p><strong>Route:</strong> ${t.routeName || 'Amtrak'}</p>
-          <p><strong>Status:</strong> <span class="${/late|delay/i.test(status)?'status-delayed':'status-on-time'}">${status}</span></p>
-          <p><strong>Speed:</strong> ${speed} mph</p>
-          ${buildAmtrakStopsHtml(t.stations)}
-          <button class="refresh-button" onclick="refreshAmtrakTrain('${vid}')" style="margin-top:8px;background:#003087">Refresh Amtrak</button>
-        </div></div>`;
+        const num = t.trainNum || t.trainNumRaw || String(vid).replace('amtrak-', '');
+        const route = t.routeName || 'Amtrak';
+        const dest = t.destName || t.destCode || '—';
+        const origin = t.origName || t.origCode || '—';
+        const status = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+        const speed = t.velocity != null ? Math.round(Number(t.velocity)) : 0;
+        const heading = t.heading || '—';
+        const tripId = t.trainID || num;
+        const eventName = t.eventName || t.eventCode || '—';
+        const delayed = /late|delay/i.test(status);
+        const veryLate = /late\s*([2-9]\d|\d{3,})/i.test(status) || /hours?/i.test(status);
+        let statusPillClass = 'status-on-time';
+        if (veryLate) statusPillClass = 'status-very-delayed';
+        else if (delayed) statusPillClass = 'status-delayed';
+        else if (/predeparture|scheduled|not yet/i.test(status)) statusPillClass = 'status-scheduled';
+        const txt = t.trainState === 'Completed'
+          ? `Completed · ${origin} to ${dest}`
+          : (eventName && eventName !== '—'
+            ? `Near ${eventName}`
+            : `On the way to ${dest}`);
+        const lastSeenTime = amtrakLastSeen[vid]
+          ? new Date(amtrakLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+          : '—';
+        let alertText = '';
+        if (t.alerts && t.alerts.length) {
+          const a0 = t.alerts[0];
+          alertText = (a0 && (a0.message || a0.header || a0.title)) ? (a0.message || a0.header || a0.title) : 'Active Amtrak alert';
+        }
+        const al = alertText
+          ? `<div class="alert-banner"><img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ${alertText}</div>`
+          : '';
+        const amtrakBadge = `<span class="cape-badge" style="background:#003087;">Amtrak</span>`;
+        const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshAmtrakTrain('${vid}')">Refresh</button>`;
+        const amtrakLat = parseFloat(t.lat);
+        const amtrakLng = parseFloat(t.lon != null ? t.lon : t.lng);
+        const stopsHtml = buildAmtrakStopsHtml(
+          t.stations,
+          isNaN(amtrakLat) ? null : amtrakLat,
+          isNaN(amtrakLng) ? null : amtrakLng
+        );
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
+                ${amtrakBadge}
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${txt}</p>
+                <span class="status-pill ${statusPillClass}">${status}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Train</span>
+                  <span class="info-value">${num}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Trip</span>
+                  <span class="info-value">${tripId}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Heading</span>
+                  <span class="info-value">${heading}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Speed</span>
+                  <span class="info-value">${speed} mph</span>
+                </div>
+              </div>
+              ${al}
+              <div class="meta-row">
+                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${refreshBtn}
+            </div>
+          </div>
+        `;
       }
-
       window.refreshAmtrakTrain = async () => fetchAmtrakTrains();
-
       function updateAmtrakVisibility() {
         Object.values(amtrakMarkers).forEach(m => showAmtrak ? map.addLayer(m) : map.removeLayer(m));
       }
-
+      // Northeast filter: keep trains whose lat/lon is in roughly lat 36–48 / lon -80–-66,
+      // OR any station code is in this NE corridor set (Boston–NY–Philly–DC + Empire / NH corridors).
+      // Still gated by the Show Amtrak checkbox via updateAmtrakVisibility / showAmtrak.
+      const AMTRAK_NE_CODES = new Set([
+        'BOS','BBY','BON','PVD','KIN','NHT','MHT','NHV','STM','NRO','NYP','NWK','TRE','PHL','WIL','BAL','WAS',
+        'ALB','SDY','RHI','ROC','BUF','NFL','POU','OSB','SPG','WOR','HFD','NLC','NBN','RTE','WOB','FBG','BWI',
+        'ABE','HAR','LNC','PAC','ARD','CRH','DOV','SAB','EXR','BRY','NYP','BOS','PHL','WAS','NHV','PVD','NWK',
+        'BOS','WLY','MYS','OLD','NLC','OSB','HUD','RHI','UCA','SYR','ROC','BUF','NFL','NYP','NWK','EWR','MET',
+        'PJC','TRE','PHN','ARN','WIL','NRK','ABE','BAL','BWI','NCR','WAS','ALX','BCV','FBG','QAN','ALB','SDY'
+      ]);
+      function isNortheastAmtrakTrain(t) {
+        const lat = parseFloat(t.lat);
+        const lon = parseFloat(t.lon);
+        if (!isNaN(lat) && !isNaN(lon) && lat >= 36 && lat <= 48 && lon >= -80 && lon <= -66) return true;
+        const stations = t.stations || [];
+        for (let i = 0; i < stations.length; i++) {
+          const code = stations[i] && stations[i].code;
+          if (code && AMTRAK_NE_CODES.has(String(code).toUpperCase())) return true;
+        }
+        const oc = t.origCode && String(t.origCode).toUpperCase();
+        const dc = t.destCode && String(t.destCode).toUpperCase();
+        if ((oc && AMTRAK_NE_CODES.has(oc)) || (dc && AMTRAK_NE_CODES.has(dc))) return true;
+        return false;
+      }
       async function fetchAmtrakTrains() {
         const stat = FetchStats.start('Amtrak');
         try {
           const res = await fetch(amtrakUrl);
-          const text = await res.text();
-
-          // Proxy sometimes returns plain "Not found" or HTML instead of JSON
-          if (!text || text.trim() === 'Not found' || text.trim().startsWith('<')) {
-            console.warn('%c[Amtrak] Proxy returned no data (Not found). Skipping Amtrak update.', 'color:#f39c12');
-            FetchStats.end(stat, { status: 'no-data' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          if (!data || typeof data !== 'object') {
+            console.warn('%c[Amtrak] Unexpected Amtraker payload', 'color:#f39c12');
+            FetchStats.end(stat, { status: 'bad-payload' });
             return;
           }
-
-          let data;
-          try {
-            data = JSON.parse(text);
-          } catch (parseErr) {
-            console.warn('%c[Amtrak] Invalid JSON from proxy:', 'color:#f39c12', text.substring(0, 80));
-            FetchStats.end(stat, { status: 'bad-json' });
-            return;
-          }
-
-          if (data && data.error) {
-            console.warn('%c[Amtrak] Proxy error:', 'color:#f39c12', data.error);
-            FetchStats.end(stat, { status: 'proxy-error' });
-            return;
-          }
-
           const now = Date.now();
-          let created = 0, updated = 0, skipped = 0;
-
-          Object.keys(data).forEach(k => {
+          let created = 0, updated = 0, skipped = 0, filtered = 0;
+          const seen = new Set();
+          // Top-level object keyed by train number; each value is an array of train objects
+          Object.keys(data).forEach(function(k) {
+            if (k === 'v1' || k === 'error') return;
             const arr = data[k];
-            if (!arr?.length) { skipped++; return; }
-
-            const t = arr.find(x => x.lat != null && x.lon != null) || arr[0];
-            if (!t || t.lat == null) { skipped++; return; }
-
-            const vid = `amtrak-${t.objectID || k}`;
-            const lat = parseFloat(t.lat);
-            const lng = parseFloat(t.lon);
-            if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
-
-            amtrakTrainInfo[vid] = { ...t, id: vid, trainNum: k, lat, lng };
-
-            const icon = createAmtrakIcon(k, t.statusMsg || '');
-
-            if (amtrakMarkers[vid]) {
-              amtrakMarkers[vid].setLatLng([lat, lng]);
-              amtrakMarkers[vid].setIcon(icon);
-              updated++;
-            } else {
-              const m = L.marker([lat, lng], { icon });
-              m.bindPopup(createAmtrakPopupContent(vid, t), { maxWidth: 400 });
-              m.bindTooltip(`Amtrak ${k}`, { permanent: false, direction: 'bottom', className: 'train-label' });
-              amtrakMarkers[vid] = m;
-              if (showAmtrak) m.addTo(map);
-              created++;
-            }
-            amtrakLastSeen[vid] = now;
+            if (!Array.isArray(arr) || !arr.length) { skipped++; return; }
+            arr.forEach(function(t) {
+              if (!t || t.lat == null || t.lon == null) { skipped++; return; }
+              if (!isNortheastAmtrakTrain(t)) { filtered++; return; }
+              const trainNum = t.trainNum || t.trainNumRaw || k;
+              const vid = 'amtrak-' + (t.trainID || trainNum);
+              const lat = parseFloat(t.lat);
+              const lng = parseFloat(t.lon);
+              if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
+              seen.add(vid);
+              const info = Object.assign({}, t, { id: vid, trainNum: trainNum, lat: lat, lng: lng });
+              amtrakTrainInfo[vid] = info;
+              const icon = createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t);
+              if (amtrakMarkers[vid]) {
+                amtrakMarkers[vid].setLatLng([lat, lng]);
+                amtrakMarkers[vid].setIcon(icon);
+                if (amtrakMarkers[vid].getPopup()) {
+                  amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
+                }
+                updated++;
+              } else {
+                const m = L.marker([lat, lng], { icon: icon });
+                m.bindPopup(createAmtrakPopupContent(vid, info), { maxWidth: 520, minWidth: 280 });
+                m.bindTooltip('Amtrak ' + trainNum, { permanent: false, direction: 'bottom', className: 'train-label' });
+                amtrakMarkers[vid] = m;
+                if (showAmtrak) m.addTo(map);
+                created++;
+              }
+              amtrakLastSeen[vid] = now;
+            });
           });
-
+          // Drop markers no longer present / filtered out
+          Object.keys(amtrakMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(amtrakMarkers[vid]);
+              delete amtrakMarkers[vid];
+              delete amtrakTrainInfo[vid];
+              delete amtrakLastSeen[vid];
+            }
+          });
           FetchStats.end(stat, {
             received: Object.keys(data).length,
-            created,
-            updated,
-            skipped,
+            created: created,
+            updated: updated,
+            skipped: skipped,
+            filtered: filtered,
             active: Object.keys(amtrakMarkers).length
           });
-
           updateAmtrakVisibility();
-
         } catch (e) {
           FetchStats.error('Amtrak', e);
-          console.warn('%c[Amtrak] Common causes: 1) Proxy not deployed as "Anyone"  2) Wrong URL (use the /exec Web App URL, not Library URL)  3) Proxy script has an error', 'color:#f39c12');
+          console.warn('%c[Amtrak] Amtraker fetch failed', 'color:#f39c12', e);
         }
       }
-
       async function fetchStations() {
         try {
           const res = await fetch(stopsUrl, { headers: { 'x-api-key': mbtaAPIKey } });
@@ -2468,7 +2611,6 @@
           }
         } catch (e) { console.error("Stations error", e); }
       }
-
       function createStationPopupContent(name, ids, deps, n) {
         let html = '';
         if (!deps.length) html = '<div class="no-departures">No upcoming departures</div>';
@@ -2490,7 +2632,6 @@
         const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
         return `<div class="station-popup"><h3>${name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3>${n>1 ? `<p><strong>Platforms:</strong> ${n}</p>` : ''}${html}<button class="refresh-button" onclick="refreshStationDepartures('${idsStr}', 'mbta')">Refresh</button></div>`;
       }
-
       window.refreshStationDepartures = async function(idsStr, type) {
         const ids = idsStr.split(',');
         const m = stationMarkers[ids[0]];
@@ -2502,24 +2643,20 @@
           m.getPopup().setContent(createStationPopupContent(nm, ids, deps, ids.length));
         }
       };
-
       async function fetchRouteShapes() {
         try {
           const r = await fetch(routesUrl, { headers: { 'x-api-key': mbtaAPIKey } });
           const rd = await r.json();
           rd.data.forEach(rt => routeColors[rt.id] = `#${rt.attributes.color || '800080'}`);
-
           // Ensure CapeFlyer gets a nice distinct color
           if (!routeColors['CapeFlyer']) {
             routeColors['CapeFlyer'] = '#00ccff'; // Cyan for CapeFLYER (requested by user)
           }
-
           // Process all normal commuter rail routes first
           for (const rid of rd.data.map(r => r.id)) {
             let shapes = [];
             let url = `https://api-v3.mbta.com/shapes?filter[route]=${rid}&page[limit]=1000`;
             let more = true;
-
             while (more) {
               try {
                 const sr = await fetch(url, { headers: { 'x-api-key': mbtaAPIKey } });
@@ -2536,7 +2673,6 @@
                 more = false;
               }
             }
-
             const grp = L.layerGroup();
             shapes.forEach(pl => {
               if (pl) {
@@ -2544,18 +2680,15 @@
                 grp.addLayer(L.polyline(pts, { color: routeColors[rid] || '#800080', weight: 3, opacity: 0.7 }));
               }
             });
-
             routeLines[rid] = grp;
             if (showRoutes && shapes.length > 0) {
               grp.addTo(map);
             }
           }
-
           // === CAPEFLYER ROUTE LINE (improved detection) ===
           // Try to find and load CapeFLYER route shapes
           try {
             let capeFlyerRouteId = 'CapeFlyer';
-
             // First, try to discover the actual route ID (in case it's different)
             try {
               const routeListRes = await fetch('https://api-v3.mbta.com/routes?filter[type]=2', { 
@@ -2572,12 +2705,10 @@
                 console.log('%c[CapeFLYER] Discovered route ID:', 'color:#e67e22', capeFlyerRouteId);
               }
             } catch (_) {}
-
             // Now load shapes for the (possibly discovered) CapeFLYER route
             let shapes = [];
             let url = `https://api-v3.mbta.com/shapes?filter[route]=${capeFlyerRouteId}&page[limit]=1000`;
             let more = true;
-
             while (more) {
               const sr = await fetch(url, { headers: { 'x-api-key': mbtaAPIKey } });
               if (!sr.ok) break;
@@ -2588,7 +2719,6 @@
               url = sd.links?.next;
               more = !!url;
             }
-
             if (shapes.length > 0) {
               const grp = L.layerGroup();
               shapes.forEach(pl => {
@@ -2608,7 +2738,6 @@
           }
         } catch (e) { console.error("Routes error", e); }
       }
-
       async function fetchTrainAlerts(tripIds, routeIds) {
         try {
           if (!tripIds.length && !routeIds.length) return {};
@@ -2632,7 +2761,6 @@
           return alerts;
         } catch (e) { return {}; }
       }
-
       async function fetchTrains() {
         try {
           const res = await fetch(vehicleUrl, { headers: { 'x-api-key': mbtaAPIKey } });
@@ -2658,7 +2786,6 @@
                 if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = extractTrackNumber(s.attributes.name, s.attributes.description); }
               }
             }
-
             // === CAPEFLYER DETECTION (robust) ===
             let displayRouteName = rname;
             let isCapeFlyer = false;
@@ -2671,7 +2798,6 @@
               displayRouteName = 'CapeFLYER';
               isCapeFlyer = true;
             }
-
             const k = `${tripId}-${stopId}`;
             const ts = onTime[k] || {};
             const delay = ts.delayMinutes, dstatus = ts.status || "Scheduled", live = ts.isLive || false;
@@ -2755,7 +2881,6 @@
           document.getElementById('last-updated').textContent = `Error: ${e.message}`;
         }
       }
-
       function updateTrainVisibility() {
         Object.values(markers).forEach(m => {
           const vid = Object.keys(markers).find(k => markers[k] === m);
@@ -2768,26 +2893,21 @@
           updateTrainLabelsVisibility();
         }
       }
-
       async function fetchSchedules() {
         try {
           const today = new Date().toISOString().split('T')[0];
           const res = await fetch(`${scheduleUrl}?filter[date]=${today}&filter[route_type]=2&include=trip,stop,route`, { headers: { 'x-api-key': mbtaAPIKey } });
-          
           if (!res.ok) {
             console.warn("Schedules API returned", res.status, "- skipping schedule data for today");
             schedules = {};
             return;
           }
-          
           const data = await res.json();
-          
           if (!data.data || !Array.isArray(data.data)) {
             console.warn("No schedule data available for today");
             schedules = {};
             return;
           }
-          
           schedules = {};
           data.data.forEach(s => {
             const tid = s.relationships?.trip?.data?.id;
@@ -2810,42 +2930,32 @@
           schedules = {};
         }
       }
-
       function createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops = null, track = null, mph = null, hasAlert = false) {
         let txt = status === "INCOMING_AT" ? `Arriving at ${sname}` : status === "STOPPED_AT" ? `Stopped at ${sname}` : `On the way to ${sname}`;
-        
         let statusPillClass = (delay === null || Math.abs(delay) <= 5) ? "status-on-time" 
                             : (delay <= 15) ? "status-delayed" 
                             : "status-very-delayed";
-
         const trk = track || '—';
         const spd = mph !== null ? Math.round(mph) : 0;
-        
         const al = hasAlert 
           ? `<div class="alert-banner"><img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ${trainInfo[vid]?.alertHeader || 'Active Service Alert'}</div>` 
           : '';
-        
         const lastSeenTime = trainLastSeen[vid] 
           ? new Date(trainLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
           : '—';
-
         let currentLat = null, currentLng = null;
         if (vid && trainInfo[vid]) {
           currentLat = trainInfo[vid].lat;
           currentLng = trainInfo[vid].lng;
         }
-        
         const stopsHtml = stops === null 
           ? `<div class="stops-loading"><span class="loading"></span> Loading stops...</div>` 
           : buildStopsHtml(stops, currentLat, currentLng);
-        
         const capeBadge = (trainInfo[vid] && trainInfo[vid].isCapeFlyer) 
           ? `<span class="cape-badge">CapeFLYER</span>` 
           : '';
-        
         const historyBtn = `<button class="popup-action-btn history-btn" onclick="loadHistoryForVehicle('${vid}'); document.getElementById('control-panel').classList.add('open'); document.getElementById('overlay').classList.add('open');">View History</button>`;
         const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshTrainStops('${tid}', '${vid}')">Refresh</button>`;
-
         return `
           <div class="train-popup">
             <div class="train-popup-header">
@@ -2858,13 +2968,11 @@
                 ${hasAlert ? `<img src="https://i.postimg.cc/3xMFGsJX/Alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">` : ''}
               </div>
             </div>
-
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
                 <p class="status-desc" style="margin:0;">${txt}</p>
                 <span class="status-pill ${statusPillClass}">${dstatus}</span>
               </div>
-
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Vehicle</span>
@@ -2883,18 +2991,14 @@
                   <span class="info-value">${spd} mph</span>
                 </div>
               </div>
-
               ${al}
-
               <div class="meta-row">
                 Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
-
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
             </div>
-
             <div class="train-popup-footer">
               ${historyBtn}
               ${refreshBtn}
@@ -2902,37 +3006,30 @@
           </div>
         `;
       }
-
       function scrollStopsListToNextStop(popup) {
         if (!popup || !popup._contentNode) return;
-
         // Always keep the main popup content at the top
         popup._contentNode.scrollTop = 0;
-
         const list = popup._contentNode.querySelector('.stops-list');
         if (!list) return;
-
         // Find the first non-completed stop and scroll *only* the inner stops list
         const nextStopLi = list.querySelector('li:not(.completed)');
         if (nextStopLi) {
           const listRect = list.getBoundingClientRect();
           const liRect = nextStopLi.getBoundingClientRect();
           const offset = liRect.top - listRect.top + list.scrollTop;
-
           list.scrollTo({
             top: offset,
             behavior: 'smooth'
           });
         }
       }
-
       function updateTrainPopupContent(m, vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert) {
         m.getPopup().setContent(createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert));
         m.getPopup().update();
         // Auto-scroll stops list so the next upcoming stop is at the top
         scrollStopsListToNextStop(m.getPopup());
       }
-
       window.refreshTrainStops = async function(tid, vid) {
         const m = markers[vid];
         if (m && m.isPopupOpen()) {
@@ -2948,7 +3045,6 @@
           }
         }
       };
-
       window.openTrainSchedule = async function(tid, rname = '', dest = '') {
         let found = null;
         for (const v in trainInfo) if (trainInfo[v].tripId === tid) { found = v; break; }
@@ -2961,38 +3057,54 @@
         try {
           const stops = await getTripStops(tid);
           const title = rname ? `${rname} to ${dest}` : `Trip ${tid}`;
-          L.popup({ maxWidth: 520, minWidth: 280 }).setLatLng(map.getCenter()).setContent(`<div class="train-popup"><h3>${title}</h3><p><strong>Trip:</strong> ${tid}</p><p><em>(Scheduled — no live vehicle yet)</em></p>${buildStopsHtml(stops)}</div>`).openOn(map);
+          L.popup({ maxWidth: 520, minWidth: 280 }).setLatLng(map.getCenter()).setContent(`
+            <div class="train-popup">
+              <div class="train-popup-header">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${rname || 'Trip'}</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${tid}</span>
+                  <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest || '—'}</span>
+                </div>
+              </div>
+              <div class="train-popup-body">
+                <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                  <p class="status-desc" style="margin:0;">Scheduled — no live vehicle yet</p>
+                  <span class="status-pill status-scheduled">Scheduled</span>
+                </div>
+                <div class="info-grid">
+                  <div class="info-item"><span class="info-label">Trip</span><span class="info-value">${tid}</span></div>
+                  <div class="info-item"><span class="info-label">Route</span><span class="info-value">${rname || '—'}</span></div>
+                </div>
+                <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
+              </div>
+            </div>
+          `).openOn(map);
         } catch (e) { showNotification('Could not load schedule.', 'error'); }
       };
-
       function updateStationVisibility() {
         Object.values(stationMarkers).forEach(m => {
           if (showStations) { if (!map.hasLayer(m)) map.addLayer(m); }
           else { if (map.hasLayer(m)) map.removeLayer(m); }
         });
       }
-
       function toggleRoutes(show) {
         showRoutes = show;
         Object.values(routeLines).forEach(l => { if (show) { if (!map.hasLayer(l)) map.addLayer(l); } else { if (map.hasLayer(l)) map.removeLayer(l); } });
       }
-
       function toggleTrainLabels(show) {
         showTrainLabels = show;
         updateTrainLabelsVisibility();
       }
-
       // ---- Label declutter / overlap clustering ----
       let trainClusterMarkers = [];
       const LABEL_CLUSTER_PX = 48; // pixel distance to treat labels as overlapping
-
       function clearTrainClusters() {
         trainClusterMarkers.forEach(function(m) {
           if (map.hasLayer(m)) map.removeLayer(m);
         });
         trainClusterMarkers = [];
       }
-
       function createClusterIcon(count) {
         return L.divIcon({
           className: '',
@@ -3001,7 +3113,6 @@
           iconAnchor: [14, 14]
         });
       }
-
       // Group markers that are within LABEL_CLUSTER_PX of each other (screen space)
       // Considers all trains that *should* be visible (not only those currently on the map),
       // so icons hidden under a cluster can reappear when the cluster breaks apart.
@@ -3016,15 +3127,12 @@
           const pt = map.latLngToLayerPoint(ll);
           items.push({ vid: vid, marker: m, pt: pt, latlng: ll });
         });
-
         const used = {};
         const groups = [];
-
         for (let i = 0; i < items.length; i++) {
           if (used[items[i].vid]) continue;
           const group = [items[i]];
           used[items[i].vid] = true;
-
           // Simple flood-fill style grouping
           let changed = true;
           while (changed) {
@@ -3047,22 +3155,17 @@
         }
         return groups;
       }
-
       // Controls label visibility based on user toggle, zoom, AND optional overlap clustering
       // When clustering is on, hides individual train icons under a count circle
       function updateTrainLabelsVisibility() {
         const zoom = map.getZoom();
         const shouldShowLabels = showTrainLabels && zoom >= LABEL_MIN_ZOOM;
-
         clearTrainClusters();
-
         // Clear individual labels first
         Object.values(markers).forEach(function(m) {
           if (m.getTooltip()) m.unbindTooltip();
         });
-
         const groups = groupOverlappingTrains();
-
         groups.forEach(function(group) {
           if (group.length === 1 || !showClusters) {
             // Solo train, OR clustering disabled — show every icon + optional label
@@ -3087,100 +3190,82 @@
               if (g.marker.getTooltip()) g.marker.unbindTooltip();
             });
             const center = L.latLng(sumLat / group.length, sumLng / group.length);
-
             const cluster = L.marker(center, {
               icon: createClusterIcon(group.length),
               interactive: true,
               zIndexOffset: 1500
             });
-
             cluster.on('click', function() {
               map.setView(center, Math.min(map.getZoom() + 2, 18));
             });
-
             cluster.bindTooltip(group.length + ' trains — click to zoom', {
               permanent: false,
               direction: 'top',
               className: 'train-label'
             });
-
             cluster.addTo(map);
             trainClusterMarkers.push(cluster);
           }
         });
       }
-
       function resetAllMarkerHighlights() {
         if (highlightedMarker && map.hasLayer(highlightedMarker)) { highlightedMarker.getElement().classList.remove('highlighted-train'); highlightedMarker = null; }
         if (highlightedStation && map.hasLayer(highlightedStation)) { highlightedStation.getElement().classList.remove('highlighted-station'); highlightedStation = null; }
         map.closePopup();
       }
-
       // Search Type Menu Logic
       const searchMenu = document.getElementById('search-type-menu');
       const searchDropdown = document.getElementById('search-type-dropdown');
       const searchOptions = document.querySelectorAll('.search-type-option');
       const searchInput = document.getElementById('header-search-input');
-
       searchMenu.addEventListener('click', (e) => {
         e.stopImmediatePropagation();
         searchDropdown.classList.toggle('show');
       });
-
       searchOptions.forEach(option => {
         option.addEventListener('click', () => {
           searchOptions.forEach(o => o.classList.remove('active'));
           option.classList.add('active');
-          
           searchMode = option.dataset.type;
           searchMenu.textContent = option.textContent + ' ▼';
           searchDropdown.classList.remove('show');
-          
           if (searchMode === 'all') searchInput.placeholder = 'Search trains or stations...';
           else if (searchMode === 'train') searchInput.placeholder = 'Search trains...';
           else searchInput.placeholder = 'Search stations...';
-          
           if (searchInput.value.trim().length >= 2) {
             const event = new Event('input');
             searchInput.dispatchEvent(event);
           }
         });
       });
-
       document.addEventListener('click', () => {
         searchDropdown.classList.remove('show');
       });
-
       function setupSearch() {
         const results = document.getElementById('header-search-results');
-        
         searchInput.addEventListener('input', () => {
           resetAllMarkerHighlights();
           const q = searchInput.value.trim().toLowerCase();
           results.innerHTML = '';
           if (q.length < 2) { results.classList.remove('active'); return; }
           results.classList.add('active');
-          
           if (searchMode === 'all' || searchMode === 'train') {
             searchTrains(q, results);
           }
           if (searchMode === 'all' || searchMode === 'station') {
             searchStations(q, results);
           }
-
           // Show friendly empty state when nothing matched
           if (results.children.length === 0) {
             results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${q}</strong>"</div>`;
           }
         });
-        
         document.addEventListener('click', e => {
           if (!searchInput.contains(e.target) && !results.contains(e.target)) {
             results.classList.remove('active');
           }
         });
       }
-
       function searchTrains(q, container) {
         const res = [];
         for (const vid in trainInfo) {
@@ -3191,20 +3276,16 @@
             res.push({ type: 'train', id: vid, train: t });
           }
         }
-
         if (res.length === 0) return;
-
         const header = document.createElement('div');
         header.className = 'search-section-header';
         header.textContent = `Trains (${res.length})`;
         container.appendChild(header);
-
         res.forEach(r => {
           const t = r.train;
           const delay = t.delayMinutes;
           let statusClass = 'status-on-time';
           let statusText = t.delayStatus || 'On Time';
-
           if (delay === null || delay === undefined) {
             statusClass = 'status-scheduled';
             statusText = 'Scheduled';
@@ -3218,18 +3299,15 @@
             statusClass = 'status-very-delayed';
             statusText = `Delayed ${Math.round(delay)} min`;
           }
-
           const tripNum = extractTrainNumber(t.tripId) || t.tripId || '—';
           const alertIcon = t.hasAlert 
             ? ` <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">` 
             : '';
-
           // Determine next/current stop label from vehicle status
           let stopLabel = 'Next';
           let stopName = t.stopName || '—';
           if (t.status === 'STOPPED_AT') stopLabel = 'At';
           else if (t.status === 'INCOMING_AT') stopLabel = 'Arriving';
-
           const d = document.createElement('div');
           d.className = 'search-result';
           d.innerHTML = `
@@ -3266,7 +3344,6 @@
           container.appendChild(d);
         });
       }
-
       function searchStations(q, container) {
         const res = [];
         for (const skey in stationsByName) {
@@ -3282,14 +3359,11 @@
             });
           }
         }
-
         if (res.length === 0) return;
-
         const header = document.createElement('div');
         header.className = 'search-section-header';
         header.textContent = `Stations (${res.length})`;
         container.appendChild(header);
-
         res.forEach(r => {
           const d = document.createElement('div');
           d.className = 'search-result search-station-result';
@@ -3319,7 +3393,6 @@
           container.appendChild(d);
         });
       }
-
       function updateLabels() {
         Object.values(markers).forEach(m => {
           if (m.getTooltip()) {
@@ -3328,11 +3401,9 @@
           }
         });
       }
-
       document.getElementById('show-stations').addEventListener('change', e => { showStations = e.target.checked; updateStationVisibility(); });
       document.getElementById('show-orm').addEventListener('change', e => { if (e.target.checked) ormOverlay.addTo(map); else map.removeLayer(ormOverlay); });
       document.getElementById('show-routes').addEventListener('change', e => toggleRoutes(e.target.checked));
-
       // Safe localStorage wrapper (prevents crashes in sandboxed iframes / Google Sites)
       const safeStorage = {
         get(key) {
@@ -3350,15 +3421,12 @@
           }
         }
       };
-
       // Load persisted UI preferences (safe)
       // Train labels now default to ON
       const savedShowLabels = safeStorage.get('rr_showLabels');
       const savedShowSpecial = safeStorage.get('rr_showOnlySpecial') === 'true';
-
       // Default to ON unless user explicitly turned it off
       const labelsEnabled = savedShowLabels === null || savedShowLabels === 'true';
-
       if (labelsEnabled) {
         document.getElementById('show-labels').checked = true;
         toggleTrainLabels(true); // This will call updateTrainLabelsVisibility()
@@ -3366,13 +3434,11 @@
         document.getElementById('show-labels').checked = false;
         toggleTrainLabels(false);
       }
-
       if (savedShowSpecial) {
         document.getElementById('show-only-special').checked = true;
         showOnlySpecial = true;
         updateTrainVisibility();
       }
-
       // Clusters default ON unless user explicitly turned them off
       const savedShowClusters = safeStorage.get('rr_showClusters');
       if (savedShowClusters === 'false') {
@@ -3382,7 +3448,6 @@
         document.getElementById('show-clusters').checked = true;
         showClusters = true;
       }
-
       document.getElementById('show-labels').addEventListener('change', e => {
         toggleTrainLabels(e.target.checked);
         safeStorage.set('rr_showLabels', e.target.checked);
@@ -3410,7 +3475,6 @@
         await fetchAmtrakTrains();
         this.disabled = false; this.textContent = 'Refresh Data';
       });
-
       L.Polyline.fromEncoded = function(encoded, options) {
         const points = []; let index = 0, lat = 0, lng = 0;
         while (index < encoded.length) {
@@ -3424,14 +3488,11 @@
         }
         return new L.Polyline(points, options);
       };
-
       window.switchTab = function(i) {
         document.querySelectorAll('.tab-button').forEach((b, idx) => b.classList.toggle('active', idx === i));
         document.querySelectorAll('.tab-content').forEach((c, idx) => c.classList.toggle('active', idx === i));
       };
-
       let currentAlerts = [];
-
       function escapeHtml(str) {
         if (!str) return '';
         return String(str)
@@ -3440,34 +3501,28 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
       }
-
       function renderAlerts() {
         const el = document.getElementById('alerts-list');
         const countEl = document.getElementById('alerts-count');
         if (!el) return;
-
         if (countEl) {
           countEl.textContent = currentAlerts.length
             ? currentAlerts.length + ' active alert' + (currentAlerts.length === 1 ? '' : 's')
             : '';
         }
-
         if (!currentAlerts.length) {
           el.innerHTML = '<div class="alerts-empty"><strong>No active service alerts</strong>All Commuter Rail trains are operating normally.</div>';
           return;
         }
-
         let html = '';
         currentAlerts.forEach(function(a) {
           const badgeClass = a.severity === 'severe' ? 'severe' : (a.severity === 'warning' ? 'warning' : '');
           const badgeLabel = a.severity === 'severe' ? 'Severe' : (a.severity === 'warning' ? 'Warning' : 'Info');
-          
           let meta = '';
           if (a.effect) meta += '<span>' + escapeHtml(a.effect) + '</span>';
           if (a.routes && a.routes.length) {
             a.routes.forEach(function(r) { meta += '<span>' + escapeHtml(r) + '</span>'; });
           }
-
           html += '<div class="alert-card">';
           html += '<div class="alert-card-header">';
           html += '<p class="alert-card-title">' + escapeHtml(a.header) + '</p>';
@@ -3481,7 +3536,6 @@
         });
         el.innerHTML = html;
       }
-
       window.checkServiceAlerts = async function() {
         const el = document.getElementById('alerts-list');
         if (el) el.innerHTML = '<div class="alerts-empty"><strong>Loading alerts...</strong></div>';
@@ -3497,18 +3551,15 @@
               return st <= new Date() && new Date() <= en;
             });
             if (!active) return;
-
             const sev = Number(a.attributes.severity) || 0;
             const effect = (a.attributes.effect || '').toUpperCase();
             let severity = 'info';
             if (sev >= 7 || effect === 'NO_SERVICE' || effect === 'SUSPENSION') severity = 'severe';
             else if (sev >= 4 || effect === 'DETOUR' || effect === 'DELAY' || effect === 'SIGNIFICANT_DELAYS') severity = 'warning';
-
             const routes = [];
             (a.attributes.informed_entity || []).forEach(function(ent) {
               if (ent.route && routes.indexOf(ent.route) === -1) routes.push(ent.route);
             });
-
             currentAlerts.push({
               header: a.attributes.header || a.attributes.short_header || 'Service Alert',
               description: a.attributes.description || '',
@@ -3518,25 +3569,21 @@
               routes: routes
             });
           });
-
           currentAlerts.sort(function(a, b) {
             const order = { severe: 0, warning: 1, info: 2 };
             return (order[a.severity] || 3) - (order[b.severity] || 3);
           });
-
           renderAlerts();
         } catch (e) {
           if (el) el.innerHTML = '<div class="alerts-empty"><strong>Could not load alerts</strong>Please try again.</div>';
         }
       };
-
       // ==================== USER LOCATION ====================
       let userMarker = null;
       let userLat = null;
       let userLng = null;
       let locationWatchId = null;
       let hasCenteredOnUser = false;
-
       function createUserLocationIcon() {
         return L.divIcon({
           className: 'user-location-marker',
@@ -3545,7 +3592,6 @@
           iconAnchor: [9, 9]
         });
       }
-
       function findClosestTrains(lat, lng, limit) {
         limit = limit || 5;
         const results = [];
@@ -3558,7 +3604,6 @@
         results.sort(function(a, b) { return a.distance - b.distance; });
         return results.slice(0, limit);
       }
-
       function renderClosestTrains(lat, lng) {
         const container = document.getElementById('closest-trains');
         if (!container) return;
@@ -3579,7 +3624,6 @@
           html += '</div>';
         });
         container.innerHTML = html;
-
         container.querySelectorAll('.closest-train-item').forEach(function(el) {
           el.addEventListener('click', function() {
             const vid = el.getAttribute('data-vid');
@@ -3597,16 +3641,13 @@
           });
         });
       }
-
       function onUserLocationUpdate(pos) {
         userLat = pos.coords.latitude;
         userLng = pos.coords.longitude;
-
         const statusEl = document.getElementById('location-status');
         const btn = document.getElementById('location-btn');
         if (btn) { btn.disabled = false; btn.textContent = 'Center on Me'; }
         if (statusEl) statusEl.textContent = 'Tracking (' + userLat.toFixed(4) + ', ' + userLng.toFixed(4) + ')';
-
         if (userMarker) {
           userMarker.setLatLng([userLat, userLng]);
         } else {
@@ -3614,16 +3655,13 @@
           userMarker.bindTooltip('You are here', { permanent: false, direction: 'top' });
           userMarker.addTo(map);
         }
-
         // Only auto-center the map on the first successful fix
         if (!hasCenteredOnUser) {
           hasCenteredOnUser = true;
           map.setView([userLat, userLng], 13);
         }
-
         renderClosestTrains(userLat, userLng);
       }
-
       function onUserLocationError(err) {
         const statusEl = document.getElementById('location-status');
         const btn = document.getElementById('location-btn');
@@ -3634,7 +3672,6 @@
         else if (err.code === 3) msg = 'Location request timed out.';
         if (statusEl) statusEl.textContent = msg;
       }
-
       function startLocationWatch() {
         if (!navigator.geolocation) {
           const statusEl = document.getElementById('location-status');
@@ -3643,19 +3680,16 @@
         }
         // Avoid starting multiple watches
         if (locationWatchId !== null) return;
-
         const statusEl = document.getElementById('location-status');
         const btn = document.getElementById('location-btn');
         if (btn) { btn.disabled = true; btn.textContent = 'Locating...'; }
         if (statusEl) statusEl.textContent = 'Requesting location permission...';
-
         locationWatchId = navigator.geolocation.watchPosition(
           onUserLocationUpdate,
           onUserLocationError,
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
         );
       }
-
       // Button: re-center map on user (or restart permission flow if needed)
       window.requestUserLocation = function() {
         if (userLat != null && userLng != null) {
@@ -3671,38 +3705,29 @@
         hasCenteredOnUser = false;
         startLocationWatch();
       };
-
       setInterval(updateLabels, 5000);
-
       // Sequenced initial load so the loading screen can describe each stage
       try {
         setLoadingProgress(25, 'Loading route shapes...');
         await fetchRouteShapes();
-
         setLoadingProgress(40, 'Loading stations...');
         await fetchStations();
-
         setLoadingProgress(55, 'Loading schedules...');
         await fetchSchedules();
-
         setLoadingProgress(70, 'Loading live trains...');
         await fetchTrains();
-
         setLoadingProgress(85, 'Almost there...');
         await fetchAmtrakTrains();
-
         setLoadingProgress(92, 'Loading service alerts...');
         setupSearch();
         await checkServiceAlerts();
       } catch (loadErr) {
         console.error('[Init] Load error', loadErr);
       }
-
       setInterval(fetchTrains, 60000);
       setInterval(fetchAmtrakTrains, 60000);
       setInterval(fetchSchedules, 300000);
       setInterval(checkServiceAlerts, 300000);
-
       // Vehicle alert signup (unchanged)
       const signupBtn = document.getElementById('signup-button');
       const signupStat = document.getElementById('signup-status');
@@ -3728,40 +3753,33 @@
           }
         });
       }
-
       const menuButton = document.getElementById('menu-button');
       const closePanel = document.getElementById('close-panel');
       const controlPanel = document.getElementById('control-panel');
       const overlay = document.getElementById('overlay');
-
       function toggleMenu() {
         const isOpen = controlPanel.classList.contains('open');
         controlPanel.classList.toggle('open');
         overlay.classList.toggle('open');
         menuButton.setAttribute('aria-expanded', !isOpen);
       }
-
       menuButton.addEventListener('click', (e) => {
         e.preventDefault();
         toggleMenu();
       });
-
       closePanel.addEventListener('click', (e) => {
         e.preventDefault();
         toggleMenu();
       });
-
       overlay.addEventListener('click', (e) => {
         e.preventDefault();
         toggleMenu();
       });
-
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && controlPanel.classList.contains('open')) {
           toggleMenu();
         }
       });
-
       window.loadHistoryForVehicle = function(vehicleId) {
         document.getElementById('history-vehicle').value = vehicleId;
         switchTab(3);
@@ -3769,33 +3787,28 @@
           loadHistoricalData();
         }, 150);
       };
-
       const historyApiUrl = 'https://script.google.com/macros/s/AKfycbxQq01qr_-gtYVLeiSmkhkXDW0Tqm0KuivK_r98ZnLuVZ2gmuazJ7Hkgbgo6MKoD0uKbA/exec';
       let historicalData = [];
       let historicalTrips = [];
       let currentVehicleFilter = '';
-
       // Helper: fetch with timeout (improved error messages)
       async function fetchWithTimeout(url, timeoutMs = 180000) { // 3 minutes max - very generous
         const controller = new AbortController();
         const timeout = setTimeout(() => {
           controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'AbortError'));
         }, timeoutMs);
-        
         try {
           const res = await fetch(url, { signal: controller.signal });
           clearTimeout(timeout);
           return res;
         } catch (err) {
           clearTimeout(timeout);
-          
           if (err.name === 'AbortError' || err.message?.includes('aborted')) {
             throw new Error(`Request timed out after ${timeoutMs}ms`);
           }
           throw err;
         }
       }
-
       window.showLastTripsForSpecialUnits = async function() {
         const container = document.getElementById('special-last-trips');
         container.innerHTML = `
@@ -3805,7 +3818,6 @@
             <small style="color:#999;">Google Apps Script can take up to 30 seconds</small>
           </div>
         `;
-
         // After 30 seconds, show a friendly "still waiting" message (but keep loading)
         const slowLoadingTimer = setTimeout(() => {
           container.innerHTML = `
@@ -3816,36 +3828,28 @@
             </div>
           `;
         }, 30000);
-
         console.log('%c[SpecialUnits] Starting load...', 'color:#3498db');
-
         if (!specialIcons || Object.keys(specialIcons).length === 0) {
           console.warn('%c[SpecialUnits] specialIcons is empty!', 'color:#e74c3c');
           container.innerHTML = '<p style="color:#e74c3c; padding:10px;">No special units loaded. Check your Google Sheet connection.</p>';
           return;
         }
-
         const vehicleIds = Object.keys(specialIcons);
         console.log(`%c[SpecialUnits] Found ${vehicleIds.length} special units`, 'color:#3498db');
-
         // Fetch all special units in parallel (much faster than sequential)
         const fetchPromises = vehicleIds.map(async (vid) => {
           try {
             console.log(`%c[SpecialUnits] Fetching history for ${vid}...`, 'color:#9b59b6');
             const url = `${historyApiUrl}?vehicle=${encodeURIComponent(vid)}`;
             const res = await fetchWithTimeout(url); // uses 30s default timeout
-            
             if (!res.ok) {
               throw new Error(`HTTP ${res.status}`);
             }
-            
             const json = await res.json();
-            
             let allData = (json.data || []).filter(point => {
               const pointVid = String(point.vehicle_id || point.vehicle || point.VehicleID || '').trim();
               return pointVid === String(vid).trim();
             });
-
             let latestTrip = null;
             if (allData.length > 0) {
               allData.sort((a, b) => {
@@ -3859,18 +3863,13 @@
                 date: tripDate,
                 route: latest.route_name || latest.route || 'Unknown Route',
                 tripNum: latest.trip_id || latest.trip_number || latest.trip || 'N/A',
-                // Cabcar pairing info from Google Apps Script
-                cabcarPairing: latest.cabcar_pairing || latest.paired_with || latest.rear_cabcar || latest.consist || null
               };
             }
-
             const isLive = !!trainInfo[vid];
             const currentStatus = isLive 
               ? `<img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"> LIVE on map right now` 
               : `Not currently active`;
-
             console.log(`%c[SpecialUnits] ✓ ${vid} done`, 'color:#27ae60');
-            
             return {
               vehicleId: vid,
               name: specialIcons[vid]?.name || vid,
@@ -3889,41 +3888,30 @@
             };
           }
         });
-
         const settledResults = await Promise.allSettled(fetchPromises);
         clearTimeout(slowLoadingTimer); // Stop the "taking a while" message once done
         const results = settledResults.map(r => r.value);
-
         console.log(`%c[SpecialUnits] Finished. ${results.length} results`, 'color:#27ae60');
-
         if (results.length === 0) {
           container.innerHTML = '<p style="color:#e74c3c; padding:10px;">No special units found.</p>';
           return;
         }
-
         let html = '';
         results.forEach(r => {
           const tripInfo = r.lastTrip 
             ? `${r.lastTrip.date.toLocaleDateString()} ${r.lastTrip.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}<br>
                <span style="color:#07093e;">Trip #:</span> ${r.lastTrip.tripNum} &nbsp;•&nbsp; <span style="color:#07093e;">Route:</span> ${r.lastTrip.route}`
             : `<span style="color:#999;">No historical data</span>`;
-
-          const pairingInfo = r.lastTrip?.cabcarPairing 
-            ? `<br><span style="color:#07093e;">Cabcar Pairing:</span> ${r.lastTrip.cabcarPairing}`
-            : '';
-
           html += `
             <div class="special-last-trip" style="${r.isLive ? 'border-left: 4px solid #27ae60;' : ''}">
               <strong>${r.name}</strong><br>
-              <span style="color:#07093e;">Last Trip:</span> ${tripInfo}${pairingInfo}<br>
+              <span style="color:#07093e;">Last Trip:</span> ${tripInfo}<br>
               <span style="color:#07093e;">Current Status:</span> ${r.currentStatus}
             </div>
           `;
         });
-
         container.innerHTML = html;
       };
-
       window.loadHistoricalData = async function() {
         const statusEl = document.getElementById('history-status');
         const vehicleInput = document.getElementById('history-vehicle').value.trim();
@@ -3931,38 +3919,29 @@
         const fromDateStr = document.getElementById('history-from-date').value;
         const toDateStr = document.getElementById('history-to-date').value;
         const resultsEl = document.getElementById('history-results');
-
         historicalData = [];
         historicalTrips = [];
         resultsEl.innerHTML = '';
-
         currentVehicleFilter = vehicleInput;
-
         let url = historyApiUrl;
         if (vehicleInput) url += (url.includes('?') ? '&' : '?') + `vehicle=${encodeURIComponent(vehicleInput)}`;
-
         let statusText = 'Loading historical trips';
         if (vehicleInput) statusText += ` for Vehicle <strong>${vehicleInput}</strong>`;
         if (routeSelect) statusText += `${vehicleInput ? ' and' : ' for'} Route <strong>${routeSelect}</strong>`;
         if (fromDateStr || toDateStr) statusText += ' with date filter';
         statusEl.innerHTML = statusText + '...';
-
         try {
           const res = await fetch(url);
           const json = await res.json();
           let allData = json.data || [];
-
           // Filter by Vehicle ID, Route, and Date Range
           const fromDate = fromDateStr ? new Date(fromDateStr) : null;
           const toDate = toDateStr ? new Date(toDateStr + 'T23:59:59') : null; // include full end day
-
           historicalData = allData.filter(point => {
             const vidMatch = !vehicleInput || 
               String(point.vehicle_id || '').trim() === String(vehicleInput).trim();
-            
             const routeName = (point.route_name || point.route || '').toString().toLowerCase();
             const routeMatch = !routeSelect || routeName.includes(routeSelect);
-
             // Date filtering
             let dateMatch = true;
             if (fromDate || toDate) {
@@ -3975,10 +3954,8 @@
                 dateMatch = false; // no date info → exclude when filtering by date
               }
             }
-
             return vidMatch && routeMatch && dateMatch;
           });
-
           if (historicalData.length === 0) {
             let msg = 'No historical data found';
             if (vehicleInput) msg += ` for Vehicle <strong>${vehicleInput}</strong>`;
@@ -3988,13 +3965,11 @@
             statusEl.innerHTML = '<span style="color:#e74c3c;">No matching data</span>';
             return;
           }
-
           historicalData.sort((a, b) => {
             const ta = new Date(a.timestamp || a.time || a.last_updated || a.date || 0);
             const tb = new Date(b.timestamp || b.time || b.last_updated || b.date || 0);
             return ta - tb;
           });
-
           historicalTrips = [];
           let currentTrip = [];
           let lastTime = null;
@@ -4010,7 +3985,6 @@
             lastTime = curr;
           });
           if (currentTrip.length > 0) historicalTrips.push(currentTrip);
-
           let html = `<p><strong>${historicalTrips.length} previous trips found</strong> (${historicalData.length} positions)`;
           if (vehicleInput || routeSelect || fromDateStr || toDateStr) {
             html += ` <span style="color:#27ae60; font-weight:bold;">— `;
@@ -4022,15 +3996,12 @@
             html += `</span>`;
           }
           html += `</p><div style="margin-top:10px;">`;
-
           historicalTrips.forEach((trip, idx) => {
             const start = new Date(trip[0].timestamp || trip[0].time || trip[0].last_updated || trip[0].date);
             const end = new Date(trip[trip.length - 1].timestamp || trip[trip.length - 1].time || trip[trip.length - 1].last_updated || trip[trip.length - 1].date);
             const route = trip[0].route_name || trip[0].route || 'Unknown Route';
             const dur = Math.round((end - start) / 60000);
-            
             const tripNum = trip[0].trip_id || trip[0].trip_number || trip[0].trip || 'N/A';
-            
             html += `
               <div style="border:1px solid #ddd; padding:10px; margin-bottom:8px; border-radius:0; background:#f8f9fa; font-size:12px;">
                 <strong>Trip ${idx + 1}</strong> &nbsp;|&nbsp; <span style="color:#07093e; font-weight:700;">Trip #: ${tripNum}</span> &nbsp;|&nbsp; ${start.toLocaleDateString()} ${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} → ${end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}<br>
@@ -4043,18 +4014,14 @@
           });
           html += '</div>';
           resultsEl.innerHTML = html;
-
           statusEl.innerHTML = `<span style="color:#27ae60;">Loaded ${historicalTrips.length} trips — ${currentVehicleFilter ? `ONLY Vehicle ${currentVehicleFilter}` : 'all vehicles'}</span>`;
-
         } catch (e) {
           statusEl.innerHTML = `<span style="color:#e74c3c;">Error: ${e.message}</span>`;
         }
       };
-
       window.showTripSchedule = function(tripIndex) {
         const trip = historicalTrips[tripIndex];
         if (!trip) return;
-
         const uniqueStops = [];
         const seen = new Set();
         trip.forEach(point => {
@@ -4064,18 +4031,14 @@
             uniqueStops.push(point);
           }
         });
-
         const tripNum = trip[0].trip_id || trip[0].trip_number || trip[0].trip || 'N/A';
-
         let html = `<h4 style="margin-bottom:4px; font-size:13px;">Trip ${tripIndex + 1} &nbsp;|&nbsp; Trip #: <strong style="color:#07093e;">${tripNum}</strong></h4>`;
         if (currentVehicleFilter) html += `<p style="font-size:10px; color:#27ae60; margin-bottom:4px;">Vehicle ID: <strong>${currentVehicleFilter}</strong></p>`;
         html += '<ul class="stops-list" style="max-height:320px; overflow-y:auto; border:1px solid #eee; border-radius:0; padding:1px 3px;">';
-        
         uniqueStops.forEach((point, i) => {
           const tStr = point.timestamp || point.time || point.last_updated || point.date;
           const actualTime = tStr ? new Date(tStr).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
           const loc = point.stop_name || point.station || `Position ${i+1}`;
-          
           html += `
             <li style="padding:2px 4px; font-size:10.5px; line-height:1.1;">
               <span class="stop-time" style="font-size:10.5px;">${actualTime}</span>
@@ -4083,17 +4046,13 @@
             </li>
           `;
         });
-        
         html += '</ul>';
         html += `<button class="refresh-button" onclick="document.getElementById('history-results').innerHTML = '';" style="margin-top:6px; padding:4px; font-size:11px;">Close</button>`;
         document.getElementById('history-results').innerHTML = html;
       };
-
-      console.log('%cRailroadRadar v4 ready', 'color:#07093e');
-
+      console.log('%cRailroadRadar v4.5 ready (NEC icon by position)', 'color:#07093e');
       // Everything critical is loaded — hide the loading screen
       hideLoadingScreen();
-
       // Offline / online detection
       function updateOnlineStatus() {
         const banner = document.getElementById('offline-banner');
@@ -4113,491 +4072,11 @@
       });
       window.addEventListener('offline', updateOnlineStatus);
       updateOnlineStatus();
-
       // Ask for location as soon as the map is ready; track movement continuously
       startLocationWatch();
-
     });
+    // Legacy email/password/2FA/account-settings code removed — Google Sign up / Log in only.
 
-    // No auth modals / functions
-
-    async function loginUserFromModal() {
-      console.log('%c[Login] Login button clicked - starting 2FA flow', 'color:#3498db');
-      
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value.trim();
-      
-      if (!email || !password) {
-        showNotification('Please enter email and password', 'error');
-        return;
-      }
-
-      if (!auth) {
-        showNotification('Firebase is still loading. Please wait a moment and try again.', 'error');
-        return;
-      }
-
-      // Store credentials for after 2FA verification
-      pendingLoginEmail = email;
-      pendingLoginPassword = password;
-
-      // Send verification code via email FIRST (before any sign-in)
-      const emailSent = await sendEmailVerificationCode(email);
-      
-      if (emailSent) {
-        // Show 2FA modal - user is NOT signed in yet
-        showEmailCodeModal(email);
-      } else {
-        // Email failed - clear pending credentials
-        clearPendingLoginState();
-      }
-    }
-
-    async function forgotPassword() {
-      const email = document.getElementById('login-email').value.trim();
-      
-      console.log('%c[ForgotPassword] Function called with email:', 'color:#3498db', email);
-      
-      if (!email) {
-        console.warn('%c[ForgotPassword] No email entered', 'color:#e74c3c');
-        showNotification('Please enter your email address first.', 'error');
-        return;
-      }
-      
-      if (!auth) {
-        console.error('%c[ForgotPassword] Firebase auth not ready', 'color:#e74c3c');
-        showNotification('Firebase is still loading. Please try again.', 'error');
-        return;
-      }
-
-      try {
-        console.log('%c[ForgotPassword] Sending password reset email to:', 'color:#3498db', email);
-        await auth.sendPasswordResetEmail(email);
-        console.log('%c[ForgotPassword] ✅ Password reset email sent successfully!', 'color:#27ae60');
-        showNotification('Password reset email sent! Check your inbox (and spam folder).');
-        hideAuthModal();
-      } catch (error) {
-        console.error('%c[ForgotPassword] ❌ Error sending reset email:', 'color:#e74c3c', error);
-        
-        if (error.code === 'auth/user-not-found') {
-          showNotification('No account found with that email address.', 'error');
-        } else if (error.code === 'auth/invalid-email') {
-          showNotification('Please enter a valid email address.', 'error');
-        } else {
-          showNotification('Failed to send reset email: ' + error.message, 'error');
-        }
-      }
-    }
-
-    // ==================== EMAIL VERIFICATION CODE (2FA) ====================
-    let pendingVerificationEmail = null;
-    let pendingVerificationCode = null;
-
-    async function sendTestEmail() {
-      if (!currentUser || !currentUser.email) {
-        showNotification('You must be logged in to test email.', 'error');
-        return;
-      }
-
-      if (!emailjsInitialized || !window.emailjs) {
-        showNotification('EmailJS is not initialized.', 'error');
-        return;
-      }
-
-      try {
-        await emailjs.send(
-          "service_3ui902p",
-          "template_64go7ci",
-          {
-            to_email: currentUser.email,
-            verification_code: "123456",
-            app_name: "RailroadRadar TEST"
-          }
-        );
-        showNotification(`Test email sent to ${currentUser.email}! Check your inbox.`, 'success');
-      } catch (error) {
-        console.error('%c[TestEmail] Failed:', 'color:#e74c3c', error);
-        showNotification('Test email failed: ' + (error.text || error.message), 'error');
-      }
-    }
-
-    async function sendEmailVerificationCode(email) {
-      console.log('%c[Email2FA] sendEmailVerificationCode called for:', 'color:#9b59b6', email);
-      
-      if (!email) {
-        showNotification('No email provided for 2FA.', 'error');
-        return false;
-      }
-
-      // Generate 6-digit code (ONLY sent via email - never shown in console)
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      pendingVerificationEmail = email;
-      pendingVerificationCode = code;
-
-      // Store in Firestore for verification
-      if (db) {
-        try {
-          const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-          await db.collection('emailVerificationCodes').doc(email).set({
-            code: code,
-            expiresAt: expiresAt,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        } catch (e) {
-          console.warn('%c[Email2FA] Could not save to Firestore', 'color:#f39c12');
-        }
-      }
-
-      // Send ONLY via EmailJS - no console fallback
-      if (!emailjsInitialized || !window.emailjs) {
-        showNotification('Email service not available. Please try again later.', 'error');
-        return false;
-      }
-
-      try {
-        await emailjs.send(
-          "service_3ui902p",
-          "template_64go7ci",
-          {
-            to_email: email,
-            verification_code: code,
-            app_name: "RailroadRadar"
-          }
-        );
-        console.log('%c[Email2FA] ✅ Verification code sent via EmailJS', 'color:#27ae60');
-        showNotification(`Verification code sent to ${email}`, 'success');
-        return true;
-      } catch (emailError) {
-        console.error('%c[Email2FA] EmailJS Error Details:', 'color:#e74c3c', emailError);
-        
-        // Provide helpful error message based on common issues
-        let errorMsg = 'Failed to send verification code.';
-        
-        if (emailError.status === 400) {
-          errorMsg = 'EmailJS template error. Check that your template has variables: {{to_email}}, {{verification_code}}, {{app_name}}';
-        } else if (emailError.status === 403) {
-          errorMsg = 'EmailJS access denied. Check your Service ID and make sure Gmail is connected.';
-        } else if (emailError.text && emailError.text.includes('template')) {
-          errorMsg = 'Template not found. Verify Template ID: template_64go7ci';
-        }
-        
-        showNotification(errorMsg, 'error');
-        return false;
-      }
-
-      return true;
-    }
-
-    async function verifyEmailCode(enteredCode) {
-      if (!pendingVerificationEmail || !pendingVerificationCode) {
-        showNotification('No pending verification. Please request a new code.', 'error');
-        return false;
-      }
-
-      if (enteredCode === pendingVerificationCode) {
-        console.log('%c[Email2FA] ✅ Code verified successfully! Completing login...', 'color:#27ae60');
-        
-        const email = pendingVerificationEmail;
-        
-        // Clear pending verification state
-        pendingVerificationEmail = null;
-        pendingVerificationCode = null;
-        
-        try {
-          await db.collection('emailVerificationCodes').doc(email).delete();
-        } catch (e) {}
-        
-        // NOW complete the login (only after correct code)
-        try {
-          if (pendingLoginPassword) {
-            await auth.signInWithEmailAndPassword(email, pendingLoginPassword);
-          } else {
-            // Google Sign-In path — popup already authenticated the user
-            console.log('%c[Email2FA] Google Sign-In code verified', 'color:#4285f4');
-          }
-          
-          clearPendingLoginState();
-          
-          document.getElementById('email-code-modal').style.display = 'none';
-          hideAuthModal();
-          showNotification('Logged in successfully!');
-          return true;
-        } catch (error) {
-          console.error('%c[Email2FA] Sign-in failed after code verification:', 'color:#e74c3c', error);
-          showNotification('Login failed. Please try again.', 'error');
-          clearPendingLoginState();
-          return false;
-        }
-      } else {
-        console.log('%c[Email2FA] ❌ Invalid code entered', 'color:#e74c3c');
-        return false;
-      }
-    }
-
-    function showEmailCodeModal(email) {
-      document.getElementById('email-code-modal').style.display = 'flex';
-      document.getElementById('email-code-input').value = '';
-      document.getElementById('email-code-error').textContent = '';
-      document.getElementById('email-code-input').focus();
-    }
-
-    function hideEmailCodeModal() {
-      document.getElementById('email-code-modal').style.display = 'none';
-      // If user cancels verification, clear pending login state
-      clearPendingLoginState();
-    }
-
-    async function submitEmailCode() {
-      const code = document.getElementById('email-code-input').value.trim();
-      const errorDiv = document.getElementById('email-code-error');
-      
-      if (!code || code.length !== 6) {
-        errorDiv.textContent = 'Please enter a valid 6-digit code';
-        return;
-      }
-
-      const isValid = await verifyEmailCode(code);
-      
-      if (isValid) {
-        document.getElementById('email-code-modal').style.display = 'none';
-        hideAuthModal();
-        showNotification('Logged in successfully!');
-      } else {
-        errorDiv.textContent = 'Invalid code. Please try again.';
-      }
-    }
-
-    async function resendEmailCode() {
-      if (!pendingVerificationEmail) {
-        showNotification('No email to resend to.', 'error');
-        return;
-      }
-      
-      document.getElementById('email-code-modal').style.display = 'none';
-      await sendEmailVerificationCode(pendingVerificationEmail);
-      showEmailCodeModal(pendingVerificationEmail);
-    }
-
-    async function signupUserFromModal() {
-      const email = document.getElementById('signup-email').value.trim();
-      const password = document.getElementById('signup-password').value.trim();
-      
-      if (!email || !password) {
-        showNotification('Please enter email and password', 'error');
-        return;
-      }
-      if (password.length < 6) {
-        showNotification('Password must be at least 6 characters', 'error');
-        return;
-      }
-
-      try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        await db.collection('users').doc(userCredential.user.uid).set({
-          email: email,
-          favorites: [],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        hideAuthModal();
-        showNotification('Account created! You are now logged in.');
-      } catch (error) {
-        showNotification('Error creating account: ' + error.message, 'error');
-      }
-    }
-
-    // Update header when auth state changes
-    function updateHeaderAuthUI(user) {
-      const userDiv = document.getElementById('header-user');
-      const emailSpan = document.getElementById('header-user-email');
-
-      if (user) {
-        userDiv.style.display = 'flex';
-        emailSpan.textContent = user.email.split('@')[0];
-      } else {
-        userDiv.style.display = 'none';
-      }
-    }
-
-    // Make sure updateAuthUI also updates the header (safe wrapper)
-    const originalUpdateAuthUI = window.updateAuthUI || function() {};
-    window.updateAuthUI = function() {
-      try {
-        originalUpdateAuthUI();
-      } catch (e) {}
-      try {
-        if (currentUser) {
-          updateHeaderAuthUI(currentUser);
-        } else {
-          updateHeaderAuthUI(null);
-        }
-      } catch (e) {
-        console.warn('Header auth UI update failed', e);
-      }
-    };
-
-    // ==================== ACCOUNT SETTINGS ====================
-    function showNotification(message, type = 'success') {
-      console.log(`[Notification] ${type}: ${message}`);
-      // Toast removed with account features
-    }
-
-    // ==================== 2FA / MFA SUPPORT ====================
-    function requireVerification() {
-      if (!currentUser) return false;
-      
-      const hasEmailVerified = currentUser.emailVerified;
-      
-      if (!hasEmailVerified) {
-        showNotification('You must verify your email before making account changes.', 'error');
-        
-        // Automatically send verification email
-        currentUser.sendEmailVerification().then(() => {
-          showNotification('Verification email sent! Please check your inbox and verify before making changes.', 'success');
-        }).catch(() => {
-          showNotification('Could not send verification email.', 'error');
-        });
-        return false;
-      }
-      return true;
-    }
-
-    function showMfaModal(resolver) {
-      mfaResolver = resolver;
-      document.getElementById('mfa-modal').style.display = 'flex';
-      document.getElementById('mfa-code').value = '';
-      document.getElementById('mfa-error').textContent = '';
-      document.getElementById('mfa-code').focus();
-    }
-
-    function cancelMfa() {
-      document.getElementById('mfa-modal').style.display = 'none';
-      mfaResolver = null;
-      showNotification('2FA verification cancelled.', 'error');
-    }
-
-    async function verifyMfaCode() {
-      const code = document.getElementById('mfa-code').value.trim();
-      const errorDiv = document.getElementById('mfa-error');
-      
-      if (!code || code.length !== 6) {
-        errorDiv.textContent = 'Please enter a valid 6-digit code';
-        return;
-      }
-
-      try {
-        const cred = firebase.auth.PhoneAuthProvider.credential(
-          mfaResolver.hints[0].verificationId || mfaResolver.hints[0].uid,
-          code
-        );
-        
-        const multiFactorAssertion = firebase.auth.PhoneMultiFactorGenerator.assertion(cred);
-        await mfaResolver.resolveSignIn(multiFactorAssertion);
-        
-        document.getElementById('mfa-modal').style.display = 'none';
-        showNotification('2FA verified successfully!');
-        mfaResolver = null;
-      } catch (error) {
-        errorDiv.textContent = 'Invalid code. Please try again.';
-        console.error('MFA verification failed:', error);
-      }
-    }
-
-    function showAccountSettings() {
-      if (!currentUser) {
-        showNotification('Please log in first', 'error');
-        return;
-      }
-      document.getElementById('account-settings-modal').style.display = 'flex';
-      document.getElementById('settings-current-email').textContent = currentUser.email;
-      // Clear inputs
-      document.getElementById('settings-new-email').value = '';
-      document.getElementById('settings-new-password').value = '';
-    }
-
-    function hideAccountSettings() {
-      document.getElementById('account-settings-modal').style.display = 'none';
-    }
-
-    async function updateUserEmail() {
-      if (!requireVerification()) return;
-      
-      const newEmail = document.getElementById('settings-new-email').value.trim();
-      if (!newEmail) {
-        showNotification('Please enter a new email address', 'error');
-        return;
-      }
-      if (!currentUser) return;
-
-      try {
-        await currentUser.updateEmail(newEmail);
-        showNotification('Email updated successfully!');
-        document.getElementById('settings-current-email').textContent = newEmail;
-        document.getElementById('header-user-email').textContent = newEmail.split('@')[0];
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          showNotification('For security, please log out and log back in before changing your email.', 'error');
-        } else if (error.code === 'auth/multi-factor-auth-required') {
-          const resolver = error.resolver;
-          showMfaModal(resolver);
-        } else {
-          showNotification('Failed to update email: ' + error.message, 'error');
-        }
-      }
-    }
-
-    async function updateUserPassword() {
-      if (!requireVerification()) return;
-      
-      const newPassword = document.getElementById('settings-new-password').value.trim();
-      if (!newPassword || newPassword.length < 6) {
-        showNotification('Password must be at least 6 characters', 'error');
-        return;
-      }
-      if (!currentUser) return;
-
-      try {
-        await currentUser.updatePassword(newPassword);
-        showNotification('Password updated successfully!');
-        document.getElementById('settings-new-password').value = '';
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          showNotification('For security, please log out and log back in before changing your password.', 'error');
-        } else if (error.code === 'auth/multi-factor-auth-required') {
-          const resolver = error.resolver;
-          showMfaModal(resolver);
-        } else {
-          showNotification('Failed to update password: ' + error.message, 'error');
-        }
-      }
-    }
-
-    async function deleteUserAccount() {
-      if (!currentUser) return;
-      if (!requireVerification()) return;
-      
-      const confirmDelete = confirm('Are you sure you want to permanently delete your account? This cannot be undone.');
-      if (!confirmDelete) return;
-
-      try {
-        // Delete user document from Firestore first
-        await db.collection('users').doc(currentUser.uid).delete();
-        
-        // Delete the Firebase Auth user
-        await currentUser.delete();
-        
-        showNotification('Account deleted successfully.');
-        hideAccountSettings();
-      } catch (error) {
-        if (error.code === 'auth/requires-recent-login') {
-          showNotification('For security, please log out and log back in before deleting your account.', 'error');
-        } else if (error.code === 'auth/multi-factor-auth-required') {
-          const resolver = error.resolver;
-          showMfaModal(resolver);
-        } else {
-          showNotification('Failed to delete account: ' + error.message, 'error');
-        }
-      }
-    }
   </script>
   <script>
     try {
