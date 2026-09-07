@@ -62,7 +62,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      max-width: calc(100vw - 180px);
+      max-width: calc(100vw - 260px);
       z-index: 10000;
     }
     .header-search-container {
@@ -255,8 +255,8 @@
       align-items: center;
       justify-content: center;
       padding: 12px;
-      margin-left: auto;
-      margin-right: 8px;
+      margin-left: 0;
+      margin-right: 0;
       width: 48px;
       height: 48px;
       border-radius: 50%;
@@ -1317,12 +1317,22 @@
      font-size: 12px;
    }
 
-    /* Header Google auth */
+    /* Header right cluster: auth + menu */
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10001;
+    }
     .header-auth {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-shrink: 0;
+      position: relative;
     }
     .header-auth-btn {
       background: #fff;
@@ -1336,25 +1346,72 @@
       white-space: nowrap;
     }
     .header-auth-btn:hover { background: #e8eaf0; }
-    .header-auth-btn.sign-out {
+    .header-auth-btn.settings {
       background: transparent;
       color: #fff;
       border: 1px solid rgba(255,255,255,0.55);
     }
-    .header-auth-btn.sign-out:hover { background: rgba(255,255,255,0.12); }
-    .header-auth-btn.delete-account {
-      background: transparent;
-      color: #ffb4b4;
-      border: 1px solid rgba(231,76,60,0.75);
+    .header-auth-btn.settings:hover { background: rgba(255,255,255,0.12); }
+    .header-auth-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
     }
-    .header-auth-btn.delete-account:hover { background: rgba(231,76,60,0.22); color: #fff; }
-    .header-user-label {
+    .header-user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.85);
+      background: #2c3e6b;
+      flex-shrink: 0;
+    }
+    .header-user-avatar.placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .header-account-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 200px;
+      background: #fff;
+      color: #07093e;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+      border: 1px solid #e5e7eb;
+      z-index: 10002;
+      padding: 8px 0;
+    }
+    .header-account-email {
+      padding: 8px 12px 10px;
       font-size: 12px;
-      max-width: 140px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      color: #555;
+      border-bottom: 1px solid #eee;
+      word-break: break-all;
+    }
+    .header-account-menu .header-auth-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      color: #07093e;
+      border: none;
+      border-radius: 0;
+      padding: 10px 12px;
+    }
+    .header-account-menu .header-auth-btn:hover { background: #f1f2f6; }
+    .header-account-menu .header-auth-btn.delete-account {
+      color: #c0392b;
+    }
+    .header-account-menu .header-auth-btn.delete-account:hover {
+      background: #fdecea;
+      color: #c0392b;
     }
   </style>
 </head>
@@ -1373,20 +1430,28 @@
         </div>
         <div id="header-search-results" class="header-search-results"></div>
       </div>
+    </div>
+    <div class="header-right">
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign up / Log in</button>
-        <span class="header-user-label" id="header-user-label" style="display:none;"></span>
-        <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" style="display:none;">Sign out</button>
-        <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" style="display:none;">Delete account</button>
+        <div class="header-auth-user" id="header-auth-user" style="display:none;">
+          <img class="header-user-avatar" id="header-user-avatar" alt="Account" width="34" height="34" referrerpolicy="no-referrer">
+          <button type="button" class="header-auth-btn settings" id="btn-account-settings" aria-haspopup="true" aria-expanded="false">Account settings</button>
+          <div class="header-account-menu" id="header-account-menu" style="display:none;" role="menu">
+            <div class="header-account-email" id="header-account-email"></div>
+            <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
+            <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" role="menuitem">Delete account</button>
+          </div>
+        </div>
       </div>
+      <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false" >
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
     </div>
-    <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false" >
-      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
-    </button>
   </div>
   <div id="offline-banner" class="offline-banner">
     You're offline — live train data unavailable.
@@ -1594,26 +1659,56 @@
       showNotification._t = setTimeout(function() { el.style.display = 'none'; }, 4000);
     }
 
+    function closeAccountMenu() {
+      const menu = document.getElementById('header-account-menu');
+      const btn = document.getElementById('btn-account-settings');
+      if (menu) menu.style.display = 'none';
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    function toggleAccountMenu(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('header-account-menu');
+      const btn = document.getElementById('btn-account-settings');
+      if (!menu || !btn) return;
+      const currentlyHidden = menu.style.display !== 'block';
+      menu.style.display = currentlyHidden ? 'block' : 'none';
+      btn.setAttribute('aria-expanded', currentlyHidden ? 'true' : 'false');
+    }
     function updateHeaderAuthUI(user) {
       const btnIn = document.getElementById('btn-google-signin');
-      const btnOut = document.getElementById('btn-google-signout');
-      const btnDel = document.getElementById('btn-delete-account');
-      const label = document.getElementById('header-user-label');
-      if (!btnIn || !btnOut || !label) return;
+      const userWrap = document.getElementById('header-auth-user');
+      const avatar = document.getElementById('header-user-avatar');
+      const emailEl = document.getElementById('header-account-email');
+      if (!btnIn || !userWrap) return;
       if (user) {
         btnIn.style.display = 'none';
-        btnOut.style.display = '';
-        if (btnDel) btnDel.style.display = '';
-        label.style.display = '';
-        label.textContent = user.displayName || user.email || 'Signed in';
-        label.title = user.email || '';
+        userWrap.style.display = 'flex';
+        if (avatar) {
+          const photo = user.photoURL || '';
+          if (photo) {
+            avatar.src = photo;
+            avatar.alt = user.displayName || user.email || 'Account';
+            avatar.style.display = '';
+          } else {
+            const initial = String(user.displayName || user.email || '?').trim().charAt(0).toUpperCase() || '?';
+            // fallback: data URI SVG with initial
+            avatar.src = 'data:image/svg+xml,' + encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34"><rect width="34" height="34" rx="17" fill="#2c3e6b"/><text x="17" y="22" text-anchor="middle" fill="#fff" font-size="14" font-family="Segoe UI,sans-serif" font-weight="700">' + initial + '</text></svg>'
+            );
+            avatar.alt = user.displayName || user.email || 'Account';
+          }
+        }
+        if (emailEl) {
+          emailEl.textContent = user.displayName
+            ? (user.displayName + (user.email ? ' · ' + user.email : ''))
+            : (user.email || 'Signed in');
+        }
       } else {
         btnIn.style.display = '';
-        btnOut.style.display = 'none';
-        if (btnDel) btnDel.style.display = 'none';
-        label.style.display = 'none';
-        label.textContent = '';
-        label.title = '';
+        userWrap.style.display = 'none';
+        closeAccountMenu();
+        if (emailEl) emailEl.textContent = '';
+        if (avatar) { avatar.removeAttribute('src'); avatar.alt = 'Account'; }
       }
     }
 
@@ -1676,9 +1771,16 @@
       const btnIn = document.getElementById('btn-google-signin');
       const btnOut = document.getElementById('btn-google-signout');
       const btnDel = document.getElementById('btn-delete-account');
+      const btnSettings = document.getElementById('btn-account-settings');
       if (btnIn) btnIn.addEventListener('click', signInWithGoogle);
-      if (btnOut) btnOut.addEventListener('click', signOutGoogle);
-      if (btnDel) btnDel.addEventListener('click', deleteAccount);
+      if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
+      if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
+      if (btnSettings) btnSettings.addEventListener('click', toggleAccountMenu);
+      document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('header-auth-user');
+        if (!wrap || wrap.style.display === 'none') return;
+        if (!wrap.contains(e.target)) closeAccountMenu();
+      });
       if (auth) {
         auth.onAuthStateChanged(function(user) {
           currentUser = user;
