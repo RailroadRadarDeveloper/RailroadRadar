@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -1705,6 +1704,13 @@
      vertical-align: middle;
    }
    .rr-badge.locked { background: #2c3e6b; }
+   .rr-badge.admin { background: #07093e; }
+   .rr-badge.verified { background: #27ae60; }
+   .rr-badge.banned { background: #c0392b; }
+   .rr-admin-acct-photo {
+     width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+     vertical-align: middle; background: #e8ecf3;
+   }
 
     .admin-badge-icon {
       width: 1.15em;
@@ -1715,6 +1721,14 @@
       display: none;
     }
     .admin-badge-icon.is-visible { display: inline-block; }
+    .loco-report-last .admin-badge-icon.is-visible,
+    .loco-report-text .admin-badge-icon.is-visible,
+    .rr-admin-table .admin-badge-icon.is-visible {
+      width: 15px;
+      height: 15px;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
     #account-open-admin { display: none !important; }
     #account-open-admin.is-visible { display: inline-block !important; }
     .rr-profile-name-row {
@@ -2025,7 +2039,7 @@
         color: #fff;
         gap: 0;
       }
-      #btn-account-settings:not(.is-admin) {
+      #btn-account-settings:not(.is-admin):not(.is-verified) {
         display: none !important;
       }
       #btn-account-settings .admin-badge-icon.is-visible {
@@ -2145,6 +2159,7 @@
           <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-light" value="light" checked> Light</label>
         </div>
         <div><input type="checkbox" id="show-routes" checked><label for="show-routes">Show Routes</label></div>
+        <button type="button" id="btn-fullscreen" class="location-btn" style="margin-top:10px; width:100%;">Full screen</button>
       </div>
       <div class="toggle-section">
         <h3>Markers</h3>
@@ -2306,6 +2321,8 @@
           <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
         </div>
         <div class="rr-modal-error" id="admin-dashboard-error"></div>
 
@@ -2421,6 +2438,51 @@
             </div>
             <p class="rr-modal-hint" id="admin-roster-status"></p>
           </div>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-verified" data-admin-pane="verified">
+          <div class="rr-lightbox-section">
+            <h3>Mark verified reporter</h3>
+            <label for="admin-verified-email">Email</label>
+            <input type="email" id="admin-verified-email" placeholder="user@example.com" autocomplete="off">
+            <label for="admin-verified-uid">UID (optional if email matches a recent report)</label>
+            <input type="text" id="admin-verified-uid" placeholder="Firebase uid" autocomplete="off">
+            <div class="rr-lightbox-actions" style="margin-top:10px;">
+              <button type="button" class="rr-btn" id="admin-verified-submit">Verify reporter</button>
+            </div>
+          </div>
+          <div class="rr-lightbox-section">
+            <h3>Verified reporters</h3>
+            <button type="button" class="rr-btn secondary" id="admin-verified-refresh">Refresh</button>
+            <div id="admin-verified-list" style="margin-top:10px;"></div>
+            <p class="rr-modal-hint" id="admin-verified-status"></p>
+          </div>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-accounts" data-admin-pane="accounts">
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-accounts-search" placeholder="Filter by email, name, uid…" aria-label="Filter accounts" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-accounts-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-accounts-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>UID</th>
+                  <th>Created</th>
+                  <th>Last login</th>
+                  <th>Badges</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-accounts-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-accounts-status">Loading…</p>
+          <p class="rr-modal-hint">Only users who have signed in since the Accounts mirror shipped appear here (Auth cannot be listed from the client).</p>
         </div>
       </div>
     </div>
@@ -2568,6 +2630,47 @@
         console.warn('[admins] bootstrap upsert skipped', err && err.message ? err.message : err);
       }
     }
+
+    async function upsertAccountMirror(user) {
+      if (!db || !user || !user.uid) return;
+      const uid = user.uid;
+      const email = normalizeEmail(user.email) || null;
+      const displayName = (user.displayName && String(user.displayName).trim()) || null;
+      const photoURL = user.photoURL || null;
+      const ts = firebase.firestore.FieldValue.serverTimestamp();
+      try {
+        const ref = db.collection('accounts').doc(uid);
+        let exists = false;
+        try {
+          const snap = await ref.get();
+          exists = !!(snap && snap.exists);
+        } catch (readErr) {
+          // Self-read may fail until rules allow it; fall through to create-style set
+          exists = false;
+        }
+        if (!exists) {
+          await ref.set({
+            uid: uid,
+            email: email,
+            displayName: displayName,
+            photoURL: photoURL,
+            createdAt: ts,
+            lastLoginAt: ts
+          }, { merge: true });
+        } else {
+          await ref.set({
+            uid: uid,
+            email: email,
+            displayName: displayName,
+            photoURL: photoURL,
+            lastLoginAt: ts
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
+      }
+    }
+
     async function refreshAdminState(user) {
       currentAdminPerms = null;
       if (!user) return;
@@ -2584,6 +2687,9 @@
     }
     function updateAdminChrome(user) {
       const admin = !!(user && isAdminUser(user));
+      const verified = !!(user && typeof isVerifiedReporterUid === 'function' && isVerifiedReporterUid(user.uid));
+      const showBadge = admin || verified;
+      const badgeTitle = admin ? 'Admin' : (verified ? 'Verified reporter' : '');
       const adminBtn = document.getElementById('account-open-admin');
       if (adminBtn) {
         if (admin) adminBtn.classList.add('is-visible');
@@ -2594,14 +2700,17 @@
       ['header-admin-badge', 'account-profile-admin-badge'].forEach(function(id) {
         const el = document.getElementById(id);
         if (!el) return;
-        if (admin) el.classList.add('is-visible');
+        if (showBadge) el.classList.add('is-visible');
         else el.classList.remove('is-visible');
-        el.alt = admin ? 'Admin' : '';
+        el.alt = badgeTitle;
+        el.title = badgeTitle;
       });
       const acctBtn = document.getElementById('btn-account-settings');
       if (acctBtn) {
         if (admin) acctBtn.classList.add('is-admin');
         else acctBtn.classList.remove('is-admin');
+        if (verified) acctBtn.classList.add('is-verified');
+        else acctBtn.classList.remove('is-verified');
       }
     }
     function firstInitialLabel(displayName, email) {
@@ -2670,6 +2779,45 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+    let verifiedReporterUids = new Set();
+    async function loadVerifiedReporters() {
+      if (!db) return;
+      try {
+        const snap = await db.collection('verifiedReporters').get();
+        const next = new Set();
+        snap.forEach(function(doc) {
+          const data = doc.data() || {};
+          const uid = String(doc.id || data.uid || '').trim();
+          if (uid) next.add(uid);
+        });
+        verifiedReporterUids = next;
+        console.log('%c[verifiedReporters] Loaded ' + next.size + ' verified reporter(s)', 'color:#27ae60');
+        const user = currentUser || (auth && auth.currentUser);
+        if (user) updateAdminChrome(user);
+      } catch (err) {
+        console.warn('[verifiedReporters] load failed', err);
+      }
+    }
+    function isVerifiedReporterUid(uid) {
+      if (!uid) return false;
+      return verifiedReporterUids.has(String(uid));
+    }
+    function reporterShowsVerifiedBadge(opts) {
+      opts = opts || {};
+      if (opts.verified) return true;
+      if (opts.uid && isVerifiedReporterUid(opts.uid)) return true;
+      if (opts.email && isBootstrapAdmin(opts.email)) return true;
+      return false;
+    }
+    function reporterNameWithBadgeHtml(name, opts) {
+      opts = opts || {};
+      const escaped = escapeHtmlLite(name || '');
+      if (!escaped) return '';
+      if (!reporterShowsVerifiedBadge(opts)) return escaped;
+      const title = opts.isAdmin ? 'Admin' : 'Verified reporter';
+      return escaped + '<img class="admin-badge-icon is-visible" src="/assets/admin-badge.png" alt="' +
+        escapeHtmlLite(title) + '" title="' + escapeHtmlLite(title) + '" width="15" height="15">';
     }
     function formatAdminWhen(ts) {
       if (!ts) return '—';
@@ -2831,10 +2979,14 @@
       const tabBans = document.getElementById('admin-tab-bans');
       const tabAdmins = document.getElementById('admin-tab-admins');
       const tabRoster = document.getElementById('admin-tab-roster');
+      const tabVerified = document.getElementById('admin-tab-verified');
+      const tabAccounts = document.getElementById('admin-tab-accounts');
       if (tabReports) tabReports.style.display = perms.viewReports ? '' : 'none';
       if (tabBans) tabBans.style.display = perms.banUsers ? '' : 'none';
       if (tabAdmins) tabAdmins.style.display = perms.manageAdmins ? '' : 'none';
       if (tabRoster) tabRoster.style.display = ''; // any admin
+      if (tabVerified) tabVerified.style.display = ''; // any admin
+      if (tabAccounts) tabAccounts.style.display = ''; // any admin
       let first = perms.viewReports ? 'reports' : (perms.banUsers ? 'bans' : (perms.manageAdmins ? 'admins' : 'roster'));
       switchAdminTab(first);
       await loadAdminTab(first);
@@ -2867,6 +3019,10 @@
         await loadAdminAdmins();
       } else if (tab === 'roster') {
         await loadAdminRoster();
+      } else if (tab === 'verified') {
+        await loadAdminVerified();
+      } else if (tab === 'accounts') {
+        await loadAdminAccounts();
       }
     }
     function formatTrainReportLocoLabelAdmin(rep) {
@@ -2943,7 +3099,15 @@
         const vehicle = r.agency === 'mbta'
           ? (r.vehicleId || '—')
           : ((r.trainNumber || r.vehicleId || '—') + (r.serviceDate ? ' · ' + r.serviceDate : ''));
-        const reporter = escapeHtmlLite(r.reportedByLabel || r.reportedByName || '—') +
+        const reporterLabel = r.reportedByLabel || r.reportedByName || '—';
+        const reporterIsAdmin = !!(r.reportedByEmail && isBootstrapAdmin(r.reportedByEmail));
+        const reporterBadge = reporterNameWithBadgeHtml(reporterLabel, {
+          uid: r.reportedByUid,
+          verified: !!r.reportedByVerified,
+          email: r.reportedByEmail,
+          isAdmin: reporterIsAdmin
+        });
+        const reporter = reporterBadge +
           '<div class="meta">' + escapeHtmlLite(r.reportedByEmail || '') +
           (r.reportedByUid ? '<br>' + escapeHtmlLite(r.reportedByUid) : '') + '</div>';
         const delBtn = canDelete
@@ -3119,6 +3283,169 @@
         await loadAdminBans();
       } catch (e) {
         console.error('[admin] unban failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function resolveUidEmailFromReports(email, uid) {
+      email = normalizeEmail(email || '');
+      uid = String(uid || '').trim();
+      if (!uid && email) {
+        try {
+          const q = await db.collection('trainReports').where('reportedByEmail', '==', email).limit(5).get();
+          if (!q.empty) uid = (q.docs[0].data() || {}).reportedByUid || '';
+        } catch (_) { /* legacy field may be gone */ }
+        if (!uid) {
+          const hit = adminReportsCache.find(function(r) {
+            return normalizeEmail(r.reportedByEmail) === email && r.reportedByUid;
+          });
+          if (hit) uid = String(hit.reportedByUid);
+        }
+        if (!uid) {
+          try {
+            const aq = await db.collection('reportAudit').where('reportedByEmail', '==', email).limit(5).get();
+            if (!aq.empty) uid = (aq.docs[0].data() || {}).reportedByUid || '';
+          } catch (aqErr) {
+            console.warn('[admin] reportAudit email lookup failed', aqErr);
+          }
+        }
+        if (!uid) {
+          if (!adminReportsCache.length) {
+            try {
+              const snap = await db.collection('trainReports').get();
+              snap.forEach(function(doc) {
+                adminReportsCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+              });
+            } catch (_) {}
+          }
+          const hit2 = adminReportsCache.find(function(r) {
+            return normalizeEmail(r.reportedByEmail) === email && r.reportedByUid;
+          });
+          if (hit2) uid = String(hit2.reportedByUid);
+        }
+      }
+      if (uid && !email) {
+        const hit3 = adminReportsCache.find(function(r) { return r.reportedByUid === uid; });
+        if (hit3) email = normalizeEmail(hit3.reportedByEmail);
+        if (!email) {
+          try {
+            const asnap = await db.collection('reportAudit').where('reportedByUid', '==', uid).limit(1).get();
+            if (!asnap.empty) email = normalizeEmail((asnap.docs[0].data() || {}).reportedByEmail);
+          } catch (_) { /* ignore */ }
+        }
+      }
+      return { email: email || '', uid: uid || '' };
+    }
+    async function loadAdminVerified() {
+      const list = document.getElementById('admin-verified-list');
+      const status = document.getElementById('admin-verified-status');
+      if (status) status.textContent = 'Loading verified reporters…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        await loadVerifiedReporters();
+        const snap = await db.collection('verifiedReporters').get();
+        const rows = [];
+        snap.forEach(function(doc) {
+          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        rows.sort(function(a, b) {
+          const ta = (a.verifiedAt && a.verifiedAt.seconds) ? a.verifiedAt.seconds : 0;
+          const tb = (b.verifiedAt && b.verifiedAt.seconds) ? b.verifiedAt.seconds : 0;
+          return tb - ta;
+        });
+        if (!rows.length) {
+          if (list) list.innerHTML = '<p class="rr-modal-hint">No verified reporters.</p>';
+        } else if (list) {
+          list.innerHTML = rows.map(function(v) {
+            const nameBit = v.displayName ? (' · ' + escapeHtmlLite(v.displayName)) : '';
+            return '<div class="rr-admin-card">' +
+              '<div><strong>' + escapeHtmlLite(v.email || '(no email)') + '</strong>' + nameBit +
+              (v.uid ? ' · <code>' + escapeHtmlLite(v.uid) + '</code>' : '') +
+              ' <img class="admin-badge-icon is-visible" src="/assets/admin-badge.png" alt="Verified reporter" title="Verified reporter" width="15" height="15">' +
+              '</div>' +
+              '<div class="meta">Verified ' + escapeHtmlLite(formatAdminWhen(v.verifiedAt)) +
+              ' by ' + escapeHtmlLite(v.verifiedByEmail || '—') + '</div>' +
+              '<div class="rr-lightbox-actions" style="margin-top:8px;">' +
+              '<button type="button" class="rr-btn secondary" data-admin-unverify="' + escapeHtmlLite(v.id) + '">Remove</button>' +
+              '</div></div>';
+          }).join('');
+        }
+        if (status) status.textContent = rows.length + ' verified reporter(s)';
+      } catch (e) {
+        console.error('[admin] verified load failed', e);
+        if (status) status.textContent = 'Failed to load verified reporters.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminVerifyReporter() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db) return;
+      if (!isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        return;
+      }
+      let email = normalizeEmail(((document.getElementById('admin-verified-email') || {}).value || ''));
+      let uid = String(((document.getElementById('admin-verified-uid') || {}).value || '')).trim();
+      if (!email && !uid) {
+        setAdminError('Provide an email and/or UID to verify.');
+        return;
+      }
+      try {
+        const resolved = await resolveUidEmailFromReports(email, uid);
+        email = resolved.email;
+        uid = resolved.uid;
+        if (!uid) {
+          setAdminError('Could not resolve UID from reports. Enter the Firebase UID explicitly.');
+          return;
+        }
+        let displayName = null;
+        const hit = adminReportsCache.find(function(r) { return r.reportedByUid === uid; });
+        if (hit && hit.reportedByName) displayName = String(hit.reportedByName).trim() || null;
+        if (!displayName) {
+          try {
+            const asnap = await db.collection('reportAudit').where('reportedByUid', '==', uid).limit(1).get();
+            if (!asnap.empty) {
+              const n = (asnap.docs[0].data() || {}).reportedByName;
+              if (n) displayName = String(n).trim() || null;
+              if (!email) email = normalizeEmail((asnap.docs[0].data() || {}).reportedByEmail);
+            }
+          } catch (_) { /* ignore */ }
+        }
+        await db.collection('verifiedReporters').doc(uid).set({
+          uid: uid,
+          email: email || null,
+          displayName: displayName,
+          verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          verifiedByEmail: normalizeEmail(user.email) || user.email || null,
+          verifiedByUid: user.uid
+        }, { merge: true });
+        showNotification('Reporter verified');
+        const emailEl = document.getElementById('admin-verified-email');
+        const uidEl = document.getElementById('admin-verified-uid');
+        if (emailEl) emailEl.value = '';
+        if (uidEl) uidEl.value = '';
+        setAdminError('');
+        await loadVerifiedReporters();
+        await loadAdminVerified();
+      } catch (e) {
+        console.error('[admin] verify failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminUnverifyReporter(docId) {
+      if (!docId || !db) return;
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        return;
+      }
+      if (!window.confirm('Remove verified reporter "' + docId + '"?')) return;
+      try {
+        await db.collection('verifiedReporters').doc(docId).delete();
+        showNotification('Verified reporter removed');
+        await loadVerifiedReporters();
+        await loadAdminVerified();
+      } catch (e) {
+        console.error('[admin] unverify failed', e);
         setAdminError((e && e.message) || String(e));
       }
     }
@@ -3456,6 +3783,134 @@
       }
     }
 
+
+    let adminAccountsCache = [];
+    let adminBannedUidSet = new Set();
+    let adminEmailSet = new Set();
+
+    function adminTsSeconds(ts) {
+      if (!ts) return 0;
+      if (ts.seconds) return ts.seconds;
+      try {
+        if (typeof ts.toDate === 'function') return Math.floor(ts.toDate().getTime() / 1000);
+      } catch (_) {}
+      try {
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+      } catch (_) {}
+      return 0;
+    }
+    async function loadAdminAccounts() {
+      const tbody = document.getElementById('admin-accounts-tbody');
+      const status = document.getElementById('admin-accounts-status');
+      if (status) status.textContent = 'Loading accounts…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        await loadVerifiedReporters();
+        adminBannedUidSet = new Set();
+        adminEmailSet = new Set(BOOTSTRAP_ADMIN_EMAILS);
+        try {
+          const banSnap = await db.collection('bannedUsers').get();
+          banSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            const id = String(doc.id || d.uid || '').trim();
+            if (id) adminBannedUidSet.add(id);
+            if (d.uid) adminBannedUidSet.add(String(d.uid).trim());
+          });
+        } catch (banErr) {
+          console.warn('[admin] accounts ban cache failed', banErr);
+        }
+        try {
+          const admSnap = await db.collection('admins').get();
+          admSnap.forEach(function(doc) {
+            const e = normalizeEmail(doc.id || (doc.data() || {}).email);
+            if (e) adminEmailSet.add(e);
+          });
+        } catch (admErr) {
+          console.warn('[admin] accounts admin cache failed', admErr);
+        }
+        const snap = await db.collection('accounts').get();
+        const rows = [];
+        snap.forEach(function(doc) {
+          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        rows.sort(function(a, b) {
+          const ta = adminTsSeconds(a.lastLoginAt) || adminTsSeconds(a.createdAt);
+          const tb = adminTsSeconds(b.lastLoginAt) || adminTsSeconds(b.createdAt);
+          return tb - ta;
+        });
+        adminAccountsCache = rows;
+        renderAdminAccounts();
+        if (status) status.textContent = rows.length + ' account(s)';
+      } catch (e) {
+        console.error('[admin] accounts load failed', e);
+        if (status) status.textContent = 'Failed to load accounts.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminAccounts() {
+      const tbody = document.getElementById('admin-accounts-tbody');
+      if (!tbody) return;
+      const q = String(((document.getElementById('admin-accounts-search') || {}).value || '')).trim().toLowerCase();
+      const canBan = !!(currentAdminPerms && currentAdminPerms.banUsers);
+      const filtered = adminAccountsCache.filter(function(a) {
+        if (!q) return true;
+        const blob = [a.email, a.displayName, a.uid, a.id]
+          .map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
+        return blob.indexOf(q) !== -1;
+      });
+      tbody.innerHTML = filtered.map(function(a) {
+        const uid = String(a.uid || a.id || '');
+        const email = normalizeEmail(a.email) || String(a.email || '');
+        const name = String(a.displayName || '').trim() || '—';
+        const photo = a.photoURL
+          ? ('<img class="rr-admin-acct-photo" src="' + escapeHtmlLite(a.photoURL) + '" alt="" width="28" height="28" referrerpolicy="no-referrer">')
+          : '<span class="rr-admin-acct-photo" style="display:inline-block;"></span>';
+        const isAdm = !!(email && (adminEmailSet.has(email) || isBootstrapAdmin(email)));
+        const isVer = !!(uid && isVerifiedReporterUid(uid));
+        const isBan = !!(uid && adminBannedUidSet.has(uid));
+        const badges = [];
+        if (isAdm) badges.push('<span class="rr-badge admin">Admin</span>');
+        if (isVer) badges.push('<span class="rr-badge verified">Verified</span>');
+        if (isBan) badges.push('<span class="rr-badge banned">Banned</span>');
+        let actions = '';
+        if (!isVer) {
+          actions += '<button type="button" class="rr-btn secondary" data-admin-acct-verify="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Verify</button>';
+        }
+        if (canBan && !isBan) {
+          actions += '<button type="button" class="rr-btn danger secondary" data-admin-acct-ban="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Ban</button>';
+        }
+        return '<tr>' +
+          '<td>' + photo + '</td>' +
+          '<td>' + escapeHtmlLite(name) + '</td>' +
+          '<td>' + escapeHtmlLite(email || '—') + '</td>' +
+          '<td><code style="font-size:11px;">' + escapeHtmlLite(uid) + '</code></td>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(a.createdAt)) + '</td>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(a.lastLoginAt)) + '</td>' +
+          '<td>' + (badges.join(' ') || '—') + '</td>' +
+          '<td style="white-space:nowrap;">' + actions + '</td>' +
+          '</tr>';
+      }).join('');
+      const status = document.getElementById('admin-accounts-status');
+      if (status) status.textContent = filtered.length + ' of ' + adminAccountsCache.length + ' account(s)';
+    }
+    function adminAccountsPrefillVerify(uid, email) {
+      const emailEl = document.getElementById('admin-verified-email');
+      const uidEl = document.getElementById('admin-verified-uid');
+      if (emailEl) emailEl.value = email || '';
+      if (uidEl) uidEl.value = uid || '';
+      switchAdminTab('verified');
+      loadAdminTab('verified');
+    }
+    function adminAccountsPrefillBan(uid, email) {
+      const emailEl = document.getElementById('admin-ban-email');
+      const uidEl = document.getElementById('admin-ban-uid');
+      if (emailEl) emailEl.value = email || '';
+      if (uidEl) uidEl.value = uid || '';
+      switchAdminTab('bans');
+      loadAdminTab('bans');
+    }
+
     function wireAccountAndAdminUI() {
       const closeBtn = document.getElementById('account-settings-close');
       const closeBtn2 = document.getElementById('account-close-btn');
@@ -3511,6 +3966,34 @@
       if (reportsSearch) reportsSearch.addEventListener('input', renderAdminReports);
       if (bansRefresh) bansRefresh.addEventListener('click', loadAdminBans);
       if (banSubmit) banSubmit.addEventListener('click', adminBanUser);
+      const verifiedRefresh = document.getElementById('admin-verified-refresh');
+      const verifiedSubmit = document.getElementById('admin-verified-submit');
+      if (verifiedRefresh) verifiedRefresh.addEventListener('click', loadAdminVerified);
+      if (verifiedSubmit) verifiedSubmit.addEventListener('click', adminVerifyReporter);
+      const accountsRefresh = document.getElementById('admin-accounts-refresh');
+      const accountsSearch = document.getElementById('admin-accounts-search');
+      if (accountsRefresh) accountsRefresh.addEventListener('click', loadAdminAccounts);
+      if (accountsSearch) accountsSearch.addEventListener('input', renderAdminAccounts);
+      const accountsTbody = document.getElementById('admin-accounts-tbody');
+      if (accountsTbody) {
+        accountsTbody.addEventListener('click', function(e) {
+          const verifyBtn = e.target.closest('[data-admin-acct-verify]');
+          if (verifyBtn) {
+            adminAccountsPrefillVerify(
+              verifyBtn.getAttribute('data-admin-acct-verify'),
+              verifyBtn.getAttribute('data-email') || ''
+            );
+            return;
+          }
+          const banBtn = e.target.closest('[data-admin-acct-ban]');
+          if (banBtn) {
+            adminAccountsPrefillBan(
+              banBtn.getAttribute('data-admin-acct-ban'),
+              banBtn.getAttribute('data-email') || ''
+            );
+          }
+        });
+      }
       if (adminsRefresh) adminsRefresh.addEventListener('click', loadAdminAdmins);
       if (addAdminSubmit) addAdminSubmit.addEventListener('click', adminAddAdmin);
       const rosterRefresh = document.getElementById('admin-roster-refresh');
@@ -3562,6 +4045,14 @@
           const btn = e.target.closest('[data-admin-unban]');
           if (!btn) return;
           adminUnbanUser(btn.getAttribute('data-admin-unban'));
+        });
+      }
+      const verifiedList = document.getElementById('admin-verified-list');
+      if (verifiedList) {
+        verifiedList.addEventListener('click', function(e) {
+          const btn = e.target.closest('[data-admin-unverify]');
+          if (!btn) return;
+          adminUnverifyReporter(btn.getAttribute('data-admin-unverify'));
         });
       }
       const adminsList = document.getElementById('admin-admins-list');
@@ -3702,7 +4193,8 @@
       }
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithPopup(provider);
+        const cred = await auth.signInWithPopup(provider);
+        if (cred && cred.user) await upsertAccountMirror(cred.user);
         showNotification('Signed in with Google');
       } catch (e) {
         console.error('[Auth] Sign-in failed', e);
@@ -3783,6 +4275,7 @@
           currentUser = user;
           updateHeaderAuthUI(user);
           if (user) {
+            await upsertAccountMirror(user);
             await loadUserSettings(user.uid);
             await refreshAdminState(user);
           } else {
@@ -4320,14 +4813,28 @@
         if (!rep) return '';
         let first = '';
         let count = 0;
+        let badgeOpts = {};
         if (Array.isArray(rep.contributors) && rep.contributors.length) {
-          first = formatContributorShortName(rep.contributors[0]);
+          const c0 = rep.contributors[0] || {};
+          first = formatContributorShortName(c0);
           count = rep.contributors.length;
+          badgeOpts = {
+            uid: c0.uid,
+            verified: !!c0.verified,
+            email: c0.email,
+            isAdmin: !!(c0.email && isBootstrapAdmin(c0.email))
+          };
         }
         if (!first) {
           const snapLabel = String(rep.firstReportedByLabel || '').trim();
           if (snapLabel) {
             first = snapLabel;
+            badgeOpts = {
+              uid: rep.firstReportedByUid,
+              verified: !!(rep.firstReportedByVerified || rep.reportedByVerified),
+              email: rep.firstReportedByEmail,
+              isAdmin: !!(rep.firstReportedByEmail && isBootstrapAdmin(rep.firstReportedByEmail))
+            };
           } else if (rep.firstReportedByUid || rep.firstReportedByName || rep.firstReportedByEmail || rep.firstReportedByDisplayMode) {
             first = formatContributorShortName({
               label: rep.firstReportedByLabel,
@@ -4335,9 +4842,23 @@
               name: rep.firstReportedByName,
               email: rep.firstReportedByEmail
             });
+            badgeOpts = {
+              uid: rep.firstReportedByUid,
+              verified: !!(rep.firstReportedByVerified || rep.reportedByVerified),
+              email: rep.firstReportedByEmail,
+              isAdmin: !!(rep.firstReportedByEmail && isBootstrapAdmin(rep.firstReportedByEmail))
+            };
           }
         }
-        if (!first) first = formatReporterShortName(rep);
+        if (!first) {
+          first = formatReporterShortName(rep);
+          badgeOpts = {
+            uid: rep.reportedByUid,
+            verified: !!rep.reportedByVerified,
+            email: rep.reportedByEmail,
+            isAdmin: !!(rep.reportedByEmail && isBootstrapAdmin(rep.reportedByEmail))
+          };
+        }
         if (!count) {
           if (Array.isArray(rep.contributors) && rep.contributors.length) {
             count = rep.contributors.length;
@@ -4348,11 +4869,12 @@
           }
         }
         if (!first) return '';
+        const firstHtml = reporterNameWithBadgeHtml(first, badgeOpts);
         if (count >= 2) {
           const n = count - 1;
-          return first + ' and ' + n + (n === 1 ? ' other' : ' others');
+          return firstHtml + ' and ' + n + (n === 1 ? ' other' : ' others');
         }
-        return first;
+        return firstHtml;
       }
       function formatOneLocoLabel(locoId, locoType, unitName, vehicleId) {
         locoId = String(locoId || '').trim();
@@ -4440,22 +4962,23 @@
             const whenTs = rep.updatedAt || rep.createdAt;
             const day = formatReportDayNy(whenTs);
             const time = formatReportTimeNy(whenTs);
-            const by = formatReportByAttribution(rep);
-            let parts = 'Last reported: ' + label;
+            const byHtml = formatReportByAttribution(rep);
+            const escFn = (typeof escapeHtml === 'function') ? escapeHtml : function(s) { return String(s).replace(/</g, '&lt;'); };
+            let parts = 'Last reported: ' + escFn(label);
             if (day) {
-              parts += ' on ' + day;
-              if (time) parts += ' at ' + time;
+              parts += ' on ' + escFn(day);
+              if (time) parts += ' at ' + escFn(time);
             }
-            if (by) parts += ' by ' + by;
+            if (byHtml) parts += ' by ' + byHtml;
             line = parts;
           } else {
             line = 'No locomotive reported yet';
           }
         }
-        const esc = (typeof escapeHtml === 'function') ? escapeHtml(line) : String(line).replace(/</g, '&lt;');
+        const escPlain = (typeof escapeHtml === 'function') ? escapeHtml(line) : String(line).replace(/</g, '&lt;');
         const lineHtml = (trainReportsLoadFailed || line === 'No locomotive reported yet')
-          ? esc
-          : ('<em class="loco-report-last">' + esc + '</em>');
+          ? escPlain
+          : ('<em class="loco-report-last">' + line + '</em>');
         let onclick;
         if (a === 'mbta') {
           const safeVid = vid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -4536,12 +5059,14 @@
           user.displayName,
           user.email
         );
+        const reporterVerified = isVerifiedReporterUid(user.uid) || isBootstrapAdmin(user.email);
         // Public contributor: label/mode only — no email or raw Google name on trainReports
         const currentContributorPublic = {
           uid: user.uid,
           label: reportedByLabel,
           displayMode: reportedByDisplayMode,
-          at: Date.now()
+          at: Date.now(),
+          verified: !!reporterVerified
         };
         const currentContributorFull = {
           uid: user.uid,
@@ -4549,7 +5074,8 @@
           name: reportedByName,
           label: reportedByLabel,
           displayMode: reportedByDisplayMode,
-          at: Date.now()
+          at: Date.now(),
+          verified: !!reporterVerified
         };
         function toPublicContributor(c) {
           if (!c) return null;
@@ -4557,7 +5083,8 @@
             uid: c.uid || '',
             label: c.label || '',
             displayMode: c.displayMode || 'first_initial',
-            at: (c.at != null ? c.at : null)
+            at: (c.at != null ? c.at : null),
+            verified: !!c.verified
           };
         }
         let contributors = [];
@@ -4602,7 +5129,8 @@
                 name: (c && c.name) || null,
                 label: (c && c.label) || '',
                 displayMode: (c && c.displayMode) || 'first_initial',
-                at: (c && c.at != null) ? c.at : null
+                at: (c && c.at != null) ? c.at : null,
+                verified: !!(c && c.verified)
               };
             });
           } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
@@ -4612,7 +5140,8 @@
               name: prev.reportedByName || null,
               label: prev.reportedByLabel || '',
               displayMode: prev.reportedByDisplayMode || 'first_initial',
-              at: null
+              at: null,
+              verified: !!prev.reportedByVerified
             }];
           } else {
             contributorsFull = [];
@@ -4627,7 +5156,8 @@
                 uid: c.uid,
                 label: reportedByLabel,
                 displayMode: reportedByDisplayMode,
-                at: (c.at != null ? c.at : Date.now())
+                at: (c.at != null ? c.at : Date.now()),
+                verified: !!reporterVerified
               };
             });
           }
@@ -4643,7 +5173,8 @@
                 name: reportedByName,
                 label: reportedByLabel,
                 displayMode: reportedByDisplayMode,
-                at: (c.at != null ? c.at : Date.now())
+                at: (c.at != null ? c.at : Date.now()),
+                verified: !!reporterVerified
               };
             });
           }
@@ -4666,6 +5197,7 @@
           reportedByUid: user.uid,
           reportedByDisplayMode: reportedByDisplayMode,
           reportedByLabel: reportedByLabel,
+          reportedByVerified: !!reporterVerified,
           contributors: contributors,
           updatedAt: now,
           // Scrub legacy PII from public trainReports on every republish
@@ -5291,6 +5823,11 @@
       setInterval(function() {
         loadSpecialUnitsFromFirestore().catch(function() {});
       }, 7 * 60 * 1000);
+      setLoadingProgress(23, 'Loading verified reporters...');
+      await withTimeout(loadVerifiedReporters(), 5000, 'loadVerifiedReporters');
+      setInterval(function() {
+        loadVerifiedReporters().catch(function() {});
+      }, 7 * 60 * 1000);
       function createStationIcon() {
         return L.icon({ iconUrl: '/assets/station.png', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9] });
       }
@@ -5837,22 +6374,21 @@
         if (veryLate) statusPillClass = 'status-very-delayed';
         else if (delayed) statusPillClass = 'status-delayed';
         else if (/predeparture|scheduled|not yet/i.test(status)) statusPillClass = 'status-scheduled';
+        const nextStop = (eventName && eventName !== '—') ? eventName : dest;
         const txt = t.trainState === 'Completed'
           ? `Completed · ${origin} to ${dest}`
-          : (eventName && eventName !== '—'
-            ? `Near ${eventName}`
-            : `On the way to ${dest}`);
+          : `On the way to ${nextStop}`;
         const lastSeenTime = amtrakLastSeen[vid]
           ? new Date(amtrakLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
           : '—';
-        let alertText = '';
-        if (t.alerts && t.alerts.length) {
+        const hasAmtrakAlert = !!(t.hasAlert || (t.alerts && t.alerts.length));
+        let alertText = t.alertHeader || '';
+        if (!alertText && t.alerts && t.alerts.length) {
           const a0 = t.alerts[0];
           alertText = (a0 && (a0.message || a0.header || a0.title)) ? (a0.message || a0.header || a0.title) : 'Active Amtrak alert';
         }
-        const al = alertText
-          ? `<div class="alert-banner"><img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ${alertText}</div>`
-          : '';
+        const al = trainAlertBannerHtml(hasAmtrakAlert, alertText || 'Active Amtrak alert');
+        const amtrakAlertIcon = trainAlertHeaderIconHtml(hasAmtrakAlert);
         const amtrakBadge = `<span class="cape-badge" style="background:#003087;">Amtrak</span>`;
         const amtrakSpecial = getSpecialForVehicle('amtrak', (t.specialUnit && t.specialUnit.vehicleId) || null, num) || t.specialUnit || null;
         const amtrakSpecialBadge = specialUnitBadgeHtml(amtrakSpecial);
@@ -5875,6 +6411,7 @@
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${amtrakAlertIcon}
               </div>
             </div>
             <div class="train-popup-body">
@@ -5980,7 +6517,16 @@
               if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
               seen.add(vid);
               const specialUnit = getSpecialForVehicle('amtrak', null, trainNum);
-              const info = Object.assign({}, t, { id: vid, trainNum: trainNum, lat: lat, lng: lng, specialUnit: specialUnit || null });
+              let amtrakAlertHeader = '';
+              if (t.alerts && t.alerts.length) {
+                const a0 = t.alerts[0];
+                amtrakAlertHeader = (a0 && (a0.message || a0.header || a0.title)) ? (a0.message || a0.header || a0.title) : 'Active Amtrak alert';
+              }
+              const info = Object.assign({}, t, {
+                id: vid, trainNum: trainNum, lat: lat, lng: lng, specialUnit: specialUnit || null,
+                hasAlert: !!(t.alerts && t.alerts.length),
+                alertHeader: amtrakAlertHeader
+              });
               amtrakTrainInfo[vid] = info;
               const icon = createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t);
               const amtrakLabelInfo = buildCyclingTrainInfo({
@@ -6067,7 +6613,8 @@
                   id: { type: 'string', id: 1 },
                   is_deleted: { type: 'bool', id: 2 },
                   trip_update: { type: 'TripUpdate', id: 3 },
-                  vehicle: { type: 'VehiclePosition', id: 4 }
+                  vehicle: { type: 'VehiclePosition', id: 4 },
+                  alert: { type: 'Alert', id: 5 }
                 }
               },
               TripUpdate: {
@@ -6132,6 +6679,43 @@
                   label: { type: 'string', id: 2 },
                   license_plate: { type: 'string', id: 3 }
                 }
+              },
+              Alert: {
+                fields: {
+                  active_period: { rule: 'repeated', type: 'TimeRange', id: 1 },
+                  informed_entity: { rule: 'repeated', type: 'EntitySelector', id: 5 },
+                  cause: { type: 'int32', id: 6 },
+                  effect: { type: 'int32', id: 7 },
+                  url: { type: 'TranslatedString', id: 8 },
+                  header_text: { type: 'TranslatedString', id: 10 },
+                  description_text: { type: 'TranslatedString', id: 11 }
+                }
+              },
+              TimeRange: {
+                fields: {
+                  start: { type: 'uint64', id: 1 },
+                  end: { type: 'uint64', id: 2 }
+                }
+              },
+              EntitySelector: {
+                fields: {
+                  agency_id: { type: 'string', id: 1 },
+                  route_id: { type: 'string', id: 2 },
+                  route_type: { type: 'int32', id: 3 },
+                  trip: { type: 'TripDescriptor', id: 4 },
+                  stop_id: { type: 'string', id: 5 }
+                }
+              },
+              TranslatedString: {
+                fields: {
+                  translation: { rule: 'repeated', type: 'Translation', id: 1 }
+                }
+              },
+              Translation: {
+                fields: {
+                  text: { type: 'string', id: 1 },
+                  language: { type: 'string', id: 2 }
+                }
               }
             }
           }
@@ -6146,6 +6730,103 @@
         const root = protobuf.Root.fromJSON(MNR_GTFS_RT_DESCRIPTOR);
         mnrFeedMessageType = root.lookupType('transit_realtime.FeedMessage');
         return mnrFeedMessageType;
+      }
+      // Shared GTFS-RT ServiceAlert helpers (Metra / MNR / LIRR). Escape for popup HTML.
+      function gtfsRtTranslatedText(ts) {
+        if (!ts || !ts.translation || !ts.translation.length) return '';
+        let pick = null;
+        for (let i = 0; i < ts.translation.length; i++) {
+          const t = ts.translation[i];
+          if (!t) continue;
+          if (!t.language || String(t.language).toLowerCase().indexOf('en') === 0) { pick = t; break; }
+          if (!pick) pick = t;
+        }
+        return String((pick && pick.text) || '').trim();
+      }
+      function gtfsRtAlertIsActive(alert) {
+        const periods = (alert && alert.active_period) || [];
+        if (!periods.length) return true;
+        const now = Math.floor(Date.now() / 1000);
+        return periods.some(function(p) {
+          const start = (p.start != null) ? Number(p.start) : 0;
+          const end = (p.end != null && Number(p.end) > 0) ? Number(p.end) : Number.POSITIVE_INFINITY;
+          return now >= start && now <= end;
+        });
+      }
+      function indexGtfsRtServiceAlerts(feed, agencyIds, routeIdsAllow) {
+        const byTrip = {};
+        const byRoute = {};
+        const allow = (agencyIds && agencyIds.length)
+          ? new Set(agencyIds.map(function(a) { return String(a).toUpperCase(); }))
+          : null;
+        const routeAllow = (routeIdsAllow && routeIdsAllow.length)
+          ? new Set(routeIdsAllow.map(function(r) { return String(r); }))
+          : null;
+        (feed.entity || []).forEach(function(e) {
+          const a = e && e.alert;
+          if (!a || !gtfsRtAlertIsActive(a)) return;
+          const header = gtfsRtTranslatedText(a.header_text) || 'Active Service Alert';
+          (a.informed_entity || []).forEach(function(ent) {
+            if (!ent) return;
+            if (allow) {
+              if (ent.agency_id) {
+                if (!allow.has(String(ent.agency_id).toUpperCase())) return;
+              } else if (routeAllow) {
+                const rid = (ent.route_id != null && ent.route_id !== '') ? String(ent.route_id) : '';
+                if (!rid || !routeAllow.has(rid)) return;
+              } else {
+                return; // agency filter set but entity has neither matching agency nor allowed route
+              }
+            }
+            const tripId = (ent.trip && ent.trip.trip_id != null) ? String(ent.trip.trip_id) : '';
+            const routeId = (ent.route_id != null && ent.route_id !== '') ? String(ent.route_id) : '';
+            if (tripId) byTrip[tripId] = header;
+            if (routeId) byRoute[routeId] = header;
+          });
+        });
+        return { byTrip: byTrip, byRoute: byRoute };
+      }
+      function lookupGtfsRtAlert(index, tripId, routeId) {
+        if (!index) return null;
+        if (tripId != null && tripId !== '' && index.byTrip[String(tripId)]) return index.byTrip[String(tripId)];
+        if (routeId != null && routeId !== '' && index.byRoute[String(routeId)]) return index.byRoute[String(routeId)];
+        return null;
+      }
+      function applyGtfsRtAlertFields(info, index) {
+        const header = lookupGtfsRtAlert(index, info.tripId, info.routeId);
+        info.hasAlert = !!header;
+        info.alertHeader = header || '';
+        return info;
+      }
+      function trainAlertBannerHtml(hasAlert, alertHeader) {
+        if (!hasAlert) return '';
+        const text = escapeHtmlLite(alertHeader || 'Active Service Alert');
+        return '<div class="alert-banner"><img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ' + text + '</div>';
+      }
+      function trainAlertHeaderIconHtml(hasAlert) {
+        return hasAlert
+          ? '<img src="https://i.postimg.cc/3xMFGsJX/Alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">'
+          : '';
+      }
+      // MTA publishes ServiceAlerts on camsys/all-alerts (not inside /api/mta/mnr or /lirr vehicle feeds).
+      // Requires Worker route /api/mta/alerts — if undeployed, fetches fail soft and popups keep hasAlert hooks only.
+      const MTA_ALERTS_URL = apiUrl('/api/mta/alerts');
+      let mtaAlertsCache = { at: 0, feed: null };
+      async function fetchMtaAlertsFeed() {
+        const now = Date.now();
+        if (mtaAlertsCache.feed && (now - mtaAlertsCache.at) < 60000) return mtaAlertsCache.feed;
+        try {
+          const res = await fetch(MTA_ALERTS_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = new Uint8Array(await res.arrayBuffer());
+          const FeedMessage = getMnrFeedMessageType();
+          const feed = FeedMessage.decode(buf);
+          mtaAlertsCache = { at: now, feed: feed };
+          return feed;
+        } catch (e) {
+          console.warn('[MTA alerts] unavailable (deploy Worker /api/mta/alerts if missing):', e && e.message ? e.message : e);
+          return null;
+        }
       }
       function mnrUnixToDate(t) {
         if (t == null || t === '') return null;
@@ -6298,6 +6979,9 @@
         const mnrSpecialBadge = specialUnitBadgeHtml(mnrSpecial);
         const mnrPairingBlock = buildLocoReportPairingBlockHtml('mnr', { trainNumber: num, special: mnrSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMnrTrain(\'' + vid + '\')">Refresh</button>';
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
         const stopsHtml = (info.stops && info.stops.length)
           ? buildStopsHtml(info.stops, info.lat, info.lng)
           : '<div class="no-departures">No stop data</div>';
@@ -6321,6 +7005,7 @@
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
@@ -6340,6 +7025,7 @@
                 ${trackHtml}
                 ${speedHtml}
               </div>
+              ${al}
               <div class="meta-row">
                 ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
@@ -6431,7 +7117,9 @@
           vehicleStatus: vehicleStatus,
           currentStopName: currentStopName,
           speedMph: speedMph,
-          tripId: trip.trip_id || null
+          tripId: trip.trip_id || null,
+          hasAlert: false,
+          alertHeader: ''
         };
       }
       async function fetchMnrTrains() {
@@ -6442,6 +7130,9 @@
           const buf = new Uint8Array(await res.arrayBuffer());
           const FeedMessage = getMnrFeedMessageType();
           const feed = FeedMessage.decode(buf);
+          // Vehicle feed has no alert entities; ServiceAlerts live on /api/mta/alerts (Worker).
+          const alertsFeed = await fetchMtaAlertsFeed();
+          const alertIndex = alertsFeed ? indexGtfsRtServiceAlerts(alertsFeed, ['MNR'], Object.keys(MNR_STATIC.routes || {})) : { byTrip: {}, byRoute: {} };
           const now = Date.now();
           let created = 0, updated = 0, skipped = 0;
           const seen = new Set();
@@ -6449,6 +7140,7 @@
           entities.forEach(function(entity) {
             const info = mnrParseEntity(entity);
             if (!info) { skipped++; return; }
+            applyGtfsRtAlertFields(info, alertIndex);
             const vid = info.id;
             seen.add(vid);
             mnrTrainInfo[vid] = info;
@@ -6711,6 +7403,9 @@
         const lirrSpecialBadge = specialUnitBadgeHtml(lirrSpecial);
         const lirrPairingBlock = buildLocoReportPairingBlockHtml('lirr', { trainNumber: num, special: lirrSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshLirrTrain(\'' + vid + '\')">Refresh</button>';
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
         const stopsHtml = (info.stops && info.stops.length)
           ? buildStopsHtml(info.stops, info.lat, info.lng)
           : '<div class="no-departures">No stop data</div>';
@@ -6734,6 +7429,7 @@
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
@@ -6753,6 +7449,7 @@
                 ${trackHtml}
                 ${speedHtml}
               </div>
+              ${al}
               <div class="meta-row">
                 ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
@@ -6850,7 +7547,9 @@
           vehicleStatus: vehicleStatus,
           currentStopName: currentStopName,
           speedMph: speedMph,
-          tripId: tripId || null
+          tripId: tripId || null,
+          hasAlert: false,
+          alertHeader: ''
         };
       }
       async function fetchLirrTrains() {
@@ -6861,6 +7560,9 @@
           const buf = new Uint8Array(await res.arrayBuffer());
           const FeedMessage = getLirrFeedMessageType();
           const feed = FeedMessage.decode(buf);
+          // Vehicle/TU feed has no alert entities; ServiceAlerts on /api/mta/alerts (agency LI).
+          const alertsFeed = await fetchMtaAlertsFeed();
+          const alertIndex = alertsFeed ? indexGtfsRtServiceAlerts(alertsFeed, ['LI', 'LIRR'], Object.keys(LIRR_STATIC.routes || {})) : { byTrip: {}, byRoute: {} };
           const now = Date.now();
           let created = 0, updated = 0, skipped = 0;
           const seen = new Set();
@@ -6871,6 +7573,7 @@
           entities.forEach(function(entity) {
             const info = lirrParseEntity(entity, usedTrainNums);
             if (!info) { skipped++; return; }
+            applyGtfsRtAlertFields(info, alertIndex);
             const vid = info.id;
             seen.add(vid);
             lirrTrainInfo[vid] = info;
@@ -6933,6 +7636,7 @@
       // ==================== METRA (GTFS-RT via Cloudflare Worker proxy) ====================
       const METRA_POSITIONS_URL = apiUrl('/api/metra/positions');
       const METRA_TRIPUPDATES_URL = apiUrl('/api/metra/tripupdates');
+      const METRA_ALERTS_URL = apiUrl('/api/metra/alerts');
       const METRA_STATIC = {"stops":{"GENEVA":{"name":"Geneva","lat":41.8816667,"lon":-88.31,"code":"GENEVA"},"WCHICAGO":{"name":"West Chicago","lat":41.8811111,"lon":-88.1988889,"code":"WCHICAGO"},"WINFIELD":{"name":"Winfield","lat":41.87,"lon":-88.1569444,"code":"WINFIELD"},"WHEATON":{"name":"Wheaton","lat":41.8644444,"lon":-88.1119444,"code":"WHEATON"},"COLLEGEAVE":{"name":"College Ave","lat":41.8683333,"lon":-88.0902778,"code":"COLLEGEAVE"},"GLENELLYN":{"name":"Glen Ellyn","lat":41.8766667,"lon":-88.0647222,"code":"GLENELLYN"},"LOMBARD":{"name":"Lombard","lat":41.8866667,"lon":-88.0186111,"code":"LOMBARD"},"VILLAPARK":{"name":"Villa Park","lat":41.8963889,"lon":-87.9775,"code":"VILLAPARK"},"ELMHURST":{"name":"Elmhurst","lat":41.8997222,"lon":-87.9408333,"code":"ELMHURST"},"BERKELEY":{"name":"Berkeley","lat":41.8961111,"lon":-87.9152778,"code":"BERKELEY"},"BELLWOOD":{"name":"Bellwood","lat":41.8913889,"lon":-87.8825,"code":"BELLWOOD"},"MELROSEPK":{"name":"Melrose Park","lat":41.8902778,"lon":-87.8555556,"code":"MELROSEPK"},"MAYWOOD":{"name":"Maywood","lat":41.8883333,"lon":-87.8386111,"code":"MAYWOOD"},"RIVRFOREST":{"name":"River Forest","lat":41.8869444,"lon":-87.825,"code":"RIVRFOREST"},"OAKPARK":{"name":"Oak Park","lat":41.8869444,"lon":-87.8011111,"code":"OAKPARK"},"KEDZIE":{"name":"Kedzie","lat":41.8883333,"lon":-87.7069444,"code":"KEDZIE"},"AURORA":{"name":"Aurora","lat":41.7608333,"lon":-88.3083333,"code":"AURORA"},"ROUTE59":{"name":"Route 59","lat":41.7777778,"lon":-88.2086111,"code":"ROUTE59"},"NAPERVILLE":{"name":"Naperville","lat":41.7797222,"lon":-88.1455556,"code":"NAPERVILLE"},"LISLE":{"name":"Lisle","lat":41.7977778,"lon":-88.0719444,"code":"LISLE"},"BELMONT":{"name":"Belmont","lat":41.7952778,"lon":-88.0380556,"code":"BELMONT"},"MAINST-DG":{"name":"Downers Grove","lat":41.7952778,"lon":-88.0097222,"code":"MAINST-DG"},"FAIRVIEWDG":{"name":"Fairview Ave.","lat":41.7952778,"lon":-87.9936111,"code":"FAIRVIEWDG"},"WESTMONT":{"name":"Westmont","lat":41.7955556,"lon":-87.9763889,"code":"WESTMONT"},"CLARNDNHIL":{"name":"Clarendon Hills","lat":41.7969444,"lon":-87.9536111,"code":"CLARNDNHIL"},"WHINSDALE":{"name":"West Hinsdale","lat":41.7988889,"lon":-87.9452778,"code":"WHINSDALE"},"HINSDALE":{"name":"Hinsdale","lat":41.8027778,"lon":-87.9283333,"code":"HINSDALE"},"HIGHLANDS":{"name":"Highlands","lat":41.805,"lon":-87.9183333,"code":"HIGHLANDS"},"WESTSPRING":{"name":"Western Springs","lat":41.8088889,"lon":-87.9011111,"code":"WESTSPRING"},"STONEAVE":{"name":"Stone Ave.","lat":41.8141667,"lon":-87.8783333,"code":"STONEAVE"},"LAGRANGE":{"name":"LaGrange Road","lat":41.8158333,"lon":-87.8711111,"code":"LAGRANGE"},"CONGRESSPK":{"name":"Congress Park","lat":41.8188889,"lon":-87.8575,"code":"CONGRESSPK"},"BROOKFIELD":{"name":"Brookfield","lat":41.8219444,"lon":-87.8430556,"code":"BROOKFIELD"},"HOLLYWOOD":{"name":"Hollywood","lat":41.8244444,"lon":-87.8338889,"code":"HOLLYWOOD"},"RIVERSIDE":{"name":"Riverside","lat":41.8272222,"lon":-87.82,"code":"RIVERSIDE"},"HARLEM":{"name":"Harlem Ave.","lat":41.8313889,"lon":-87.8019444,"code":"HARLEM"},"BERWYN":{"name":"Berwyn","lat":41.8330556,"lon":-87.7936111,"code":"BERWYN"},"LAVERGNE":{"name":"Lavergne","lat":41.8355556,"lon":-87.7833333,"code":"LAVERGNE"},"CICERO":{"name":"Cicero","lat":41.8441667,"lon":-87.7455556,"code":"CICERO"},"BNWESTERN":{"name":"Western Avenue","lat":41.8577778,"lon":-87.6852778,"code":"BNWESTERN"},"HALSTED":{"name":"Halsted Street","lat":41.8602778,"lon":-87.6472222,"code":"HALSTED"},"JOLIET":{"name":"Joliet","lat":41.5244444,"lon":-88.0797222,"code":"JOLIET"},"LOCKPORT":{"name":"Lockport","lat":41.585,"lon":-88.0602778,"code":"LOCKPORT"},"LEMONT":{"name":"Lemont","lat":41.6736111,"lon":-88.0025,"code":"LEMONT"},"WILLOWSPRN":{"name":"Willow Springs","lat":41.7333333,"lon":-87.8783333,"code":"WILLOWSPRN"},"SUMMIT":{"name":"Summit","lat":41.795,"lon":-87.8097222,"code":"SUMMIT"},"179TH-SWS":{"name":"Orland Park 179th","lat":41.5638889,"lon":-87.9025,"code":"179TH-SWS"},"153RD-SWS":{"name":"Orland Park 153rd","lat":41.6094444,"lon":-87.8733333,"code":"153RD-SWS"},"143RD-SWS":{"name":"Orland Park 143rd","lat":41.6305556,"lon":-87.8591667,"code":"143RD-SWS"},"PALOSPARK":{"name":"Palos Park","lat":41.6688889,"lon":-87.8202778,"code":"PALOSPARK"},"WORTH":{"name":"Worth","lat":41.6913889,"lon":-87.7958333,"code":"WORTH"},"CHICRIDGE":{"name":"Chicago Ridge","lat":41.7033333,"lon":-87.7802778,"code":"CHICRIDGE"},"OAKLAWN":{"name":"Oak Lawn Patriot","lat":41.7194444,"lon":-87.7486111,"code":"OAKLAWN"},"ASHBURN":{"name":"Ashburn","lat":41.7416667,"lon":-87.7125,"code":"ASHBURN"},"WRIGHTWOOD":{"name":"Wrightwood","lat":41.7488889,"lon":-87.7036111,"code":"WRIGHTWOOD"},"CLYBOURN":{"name":"Clybourn","lat":41.9169444,"lon":-87.6680556,"code":"CLYBOURN"},"RAVENSWOOD":{"name":"Ravenswood","lat":41.9683333,"lon":-87.6744444,"code":"RAVENSWOOD"},"ROGERPK":{"name":"Rogers Park","lat":42.0094444,"lon":-87.6755556,"code":"ROGERPK"},"MAINST":{"name":"Main St.","lat":42.0333333,"lon":-87.68,"code":"MAINST"},"EVANSTON":{"name":"Evanston (Davis St.)","lat":42.0480556,"lon":-87.6847222,"code":"EVANSTON"},"CENTRALST":{"name":"Central St.","lat":42.0641667,"lon":-87.6980556,"code":"CENTRALST"},"WILMETTE":{"name":"Wilmette","lat":42.0772222,"lon":-87.7091667,"code":"WILMETTE"},"KENILWORTH":{"name":"Kenilworth","lat":42.0863889,"lon":-87.7166667,"code":"KENILWORTH"},"WINNETKA":{"name":"Winnetka","lat":42.1052778,"lon":-87.7327778,"code":"WINNETKA"},"HUBARDWOOD":{"name":"Hubbard Woods","lat":42.1180556,"lon":-87.7436111,"code":"HUBARDWOOD"},"GLENCOE":{"name":"Glencoe","lat":42.1355556,"lon":-87.7580556,"code":"GLENCOE"},"BRAESIDE":{"name":"Braeside","lat":42.1527778,"lon":-87.7725,"code":"BRAESIDE"},"RAVINIA":{"name":"Ravinia","lat":42.165,"lon":-87.7827778,"code":"RAVINIA"},"HIGHLANDPK":{"name":"Highland Park","lat":42.1833333,"lon":-87.7975,"code":"HIGHLANDPK"},"HIGHWOOD":{"name":"Highwood","lat":42.2033333,"lon":-87.8105556,"code":"HIGHWOOD"},"FTSHERIDAN":{"name":"Fort Sheridan","lat":42.2175,"lon":-87.8208333,"code":"FTSHERIDAN"},"LKFOREST":{"name":"Lake Forest.","lat":42.2525,"lon":-87.8397222,"code":"LKFOREST"},"LAKEBLUFF":{"name":"Lake Bluff","lat":42.2797222,"lon":-87.8466667,"code":"LAKEBLUFF"},"GRTLAKES":{"name":"Great Lakes","lat":42.3069444,"lon":-87.8463889,"code":"GRTLAKES"},"NCHICAGO":{"name":"North Chicago","lat":42.3286111,"lon":-87.8369444,"code":"NCHICAGO"},"WAUKEGAN":{"name":"Waukegan","lat":42.3605556,"lon":-87.8283333,"code":"WAUKEGAN"},"ZION":{"name":"Zion","lat":42.4491667,"lon":-87.8180556,"code":"ZION"},"WINTHROP":{"name":"Winthrop Harbor","lat":42.4827778,"lon":-87.8161111,"code":"WINTHROP"},"FOXLAKE":{"name":"Fox Lake","lat":42.3983333,"lon":-88.1822222,"code":"FOXLAKE"},"INGLESIDE":{"name":"Ingleside","lat":42.3838889,"lon":-88.1536111,"code":"INGLESIDE"},"LONGLAKE":{"name":"Long Lake","lat":42.3680556,"lon":-88.1280556,"code":"LONGLAKE"},"ROUNDLAKE":{"name":"Round Lake","lat":42.3544444,"lon":-88.0941667,"code":"ROUNDLAKE"},"GRAYSLAKE":{"name":"Grayslake","lat":42.3336111,"lon":-88.0433333,"code":"GRAYSLAKE"},"LIBERTYVIL":{"name":"Libertyville","lat":42.2911111,"lon":-87.9563889,"code":"LIBERTYVIL"},"LAKEFRST":{"name":"Lake Forest","lat":42.2236111,"lon":-87.8747222,"code":"LAKEFRST"},"DEERFIELD":{"name":"Deerfield","lat":42.1680556,"lon":-87.85,"code":"DEERFIELD"},"LAKECOOKRD":{"name":"Lake-Cook","lat":42.1516667,"lon":-87.8413889,"code":"LAKECOOKRD"},"NBROOK":{"name":"Northbrook","lat":42.1269444,"lon":-87.8277778,"code":"NBROOK"},"NGLENVIEW":{"name":"Glen/N. Glenview","lat":42.0975,"lon":-87.8158333,"code":"NGLENVIEW"},"GLENVIEW":{"name":"Glenview","lat":42.075,"lon":-87.8055556,"code":"GLENVIEW"},"GOLF":{"name":"Golf","lat":42.0583333,"lon":-87.7969444,"code":"GOLF"},"MORTONGRV":{"name":"Morton Grove","lat":42.035,"lon":-87.7852778,"code":"MORTONGRV"},"EDGEBROOK":{"name":"Edgebrook","lat":41.9977778,"lon":-87.7655556,"code":"EDGEBROOK"},"FORESTGLEN":{"name":"Forest Glen","lat":41.9780556,"lon":-87.7555556,"code":"FORESTGLEN"},"MAYFAIR":{"name":"Mayfair","lat":41.9597222,"lon":-87.7458333,"code":"MAYFAIR"},"GRAYLAND":{"name":"Grayland","lat":41.9488889,"lon":-87.7402778,"code":"GRAYLAND"},"HEALY":{"name":"Healy","lat":41.9247222,"lon":-87.7277778,"code":"HEALY"},"WESTERNAVE":{"name":"Western Ave","lat":41.8891667,"lon":-87.6880556,"code":"WESTERNAVE"},"RAVINIAPK":{"name":"Ravinia Park","lat":42.1580556,"lon":-87.7769444,"code":"RAVINIAPK"},"INDIANHILL":{"name":"Indian Hill","lat":42.0944444,"lon":-87.7238889,"code":"INDIANHILL"},"KENOSHA":{"name":"Kenosha","lat":42.5858333,"lon":-87.8258333,"code":"KENOSHA"},"HARVARD":{"name":"Harvard","lat":42.4197222,"lon":-88.6175,"code":"HARVARD"},"WOODSTOCK":{"name":"Woodstock","lat":42.3169444,"lon":-88.4475,"code":"WOODSTOCK"},"CRYSTAL":{"name":"Crystal Lake","lat":42.2441667,"lon":-88.3172222,"code":"CRYSTAL"},"MCHENRY":{"name":"McHenry","lat":42.3433333,"lon":-88.2761111,"code":"MCHENRY"},"CARY":{"name":"Cary","lat":42.2088889,"lon":-88.2413889,"code":"CARY"},"FOXRG":{"name":"Fox River Grove","lat":42.1977778,"lon":-88.2194444,"code":"FOXRG"},"BARRINGTON":{"name":"Barrington","lat":42.1527778,"lon":-88.1319444,"code":"BARRINGTON"},"PALATINE":{"name":"Palatine","lat":42.1130556,"lon":-88.0483333,"code":"PALATINE"},"ARLINGTNPK":{"name":"Arlington Park","lat":42.0952778,"lon":-88.0091667,"code":"ARLINGTNPK"},"ARLINGTNHT":{"name":"Arlington Heights","lat":42.0841667,"lon":-87.9836111,"code":"ARLINGTNHT"},"MTPROSPECT":{"name":"Mt. Prospect","lat":42.0630556,"lon":-87.9361111,"code":"MTPROSPECT"},"CUMBERLAND":{"name":"Cumberland","lat":42.0525,"lon":-87.9122222,"code":"CUMBERLAND"},"DESPLAINES":{"name":"Des Plaines","lat":42.0408333,"lon":-87.8866667,"code":"DESPLAINES"},"DEEROAD":{"name":"Dee Road","lat":42.0241667,"lon":-87.8561111,"code":"DEEROAD"},"PARKRIDGE":{"name":"Park Ridge","lat":42.0102778,"lon":-87.8316667,"code":"PARKRIDGE"},"IRVINGPK":{"name":"Irving Park","lat":41.9525,"lon":-87.7297222,"code":"IRVINGPK"},"BIGTIMBER":{"name":"Big Timber","lat":42.0586111,"lon":-88.3277778,"code":"BIGTIMBER"},"ELGIN":{"name":"Elgin","lat":42.0361111,"lon":-88.2861111,"code":"ELGIN"},"NATIONALS":{"name":"National St","lat":42.0263889,"lon":-88.2788889,"code":"NATIONALS"},"HANOVERP":{"name":"Hanover Park","lat":41.9880556,"lon":-88.1491667,"code":"HANOVERP"},"SCHAUM":{"name":"Schaumburg","lat":41.9891667,"lon":-88.1180556,"code":"SCHAUM"},"ROSELLE":{"name":"Roselle","lat":41.9813889,"lon":-88.0672222,"code":"ROSELLE"},"MEDINAH":{"name":"Medinah","lat":41.9780556,"lon":-88.0508333,"code":"MEDINAH"},"ITASCA":{"name":"Itasca","lat":41.9713889,"lon":-88.0141667,"code":"ITASCA"},"WOODDALE":{"name":"Wood Dale","lat":41.9625,"lon":-87.9752778,"code":"WOODDALE"},"BENSENVIL":{"name":"Bensenville","lat":41.9569444,"lon":-87.9419444,"code":"BENSENVIL"},"MANNHEIM":{"name":"Mannheim","lat":41.9416667,"lon":-87.8833333,"code":"MANNHEIM"},"FRANKLIN":{"name":"Franklin Park","lat":41.9366667,"lon":-87.8663889,"code":"FRANKLIN"},"MONTCLARE":{"name":"Mont Clare","lat":41.9216667,"lon":-87.8016667,"code":"MONTCLARE"},"MARS":{"name":"Mars","lat":41.9191667,"lon":-87.7944444,"code":"MARS"},"GALEWOOD":{"name":"Galewood","lat":41.9163889,"lon":-87.7858333,"code":"GALEWOOD"},"HANSONPK":{"name":"Hanson Park","lat":41.9166667,"lon":-87.7669444,"code":"HANSONPK"},"GRAND-CIC":{"name":"Grand/Cicero","lat":41.9144444,"lon":-87.7461111,"code":"GRAND-CIC"},"OHARE":{"name":"O'Hare Transfer","lat":41.995,"lon":-87.8805556,"code":"OHARE"},"PROSPECTHG":{"name":"Prospect Hts","lat":42.0922222,"lon":-87.9080556,"code":"PROSPECTHG"},"WHEELING":{"name":"Wheeling","lat":42.1363889,"lon":-87.9272222,"code":"WHEELING"},"BUFFGROVE":{"name":"Buffalo Grove","lat":42.1686111,"lon":-87.9413889,"code":"BUFFGROVE"},"PRAIRIEVW":{"name":"Prairie View","lat":42.1980556,"lon":-87.9558333,"code":"PRAIRIEVW"},"VERNON":{"name":"Vernon Hills","lat":42.2155556,"lon":-87.9644444,"code":"VERNON"},"MUNDELEIN":{"name":"Mundelein","lat":42.2669444,"lon":-87.9980556,"code":"MUNDELEIN"},"PRAIRCROSS":{"name":"Prairie Crossing.","lat":42.3180556,"lon":-88.0172222,"code":"PRAIRCROSS"},"ROUNDLKBCH":{"name":"Round Lake Beach","lat":42.385,"lon":-88.0655556,"code":"ROUNDLKBCH"},"LAKEVILLA":{"name":"Lake Villa","lat":42.4175,"lon":-88.0794444,"code":"LAKEVILLA"},"ANTIOCH":{"name":"Antioch","lat":42.4811111,"lon":-88.0925,"code":"ANTIOCH"},"NEWLENOX":{"name":"New Lenox","lat":41.5144444,"lon":-87.9652778,"code":"NEWLENOX"},"MOKENA":{"name":"Mokena","lat":41.5308333,"lon":-87.8866667,"code":"MOKENA"},"HICKORYCRK":{"name":"Hickory Creek","lat":41.5486111,"lon":-87.8455556,"code":"HICKORYCRK"},"TINLEY80TH":{"name":"Tinley-80th","lat":41.5644444,"lon":-87.8094444,"code":"TINLEY80TH"},"TINLEYPARK":{"name":"Tinley Park","lat":41.5758333,"lon":-87.7827778,"code":"TINLEYPARK"},"OAKFOREST":{"name":"Oak Forest","lat":41.6044444,"lon":-87.7383333,"code":"OAKFOREST"},"MIDLOTHIAN":{"name":"Midlothian","lat":41.6263889,"lon":-87.7116667,"code":"MIDLOTHIAN"},"ROBBINS":{"name":"Robbins","lat":41.6408333,"lon":-87.6944444,"code":"ROBBINS"},"KENSINGTN":{"name":"Kensington","lat":41.6858333,"lon":-87.6122222,"code":"KENSINGTN"},"59TH-UP":{"name":"59th St. (U. of Chicago)","lat":41.7880556,"lon":-87.5886111,"code":"59TH-UP"},"UNIVERSITY":{"name":"University Park","lat":41.4594444,"lon":-87.7233333,"code":"UNIVERSITY"},"RICHTON":{"name":"Richton Park","lat":41.4855556,"lon":-87.7094444,"code":"RICHTON"},"MATTESON":{"name":"Matteson","lat":41.4986111,"lon":-87.7022222,"code":"MATTESON"},"211TH-UP":{"name":"211th St.","lat":41.5061111,"lon":-87.6983333,"code":"211TH-UP"},"OLYMPIA":{"name":"Olympia Fields","lat":41.5213889,"lon":-87.69,"code":"OLYMPIA"},"FLOSSMOOR":{"name":"Flossmoor","lat":41.5430556,"lon":-87.6786111,"code":"FLOSSMOOR"},"HOMEWOOD":{"name":"Homewood","lat":41.5622222,"lon":-87.6686111,"code":"HOMEWOOD"},"CALUMET":{"name":"Calumet","lat":41.5736111,"lon":-87.6625,"code":"CALUMET"},"EDISONPK":{"name":"Edison Park","lat":42.0022222,"lon":-87.8175,"code":"EDISONPK"},"NORWOODP":{"name":"Norwood Park","lat":41.9916667,"lon":-87.7988889,"code":"NORWOODP"},"GLADSTONEP":{"name":"Gladstone Park","lat":41.9797222,"lon":-87.7780556,"code":"GLADSTONEP"},"JEFFERSONP":{"name":"Jefferson Park","lat":41.9713889,"lon":-87.7633333,"code":"JEFFERSONP"},"BARTLETT":{"name":"Bartlett","lat":41.9922222,"lon":-88.1838889,"code":"BARTLETT"},"47TH-UP":{"name":"47th St. (Kenwood)","lat":41.8097222,"lon":-87.5913889,"code":"47TH-UP"},"51ST-53RD":{"name":"51st/53rd St. (Hyde Park)","lat":41.8,"lon":-87.5869444,"code":"51ST-53RD"},"55-56-57TH":{"name":"55th - 56th - 57th St.","lat":41.7933333,"lon":-87.5875,"code":"55-56-57TH"},"63RD-UP":{"name":"63rd St.","lat":41.7802778,"lon":-87.5905556,"code":"63RD-UP"},"PRAIRIEXNG":{"name":"Prairie Crossing","lat":42.3208333,"lon":-88.0152778,"code":"PRAIRIEXNG"},"RIVERGROVE":{"name":"River Grove","lat":41.9311111,"lon":-87.8361111,"code":"RIVERGROVE"},"ELMWOODPK":{"name":"Elmwood Park","lat":41.9247222,"lon":-87.8147222,"code":"ELMWOODPK"},"RIVERDALE":{"name":"Riverdale","lat":41.6466667,"lon":-87.6233333,"code":"RIVERDALE"},"IVANHOE":{"name":"Ivanhoe","lat":41.6333333,"lon":-87.6302778,"code":"IVANHOE"},"147TH-UP":{"name":"147th St.","lat":41.6227778,"lon":-87.6361111,"code":"147TH-UP"},"HARVEY":{"name":"Harvey","lat":41.6083333,"lon":-87.6438889,"code":"HARVEY"},"HAZELCREST":{"name":"Hazel Crest","lat":41.5808333,"lon":-87.6586111,"code":"HAZELCREST"},"MILLENNIUM":{"name":"Millennium Station","lat":41.8841667,"lon":-87.6230556,"code":"MILLENNIUM"},"VANBUREN":{"name":"Van Buren St.","lat":41.8769444,"lon":-87.6230556,"code":"VANBUREN"},"MUSEUM":{"name":"Museum Campus/11th St.","lat":41.8686111,"lon":-87.6213889,"code":"MUSEUM"},"18TH-UP":{"name":"18th St.","lat":41.8583333,"lon":-87.6180556,"code":"18TH-UP"},"MCCORMICK":{"name":"McCormick Place","lat":41.8513889,"lon":-87.6163889,"code":"MCCORMICK"},"27TH-UP":{"name":"27th St.","lat":41.8441667,"lon":-87.6133333,"code":"27TH-UP"},"75TH-UP":{"name":"75th St. (Grand Crossing)","lat":41.7588889,"lon":-87.5952778,"code":"75TH-UP"},"79TH-UP":{"name":"79th St. (Chatham)","lat":41.7508333,"lon":-87.5972222,"code":"79TH-UP"},"83RD-UP":{"name":"83rd St. (Avalon Park)","lat":41.7441667,"lon":-87.5986111,"code":"83RD-UP"},"87TH-UP":{"name":"87th St. (Woodruff)","lat":41.7369444,"lon":-87.6002778,"code":"87TH-UP"},"91ST-UP":{"name":"91st St.","lat":41.7294444,"lon":-87.6019444,"code":"91ST-UP"},"95TH-UP":{"name":"95th St.","lat":41.7219444,"lon":-87.6038889,"code":"95TH-UP"},"103RD-UP":{"name":"103rd St. (Rosemoor)","lat":41.7069444,"lon":-87.6072222,"code":"103RD-UP"},"107TH-UP":{"name":"107th St.","lat":41.6997222,"lon":-87.6088889,"code":"107TH-UP"},"111TH-UP":{"name":"111th St. (Pullman)","lat":41.6927778,"lon":-87.6105556,"code":"111TH-UP"},"STONYISLND":{"name":"Stony Island","lat":41.7661111,"lon":-87.5869444,"code":"STONYISLND"},"BRYNMAWR":{"name":"Bryn Mawr","lat":41.7661111,"lon":-87.5766667,"code":"BRYNMAWR"},"SOUTHSHORE":{"name":"South Shore","lat":41.7652778,"lon":-87.5658333,"code":"SOUTHSHORE"},"WINDSORPK":{"name":"Windsor Park","lat":41.7586111,"lon":-87.5594444,"code":"WINDSORPK"},"79TH-SC":{"name":"Cheltenham (79th St.)","lat":41.7522222,"lon":-87.5525,"code":"79TH-SC"},"83RD-SC":{"name":"83rd St.","lat":41.745,"lon":-87.5516667,"code":"83RD-SC"},"87TH-SC":{"name":"87th St.","lat":41.7377778,"lon":-87.5483333,"code":"87TH-SC"},"93RD-SC":{"name":"South Chicago (93rd)","lat":41.7266667,"lon":-87.5477778,"code":"93RD-SC"},"LSS":{"name":"LaSalle Street","lat":41.8763889,"lon":-87.6322222,"code":"LSS"},"GRESHAM":{"name":"Gresham","lat":41.7363889,"lon":-87.6447222,"code":"GRESHAM"},"VERMONT":{"name":"Blue Island-Vermont","lat":41.6547222,"lon":-87.6777778,"code":"VERMONT"},"LONGWOOD":{"name":"95th St.-Longwood","lat":41.7211111,"lon":-87.6502778,"code":"LONGWOOD"},"WASHHGTS":{"name":"103rd St.-Washington Hts.","lat":41.7055556,"lon":-87.6558333,"code":"WASHHGTS"},"BRAINERD":{"name":"Brainerd","lat":41.7322222,"lon":-87.6588889,"code":"BRAINERD"},"91ST-BEV":{"name":"91st St. - Beverly Hills","lat":41.7280556,"lon":-87.6672222,"code":"91ST-BEV"},"PRAIRIEST":{"name":"Prairie St.","lat":41.6625,"lon":-87.675,"code":"PRAIRIEST"},"123RD-BEV":{"name":"123rd St.","lat":41.67,"lon":-87.6736111,"code":"123RD-BEV"},"119TH-BEV":{"name":"119th St.","lat":41.6763889,"lon":-87.6725,"code":"119TH-BEV"},"115TH-BEV":{"name":"115th St. - Morgan Park","lat":41.685,"lon":-87.6716667,"code":"115TH-BEV"},"111TH-BEV":{"name":"111th St. - Morgan Park","lat":41.6927778,"lon":-87.6705556,"code":"111TH-BEV"},"107TH-BEV":{"name":"107th St. - Beverly Hills","lat":41.6988889,"lon":-87.67,"code":"107TH-BEV"},"103RD-BEV":{"name":"103rd St. - Beverly Hills","lat":41.7061111,"lon":-87.6688889,"code":"103RD-BEV"},"99TH-BEV":{"name":"99th St. - Beverly Hills","lat":41.7136111,"lon":-87.6675,"code":"99TH-BEV"},"95TH-BEV":{"name":"95th St. - Beverly Hills","lat":41.7213889,"lon":-87.6672222,"code":"95TH-BEV"},"BLUEISLAND":{"name":"Blue Island","lat":41.6561111,"lon":-87.6758333,"code":"BLUEISLAND"},"BURROAK":{"name":"Burr Oak","lat":41.6622222,"lon":-87.6688889,"code":"BURROAK"},"ASHLAND":{"name":"Ashland","lat":41.6694444,"lon":-87.6605556,"code":"ASHLAND"},"RACINE":{"name":"Racine","lat":41.6741667,"lon":-87.6519444,"code":"RACINE"},"WPULLMAN":{"name":"West Pullman","lat":41.6741667,"lon":-87.6422222,"code":"WPULLMAN"},"STEWARTRID":{"name":"Stewart Ridge","lat":41.6744444,"lon":-87.6316667,"code":"STEWARTRID"},"STATEST":{"name":"State St.","lat":41.6744444,"lon":-87.6219444,"code":"STATEST"},"SCHILLERPK":{"name":"Schiller Park","lat":41.9627778,"lon":-87.8705556,"code":"SCHILLERPK"},"PALOSHTS":{"name":"Palos Heights","lat":41.6819444,"lon":-87.8069444,"code":"PALOSHTS"},"PINGREE":{"name":"Pingree Road","lat":42.2341667,"lon":-88.2980556,"code":"PINGREE"},"CUS":{"name":"Chicago Union Station","lat":41.8788889,"lon":-87.6388889,"code":"CUS"},"OTC":{"name":"Chicago OTC","lat":41.8822222,"lon":-87.6405556,"code":"OTC"},"LARAWAY":{"name":"Laraway Road","lat":41.4847222,"lon":-87.9597222,"code":"LARAWAY"},"MANHATTAN":{"name":"Manhattan","lat":41.4183333,"lon":-87.9891667,"code":"MANHATTAN"},"NCSGRAYSLK":{"name":"Washington St (Grayslake)","lat":42.3591667,"lon":-88.0505556,"code":"NCSGRAYSLK"},"ROSEMONT":{"name":"Rosemont","lat":41.9761111,"lon":-87.8738889,"code":"ROSEMONT"},"FRANKLINPK":{"name":"Franklin Pk","lat":41.9377778,"lon":-87.86,"code":"FRANKLINPK"},"LAFOX":{"name":"La Fox","lat":41.8866667,"lon":-88.4122222,"code":"LAFOX"},"ELBURN":{"name":"Elburn","lat":41.8905556,"lon":-88.4638889,"code":"ELBURN"},"35TH":{"name":"35th St. - Lou Jones","lat":41.8313889,"lon":-87.6291667,"code":"35TH"},"ROMEOVILLE":{"name":"Romeoville","lat":41.6372222,"lon":-88.0494444,"code":"ROMEOVILLE"},"PETERSON":{"name":"Peterson/Ridge","lat":41.9911111,"lon":-87.675,"code":"PETERSON"}},"routes":{"BNSF":{"name":"BNSF Railway","color":"#29C233","text":"#000000"},"HC":{"name":"Heritage Corridor","color":"#550E0C","text":"#FFFFFF"},"MD-N":{"name":"Milwaukee District North","color":"#CC5500","text":"#FFFFFF"},"MD-W":{"name":"Milwaukee District West","color":"#F1AD0E","text":"#000000"},"ME":{"name":"Metra Electric","color":"#EB5C00","text":"#FFFFFF"},"NCS":{"name":"North Central Service","color":"#9785BC","text":"#FFFFFF"},"RI":{"name":"Rock Island","color":"#E02400","text":"#FFFFFF"},"SWS":{"name":"SouthWest Service","color":"#0042A8","text":"#FFFFFF"},"UP-N":{"name":"Union Pacific North","color":"#008000","text":"#FFFFFF"},"UP-NW":{"name":"Union Pacific Northwest","color":"#FFE600","text":"#000000"},"UP-W":{"name":"Union Pacific West","color":"#FE8D81","text":"#000000"}}};
       const METRA_GTFS_RT_DESCRIPTOR = MNR_GTFS_RT_DESCRIPTOR;
       let metraFeedMessageType = null;
@@ -7048,6 +7752,9 @@
           : '—';
         const metraBadge = '<span class="cape-badge" style="background:#0055A4;">Metra</span>';
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMetraTrain(\'' + vid + '\')">Refresh</button>';
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
         const stopsHtml = (info.stops && info.stops.length)
           ? buildStopsHtml(info.stops, info.lat, info.lng)
           : '<div class="no-departures">No stop data</div>';
@@ -7067,6 +7774,7 @@
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
@@ -7089,6 +7797,7 @@
                 </div>
                 ${speedHtml}
               </div>
+              ${al}
               <div class="meta-row">
                 ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
@@ -7186,25 +7895,38 @@
           vehicleStatus: vehicleStatus,
           currentStopName: currentStopName,
           speedMph: speedMph,
-          tripId: tripId || null
+          tripId: tripId || null,
+          hasAlert: false,
+          alertHeader: ''
         };
       }
       async function fetchMetraTrains() {
         const stat = FetchStats.start('Metra');
         try {
           const FeedMessage = getMetraFeedMessageType();
-          const [posRes, tuRes] = await Promise.all([
+          const [posRes, tuRes, alRes] = await Promise.all([
             fetch(METRA_POSITIONS_URL),
-            fetch(METRA_TRIPUPDATES_URL)
+            fetch(METRA_TRIPUPDATES_URL),
+            fetch(METRA_ALERTS_URL).catch(function() { return null; })
           ]);
           if (!posRes.ok) throw new Error('positions HTTP ' + posRes.status);
           if (!tuRes.ok) throw new Error('tripupdates HTTP ' + tuRes.status);
-          const [posBuf, tuBuf] = await Promise.all([
+          const [posBuf, tuBuf, alBuf] = await Promise.all([
             posRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
-            tuRes.arrayBuffer().then(function(b) { return new Uint8Array(b); })
+            tuRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
+            (alRes && alRes.ok) ? alRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }) : Promise.resolve(null)
           ]);
           const posFeed = FeedMessage.decode(posBuf);
           const tuFeed = FeedMessage.decode(tuBuf);
+          let alertIndex = { byTrip: {}, byRoute: {} };
+          if (alBuf) {
+            try {
+              const alFeed = FeedMessage.decode(alBuf);
+              alertIndex = indexGtfsRtServiceAlerts(alFeed, ['METRA']);
+            } catch (alErr) {
+              console.warn('[Metra alerts] decode failed', alErr);
+            }
+          }
           // Index trip updates by trip_update.vehicle.id
           const tuByVehicleId = {};
           (tuFeed.entity || []).forEach(function(entity) {
@@ -7225,6 +7947,7 @@
             if (tu) joined++; else gpsOnly++;
             const info = metraParseJoined(entity, tu, usedTrainNums);
             if (!info) { skipped++; return; }
+            applyGtfsRtAlertFields(info, alertIndex);
             const vid = info.id;
             seen.add(vid);
             metraTrainInfo[vid] = info;
@@ -7780,9 +8503,7 @@
                             : "status-very-delayed";
         const trk = track || '—';
         const spd = mph !== null ? Math.round(mph) : 0;
-        const al = hasAlert 
-          ? `<div class="alert-banner"><img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ${trainInfo[vid]?.alertHeader || 'Active Service Alert'}</div>` 
-          : '';
+        const al = trainAlertBannerHtml(hasAlert, (trainInfo[vid] && trainInfo[vid].alertHeader) || 'Active Service Alert');
         const lastSeenTime = trainLastSeen[vid] 
           ? new Date(trainLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
           : '—';
@@ -8278,74 +8999,158 @@
       }
       function searchTrains(q, container) {
         const res = [];
-        for (const vid in trainInfo) {
-          const t = trainInfo[vid];
-          if (vid.toLowerCase().includes(q) || 
-              (t.routeName || '').toLowerCase().includes(q) || 
-              (t.destination || '').toLowerCase().includes(q)) {
-            res.push({ type: 'train', id: vid, train: t });
+        const qLower = q;
+        function fieldMatch(fields) {
+          for (let i = 0; i < fields.length; i++) {
+            const f = fields[i];
+            if (f != null && String(f).toLowerCase().includes(qLower)) return true;
           }
+          return false;
         }
-        if (res.length === 0) return;
-        const header = document.createElement('div');
-        header.className = 'search-section-header';
-        header.textContent = `Trains (${res.length})`;
-        container.appendChild(header);
-        res.forEach(r => {
-          const t = r.train;
-          const delay = t.delayMinutes;
-          let statusClass = 'status-on-time';
-          let statusText = t.delayStatus || 'On Time';
+        function delayStatusParts(delay, fallbackText, fallbackClass) {
+          let statusClass = fallbackClass || 'status-on-time';
+          let statusText = fallbackText || 'On Time';
           if (delay === null || delay === undefined) {
-            statusClass = 'status-scheduled';
-            statusText = 'Scheduled';
+            if (fallbackText) return { statusClass: statusClass, statusText: statusText };
+            return { statusClass: 'status-scheduled', statusText: 'Scheduled' };
           } else if (Math.abs(delay) <= 5) {
             statusClass = 'status-on-time';
             statusText = 'On Time';
           } else if (delay <= 15) {
             statusClass = 'status-delayed';
-            statusText = `Delayed ${Math.round(delay)} min`;
+            statusText = 'Delayed ' + Math.round(delay) + ' min';
           } else {
             statusClass = 'status-very-delayed';
-            statusText = `Delayed ${Math.round(delay)} min`;
+            statusText = 'Delayed ' + Math.round(delay) + ' min';
           }
-          const tripNum = extractTrainNumber(t.tripId) || t.tripId || '—';
-          const alertIcon = t.hasAlert 
-            ? ` <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">` 
-            : '';
-          // Determine next/current stop label from vehicle status
-          let stopLabel = 'Next';
-          let stopName = t.stopName || '—';
+          return { statusClass: statusClass, statusText: statusText };
+        }
+        // MBTA
+        for (const vid in trainInfo) {
+          const t = trainInfo[vid];
+          const tripNum = extractTrainNumber(t.tripId) || t.tripId || '';
+          if (!fieldMatch([vid, t.tripId, tripNum, t.routeName, t.destination])) continue;
+          const st = delayStatusParts(t.delayMinutes, t.delayStatus);
+          let stopLabel = 'Next', stopName = t.stopName || '—';
           if (t.status === 'STOPPED_AT') stopLabel = 'At';
           else if (t.status === 'INCOMING_AT') stopLabel = 'Arriving';
+          res.push({
+            agency: 'MBTA', agencyColor: '#1a1a2e', id: vid, markerMap: markers,
+            routeName: t.routeName || 'MBTA', trainNum: tripNum || '—', dest: t.destination || '—',
+            vehicleLabel: vid, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+            statusClass: st.statusClass, statusText: st.statusText,
+            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
+          });
+        }
+        // Amtrak
+        for (const vid in amtrakTrainInfo) {
+          const t = amtrakTrainInfo[vid];
+          const num = t.trainNum || t.trainNumRaw || String(vid).replace(/^amtrak-/, '');
+          if (!fieldMatch([vid, num, t.trainID, t.routeName, t.destName, t.destCode, t.origName, t.origCode])) continue;
+          const statusRaw = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+          let statusClass = 'status-on-time';
+          if (/late|delay/i.test(statusRaw)) statusClass = /late\s*([2-9]\d|\d{3,})/i.test(statusRaw) || /hours?/i.test(statusRaw) ? 'status-very-delayed' : 'status-delayed';
+          else if (/predeparture|scheduled|not yet/i.test(statusRaw)) statusClass = 'status-scheduled';
+          const hasAlert = !!(t.hasAlert || (t.alerts && t.alerts.length));
+          res.push({
+            agency: 'Amtrak', agencyColor: '#003087', id: vid, markerMap: amtrakMarkers,
+            routeName: t.routeName || 'Amtrak', trainNum: num, dest: t.destName || t.destCode || '—',
+            vehicleLabel: t.trainID || num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
+            statusClass: statusClass, statusText: statusRaw,
+            hasAlert: hasAlert, lat: t.lat, lng: (t.lng != null ? t.lng : t.lon)
+          });
+        }
+        // Metro-North
+        for (const vid in mnrTrainInfo) {
+          const t = mnrTrainInfo[vid];
+          const num = t.trainNum || String(vid).replace(/^mnr-/, '');
+          if (!fieldMatch([vid, num, t.tripId, t.routeName, t.destName, t.origName])) continue;
+          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+          let stopLabel = 'Next', stopName = t.currentStopName || '—';
+          if (t.vehicleStatus === 1) stopLabel = 'At';
+          else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+          res.push({
+            agency: 'MNR', agencyColor: '#0039A6', id: vid, markerMap: mnrMarkers,
+            routeName: t.routeName || 'Metro-North', trainNum: num, dest: t.destName || '—',
+            vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+            statusClass: st.statusClass, statusText: st.statusText,
+            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
+          });
+        }
+        // LIRR
+        for (const vid in lirrTrainInfo) {
+          const t = lirrTrainInfo[vid];
+          const num = t.trainNum || String(vid).replace(/^lirr-/, '');
+          if (!fieldMatch([vid, num, t.tripId, t.routeName, t.destName, t.origName])) continue;
+          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+          let stopLabel = 'Next', stopName = t.currentStopName || '—';
+          if (t.vehicleStatus === 1) stopLabel = 'At';
+          else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+          res.push({
+            agency: 'LIRR', agencyColor: '#0039A6', id: vid, markerMap: lirrMarkers,
+            routeName: t.routeName || 'LIRR', trainNum: num, dest: t.destName || '—',
+            vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+            statusClass: st.statusClass, statusText: st.statusText,
+            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
+          });
+        }
+        // Metra
+        for (const vid in metraTrainInfo) {
+          const t = metraTrainInfo[vid];
+          const num = t.trainNum || String(vid).replace(/^metra-/, '');
+          if (!fieldMatch([vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName])) continue;
+          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+          let stopLabel = 'Next', stopName = t.currentStopName || '—';
+          if (t.vehicleStatus === 1) stopLabel = 'At';
+          else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+          res.push({
+            agency: 'Metra', agencyColor: '#0055A4', id: vid, markerMap: metraMarkers,
+            routeName: t.routeName || 'Metra', trainNum: num, dest: t.destName || '—',
+            vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+            statusClass: st.statusClass, statusText: st.statusText,
+            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
+          });
+        }
+        if (res.length === 0) return;
+        const header = document.createElement('div');
+        header.className = 'search-section-header';
+        header.textContent = 'Trains (' + res.length + ')';
+        container.appendChild(header);
+        res.forEach(function(r) {
+          const alertIcon = r.hasAlert
+            ? ' <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">'
+            : '';
+          const speedTxt = (r.speedMph != null && isFinite(Number(r.speedMph))) ? (Math.round(Number(r.speedMph)) + ' mph') : '—';
+          const agencyBadge = '<span class="cape-badge" style="background:' + r.agencyColor + ';font-size:10px;padding:2px 6px;margin-right:4px;">' + r.agency + '</span>';
           const d = document.createElement('div');
           d.className = 'search-result';
-          d.innerHTML = `
-            <div class="search-result-header">
-              <span class="route">${t.routeName || 'Unknown'}</span>
-              <span class="trip-num">${tripNum}</span>
-              <span class="to-label">to</span>
-              <span class="dest">${t.destination || '—'}</span>${alertIcon}
-            </div>
-            <div class="search-result-body">
-              <div class="search-result-meta">
-                <span><span class="label">Vehicle</span>${r.id}</span>
-              </div>
-              <div class="search-result-meta" style="margin-left:auto;">
-                <span><span class="label">Speed</span>${Math.round(t.speedMph || 0)} mph</span>
-                <span><span class="label">${stopLabel}</span>${stopName}</span>
-                <span class="search-status-pill ${statusClass}">${statusText}</span>
-              </div>
-            </div>
-          `;
-          d.onclick = () => {
-            map.setView([t.lat, t.lng], 15);
+          d.innerHTML =
+            '<div class="search-result-header">' +
+              agencyBadge +
+              '<span class="route">' + escapeHtmlLite(r.routeName || 'Unknown') + '</span>' +
+              '<span class="trip-num">' + escapeHtmlLite(String(r.trainNum || '—')) + '</span>' +
+              '<span class="to-label">to</span>' +
+              '<span class="dest">' + escapeHtmlLite(r.dest || '—') + '</span>' + alertIcon +
+            '</div>' +
+            '<div class="search-result-body">' +
+              '<div class="search-result-meta">' +
+                '<span><span class="label">Vehicle</span>' + escapeHtmlLite(String(r.vehicleLabel || r.id)) + '</span>' +
+              '</div>' +
+              '<div class="search-result-meta" style="margin-left:auto;">' +
+                '<span><span class="label">Speed</span>' + speedTxt + '</span>' +
+                '<span><span class="label">' + escapeHtmlLite(r.stopLabel || 'Next') + '</span>' + escapeHtmlLite(r.stopName || '—') + '</span>' +
+                '<span class="search-status-pill ' + r.statusClass + '">' + escapeHtmlLite(r.statusText || '') + '</span>' +
+              '</div>' +
+            '</div>';
+          d.onclick = function() {
+            const lat = parseFloat(r.lat), lng = parseFloat(r.lng);
+            if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], 15);
             if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
-            const m = markers[r.id];
-            if (m) { 
-              m.openPopup(); 
-              m.getElement()?.classList.add('highlighted-train'); 
-              highlightedMarker = m; 
+            const m = r.markerMap && r.markerMap[r.id];
+            if (m) {
+              m.openPopup();
+              m.getElement()?.classList.add('highlighted-train');
+              highlightedMarker = m;
             }
             container.classList.remove('active');
             document.getElementById('control-panel').classList.remove('open');
@@ -8356,45 +9161,76 @@
       }
       function searchStations(q, container) {
         const res = [];
+        const seen = new Set();
         for (const skey in stationsByName) {
           if (skey.includes(q)) {
             const g = stationsByName[skey];
-            res.push({ 
+            const id = g.stopIds[0];
+            seen.add('mbta:' + String(id));
+            res.push({
               type: 'station',
-              id: g.stopIds[0], 
-              name: g.name, 
+              agency: 'MBTA',
+              id: id,
+              name: g.name,
               platforms: g.stopIds.length,
-              lat: g.lat, 
-              lng: g.lng 
+              lat: g.lat,
+              lng: g.lng,
+              markerId: id
             });
           }
         }
+        function addStaticStops(staticObj, agency, idPrefix) {
+          if (!staticObj || !staticObj.stops) return;
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s || !s.name) return;
+            const nameKey = String(s.name).toLowerCase();
+            if (!nameKey.includes(q) && !String(sid).toLowerCase().includes(q)) return;
+            const key = idPrefix + ':' + sid;
+            if (seen.has(key)) return;
+            seen.add(key);
+            res.push({
+              type: 'station',
+              agency: agency,
+              id: idPrefix + '-' + sid,
+              name: s.name,
+              platforms: 1,
+              lat: s.lat,
+              lng: s.lon,
+              markerId: null
+            });
+          });
+        }
+        // Other-agency stations from in-memory static GTFS (no map markers required)
+        try { addStaticStops(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR', 'mnr'); } catch (e) {}
+        try { addStaticStops(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR', 'lirr'); } catch (e) {}
+        try { addStaticStops(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra', 'metra'); } catch (e) {}
         if (res.length === 0) return;
         const header = document.createElement('div');
         header.className = 'search-section-header';
-        header.textContent = `Stations (${res.length})`;
+        header.textContent = 'Stations (' + res.length + ')';
         container.appendChild(header);
-        res.forEach(r => {
+        res.forEach(function(r) {
           const d = document.createElement('div');
           d.className = 'search-result search-station-result';
-          d.innerHTML = `
-            <div class="search-result-header">
-              <span class="route">${r.name}</span>
-            </div>
-            <div class="search-result-body">
-              <div class="search-result-meta">
-                <span>${r.platforms > 1 ? r.platforms + ' platforms' : 'MBTA Station'}</span>
-              </div>
-            </div>
-          `;
-          d.onclick = () => {
+          const sub = r.agency === 'MBTA'
+            ? (r.platforms > 1 ? r.platforms + ' platforms' : 'MBTA Station')
+            : (r.agency + ' Station');
+          d.innerHTML =
+            '<div class="search-result-header">' +
+              '<span class="route">' + escapeHtmlLite(r.name) + '</span>' +
+            '</div>' +
+            '<div class="search-result-body">' +
+              '<div class="search-result-meta"><span>' + escapeHtmlLite(sub) + '</span></div>' +
+            '</div>';
+          d.onclick = function() {
             map.setView([r.lat, r.lng], 15);
             if (highlightedStation) highlightedStation.getElement()?.classList.remove('highlighted-station');
-            const m = stationMarkers[r.id];
-            if (m) { 
-              m.openPopup(); 
-              m.getElement()?.classList.add('highlighted-station'); 
-              highlightedStation = m; 
+            if (r.markerId && stationMarkers[r.markerId]) {
+              const m = stationMarkers[r.markerId];
+              m.openPopup();
+              m.getElement()?.classList.add('highlighted-station');
+              highlightedStation = m;
             }
             container.classList.remove('active');
             document.getElementById('control-panel').classList.remove('open');
@@ -8845,6 +9681,50 @@
         e.preventDefault();
         toggleMenu();
       });
+      function isAppFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+      }
+      function syncFullscreenButton() {
+        const btn = document.getElementById('btn-fullscreen');
+        if (!btn) return;
+        const on = isAppFullscreen();
+        btn.textContent = on ? 'Exit full screen' : 'Full screen';
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+      async function toggleAppFullscreen() {
+        const el = document.documentElement;
+        try {
+          if (isAppFullscreen()) {
+            if (document.exitFullscreen) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
+          } else {
+            if (el.requestFullscreen) await el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            else if (el.msRequestFullscreen) el.msRequestFullscreen();
+          }
+        } catch (err) {
+          console.warn('[fullscreen]', err && err.message ? err.message : err);
+        }
+        setTimeout(function() {
+          syncFullscreenButton();
+          if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+        }, 120);
+      }
+      const fsBtn = document.getElementById('btn-fullscreen');
+      if (fsBtn) fsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleAppFullscreen();
+      });
+      document.addEventListener('fullscreenchange', function() {
+        syncFullscreenButton();
+        if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+      });
+      document.addEventListener('webkitfullscreenchange', function() {
+        syncFullscreenButton();
+        if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+      });
+      syncFullscreenButton();
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && controlPanel.classList.contains('open')) {
           toggleMenu();
