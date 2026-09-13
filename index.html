@@ -4976,7 +4976,7 @@
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
         if (w <= 700) return { maxWidth: Math.max(200, w - 28), minWidth: 180 };
-        return rrPopupOpts();
+        return { maxWidth: 520, minWidth: 280 };
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
