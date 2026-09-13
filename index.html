@@ -7120,10 +7120,61 @@
         if (!stops.length) return '<div class="no-departures">No stop data</div>';
         return buildStopsHtml(stops, currentLat, currentLng);
       }
-      function amtrakAlertFromTrain(t) {
+      function amtrakTrainNumKey(n) {
+        const s = String(n == null ? '' : n).trim();
+        if (!s) return '';
+        return s.replace(/^0+/, '') || '0';
+      }
+      const AMTRAK_ALERTS_URL = apiUrl('/api/amtrak/alerts');
+      let amtrakAlertsCache = { at: 0, byTrain: {} };
+      function indexAmtrakGtfsRtAlerts(feed) {
+        const byTrain = {};
+        function add(num, msg) {
+          const k = amtrakTrainNumKey(num);
+          if (!k || !msg) return;
+          if (!byTrain[k]) byTrain[k] = msg;
+        }
+        (feed.entity || []).forEach(function(e) {
+          const a = e && e.alert;
+          if (!a || !gtfsRtAlertIsActive(a)) return;
+          const header = gtfsRtTranslatedText(a.header_text);
+          const desc = gtfsRtTranslatedText(a.description_text);
+          const msg = (desc || header || '').trim();
+          if (!msg) return;
+          const idm = String(e.id || '').match(/AMTK[_-]?(\d+)/i);
+          if (idm) add(idm[1], msg);
+          (a.informed_entity || []).forEach(function(ent) {
+            if (!ent) return;
+            const tripId = (ent.trip && ent.trip.trip_id != null) ? String(ent.trip.trip_id) : '';
+            const tm = tripId.match(/AMTK[_-]?(\d+)/i);
+            if (tm) add(tm[1], msg);
+            if (ent.trip && ent.trip.trip_short_name) add(ent.trip.trip_short_name, msg);
+          });
+        });
+        return byTrain;
+      }
+      async function fetchAmtrakAlertsByTrain() {
+        const now = Date.now();
+        if (amtrakAlertsCache.at && (now - amtrakAlertsCache.at) < 45000) return amtrakAlertsCache.byTrain || {};
+        try {
+          const res = await fetch(AMTRAK_ALERTS_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = new Uint8Array(await res.arrayBuffer());
+          const FeedMessage = getMnrFeedMessageType();
+          const feed = FeedMessage.decode(buf);
+          const byTrain = indexAmtrakGtfsRtAlerts(feed);
+          amtrakAlertsCache = { at: now, byTrain: byTrain };
+          return byTrain;
+        } catch (e) {
+          console.warn('[Amtrak alerts] unavailable (deploy Worker /api/amtrak/alerts if missing):', e && e.message ? e.message : e);
+          return amtrakAlertsCache.byTrain || {};
+        }
+      }
+      function amtrakAlertFromTrain(t, officialMsg) {
+        const official = (officialMsg || (t && t.officialAlert) || '').toString().trim();
         const alerts = (t && t.alerts) || [];
-        let msg = '';
-        if (alerts.length) {
+        let msg = official;
+        if (!msg && alerts.length) {
           const a0 = alerts[0] || {};
           msg = (a0.message || a0.header || a0.title || '').trim();
         }
@@ -7131,7 +7182,7 @@
         const status = (t && t.statusMsg && String(t.statusMsg).trim()) || (t && t.trainState) || '';
         const disruption = /disruption/i.test(status);
         if (!msg && disruption) msg = 'Service disruption';
-        const hasAlert = !!(t && t.hasAlert) || alerts.length > 0 || disruption;
+        const hasAlert = !!official || !!(t && t.hasAlert) || alerts.length > 0 || disruption;
         return { hasAlert: hasAlert, header: msg || (hasAlert ? 'Active Amtrak alert' : '') };
       }
       function createAmtrakPopupContent(vid, t) {
@@ -7273,9 +7324,11 @@
       async function fetchAmtrakTrains() {
         const stat = FetchStats.start('Amtrak');
         try {
+          const officialAlertsP = fetchAmtrakAlertsByTrain();
           const res = await fetch(amtrakUrl);
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const data = await res.json();
+          const officialAlerts = await officialAlertsP.catch(function() { return {}; });
           if (!data || typeof data !== 'object') {
             console.warn('%c[Amtrak] Unexpected Amtraker payload', 'color:#f39c12');
             FetchStats.end(stat, { status: 'bad-payload' });
@@ -7299,11 +7352,13 @@
               if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
               seen.add(vid);
               const specialUnit = getSpecialForVehicle('amtrak', null, trainNum);
-              const amtrakAlert = amtrakAlertFromTrain(t);
+              const officialMsg = (officialAlerts && (officialAlerts[amtrakTrainNumKey(trainNum)] || officialAlerts[String(trainNum)])) || '';
+              const amtrakAlert = amtrakAlertFromTrain(t, officialMsg);
               const info = Object.assign({}, t, {
                 id: vid, trainNum: trainNum, lat: lat, lng: lng, specialUnit: specialUnit || null,
                 hasAlert: amtrakAlert.hasAlert,
-                alertHeader: amtrakAlert.header
+                alertHeader: amtrakAlert.header,
+                officialAlert: officialMsg || ''
               });
               amtrakTrainInfo[vid] = info;
               try { harvestAmtrakStationDots(t); } catch (_) {}
