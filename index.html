@@ -10601,21 +10601,21 @@
           results.classList.add('active');
           const asking = looksLikeQuestion(raw);
           try {
-            if (!asking && (searchMode === 'all' || searchMode === 'train')) {
+            if (searchMode === 'all' || searchMode === 'train') {
               searchTrains(q, results);
             }
-            if (!asking && (searchMode === 'all' || searchMode === 'station')) {
+            if (searchMode === 'all' || searchMode === 'station') {
               searchStations(q, results);
             }
           } catch (_) {}
           const shouldAsk = asking || results.children.length === 0;
           if (shouldAsk) {
             if (askTimer) clearTimeout(askTimer);
-            renderAskCard(results, 'loading', 'Looking at live trains…');
+            askSeq += 1;
             if (immediate) {
               askRailroadRadar(raw, results);
             } else {
-              askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 350);
+              askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 3000);
             }
           } else if (results.children.length === 0) {
             results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${q}</strong>"</div>`;
