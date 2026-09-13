@@ -1209,6 +1209,16 @@
      width: 16px !important;
      height: 16px !important;
    }
+   @media (max-width: 700px) {
+     .leaflet-marker-icon.train-icon,
+     .leaflet-marker-icon.amtrak-nec-icon,
+     .train-icon {
+       max-width: 32px !important;
+       max-height: 32px !important;
+       width: 32px !important;
+       height: 32px !important;
+     }
+   }
    .header-logo {
      height: 40px !important;
    }
@@ -6650,6 +6660,9 @@
       }
       function agencyStationsVisible(agency) {
         if (!showStations) return false;
+        try {
+          if (preferKeylessTiles && map.getZoom() < 10) return false;
+        } catch (_) {}
         const a = String(agency || 'mbta').toLowerCase();
         if (a === 'mbta') return true;
         if (a === 'amtrak') return !!showAmtrak;
@@ -10236,9 +10249,60 @@
         applyTrainLabelCollision(inView, shouldShowLabels);
       }
       // Immediate label/cluster update (do not call directly from hot paths — use debounced wrapper)
-      function updateTrainLabelsVisibilityNow() {
+      function applyMobileMarkerLod() {
+        if (!preferKeylessTiles) return;
         const zoom = map.getZoom();
-        const shouldShowLabels = showTrainLabels && zoom >= LABEL_MIN_ZOOM;
+        const bounds = map.getBounds().pad(0.2);
+        const cell = zoom < 6 ? 56 : zoom < 8 ? 44 : zoom < 10 ? 32 : 0;
+        const dicts = [markers, amtrakMarkers, mnrMarkers, lirrMarkers, metraMarkers, njtMarkers];
+        const keep = {};
+        const candidates = [];
+        dicts.forEach(function(dict) {
+          if (!dict) return;
+          Object.keys(dict).forEach(function(vid) {
+            const m = dict[vid];
+            if (!m || !m.getLatLng) return;
+            const ll = m.getLatLng();
+            if (!ll || !bounds.contains(ll)) return;
+            let pri = 1;
+            try {
+              if (m.isPopupOpen && m.isPopupOpen()) pri = 5;
+              else if (highlightedMarker === m) pri = 4;
+              else if (typeof isSpecialVehicle === 'function' && isSpecialVehicle(String(vid).replace(/^(amtrak|mnr|lirr|metra|njt)-/, ''))) pri = 3;
+            } catch (_) {}
+            candidates.push({ vid: vid, marker: m, pri: pri, ll: ll });
+          });
+        });
+        candidates.sort(function(a, b) { return b.pri - a.pri; });
+        const occupied = {};
+        candidates.forEach(function(c) {
+          if (cell && c.pri < 4) {
+            const pt = map.latLngToContainerPoint(c.ll);
+            const key = Math.round(pt.x / cell) + ':' + Math.round(pt.y / cell);
+            if (occupied[key]) return;
+            occupied[key] = true;
+          }
+          keep[c.vid] = true;
+        });
+        dicts.forEach(function(dict) {
+          if (!dict) return;
+          Object.keys(dict).forEach(function(vid) {
+            const m = dict[vid];
+            if (!m) return;
+            if (keep[vid]) {
+              if (!map.hasLayer(m)) m.addTo(map);
+            } else if (map.hasLayer(m) && !(m.isPopupOpen && m.isPopupOpen())) {
+              map.removeLayer(m);
+            }
+          });
+        });
+        try { updateStationVisibility(); } catch (_) {}
+      }
+      function updateTrainLabelsVisibilityNow() {
+        try { applyMobileMarkerLod(); } catch (_) {}
+        const zoom = map.getZoom();
+        const labelMin = preferKeylessTiles ? 11 : LABEL_MIN_ZOOM;
+        const shouldShowLabels = showTrainLabels && zoom >= labelMin;
         const bounds = map.getBounds().pad(0.1);
         clearTrainClusters();
 
@@ -11250,8 +11314,10 @@
       // Train labels now default to ON
       const savedShowLabels = safeStorage.get('rr_showLabels');
       const savedShowSpecial = safeStorage.get('rr_showOnlySpecial') === 'true';
-      // Default to ON unless user explicitly turned it off
-      const labelsEnabled = savedShowLabels === null || savedShowLabels === 'true';
+      // Desktop default ON; mobile default OFF (labels are expensive with hundreds of trains)
+      const labelsEnabled = preferKeylessTiles
+        ? savedShowLabels === 'true'
+        : (savedShowLabels === null || savedShowLabels === 'true');
       if (labelsEnabled) {
         document.getElementById('show-labels').checked = true;
         toggleTrainLabels(true); // This will call updateTrainLabelsVisibility()
@@ -11601,13 +11667,19 @@
           console.error('[Init] Background load error', bgErr);
         }
       })();
-      setInterval(fetchTrains, 60000);
-      setInterval(fetchAmtrakTrains, 60000);
-      setInterval(fetchMnrTrains, 25000);
-      setInterval(fetchLirrTrains, 25000);
-      setInterval(fetchMetraTrains, 30000);
-      setInterval(fetchNjtTrains, 30000);
-      setInterval(fetchSchedules, 300000);
+      function rrLivePoll(fn, ms) {
+        return setInterval(function() {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          try { fn(); } catch (_) {}
+        }, ms);
+      }
+      rrLivePoll(fetchTrains, 60000);
+      rrLivePoll(fetchAmtrakTrains, 60000);
+      rrLivePoll(fetchMnrTrains, preferKeylessTiles ? 40000 : 25000);
+      rrLivePoll(fetchLirrTrains, preferKeylessTiles ? 40000 : 25000);
+      rrLivePoll(fetchMetraTrains, preferKeylessTiles ? 45000 : 30000);
+      rrLivePoll(fetchNjtTrains, preferKeylessTiles ? 45000 : 30000);
+      rrLivePoll(fetchSchedules, 300000);
       // Vehicle alert signup (unchanged)
       const signupBtn = document.getElementById('signup-button');
       const signupStat = document.getElementById('signup-status');
