@@ -10516,60 +10516,71 @@
         if (/^(what|where|which|who|when|why|how|is|are|was|were|can|could|should|does|do|did|any|show|list|tell|find)\b/i.test(q)) return true;
         return q.split(/\s+/).filter(Boolean).length >= 3;
       }
-      function buildAskContext() {
+      function buildAskContext(question) {
         const lines = [];
-        function add(agency, num, dest, status, next, alert) {
+        function add(agency, num, dest, status, next, alert, route) {
           let s = String(agency || '');
           if (num) s += ' ' + num;
+          if (route) s += ' ' + route;
           if (dest) s += ' to ' + dest;
           if (status) s += ' — ' + status;
           if (next) s += ', next ' + next;
-          if (alert) s += '. Alert: ' + String(alert).slice(0, 140);
-          if (s.trim()) lines.push(s.slice(0, 240));
+          if (alert) s += '. Alert: ' + String(alert).slice(0, 120);
+          if (s.trim()) lines.push(s.slice(0, 260));
         }
         try {
           Object.keys(trainInfo || {}).forEach(function(vid) {
             const t = trainInfo[vid];
-            add('MBTA', extractTrainNumber(t.tripId) || vid, t.destination, t.delayStatus, t.stopName, t.alertHeader);
+            add('MBTA', extractTrainNumber(t.tripId) || vid, t.destination, t.delayStatus, t.stopName, t.alertHeader, t.routeName || t.routeId);
           });
         } catch (_) {}
         try {
           Object.keys(amtrakTrainInfo || {}).forEach(function(vid) {
             const t = amtrakTrainInfo[vid];
-            add('Amtrak', t.trainNum, t.destName || t.destCode, t.statusMsg || t.trainState, t.eventName, t.officialAlert || t.alertHeader);
+            add('Amtrak', t.trainNum, t.destName || t.destCode, t.statusMsg || t.trainState, t.eventName, t.officialAlert || t.alertHeader, t.routeName);
           });
         } catch (_) {}
         try {
           Object.keys(mnrTrainInfo || {}).forEach(function(vid) {
             const t = mnrTrainInfo[vid];
-            add('MNR', t.trainNum, t.destName, t.statusText, t.currentStopName, t.alertHeader);
+            add('MNR', t.trainNum, t.destName, t.statusText, t.currentStopName, t.alertHeader, t.routeName);
           });
         } catch (_) {}
         try {
           Object.keys(lirrTrainInfo || {}).forEach(function(vid) {
             const t = lirrTrainInfo[vid];
-            add('LIRR', t.trainNum, t.destName, t.statusText, t.currentStopName, t.alertHeader);
+            add('LIRR', t.trainNum, t.destName, t.statusText, t.currentStopName, t.alertHeader, t.routeName);
           });
         } catch (_) {}
         try {
           Object.keys(metraTrainInfo || {}).forEach(function(vid) {
             const t = metraTrainInfo[vid];
-            add('Metra', t.trainNum, t.destName, t.statusText, t.currentStopName, t.alertHeader);
+            add('Metra', t.trainNum, t.destName, t.statusText, t.currentStopName, t.alertHeader, t.routeName);
           });
         } catch (_) {}
         try {
           Object.keys(njtTrainInfo || {}).forEach(function(vid) {
             const t = njtTrainInfo[vid];
-            add('NJT', t.trainNum || t.trainID, t.destName, t.statusText, t.currentStopName, t.alertHeader);
+            add('NJT', t.trainNum || t.trainID, t.destName, t.statusText, t.currentStopName, t.alertHeader, t.routeName);
           });
         } catch (_) {}
+        const stop = { the:1, and:1, are:1, any:1, for:1, how:1, who:1, why:1, what:1, when:1, which:1, where:1, this:1, that:1, with:1, from:1, have:1, has:1, was:1, were:1, can:1, you:1, see:1, show:1, list:1, tell:1, find:1, there:1, they:1, live:1, train:1, trains:1, right:1, now:1 };
+        const keys = String(question || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+        const qKeys = keys.filter(function(w) { return !stop[w]; });
         const scored = lines.map(function(s) {
+          const sl = s.toLowerCase();
           let n = 0;
-          if (/disrupt|delay|late|alert/i.test(s)) n += 2;
+          if (/disrupt|delay|late|alert/.test(sl)) n += 1;
+          for (let i = 0; i < qKeys.length; i++) {
+            if (sl.indexOf(qKeys[i]) >= 0) n += 8;
+          }
           return { s: s, n: n };
         });
         scored.sort(function(a, b) { return b.n - a.n; });
-        return scored.slice(0, 40).map(function(x) { return x.s; }).join('\n');
+        const matched = scored.filter(function(x) { return x.n >= 8; });
+        const rest = scored.filter(function(x) { return x.n < 8; });
+        const picked = matched.concat(rest).slice(0, 70);
+        return picked.map(function(x) { return x.s; }).join('\n');
       }
       let askTimer = null;
       let askSeq = 0;
@@ -10591,7 +10602,7 @@
           const res = await fetch(apiUrl('/api/ask'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: raw, context: buildAskContext() })
+            body: JSON.stringify({ question: raw, context: buildAskContext(raw) })
           });
           const data = await res.json().catch(function() { return {}; });
           if (seq !== askSeq) return;
