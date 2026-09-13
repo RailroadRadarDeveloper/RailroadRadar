@@ -218,6 +218,25 @@
       white-space: pre-wrap;
     }
     .search-ask-card.loading .search-ask-answer { color: #7f8c9a; }
+    .search-ask-trains {
+      background: #f4f6fa;
+      border-bottom: 1px solid #e8ecf3;
+      padding: 0 8px 8px;
+    }
+    .search-ask-trains-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: #07093e;
+      padding: 8px 4px 6px;
+    }
+    .search-ask-trains .search-result {
+      margin-bottom: 6px;
+    }
+    .search-ask-trains .search-result:last-child {
+      margin-bottom: 0;
+    }
     .search-no-results {
       padding: 18px 12px;
       text-align: center;
@@ -10236,6 +10255,244 @@
       document.addEventListener('click', () => {
         searchDropdown.classList.remove('show');
       });
+
+      function delayStatusParts(delay, fallbackText, fallbackClass) {
+        let statusClass = fallbackClass || 'status-on-time';
+        let statusText = fallbackText || 'On Time';
+        if (delay === null || delay === undefined) {
+          if (fallbackText) return { statusClass: statusClass, statusText: statusText };
+          return { statusClass: 'status-scheduled', statusText: 'Scheduled' };
+        } else if (Math.abs(delay) <= 5) {
+          statusClass = 'status-on-time';
+          statusText = 'On Time';
+        } else if (delay <= 15) {
+          statusClass = 'status-delayed';
+          statusText = 'Delayed ' + Math.round(delay) + ' min';
+        } else {
+          statusClass = 'status-very-delayed';
+          statusText = 'Delayed ' + Math.round(delay) + ' min';
+        }
+        return { statusClass: statusClass, statusText: statusText };
+      }
+      function collectLiveTrainRows() {
+        const res = [];
+        try {
+          for (const vid in trainInfo) {
+            const t = trainInfo[vid];
+            const tripNum = extractTrainNumber(t.tripId) || t.tripId || '';
+            const st = delayStatusParts(t.delayMinutes, t.delayStatus);
+            let stopLabel = 'Next', stopName = t.stopName || '—';
+            if (t.status === 'STOPPED_AT') stopLabel = 'At';
+            else if (t.status === 'INCOMING_AT') stopLabel = 'Arriving';
+            res.push({
+              agency: 'MBTA', agencyColor: '#1a1a2e', id: vid, markerMap: markers,
+              routeName: t.routeName || 'MBTA', trainNum: tripNum || '—', dest: t.destination || '—',
+              vehicleLabel: vid, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, t.tripId, tripNum, t.routeName, t.destination]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in amtrakTrainInfo) {
+            const t = amtrakTrainInfo[vid];
+            const num = t.trainNum || t.trainNumRaw || String(vid).replace(/^amtrak-/, '');
+            const statusRaw = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+            let statusClass = 'status-on-time';
+            if (/disruption/i.test(statusRaw)) statusClass = 'status-disruption';
+            else if (/late|delay/i.test(statusRaw)) statusClass = /late\s*([2-9]\d|\d{3,})/i.test(statusRaw) || /hours?/i.test(statusRaw) ? 'status-very-delayed' : 'status-delayed';
+            else if (/predeparture|scheduled|not yet/i.test(statusRaw)) statusClass = 'status-scheduled';
+            const hasAlert = (typeof amtrakAlertFromTrain === 'function') ? amtrakAlertFromTrain(t).hasAlert : !!t.hasAlert;
+            res.push({
+              agency: 'Amtrak', agencyColor: '#003087', id: vid, markerMap: amtrakMarkers,
+              routeName: t.routeName || 'Amtrak', trainNum: num, dest: t.destName || t.destCode || '—',
+              vehicleLabel: t.trainID || num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
+              statusClass: statusClass, statusText: statusRaw,
+              hasAlert: hasAlert, lat: t.lat, lng: (t.lng != null ? t.lng : t.lon),
+              matchFields: [vid, num, t.trainID, t.routeName, t.destName, t.destCode, t.origName, t.origCode]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in mnrTrainInfo) {
+            const t = mnrTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^mnr-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'MNR', agencyColor: '#0039A6', id: vid, markerMap: mnrMarkers,
+              routeName: t.routeName || 'Metro-North', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in lirrTrainInfo) {
+            const t = lirrTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^lirr-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'LIRR', agencyColor: '#0039A6', id: vid, markerMap: lirrMarkers,
+              routeName: t.routeName || 'LIRR', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in njtTrainInfo) {
+            const t = njtTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^njt-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            res.push({
+              agency: 'NJT', agencyColor: '#FF671F', id: vid, markerMap: njtMarkers,
+              routeName: t.routeName || 'NJ Transit', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: num, speedMph: null, stopLabel: 'Next', stopName: t.currentStopName || '—',
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.routeName, t.destName, t.currentStopName, t.direction]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in metraTrainInfo) {
+            const t = metraTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^metra-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'Metra', agencyColor: '#0055A4', id: vid, markerMap: metraMarkers,
+              routeName: t.routeName || 'Metra', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+        return res;
+      }
+      function appendTrainResultCard(r, container, closeEl) {
+        const alertIcon = r.hasAlert
+          ? ' <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">'
+          : '';
+        const speedTxt = (r.speedMph != null && isFinite(Number(r.speedMph))) ? (Math.round(Number(r.speedMph)) + ' mph') : '—';
+        const agencyBadge = '<span class="cape-badge" style="background:' + r.agencyColor + ';font-size:10px;padding:2px 6px;margin-right:4px;">' + r.agency + '</span>';
+        const d = document.createElement('div');
+        d.className = 'search-result';
+        d.innerHTML =
+          '<div class="search-result-header">' +
+            agencyBadge +
+            '<span class="route">' + escapeHtmlLite(r.routeName || 'Unknown') + '</span>' +
+            '<span class="trip-num">' + escapeHtmlLite(String(r.trainNum || '—')) + '</span>' +
+            '<span class="to-label">to</span>' +
+            '<span class="dest">' + escapeHtmlLite(r.dest || '—') + '</span>' + alertIcon +
+          '</div>' +
+          '<div class="search-result-body">' +
+            '<div class="search-result-meta">' +
+              '<span><span class="label">Vehicle</span>' + escapeHtmlLite(String(r.vehicleLabel || r.id)) + '</span>' +
+            '</div>' +
+            '<div class="search-result-meta" style="margin-left:auto;">' +
+              '<span><span class="label">Speed</span>' + speedTxt + '</span>' +
+              '<span><span class="label">' + escapeHtmlLite(r.stopLabel || 'Next') + '</span>' + escapeHtmlLite(r.stopName || '—') + '</span>' +
+              '<span class="search-status-pill ' + r.statusClass + '">' + escapeHtmlLite(r.statusText || '') + '</span>' +
+            '</div>' +
+          '</div>';
+        d.onclick = function() {
+          const lat = parseFloat(r.lat), lng = parseFloat(r.lng);
+          if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], 15);
+          if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
+          const m = r.markerMap && r.markerMap[r.id];
+          if (m) {
+            m.openPopup();
+            m.getElement()?.classList.add('highlighted-train');
+            highlightedMarker = m;
+          }
+          const panel = closeEl || container;
+          if (panel && panel.classList) panel.classList.remove('active');
+          document.getElementById('control-panel').classList.remove('open');
+          document.getElementById('overlay').classList.remove('open');
+        };
+        container.appendChild(d);
+      }
+      function askAgencyKey(name) {
+        const s = String(name || '').toLowerCase().replace(/[\s-]+/g, '');
+        if (s.indexOf('amtrak') >= 0) return 'Amtrak';
+        if (s.indexOf('mbta') >= 0) return 'MBTA';
+        if (s.indexOf('metronorth') >= 0 || s === 'mnr') return 'MNR';
+        if (s.indexOf('lirr') >= 0 || s.indexOf('longisland') >= 0) return 'LIRR';
+        if (s.indexOf('metra') >= 0) return 'Metra';
+        if (s.indexOf('njtransit') >= 0 || s === 'njt') return 'NJT';
+        return '';
+      }
+      function findTrainsInAskText(text, rows) {
+        const hay = String(text || '');
+        const picked = [];
+        const seen = {};
+        function take(row) {
+          if (!row || seen[row.id]) return;
+          seen[row.id] = true;
+          picked.push(row);
+        }
+        const agencyRe = /\b(amtrak|mbta|metro-north|metro north|mnr|lirr|long island|metra|nj transit|njt)\s*(?:train\s*)?#?\s*(\d+[a-z]?)\b/ig;
+        let m;
+        while ((m = agencyRe.exec(hay))) {
+          const ag = askAgencyKey(m[1]);
+          const num = String(m[2]).toLowerCase();
+          rows.forEach(function(r) {
+            if (r.agency === ag && String(r.trainNum).toLowerCase() === num) take(r);
+          });
+        }
+        const nums = hay.match(/\b\d{1,5}[a-z]?\b/ig) || [];
+        nums.forEach(function(num) {
+          const n = String(num).toLowerCase();
+          const hits = rows.filter(function(r) { return String(r.trainNum).toLowerCase() === n; });
+          if (hits.length === 1) take(hits[0]);
+        });
+        const routeSeen = {};
+        rows.forEach(function(r) {
+          const route = String(r.routeName || '').trim();
+          if (route.length < 5 || routeSeen[route.toLowerCase()]) return;
+          routeSeen[route.toLowerCase()] = true;
+          let safe = '';
+          try { safe = route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); } catch (_) { return; }
+          if (!new RegExp('\\b' + safe + '\\b', 'i').test(hay)) return;
+          const hits = rows.filter(function(x) { return String(x.routeName || '').toLowerCase() === route.toLowerCase(); });
+          if (hits.length && hits.length <= 3) hits.forEach(take);
+        });
+        return picked.slice(0, 6);
+      }
+      function renderAskMentionedTrains(results, text) {
+        const old = results.querySelector('.search-ask-trains');
+        if (old) old.remove();
+        let rows = [];
+        try { rows = findTrainsInAskText(text, collectLiveTrainRows()); } catch (_) { rows = []; }
+        if (!rows.length) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'search-ask-trains';
+        const lab = document.createElement('div');
+        lab.className = 'search-ask-trains-label';
+        lab.textContent = rows.length === 1 ? 'Train' : 'Trains';
+        wrap.appendChild(lab);
+        rows.forEach(function(r) { appendTrainResultCard(r, wrap, results); });
+        const card = results.querySelector('.search-ask-card');
+        if (card && card.nextSibling) results.insertBefore(wrap, card.nextSibling);
+        else if (card) card.after(wrap);
+        else results.appendChild(wrap);
+      }
       function looksLikeQuestion(raw) {
         const q = String(raw || '').trim();
         if (q.length < 4) return false;
@@ -10321,6 +10578,7 @@
             return;
           }
           renderAskCard(results, 'ok', data.answer);
+          renderAskMentionedTrains(results, raw + '\n' + data.answer);
         } catch (_) {
           if (seq !== askSeq) return;
           renderAskCard(results, 'error', 'Could not reach Ask.');
@@ -10335,15 +10593,16 @@
           results.innerHTML = '';
           if (q.length < 2) { results.classList.remove('active'); return; }
           results.classList.add('active');
+          const asking = looksLikeQuestion(raw);
           try {
-            if (searchMode === 'all' || searchMode === 'train') {
+            if (!asking && (searchMode === 'all' || searchMode === 'train')) {
               searchTrains(q, results);
             }
-            if (searchMode === 'all' || searchMode === 'station') {
+            if (!asking && (searchMode === 'all' || searchMode === 'station')) {
               searchStations(q, results);
             }
           } catch (_) {}
-          const shouldAsk = looksLikeQuestion(raw) || results.children.length === 0;
+          const shouldAsk = asking || results.children.length === 0;
           if (shouldAsk) {
             if (askTimer) clearTimeout(askTimer);
             renderAskCard(results, 'loading', 'Looking at live trains…');
@@ -10370,7 +10629,6 @@
         });
       }
       function searchTrains(q, container) {
-        const res = [];
         const qLower = q;
         function fieldMatch(fields) {
           for (let i = 0; i < fields.length; i++) {
@@ -10379,172 +10637,15 @@
           }
           return false;
         }
-        function delayStatusParts(delay, fallbackText, fallbackClass) {
-          let statusClass = fallbackClass || 'status-on-time';
-          let statusText = fallbackText || 'On Time';
-          if (delay === null || delay === undefined) {
-            if (fallbackText) return { statusClass: statusClass, statusText: statusText };
-            return { statusClass: 'status-scheduled', statusText: 'Scheduled' };
-          } else if (Math.abs(delay) <= 5) {
-            statusClass = 'status-on-time';
-            statusText = 'On Time';
-          } else if (delay <= 15) {
-            statusClass = 'status-delayed';
-            statusText = 'Delayed ' + Math.round(delay) + ' min';
-          } else {
-            statusClass = 'status-very-delayed';
-            statusText = 'Delayed ' + Math.round(delay) + ' min';
-          }
-          return { statusClass: statusClass, statusText: statusText };
-        }
-        // MBTA
-        for (const vid in trainInfo) {
-          const t = trainInfo[vid];
-          const tripNum = extractTrainNumber(t.tripId) || t.tripId || '';
-          if (!fieldMatch([vid, t.tripId, tripNum, t.routeName, t.destination])) continue;
-          const st = delayStatusParts(t.delayMinutes, t.delayStatus);
-          let stopLabel = 'Next', stopName = t.stopName || '—';
-          if (t.status === 'STOPPED_AT') stopLabel = 'At';
-          else if (t.status === 'INCOMING_AT') stopLabel = 'Arriving';
-          res.push({
-            agency: 'MBTA', agencyColor: '#1a1a2e', id: vid, markerMap: markers,
-            routeName: t.routeName || 'MBTA', trainNum: tripNum || '—', dest: t.destination || '—',
-            vehicleLabel: vid, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
-            statusClass: st.statusClass, statusText: st.statusText,
-            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
-          });
-        }
-        // Amtrak
-        for (const vid in amtrakTrainInfo) {
-          const t = amtrakTrainInfo[vid];
-          const num = t.trainNum || t.trainNumRaw || String(vid).replace(/^amtrak-/, '');
-          if (!fieldMatch([vid, num, t.trainID, t.routeName, t.destName, t.destCode, t.origName, t.origCode])) continue;
-          const statusRaw = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
-          let statusClass = 'status-on-time';
-          if (/disruption/i.test(statusRaw)) statusClass = 'status-disruption';
-          else if (/late|delay/i.test(statusRaw)) statusClass = /late\s*([2-9]\d|\d{3,})/i.test(statusRaw) || /hours?/i.test(statusRaw) ? 'status-very-delayed' : 'status-delayed';
-          else if (/predeparture|scheduled|not yet/i.test(statusRaw)) statusClass = 'status-scheduled';
-          const hasAlert = amtrakAlertFromTrain(t).hasAlert;
-          res.push({
-            agency: 'Amtrak', agencyColor: '#003087', id: vid, markerMap: amtrakMarkers,
-            routeName: t.routeName || 'Amtrak', trainNum: num, dest: t.destName || t.destCode || '—',
-            vehicleLabel: t.trainID || num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
-            statusClass: statusClass, statusText: statusRaw,
-            hasAlert: hasAlert, lat: t.lat, lng: (t.lng != null ? t.lng : t.lon)
-          });
-        }
-        // Metro-North
-        for (const vid in mnrTrainInfo) {
-          const t = mnrTrainInfo[vid];
-          const num = t.trainNum || String(vid).replace(/^mnr-/, '');
-          if (!fieldMatch([vid, num, t.tripId, t.routeName, t.destName, t.origName])) continue;
-          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
-          let stopLabel = 'Next', stopName = t.currentStopName || '—';
-          if (t.vehicleStatus === 1) stopLabel = 'At';
-          else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
-          res.push({
-            agency: 'MNR', agencyColor: '#0039A6', id: vid, markerMap: mnrMarkers,
-            routeName: t.routeName || 'Metro-North', trainNum: num, dest: t.destName || '—',
-            vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
-            statusClass: st.statusClass, statusText: st.statusText,
-            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
-          });
-        }
-        // LIRR
-        for (const vid in lirrTrainInfo) {
-          const t = lirrTrainInfo[vid];
-          const num = t.trainNum || String(vid).replace(/^lirr-/, '');
-          if (!fieldMatch([vid, num, t.tripId, t.routeName, t.destName, t.origName])) continue;
-          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
-          let stopLabel = 'Next', stopName = t.currentStopName || '—';
-          if (t.vehicleStatus === 1) stopLabel = 'At';
-          else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
-          res.push({
-            agency: 'LIRR', agencyColor: '#0039A6', id: vid, markerMap: lirrMarkers,
-            routeName: t.routeName || 'LIRR', trainNum: num, dest: t.destName || '—',
-            vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
-            statusClass: st.statusClass, statusText: st.statusText,
-            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
-          });
-        }
-        // NJ Transit
-        for (const vid in njtTrainInfo) {
-          const t = njtTrainInfo[vid];
-          const num = t.trainNum || String(vid).replace(/^njt-/, '');
-          if (!fieldMatch([vid, num, t.routeName, t.destName, t.currentStopName, t.direction])) continue;
-          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
-          res.push({
-            agency: 'NJT', agencyColor: '#FF671F', id: vid, markerMap: njtMarkers,
-            routeName: t.routeName || 'NJ Transit', trainNum: num, dest: t.destName || '—',
-            vehicleLabel: num, speedMph: null, stopLabel: 'Next', stopName: t.currentStopName || '—',
-            statusClass: st.statusClass, statusText: st.statusText,
-            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
-          });
-        }
-        // Metra
-        for (const vid in metraTrainInfo) {
-          const t = metraTrainInfo[vid];
-          const num = t.trainNum || String(vid).replace(/^metra-/, '');
-          if (!fieldMatch([vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName])) continue;
-          const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
-          let stopLabel = 'Next', stopName = t.currentStopName || '—';
-          if (t.vehicleStatus === 1) stopLabel = 'At';
-          else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
-          res.push({
-            agency: 'Metra', agencyColor: '#0055A4', id: vid, markerMap: metraMarkers,
-            routeName: t.routeName || 'Metra', trainNum: num, dest: t.destName || '—',
-            vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
-            statusClass: st.statusClass, statusText: st.statusText,
-            hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng
-          });
-        }
+        const res = collectLiveTrainRows().filter(function(r) {
+          return fieldMatch(r.matchFields || [r.id, r.trainNum, r.routeName, r.dest, r.vehicleLabel]);
+        });
         if (res.length === 0) return;
         const header = document.createElement('div');
         header.className = 'search-section-header';
         header.textContent = 'Trains (' + res.length + ')';
         container.appendChild(header);
-        res.forEach(function(r) {
-          const alertIcon = r.hasAlert
-            ? ' <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">'
-            : '';
-          const speedTxt = (r.speedMph != null && isFinite(Number(r.speedMph))) ? (Math.round(Number(r.speedMph)) + ' mph') : '—';
-          const agencyBadge = '<span class="cape-badge" style="background:' + r.agencyColor + ';font-size:10px;padding:2px 6px;margin-right:4px;">' + r.agency + '</span>';
-          const d = document.createElement('div');
-          d.className = 'search-result';
-          d.innerHTML =
-            '<div class="search-result-header">' +
-              agencyBadge +
-              '<span class="route">' + escapeHtmlLite(r.routeName || 'Unknown') + '</span>' +
-              '<span class="trip-num">' + escapeHtmlLite(String(r.trainNum || '—')) + '</span>' +
-              '<span class="to-label">to</span>' +
-              '<span class="dest">' + escapeHtmlLite(r.dest || '—') + '</span>' + alertIcon +
-            '</div>' +
-            '<div class="search-result-body">' +
-              '<div class="search-result-meta">' +
-                '<span><span class="label">Vehicle</span>' + escapeHtmlLite(String(r.vehicleLabel || r.id)) + '</span>' +
-              '</div>' +
-              '<div class="search-result-meta" style="margin-left:auto;">' +
-                '<span><span class="label">Speed</span>' + speedTxt + '</span>' +
-                '<span><span class="label">' + escapeHtmlLite(r.stopLabel || 'Next') + '</span>' + escapeHtmlLite(r.stopName || '—') + '</span>' +
-                '<span class="search-status-pill ' + r.statusClass + '">' + escapeHtmlLite(r.statusText || '') + '</span>' +
-              '</div>' +
-            '</div>';
-          d.onclick = function() {
-            const lat = parseFloat(r.lat), lng = parseFloat(r.lng);
-            if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], 15);
-            if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
-            const m = r.markerMap && r.markerMap[r.id];
-            if (m) {
-              m.openPopup();
-              m.getElement()?.classList.add('highlighted-train');
-              highlightedMarker = m;
-            }
-            container.classList.remove('active');
-            document.getElementById('control-panel').classList.remove('open');
-            document.getElementById('overlay').classList.remove('open');
-          };
-          container.appendChild(d);
-        });
+        res.forEach(function(r) { appendTrainResultCard(r, container); });
       }
       function searchStations(q, container) {
         const res = [];
