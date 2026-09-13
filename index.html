@@ -5107,7 +5107,12 @@
         try { if (typeof safeStorage !== 'undefined') safeStorage.set('rr_mapTheme', currentTheme); } catch (_) {}
       });
       // Prevent extreme label overlapping when zoomed out
+      map.on('zoomstart', () => {
+        // Bring nearby trains back before the pinch finishes so zoom-in is not empty.
+        try { applyMobileMarkerLod({ forceAll: true, keepZoom: true }); } catch (_) {}
+      });
       map.on('zoomend moveend', () => {
+        try { applyMobileMarkerLodSoon(); } catch (_) {}
         if (typeof updateTrainLabelsVisibility === 'function') {
           updateTrainLabelsVisibility();
         }
@@ -10249,11 +10254,27 @@
         applyTrainLabelCollision(inView, shouldShowLabels);
       }
       // Immediate label/cluster update (do not call directly from hot paths — use debounced wrapper)
-      function applyMobileMarkerLod() {
+      let _rrLodZoom = null;
+      let _rrLodRaf = 0;
+      function applyMobileMarkerLodSoon(opts) {
+        if (_rrLodRaf) cancelAnimationFrame(_rrLodRaf);
+        _rrLodRaf = requestAnimationFrame(function() {
+          _rrLodRaf = 0;
+          try { applyMobileMarkerLod(opts); } catch (_) {}
+        });
+      }
+      function applyMobileMarkerLod(opts) {
         if (!preferKeylessTiles) return;
+        opts = opts || {};
         const zoom = map.getZoom();
-        const bounds = map.getBounds().pad(0.2);
-        const cell = zoom < 6 ? 56 : zoom < 8 ? 44 : zoom < 10 ? 32 : 0;
+        const last = _rrLodZoom;
+        const zoomingIn = last != null && zoom > last + 0.05;
+        if (!opts.keepZoom) _rrLodZoom = zoom;
+        const bounds = map.getBounds().pad(opts.forceAll ? 0.6 : 0.45);
+        let cell = 0;
+        if (!opts.forceAll && !zoomingIn) {
+          cell = zoom < 6 ? 56 : zoom < 8 ? 44 : zoom < 10 ? 32 : 0;
+        }
         const dicts = [markers, amtrakMarkers, mnrMarkers, lirrMarkers, metraMarkers, njtMarkers];
         const keep = {};
         const candidates = [];
@@ -10299,7 +10320,6 @@
         try { updateStationVisibility(); } catch (_) {}
       }
       function updateTrainLabelsVisibilityNow() {
-        try { applyMobileMarkerLod(); } catch (_) {}
         const zoom = map.getZoom();
         const labelMin = preferKeylessTiles ? 11 : LABEL_MIN_ZOOM;
         const shouldShowLabels = showTrainLabels && zoom >= labelMin;
