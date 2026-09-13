@@ -186,7 +186,7 @@
       display: inline-flex;
       align-items: center;
       padding: 4px 10px;
-      border-radius: 4px;
+      border-radius: 0;
       font-size: 11.5px;
       font-weight: 700;
       letter-spacing: 0.2px;
@@ -424,7 +424,7 @@
       font-size: 10px;
       font-weight: 700;
       padding: 3px 8px;
-      border-radius: 4px;
+      border-radius: 0;
       white-space: nowrap;
     }
     .alert-pill {
@@ -433,7 +433,7 @@
       font-size: 10px;
       font-weight: 700;
       padding: 3px 8px;
-      border-radius: 4px;
+      border-radius: 0;
       white-space: nowrap;
     }
     .dest-title {
@@ -450,17 +450,20 @@
       display: inline-flex;
       align-items: center;
       padding: 6px 14px;
-      border-radius: 4px;
+      border-radius: 0;
       font-size: 12.5px;
       font-weight: 700;
       letter-spacing: 0.3px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      opacity: 1;
+      box-shadow: none;
     }
-    .status-pill.status-on-time { background: #d4edda; color: #155724; }
-    .status-pill.status-delayed { background: #fff3cd; color: #856404; }
-    .status-pill.status-very-delayed { background: #f8d7da; color: #721c24; }
-    .status-pill.status-scheduled { background: #d1ecf1; color: #0c5460; }
-    .status-pill.status-passed { background: #e2e3e5; color: #383d41; }
+    .status-pill.status-on-time { background: #27ae60; color: #ffffff; }
+    .status-pill.status-delayed { background: #f39c12; color: #ffffff; }
+    .status-pill.status-very-delayed { background: #c0392b; color: #ffffff; }
+    .status-pill.status-scheduled { background: #0c5460; color: #ffffff; }
+    .status-pill.status-passed { background: #383d41; color: #ffffff; }
+    .status-pill.status-alert { background: #e74c3c; color: #ffffff; }
+    .status-pill.status-disruption { background: #ff0000; color: #ffffff; }
     .train-popup-body {
       padding: 14px 16px;
       background: #fff;
@@ -695,7 +698,7 @@
       font-weight: 700;
       font-size: 11px;
       padding: 1px 7px;
-      border-radius: 3px;
+      border-radius: 0;
       white-space: nowrap;
       align-self: flex-start;
       margin-top: 2px;
@@ -710,7 +713,7 @@
       color: white;
       font-size: 10px;
       padding: 0 5px;
-      border-radius: 3px;
+      border-radius: 0;
       margin-left: 5px;
       font-weight: 600;
     }
@@ -1223,7 +1226,7 @@
      text-transform: uppercase;
      letter-spacing: 0.4px;
      padding: 5px 10px;
-     border-radius: 999px;
+     border-radius: 0;
      background: #eef0f7;
      color: #07093e;
      border: 1px solid #d5dae8;
@@ -1330,7 +1333,7 @@
      text-transform: uppercase;
      letter-spacing: 0.3px;
      padding: 3px 8px;
-     border-radius: 3px;
+     border-radius: 0;
      background: rgba(255,255,255,0.18);
      color: #fff;
    }
@@ -1478,7 +1481,7 @@
      font-size: 10px;
      font-weight: 700;
      padding: 3px 8px;
-     border-radius: 4px;
+     border-radius: 0;
      white-space: nowrap;
    }
    .rr-modal-backdrop {
@@ -7130,7 +7133,9 @@
         const delayed = /late|delay/i.test(status);
         const veryLate = /late\s*([2-9]\d|\d{3,})/i.test(status) || /hours?/i.test(status);
         let statusPillClass = 'status-on-time';
-        if (veryLate) statusPillClass = 'status-very-delayed';
+        if (/disruption/i.test(status)) statusPillClass = 'status-disruption';
+        else if (/alert/i.test(status)) statusPillClass = 'status-alert';
+        else if (veryLate) statusPillClass = 'status-very-delayed';
         else if (delayed) statusPillClass = 'status-delayed';
         else if (/predeparture|scheduled|not yet/i.test(status)) statusPillClass = 'status-scheduled';
         const nextStop = (eventName && eventName !== '—') ? eventName : dest;
