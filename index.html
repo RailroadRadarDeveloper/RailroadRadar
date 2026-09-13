@@ -10547,7 +10547,13 @@
             add('NJT', t.trainNum || t.trainID, t.destName, t.statusText, t.currentStopName, t.alertHeader);
           });
         } catch (_) {}
-        return lines.slice(0, 80).join('\n');
+        const scored = lines.map(function(s) {
+          let n = 0;
+          if (/disrupt|delay|late|alert/i.test(s)) n += 2;
+          return { s: s, n: n };
+        });
+        scored.sort(function(a, b) { return b.n - a.n; });
+        return scored.slice(0, 40).map(function(x) { return x.s; }).join('\n');
       }
       let askTimer = null;
       let askSeq = 0;
