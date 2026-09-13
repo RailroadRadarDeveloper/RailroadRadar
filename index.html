@@ -1710,6 +1710,32 @@
    }
    .rr-profile-meta { font-size: 14px; color: #1a1a2e; line-height: 1.45; }
    .rr-profile-meta .rr-muted { color: #5a6577; font-size: 13px; }
+   .rr-report-stats {
+     display: grid;
+     grid-template-columns: 1fr 1fr;
+     gap: 10px;
+   }
+   .rr-report-stat {
+     background: #f4f6fa;
+     border: 1px solid #e8eaef;
+     border-radius: 8px;
+     padding: 12px 14px;
+   }
+   .rr-report-stat-value {
+     display: block;
+     font-size: 22px;
+     font-weight: 700;
+     color: #07093e;
+     line-height: 1.15;
+     word-break: break-word;
+   }
+   .rr-report-stat-label {
+     display: block;
+     margin-top: 4px;
+     font-size: 12px;
+     color: #5a6577;
+     font-weight: 600;
+   }
    .rr-radio-row {
      display: flex;
      flex-direction: column;
@@ -2555,6 +2581,20 @@
             </div>
           </div>
         </div>
+        <div class="rr-lightbox-section" id="account-report-stats-section">
+          <h3>Your reports</h3>
+          <div class="rr-report-stats">
+            <div class="rr-report-stat">
+              <span class="rr-report-stat-value" id="account-stat-trains">—</span>
+              <span class="rr-report-stat-label">trains reported</span>
+            </div>
+            <div class="rr-report-stat">
+              <span class="rr-report-stat-value" id="account-stat-loco">—</span>
+              <span class="rr-report-stat-label">most reported locomotive</span>
+            </div>
+          </div>
+          <p class="rr-modal-hint" id="account-stat-hint" style="margin-top:10px;">Saved to your account. Amtrak and other same-day reports still count after the service day ends.</p>
+        </div>
         <div class="rr-lightbox-section">
           <h3>How your reports are shown</h3>
           <div class="rr-radio-row" id="account-display-mode-group">
@@ -2927,7 +2967,7 @@
     let db = null;
 
     let currentUser = null;
-    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false };
+    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null };
     const INTEREST_RAILROADS = [
       { id: 'mbta', label: 'MBTA Commuter Rail' },
       { id: 'amtrak', label: 'Amtrak' },
@@ -3168,7 +3208,7 @@
       return firstInitialLabel(displayName, email);
     }
     async function loadUserSettings(uid) {
-      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false };
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null };
       currentUserSettings = Object.assign({}, defaults);
       if (!db || !uid) return currentUserSettings;
       try {
@@ -3182,13 +3222,133 @@
             reportDisplayMode: allowed.indexOf(mode) !== -1 ? mode : 'first_initial',
             reportCustomLabel: String(d.reportCustomLabel || ''),
             interestedRailroads: interests,
-            interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads)
+            interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads),
+            reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null
           };
         }
       } catch (err) {
         console.warn('[userSettings] load failed', err);
       }
       return currentUserSettings;
+    }
+    let rrLiveTrainReports = [];
+    function onTrainReportsUpdated(rows) {
+      rrLiveTrainReports = Array.isArray(rows) ? rows : [];
+    }
+    function reportLocoIdsFromRow(r) {
+      const ids = [];
+      function add(v) {
+        const id = String(v == null ? '' : v).trim();
+        if (!id) return;
+        if (ids.indexOf(id) === -1) ids.push(id);
+      }
+      if (r && Array.isArray(r.locomotives)) {
+        r.locomotives.forEach(function(L) {
+          if (!L) return;
+          add(L.locomotiveId || L.unitName);
+        });
+      }
+      if (r) {
+        add(r.locomotiveId);
+        if (!ids.length) add(r.unitName);
+      }
+      return ids;
+    }
+    function userTouchedReport(r, uid) {
+      if (!r || !uid) return false;
+      if (r.reportedByUid === uid || r.firstReportedByUid === uid) return true;
+      if (Array.isArray(r.contributors) && r.contributors.some(function(c) { return c && c.uid === uid; })) return true;
+      return false;
+    }
+    function emptyReportStats() {
+      return { trainIds: {}, locoCounts: {}, reportCount: 0, seeded: false };
+    }
+    function normalizeReportStats(raw) {
+      const s = emptyReportStats();
+      if (!raw || typeof raw !== 'object') return s;
+      s.trainIds = (raw.trainIds && typeof raw.trainIds === 'object') ? Object.assign({}, raw.trainIds) : {};
+      s.locoCounts = (raw.locoCounts && typeof raw.locoCounts === 'object') ? Object.assign({}, raw.locoCounts) : {};
+      s.reportCount = Number(raw.reportCount) || 0;
+      s.seeded = raw.seeded === true;
+      return s;
+    }
+    function topReportedLoco(counts) {
+      let best = '', n = 0;
+      Object.keys(counts || {}).forEach(function(k) {
+        const c = Number(counts[k]) || 0;
+        if (c > n) { n = c; best = k; }
+      });
+      return best ? { id: best, n: n } : null;
+    }
+    function paintAccountReportStats(stats) {
+      const trainsEl = document.getElementById('account-stat-trains');
+      const locoEl = document.getElementById('account-stat-loco');
+      const s = normalizeReportStats(stats);
+      const n = Object.keys(s.trainIds).length || s.reportCount || 0;
+      if (trainsEl) trainsEl.textContent = String(n);
+      const top = topReportedLoco(s.locoCounts);
+      if (locoEl) {
+        if (!top) locoEl.textContent = '—';
+        else locoEl.textContent = top.n > 1 ? (top.id + ' · ' + top.n + '×') : top.id;
+      }
+    }
+    function computeReportStatsFromRows(uid, rows) {
+      const s = emptyReportStats();
+      (rows || []).forEach(function(r) {
+        if (!userTouchedReport(r, uid)) return;
+        if (r.id) s.trainIds[r.id] = true;
+        reportLocoIdsFromRow(r).forEach(function(id) {
+          s.locoCounts[id] = (s.locoCounts[id] || 0) + 1;
+        });
+      });
+      s.reportCount = Object.keys(s.trainIds).length;
+      s.seeded = true;
+      return s;
+    }
+    function mergeReportStats(a, b) {
+      const out = normalizeReportStats(a);
+      const extra = normalizeReportStats(b);
+      Object.keys(extra.trainIds).forEach(function(k) { out.trainIds[k] = true; });
+      Object.keys(extra.locoCounts).forEach(function(k) {
+        out.locoCounts[k] = Math.max(out.locoCounts[k] || 0, extra.locoCounts[k] || 0);
+      });
+      out.reportCount = Math.max(out.reportCount || 0, extra.reportCount || 0, Object.keys(out.trainIds).length);
+      out.seeded = !!(out.seeded || extra.seeded);
+      return out;
+    }
+    async function persistReportStats(uid, stats) {
+      if (!db || !uid) return;
+      try {
+        await db.collection('userSettings').doc(uid).set({ reportStats: stats }, { merge: true });
+      } catch (e) {
+        console.warn('[userSettings] reportStats save failed', e);
+      }
+    }
+    async function ensureUserReportStats(uid) {
+      let stats = normalizeReportStats(currentUserSettings && currentUserSettings.reportStats);
+      if (!stats.seeded) {
+        stats = mergeReportStats(stats, computeReportStatsFromRows(uid, rrLiveTrainReports));
+        stats.seeded = true;
+        if (currentUserSettings) currentUserSettings.reportStats = stats;
+        await persistReportStats(uid, stats);
+      }
+      paintAccountReportStats(stats);
+      return stats;
+    }
+    async function bumpUserReportStats(uid, docId, locoIds) {
+      if (!uid) return;
+      const stats = normalizeReportStats(currentUserSettings && currentUserSettings.reportStats);
+      if (docId) stats.trainIds[String(docId)] = true;
+      stats.reportCount = (stats.reportCount || 0) + 1;
+      (locoIds || []).forEach(function(id) {
+        const k = String(id || '').trim();
+        if (!k) return;
+        stats.locoCounts[k] = (stats.locoCounts[k] || 0) + 1;
+      });
+      stats.seeded = true;
+      if (currentUserSettings) currentUserSettings.reportStats = stats;
+      await persistReportStats(uid, stats);
+      paintAccountReportStats(stats);
     }
     async function checkUserBanned(user) {
       // After rules: non-admins may only read bannedUsers/{ownUid}. Do not query by email.
@@ -3316,6 +3476,7 @@
       if (err) { err.textContent = ''; err.classList.remove('visible'); }
       updateAdminChrome(user);
       updateAccountPreview();
+      paintAccountReportStats(settings && settings.reportStats);
     }
     function openInterestRailroadsModal() {
       const modal = document.getElementById('interest-railroads-modal');
@@ -3420,6 +3581,7 @@
       await loadUserSettings(user.uid);
       await refreshAdminState(user);
       fillAccountSettingsForm(user, currentUserSettings);
+      try { await ensureUserReportStats(user.uid); } catch (_) {}
       const modal = document.getElementById('account-settings-modal');
       if (modal) {
         modal.classList.add('open');
@@ -3474,7 +3636,8 @@
           reportDisplayMode: mode,
           reportCustomLabel: custom,
           interestedRailroads: interests,
-          interestedRailroadsSet: true
+          interestedRailroadsSet: true,
+          reportStats: (currentUserSettings && currentUserSettings.reportStats) || null
         };
         updateInterestSummary(interests);
         if (err) { err.textContent = ''; err.classList.remove('visible'); }
@@ -4908,7 +5071,7 @@
               openInterestRailroadsModal();
             }
           } else {
-            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false };
+            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null };
             currentAdminPerms = null;
             closeAccountSettingsLightbox();
             closeInterestRailroadsModal(true);
@@ -5806,6 +5969,7 @@
           trainReports = rows;
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = false;
+          try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
           console.log('%c[trainReports] Loaded ' + trainReports.length + ' active reports', 'color:#27ae60');
         } catch (e) {
           trainReports = [];
@@ -6054,6 +6218,18 @@
         }
         if (!existing.exists) data.createdAt = now;
         await ref.set(data, { merge: true });
+        try {
+          const bumpLocos = reportLocoIdsFromRow({
+            locomotives: data.locomotives,
+            locomotiveId: data.locomotiveId || locomotiveId,
+            unitName: data.unitName || unitName
+          });
+          if (typeof bumpUserReportStats === 'function') {
+            await bumpUserReportStats(user.uid, docId, bumpLocos);
+          }
+        } catch (statErr) {
+          console.warn('[userSettings] reportStats bump failed', statErr);
+        }
         // Dual-write admin-only reporter identity (same doc id)
         try {
           const auditPayload = {
