@@ -1295,14 +1295,70 @@
        font-size: 12px;
      }
    }
-   /* Report a train: header on desktop, panel button on mobile */
+   /* Report a train + Specials: header on desktop, panel button on mobile */
    @media (max-width: 767px) {
-     #btn-report-train-header { display: none !important; }
-     #btn-report-train-panel { display: block; }
+     #btn-report-train-header, #btn-specials-header { display: none !important; }
+     #btn-report-train-panel, #btn-specials-panel { display: block; }
    }
    @media (min-width: 768px) {
-     #btn-report-train-panel { display: none !important; }
+     #btn-report-train-panel, #btn-specials-panel { display: none !important; }
    }
+   .rr-board-toolbar {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 8px;
+     align-items: center;
+     margin-bottom: 12px;
+   }
+   .rr-board-toolbar select,
+   .rr-board-toolbar input[type="search"] {
+     box-sizing: border-box;
+     padding: 8px 10px;
+     border: 1px solid #c5cad3;
+     font-size: 13px;
+     font-family: inherit;
+     background: #fff;
+     color: #07093e;
+     min-width: 140px;
+   }
+   .rr-board-toolbar input[type="search"] { flex: 1; min-width: 160px; }
+   .rr-board-list { display: flex; flex-direction: column; gap: 8px; }
+   .rr-board-group {
+     margin: 14px 0 6px;
+     font-size: 12px;
+     font-weight: 700;
+     letter-spacing: 0.04em;
+     text-transform: uppercase;
+     color: #5a6577;
+   }
+   .rr-board-card {
+     background: #f4f6fa;
+     border: 1px solid #e8eaef;
+     border-radius: 8px;
+     padding: 10px 12px;
+     cursor: pointer;
+     text-align: left;
+   }
+   .rr-board-card:hover { border-color: #07093e; background: #eef1f7; }
+   .rr-board-card-top {
+     display: flex;
+     justify-content: space-between;
+     gap: 8px;
+     align-items: baseline;
+     margin-bottom: 4px;
+   }
+   .rr-board-agency {
+     font-size: 11px;
+     font-weight: 700;
+     color: #07093e;
+     text-transform: uppercase;
+     letter-spacing: 0.03em;
+   }
+   .rr-board-time { font-size: 11px; color: #5a6577; }
+   .rr-board-title { font-size: 15px; font-weight: 700; color: #07093e; }
+   .rr-board-meta { font-size: 12px; color: #2c3340; margin-top: 2px; line-height: 1.35; }
+   .rr-board-empty { font-size: 13px; color: #5a6577; margin: 8px 0 0; }
+   #specials-board-modal .rr-lightbox { width: min(720px, 100%); max-height: min(88vh, 820px); }
    /* Vehicle Alerts card (mobile-friendly) */
    .va-card {
      background: #fff;
@@ -2194,6 +2250,7 @@
       flex-shrink: 0;
     }
     #btn-report-train-header:hover { background: #e8eaf0; }
+    #btn-specials-header { margin-left: 6px; }
     .header-user-avatar {
       width: 34px;
       height: 34px;
@@ -2320,7 +2377,7 @@
         font-size: 11px;
         font-weight: 700;
       }
-      #btn-report-train-header { font-size: 11px; padding: 6px 8px; }
+      #btn-report-train-header, #btn-specials-header { font-size: 11px; padding: 6px 8px; }
       .header-user-avatar {
         width: 32px;
         height: 32px;
@@ -2399,6 +2456,7 @@
         <div id="header-search-results" class="header-search-results"></div>
       </div>
       <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
+      <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
     </div>
     <div class="header-right">
       <div class="header-auth" id="header-auth">
@@ -2476,6 +2534,7 @@
         <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
       </div>
       <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
+      <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
       <button id="refresh-button" class="refresh-button">Refresh Data</button>
       <div id="last-updated" class="last-updated">Last updated: Never</div>
       <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, and CTrail. RailroadRadar is not responsible for inaccuracies.</p></div>
@@ -2851,6 +2910,67 @@
         <textarea id="report-comment" maxlength="280" placeholder="Anything else about this train…"></textarea>
         <div class="rr-modal-error" id="report-train-error"></div>
         <button type="button" class="cabcar-report-btn" id="report-train-submit">Submit report</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rr-modal-backdrop" id="specials-board-modal" aria-hidden="true">
+    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="specials-board-title">
+      <div class="rr-modal-header">
+        <span id="specials-board-title">Specials & reports</span>
+        <button type="button" class="rr-modal-close" id="specials-board-close" aria-label="Close">×</button>
+      </div>
+      <div class="rr-lightbox-body">
+        <div class="rr-admin-tabs" role="tablist">
+          <button type="button" class="rr-admin-tab active" data-board-tab="specials" id="board-tab-specials">Active specials</button>
+          <button type="button" class="rr-admin-tab" data-board-tab="reports" id="board-tab-reports">Recent reports</button>
+        </div>
+        <div class="rr-admin-pane active" id="board-pane-specials" data-board-pane="specials">
+          <div class="rr-board-toolbar">
+            <select id="board-specials-agency" aria-label="Filter railroad">
+              <option value="all">All railroads</option>
+              <option value="mbta">MBTA</option>
+              <option value="amtrak">Amtrak</option>
+              <option value="mnr">Metro-North</option>
+              <option value="lirr">LIRR</option>
+              <option value="metra">Metra</option>
+              <option value="njt">NJ Transit</option>
+              <option value="ctrail">CTrail</option>
+            </select>
+            <select id="board-specials-sort" aria-label="Sort specials">
+              <option value="railroad">Sort by railroad</option>
+              <option value="newest">Newest first</option>
+              <option value="loco">Locomotive</option>
+            </select>
+          </div>
+          <div class="rr-board-list" id="board-specials-list"></div>
+          <p class="rr-board-empty" id="board-specials-empty" hidden>No active specials right now.</p>
+        </div>
+        <div class="rr-admin-pane" id="board-pane-reports" data-board-pane="reports">
+          <div class="rr-board-toolbar">
+            <input type="search" id="board-reports-search" placeholder="Search train, loco, reporter…" aria-label="Search reports">
+            <select id="board-reports-agency" aria-label="Filter railroad">
+              <option value="all">All railroads</option>
+              <option value="mbta">MBTA</option>
+              <option value="amtrak">Amtrak</option>
+              <option value="mnr">Metro-North</option>
+              <option value="lirr">LIRR</option>
+              <option value="metra">Metra</option>
+              <option value="njt">NJ Transit</option>
+              <option value="ctrail">CTrail</option>
+            </select>
+            <select id="board-reports-sort" aria-label="Sort reports">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="railroad">Railroad</option>
+              <option value="loco">Locomotive</option>
+              <option value="train">Train number</option>
+              <option value="reporter">Reporter</option>
+            </select>
+          </div>
+          <div class="rr-board-list" id="board-reports-list"></div>
+          <p class="rr-board-empty" id="board-reports-empty" hidden>No reports yet.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -6634,6 +6754,320 @@
         });
       }
 
+
+      function agencyPrettyName(a) {
+        const map = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail' };
+        return map[normalizeAgency(a)] || String(a || '').toUpperCase();
+      }
+      function reportTimeMs(r) {
+        const t = r && (r.updatedAt || r.createdAt);
+        if (!t) return 0;
+        try {
+          if (typeof t.toMillis === 'function') return t.toMillis();
+          if (typeof t.toDate === 'function') return t.toDate().getTime();
+          if (typeof t.seconds === 'number') return t.seconds * 1000;
+        } catch (_) {}
+        const n = Number(t);
+        return isNaN(n) ? 0 : n;
+      }
+      function formatBoardTime(ms) {
+        if (!ms) return '';
+        try {
+          return new Date(ms).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        } catch (_) { return ''; }
+      }
+      function locoIsSpecial(agency, L, rep) {
+        const id = String((L && L.locomotiveId) || '').trim();
+        if (L && L.specialOverride) return true;
+        if (rep && rep.specialOverride && L && normalizeReportLocomotives(rep)[0] === L) return true;
+        if (id && typeof rosterEntry === 'function' && rosterEntry(agency, id)) return true;
+        if (id && typeof ROSTER_IDS !== 'undefined' && ROSTER_IDS.has(id)) return true;
+        return false;
+      }
+      function reportLocoLabel(agency, L, rep) {
+        const id = String((L && L.locomotiveId) || (rep && rep.locomotiveId) || '').trim();
+        const roster = (id && typeof rosterEntry === 'function') ? rosterEntry(agency, id) : null;
+        const name = (L && L.unitName) || (roster && roster.name) || (rep && rep.unitName) || '';
+        if (id && name && name !== id) return id + ' · ' + name;
+        return id || name || 'Unknown loco';
+      }
+      function collectActiveSpecials() {
+        const rows = [];
+        (typeof trainReports !== 'undefined' ? trainReports : []).forEach(function(rep) {
+          if (!rep) return;
+          const agency = normalizeAgency(rep.agency);
+          const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const use = locos.length ? locos : [{ locomotiveId: rep.locomotiveId, unitName: rep.unitName, specialOverride: !!rep.specialOverride }];
+          use.forEach(function(L) {
+            if (!locoIsSpecial(agency, L, rep)) return;
+            rows.push({
+              agency: agency,
+              locoId: String((L && L.locomotiveId) || '').trim(),
+              title: reportLocoLabel(agency, L, rep),
+              trainNumber: String(rep.trainNumber || (agency === 'mbta' ? '' : '') || '').trim(),
+              vehicleId: String(rep.vehicleId || '').trim(),
+              reporter: String(rep.reportedByLabel || '').trim(),
+              ms: reportTimeMs(rep),
+              rep: rep
+            });
+          });
+        });
+        return rows;
+      }
+      function collectBoardReports() {
+        return (typeof trainReports !== 'undefined' ? trainReports : []).map(function(rep) {
+          const agency = normalizeAgency(rep.agency);
+          const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const locoTxt = locos.length
+            ? locos.map(function(L) { return reportLocoLabel(agency, L, rep); }).join(', ')
+            : reportLocoLabel(agency, null, rep);
+          return {
+            agency: agency,
+            locoId: String((locos[0] && locos[0].locomotiveId) || rep.locomotiveId || '').trim(),
+            locoTxt: locoTxt,
+            trainNumber: String(rep.trainNumber || '').trim(),
+            vehicleId: String(rep.vehicleId || '').trim(),
+            reporter: String(rep.reportedByLabel || '').trim(),
+            comment: String(rep.comment || '').trim(),
+            ms: reportTimeMs(rep),
+            rep: rep
+          };
+        });
+      }
+      function sortBoardRows(rows, sort) {
+        const copy = rows.slice();
+        copy.sort(function(a, b) {
+          if (sort === 'oldest') return (a.ms || 0) - (b.ms || 0);
+          if (sort === 'railroad') {
+            const c = String(a.agency).localeCompare(String(b.agency));
+            return c || String(a.locoId).localeCompare(String(b.locoId), undefined, { numeric: true });
+          }
+          if (sort === 'loco') return String(a.locoId || a.locoTxt || a.title || '').localeCompare(String(b.locoId || b.locoTxt || b.title || ''), undefined, { numeric: true });
+          if (sort === 'train') return String(a.trainNumber || a.vehicleId || '').localeCompare(String(b.trainNumber || b.vehicleId || ''), undefined, { numeric: true });
+          if (sort === 'reporter') return String(a.reporter || '').localeCompare(String(b.reporter || ''));
+          return (b.ms || 0) - (a.ms || 0);
+        });
+        return copy;
+      }
+      function focusReportedTrain(rep) {
+        if (!rep) return;
+        closeSpecialsBoard();
+        const a = normalizeAgency(rep.agency);
+        const vid = String(rep.vehicleId || '').trim();
+        const tn = String(rep.trainNumber || '').trim();
+        const dicts = [];
+        try { if (typeof markers !== 'undefined' && markers) dicts.push(markers); } catch (_) {}
+        try { if (typeof amtrakMarkers !== 'undefined' && amtrakMarkers) dicts.push(amtrakMarkers); } catch (_) {}
+        try { if (typeof mnrMarkers !== 'undefined' && mnrMarkers) dicts.push(mnrMarkers); } catch (_) {}
+        try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
+        try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
+        try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
+        let found = null;
+        const keys = [vid, tn, (a + '-' + vid), (a + '-' + tn)].filter(Boolean);
+        dicts.forEach(function(dict) {
+          if (found) return;
+          keys.forEach(function(k) {
+            if (found || !k) return;
+            if (dict[k]) found = dict[k];
+          });
+        });
+        if (!found && tn) {
+          dicts.forEach(function(dict) {
+            if (found) return;
+            Object.keys(dict).forEach(function(k) {
+              if (found) return;
+              if (String(k).indexOf(tn) !== -1) found = dict[k];
+            });
+          });
+        }
+        if (found && found.getLatLng) {
+          const ll = found.getLatLng();
+          map.setView(ll, 15);
+          try { if (!map.hasLayer(found)) found.addTo(map); } catch (_) {}
+          try { found.openPopup(); } catch (_) {}
+          try {
+            if (highlightedMarker && highlightedMarker.getElement) highlightedMarker.getElement().classList.remove('highlighted-train');
+            found.getElement && found.getElement() && found.getElement().classList.add('highlighted-train');
+            highlightedMarker = found;
+          } catch (_) {}
+        } else {
+          showNotification('That train is not on the map right now');
+        }
+      }
+      function boardCardHtml(opts) {
+        const agency = escapeHtmlLite(agencyPrettyName(opts.agency));
+        const time = escapeHtmlLite(formatBoardTime(opts.ms));
+        const title = escapeHtmlLite(opts.title || '');
+        const bits = [];
+        if (opts.trainNumber) bits.push('Train ' + opts.trainNumber);
+        if (opts.vehicleId && opts.vehicleId !== opts.trainNumber) bits.push('Vehicle ' + opts.vehicleId);
+        if (opts.reporter) bits.push('by ' + opts.reporter);
+        if (opts.extra) bits.push(opts.extra);
+        return '<button type="button" class="rr-board-card" data-rep-id="' + escapeHtmlLite(opts.id || '') + '">' +
+          '<div class="rr-board-card-top"><span class="rr-board-agency">' + agency + '</span><span class="rr-board-time">' + time + '</span></div>' +
+          '<div class="rr-board-title">' + title + '</div>' +
+          (bits.length ? '<div class="rr-board-meta">' + escapeHtmlLite(bits.join(' · ')) + '</div>' : '') +
+          '</button>';
+      }
+      function bindBoardCards(container, byId) {
+        if (!container) return;
+        container.querySelectorAll('.rr-board-card').forEach(function(el) {
+          el.addEventListener('click', function() {
+            const id = el.getAttribute('data-rep-id');
+            const row = byId[id];
+            if (row && row.rep) focusReportedTrain(row.rep);
+          });
+        });
+      }
+      function renderSpecialsBoard() {
+        const agencyF = ((document.getElementById('board-specials-agency') || {}).value || 'all');
+        const sort = ((document.getElementById('board-specials-sort') || {}).value || 'railroad');
+        let rows = collectActiveSpecials();
+        if (agencyF !== 'all') rows = rows.filter(function(r) { return r.agency === agencyF; });
+        rows = sortBoardRows(rows, sort);
+        const list = document.getElementById('board-specials-list');
+        const empty = document.getElementById('board-specials-empty');
+        const byId = {};
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '';
+          if (empty) empty.hidden = false;
+          return;
+        }
+        if (empty) empty.hidden = true;
+        let html = '';
+        let lastAg = null;
+        rows.forEach(function(r, i) {
+          const id = (r.rep && r.rep.id) ? (r.rep.id + ':' + r.locoId + ':' + i) : String(i);
+          byId[id] = r;
+          if (sort === 'railroad' && r.agency !== lastAg) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(agencyPrettyName(r.agency)) + '</div>';
+            lastAg = r.agency;
+          }
+          html += boardCardHtml({
+            id: id,
+            agency: r.agency,
+            ms: r.ms,
+            title: r.title,
+            trainNumber: r.trainNumber,
+            vehicleId: r.vehicleId,
+            reporter: r.reporter
+          });
+        });
+        list.innerHTML = html;
+        bindBoardCards(list, byId);
+      }
+      function renderReportsBoard() {
+        const agencyF = ((document.getElementById('board-reports-agency') || {}).value || 'all');
+        const sort = ((document.getElementById('board-reports-sort') || {}).value || 'newest');
+        const q = String(((document.getElementById('board-reports-search') || {}).value || '')).trim().toLowerCase();
+        let rows = collectBoardReports();
+        if (agencyF !== 'all') rows = rows.filter(function(r) { return r.agency === agencyF; });
+        if (q) {
+          rows = rows.filter(function(r) {
+            const blob = [r.locoTxt, r.locoId, r.trainNumber, r.vehicleId, r.reporter, r.comment, r.agency].join(' ').toLowerCase();
+            return blob.indexOf(q) !== -1;
+          });
+        }
+        rows = sortBoardRows(rows, sort);
+        const list = document.getElementById('board-reports-list');
+        const empty = document.getElementById('board-reports-empty');
+        const byId = {};
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '';
+          if (empty) empty.hidden = false;
+          return;
+        }
+        if (empty) empty.hidden = true;
+        let html = '';
+        let lastAg = null;
+        rows.forEach(function(r, i) {
+          const id = (r.rep && r.rep.id) ? (r.rep.id + ':' + i) : String(i);
+          byId[id] = r;
+          if (sort === 'railroad' && r.agency !== lastAg) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(agencyPrettyName(r.agency)) + '</div>';
+            lastAg = r.agency;
+          }
+          html += boardCardHtml({
+            id: id,
+            agency: r.agency,
+            ms: r.ms,
+            title: r.locoTxt,
+            trainNumber: r.trainNumber,
+            vehicleId: r.vehicleId,
+            reporter: r.reporter,
+            extra: r.comment ? r.comment : ''
+          });
+        });
+        list.innerHTML = html;
+        bindBoardCards(list, byId);
+      }
+      function setBoardTab(tab) {
+        const t = tab === 'reports' ? 'reports' : 'specials';
+        document.querySelectorAll('[data-board-tab]').forEach(function(btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-board-tab') === t);
+        });
+        document.querySelectorAll('[data-board-pane]').forEach(function(pane) {
+          pane.classList.toggle('active', pane.getAttribute('data-board-pane') === t);
+        });
+        if (t === 'reports') renderReportsBoard();
+        else renderSpecialsBoard();
+      }
+      function openSpecialsBoard() {
+        renderSpecialsBoard();
+        renderReportsBoard();
+        const modal = document.getElementById('specials-board-modal');
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+        try {
+          const panel = document.getElementById('control-panel');
+          const overlay = document.getElementById('overlay');
+          if (panel) panel.classList.remove('open');
+          if (overlay) overlay.classList.remove('open');
+        } catch (_) {}
+      }
+      function closeSpecialsBoard() {
+        const modal = document.getElementById('specials-board-modal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+      function wireSpecialsBoardUI() {
+        const btnH = document.getElementById('btn-specials-header');
+        const btnP = document.getElementById('btn-specials-panel');
+        const btnC = document.getElementById('specials-board-close');
+        const modal = document.getElementById('specials-board-modal');
+        if (btnH) btnH.addEventListener('click', openSpecialsBoard);
+        if (btnP) btnP.addEventListener('click', openSpecialsBoard);
+        if (btnC) btnC.addEventListener('click', closeSpecialsBoard);
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeSpecialsBoard(); });
+        document.querySelectorAll('[data-board-tab]').forEach(function(btn) {
+          btn.addEventListener('click', function() { setBoardTab(btn.getAttribute('data-board-tab')); });
+        });
+        ['board-specials-agency', 'board-specials-sort'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', renderSpecialsBoard);
+        });
+        ['board-reports-agency', 'board-reports-sort'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', renderReportsBoard);
+        });
+        const search = document.getElementById('board-reports-search');
+        if (search) search.addEventListener('input', renderReportsBoard);
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'Escape') return;
+          const m = document.getElementById('specials-board-modal');
+          if (m && m.classList.contains('open')) {
+            closeSpecialsBoard();
+            e.stopPropagation();
+          }
+        });
+      }
+
       // ============================================================
       // SPECIAL ICONS — Apps Script icon feed removed (use roster + local type assets)
       // ============================================================
@@ -6821,6 +7255,7 @@
       setLoadingProgress(18, 'Ready for reports...');
       wireAuthUI();
       wireReportTrainUI();
+      wireSpecialsBoardUI();
       setLoadingProgress(20, 'Loading train reports...');
       await withTimeout(loadTrainReports(), 5000, 'loadTrainReports');
       setInterval(loadTrainReports, 7 * 60 * 1000);
