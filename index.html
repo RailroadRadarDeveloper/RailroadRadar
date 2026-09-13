@@ -10246,10 +10246,13 @@
       function buildAskContext() {
         const lines = [];
         function add(agency, num, dest, status, next, alert) {
-          const bits = [agency, num, dest, status, next];
-          let s = bits.filter(Boolean).join(' · ');
-          if (alert) s += ' · ALERT: ' + String(alert).slice(0, 160);
-          if (s) lines.push(s.slice(0, 220));
+          let s = String(agency || '');
+          if (num) s += ' ' + num;
+          if (dest) s += ' to ' + dest;
+          if (status) s += ' — ' + status;
+          if (next) s += ', next ' + next;
+          if (alert) s += '. Alert: ' + String(alert).slice(0, 140);
+          if (s.trim()) lines.push(s.slice(0, 240));
         }
         try {
           Object.keys(trainInfo || {}).forEach(function(vid) {
@@ -10304,7 +10307,7 @@
       }
       async function askRailroadRadar(raw, results) {
         const seq = ++askSeq;
-        renderAskCard(results, 'loading', 'Thinking…');
+        renderAskCard(results, 'loading', 'Looking at live trains…');
         try {
           const res = await fetch(apiUrl('/api/ask'), {
             method: 'POST',
@@ -10343,7 +10346,7 @@
           const shouldAsk = looksLikeQuestion(raw) || results.children.length === 0;
           if (shouldAsk) {
             if (askTimer) clearTimeout(askTimer);
-            renderAskCard(results, 'loading', 'Thinking…');
+            renderAskCard(results, 'loading', 'Looking at live trains…');
             if (immediate) {
               askRailroadRadar(raw, results);
             } else {
