@@ -10513,7 +10513,8 @@
         const q = String(raw || '').trim();
         if (q.length < 4) return false;
         if (/\?/.test(q)) return true;
-        if (/^(what|where|which|who|when|why|how|is|are|was|were|can|could|should|does|do|did|any|show|list|tell|find)\b/i.test(q)) return true;
+        if (/^(what|where|which|who|when|why|how|is|are|was|were|can|could|should|does|do|did|any|show|list|tell|find|next)\b/i.test(q)) return true;
+        if (/\bfrom\b.+\bto\b/i.test(q) || /\bto\b.+\bfrom\b/i.test(q)) return true;
         return q.split(/\s+/).filter(Boolean).length >= 3;
       }
       function buildAskContext(question) {
@@ -10728,11 +10729,188 @@
         else if (card) card.after(wrap);
         else results.appendChild(wrap);
       }
+      function parseAskFromTo(question) {
+        const raw = String(question || '').replace(/\s+/g, ' ').trim();
+        if (!raw) return null;
+        function clean(s) {
+          return String(s || '')
+            .replace(/\b(the|a|an|next|train|trains|please|now|today|tonight|departing|leaving|heading|bound)\b/ig, ' ')
+            .replace(/\bright now\b/ig, ' ')
+            .replace(/[?!.]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        let dest = '', origin = '';
+        let m = raw.match(/\bto\s+(.+?)\s+from\s+(.+)$/i);
+        if (m) { dest = m[1]; origin = m[2]; }
+        else {
+          m = raw.match(/\bfrom\s+(.+?)\s+to\s+(.+)$/i);
+          if (m) { origin = m[1]; dest = m[2]; }
+        }
+        origin = clean(origin);
+        dest = clean(dest);
+        if (!origin || !dest || origin.length < 3 || dest.length < 3) return null;
+        if (origin === dest) return null;
+        return { origin: origin, dest: dest };
+      }
+      function listAskStations() {
+        const out = [];
+        try {
+          for (const key in stationsByName) {
+            const g = stationsByName[key];
+            if (!g || !g.name) continue;
+            out.push({ agency: 'MBTA', name: g.name, key: key, stopIds: g.stopIds || [], lat: g.lat, lng: g.lng });
+          }
+        } catch (_) {}
+        function addStatic(staticObj, agency) {
+          if (!staticObj || !staticObj.stops) return;
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s || !s.name) return;
+            out.push({ agency: agency, name: s.name, key: String(s.name).toLowerCase(), stopIds: [sid], lat: s.lat, lng: s.lon });
+          });
+        }
+        try { addStatic(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR'); } catch (_) {}
+        try { addStatic(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR'); } catch (_) {}
+        try { addStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra'); } catch (_) {}
+        return out;
+      }
+      function findAskStation(query) {
+        const q = String(query || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!q || q.length < 3) return null;
+        const list = listAskStations();
+        let best = null, bestScore = 0;
+        list.forEach(function(st) {
+          const k = String(st.key || st.name || '').toLowerCase();
+          if (!k) return;
+          let n = 0;
+          if (k === q) n = 120;
+          else if (k.indexOf(q) === 0) n = 85 + Math.min(q.length, 20);
+          else if (k.indexOf(q) >= 0) n = 55 + q.length;
+          else {
+            const toks = q.split(' ').filter(Boolean);
+            let hit = 0;
+            for (let i = 0; i < toks.length; i++) {
+              if (toks[i].length >= 3 && k.indexOf(toks[i]) >= 0) hit++;
+            }
+            if (toks.length && hit === toks.length) n = 42 + hit * 6;
+          }
+          if (n > bestScore) { bestScore = n; best = st; }
+        });
+        return bestScore >= 42 ? best : null;
+      }
+      function askDestMatches(destName, destQuery) {
+        const d = String(destName || '').toLowerCase();
+        const q = String(destQuery || '').toLowerCase();
+        if (!d || !q) return false;
+        if (d.indexOf(q) >= 0 || q.indexOf(d) >= 0) return true;
+        if (q === 'boston' || q === 'south station' || q === 'south sta') {
+          return /south station|boston|back bay/.test(d);
+        }
+        if (q === 'north station' || q === 'north sta') return /north station/.test(d);
+        return false;
+      }
+      function askLiveRowsForFromTo(originName, destQuery, rows) {
+        const o = String(originName || '').toLowerCase();
+        const hits = [];
+        (rows || []).forEach(function(r) {
+          if (!askDestMatches(r.dest, destQuery) && !askDestMatches(r.routeName, destQuery)) return;
+          const blob = [r.routeName, r.stopName, r.dest].join(' ').toLowerCase();
+          if (!askDestMatches(r.dest, destQuery)) return;
+          const originTok = o.split(' ').filter(function(w){ return w.length >= 4; })[0] || o.split(' ')[0];
+          if (originTok && blob.indexOf(originTok) < 0) return;
+          hits.push(r);
+        });
+        return hits;
+      }
+      async function answerAskFromTo(question, liveRows) {
+        const parsed = parseAskFromTo(question);
+        if (!parsed) return null;
+        const origin = findAskStation(parsed.origin);
+        if (!origin) {
+          return { answer: 'I could not find a station called ' + parsed.origin + '.', rows: [] };
+        }
+        let deps = [];
+        if (origin.agency === 'MBTA' && origin.stopIds && origin.stopIds.length && typeof getStationDepartures === 'function') {
+          try { deps = await getStationDepartures(origin.stopIds.slice()); } catch (_) { deps = []; }
+        }
+        const toward = (deps || []).filter(function(d) { return askDestMatches(d.destination, parsed.dest); }).slice(0, 3);
+        const live = askLiveRowsForFromTo(origin.name, parsed.dest, liveRows).slice(0, 4);
+        if (!toward.length && !live.length) {
+          return {
+            answer: 'I do not see a train from ' + origin.name + ' to ' + parsed.dest + ' on the board right now.',
+            rows: []
+          };
+        }
+        const bits = [];
+        toward.forEach(function(d) {
+          const num = (typeof extractTrainNumber === 'function') ? (extractTrainNumber(d.tripId) || '') : '';
+          let s = (num ? ('MBTA ' + num) : 'MBTA') + ' to ' + (d.destination || parsed.dest);
+          if (d.formattedScheduledTime) s += ' at ' + d.formattedScheduledTime;
+          if (d.status) s += ' (' + d.status + ')';
+          bits.push(s);
+        });
+        if (!bits.length && live.length) {
+          live.slice(0, 2).forEach(function(r) {
+            let s = (r.agency ? r.agency + ' ' : '') + String(r.trainNum || '—') + ' to ' + (r.dest || parsed.dest);
+            if (r.stopName && r.stopName !== '—') s += ', ' + (r.stopLabel || 'next') + ' ' + r.stopName;
+            bits.push(s);
+          });
+        }
+        let answer;
+        if (bits.length === 1) answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ': ' + bits[0] + '.';
+        else answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ':\n• ' + bits.join('\n• ');
+        const cards = [];
+        const seen = {};
+        live.forEach(function(r) { if (r && !seen[r.id]) { seen[r.id] = true; cards.push(r); } });
+        toward.forEach(function(d) {
+          const num = (typeof extractTrainNumber === 'function') ? (extractTrainNumber(d.tripId) || d.tripId) : d.tripId;
+          const liveHit = live.filter(function(r) { return String(r.trainNum) === String(num); })[0];
+          if (liveHit) return;
+          cards.push({
+            agency: 'MBTA', agencyColor: '#1a1a2e', id: 'ask-dep-' + String(d.tripId || num),
+            markerMap: typeof markers !== 'undefined' ? markers : {},
+            routeName: d.routeName || 'MBTA', trainNum: num || '—', dest: d.destination || parsed.dest,
+            vehicleLabel: num || '—', speedMph: null, stopLabel: 'Departs',
+            stopName: (d.formattedScheduledTime || '') + ' from ' + origin.name,
+            statusClass: d.isLive ? 'status-on-time' : 'status-scheduled',
+            statusText: d.status || 'Scheduled',
+            hasAlert: false, lat: origin.lat, lng: origin.lng,
+            matchFields: [d.tripId, num, d.destination]
+          });
+        });
+        return { answer: answer, rows: cards.slice(0, 6) };
+      }
       async function askRailroadRadar(raw, results) {
         const seq = ++askSeq;
         renderAskCard(results, 'loading', 'Looking at live trains…');
         try {
           const rows = collectLiveTrainRows();
+          const fromTo = await answerAskFromTo(raw, rows);
+          if (fromTo && fromTo.answer) {
+            if (seq !== askSeq) return;
+            renderAskCard(results, 'ok', fromTo.answer);
+            renderAskTrainCards(results, fromTo.rows || []);
+            if (!(fromTo.rows || []).length) return;
+            const facts = (fromTo.rows || []).map(function(r) {
+              return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
+            }).join('\n');
+            try {
+              const res = await fetch(apiUrl('/api/ask'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
+              });
+              const data = await res.json().catch(function() { return {}; });
+              if (seq !== askSeq) return;
+              const polished = data && data.answer ? String(data.answer).trim() : '';
+              if (res.ok && polished && askFactsGrounded(polished, fromTo.rows)) {
+                renderAskCard(results, 'ok', polished);
+                renderAskTrainCards(results, fromTo.rows);
+              }
+            } catch (_) {}
+            return;
+          }
           const matched = filterAskRows(raw, rows).slice(0, 8);
           const fact = formatAskFactAnswer(raw, matched);
           if (seq !== askSeq) return;
