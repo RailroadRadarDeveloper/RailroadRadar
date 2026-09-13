@@ -5123,14 +5123,30 @@
         'ALP-45A': 'ALP-45A'
       };
 
+      function normalizeMbtaLocoType(locoType) {
+        const raw = String(locoType || '').trim();
+        if (!raw) return '';
+        if (MBTA_LOCO_TYPES[raw]) return raw;
+        const compact = raw.toUpperCase().replace(/[\s_-]+/g, '');
+        const keys = Object.keys(MBTA_LOCO_TYPES);
+        for (let i = 0; i < keys.length; i++) {
+          if (keys[i].toUpperCase().replace(/[\s_-]+/g, '') === compact) return keys[i];
+        }
+        if (compact.indexOf('F40') !== -1) return 'F40PH';
+        if (compact.indexOf('GP40') !== -1) return 'GP40MC';
+        if (compact.indexOf('HSP') !== -1) return 'HSP-46';
+        return '';
+      }
       function resolveMbtaLocoIconUrl(url, locoType) {
-        const fallback = MBTA_LOCO_TYPES[(locoType && MBTA_LOCO_TYPES[locoType]) ? locoType : 'HSP-46'] || MBTA_LOCO_TYPES['HSP-46'] || '/assets/hsp46.png';
+        const typeKey = normalizeMbtaLocoType(locoType);
+        const fallback = MBTA_LOCO_TYPES[typeKey] || MBTA_LOCO_TYPES['HSP-46'] || '/assets/hsp46.png';
         const u = (url == null ? '' : String(url)).trim();
+        if (/^data:/i.test(u)) return u;
         if (!u) return rrAssetUrl(fallback);
         const lower = u.toLowerCase();
         // Stale Firestore / Apps Script postimg placeholders must never be used
         if (lower.indexOf('postimg') !== -1 || lower.indexOf('earch.png') !== -1 || lower.indexOf('i.postimg.cc') !== -1) {
-          if (locoType && MBTA_LOCO_TYPES[locoType]) return rrAssetUrl(MBTA_LOCO_TYPES[locoType]);
+          if (typeKey && MBTA_LOCO_TYPES[typeKey]) return rrAssetUrl(MBTA_LOCO_TYPES[typeKey]);
           return rrAssetUrl(fallback);
         }
         // Relative assets/* → root-absolute
@@ -5144,7 +5160,7 @@
         // Known local type map hit already handled; keep other http(s) only if not postimg
         if (/^https?:\/\//i.test(u)) return u;
         // Anything else → local HSP/type
-        if (locoType && MBTA_LOCO_TYPES[locoType]) return rrAssetUrl(MBTA_LOCO_TYPES[locoType]);
+        if (typeKey && MBTA_LOCO_TYPES[typeKey]) return rrAssetUrl(MBTA_LOCO_TYPES[typeKey]);
         return rrAssetUrl(fallback);
       }
       let trainReports = [];
@@ -6300,9 +6316,9 @@
                        : (delayMinutes <= 15) ? 'delayed'
                        : 'veryDelayed';
         const hspDefault = MBTA_LOCO_TYPES['HSP-46'] || '/assets/hsp46.png';
-        function mbtaIcon(url) {
-          // Always remap postimg / empty → local HSP (or type asset)
-          const iconUrl = resolveMbtaLocoIconUrl(url, null) || rrAssetUrl(hspDefault);
+        function mbtaIcon(url, locoType) {
+          // Keep already-resolved data URIs / type assets; only remap stale postimg
+          const iconUrl = resolveMbtaLocoIconUrl(url, locoType) || rrAssetUrl(hspDefault);
           if (!createTrainIcon._cache) createTrainIcon._cache = {};
           if (createTrainIcon._cache[iconUrl]) return createTrainIcon._cache[iconUrl];
           const icon = L.icon({
@@ -6344,18 +6360,20 @@
                   className: 'train-icon'
                 });
               }
+              const typeHint = rep.locoType || specialRep.locoType || null;
               const typeUrl = resolveMbtaLocoIconUrl(
                 specialRep.locoIconUrl || rep.locoIconUrl || null,
-                rep.locoType || specialRep.locoType || null
+                typeHint
               );
-              return mbtaIcon(typeUrl);
+              return mbtaIcon(typeUrl, typeHint);
             }
             // 3. Different-loco / reported type: remap stale postimg → local asset
+            const typeHint2 = rep.locoType || specialRep.locoType || null;
             const locoUrl = resolveMbtaLocoIconUrl(
               specialRep.locoIconUrl || rep.locoIconUrl || null,
-              rep.locoType || specialRep.locoType || null
+              typeHint2
             );
-            return mbtaIcon(locoUrl);
+            return mbtaIcon(locoUrl, typeHint2);
           }
         } catch (_) {}
         // 4. Roster special for this vehicle (e.g. 1776 America 250) — baked-in art
