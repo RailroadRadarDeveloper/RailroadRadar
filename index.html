@@ -1075,6 +1075,50 @@
     .leaflet-popup {
       margin-bottom: 0 !important;
     }
+    .popup-report-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .popup-report-icon {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .popup-report-wrap .update-pairing-btn { flex: 1; width: auto; }
+    .loco-report-comment {
+      margin-top: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #333;
+      line-height: 1.35;
+    }
+    #report-comment {
+      width: 100%;
+      min-height: 64px;
+      margin-top: 4px;
+      padding: 8px;
+      box-sizing: border-box;
+      font: inherit;
+    }
+    @media (max-width: 700px) {
+      .leaflet-popup-content {
+        max-width: calc(100vw - 28px) !important;
+        width: auto !important;
+        max-height: min(380px, 62vh);
+      }
+      .train-popup,
+      .station-popup {
+        min-width: 0 !important;
+        max-width: calc(100vw - 28px) !important;
+        width: auto !important;
+      }
+      .train-popup-header { padding: 10px 12px; }
+      .train-popup-body { padding: 10px 12px; }
+      .train-popup-footer { padding: 10px 12px; }
+      .info-grid { gap: 8px 10px; }
+    }
     .alert-icon {
       vertical-align: middle;
       width: 20px;
@@ -2753,6 +2797,8 @@
         <div id="report-locos-list"></div>
         <button type="button" class="rr-link-btn" id="report-add-loco-btn" style="margin:8px 0 4px; background:none; border:none; color:#07093e; text-decoration:underline; cursor:pointer; padding:0; font-size:13px;">+ Add another locomotive</button>
         <p class="rr-modal-hint" id="report-train-hint">Pairs a locomotive to this vehicle ID until reported differently.</p>
+        <label for="report-comment">Comment (optional)</label>
+        <textarea id="report-comment" maxlength="280" placeholder="Anything else about this train…"></textarea>
         <div class="rr-modal-error" id="report-train-error"></div>
         <button type="button" class="cabcar-report-btn" id="report-train-submit">Submit report</button>
       </div>
@@ -3585,7 +3631,7 @@
         if (!q) return true;
         const blob = [
           r.reportedByEmail, r.reportedByLabel, r.reportedByName, r.reportedByUid,
-          r.vehicleId, r.trainNumber, r.agency, r.unitName, r.id
+          r.vehicleId, r.trainNumber, r.agency, r.unitName, r.comment, r.id
         ].map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
         return blob.indexOf(q) !== -1;
       });
@@ -3611,7 +3657,7 @@
           '<td>' + escapeHtmlLite(formatAdminWhen(r.updatedAt || r.createdAt)) + '</td>' +
           '<td>' + escapeHtmlLite(r.agency || '') + '</td>' +
           '<td>' + escapeHtmlLite(vehicle) + '</td>' +
-          '<td>' + escapeHtmlLite(formatTrainReportLocoLabelAdmin(r)) + '</td>' +
+          '<td>' + escapeHtmlLite(formatTrainReportLocoLabelAdmin(r)) + (r.comment ? '<div class="meta">' + escapeHtmlLite(String(r.comment).slice(0, 140)) + '</div>' : '') + '</td>' +
           '<td>' + reporter + '</td>' +
           '<td><code style="font-size:11px;">' + escapeHtmlLite(r.id) + '</code></td>' +
           '<td>' + delBtn + '</td>' +
@@ -4916,6 +4962,13 @@
       }
       // Transparent 1x1 PNG — avoids grey broken-image tiles on error
       const EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      function rrPopupOpts() {
+        let w = 520;
+        try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
+        if (w <= 700) return { maxWidth: Math.max(200, w - 28), minWidth: 180 };
+        return rrPopupOpts();
+      }
+
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
       const mapboxLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}'), {
         attribution: '© Mapbox © OpenStreetMap contributors',
@@ -5026,9 +5079,9 @@
       window.__rrSetMapTheme = setMapTheme;
       map.on('baselayerchange', function(e) {
         const name = (e && e.name) || '';
-        if (name === 'Light' || name === 'Carto Light') currentTheme = 'light';
+        if (/light|openstreetmap|^osm$/i.test(name) && !/dark/i.test(name)) currentTheme = 'light';
         else currentTheme = 'dark';
-        if (name === 'Carto Light' || name === 'Carto Dark') usingMapboxFallback = true;
+        if (name === 'Carto Light' || name === 'Carto Dark' || name === 'Esri Light' || name === 'Esri Dark') usingMapboxFallback = true;
         else if (name === 'Light' || name === 'Dark') {
           usingMapboxFallback = false;
           mapboxTileErrorTimes = [];
@@ -5563,7 +5616,29 @@
         }).filter(Boolean).join(' + ');
       }
 
+      function latestReportIconUrl(agency, opts) {
+        opts = opts || {};
+        try {
+          const spec = (typeof getSpecialForVehicle === 'function')
+            ? getSpecialForVehicle(agency, opts.vehicleId, opts.trainNumber)
+            : null;
+          if (spec && spec.locoIconUrl) return spec.locoIconUrl;
+          const locoId = spec && spec.locomotiveId;
+          if (locoId && specialIcons[locoId] && specialIcons[locoId].iconUrl) return specialIcons[locoId].iconUrl;
+          if (spec && spec.locoType && typeof resolveMbtaLocoIconUrl === 'function') {
+            const u = resolveMbtaLocoIconUrl(null, spec.locoType);
+            if (u) return u;
+          }
+          const rep = (opts.report) || (spec && spec.report) || null;
+          if (rep && rep.locoIconUrl) return rep.locoIconUrl;
+          if (rep && Array.isArray(rep.locomotives) && rep.locomotives[0] && rep.locomotives[0].locoIconUrl) {
+            return rep.locomotives[0].locoIconUrl;
+          }
+        } catch (_) {}
+        return null;
+      }
       function buildLocoReportPairingBlockHtml(agency, opts) {
+
         opts = opts || {};
         const a = normalizeAgency(agency || 'mbta');
         const vid = String(opts.vehicleId || '').trim();
@@ -5597,6 +5672,10 @@
             }
             if (byHtml) parts += ' by ' + byHtml;
             line = parts;
+            const comment = String(rep.comment || '').trim();
+            if (comment) {
+              line += '<div class="loco-report-comment">“' + escFn(comment) + '”</div>';
+            }
           } else {
             line = 'No locomotive reported yet';
           }
@@ -5630,7 +5709,9 @@
               '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + onclick + '">Change</button>' +
             '</div>';
         } else {
-          actionsHtml = '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">Update pairing</button>';
+          const iconUrl = latestReportIconUrl(a, { vehicleId: vid, trainNumber: trainNumber, report: rep });
+          const iconHtml = iconUrl ? '<img class="popup-report-icon" src="' + String(iconUrl).replace(/"/g, '') + '" alt="">' : '';
+          actionsHtml = '<div class="popup-report-wrap">' + iconHtml + '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">Report</button></div>';
         }
         return '<div class="loco-report-block' + (stale ? ' is-stale' : '') + '">' +
           '<div class="loco-report-text">' + lineHtml + '</div>' +
@@ -5672,7 +5753,8 @@
             locoIconUrl: first.locoIconUrl || rep.locoIconUrl,
             specialOverride: !!(first.specialOverride || rep.specialOverride),
             customLoco: !!(first.customLoco || rep.customLoco),
-            locomotives: locos.length ? locos : undefined
+            locomotives: locos.length ? locos : undefined,
+            comment: rep.comment || ''
           });
           showNotification('Locomotive confirmed');
           await loadTrainReports();
@@ -5895,6 +5977,7 @@
           reportedByVerified: !!reporterVerified,
           contributors: contributors,
           updatedAt: now,
+          comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
           // Scrub legacy PII from public trainReports on every republish
           reportedByEmail: fvDelete,
           reportedByName: fvDelete,
@@ -6188,6 +6271,8 @@
         if (err) { err.textContent = ''; err.classList.remove('visible'); }
         resetReportLocoSlots();
         populateReportUnitSelect();
+        const commentEl = document.getElementById('report-comment');
+        if (commentEl) commentEl.value = '';
         const serviceDateInput = document.getElementById('report-service-date');
         if (serviceDateInput) serviceDateInput.value = nyServiceDateToday();
         if (modal) {
@@ -6257,6 +6342,7 @@
         }
         try {
           const first = resolved[0];
+          const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
           await submitTrainReport({
             agency: agency,
             trainNumber: agency === 'mbta' ? null : trainNumber,
@@ -6268,7 +6354,8 @@
             locoIconUrl: first.locoIconUrl,
             specialOverride: first.specialOverride,
             customLoco: first.customLoco,
-            locomotives: resolved
+            locomotives: resolved,
+            comment: comment
           });
           const savedLabel = resolved.map(function(L) { return L.unitName || L.locomotiveId; }).join(' + ');
           showNotification('Report saved for ' + savedLabel);
@@ -7436,7 +7523,7 @@
                 updated++;
               } else {
                 const m = L.marker([lat, lng], { icon: icon });
-                m.bindPopup(createAmtrakPopupContent(vid, info), { maxWidth: 520, minWidth: 280 });
+                m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
                 applyCyclingLabel(m, amtrakLabelInfo, true);
                 const zoom = map.getZoom();
                 if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -8053,7 +8140,7 @@
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createMnrPopupContent(vid, info), { maxWidth: 520, minWidth: 280 });
+              m.bindPopup(createMnrPopupContent(vid, info), rrPopupOpts());
               applyCyclingLabel(m, mnrLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -8486,7 +8573,7 @@
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createLirrPopupContent(vid, info), { maxWidth: 520, minWidth: 280 });
+              m.bindPopup(createLirrPopupContent(vid, info), rrPopupOpts());
               applyCyclingLabel(m, lirrLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -8864,7 +8951,7 @@
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createMetraPopupContent(vid, info), { maxWidth: 520, minWidth: 280 });
+              m.bindPopup(createMetraPopupContent(vid, info), rrPopupOpts());
               applyCyclingLabel(m, metraLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -9203,7 +9290,7 @@
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createNjtPopupContent(vid, info), { maxWidth: 520, minWidth: 280 });
+              m.bindPopup(createNjtPopupContent(vid, info), rrPopupOpts());
               m.on('popupopen', function() { hydrateNjtPopupStops(vid); });
               applyCyclingLabel(m, labelInfo, true);
               const zoom = map.getZoom();
@@ -9277,7 +9364,7 @@
             const n = g.stopIds.length;
             g.lat /= n; g.lng /= n;
             const m = L.marker([g.lat, g.lng], { icon: createStationIcon(), zIndexOffset: -1000 });
-            m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, { maxWidth: 400 });
+            m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
             m.on('popupopen', async () => {
               const deps = await getStationDepartures(g.stopIds);
               m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
@@ -9595,7 +9682,7 @@
             } else {
               const icon = createTrainIcon(delay, vid);
               const m = L.marker([lat, lng], { icon });
-              m.bindPopup(createTrainPopupContent(vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert), { maxWidth: 520, minWidth: 280 });
+              m.bindPopup(createTrainPopupContent(vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert), rrPopupOpts());
               m.on('popupopen', async () => {
                 updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
                 let stops = await getTripStops(tripId).catch(() => []);
@@ -9868,7 +9955,7 @@
         try {
           const stops = await getTripStops(tid);
           const title = rname ? `${rname} to ${dest}` : `Trip ${tid}`;
-          L.popup({ maxWidth: 520, minWidth: 280 }).setLatLng(map.getCenter()).setContent(`
+          L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
@@ -11132,20 +11219,30 @@
           }
         }
       };
-      // Map theme: dark default, restore light if user chose it
+      // Map theme: light default. Mobile ignores a leftover Dark save unless the user picked it.
       function applySavedMapTheme() {
         const savedTheme = safeStorage.get('rr_mapTheme');
-        const theme = savedTheme === 'dark' ? 'dark' : 'light';
+        const picked = safeStorage.get('rr_mapThemePicked');
+        const mobile = (typeof preferKeylessTiles !== 'undefined' && preferKeylessTiles);
+        let theme = 'light';
+        if (mobile) theme = (picked === '1' && savedTheme === 'dark') ? 'dark' : 'light';
+        else theme = savedTheme === 'dark' ? 'dark' : 'light';
         if (typeof window.__rrSetMapTheme === 'function') window.__rrSetMapTheme(theme);
         else setMapTheme(theme);
       }
       const mapThemeDark = document.getElementById('map-theme-dark');
       const mapThemeLight = document.getElementById('map-theme-light');
       if (mapThemeDark) mapThemeDark.addEventListener('change', function() {
-        if (this.checked) setMapTheme('dark');
+        if (this.checked) {
+          try { safeStorage.set('rr_mapThemePicked', '1'); } catch (_) {}
+          setMapTheme('dark');
+        }
       });
       if (mapThemeLight) mapThemeLight.addEventListener('change', function() {
-        if (this.checked) setMapTheme('light');
+        if (this.checked) {
+          try { safeStorage.set('rr_mapThemePicked', '1'); } catch (_) {}
+          setMapTheme('light');
+        }
       });
       applySavedMapTheme();
 
