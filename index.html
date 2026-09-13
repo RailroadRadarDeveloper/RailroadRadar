@@ -10240,7 +10240,8 @@
         const q = String(raw || '').trim();
         if (q.length < 4) return false;
         if (/\?/.test(q)) return true;
-        return /^(what|where|which|who|when|why|how|is|are|was|were|can|could|should|does|do|did|any|show|list|tell|find)/i.test(q);
+        if (/^(what|where|which|who|when|why|how|is|are|was|were|can|could|should|does|do|did|any|show|list|tell|find)\b/i.test(q)) return true;
+        return q.split(/\s+/).filter(Boolean).length >= 3;
       }
       function buildAskContext() {
         const lines = [];
@@ -10324,25 +10325,39 @@
       }
       function setupSearch() {
         const results = document.getElementById('header-search-results');
-        searchInput.addEventListener('input', () => {
+        function runSearchAndAsk(immediate) {
           resetAllMarkerHighlights();
           const raw = searchInput.value.trim();
           const q = raw.toLowerCase();
           results.innerHTML = '';
           if (q.length < 2) { results.classList.remove('active'); return; }
           results.classList.add('active');
-          if (searchMode === 'all' || searchMode === 'train') {
-            searchTrains(q, results);
-          }
-          if (searchMode === 'all' || searchMode === 'station') {
-            searchStations(q, results);
-          }
-          if (looksLikeQuestion(raw)) {
+          try {
+            if (searchMode === 'all' || searchMode === 'train') {
+              searchTrains(q, results);
+            }
+            if (searchMode === 'all' || searchMode === 'station') {
+              searchStations(q, results);
+            }
+          } catch (_) {}
+          const shouldAsk = looksLikeQuestion(raw) || results.children.length === 0;
+          if (shouldAsk) {
             if (askTimer) clearTimeout(askTimer);
-            askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 450);
-          }
-          if (results.children.length === 0 && !looksLikeQuestion(raw)) {
+            renderAskCard(results, 'loading', 'Thinking…');
+            if (immediate) {
+              askRailroadRadar(raw, results);
+            } else {
+              askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 350);
+            }
+          } else if (results.children.length === 0) {
             results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${q}</strong>"</div>`;
+          }
+        }
+        searchInput.addEventListener('input', () => { runSearchAndAsk(false); });
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            runSearchAndAsk(true);
           }
         });
         document.addEventListener('click', e => {
