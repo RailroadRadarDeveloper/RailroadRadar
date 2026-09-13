@@ -7120,6 +7120,20 @@
         if (!stops.length) return '<div class="no-departures">No stop data</div>';
         return buildStopsHtml(stops, currentLat, currentLng);
       }
+      function amtrakAlertFromTrain(t) {
+        const alerts = (t && t.alerts) || [];
+        let msg = '';
+        if (alerts.length) {
+          const a0 = alerts[0] || {};
+          msg = (a0.message || a0.header || a0.title || '').trim();
+        }
+        if (!msg && t && t.alertHeader) msg = String(t.alertHeader).trim();
+        const status = (t && t.statusMsg && String(t.statusMsg).trim()) || (t && t.trainState) || '';
+        const disruption = /disruption/i.test(status);
+        if (!msg && disruption) msg = 'Service disruption';
+        const hasAlert = !!(t && t.hasAlert) || alerts.length > 0 || disruption;
+        return { hasAlert: hasAlert, header: msg || (hasAlert ? 'Active Amtrak alert' : '') };
+      }
       function createAmtrakPopupContent(vid, t) {
         const num = t.trainNum || t.trainNumRaw || String(vid).replace('amtrak-', '');
         const route = t.routeName || 'Amtrak';
@@ -7145,12 +7159,9 @@
         const lastSeenTime = amtrakLastSeen[vid]
           ? new Date(amtrakLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
           : '—';
-        const hasAmtrakAlert = !!(t.hasAlert || (t.alerts && t.alerts.length));
-        let alertText = t.alertHeader || '';
-        if (!alertText && t.alerts && t.alerts.length) {
-          const a0 = t.alerts[0];
-          alertText = (a0 && (a0.message || a0.header || a0.title)) ? (a0.message || a0.header || a0.title) : 'Active Amtrak alert';
-        }
+        const amtrakAlert = amtrakAlertFromTrain(t);
+        const hasAmtrakAlert = amtrakAlert.hasAlert;
+        const alertText = amtrakAlert.header;
         const al = trainAlertBannerHtml(hasAmtrakAlert, alertText || 'Active Amtrak alert');
         const amtrakAlertIcon = trainAlertHeaderIconHtml(hasAmtrakAlert);
         const amtrakBadge = `<span class="cape-badge" style="background:#003087;">Amtrak</span>`;
@@ -7288,15 +7299,11 @@
               if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
               seen.add(vid);
               const specialUnit = getSpecialForVehicle('amtrak', null, trainNum);
-              let amtrakAlertHeader = '';
-              if (t.alerts && t.alerts.length) {
-                const a0 = t.alerts[0];
-                amtrakAlertHeader = (a0 && (a0.message || a0.header || a0.title)) ? (a0.message || a0.header || a0.title) : 'Active Amtrak alert';
-              }
+              const amtrakAlert = amtrakAlertFromTrain(t);
               const info = Object.assign({}, t, {
                 id: vid, trainNum: trainNum, lat: lat, lng: lng, specialUnit: specialUnit || null,
-                hasAlert: !!(t.alerts && t.alerts.length),
-                alertHeader: amtrakAlertHeader
+                hasAlert: amtrakAlert.hasAlert,
+                alertHeader: amtrakAlert.header
               });
               amtrakTrainInfo[vid] = info;
               try { harvestAmtrakStationDots(t); } catch (_) {}
@@ -10231,9 +10238,10 @@
           if (!fieldMatch([vid, num, t.trainID, t.routeName, t.destName, t.destCode, t.origName, t.origCode])) continue;
           const statusRaw = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
           let statusClass = 'status-on-time';
-          if (/late|delay/i.test(statusRaw)) statusClass = /late\s*([2-9]\d|\d{3,})/i.test(statusRaw) || /hours?/i.test(statusRaw) ? 'status-very-delayed' : 'status-delayed';
+          if (/disruption/i.test(statusRaw)) statusClass = 'status-disruption';
+          else if (/late|delay/i.test(statusRaw)) statusClass = /late\s*([2-9]\d|\d{3,})/i.test(statusRaw) || /hours?/i.test(statusRaw) ? 'status-very-delayed' : 'status-delayed';
           else if (/predeparture|scheduled|not yet/i.test(statusRaw)) statusClass = 'status-scheduled';
-          const hasAlert = !!(t.hasAlert || (t.alerts && t.alerts.length));
+          const hasAlert = amtrakAlertFromTrain(t).hasAlert;
           res.push({
             agency: 'Amtrak', agencyColor: '#003087', id: vid, markerMap: amtrakMarkers,
             routeName: t.routeName || 'Amtrak', trainNum: num, dest: t.destName || t.destCode || '—',
