@@ -2757,6 +2757,7 @@
         <div class="rr-admin-tabs" role="tablist">
           <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="pending" id="admin-tab-pending">Pending</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="audit" id="admin-tab-audit">Audit</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
@@ -2811,6 +2812,28 @@
             </table>
           </div>
           <p class="rr-modal-hint" id="admin-pending-status"></p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-audit" data-admin-pane="audit">
+          <p class="rr-modal-hint" style="margin-top:0;">Actions users take on RailroadRadar — sign-in, reports, settings, and admin decisions.</p>
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-audit-search" placeholder="Filter by email, action, detail…" aria-label="Filter audit log" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-audit-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-audit-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>User</th>
+                  <th>Action</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody id="admin-audit-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-audit-status"></p>
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-bans" data-admin-pane="bans">
@@ -3845,6 +3868,7 @@
         updateInterestSummary(interests);
         if (err) { err.textContent = ''; err.classList.remove('visible'); }
         showNotification('Account settings saved');
+        try { await logUserAction('save_settings', 'Updated account settings'); } catch (_) {}
         updateAccountPreview();
       } catch (e) {
         console.error('[userSettings] save failed', e);
@@ -3898,8 +3922,10 @@
       const tabVerified = document.getElementById('admin-tab-verified');
       const tabAccounts = document.getElementById('admin-tab-accounts');
       const tabPending = document.getElementById('admin-tab-pending');
+      const tabAudit = document.getElementById('admin-tab-audit');
       if (tabReports) tabReports.style.display = perms.viewReports ? '' : 'none';
       if (tabPending) tabPending.style.display = perms.viewReports ? '' : 'none';
+      if (tabAudit) tabAudit.style.display = perms.viewReports ? '' : 'none';
       if (tabBans) tabBans.style.display = perms.banUsers ? '' : 'none';
       if (tabAdmins) tabAdmins.style.display = perms.manageAdmins ? '' : 'none';
       if (tabRoster) tabRoster.style.display = ''; // any admin
@@ -3944,6 +3970,9 @@
       } else if (tab === 'pending') {
         if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
         await loadAdminPendingReports();
+      } else if (tab === 'audit') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminAuditLog();
       }
     }
     function formatTrainReportLocoLabelAdmin(rep) {
@@ -4062,6 +4091,7 @@
           console.warn('[admin] reportAudit delete best-effort failed', auditDelErr);
         }
         showNotification('Report deleted');
+        try { await logUserAction('admin_delete_report', 'Deleted report ' + docId); } catch (_) {}
         await loadAdminReports();
       } catch (e) {
         console.error('[admin] delete report failed', e);
@@ -4178,6 +4208,7 @@
           bannedByUid: user.uid
         }, { merge: true });
         showNotification('User banned');
+        try { await logUserAction('admin_ban', 'Banned ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-ban-email');
         const uidEl = document.getElementById('admin-ban-uid');
         const reasonEl = document.getElementById('admin-ban-reason');
@@ -4201,6 +4232,7 @@
       try {
         await db.collection('bannedUsers').doc(docId).delete();
         showNotification('User unbanned');
+        try { await logUserAction('admin_unban', 'Unbanned ' + docId); } catch (_) {}
         await loadAdminBans();
       } catch (e) {
         console.error('[admin] unban failed', e);
@@ -4340,6 +4372,7 @@
           verifiedByUid: user.uid
         }, { merge: true });
         showNotification('Reporter verified');
+        try { await logUserAction('admin_verify', 'Verified ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-verified-email');
         const uidEl = document.getElementById('admin-verified-uid');
         if (emailEl) emailEl.value = '';
@@ -4363,6 +4396,7 @@
       try {
         await db.collection('verifiedReporters').doc(docId).delete();
         showNotification('Verified reporter removed');
+        try { await logUserAction('admin_unverify', 'Removed verified reporter ' + docId); } catch (_) {}
         await loadVerifiedReporters();
         await loadAdminVerified();
       } catch (e) {
@@ -4460,6 +4494,7 @@
           perms: perms
         }, { merge: true });
         showNotification('Admin added');
+        try { await logUserAction('admin_add_admin', 'Added admin ' + email); } catch (_) {}
         const el = document.getElementById('admin-add-email');
         if (el) el.value = '';
         setAdminError('');
@@ -4842,6 +4877,7 @@
           await ref.delete();
           adminReportHoldSet.delete(uid);
           showNotification('Reports from this user go live immediately');
+          try { await logUserAction('admin_hold_off', 'Cleared report approval for ' + (email || uid)); } catch (_) {}
         } else {
           const actor = currentUser || (auth && auth.currentUser) || {};
           await ref.set({
@@ -4854,6 +4890,7 @@
           });
           adminReportHoldSet.add(uid);
           showNotification('New reports from this user need approval');
+          try { await logUserAction('admin_hold_on', 'Required report approval for ' + (email || uid)); } catch (_) {}
         }
         renderAdminAccounts();
       } catch (e) {
@@ -4880,6 +4917,66 @@
         if (status) status.textContent = 'Failed to load pending reports.';
         setAdminError((e && e.message) || String(e));
       }
+    }
+    function formatAuditAction(action) {
+      const map = {
+        sign_in: 'Signed in',
+        sign_out: 'Signed out',
+        delete_account: 'Deleted account',
+        save_settings: 'Saved settings',
+        submit_report: 'Submitted report',
+        submit_report_pending: 'Submitted report (pending)',
+        admin_ban: 'Banned user',
+        admin_unban: 'Unbanned user',
+        admin_verify: 'Verified reporter',
+        admin_unverify: 'Removed verified reporter',
+        admin_add_admin: 'Added admin',
+        admin_hold_on: 'Required report approval',
+        admin_hold_off: 'Cleared report approval',
+        admin_approve_report: 'Approved report',
+        admin_reject_report: 'Rejected report',
+        admin_delete_report: 'Deleted report'
+      };
+      return map[action] || (action || 'Action');
+    }
+    async function loadAdminAuditLog() {
+      const status = document.getElementById('admin-audit-status');
+      if (status) status.textContent = 'Loading audit log…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('actionLog').orderBy('at', 'desc').limit(200).get();
+        window._adminAuditCache = [];
+        snap.forEach(function(doc) {
+          window._adminAuditCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        renderAdminAuditLog();
+      } catch (e) {
+        console.error('[admin] audit load failed', e);
+        if (status) status.textContent = 'Failed to load audit log.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminAuditLog() {
+      const tbody = document.getElementById('admin-audit-tbody');
+      const status = document.getElementById('admin-audit-status');
+      const q = String(((document.getElementById('admin-audit-search') || {}).value || '')).trim().toLowerCase();
+      const rows = (window._adminAuditCache || []).filter(function(r) {
+        if (!q) return true;
+        const blob = [r.email, r.label, r.uid, r.action, r.detail, formatAuditAction(r.action)].join(' ').toLowerCase();
+        return blob.indexOf(q) !== -1;
+      });
+      if (!tbody) return;
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="rr-admin-empty">No matching actions.</td></tr>';
+        if (status) status.textContent = (window._adminAuditCache || []).length ? '0 shown' : 'No actions logged yet.';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r) {
+        const when = adminTsSeconds(r.at) ? new Date(adminTsSeconds(r.at) * 1000).toLocaleString() : '—';
+        const who = r.email || r.label || r.uid || 'Unknown';
+        return '<tr><td>' + escapeHtmlLite(when) + '</td><td>' + escapeHtmlLite(who) + '</td><td>' + escapeHtmlLite(formatAuditAction(r.action)) + '</td><td>' + escapeHtmlLite(r.detail || '') + '</td></tr>';
+      }).join('');
+      if (status) status.textContent = rows.length + ' of ' + (window._adminAuditCache || []).length + ' recent actions';
     }
     function renderAdminPendingReports() {
       const tbody = document.getElementById('admin-pending-tbody');
@@ -4928,6 +5025,7 @@
         } catch (_) {}
         await db.collection('pendingReports').doc(docId).delete();
         showNotification('Report approved');
+        try { await logUserAction('admin_approve_report', 'Approved pending report ' + docId); } catch (_) {}
         if (typeof loadTrainReports === 'function') await loadTrainReports();
         await loadAdminPendingReports();
       } catch (e) {
@@ -4941,6 +5039,7 @@
       try {
         await db.collection('pendingReports').doc(docId).delete();
         showNotification('Pending report rejected');
+        try { await logUserAction('admin_reject_report', 'Rejected pending report ' + docId); } catch (_) {}
         await loadAdminPendingReports();
       } catch (e) {
         console.error('[admin] reject failed', e);
@@ -5056,6 +5155,10 @@
       }
       const pendingRefresh = document.getElementById('admin-pending-refresh');
       if (pendingRefresh) pendingRefresh.addEventListener('click', loadAdminPendingReports);
+      const auditRefresh = document.getElementById('admin-audit-refresh');
+      if (auditRefresh) auditRefresh.addEventListener('click', loadAdminAuditLog);
+      const auditSearch = document.getElementById('admin-audit-search');
+      if (auditSearch) auditSearch.addEventListener('input', renderAdminAuditLog);
       const pendingTbody = document.getElementById('admin-pending-tbody');
       if (pendingTbody) {
         pendingTbody.addEventListener('click', function(e) {
@@ -5190,6 +5293,28 @@
       showNotification._t = setTimeout(function() { el.style.display = 'none'; }, 4000);
     }
 
+    function logUserAction(action, detail, extraUser) {
+      try {
+        if (!db) return Promise.resolve();
+        const user = extraUser || currentUser || (auth && auth.currentUser) || {};
+        const payload = {
+          action: String(action || 'unknown').slice(0, 64),
+          detail: String(detail || '').slice(0, 400),
+          uid: user.uid || null,
+          email: (typeof normalizeEmail === 'function' ? normalizeEmail(user.email) : (user.email || null)) || null,
+          label: (user.displayName && String(user.displayName).trim()) || null,
+          at: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        return db.collection('actionLog').add(payload).catch(function(err) {
+          console.warn('[actionLog] write failed', err);
+        });
+      } catch (e) {
+        console.warn('[actionLog] skip', e);
+        return Promise.resolve();
+      }
+    }
+    window.logUserAction = logUserAction;
+
     function closeAccountMenu() {
       const menu = document.getElementById('header-account-menu');
       const btn = document.getElementById('btn-account-settings');
@@ -5284,6 +5409,7 @@
         const provider = new firebase.auth.GoogleAuthProvider();
         const cred = await auth.signInWithPopup(provider);
         if (cred && cred.user) await upsertAccountMirror(cred.user);
+        try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
         showNotification('Signed in with Google');
       } catch (e) {
         console.error('[Auth] Sign-in failed', e);
@@ -5294,6 +5420,8 @@
     async function signOutGoogle() {
       if (!auth) return;
       try {
+        const leaving = currentUser || (auth && auth.currentUser);
+        try { await logUserAction('sign_out', 'Signed out', leaving); } catch (_) {}
         await auth.signOut();
         showNotification('Signed out');
       } catch (e) {
@@ -5309,6 +5437,7 @@
       const ok = window.confirm('Permanently delete your RailroadRadar account? This cannot be undone.');
       if (!ok) return;
       const user = auth.currentUser;
+      try { await logUserAction('delete_account', 'Account deleted', user); } catch (_) {}
       try {
         await user.delete();
         showNotification('Account deleted');
@@ -6656,9 +6785,19 @@
           data.status = 'pending';
           data.submittedAt = now;
           await db.collection('pendingReports').doc(docId).set(data, { merge: true });
+          try {
+            if (typeof window.logUserAction === 'function') {
+              await window.logUserAction('submit_report_pending', (agency + ' ' + (trainNumber || vehicleId) + ' held for approval').trim());
+            }
+          } catch (_) {}
           return { pending: true, id: docId };
         }
         await ref.set(data, { merge: true });
+        try {
+          if (typeof window.logUserAction === 'function') {
+            await window.logUserAction('submit_report', (agency + ' ' + (trainNumber || vehicleId)).trim());
+          }
+        } catch (_) {}
         try {
           const bumpLocos = reportLocoIdsFromRow({
             locomotives: data.locomotives,
