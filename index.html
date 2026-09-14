@@ -761,15 +761,12 @@
     .rr-train-page-toolbar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 10px;
       margin: 0 0 12px;
     }
     #rr-train-page-status {
-      font-size: 14px;
-      font-weight: 700;
-      color: #07093e;
-      line-height: 1.3;
+      display: none;
     }
     #rr-train-page-fullmap {
       flex: none;
@@ -10852,6 +10849,9 @@
                 agencyPolys++;
               });
               const key = gtfsShapeKey(ag.id, rt.id);
+              grp._rrAgency = ag.id;
+              grp._rrRouteId = rt.id;
+              grp._rrName = rt.name || '';
               routeLines[key] = grp;
               if (shouldShowGtfsShape(ag.id) && grp.getLayers().length > 0) grp.addTo(map);
             });
@@ -12068,6 +12068,59 @@
         if (m && m.getPopup()) return m.getPopup().getContent() || '';
         return '';
       }
+      function rrNormRouteName(s) {
+        return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      }
+      function rrTrainRouteBits(row) {
+        const a = rrNormShareAgency(row && row.agency);
+        const vid = row && row.id;
+        const bits = { agency: a, ids: [], names: [] };
+        const addId = function(x) { const s = String(x || '').trim(); if (s) bits.ids.push(s); };
+        const addName = function(x) { const s = rrNormRouteName(x); if (s) bits.names.push(s); };
+        addName(row && row.routeName);
+        if (a === 'mbta' && trainInfo[vid]) {
+          addId(trainInfo[vid].routeId);
+          addName(trainInfo[vid].routeName);
+          if (trainInfo[vid].isCapeFlyer) { addId('CapeFlyer'); addName('capeflyer'); }
+        } else if (a === 'amtrak' && amtrakTrainInfo[vid]) {
+          addName(amtrakTrainInfo[vid].routeName);
+        } else if (a === 'mnr' && mnrTrainInfo[vid]) {
+          addId(mnrTrainInfo[vid].routeId);
+          addName(mnrTrainInfo[vid].routeName);
+        } else if (a === 'lirr' && lirrTrainInfo[vid]) {
+          addId(lirrTrainInfo[vid].routeId);
+          addName(lirrTrainInfo[vid].routeName);
+        } else if (a === 'metra' && metraTrainInfo[vid]) {
+          addId(metraTrainInfo[vid].routeId);
+          addName(metraTrainInfo[vid].routeName);
+        } else if (a === 'njt' && njtTrainInfo[vid]) {
+          addId(njtTrainInfo[vid].routeId);
+          addName(njtTrainInfo[vid].routeName);
+        }
+        return bits;
+      }
+      function rrRouteLineMatchesTrain(key, grp, row) {
+        const bits = rrTrainRouteBits(row);
+        const a = bits.agency;
+        if (a === 'mbta') {
+          return bits.ids.some(function(id) { return String(key) === String(id); });
+        }
+        if (String(key).indexOf('gtfs-') !== 0) return false;
+        const rest = String(key).slice(5);
+        const dash = rest.indexOf('-');
+        const agency = dash >= 0 ? rest.slice(0, dash) : rest;
+        const rid = dash >= 0 ? rest.slice(dash + 1) : '';
+        const agencyOk = agency === a
+          || (a === 'amtrak' && agency === 'ctrail')
+          || (a === 'ctrail' && (agency === 'amtrak' || agency === 'ctrail'));
+        if (!agencyOk) return false;
+        if (rid && bits.ids.some(function(id) { return String(id).toLowerCase() === String(rid).toLowerCase(); })) return true;
+        const lineName = rrNormRouteName((grp && grp._rrName) || '');
+        if (lineName && bits.names.some(function(n) {
+          return n === lineName || n.indexOf(lineName) >= 0 || lineName.indexOf(n) >= 0;
+        })) return true;
+        return false;
+      }
       function rrApplyOnlyThisTrain(row) {
         if (!row || !map) return;
         const keepId = String(row.id);
@@ -12095,7 +12148,12 @@
         });
         Object.keys(routeLines || {}).forEach(function(key) {
           const l = routeLines[key];
-          try { if (l && map.hasLayer(l)) map.removeLayer(l); } catch (_) {}
+          if (!l) return;
+          const keep = rrRouteLineMatchesTrain(key, l, row);
+          try {
+            if (keep) { if (!map.hasLayer(l)) map.addLayer(l); }
+            else if (map.hasLayer(l)) map.removeLayer(l);
+          } catch (_) {}
         });
         const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
         if (isFinite(lat) && isFinite(lng) && !rrTrainPageCentered) {
