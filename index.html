@@ -1120,6 +1120,7 @@
       font: inherit;
     }
     .notify-subhead { margin: 12px 0 6px; font-size: 13px; font-weight: 700; }
+    #notify-train-select { width: 100%; margin: 4px 0 0; padding: 8px; font: inherit; box-sizing: border-box; }
     .notify-rail-list {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -2653,13 +2654,17 @@
         <div class="notify-rail-list" id="notify-railroads"></div>
         <p class="rr-modal-hint">Leave them all on for every railroad.</p>
         <div class="notify-subhead">Locomotives</div>
+        <select id="notify-train-select" aria-label="Add a special unit">
+          <option value="">Specials — pick one to add</option>
+        </select>
+        <p class="rr-modal-hint" style="margin:4px 0 8px;">Or type any locomotive number:</p>
         <div class="notify-loco-add">
           <select id="notify-loco-agency" aria-label="Railroad for locomotive"></select>
           <input type="text" id="notify-loco-number" placeholder="Loco number" maxlength="16" autocomplete="off" aria-label="Locomotive number">
           <button type="button" id="notify-loco-add" class="notify-add-btn">Add</button>
         </div>
         <div class="notify-train-chips" id="notify-train-chips"></div>
-        <p class="rr-modal-hint" id="notify-train-hint">No numbers means every special on the railroads above. Add any locomotive number to watch just those.</p>
+        <p class="rr-modal-hint" id="notify-train-hint">No locos picked means every special on the railroads above. Pick a special, or type any number.</p>
         <div class="notify-save-row">
           <button type="button" id="notify-save" class="cabcar-report-btn">Save</button>
           <button type="button" id="notify-confirm" class="notify-confirm-btn" disabled>Confirm</button>
@@ -12031,6 +12036,7 @@
         const saveHint = document.getElementById('notify-save-hint');
         if (saveHint) saveHint.textContent = '';
         rrRenderNotifyTrainChips();
+        rrFillNotifyTrainSelect();
         if (typeof Notification === 'undefined') {
           rrNotifyStatus('Notifications are not available in this browser.');
         } else if (p.enabled && Notification.permission === 'denied') {
@@ -12059,6 +12065,46 @@
           return String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true });
         });
       }
+      function rrNotifyCheckedRails() {
+        const root = document.getElementById('notify-railroads');
+        const checked = root
+          ? Array.prototype.map.call(root.querySelectorAll('input[name="notify-railroad"]:checked'), function(el) { return el.value; })
+          : [];
+        const allIds = RR_NOTIFY_RAILROADS.map(function(r) { return r.id; });
+        return (checked.length === 0 || checked.length === allIds.length) ? [] : rrNotifyNormList(checked);
+      }
+      function rrFillNotifyTrainSelect() {
+        const sel = document.getElementById('notify-train-select');
+        if (!sel) return;
+        const picked = {};
+        rrNotifyNormList(rrNotifyDraftTrains).forEach(function(k) { picked[k] = true; });
+        const rails = rrNotifyCheckedRails();
+        let html = '<option value="">Specials — pick one to add</option>';
+        rrNotifyRosterUnits().forEach(function(u) {
+          const agency = String(u.agency || '').toLowerCase();
+          const id = String(u.id || '').trim();
+          if (!agency || !id) return;
+          if (rails.length && rails.indexOf(agency) === -1) return;
+          const key = rrNotifyTrainKey(agency, id);
+          if (picked[key]) return;
+          const pretty = (typeof agencyPrettyName === 'function') ? agencyPrettyName(agency) : agency.toUpperCase();
+          const name = u.name && u.name !== id ? (' · ' + u.name) : '';
+          html += '<option value="' + key.replace(/"/g, '') + '">' + pretty + ' ' + id + name + '</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = '';
+      }
+      window.rrFillNotifyTrainSelect = rrFillNotifyTrainSelect;
+      function rrNotifyAddTrainKey(key) {
+        key = String(key || '').trim().toLowerCase();
+        if (!key) return;
+        const trains = rrNotifyNormList(rrNotifyDraftTrains);
+        if (trains.indexOf(key) === -1) trains.push(key);
+        rrNotifyDraftTrains = trains;
+        rrRenderNotifyTrainChips();
+        rrFillNotifyTrainSelect();
+        rrNotifyMarkDirty();
+      }
       function rrRenderNotifyTrainChips() {
         const wrap = document.getElementById('notify-train-chips');
         const hint = document.getElementById('notify-train-hint');
@@ -12066,7 +12112,7 @@
         const trains = rrNotifyNormList(rrNotifyDraftTrains);
         if (!trains.length) {
           wrap.innerHTML = '<span class="notify-chip">Every special</span>';
-          if (hint) hint.textContent = 'No numbers means every special on the railroads above. Add any locomotive number to watch just those.';
+          if (hint) hint.textContent = 'No locos picked means every special on the railroads above. Pick a special, or type any number.';
           return;
         }
         const byKey = {};
@@ -12107,6 +12153,7 @@
         rrNotifyDraftTrains = trains;
         if (numEl) numEl.value = '';
         rrRenderNotifyTrainChips();
+        rrFillNotifyTrainSelect();
         rrNotifyMarkDirty();
       }
       function rrIsIosDevice() {
@@ -12256,7 +12303,15 @@
         if (a) a.addEventListener('change', function() { rrNotifyMarkDirty(); });
         if (r) r.addEventListener('change', function() { rrNotifyMarkDirty(); });
         const railRoot = document.getElementById('notify-railroads');
-        if (railRoot) railRoot.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        if (railRoot) railRoot.addEventListener('change', function() { rrNotifyMarkDirty(); rrFillNotifyTrainSelect(); });
+        const trainSel = document.getElementById('notify-train-select');
+        if (trainSel) {
+          trainSel.addEventListener('change', function() {
+            const key = String(trainSel.value || '').trim().toLowerCase();
+            if (!key) return;
+            rrNotifyAddTrainKey(key);
+          });
+        }
         const addBtn = document.getElementById('notify-loco-add');
         if (addBtn) addBtn.addEventListener('click', function() { rrNotifyAddLoco(); });
         const numEl = document.getElementById('notify-loco-number');
@@ -12276,6 +12331,7 @@
             const key = String(btn.getAttribute('data-notify-train-remove') || '').toLowerCase();
             rrNotifyDraftTrains = rrNotifyNormList(rrNotifyDraftTrains).filter(function(k) { return k !== key; });
             rrRenderNotifyTrainChips();
+            rrFillNotifyTrainSelect();
             rrNotifyMarkDirty();
           });
         }
