@@ -801,10 +801,11 @@
     #rr-cookie-accept {
       border: none;
       border-radius: 4px;
-      padding: 9px 14px;
-      font-size: 13px;
+      padding: 9px 12px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+      white-space: nowrap;
     }
     #rr-cookie-decline {
       background: transparent;
@@ -3624,10 +3625,10 @@
     <div></div>
   </div>
   <div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
-    <p>We use Microsoft Clarity analytics cookies to improve RailroadRadar. Sign-in uses essential cookies. <a href="https://www.railroadradar.com/policies/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
+    <p>We use Microsoft Clarity analytics cookies to improve RailroadRadar. Sign-in uses essential cookies.</p>
     <div class="rr-cookie-actions">
-      <button type="button" id="rr-cookie-decline">Not now</button>
-      <button type="button" id="rr-cookie-accept">Accept</button>
+      <button type="button" id="rr-cookie-decline">No (Review cookies)</button>
+      <button type="button" id="rr-cookie-accept">I'm OK with that</button>
     </div>
   </div>
   <script>
@@ -3653,6 +3654,7 @@
       if (decline) decline.addEventListener('click', function () {
         try { localStorage.setItem(KEY, 'declined'); } catch (_) {}
         bar.hidden = true;
+        try { window.open('https://www.railroadradar.com/policies/privacy', '_blank', 'noopener'); } catch (_) {}
       });
     })();
   </script>
