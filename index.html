@@ -754,28 +754,32 @@
       z-index: 20;
       margin-top: 60px;
       padding: 0 0 24px;
-      max-width: 720px;
-      margin-left: auto;
-      margin-right: auto;
+      max-width: none;
+      width: 100%;
+      margin-left: 0;
+      margin-right: 0;
+      box-sizing: border-box;
+      color: #fff;
     }
     .rr-train-page-toolbar {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      margin: 16px 12px 4px;
+      margin: 16px;
     }
     #rr-train-page-status {
       display: none;
     }
     #rr-train-page-fullmap {
       flex: none;
+      width: 100%;
       background: #fff;
       color: #07093e;
       border: none;
       border-radius: 4px;
-      padding: 8px 12px;
-      font-size: 13px;
+      padding: 12px 16px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
@@ -785,16 +789,101 @@
       border: none;
       border-radius: 0;
       max-height: none;
+      max-width: none;
+      min-width: 0;
       width: 100%;
+      background: transparent;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup-footer {
+      display: none;
     }
     html.rr-train-page #rr-train-page-card .train-popup-body {
       max-height: none;
       overflow: visible;
+      background: #07093e;
+      color: #fff;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup-header {
+      background: #07093e;
+    }
+    html.rr-train-page #rr-train-page-card .status-desc,
+    html.rr-train-page #rr-train-page-card .info-value,
+    html.rr-train-page #rr-train-page-card .stop-name,
+    html.rr-train-page #rr-train-page-card .stop-time,
+    html.rr-train-page #rr-train-page-card .stops-header h4,
+    html.rr-train-page #rr-train-page-card .upcoming-stops h4,
+    html.rr-train-page #rr-train-page-card .loco-report-text,
+    html.rr-train-page #rr-train-page-card .report-loco-row-title,
+    html.rr-train-page #rr-train-page-card .loco-report-comment,
+    html.rr-train-page #rr-train-page-card .rr-board-note,
+    html.rr-train-page #rr-train-page-card .rr-modal-hint {
+      color: #fff;
+    }
+    html.rr-train-page #rr-train-page-card .info-label,
+    html.rr-train-page #rr-train-page-card .meta-row,
+    html.rr-train-page #rr-train-page-card .stops-loading,
+    html.rr-train-page #rr-train-page-card .more-stops {
+      color: #c5c9d8;
+    }
+    html.rr-train-page #rr-train-page-card .quick-status,
+    html.rr-train-page #rr-train-page-card .info-item {
+      border-bottom-color: rgba(255,255,255,0.12);
+    }
+    html.rr-train-page #rr-train-page-card .loco-report-block,
+    html.rr-train-page #rr-train-page-card .report-loco-row {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.18);
+    }
+    html.rr-train-page #rr-train-page-card .loco-report-block.is-stale {
+      background: rgba(243,156,18,0.18);
+      border-color: #f39c12;
+    }
+    html.rr-train-page #rr-train-page-card .loco-report-stale-ask {
+      color: #ffd27a;
+    }
+    html.rr-train-page #rr-train-page-card .report-loco-row-actions button {
+      background: transparent;
+      border-color: rgba(255,255,255,0.35);
+      color: #fff;
+    }
+    html.rr-train-page #rr-train-page-card .update-pairing-btn {
+      background: #fff;
+      color: #07093e;
+    }
+    html.rr-train-page #rr-train-page-card .update-pairing-btn:hover {
+      background: #eef0f6;
+    }
+    html.rr-train-page #rr-train-page-card .change-pairing-btn {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+    html.rr-train-page #rr-train-page-card .alert-banner {
+      background: rgba(243,156,18,0.18);
+      color: #ffe9a8;
     }
     html.rr-train-page #rr-train-page-card .stops-list,
     html.rr-train-page #rr-train-page-card .stops-wrapper {
       max-height: none;
+      background: transparent;
+      border-color: rgba(255,255,255,0.12);
     }
+    html.rr-train-page #rr-train-page-card .stops-list {
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+    }
+    html.rr-train-page #rr-train-page-card .stops-list li {
+      border-bottom-color: rgba(255,255,255,0.1);
+    }
+    html.rr-train-page #rr-train-page-card .track-badge {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+    }
+    html.rr-train-page #rr-train-page-card .stop-status.status-on-time { background: #27ae60; color: #fff; }
+    html.rr-train-page #rr-train-page-card .stop-status.status-delayed { background: #f39c12; color: #fff; }
+    html.rr-train-page #rr-train-page-card .stop-status.status-very-delayed { background: #c0392b; color: #fff; }
+    html.rr-train-page #rr-train-page-card .stop-status.status-scheduled { background: #1a8a9a; color: #fff; }
+    html.rr-train-page #rr-train-page-card .stop-status.status-passed { background: #5a6070; color: #fff; }
     #rr-train-page-map-slot {
       display: none;
       position: relative;
