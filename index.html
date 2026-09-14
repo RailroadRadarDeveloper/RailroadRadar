@@ -4695,6 +4695,12 @@
         }
         renderAdminRoster();
         showNotification('Special locomotive saved: ' + agency + ' ' + id);
+        try {
+          await logUserAction(
+            'admin_save_special',
+            'Saved special ' + agency + ' ' + id + (name ? (' (' + name + ')') : '') + (iconUrl ? ' with icon' : '')
+          );
+        } catch (_) {}
         clearAdminRosterForm();
       } catch (e) {
         console.error('[admin] specialUnits save failed', e);
@@ -4733,6 +4739,12 @@
         }
         renderAdminRoster();
         showNotification(isBuiltin ? 'Override removed — built-in restored' : 'Special locomotive deleted');
+        try {
+          await logUserAction(
+            isBuiltin ? 'admin_revert_special' : 'admin_delete_special',
+            (isBuiltin ? 'Reverted override for ' : 'Deleted special ') + agency + ' ' + id
+          );
+        } catch (_) {}
       } catch (e) {
         console.error('[admin] specialUnits delete failed', e);
         setAdminError((e && e.message) || String(e));
@@ -4935,7 +4947,10 @@
         admin_hold_off: 'Cleared report approval',
         admin_approve_report: 'Approved report',
         admin_reject_report: 'Rejected report',
-        admin_delete_report: 'Deleted report'
+        admin_delete_report: 'Deleted report',
+        admin_save_special: 'Saved special loco',
+        admin_delete_special: 'Deleted special loco',
+        admin_revert_special: 'Reverted special override'
       };
       return map[action] || (action || 'Action');
     }
