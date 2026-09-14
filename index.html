@@ -1094,11 +1094,19 @@
     }
     .popup-report-wrap .update-pairing-btn { flex: 1; width: auto; }
     .loco-report-comment {
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #222;
+      line-height: 1.4;
+    }
+    .rr-board-note {
       margin-top: 6px;
       font-size: 12.5px;
-      font-weight: 500;
+      font-style: italic;
       color: #333;
       line-height: 1.35;
+      text-align: left;
     }
     #report-comment {
       width: 100%;
@@ -2748,6 +2756,7 @@
       <div class="rr-lightbox-body">
         <div class="rr-admin-tabs" role="tablist">
           <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="pending" id="admin-tab-pending">Pending</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
           <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
@@ -2778,6 +2787,30 @@
             </table>
           </div>
           <p class="rr-modal-hint" id="admin-reports-status">Loading…</p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-pending" data-admin-pane="pending">
+          <p class="rr-modal-hint" style="margin-top:0;">Reports from users marked “require approval” stay here until you approve them onto the map.</p>
+          <div class="rr-admin-toolbar">
+            <button type="button" class="rr-btn secondary" id="admin-pending-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-pending-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Agency</th>
+                  <th>Vehicle / train</th>
+                  <th>Locomotives</th>
+                  <th>Note</th>
+                  <th>Reporter</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-pending-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-pending-status"></p>
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-bans" data-admin-pane="bans">
@@ -3864,7 +3897,9 @@
       const tabRoster = document.getElementById('admin-tab-roster');
       const tabVerified = document.getElementById('admin-tab-verified');
       const tabAccounts = document.getElementById('admin-tab-accounts');
+      const tabPending = document.getElementById('admin-tab-pending');
       if (tabReports) tabReports.style.display = perms.viewReports ? '' : 'none';
+      if (tabPending) tabPending.style.display = perms.viewReports ? '' : 'none';
       if (tabBans) tabBans.style.display = perms.banUsers ? '' : 'none';
       if (tabAdmins) tabAdmins.style.display = perms.manageAdmins ? '' : 'none';
       if (tabRoster) tabRoster.style.display = ''; // any admin
@@ -3906,6 +3941,9 @@
         await loadAdminVerified();
       } else if (tab === 'accounts') {
         await loadAdminAccounts();
+      } else if (tab === 'pending') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminPendingReports();
       }
     }
     function formatTrainReportLocoLabelAdmin(rep) {
@@ -4670,6 +4708,8 @@
     let adminAccountsCache = [];
     let adminBannedUidSet = new Set();
     let adminEmailSet = new Set();
+    let adminReportHoldSet = new Set();
+    let adminPendingCache = [];
 
     function adminTsSeconds(ts) {
       if (!ts) return 0;
@@ -4692,6 +4732,16 @@
         await loadVerifiedReporters();
         adminBannedUidSet = new Set();
         adminEmailSet = new Set(BOOTSTRAP_ADMIN_EMAILS);
+        adminReportHoldSet = new Set();
+        try {
+          const holdSnap = await db.collection('reportHold').get();
+          holdSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            if (d.required !== false) adminReportHoldSet.add(String(doc.id || '').trim());
+          });
+        } catch (holdErr) {
+          console.warn('[admin] reportHold load failed', holdErr);
+        }
         try {
           const banSnap = await db.collection('bannedUsers').get();
           banSnap.forEach(function(doc) {
@@ -4752,13 +4802,18 @@
         const isAdm = !!(email && (adminEmailSet.has(email) || isBootstrapAdmin(email)));
         const isVer = !!(uid && isVerifiedReporterUid(uid));
         const isBan = !!(uid && adminBannedUidSet.has(uid));
+        const needsHold = !!(uid && adminReportHoldSet.has(uid));
         const badges = [];
         if (isAdm) badges.push('<span class="rr-badge admin">Admin</span>');
         if (isVer) badges.push('<span class="rr-badge verified">Verified</span>');
         if (isBan) badges.push('<span class="rr-badge banned">Banned</span>');
+        if (needsHold) badges.push('<span class="rr-badge">Approval required</span>');
         let actions = '';
         if (!isVer) {
           actions += '<button type="button" class="rr-btn secondary" data-admin-acct-verify="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Verify</button>';
+        }
+        if (uid) {
+          actions += '<button type="button" class="rr-btn secondary" data-admin-acct-hold="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" data-hold="' + (needsHold ? '1' : '0') + '" style="padding:6px 8px;font-size:11px;margin:2px;">' + (needsHold ? 'Stop approval' : 'Require approval') + '</button>';
         }
         if (canBan && !isBan) {
           actions += '<button type="button" class="rr-btn danger secondary" data-admin-acct-ban="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Ban</button>';
@@ -4777,6 +4832,120 @@
       }).join('');
       const status = document.getElementById('admin-accounts-status');
       if (status) status.textContent = filtered.length + ' of ' + adminAccountsCache.length + ' account(s)';
+    }
+    async function adminToggleReportHold(uid, email, currentlyHeld) {
+      if (!uid || !db) return;
+      setAdminError('');
+      try {
+        const ref = db.collection('reportHold').doc(uid);
+        if (currentlyHeld) {
+          await ref.delete();
+          adminReportHoldSet.delete(uid);
+          showNotification('Reports from this user go live immediately');
+        } else {
+          const actor = currentUser || (auth && auth.currentUser) || {};
+          await ref.set({
+            required: true,
+            uid: uid,
+            email: email || null,
+            setAt: firebase.firestore.FieldValue.serverTimestamp(),
+            setByUid: actor.uid || null,
+            setByEmail: normalizeEmail(actor.email) || (actor.email || null)
+          });
+          adminReportHoldSet.add(uid);
+          showNotification('New reports from this user need approval');
+        }
+        renderAdminAccounts();
+      } catch (e) {
+        console.error('[admin] reportHold toggle failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function loadAdminPendingReports() {
+      const status = document.getElementById('admin-pending-status');
+      if (status) status.textContent = 'Loading pending reports…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('pendingReports').get();
+        adminPendingCache = [];
+        snap.forEach(function(doc) {
+          adminPendingCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        adminPendingCache.sort(function(a, b) {
+          return adminTsSeconds(b.submittedAt || b.updatedAt || b.createdAt) - adminTsSeconds(a.submittedAt || a.updatedAt || a.createdAt);
+        });
+        renderAdminPendingReports();
+      } catch (e) {
+        console.error('[admin] pending load failed', e);
+        if (status) status.textContent = 'Failed to load pending reports.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminPendingReports() {
+      const tbody = document.getElementById('admin-pending-tbody');
+      const status = document.getElementById('admin-pending-status');
+      if (!tbody) return;
+      tbody.innerHTML = adminPendingCache.map(function(r) {
+        const vehicle = r.agency === 'mbta'
+          ? (r.vehicleId || '—')
+          : ((r.trainNumber || r.vehicleId || '—') + (r.serviceDate ? ' · ' + r.serviceDate : ''));
+        const note = String(r.comment || '').trim();
+        return '<tr>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(r.submittedAt || r.updatedAt || r.createdAt)) + '</td>' +
+          '<td>' + escapeHtmlLite(r.agency || '') + '</td>' +
+          '<td>' + escapeHtmlLite(vehicle) + '</td>' +
+          '<td>' + escapeHtmlLite(formatTrainReportLocoLabelAdmin(r)) + '</td>' +
+          '<td>' + escapeHtmlLite(note || '—') + '</td>' +
+          '<td>' + escapeHtmlLite(r.reportedByLabel || r.reportedByEmail || r.reportedByUid || '—') + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" class="rr-btn" data-admin-pending-approve="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Approve</button>' +
+            '<button type="button" class="rr-btn danger secondary" data-admin-pending-reject="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Reject</button>' +
+          '</td>' +
+          '</tr>';
+      }).join('');
+      if (status) status.textContent = adminPendingCache.length + ' pending report(s)';
+    }
+    async function adminApprovePendingReport(docId) {
+      if (!docId || !db) return;
+      const row = adminPendingCache.filter(function(r) { return r.id === docId; })[0];
+      if (!row) return;
+      try {
+        const data = Object.assign({}, row);
+        delete data.id;
+        delete data.status;
+        delete data.submittedAt;
+        data.approvedAt = firebase.firestore.FieldValue.serverTimestamp();
+        data.approvedByUid = ((currentUser || {}).uid) || null;
+        await db.collection('trainReports').doc(docId).set(data, { merge: true });
+        try {
+          await db.collection('reportAudit').doc(docId).set({
+            reportedByUid: data.reportedByUid || null,
+            reportedByEmail: data.reportedByEmail || null,
+            reportedByName: data.reportedByName || null,
+            approvedByUid: ((currentUser || {}).uid) || null,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch (_) {}
+        await db.collection('pendingReports').doc(docId).delete();
+        showNotification('Report approved');
+        if (typeof loadTrainReports === 'function') await loadTrainReports();
+        await loadAdminPendingReports();
+      } catch (e) {
+        console.error('[admin] approve failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminRejectPendingReport(docId) {
+      if (!docId || !db) return;
+      if (!window.confirm('Reject this pending report?')) return;
+      try {
+        await db.collection('pendingReports').doc(docId).delete();
+        showNotification('Pending report rejected');
+        await loadAdminPendingReports();
+      } catch (e) {
+        console.error('[admin] reject failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
     }
     function adminAccountsPrefillVerify(uid, email) {
       const emailEl = document.getElementById('admin-verified-email');
@@ -4873,7 +5042,27 @@
               banBtn.getAttribute('data-admin-acct-ban'),
               banBtn.getAttribute('data-email') || ''
             );
+            return;
           }
+          const holdBtn = e.target.closest('[data-admin-acct-hold]');
+          if (holdBtn) {
+            adminToggleReportHold(
+              holdBtn.getAttribute('data-admin-acct-hold'),
+              holdBtn.getAttribute('data-email') || '',
+              holdBtn.getAttribute('data-hold') === '1'
+            );
+          }
+        });
+      }
+      const pendingRefresh = document.getElementById('admin-pending-refresh');
+      if (pendingRefresh) pendingRefresh.addEventListener('click', loadAdminPendingReports);
+      const pendingTbody = document.getElementById('admin-pending-tbody');
+      if (pendingTbody) {
+        pendingTbody.addEventListener('click', function(e) {
+          const ap = e.target.closest('[data-admin-pending-approve]');
+          if (ap) { adminApprovePendingReport(ap.getAttribute('data-admin-pending-approve')); return; }
+          const rj = e.target.closest('[data-admin-pending-reject]');
+          if (rj) adminRejectPendingReport(rj.getAttribute('data-admin-pending-reject'));
         });
       }
       if (adminsRefresh) adminsRefresh.addEventListener('click', loadAdminAdmins);
@@ -5997,6 +6186,41 @@
         }).filter(Boolean).join(' + ');
       }
 
+      function currentMapIconUrl(agency, vehicleId, trainNumber) {
+        try {
+          const a = normalizeAgency(agency);
+          const vid = String(vehicleId || '').trim();
+          const tn = String(trainNumber || '').trim();
+          const dicts = [];
+          try { if (typeof markers !== 'undefined' && markers) dicts.push(markers); } catch (_) {}
+          try { if (typeof amtrakMarkers !== 'undefined' && amtrakMarkers) dicts.push(amtrakMarkers); } catch (_) {}
+          try { if (typeof mnrMarkers !== 'undefined' && mnrMarkers) dicts.push(mnrMarkers); } catch (_) {}
+          try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
+          try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
+          try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
+          const keys = [vid];
+          if (tn) {
+            keys.push(tn, a + '-' + tn);
+            if (a === 'amtrak') keys.push('amtrak-' + tn);
+            if (a === 'mnr') keys.push('mnr-' + tn);
+            if (a === 'lirr') keys.push('lirr-' + tn);
+            if (a === 'njt') keys.push('njt-' + tn);
+            if (a === 'metra') keys.push('metra-' + tn);
+          }
+          if (vid) keys.push(a + '-' + vid);
+          let found = null;
+          dicts.forEach(function(dict) {
+            if (found || !dict) return;
+            keys.forEach(function(k) {
+              if (!found && k && dict[k]) found = dict[k];
+            });
+          });
+          if (found && found.options && found.options.icon && found.options.icon.options) {
+            return found.options.icon.options.iconUrl || null;
+          }
+        } catch (_) {}
+        return null;
+      }
       function latestReportIconUrl(agency, opts) {
         opts = opts || {};
         try {
@@ -6090,7 +6314,7 @@
               '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + onclick + '">Change</button>' +
             '</div>';
         } else {
-          const iconUrl = latestReportIconUrl(a, { vehicleId: vid, trainNumber: trainNumber, report: rep });
+          const iconUrl = currentMapIconUrl(a, vid, trainNumber) || latestReportIconUrl(a, { vehicleId: vid, trainNumber: trainNumber, report: rep });
           const iconHtml = iconUrl ? '<img class="popup-report-icon" src="' + String(iconUrl).replace(/"/g, '') + '" alt="">' : '';
           actionsHtml = '<div class="popup-report-wrap">' + iconHtml + '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">Report</button></div>';
         }
@@ -6185,6 +6409,13 @@
         const a = normalizeAgency(agency);
         if (a === 'mbta') return 'mbta_' + String(vehicleId).trim();
         return a + '_' + serviceDate + '_' + String(trainNumber).trim();
+      }
+      async function userNeedsReportApproval(uid) {
+        if (!db || !uid) return false;
+        try {
+          const snap = await db.collection('reportHold').doc(uid).get();
+          return !!(snap.exists && (snap.data() || {}).required !== false);
+        } catch (_) { return false; }
       }
       async function submitTrainReport(payload) {
         if (!auth || !auth.currentUser) throw new Error('Sign in required');
@@ -6420,6 +6651,13 @@
           data.locoIconUrl = payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || null;
         }
         if (!existing.exists) data.createdAt = now;
+        const needsHold = await userNeedsReportApproval(user.uid);
+        if (needsHold) {
+          data.status = 'pending';
+          data.submittedAt = now;
+          await db.collection('pendingReports').doc(docId).set(data, { merge: true });
+          return { pending: true, id: docId };
+        }
         await ref.set(data, { merge: true });
         try {
           const bumpLocos = reportLocoIdsFromRow({
@@ -6737,7 +6975,7 @@
         try {
           const first = resolved[0];
           const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
-          await submitTrainReport({
+          const saved = await submitTrainReport({
             agency: agency,
             trainNumber: agency === 'mbta' ? null : trainNumber,
             vehicleId: vehicleId,
@@ -6752,7 +6990,7 @@
             comment: comment
           });
           const savedLabel = resolved.map(function(L) { return L.unitName || L.locomotiveId; }).join(' + ');
-          showNotification('Report saved for ' + savedLabel);
+          showNotification((saved && saved.pending) ? ('Report sent for approval: ' + savedLabel) : ('Report saved for ' + savedLabel));
           closeReportTrainModal();
           await loadTrainReports();
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch(_){}
@@ -6890,6 +7128,7 @@
               trainNumber: String(rep.trainNumber || (agency === 'mbta' ? '' : '') || '').trim(),
               vehicleId: String(rep.vehicleId || '').trim(),
               reporter: String(rep.reportedByLabel || '').trim(),
+              comment: String(rep.comment || '').trim(),
               ms: reportTimeMs(rep),
               rep: rep
             });
@@ -6986,10 +7225,12 @@
         if (opts.vehicleId && opts.vehicleId !== opts.trainNumber) bits.push('Vehicle ' + opts.vehicleId);
         if (opts.reporter) bits.push('by ' + opts.reporter);
         if (opts.extra) bits.push(opts.extra);
+        const note = String(opts.note || '').trim();
         return '<button type="button" class="rr-board-card" data-rep-id="' + escapeHtmlLite(opts.id || '') + '">' +
           '<div class="rr-board-card-top"><span class="rr-board-agency">' + agency + '</span><span class="rr-board-time">' + time + '</span></div>' +
           '<div class="rr-board-title">' + title + '</div>' +
           (bits.length ? '<div class="rr-board-meta">' + escapeHtmlLite(bits.join(' · ')) + '</div>' : '') +
+          (note ? '<div class="rr-board-note">“' + escapeHtmlLite(note) + '”</div>' : '') +
           '</button>';
       }
       function bindBoardCards(container, byId) {
@@ -7034,7 +7275,8 @@
             title: r.title,
             trainNumber: r.trainNumber,
             vehicleId: r.vehicleId,
-            reporter: r.reporter
+            reporter: r.reporter,
+            note: r.comment
           });
         });
         list.innerHTML = html;
@@ -7080,7 +7322,8 @@
             trainNumber: r.trainNumber,
             vehicleId: r.vehicleId,
             reporter: r.reporter,
-            extra: r.comment ? r.comment : ''
+            extra: '',
+            note: r.comment
           });
         });
         list.innerHTML = html;
