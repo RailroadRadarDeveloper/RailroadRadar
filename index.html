@@ -7099,7 +7099,12 @@
         }
         const agency = normalizeAgency(payload.agency);
         const trainNumber = payload.trainNumber != null ? String(payload.trainNumber).trim() : '';
-        const serviceDate = String(payload.serviceDate || nyServiceDateToday()).trim() || nyServiceDateToday();
+        let serviceDate;
+        if (agency === 'mbta' && (payload.serviceDate == null || payload.serviceDate === '')) {
+          serviceDate = null; // live pairing docs are undated (doc id mbta_${vehicleId})
+        } else {
+          serviceDate = String(payload.serviceDate || nyServiceDateToday()).trim() || nyServiceDateToday();
+        }
         const future = isFutureServiceDate(serviceDate);
         let vehicleId = String(payload.vehicleId || '').trim();
         if (!trainNumber && (future || agency !== 'mbta')) throw new Error('Train number is required');
@@ -7253,7 +7258,7 @@
           trainNumber: trainNumber || null,
           vehicleId: vehicleId || null,
           unitName: unitName,
-          serviceDate: serviceDate,
+          serviceDate: serviceDate || null,
           reportedByUid: user.uid,
           reportedByDisplayMode: reportedByDisplayMode,
           reportedByLabel: reportedByLabel,
@@ -7588,6 +7593,7 @@
       }
       async function populateReportTrainSelect(preferTrainNumber) {
         const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        if (agency === 'mbta') return; // MBTA uses vehicle-ID form; do not fetch /api/schedules
         const dateEl = document.getElementById('report-service-date');
         const sel = document.getElementById('report-train-select');
         if (!sel || !dateEl) return;
@@ -7644,10 +7650,33 @@
         const isMbta = agency === 'mbta';
         const mbtaVehWrap = document.getElementById('report-mbta-vehicle-wrap');
         const dtWrap = document.getElementById('report-service-date-wrap');
+        const trainPickRow = document.getElementById('report-train-pick-row');
+        const tnWrap = document.getElementById('report-train-number-wrap');
         const hint = document.getElementById('report-train-hint');
         const serviceDateInput = document.getElementById('report-service-date');
         const today = nyServiceDateToday();
+        if (isMbta) {
+          // Old MBTA live-pairing form: vehicle ID + locos (no schedule UI)
+          setReportTrainExtraMode(false);
+          if (dtWrap) dtWrap.style.display = 'none';
+          if (trainPickRow) trainPickRow.style.display = 'none';
+          if (tnWrap) tnWrap.style.display = 'none';
+          if (mbtaVehWrap) mbtaVehWrap.style.display = '';
+          if (hint) {
+            hint.textContent = 'Pairs locomotives to this vehicle ID until reported differently. First locomotive sets the map icon.';
+          }
+          syncReportLocoSlotsFromDom();
+          renderReportLocosList();
+          return;
+        }
+        // Schedule-style form for Amtrak / MNR / LIRR / NJT / CTrail
         if (dtWrap) dtWrap.style.display = '';
+        if (trainPickRow) trainPickRow.style.display = '';
+        if (mbtaVehWrap) {
+          mbtaVehWrap.style.display = 'none';
+          const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
+          if (mbtaVidEl) mbtaVidEl.value = '';
+        }
         if (serviceDateInput) {
           serviceDateInput.min = today;
           serviceDateInput.max = nyServiceDatePlusDays(14);
@@ -7655,18 +7684,9 @@
         }
         const sd = String((serviceDateInput && serviceDateInput.value) || today).trim() || today;
         const future = isFutureServiceDate(sd);
-        if (mbtaVehWrap) {
-          mbtaVehWrap.style.display = (isMbta && !future) ? '' : 'none';
-          if (future) {
-            const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
-            if (mbtaVidEl) mbtaVidEl.value = '';
-          }
-        }
         if (hint) {
           if (future) {
             hint.textContent = "We'll show this pairing under Specials until that service day. First locomotive sets the icon.";
-          } else if (isMbta) {
-            hint.textContent = 'Pairs locomotives to this vehicle ID until reported differently. First locomotive sets the map icon.';
           } else {
             hint.textContent = 'These units are linked to that trip on the selected date. First locomotive sets the map icon.';
           }
@@ -7741,23 +7761,29 @@
           return;
         }
         const agency = normalizeAgency((document.getElementById('report-agency') || {}).value);
-        const serviceDate = ((document.getElementById('report-service-date') || {}).value || '').trim() || nyServiceDateToday();
-        const future = isFutureServiceDate(serviceDate);
+        const isMbta = agency === 'mbta';
+        let serviceDate = ((document.getElementById('report-service-date') || {}).value || '').trim() || nyServiceDateToday();
+        if (isMbta) serviceDate = null; // live pairing; omit dated schedule field
+        const future = !isMbta && isFutureServiceDate(serviceDate);
         let trainNumber = '';
-        if (reportTrainExtraMode) {
-          trainNumber = ((document.getElementById('report-train-number') || {}).value || '').trim();
-        } else {
-          trainNumber = ((document.getElementById('report-train-select') || {}).value || '').trim();
+        if (!isMbta) {
+          if (reportTrainExtraMode) {
+            trainNumber = ((document.getElementById('report-train-number') || {}).value || '').trim();
+          } else {
+            trainNumber = ((document.getElementById('report-train-select') || {}).value || '').trim();
+          }
         }
         const mbtaApiVehicleId = ((document.getElementById('report-mbta-vehicle-id') || {}).value || '').trim();
         syncReportLocoSlotsFromDom();
-        if (!serviceDate) { setErr('Pick a service date.'); return; }
-        if (!trainNumber) {
-          setErr(reportTrainExtraMode ? 'Enter the train number.' : 'Select a train (or Extra / Not listed).');
-          return;
+        if (!isMbta) {
+          if (!serviceDate) { setErr('Pick a service date.'); return; }
+          if (!trainNumber) {
+            setErr(reportTrainExtraMode ? 'Enter the train number.' : 'Select a train (or Extra / Not listed).');
+            return;
+          }
         }
         let vehicleId = '';
-        if (agency === 'mbta' && !future) {
+        if (isMbta) {
           vehicleId = mbtaApiVehicleId;
           if (!vehicleId) {
             setErr('Enter the MBTA Vehicle ID (API vehicle-id).');
@@ -7777,7 +7803,7 @@
             : 'Add at least one roster unit or custom vehicle ID.');
           return;
         }
-        if (agency !== 'mbta' || future) {
+        if (!isMbta) {
           vehicleId = vehicleId || resolved[0].locomotiveId || '';
         }
         try {
