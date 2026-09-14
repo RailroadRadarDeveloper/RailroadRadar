@@ -3419,39 +3419,29 @@
 
     async function upsertAccountMirror(user) {
       if (!db || !user || !user.uid) return;
-      const uid = user.uid;
+      const uid = String(user.uid);
       const email = normalizeEmail(user.email) || null;
       const displayName = (user.displayName && String(user.displayName).trim()) || null;
       const photoURL = user.photoURL || null;
       const ts = firebase.firestore.FieldValue.serverTimestamp();
       try {
         const ref = db.collection('accounts').doc(uid);
+        const payload = {
+          uid: uid,
+          email: email,
+          displayName: displayName,
+          photoURL: photoURL,
+          lastLoginAt: ts
+        };
         let exists = false;
         try {
           const snap = await ref.get();
           exists = !!(snap && snap.exists);
         } catch (readErr) {
-          // Self-read may fail until rules allow it; fall through to create-style set
           exists = false;
         }
-        if (!exists) {
-          await ref.set({
-            uid: uid,
-            email: email,
-            displayName: displayName,
-            photoURL: photoURL,
-            createdAt: ts,
-            lastLoginAt: ts
-          }, { merge: true });
-        } else {
-          await ref.set({
-            uid: uid,
-            email: email,
-            displayName: displayName,
-            photoURL: photoURL,
-            lastLoginAt: ts
-          }, { merge: true });
-        }
+        if (!exists) payload.createdAt = ts;
+        await ref.set(payload, { merge: true });
       } catch (err) {
         console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
       }
@@ -3851,6 +3841,8 @@
         }, { merge: true });
         try {
           await db.collection('accounts').doc(user.uid).set({
+            uid: user.uid,
+            email: normalizeEmail(user.email) || (user.email || null),
             interestedRailroads: ids,
             interestedRailroadsSet: true
           }, { merge: true });
@@ -3951,6 +3943,8 @@
         }, { merge: true });
         try {
           await db.collection('accounts').doc(user.uid).set({
+            uid: user.uid,
+            email: normalizeEmail(user.email) || (user.email || null),
             interestedRailroads: interests,
             interestedRailroadsSet: true
           }, { merge: true });
@@ -4867,6 +4861,73 @@
       } catch (_) {}
       return 0;
     }
+    function accountRowUid(a) {
+      return String((a && (a.uid || a.id)) || '').trim();
+    }
+    function accountRowNewer(a, b) {
+      const ta = adminTsSeconds(a && a.lastLoginAt) || adminTsSeconds(a && a.createdAt);
+      const tb = adminTsSeconds(b && b.lastLoginAt) || adminTsSeconds(b && b.createdAt);
+      if (ta !== tb) return ta > tb ? a : b;
+      const aCanon = String((a && a.id) || '') === String((a && a.uid) || (a && a.id) || '');
+      const bCanon = String((b && b.id) || '') === String((b && b.uid) || (b && b.id) || '');
+      if (aCanon !== bCanon) return aCanon ? a : b;
+      return a;
+    }
+    function mergeAccountRowFields(keep, drop) {
+      if (!keep || !drop) return keep;
+      if ((!keep.interestedRailroads || !keep.interestedRailroads.length) && drop.interestedRailroads && drop.interestedRailroads.length) {
+        keep.interestedRailroads = drop.interestedRailroads;
+        keep.interestedRailroadsSet = true;
+      }
+      if (!keep.createdAt && drop.createdAt) keep.createdAt = drop.createdAt;
+      if (!keep.displayName && drop.displayName) keep.displayName = drop.displayName;
+      if (!keep.photoURL && drop.photoURL) keep.photoURL = drop.photoURL;
+      if (!keep.email && drop.email) keep.email = drop.email;
+      return keep;
+    }
+    function dedupeAdminAccountRows(rows) {
+      const extras = [];
+      const byUid = new Map();
+      (rows || []).forEach(function(a) {
+        const uid = accountRowUid(a);
+        if (!uid) { extras.push(a); return; }
+        const prev = byUid.get(uid);
+        if (!prev) { byUid.set(uid, a); return; }
+        const keep = accountRowNewer(a, prev);
+        const drop = keep === a ? prev : a;
+        mergeAccountRowFields(keep, drop);
+        extras.push(drop);
+        byUid.set(uid, keep);
+      });
+      const byEmail = new Map();
+      const noEmail = [];
+      byUid.forEach(function(a) {
+        const email = normalizeEmail(a.email);
+        if (!email) { noEmail.push(a); return; }
+        const prev = byEmail.get(email);
+        if (!prev) { byEmail.set(email, a); return; }
+        const aCanon = String(a.id || '') === String(a.uid || '');
+        const bCanon = String(prev.id || '') === String(prev.uid || '');
+        let keep, drop;
+        if (aCanon !== bCanon) {
+          keep = aCanon ? a : prev;
+          drop = keep === a ? prev : a;
+        } else {
+          keep = accountRowNewer(a, prev);
+          drop = keep === a ? prev : a;
+        }
+        mergeAccountRowFields(keep, drop);
+        extras.push(drop);
+        byEmail.set(email, keep);
+      });
+      const kept = noEmail.concat(Array.from(byEmail.values()));
+      kept.sort(function(a, b) {
+        const ta = adminTsSeconds(a.lastLoginAt) || adminTsSeconds(a.createdAt);
+        const tb = adminTsSeconds(b.lastLoginAt) || adminTsSeconds(b.createdAt);
+        return tb - ta;
+      });
+      return { kept: kept, extras: extras };
+    }
     async function loadAdminAccounts() {
       const tbody = document.getElementById('admin-accounts-tbody');
       const status = document.getElementById('admin-accounts-status');
@@ -4911,14 +4972,19 @@
         snap.forEach(function(doc) {
           rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
         });
-        rows.sort(function(a, b) {
-          const ta = adminTsSeconds(a.lastLoginAt) || adminTsSeconds(a.createdAt);
-          const tb = adminTsSeconds(b.lastLoginAt) || adminTsSeconds(b.createdAt);
-          return tb - ta;
-        });
-        adminAccountsCache = rows;
+        const deduped = dedupeAdminAccountRows(rows);
+        adminAccountsCache = deduped.kept;
         renderAdminAccounts();
-        if (status) status.textContent = rows.length + ' account(s)';
+        if (status) status.textContent = adminAccountsCache.length + ' account(s)';
+        if (deduped.extras && deduped.extras.length) {
+          try {
+            await Promise.all(deduped.extras.map(function(a) {
+              const id = String(a.id || '').trim();
+              if (!id) return Promise.resolve();
+              return db.collection('accounts').doc(id).delete().catch(function() {});
+            }));
+          } catch (_) {}
+        }
       } catch (e) {
         console.error('[admin] accounts load failed', e);
         if (status) status.textContent = 'Failed to load accounts.';
@@ -5550,6 +5616,12 @@
       if (!ok) return;
       const user = auth.currentUser;
       try { await logUserAction('delete_account', 'Account deleted', user); } catch (_) {}
+      try {
+        if (db && user.uid) {
+          try { await db.collection('accounts').doc(user.uid).delete(); } catch (_) {}
+          try { await db.collection('userSettings').doc(user.uid).delete(); } catch (_) {}
+        }
+      } catch (_) {}
       try {
         await user.delete();
         showNotification('Account deleted');
