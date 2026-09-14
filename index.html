@@ -8068,30 +8068,7 @@
         });
         if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
       }
-      // Northeast filter: keep trains whose lat/lon is in roughly lat 36–48 / lon -80–-66,
-      // OR any station code is in this NE corridor set (Boston–NY–Philly–DC + Empire / NH corridors).
-      // Still gated by the Show Amtrak checkbox via updateAmtrakVisibility / showAmtrak.
-      const AMTRAK_NE_CODES = new Set([
-        'BOS','BBY','BON','PVD','KIN','NHT','MHT','NHV','STM','NRO','NYP','NWK','TRE','PHL','WIL','BAL','WAS',
-        'ALB','SDY','RHI','ROC','BUF','NFL','POU','OSB','SPG','WOR','HFD','NLC','NBN','RTE','WOB','FBG','BWI',
-        'ABE','HAR','LNC','PAC','ARD','CRH','DOV','SAB','EXR','BRY','NYP','BOS','PHL','WAS','NHV','PVD','NWK',
-        'BOS','WLY','MYS','OLD','NLC','OSB','HUD','RHI','UCA','SYR','ROC','BUF','NFL','NYP','NWK','EWR','MET',
-        'PJC','TRE','PHN','ARN','WIL','NRK','ABE','BAL','BWI','NCR','WAS','ALX','BCV','FBG','QAN','ALB','SDY'
-      ]);
-      function isNortheastAmtrakTrain(t) {
-        const lat = parseFloat(t.lat);
-        const lon = parseFloat(t.lon);
-        if (!isNaN(lat) && !isNaN(lon) && lat >= 36 && lat <= 48 && lon >= -80 && lon <= -66) return true;
-        const stations = t.stations || [];
-        for (let i = 0; i < stations.length; i++) {
-          const code = stations[i] && stations[i].code;
-          if (code && AMTRAK_NE_CODES.has(String(code).toUpperCase())) return true;
-        }
-        const oc = t.origCode && String(t.origCode).toUpperCase();
-        const dc = t.destCode && String(t.destCode).toUpperCase();
-        if ((oc && AMTRAK_NE_CODES.has(oc)) || (dc && AMTRAK_NE_CODES.has(dc))) return true;
-        return false;
-      }
+      // Amtrak: show every live train. Still gated by the Show Amtrak checkbox.
       async function fetchAmtrakTrains() {
         const stat = FetchStats.start('Amtrak');
         try {
@@ -8115,7 +8092,6 @@
             if (!Array.isArray(arr) || !arr.length) { skipped++; return; }
             arr.forEach(function(t) {
               if (!t || t.lat == null || t.lon == null) { skipped++; return; }
-              if (!isNortheastAmtrakTrain(t)) { filtered++; return; }
               const trainNum = t.trainNum || t.trainNumRaw || k;
               const vid = 'amtrak-' + (t.trainID || trainNum);
               const lat = parseFloat(t.lat);
@@ -10037,7 +10013,7 @@
         }
       };
 
-      // ---- Static GTFS route shapes (MNR / LIRR / Amtrak NE) ----
+      // ---- Static GTFS route shapes (MNR / LIRR / Amtrak) ----
       const gtfsShapeAgencyVisible = { mnr: true, lirr: true, amtrak: true, njt: true, ctrail: true };
       function gtfsShapeKey(agency, routeId) { return 'gtfs-' + agency + '-' + routeId; }
       function shouldShowGtfsShape(agency) {
