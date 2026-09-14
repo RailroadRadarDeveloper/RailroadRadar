@@ -1118,8 +1118,41 @@
       font: inherit;
     }
     .notify-subhead { margin: 12px 0 6px; font-size: 13px; font-weight: 700; }
+    .notify-rail-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
+    }
     .notify-rail-list label { display: block; margin: 4px 0; font-weight: 500; }
-    #notify-train-select { width: 100%; margin-top: 4px; padding: 8px; font: inherit; box-sizing: border-box; }
+    .notify-loco-add {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .notify-loco-add select {
+      width: 38%;
+      padding: 8px;
+      font: inherit;
+      box-sizing: border-box;
+    }
+    .notify-loco-add input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px;
+      font: inherit;
+      box-sizing: border-box;
+    }
+    .notify-add-btn {
+      background: #07093e;
+      color: #fff;
+      border: 1px solid #07093e;
+      padding: 8px 12px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
     .notify-train-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-height: 8px; }
     .notify-chip {
       display: inline-flex; align-items: center; gap: 6px;
@@ -1128,6 +1161,33 @@
     }
     .notify-chip button {
       border: 0; background: transparent; cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
+    }
+    .notify-save-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .notify-save-row > button {
+      flex: 1;
+      margin-top: 0;
+    }
+    .notify-confirm-btn {
+      background: #27ae60;
+      border: 1px solid #27ae60;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: center;
+    }
+    .notify-confirm-btn:disabled {
+      background: #bdc3c7;
+      border-color: #bdc3c7;
+      color: #FFFFFF;
+      cursor: not-allowed;
     }
     @media (max-width: 700px) {
       .leaflet-popup-content {
@@ -2584,17 +2644,25 @@
         <p class="rr-modal-hint" style="margin-top:0;">On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.</p>
         <p class="rr-modal-hint" id="notify-status"></p>
         <div><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable notifications</label></div>
-        <div><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">Special unit becomes active</label></div>
-        <div><input type="checkbox" id="notify-special-report" checked><label for="notify-special-report">New report on a special</label></div>
+        <div class="notify-subhead">When</div>
+        <div><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">A watched unit goes live</label></div>
+        <div><input type="checkbox" id="notify-special-report" checked><label for="notify-special-report">New report on a watched unit</label></div>
         <div class="notify-subhead">Railroads</div>
         <div class="notify-rail-list" id="notify-railroads"></div>
-        <p class="rr-modal-hint">Uncheck ones you don’t want. Leave them all on for every railroad.</p>
-        <div class="notify-subhead">Trains</div>
-        <select id="notify-train-select" aria-label="Add a special to notify for">
-          <option value="">All specials — or pick one to add</option>
-        </select>
+        <p class="rr-modal-hint">Leave them all on for every railroad.</p>
+        <div class="notify-subhead">Locomotives</div>
+        <div class="notify-loco-add">
+          <select id="notify-loco-agency" aria-label="Railroad for locomotive"></select>
+          <input type="text" id="notify-loco-number" placeholder="Loco number" maxlength="16" autocomplete="off" aria-label="Locomotive number">
+          <button type="button" id="notify-loco-add" class="notify-add-btn">Add</button>
+        </div>
         <div class="notify-train-chips" id="notify-train-chips"></div>
-        <p class="rr-modal-hint" id="notify-train-hint">No trains picked means every special on the railroads above.</p>
+        <p class="rr-modal-hint" id="notify-train-hint">No numbers means every special on the railroads above. Add any locomotive number to watch just those.</p>
+        <div class="notify-save-row">
+          <button type="button" id="notify-save" class="cabcar-report-btn">Save</button>
+          <button type="button" id="notify-confirm" class="notify-confirm-btn" disabled>Confirm</button>
+        </div>
+        <p class="rr-modal-hint" id="notify-save-hint"></p>
       </div>
       <div class="toggle-section">
         <h3>Markers</h3>
@@ -5936,7 +6004,7 @@
           });
           SPECIAL_UNITS_ROSTER = merged;
           rebuildRosterIndexes();
-          try { if (typeof window.rrFillNotifyTrainSelect === 'function') window.rrFillNotifyTrainSelect(); } catch (_) {}
+          try { if (typeof window.rrRenderNotifyTrainChips === 'function') window.rrRenderNotifyTrainChips(); } catch (_) {}
           console.log('%c[specialUnits] Loaded roster: ' + SPECIAL_UNITS_ROSTER.length + ' unit(s) (' + snap.size + ' Firestore doc(s))', 'color:#27ae60');
         } catch (e) {
           console.error('%c[specialUnits] Load failed', 'color:#e74c3c', e);
@@ -11699,8 +11767,14 @@
         const id = String(unitId || '').trim();
         if (rails.length && a && rails.indexOf(a) === -1) return false;
         if (trains.length) {
-          const k = rrNotifyTrainKey(a, id);
-          if (trains.indexOf(k) === -1) return false;
+          const k = (a + '|' + id).toLowerCase();
+          const idLower = id.toLowerCase();
+          let ok = false;
+          for (let i = 0; i < trains.length; i++) {
+            const t = trains[i];
+            if (t === k || t === idLower) { ok = true; break; }
+          }
+          if (!ok) return false;
         }
         return true;
       }
@@ -11712,6 +11786,33 @@
       }
       function rrSaveNotifyPrefs(p) {
         try { localStorage.setItem(RR_NOTIFY_PREFS_KEY, JSON.stringify(p)); } catch (_) {}
+      }
+      let rrNotifyDraftTrains = [];
+      let rrNotifyPendingPrefs = null;
+      function rrNotifyMarkDirty() {
+        rrNotifyPendingPrefs = null;
+        const btn = document.getElementById('notify-confirm');
+        if (btn) btn.disabled = true;
+        const hint = document.getElementById('notify-save-hint');
+        if (hint) hint.textContent = 'Tap Save, then Confirm.';
+      }
+      function rrNotifyReadForm() {
+        const en = document.getElementById('notify-enable');
+        const a = document.getElementById('notify-special-active');
+        const r = document.getElementById('notify-special-report');
+        const root = document.getElementById('notify-railroads');
+        const checked = root
+          ? Array.prototype.map.call(root.querySelectorAll('input[name="notify-railroad"]:checked'), function(el) { return el.value; })
+          : [];
+        const allIds = RR_NOTIFY_RAILROADS.map(function(row) { return row.id; });
+        const railroads = (checked.length === 0 || checked.length === allIds.length) ? [] : rrNotifyNormList(checked);
+        return {
+          enabled: !!(en && en.checked),
+          specialActive: !a || !!a.checked,
+          specialReport: !r || !!r.checked,
+          railroads: railroads,
+          trains: rrNotifyNormList(rrNotifyDraftTrains)
+        };
       }
       function rrNotifyShouldBackgroundPoll() {
         const p = rrLoadNotifyPrefs();
@@ -11731,8 +11832,25 @@
         if (keys.length > 400) keys.splice(0, keys.length - 400);
         try { localStorage.setItem(RR_NOTIFY_SEEN_KEY, JSON.stringify(keys)); } catch (_) {}
       }
+      function rrNotifyCandidateIds(r) {
+        const out = [];
+        function add(v) {
+          const s = String(v == null ? '' : v).trim();
+          if (!s) return;
+          if (out.indexOf(s) === -1) out.push(s);
+          const stripped = s.replace(/^[a-z]+-/i, '');
+          if (stripped && stripped !== s && out.indexOf(stripped) === -1) out.push(stripped);
+        }
+        add(r && r.id);
+        add(r && r.vehicleLabel);
+        const tn = r && r.trainNum != null ? String(r.trainNum).trim() : '';
+        if (tn && out.indexOf(tn) === -1) out.push(tn);
+        return out;
+      }
       function rrCollectSpecialActiveEvents() {
         const events = {};
+        const prefs = rrLoadNotifyPrefs();
+        const trains = rrNotifyNormList(prefs.trains);
         try {
           const rows = collectLiveTrainRows();
           rows.forEach(function(r) {
@@ -11740,20 +11858,43 @@
             const spec = (typeof getSpecialForVehicle === 'function')
               ? getSpecialForVehicle(agency, r.id, r.trainNum)
               : null;
-            if (!spec) return;
-            const loco = spec.vehicleId || spec.locomotiveId || '';
-            const name = spec.unitName || loco || 'Special unit';
-            const k = 'live|' + agency + '|' + loco + '|' + String(r.trainNum || r.id || '');
+            if (spec) {
+              const loco = spec.vehicleId || spec.locomotiveId || '';
+              if (!rrNotifyEventAllowed(prefs, agency, loco)) return;
+              const name = spec.unitName || loco || 'Special unit';
+              const k = 'live|' + agency + '|' + loco + '|' + String(r.trainNum || r.id || '');
+              const train = r.trainNum ? (' train ' + r.trainNum) : '';
+              const dest = r.dest && r.dest !== '—' ? (' to ' + r.dest) : '';
+              events[k] = {
+                type: 'active',
+                title: name + ' is live',
+                body: (agencyPrettyName(agency) + train + dest).trim(),
+                tag: k,
+                agency: agency,
+                unitId: loco
+              };
+              return;
+            }
+            if (!trains.length) return;
+            const candidates = rrNotifyCandidateIds(r);
+            let matchedId = null;
+            for (let i = 0; i < candidates.length; i++) {
+              if (rrNotifyEventAllowed(prefs, agency, candidates[i])) {
+                matchedId = candidates[i];
+                break;
+              }
+            }
+            if (!matchedId) return;
+            const k = 'live|' + agency + '|' + matchedId + '|' + String(r.trainNum || r.id || '');
             const train = r.trainNum ? (' train ' + r.trainNum) : '';
             const dest = r.dest && r.dest !== '—' ? (' to ' + r.dest) : '';
-            if (!rrNotifyEventAllowed(rrLoadNotifyPrefs(), agency, loco)) return;
             events[k] = {
               type: 'active',
-              title: name + ' is live',
+              title: matchedId + ' is live',
               body: (agencyPrettyName(agency) + train + dest).trim(),
               tag: k,
               agency: agency,
-              unitId: loco
+              unitId: matchedId
             };
           });
         } catch (_) {}
@@ -11761,6 +11902,7 @@
       }
       function rrCollectSpecialReportEvents() {
         const events = {};
+        const prefs = rrLoadNotifyPrefs();
         try {
           const rows = (typeof collectActiveSpecials === 'function') ? collectActiveSpecials() : [];
           rows.forEach(function(r) {
@@ -11768,7 +11910,7 @@
             const k = 'rep|' + id + '|' + String(r.locoId || '');
             const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
             const who = r.reporter ? (' · ' + r.reporter) : '';
-            if (!rrNotifyEventAllowed(rrLoadNotifyPrefs(), r.agency, r.locoId)) return;
+            if (!rrNotifyEventAllowed(prefs, r.agency, r.locoId)) return;
             events[k] = {
               type: 'report',
               title: 'New report: ' + (r.title || r.locoId || 'special'),
@@ -11778,6 +11920,26 @@
               unitId: r.locoId
             };
           });
+          const trains = rrNotifyNormList(prefs.trains);
+          if (trains.length && typeof collectBoardReports === 'function') {
+            collectBoardReports().forEach(function(r) {
+              const locoId = r.locoId || r.vehicleId || '';
+              if (!rrNotifyEventAllowed(prefs, r.agency, locoId)) return;
+              const id = (r.rep && r.rep.id) ? r.rep.id : (r.agency + '|' + locoId + '|' + r.trainNumber + '|' + (r.ms || 0));
+              const k = 'rep|' + id + '|' + String(locoId || '');
+              if (events[k]) return;
+              const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
+              const who = r.reporter ? (' · ' + r.reporter) : '';
+              events[k] = {
+                type: 'report',
+                title: 'New report: ' + (r.locoTxt || locoId || 'unit'),
+                body: (agencyPrettyName(r.agency) + train + who).trim(),
+                tag: k,
+                agency: r.agency,
+                unitId: locoId
+              };
+            });
+          }
         } catch (_) {}
         return events;
       }
@@ -11830,6 +11992,14 @@
         const el = document.getElementById('notify-status');
         if (el) el.textContent = msg || '';
       }
+      function rrFillNotifyLocoAgency() {
+        const agencySel = document.getElementById('notify-loco-agency');
+        if (!agencySel) return;
+        if (agencySel.options && agencySel.options.length) return;
+        agencySel.innerHTML = RR_NOTIFY_RAILROADS.map(function(row) {
+          return '<option value="' + row.id + '">' + row.label + '</option>';
+        }).join('');
+      }
       function rrSyncNotifyCheckboxes() {
         const p = rrLoadNotifyPrefs();
         const en = document.getElementById('notify-enable');
@@ -11845,14 +12015,19 @@
           }).join('');
         }
         if (railRoot) {
-          const set = {};
           const rails = rrNotifyNormList(p.railroads);
           const allOn = !rails.length;
           railRoot.querySelectorAll('input[name="notify-railroad"]').forEach(function(el) {
-            el.checked = allOn || !!set[el.value] || rails.indexOf(el.value) !== -1;
+            el.checked = allOn || rails.indexOf(el.value) !== -1;
           });
         }
-        rrFillNotifyTrainSelect();
+        rrFillNotifyLocoAgency();
+        rrNotifyDraftTrains = rrNotifyNormList(p.trains);
+        rrNotifyPendingPrefs = null;
+        const confirmBtn = document.getElementById('notify-confirm');
+        if (confirmBtn) confirmBtn.disabled = true;
+        const saveHint = document.getElementById('notify-save-hint');
+        if (saveHint) saveHint.textContent = '';
         rrRenderNotifyTrainChips();
         if (typeof Notification === 'undefined') {
           rrNotifyStatus('Notifications are not available in this browser.');
@@ -11882,45 +12057,19 @@
           return String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true });
         });
       }
-      function rrFillNotifyTrainSelect() {
-        const sel = document.getElementById('notify-train-select');
-        if (!sel) return;
-        const p = rrLoadNotifyPrefs();
-        const picked = {};
-        rrNotifyNormList(p.trains).forEach(function(k) { picked[k] = true; });
-        const rails = rrNotifyNormList(p.railroads);
-        const keep = sel.value;
-        let html = '<option value="">All specials — or pick one to add</option>';
-        rrNotifyRosterUnits().forEach(function(u) {
-          const agency = String(u.agency || '').toLowerCase();
-          const id = String(u.id || '').trim();
-          if (!agency || !id) return;
-          if (rails.length && rails.indexOf(agency) === -1) return;
-          const key = rrNotifyTrainKey(agency, id);
-          if (picked[key]) return;
-          const pretty = (typeof agencyPrettyName === 'function') ? agencyPrettyName(agency) : agency.toUpperCase();
-          const name = u.name && u.name !== id ? (' · ' + u.name) : '';
-          html += '<option value="' + key.replace(/"/g, '') + '">' + pretty + ' ' + id + name + '</option>';
-        });
-        sel.innerHTML = html;
-        if (keep && sel.querySelector('option[value="' + keep.replace(/"/g, '') + '"]')) sel.value = keep;
-        else sel.value = '';
-      }
-      window.rrFillNotifyTrainSelect = rrFillNotifyTrainSelect;
       function rrRenderNotifyTrainChips() {
         const wrap = document.getElementById('notify-train-chips');
         const hint = document.getElementById('notify-train-hint');
         if (!wrap) return;
-        const p = rrLoadNotifyPrefs();
-        const trains = rrNotifyNormList(p.trains);
+        const trains = rrNotifyNormList(rrNotifyDraftTrains);
         if (!trains.length) {
           wrap.innerHTML = '<span class="notify-chip">Every special</span>';
-          if (hint) hint.textContent = 'No trains picked means every special on the railroads above.';
+          if (hint) hint.textContent = 'No numbers means every special on the railroads above. Add any locomotive number to watch just those.';
           return;
         }
         const byKey = {};
         rrNotifyRosterUnits().forEach(function(u) {
-          byKey[rrNotifyTrainKey(u.agency, u.id)] = u;
+          byKey[rrNotifyTrainKey(u.agency, u.id).toLowerCase()] = u;
         });
         wrap.innerHTML = trains.map(function(k) {
           const u = byKey[k];
@@ -11933,20 +12082,30 @@
           return '<span class="notify-chip">' + label.replace(/</g, '&lt;') +
             ' <button type="button" data-notify-train-remove="' + k.replace(/"/g, '') + '" aria-label="Remove">×</button></span>';
         }).join('');
-        if (hint) hint.textContent = trains.length + ' train' + (trains.length === 1 ? '' : 's') + ' selected.';
+        if (hint) hint.textContent = trains.length + ' locomotive' + (trains.length === 1 ? '' : 's') + ' watched.';
       }
-      function rrSaveNotifyFilters() {
-        const p = rrLoadNotifyPrefs();
-        const root = document.getElementById('notify-railroads');
-        const checked = root
-          ? Array.prototype.map.call(root.querySelectorAll('input[name="notify-railroad"]:checked'), function(el) { return el.value; })
-          : [];
-        const allIds = RR_NOTIFY_RAILROADS.map(function(r) { return r.id; });
-        p.railroads = (checked.length === 0 || checked.length === allIds.length) ? [] : rrNotifyNormList(checked);
-        rrSaveNotifyPrefs(p);
-        rrFillNotifyTrainSelect();
+      window.rrRenderNotifyTrainChips = rrRenderNotifyTrainChips;
+      function rrNotifyAddLoco() {
+        const agencyEl = document.getElementById('notify-loco-agency');
+        const numEl = document.getElementById('notify-loco-number');
+        const agency = String((agencyEl && agencyEl.value) || '').toLowerCase().trim();
+        let id = String((numEl && numEl.value) || '').trim().replace(/\s+/g, '');
+        const saveHint = document.getElementById('notify-save-hint');
+        if (!agency || !id) {
+          if (saveHint) saveHint.textContent = 'Pick a railroad and enter a locomotive number.';
+          return;
+        }
+        if (!/^[a-z0-9._-]{1,16}$/i.test(id)) {
+          if (saveHint) saveHint.textContent = 'Use letters, numbers, dots, underscores, or hyphens (max 16).';
+          return;
+        }
+        const key = rrNotifyTrainKey(agency, id).toLowerCase();
+        const trains = rrNotifyNormList(rrNotifyDraftTrains);
+        if (trains.indexOf(key) === -1) trains.push(key);
+        rrNotifyDraftTrains = trains;
+        if (numEl) numEl.value = '';
         rrRenderNotifyTrainChips();
-        if (p.enabled) rrSubscribePush();
+        rrNotifyMarkDirty();
       }
       function rrIsIosDevice() {
         const ua = navigator.userAgent || '';
@@ -12091,31 +12250,20 @@
         const en = document.getElementById('notify-enable');
         const a = document.getElementById('notify-special-active');
         const r = document.getElementById('notify-special-report');
-        if (en) en.addEventListener('change', function() { rrSetNotifyEnabled(!!en.checked); });
-        function saveToggles() {
-          const p = rrLoadNotifyPrefs();
-          p.specialActive = !a || !!a.checked;
-          p.specialReport = !r || !!r.checked;
-          rrSaveNotifyPrefs(p);
-          if (p.enabled) rrSubscribePush();
-        }
-        if (a) a.addEventListener('change', saveToggles);
-        if (r) r.addEventListener('change', saveToggles);
+        if (en) en.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        if (a) a.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        if (r) r.addEventListener('change', function() { rrNotifyMarkDirty(); });
         const railRoot = document.getElementById('notify-railroads');
-        if (railRoot) railRoot.addEventListener('change', rrSaveNotifyFilters);
-        const trainSel = document.getElementById('notify-train-select');
-        if (trainSel) {
-          trainSel.addEventListener('change', function() {
-            const key = String(trainSel.value || '').trim().toLowerCase();
-            if (!key) return;
-            const p = rrLoadNotifyPrefs();
-            const trains = rrNotifyNormList(p.trains);
-            if (trains.indexOf(key) === -1) trains.push(key);
-            p.trains = trains;
-            rrSaveNotifyPrefs(p);
-            rrFillNotifyTrainSelect();
-            rrRenderNotifyTrainChips();
-            if (p.enabled) rrSubscribePush();
+        if (railRoot) railRoot.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        const addBtn = document.getElementById('notify-loco-add');
+        if (addBtn) addBtn.addEventListener('click', function() { rrNotifyAddLoco(); });
+        const numEl = document.getElementById('notify-loco-number');
+        if (numEl) {
+          numEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              rrNotifyAddLoco();
+            }
           });
         }
         const chips = document.getElementById('notify-train-chips');
@@ -12124,12 +12272,53 @@
             const btn = e.target.closest('[data-notify-train-remove]');
             if (!btn) return;
             const key = String(btn.getAttribute('data-notify-train-remove') || '').toLowerCase();
-            const p = rrLoadNotifyPrefs();
-            p.trains = rrNotifyNormList(p.trains).filter(function(k) { return k !== key; });
-            rrSaveNotifyPrefs(p);
-            rrFillNotifyTrainSelect();
+            rrNotifyDraftTrains = rrNotifyNormList(rrNotifyDraftTrains).filter(function(k) { return k !== key; });
             rrRenderNotifyTrainChips();
-            if (p.enabled) rrSubscribePush();
+            rrNotifyMarkDirty();
+          });
+        }
+        const saveBtn = document.getElementById('notify-save');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', function() {
+            rrNotifyPendingPrefs = rrNotifyReadForm();
+            const confirmBtn = document.getElementById('notify-confirm');
+            if (confirmBtn) confirmBtn.disabled = false;
+            const hint = document.getElementById('notify-save-hint');
+            if (hint) hint.textContent = 'Confirm these notification settings?';
+          });
+        }
+        const confirmBtn = document.getElementById('notify-confirm');
+        if (confirmBtn) {
+          confirmBtn.addEventListener('click', async function() {
+            const hint = document.getElementById('notify-save-hint');
+            if (!rrNotifyPendingPrefs) {
+              if (hint) hint.textContent = 'Tap Save first, then Confirm.';
+              return;
+            }
+            const pending = rrNotifyPendingPrefs;
+            const prev = rrLoadNotifyPrefs();
+            const wasEnabled = !!prev.enabled;
+            rrSaveNotifyPrefs(pending);
+            try {
+              if (pending.enabled) {
+                await rrSetNotifyEnabled(true);
+              } else if (wasEnabled) {
+                await rrSetNotifyEnabled(false);
+              } else {
+                rrSyncNotifyCheckboxes();
+              }
+            } catch (_) {
+              rrSyncNotifyCheckboxes();
+            }
+            rrNotifyPendingPrefs = null;
+            const cbtn = document.getElementById('notify-confirm');
+            if (cbtn) cbtn.disabled = true;
+            const h = document.getElementById('notify-save-hint');
+            if (h) h.textContent = 'Saved.';
+            try {
+              if (typeof logUserAction === 'function') logUserAction('save settings', 'notifications');
+              else if (typeof window.logUserAction === 'function') window.logUserAction('save settings', 'notifications');
+            } catch (_) {}
           });
         }
         if (rrLoadNotifyPrefs().enabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
