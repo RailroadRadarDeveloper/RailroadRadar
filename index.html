@@ -790,10 +790,15 @@
       border: none;
       border-radius: 0;
       max-height: none;
-      max-width: none;
-      min-width: 0;
-      width: 100%;
+      max-width: none !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      box-sizing: border-box;
       background: transparent;
+    }
+    html.rr-train-page,
+    html.rr-train-page body {
+      overflow-x: hidden;
     }
     html.rr-train-page #rr-train-page-card .train-popup-footer {
       display: none;
