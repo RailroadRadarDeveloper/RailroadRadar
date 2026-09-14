@@ -2024,13 +2024,45 @@
      margin: 10px 0 4px;
    }
    .rr-modal-body select,
-   .rr-modal-body input[type="text"] {
+   .rr-modal-body input[type="text"],
+   .rr-modal-body input[type="date"] {
      width: 100%;
      box-sizing: border-box;
      padding: 10px;
      border: 1px solid #c5cad3;
      font-size: 14px;
      font-family: inherit;
+     min-height: 44px;
+   }
+   #report-train-pick-row {
+     display: flex;
+     gap: 8px;
+     align-items: flex-end;
+     margin-top: 0;
+   }
+   #report-train-select-wrap {
+     flex: 1;
+     min-width: 0;
+   }
+   #report-train-extra-btn {
+     flex-shrink: 0;
+     min-height: 44px;
+     padding: 8px 12px;
+     border: 1px solid #07093e;
+     background: #fff;
+     color: #07093e;
+     font-size: 13px;
+     font-family: inherit;
+     font-weight: 600;
+     cursor: pointer;
+     white-space: nowrap;
+   }
+   #report-train-extra-btn.active {
+     background: #07093e;
+     color: #fff;
+   }
+   #report-train-select:disabled {
+     opacity: 0.55;
    }
    .rr-modal-hint {
      font-size: 12px;
@@ -3347,17 +3379,26 @@
           <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
         </select>
-        <div id="report-mbta-vehicle-wrap" style="display:none;">
-          <label for="report-mbta-vehicle-id">Vehicle ID (from MBTA)</label>
-          <input type="text" id="report-mbta-vehicle-id" placeholder="MBTA API vehicle-id" autocomplete="off" required>
-        </div>
-        <div id="report-train-number-wrap">
-          <label for="report-train-number">Trip / train number</label>
-          <input type="text" id="report-train-number" placeholder="e.g. 2150" autocomplete="off">
-        </div>
         <div id="report-service-date-wrap">
           <label for="report-service-date">Service date</label>
           <input type="date" id="report-service-date">
+        </div>
+        <div id="report-train-pick-row">
+          <div id="report-train-select-wrap">
+            <label for="report-train-select">Train</label>
+            <select id="report-train-select">
+              <option value="">Loading trains…</option>
+            </select>
+          </div>
+          <button type="button" id="report-train-extra-btn" aria-pressed="false">Extra / Not listed</button>
+        </div>
+        <div id="report-train-number-wrap" style="display:none;">
+          <label for="report-train-number">Train number</label>
+          <input type="text" id="report-train-number" placeholder="e.g. 2150" autocomplete="off">
+        </div>
+        <div id="report-mbta-vehicle-wrap" style="display:none;">
+          <label for="report-mbta-vehicle-id">Vehicle ID (from MBTA)</label>
+          <input type="text" id="report-mbta-vehicle-id" placeholder="MBTA API vehicle-id" autocomplete="off">
         </div>
         <div id="report-locos-list"></div>
         <button type="button" class="rr-link-btn" id="report-add-loco-btn" style="margin:8px 0 4px; background:none; border:none; color:#07093e; text-decoration:underline; cursor:pointer; padding:0; font-size:13px;">+ Add another locomotive</button>
@@ -3380,6 +3421,7 @@
         <div class="rr-admin-tabs" role="tablist">
           <button type="button" class="rr-admin-tab active" data-board-tab="specials" id="board-tab-specials">Active specials</button>
           <button type="button" class="rr-admin-tab" data-board-tab="reports" id="board-tab-reports">Recent reports</button>
+          <button type="button" class="rr-admin-tab" data-board-tab="upcoming" id="board-tab-upcoming">Upcoming</button>
         </div>
         <div class="rr-admin-pane active" id="board-pane-specials" data-board-pane="specials">
           <div class="rr-board-toolbar">
@@ -3426,6 +3468,27 @@
           </div>
           <div class="rr-board-list" id="board-reports-list"></div>
           <p class="rr-board-empty" id="board-reports-empty" hidden>No reports yet.</p>
+        </div>
+        <div class="rr-admin-pane" id="board-pane-upcoming" data-board-pane="upcoming">
+          <div class="rr-board-toolbar">
+            <select id="board-upcoming-agency" aria-label="Filter railroad">
+              <option value="all">All railroads</option>
+              <option value="mbta">MBTA</option>
+              <option value="amtrak">Amtrak</option>
+              <option value="mnr">Metro-North</option>
+              <option value="lirr">LIRR</option>
+              <option value="metra">Metra</option>
+              <option value="njt">NJ Transit</option>
+              <option value="ctrail">CTrail</option>
+            </select>
+            <select id="board-upcoming-sort" aria-label="Sort upcoming">
+              <option value="date">Sort by date</option>
+              <option value="railroad">Railroad</option>
+              <option value="train">Train number</option>
+            </select>
+          </div>
+          <div class="rr-board-list" id="board-upcoming-list"></div>
+          <p class="rr-board-empty" id="board-upcoming-empty" hidden>No upcoming pairings yet. Report a train with a future service date.</p>
         </div>
       </div>
     </div>
@@ -6413,10 +6476,14 @@
         return rrAssetUrl(fallback);
       }
       let trainReports = [];
+      let allTrainReports = [];
       let trainReportsById = {};
       let activeReportVehicleIds = new Set();
-      let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {} }; // agency -> reports
+      let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {} }; // agency -> reports
       let trainReportsLoadFailed = false;
+      let reportTrainExtraMode = false;
+      let reportTrainSelectToken = 0;
+      let reportTrainPreferNumber = '';
 
       function nyServiceDateToday() {
         try {
@@ -6425,6 +6492,38 @@
           const d = new Date();
           return d.toISOString().slice(0, 10);
         }
+      }
+      function nyServiceDatePlusDays(days) {
+        const today = nyServiceDateToday();
+        try {
+          const parts = today.split('-').map(Number);
+          const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0));
+          dt.setUTCDate(dt.getUTCDate() + (Number(days) || 0));
+          return dt.toISOString().slice(0, 10);
+        } catch (_) {
+          return today;
+        }
+      }
+      function isFutureServiceDate(sd) {
+        const d = String(sd || '').trim();
+        if (!d) return false;
+        return d > nyServiceDateToday();
+      }
+      function reportIsMapActive(rep) {
+        if (!rep) return false;
+        const today = nyServiceDateToday();
+        const sd = String(rep.serviceDate || '').trim();
+        if (sd && sd > today) return false;
+        const agency = normalizeAgency(rep.agency);
+        if (agency === 'mbta') {
+          // Live pairing docs (often undated legacy) + today's dated MBTA reports
+          if (!sd || sd === today) return true;
+          return false;
+        }
+        if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt' || agency === 'ctrail') {
+          return !sd || sd === today;
+        }
+        return !sd || sd === today;
       }
       function normalizeAgency(agency) {
         const a = String(agency || '').toLowerCase().trim();
@@ -6442,7 +6541,7 @@
       function rebuildTrainReportIndexes() {
         trainReportsById = {};
         activeReportVehicleIds = new Set();
-        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {} };
+        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {} };
         const today = nyServiceDateToday();
         (trainReports || []).forEach(function(rep) {
           if (!rep || !rep.id) return;
@@ -6452,10 +6551,10 @@
           if (vid) activeReportVehicleIds.add(vid);
           if (agency === 'mbta') {
             if (vid) activeTrainNumberReports.mbta[vid] = rep;
-          } else if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt') {
+          } else if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt' || agency === 'ctrail') {
             const sd = rep.serviceDate || '';
             const tn = String(rep.trainNumber || '').trim();
-            if (tn && sd === today) {
+            if (tn && (!sd || sd === today)) {
               activeTrainNumberReports[agency][tn] = rep;
               activeTrainNumberReports[agency][tn.replace(/^0+/, '') || tn] = rep;
             }
@@ -6917,11 +7016,11 @@
           const reportVid = a === 'mbta' ? (vid || String(rep.vehicleId || '').trim()) : (first.locomotiveId || String(rep.vehicleId || '').trim());
           await submitTrainReport({
             agency: a,
-            trainNumber: a === 'mbta' ? null : (tn || rep.trainNumber),
+            trainNumber: tn || rep.trainNumber || null,
             vehicleId: reportVid,
             locomotiveId: first.locomotiveId || rep.locomotiveId || reportVid,
             unitName: first.unitName || rep.unitName,
-            serviceDate: a === 'mbta' ? null : (rep.serviceDate || nyServiceDateToday()),
+            serviceDate: rep.serviceDate || nyServiceDateToday(),
             locoType: first.locoType || rep.locoType,
             locoIconUrl: first.locoIconUrl || rep.locoIconUrl,
             specialOverride: !!(first.specialOverride || rep.specialOverride),
@@ -6950,23 +7049,21 @@
         }
         try {
           const snap = await db.collection('trainReports').get();
-          const today = nyServiceDateToday();
           const rows = [];
           snap.forEach(function(doc) {
             const data = doc.data() || {};
-            const agency = normalizeAgency(data.agency);
-            // Keep MBTA always; keep Amtrak/MNR/LIRR only for today (or missing date treated as keep for MVP safety)
-            if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt') {
-              if (data.serviceDate && data.serviceDate !== today) return;
-            }
             rows.push(Object.assign({ id: doc.id }, data));
           });
-          trainReports = rows;
+          allTrainReports = rows;
+          // Map / live pairing index: today (and undated MBTA live docs); future kept only in allTrainReports
+          trainReports = rows.filter(function(rep) { return reportIsMapActive(rep); });
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = false;
           try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
-          console.log('%c[trainReports] Loaded ' + trainReports.length + ' active reports', 'color:#27ae60');
+          try { if (typeof renderUpcomingBoard === 'function') renderUpcomingBoard(); } catch (_) {}
+          console.log('%c[trainReports] Loaded ' + allTrainReports.length + ' total (' + trainReports.length + ' map-active)', 'color:#27ae60');
         } catch (e) {
+          allTrainReports = [];
           trainReports = [];
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = true;
@@ -6975,8 +7072,11 @@
       }
       function trainReportDocId(agency, trainNumber, vehicleId, serviceDate) {
         const a = normalizeAgency(agency);
-        if (a === 'mbta') return 'mbta_' + String(vehicleId).trim();
-        return a + '_' + serviceDate + '_' + String(trainNumber).trim();
+        const today = nyServiceDateToday();
+        const sd = String(serviceDate || today).trim() || today;
+        const future = sd > today;
+        if (a === 'mbta' && !future && vehicleId) return 'mbta_' + String(vehicleId).trim();
+        return a + '_' + sd + '_' + String(trainNumber).trim();
       }
       async function userNeedsReportApproval(uid) {
         if (!db || !uid) return false;
@@ -6998,11 +7098,13 @@
           await loadUserSettings(user.uid);
         }
         const agency = normalizeAgency(payload.agency);
-        const vehicleId = String(payload.vehicleId || '').trim();
-        const trainNumber = payload.trainNumber != null ? String(payload.trainNumber).trim() : null;
-        const serviceDate = (agency === 'mbta') ? null : (payload.serviceDate || nyServiceDateToday());
-        if (!vehicleId) throw new Error('Vehicle ID is required');
-        if (agency !== 'mbta' && !trainNumber) throw new Error('Train number is required');
+        const trainNumber = payload.trainNumber != null ? String(payload.trainNumber).trim() : '';
+        const serviceDate = String(payload.serviceDate || nyServiceDateToday()).trim() || nyServiceDateToday();
+        const future = isFutureServiceDate(serviceDate);
+        let vehicleId = String(payload.vehicleId || '').trim();
+        if (!trainNumber && (future || agency !== 'mbta')) throw new Error('Train number is required');
+        if (!future && agency === 'mbta' && !vehicleId) throw new Error('Vehicle ID is required');
+        if (future && !vehicleId) vehicleId = '';
         const locomotiveId = payload.locomotiveId != null ? String(payload.locomotiveId).trim() : (agency === 'mbta' ? '' : vehicleId);
         const unitName = payload.unitName || (rosterEntry(agency, agency === 'mbta' ? locomotiveId : vehicleId) || {}).name || (agency === 'mbta' ? (locomotiveId || vehicleId) : vehicleId);
         const docId = trainReportDocId(agency, trainNumber, vehicleId, serviceDate);
@@ -7148,8 +7250,8 @@
         const fvDelete = firebase.firestore.FieldValue.delete();
         const data = {
           agency: agency,
-          trainNumber: agency === 'mbta' ? null : trainNumber,
-          vehicleId: vehicleId,
+          trainNumber: trainNumber || null,
+          vehicleId: vehicleId || null,
           unitName: unitName,
           serviceDate: serviceDate,
           reportedByUid: user.uid,
@@ -7442,23 +7544,136 @@
           customLoco: !!customId
         };
       }
+      function setReportTrainExtraMode(on) {
+        reportTrainExtraMode = !!on;
+        const btn = document.getElementById('report-train-extra-btn');
+        const sel = document.getElementById('report-train-select');
+        const tnWrap = document.getElementById('report-train-number-wrap');
+        if (btn) {
+          btn.classList.toggle('active', reportTrainExtraMode);
+          btn.setAttribute('aria-pressed', reportTrainExtraMode ? 'true' : 'false');
+        }
+        if (sel) sel.disabled = reportTrainExtraMode;
+        if (tnWrap) tnWrap.style.display = reportTrainExtraMode ? '' : 'none';
+        if (!reportTrainExtraMode) {
+          const tnEl = document.getElementById('report-train-number');
+          if (tnEl) tnEl.value = '';
+        }
+      }
+      function formatReportTrainOptionLabel(row) {
+        const num = String((row && row.trainNumber) || '').trim();
+        const name = String((row && row.name) || '').trim();
+        const dest = String((row && row.dest) || '').trim();
+        let label = num;
+        if (name && dest) label += ' · ' + name + ' to ' + dest;
+        else if (dest) label += ' · to ' + dest;
+        else if (name) label += ' · ' + name;
+        return label;
+      }
+      async function fetchAgencyScheduleTrains(agency, serviceDate) {
+        const a = normalizeAgency(agency);
+        const url = apiUrl('/api/schedules?agency=' + encodeURIComponent(a) + '&date=' + encodeURIComponent(serviceDate));
+        const res = await fetch(url);
+        if (!res.ok) {
+          let detail = '';
+          try {
+            const j = await res.json();
+            detail = (j && (j.detail || j.error)) ? String(j.detail || j.error) : '';
+          } catch (_) {}
+          throw new Error(detail || ('HTTP ' + res.status));
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        return data.filter(function(r) { return r && r.trainNumber; });
+      }
+      async function populateReportTrainSelect(preferTrainNumber) {
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        const dateEl = document.getElementById('report-service-date');
+        const sel = document.getElementById('report-train-select');
+        if (!sel || !dateEl) return;
+        const today = nyServiceDateToday();
+        let serviceDate = String(dateEl.value || '').trim() || today;
+        if (serviceDate < today) {
+          serviceDate = today;
+          dateEl.value = today;
+        }
+        const max = nyServiceDatePlusDays(14);
+        if (serviceDate > max) {
+          serviceDate = max;
+          dateEl.value = max;
+        }
+        const prefer = String(preferTrainNumber != null ? preferTrainNumber : reportTrainPreferNumber || '').trim();
+        const token = ++reportTrainSelectToken;
+        sel.innerHTML = '<option value="">Loading trains…</option>';
+        sel.disabled = true;
+        try {
+          const rows = await fetchAgencyScheduleTrains(agency, serviceDate);
+          if (token !== reportTrainSelectToken) return;
+          let html = '<option value="">Select a train…</option>';
+          rows.forEach(function(r) {
+            const num = String(r.trainNumber).trim();
+            const label = formatReportTrainOptionLabel(r).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label + '</option>';
+          });
+          if (!rows.length) {
+            html = '<option value="">No scheduled trains for this date</option>';
+          }
+          sel.innerHTML = html;
+          if (prefer) {
+            const opts = Array.prototype.slice.call(sel.options || []);
+            const hit = opts.find(function(o) { return o.value === prefer; });
+            if (hit) sel.value = prefer;
+            else {
+              setReportTrainExtraMode(true);
+              const tnEl = document.getElementById('report-train-number');
+              if (tnEl) tnEl.value = prefer;
+            }
+          }
+        } catch (e) {
+          if (token !== reportTrainSelectToken) return;
+          console.warn('[report] schedule fetch failed', e);
+          sel.innerHTML = '<option value="">Could not load schedule — use Extra / Not listed</option>';
+        } finally {
+          if (token === reportTrainSelectToken) {
+            sel.disabled = reportTrainExtraMode;
+          }
+        }
+      }
       function populateReportUnitSelect() {
         const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
         const isMbta = agency === 'mbta';
         const mbtaVehWrap = document.getElementById('report-mbta-vehicle-wrap');
-        const tnWrap = document.getElementById('report-train-number-wrap');
         const dtWrap = document.getElementById('report-service-date-wrap');
         const hint = document.getElementById('report-train-hint');
-        if (mbtaVehWrap) mbtaVehWrap.style.display = isMbta ? '' : 'none';
-        if (tnWrap) tnWrap.style.display = isMbta ? 'none' : '';
-        if (dtWrap) dtWrap.style.display = isMbta ? 'none' : '';
+        const serviceDateInput = document.getElementById('report-service-date');
+        const today = nyServiceDateToday();
+        if (dtWrap) dtWrap.style.display = '';
+        if (serviceDateInput) {
+          serviceDateInput.min = today;
+          serviceDateInput.max = nyServiceDatePlusDays(14);
+          if (!serviceDateInput.value) serviceDateInput.value = today;
+        }
+        const sd = String((serviceDateInput && serviceDateInput.value) || today).trim() || today;
+        const future = isFutureServiceDate(sd);
+        if (mbtaVehWrap) {
+          mbtaVehWrap.style.display = (isMbta && !future) ? '' : 'none';
+          if (future) {
+            const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
+            if (mbtaVidEl) mbtaVidEl.value = '';
+          }
+        }
         if (hint) {
-          hint.textContent = isMbta
-            ? 'Pairs locomotives to this vehicle ID until reported differently. First locomotive sets the map icon.'
-            : 'These units are linked to that trip on the selected date. First locomotive sets the map icon.';
+          if (future) {
+            hint.textContent = "We'll show this pairing under Specials until that service day. First locomotive sets the icon.";
+          } else if (isMbta) {
+            hint.textContent = 'Pairs locomotives to this vehicle ID until reported differently. First locomotive sets the map icon.';
+          } else {
+            hint.textContent = 'These units are linked to that trip on the selected date. First locomotive sets the map icon.';
+          }
         }
         syncReportLocoSlotsFromDom();
         renderReportLocosList();
+        populateReportTrainSelect(reportTrainPreferNumber);
       }
       window.populateReportUnitSelect = populateReportUnitSelect;
       function openReportTrainModal(opts) {
@@ -7474,17 +7689,24 @@
         if (agencyEl) agencyEl.value = agency;
         const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
         const tnEl = document.getElementById('report-train-number');
+        reportTrainPreferNumber = opts.trainNumber != null ? String(opts.trainNumber).trim() : '';
         if (mbtaVidEl) mbtaVidEl.value = (agency === 'mbta' && opts.vehicleId) ? String(opts.vehicleId).trim() : '';
-        if (tnEl) tnEl.value = (agency !== 'mbta' && opts.trainNumber) ? String(opts.trainNumber).trim() : '';
+        if (tnEl) tnEl.value = '';
+        setReportTrainExtraMode(false);
         const modal = document.getElementById('report-train-modal');
         const err = document.getElementById('report-train-error');
         if (err) { err.textContent = ''; err.classList.remove('visible'); }
         resetReportLocoSlots();
-        populateReportUnitSelect();
         const commentEl = document.getElementById('report-comment');
         if (commentEl) commentEl.value = '';
         const serviceDateInput = document.getElementById('report-service-date');
-        if (serviceDateInput) serviceDateInput.value = nyServiceDateToday();
+        const today = nyServiceDateToday();
+        if (serviceDateInput) {
+          serviceDateInput.min = today;
+          serviceDateInput.max = nyServiceDatePlusDays(14);
+          serviceDateInput.value = today;
+        }
+        populateReportUnitSelect();
         if (modal) {
           modal.classList.add('open');
           modal.setAttribute('aria-hidden', 'false');
@@ -7519,20 +7741,28 @@
           return;
         }
         const agency = normalizeAgency((document.getElementById('report-agency') || {}).value);
-        const trainNumber = ((document.getElementById('report-train-number') || {}).value || '').trim();
-        const serviceDate = ((document.getElementById('report-service-date') || {}).value || '').trim();
+        const serviceDate = ((document.getElementById('report-service-date') || {}).value || '').trim() || nyServiceDateToday();
+        const future = isFutureServiceDate(serviceDate);
+        let trainNumber = '';
+        if (reportTrainExtraMode) {
+          trainNumber = ((document.getElementById('report-train-number') || {}).value || '').trim();
+        } else {
+          trainNumber = ((document.getElementById('report-train-select') || {}).value || '').trim();
+        }
         const mbtaApiVehicleId = ((document.getElementById('report-mbta-vehicle-id') || {}).value || '').trim();
         syncReportLocoSlotsFromDom();
-        let vehicleId;
-        if (agency === 'mbta') {
+        if (!serviceDate) { setErr('Pick a service date.'); return; }
+        if (!trainNumber) {
+          setErr(reportTrainExtraMode ? 'Enter the train number.' : 'Select a train (or Extra / Not listed).');
+          return;
+        }
+        let vehicleId = '';
+        if (agency === 'mbta' && !future) {
           vehicleId = mbtaApiVehicleId;
           if (!vehicleId) {
             setErr('Enter the MBTA Vehicle ID (API vehicle-id).');
             return;
           }
-        } else {
-          if (!trainNumber) { setErr('Enter the train number.'); return; }
-          if (!serviceDate) { setErr('Pick a service date.'); return; }
         }
         const resolved = [];
         for (let i = 0; i < reportLocoSlots.length; i++) {
@@ -7547,19 +7777,19 @@
             : 'Add at least one roster unit or custom vehicle ID.');
           return;
         }
-        if (agency !== 'mbta') {
-          vehicleId = resolved[0].locomotiveId;
+        if (agency !== 'mbta' || future) {
+          vehicleId = vehicleId || resolved[0].locomotiveId || '';
         }
         try {
           const first = resolved[0];
           const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
           const saved = await submitTrainReport({
             agency: agency,
-            trainNumber: agency === 'mbta' ? null : trainNumber,
+            trainNumber: trainNumber,
             vehicleId: vehicleId,
             locomotiveId: first.locomotiveId,
             unitName: first.unitName,
-            serviceDate: agency === 'mbta' ? null : serviceDate,
+            serviceDate: serviceDate,
             locoType: first.locoType,
             locoIconUrl: first.locoIconUrl,
             specialOverride: first.specialOverride,
@@ -7607,7 +7837,22 @@
         if (btnSubmit) btnSubmit.addEventListener('click', handleReportTrainSubmit);
         if (agencySel) agencySel.addEventListener('change', function() {
           reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
+          reportTrainPreferNumber = '';
+          setReportTrainExtraMode(false);
           populateReportUnitSelect();
+        });
+        const dateSel = document.getElementById('report-service-date');
+        if (dateSel) dateSel.addEventListener('change', function() {
+          reportTrainPreferNumber = ((document.getElementById('report-train-select') || {}).value || reportTrainPreferNumber || '').trim();
+          populateReportUnitSelect();
+        });
+        const extraBtn = document.getElementById('report-train-extra-btn');
+        if (extraBtn) extraBtn.addEventListener('click', function() {
+          setReportTrainExtraMode(!reportTrainExtraMode);
+          if (reportTrainExtraMode) {
+            const tnEl = document.getElementById('report-train-number');
+            if (tnEl) tnEl.focus();
+          }
         });
         if (addBtn) addBtn.addEventListener('click', addReportLocoSlot);
         if (list) {
@@ -7694,6 +7939,7 @@
         const rows = [];
         (typeof trainReports !== 'undefined' ? trainReports : []).forEach(function(rep) {
           if (!rep) return;
+          if (isFutureServiceDate(rep.serviceDate)) return;
           const agency = normalizeAgency(rep.agency);
           const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
           const use = locos.length ? locos : [{ locomotiveId: rep.locomotiveId, unitName: rep.unitName, specialOverride: !!rep.specialOverride }];
@@ -7715,7 +7961,13 @@
         return rows;
       }
       function collectBoardReports() {
-        return (typeof trainReports !== 'undefined' ? trainReports : []).map(function(rep) {
+        const src = (typeof allTrainReports !== 'undefined' && allTrainReports && allTrainReports.length)
+          ? allTrainReports
+          : (typeof trainReports !== 'undefined' ? trainReports : []);
+        return src.filter(function(rep) {
+          if (!rep) return false;
+          return !isFutureServiceDate(rep.serviceDate);
+        }).map(function(rep) {
           const agency = normalizeAgency(rep.agency);
           const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
           const locoTxt = locos.length
@@ -7730,6 +7982,31 @@
             reporter: String(rep.reportedByLabel || '').trim(),
             comment: String(rep.comment || '').trim(),
             ms: reportTimeMs(rep),
+            serviceDate: String(rep.serviceDate || '').trim(),
+            rep: rep
+          };
+        });
+      }
+      function collectUpcomingPairings() {
+        const src = (typeof allTrainReports !== 'undefined' && allTrainReports) ? allTrainReports : [];
+        return src.filter(function(rep) {
+          return rep && isFutureServiceDate(rep.serviceDate);
+        }).map(function(rep) {
+          const agency = normalizeAgency(rep.agency);
+          const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const locoTxt = locos.length
+            ? locos.map(function(L) { return reportLocoLabel(agency, L, rep); }).join(', ')
+            : reportLocoLabel(agency, null, rep);
+          return {
+            agency: agency,
+            locoId: String((locos[0] && locos[0].locomotiveId) || rep.locomotiveId || '').trim(),
+            locoTxt: locoTxt,
+            trainNumber: String(rep.trainNumber || '').trim(),
+            vehicleId: String(rep.vehicleId || '').trim(),
+            reporter: String(rep.reportedByLabel || '').trim(),
+            comment: String(rep.comment || '').trim(),
+            ms: reportTimeMs(rep),
+            serviceDate: String(rep.serviceDate || '').trim(),
             rep: rep
           };
         });
@@ -7751,6 +8028,10 @@
       }
       function focusReportedTrain(rep) {
         if (!rep) return;
+        if (isFutureServiceDate(rep.serviceDate)) {
+          closeSpecialsBoard();
+          return;
+        }
         closeSpecialsBoard();
         const a = normalizeAgency(rep.agency);
         const vid = String(rep.vehicleId || '').trim();
@@ -7907,8 +8188,76 @@
         list.innerHTML = html;
         bindBoardCards(list, byId);
       }
+      function renderUpcomingBoard() {
+        const agencyF = ((document.getElementById('board-upcoming-agency') || {}).value || 'all');
+        const sort = ((document.getElementById('board-upcoming-sort') || {}).value || 'date');
+        let rows = collectUpcomingPairings();
+        if (agencyF !== 'all') rows = rows.filter(function(r) { return r.agency === agencyF; });
+        rows.sort(function(a, b) {
+          if (sort === 'railroad') {
+            const c = String(a.agency).localeCompare(String(b.agency));
+            if (c) return c;
+            const d = String(a.serviceDate).localeCompare(String(b.serviceDate));
+            if (d) return d;
+            return String(a.trainNumber).localeCompare(String(b.trainNumber), undefined, { numeric: true });
+          }
+          if (sort === 'train') {
+            const c = String(a.trainNumber).localeCompare(String(b.trainNumber), undefined, { numeric: true });
+            if (c) return c;
+            return String(a.serviceDate).localeCompare(String(b.serviceDate));
+          }
+          const d = String(a.serviceDate).localeCompare(String(b.serviceDate));
+          if (d) return d;
+          const c = String(a.agency).localeCompare(String(b.agency));
+          if (c) return c;
+          return String(a.trainNumber).localeCompare(String(b.trainNumber), undefined, { numeric: true });
+        });
+        const list = document.getElementById('board-upcoming-list');
+        const empty = document.getElementById('board-upcoming-empty');
+        const byId = {};
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '';
+          if (empty) empty.hidden = false;
+          return;
+        }
+        if (empty) empty.hidden = true;
+        let html = '';
+        let lastKey = null;
+        rows.forEach(function(r, i) {
+          const id = (r.rep && r.rep.id) ? (r.rep.id + ':up:' + i) : ('up:' + i);
+          byId[id] = r;
+          if (sort === 'date' && r.serviceDate !== lastKey) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(r.serviceDate) + '</div>';
+            lastKey = r.serviceDate;
+          } else if (sort === 'railroad' && r.agency !== lastKey) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(agencyPrettyName(r.agency)) + '</div>';
+            lastKey = r.agency;
+          }
+          html += boardCardHtml({
+            id: id,
+            agency: r.agency,
+            ms: r.ms,
+            title: r.locoTxt,
+            trainNumber: r.trainNumber,
+            vehicleId: '',
+            reporter: r.reporter,
+            extra: r.serviceDate ? ('Service ' + r.serviceDate) : '',
+            note: r.comment
+          });
+        });
+        list.innerHTML = html;
+        list.querySelectorAll('.rr-board-card').forEach(function(el) {
+          el.addEventListener('click', function() {
+            const id = el.getAttribute('data-rep-id');
+            const row = byId[id];
+            if (row && row.rep) focusReportedTrain(row.rep);
+            else closeSpecialsBoard();
+          });
+        });
+      }
       function setBoardTab(tab) {
-        const t = tab === 'reports' ? 'reports' : 'specials';
+        const t = (tab === 'reports' || tab === 'upcoming') ? tab : 'specials';
         document.querySelectorAll('[data-board-tab]').forEach(function(btn) {
           btn.classList.toggle('active', btn.getAttribute('data-board-tab') === t);
         });
@@ -7916,11 +8265,13 @@
           pane.classList.toggle('active', pane.getAttribute('data-board-pane') === t);
         });
         if (t === 'reports') renderReportsBoard();
+        else if (t === 'upcoming') renderUpcomingBoard();
         else renderSpecialsBoard();
       }
       function openSpecialsBoard() {
         renderSpecialsBoard();
         renderReportsBoard();
+        renderUpcomingBoard();
         const modal = document.getElementById('specials-board-modal');
         if (modal) {
           modal.classList.add('open');
@@ -7959,6 +8310,10 @@
         ['board-reports-agency', 'board-reports-sort'].forEach(function(id) {
           const el = document.getElementById(id);
           if (el) el.addEventListener('change', renderReportsBoard);
+        });
+        ['board-upcoming-agency', 'board-upcoming-sort'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', renderUpcomingBoard);
         });
         const search = document.getElementById('board-reports-search');
         if (search) search.addEventListener('input', renderReportsBoard);
