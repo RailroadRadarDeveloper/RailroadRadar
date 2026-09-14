@@ -810,28 +810,35 @@
       color: #fff;
     }
     html.rr-train-page .header {
-      height: 76px;
+      height: 70px;
     }
     html.rr-train-page .header-logo {
-      height: 56px;
+      height: 52px;
     }
     html.rr-train-page #rr-train-page {
-      margin-top: 76px;
+      margin-top: 70px;
     }
     html.rr-train-page #rr-train-page-card .train-popup-header {
       background: #07093e;
-      padding: 18px 16px 16px;
+      padding: 14px 16px 12px;
     }
-    html.rr-train-page #rr-train-page-card .train-popup-header,
-    html.rr-train-page #rr-train-page-card .train-popup-header > div,
+    html.rr-train-page #rr-train-page-card .train-popup-header > div {
+      flex-wrap: nowrap !important;
+      white-space: nowrap;
+      overflow: hidden;
+      font-size: clamp(15px, 3.5vw, 19px) !important;
+      line-height: 1.25 !important;
+    }
     html.rr-train-page #rr-train-page-card .train-popup-header span,
     html.rr-train-page #rr-train-page-card .dest-title {
-      font-size: 28px !important;
-      line-height: 1.2 !important;
+      font-size: inherit !important;
+      line-height: 1.25 !important;
+      white-space: nowrap;
     }
     html.rr-train-page #rr-train-page-card .cape-badge {
-      font-size: 14px !important;
-      padding: 5px 10px;
+      font-size: 11px !important;
+      padding: 3px 8px;
+      flex-shrink: 0;
     }
     html.rr-train-page #rr-train-page-card .special-unit-badge {
       display: none;
