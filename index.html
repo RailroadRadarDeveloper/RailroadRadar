@@ -3627,7 +3627,7 @@
   <div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
     <p>We use Microsoft Clarity analytics cookies to improve RailroadRadar. Sign-in uses essential cookies.</p>
     <div class="rr-cookie-actions">
-      <button type="button" id="rr-cookie-decline">No (Review cookies)</button>
+      <button type="button" id="rr-cookie-decline">Customize</button>
       <button type="button" id="rr-cookie-accept">I'm OK with that</button>
     </div>
   </div>
@@ -3652,8 +3652,6 @@
         if (typeof window.__rrLoadClarity === 'function') window.__rrLoadClarity();
       });
       if (decline) decline.addEventListener('click', function () {
-        try { localStorage.setItem(KEY, 'declined'); } catch (_) {}
-        bar.hidden = true;
         try { window.open('https://www.railroadradar.com/policies/privacy', '_blank', 'noopener'); } catch (_) {}
       });
     })();
