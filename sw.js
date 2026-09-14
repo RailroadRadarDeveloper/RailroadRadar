@@ -16,8 +16,8 @@ self.addEventListener('push', function (event) {
   var title = data.title || 'RailroadRadar';
   var opts = {
     body: data.body || 'A special unit just updated',
-    icon: data.icon || 'https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png',
-    badge: data.badge || 'https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png',
+    icon: data.icon || '/assets/icons/icon-192.png',
+    badge: data.badge || '/assets/icons/icon-192.png',
     tag: data.tag || ('rr-' + Date.now()),
     renotify: true,
     data: { url: data.url || '/' },
@@ -45,8 +45,8 @@ self.addEventListener('message', function (event) {
   if (msg.type !== 'rr-notify' || !msg.title) return;
   event.waitUntil(self.registration.showNotification(msg.title, {
     body: msg.body || '',
-    icon: 'https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png',
-    badge: 'https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png',
+    icon: '/assets/icons/icon-192.png',
+    badge: '/assets/icons/icon-192.png',
     tag: msg.tag || ('rr-' + Date.now()),
     renotify: true,
     data: { url: msg.url || '/' }

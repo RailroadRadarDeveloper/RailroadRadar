@@ -1,6 +1,6 @@
 {
   "name": "RailroadRadar",
-  "short_name": "RR Radar",
+  "short_name": "RailroadRadar",
   "description": "Live train map and special unit reports",
   "start_url": "/",
   "scope": "/",
@@ -9,16 +9,22 @@
   "theme_color": "#07093e",
   "icons": [
     {
-      "src": "https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png",
+      "src": "/assets/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png",
+      "src": "/assets/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
