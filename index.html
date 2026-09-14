@@ -817,6 +817,7 @@
     }
     html.rr-train-page #rr-train-page {
       margin-top: 66px;
+      min-height: calc(100vh - 66px);
     }
     html.rr-train-page #rr-train-page-card .train-popup-header {
       background: #07093e;
@@ -941,9 +942,17 @@
       background: #0b0d1a;
     }
     html.rr-train-page #rr-train-page-map-slot {
+      display: none;
+    }
+    html.rr-train-page #rr-train-page-map-slot:has(#map) {
       display: block;
     }
+    /* Hide full-viewport map until it lives inside the mini-map slot */
     html.rr-train-page #map {
+      display: none !important;
+    }
+    html.rr-train-page #rr-train-page-map-slot > #map {
+      display: block !important;
       position: absolute;
       top: 0;
       left: 0;
@@ -952,6 +961,14 @@
       width: 100%;
       height: 100%;
       z-index: 1;
+    }
+    html.rr-train-page #rr-train-page-card .rr-train-page-empty {
+      padding: 28px 16px 8px;
+      text-align: left;
+      color: #c5c9d8;
+      font-size: 15px;
+      line-height: 1.45;
+      max-width: 36em;
     }
     .stops-loading {
       text-align: center;
@@ -12695,10 +12712,17 @@
         page.hidden = false;
         const row = rrFindSharedTrain(rrTrainPageSpec);
         if (!row) {
+          document.documentElement.classList.add('rr-train-page-waiting');
           if (status) status.textContent = 'Looking for that train…';
-          card.innerHTML = '<p class="rr-modal-hint">Waiting for live data. If this train is not running, Open full map to browse all trains.</p>';
+          if (mapEl && slot && mapEl.parentNode === slot) {
+            const pageEl = document.getElementById('rr-train-page');
+            if (pageEl && pageEl.parentNode) pageEl.parentNode.insertBefore(mapEl, pageEl);
+            else document.body.insertBefore(mapEl, pageEl || null);
+          }
+          card.innerHTML = '<p class="rr-modal-hint rr-train-page-empty">Looking for that train… If it is not running right now, open the full map to browse live trains.</p>';
           return false;
         }
+        document.documentElement.classList.remove('rr-train-page-waiting');
         if (status) {
           status.textContent = (row.agency || '') + ' ' + (row.trainNum || '') + (row.dest ? (' to ' + row.dest) : '');
         }
@@ -12760,7 +12784,9 @@
           }
           if (tries >= 25) {
             const status = document.getElementById('rr-train-page-status');
+            const card = document.getElementById('rr-train-page-card');
             if (status) status.textContent = 'That train is not live right now';
+            if (card) card.innerHTML = '<p class="rr-modal-hint rr-train-page-empty">That train is not live right now. Open the full map to browse other trains.</p>';
             showNotification('That train is not live right now', 'error');
             return;
           }
