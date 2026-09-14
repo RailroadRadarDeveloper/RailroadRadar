@@ -6,6 +6,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Track MBTA Commuter Rail trains in real time. Interactive map with live positions, delays, station departures, service alerts, and trip history.">
+  <meta name="theme-color" content="#07093e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="RailroadRadar">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" href="https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png">
   <link rel="apple-touch-icon" href="https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -2552,6 +2558,14 @@
           <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
         </div>
       </div>
+      <div class="toggle-section" id="settings-notifications-section">
+        <h3>Notifications</h3>
+        <p class="rr-modal-hint" style="margin-top:0;">Add RailroadRadar to your Home Screen, then turn these on. You’ll get an alert when a special goes live or someone reports one.</p>
+        <p class="rr-modal-hint" id="notify-status"></p>
+        <div><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable notifications</label></div>
+        <div><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">Special unit becomes active</label></div>
+        <div><input type="checkbox" id="notify-special-report" checked><label for="notify-special-report">New report on a special</label></div>
+      </div>
       <div class="toggle-section">
         <h3>Markers</h3>
         <div class="station-toggle">
@@ -3389,6 +3403,7 @@
     let rrLiveTrainReports = [];
     function onTrainReportsUpdated(rows) {
       rrLiveTrainReports = Array.isArray(rows) ? rows : [];
+      try { if (typeof window.rrCheckSpecialNotifications === 'function') window.rrCheckSpecialNotifications(); } catch (_) {}
     }
     function reportLocoIdsFromRow(r) {
       const ids = [];
@@ -11227,6 +11242,252 @@
         } catch (_) {}
         return res;
       }
+
+      const RR_NOTIFY_PREFS_KEY = 'rr_notify_prefs';
+      const RR_NOTIFY_SEEN_KEY = 'rr_notify_seen';
+      function rrNotifyDefaultPrefs() {
+        return { enabled: false, specialActive: true, specialReport: true };
+      }
+      function rrLoadNotifyPrefs() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(RR_NOTIFY_PREFS_KEY) || '{}');
+          return Object.assign(rrNotifyDefaultPrefs(), raw);
+        } catch (_) { return rrNotifyDefaultPrefs(); }
+      }
+      function rrSaveNotifyPrefs(p) {
+        try { localStorage.setItem(RR_NOTIFY_PREFS_KEY, JSON.stringify(p)); } catch (_) {}
+      }
+      function rrNotifyShouldBackgroundPoll() {
+        const p = rrLoadNotifyPrefs();
+        return !!(p.enabled && (p.specialActive || p.specialReport) && typeof Notification !== 'undefined' && Notification.permission === 'granted');
+      }
+      window.rrNotifyShouldBackgroundPoll = rrNotifyShouldBackgroundPoll;
+      function rrLoadSeenNotify() {
+        try {
+          const arr = JSON.parse(localStorage.getItem(RR_NOTIFY_SEEN_KEY) || '[]');
+          const o = {};
+          (Array.isArray(arr) ? arr : []).forEach(function(k) { o[k] = 1; });
+          return o;
+        } catch (_) { return {}; }
+      }
+      function rrSaveSeenNotify(o) {
+        const keys = Object.keys(o);
+        if (keys.length > 400) keys.splice(0, keys.length - 400);
+        try { localStorage.setItem(RR_NOTIFY_SEEN_KEY, JSON.stringify(keys)); } catch (_) {}
+      }
+      function rrCollectSpecialActiveEvents() {
+        const events = {};
+        try {
+          const rows = collectLiveTrainRows();
+          rows.forEach(function(r) {
+            const agency = normalizeAgency(r.agency);
+            const spec = (typeof getSpecialForVehicle === 'function')
+              ? getSpecialForVehicle(agency, r.id, r.trainNum)
+              : null;
+            if (!spec) return;
+            const loco = spec.vehicleId || spec.locomotiveId || '';
+            const name = spec.unitName || loco || 'Special unit';
+            const k = 'live|' + agency + '|' + loco + '|' + String(r.trainNum || r.id || '');
+            const train = r.trainNum ? (' train ' + r.trainNum) : '';
+            const dest = r.dest && r.dest !== '—' ? (' to ' + r.dest) : '';
+            events[k] = {
+              type: 'active',
+              title: name + ' is live',
+              body: (agencyPrettyName(agency) + train + dest).trim(),
+              tag: k
+            };
+          });
+        } catch (_) {}
+        return events;
+      }
+      function rrCollectSpecialReportEvents() {
+        const events = {};
+        try {
+          const rows = (typeof collectActiveSpecials === 'function') ? collectActiveSpecials() : [];
+          rows.forEach(function(r) {
+            const id = (r.rep && r.rep.id) ? r.rep.id : (r.agency + '|' + r.locoId + '|' + r.trainNumber + '|' + (r.ms || 0));
+            const k = 'rep|' + id + '|' + String(r.locoId || '');
+            const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
+            const who = r.reporter ? (' · ' + r.reporter) : '';
+            events[k] = {
+              type: 'report',
+              title: 'New report: ' + (r.title || r.locoId || 'special'),
+              body: (agencyPrettyName(r.agency) + train + who).trim(),
+              tag: k
+            };
+          });
+        } catch (_) {}
+        return events;
+      }
+      async function rrShowSpecialNotification(evt) {
+        const payload = { type: 'rr-notify', title: evt.title, body: evt.body, tag: evt.tag, url: '/' };
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg && reg.active) {
+            reg.active.postMessage(payload);
+            return;
+          }
+          if (reg && reg.showNotification) {
+            await reg.showNotification(evt.title, { body: evt.body, tag: evt.tag, icon: 'https://i.postimg.cc/dVJP13MZ/Railroad-Radar.png' });
+            return;
+          }
+        } catch (_) {}
+        try {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification(evt.title, { body: evt.body, tag: evt.tag });
+          }
+        } catch (_) {}
+      }
+      let rrNotifySeeded = false;
+      async function rrCheckSpecialNotifications() {
+        const prefs = rrLoadNotifyPrefs();
+        if (!prefs.enabled) return;
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        const seen = rrLoadSeenNotify();
+        const events = {};
+        if (prefs.specialActive) Object.assign(events, rrCollectSpecialActiveEvents());
+        if (prefs.specialReport) Object.assign(events, rrCollectSpecialReportEvents());
+        const keys = Object.keys(events);
+        if (!rrNotifySeeded && !Object.keys(seen).length) {
+          keys.forEach(function(k) { seen[k] = 1; });
+          rrSaveSeenNotify(seen);
+          rrNotifySeeded = true;
+          return;
+        }
+        rrNotifySeeded = true;
+        const fresh = keys.filter(function(k) { return !seen[k]; });
+        fresh.forEach(function(k) { seen[k] = 1; });
+        if (fresh.length) rrSaveSeenNotify(seen);
+        for (let i = 0; i < fresh.length && i < 6; i++) {
+          await rrShowSpecialNotification(events[fresh[i]]);
+        }
+      }
+      window.rrCheckSpecialNotifications = rrCheckSpecialNotifications;
+
+      function rrNotifyStatus(msg) {
+        const el = document.getElementById('notify-status');
+        if (el) el.textContent = msg || '';
+      }
+      function rrSyncNotifyCheckboxes() {
+        const p = rrLoadNotifyPrefs();
+        const en = document.getElementById('notify-enable');
+        const a = document.getElementById('notify-special-active');
+        const r = document.getElementById('notify-special-report');
+        if (en) en.checked = !!p.enabled;
+        if (a) a.checked = p.specialActive !== false;
+        if (r) r.checked = p.specialReport !== false;
+        if (typeof Notification === 'undefined') {
+          rrNotifyStatus('Notifications are not available in this browser.');
+        } else if (p.enabled && Notification.permission === 'denied') {
+          rrNotifyStatus('Notifications are blocked. Enable them in the system settings for RailroadRadar.');
+        } else if (p.enabled && Notification.permission === 'granted') {
+          rrNotifyStatus('On. Add to Home Screen so alerts still arrive after you leave the map.');
+        } else {
+          rrNotifyStatus('');
+        }
+      }
+      async function rrSubscribePush() {
+        try {
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+          const reg = await navigator.serviceWorker.ready;
+          const vapidRes = await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/vapid');
+          if (!vapidRes.ok) return;
+          const vapid = await vapidRes.json();
+          if (!vapid || !vapid.publicKey) return;
+          const raw = vapid.publicKey;
+          const pad = '='.repeat((4 - (raw.length % 4)) % 4);
+          const bin = atob((raw + pad).replace(/-/g, '+').replace(/_/g, '/'));
+          const key = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) key[i] = bin.charCodeAt(i);
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+          }
+          const prefs = rrLoadNotifyPrefs();
+          await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: sub.toJSON(),
+              prefs: { specialActive: prefs.specialActive !== false, specialReport: prefs.specialReport !== false }
+            })
+          });
+        } catch (e) {
+          console.warn('[notify] push subscribe failed', e);
+        }
+      }
+      async function rrUnsubscribePush() {
+        try {
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (!sub) return;
+          try {
+            await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/unsubscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: sub.endpoint })
+            });
+          } catch (_) {}
+          await sub.unsubscribe();
+        } catch (_) {}
+      }
+      async function rrSetNotifyEnabled(on) {
+        const p = rrLoadNotifyPrefs();
+        if (on) {
+          if (typeof Notification === 'undefined') {
+            rrNotifyStatus('Notifications are not available here.');
+            return;
+          }
+          let perm = Notification.permission;
+          if (perm === 'default') perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            p.enabled = false;
+            rrSaveNotifyPrefs(p);
+            rrSyncNotifyCheckboxes();
+            rrNotifyStatus(perm === 'denied'
+              ? 'Notifications are blocked. Enable them in the system settings for RailroadRadar.'
+              : 'Permission was not granted.');
+            return;
+          }
+          p.enabled = true;
+          rrSaveNotifyPrefs(p);
+          try { localStorage.removeItem(RR_NOTIFY_SEEN_KEY); } catch (_) {}
+          rrNotifySeeded = false;
+          await rrSubscribePush();
+          rrSyncNotifyCheckboxes();
+          rrCheckSpecialNotifications();
+        } else {
+          p.enabled = false;
+          rrSaveNotifyPrefs(p);
+          await rrUnsubscribePush();
+          rrSyncNotifyCheckboxes();
+        }
+      }
+      function wireNotifySettings() {
+        rrSyncNotifyCheckboxes();
+        const en = document.getElementById('notify-enable');
+        const a = document.getElementById('notify-special-active');
+        const r = document.getElementById('notify-special-report');
+        if (en) en.addEventListener('change', function() { rrSetNotifyEnabled(!!en.checked); });
+        function saveToggles() {
+          const p = rrLoadNotifyPrefs();
+          p.specialActive = !a || !!a.checked;
+          p.specialReport = !r || !!r.checked;
+          rrSaveNotifyPrefs(p);
+          if (p.enabled) rrSubscribePush();
+        }
+        if (a) a.addEventListener('change', saveToggles);
+        if (r) r.addEventListener('change', saveToggles);
+        if (rrLoadNotifyPrefs().enabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          rrSubscribePush();
+        }
+        setInterval(function() {
+          try { rrCheckSpecialNotifications(); } catch (_) {}
+        }, 20000);
+      }
+      try { wireNotifySettings(); } catch (_) {}
+
       function appendTrainResultCard(r, container, closeEl) {
         const alertIcon = r.hasAlert
           ? ' <img src="https://i.postimg.cc/3xMFGsJX/Alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">'
@@ -12344,7 +12605,8 @@
       })();
       function rrLivePoll(fn, ms) {
         return setInterval(function() {
-          if (typeof document !== 'undefined' && document.hidden) return;
+          const keep = (typeof window.rrNotifyShouldBackgroundPoll === 'function') && window.rrNotifyShouldBackgroundPoll();
+          if (typeof document !== 'undefined' && document.hidden && !keep) return;
           try { fn(); } catch (_) {}
         }, ms);
       }
