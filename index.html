@@ -2581,7 +2581,7 @@
       </div>
       <div class="toggle-section" id="settings-notifications-section">
         <h3>Notifications</h3>
-        <p class="rr-modal-hint" style="margin-top:0;">Add RailroadRadar to your Home Screen, then turn these on. You’ll get an alert when a special goes live or someone reports one.</p>
+        <p class="rr-modal-hint" style="margin-top:0;">On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.</p>
         <p class="rr-modal-hint" id="notify-status"></p>
         <div><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable notifications</label></div>
         <div><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">Special unit becomes active</label></div>
@@ -11859,7 +11859,15 @@
         } else if (p.enabled && Notification.permission === 'denied') {
           rrNotifyStatus('Notifications are blocked. Enable them in the system settings for RailroadRadar.');
         } else if (p.enabled && Notification.permission === 'granted') {
-          rrNotifyStatus('On. Add to Home Screen so alerts still arrive after you leave the map.');
+          if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+            rrNotifyStatus('On iPhone, open the Home Screen app and enable notifications there. Safari will not alert you after you leave.');
+          } else if (rrIsIosDevice()) {
+            rrNotifyStatus('On. Keep alerts allowed in iPhone Settings → RailroadRadar.');
+          } else {
+            rrNotifyStatus('On. Add to Home Screen so alerts still arrive after you leave the map.');
+          }
+        } else if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+          rrNotifyStatus('On iPhone, add to Home Screen, open that icon, then enable notifications.');
         } else {
           rrNotifyStatus('');
         }
@@ -11940,14 +11948,53 @@
         rrRenderNotifyTrainChips();
         if (p.enabled) rrSubscribePush();
       }
+      function rrIsIosDevice() {
+        const ua = navigator.userAgent || '';
+        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      }
+      function rrIsStandalonePwa() {
+        try {
+          if (window.navigator && window.navigator.standalone === true) return true;
+        } catch (_) {}
+        try {
+          if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+          if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+        } catch (_) {}
+        return false;
+      }
+      function rrEnsureServiceWorker() {
+        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('Service workers are not available'));
+        return navigator.serviceWorker.register('/sw.js').then(function () {
+          return navigator.serviceWorker.ready;
+        });
+      }
       async function rrSubscribePush() {
         try {
-          if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-          const reg = await navigator.serviceWorker.ready;
+          if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+            rrNotifyStatus('On iPhone, add RailroadRadar to your Home Screen, open it from that icon, then enable notifications there.');
+            return false;
+          }
+          if (!('serviceWorker' in navigator)) {
+            rrNotifyStatus('Notifications are not available in this browser.');
+            return false;
+          }
+          if (!('PushManager' in window) || !('Notification' in window)) {
+            rrNotifyStatus(rrIsIosDevice()
+              ? 'Apple Web Push needs iOS 16.4 or later, and the Home Screen app.'
+              : 'Push is not available here.');
+            return false;
+          }
+          const reg = await rrEnsureServiceWorker();
           const vapidRes = await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/vapid');
-          if (!vapidRes.ok) return;
+          if (!vapidRes.ok) {
+            rrNotifyStatus('Could not reach the push service.');
+            return false;
+          }
           const vapid = await vapidRes.json();
-          if (!vapid || !vapid.publicKey) return;
+          if (!vapid || !vapid.publicKey) {
+            rrNotifyStatus('Push is not configured.');
+            return false;
+          }
           const raw = vapid.publicKey;
           const pad = '='.repeat((4 - (raw.length % 4)) % 4);
           const bin = atob((raw + pad).replace(/-/g, '+').replace(/_/g, '/'));
@@ -11958,7 +12005,7 @@
             sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
           }
           const prefs = rrLoadNotifyPrefs();
-          await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/subscribe', {
+          const res = await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -11971,8 +12018,24 @@
               }
             })
           });
+          if (!res.ok) {
+            rrNotifyStatus('Could not save this device for alerts.');
+            return false;
+          }
+          const apple = (sub.endpoint || '').indexOf('web.push.apple.com') !== -1;
+          rrNotifyStatus(apple
+            ? 'On. Keep alerts allowed in iPhone Settings → RailroadRadar. Leave the Home Screen app installed.'
+            : 'On. Add to Home Screen so alerts still arrive after you leave the map.');
+          return true;
         } catch (e) {
           console.warn('[notify] push subscribe failed', e);
+          const msg = (e && e.message) ? String(e.message) : String(e);
+          if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+            rrNotifyStatus('On iPhone, open RailroadRadar from the Home Screen icon, then enable notifications.');
+          } else {
+            rrNotifyStatus('Could not enable alerts' + (msg ? (': ' + msg) : '.'));
+          }
+          return false;
         }
       }
       async function rrUnsubscribePush() {
@@ -12013,9 +12076,9 @@
           rrSaveNotifyPrefs(p);
           try { localStorage.removeItem(RR_NOTIFY_SEEN_KEY); } catch (_) {}
           rrNotifySeeded = false;
-          await rrSubscribePush();
+          const ok = await rrSubscribePush();
           rrSyncNotifyCheckboxes();
-          rrCheckSpecialNotifications();
+          if (ok !== false) rrCheckSpecialNotifications();
         } else {
           p.enabled = false;
           rrSaveNotifyPrefs(p);
@@ -13606,7 +13669,9 @@
   <script>
     try {
       if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {
-        window.navigator.serviceWorker.register('/sw.js').catch(function () {});
+        window.navigator.serviceWorker.register('/sw.js').then(function () {
+          return navigator.serviceWorker.ready;
+        }).catch(function () {});
       }
     } catch (e) {
       // Service workers unavailable (sandboxed iframe, private mode, etc.)
