@@ -3632,6 +3632,7 @@
                   <th>UID</th>
                   <th>Created</th>
                   <th>Last login</th>
+                  <th>Terms / Privacy</th>
                   <th>Interested railroads</th>
                   <th>Badges</th>
                   <th></th>
@@ -4217,6 +4218,11 @@
           photoURL: photoURL,
           lastLoginAt: ts
         };
+        if (currentUserSettings && currentUserSettings.legalAccepted) {
+          payload.legalAccepted = true;
+          if (currentUserSettings.legalAcceptedAt) payload.legalAcceptedAt = currentUserSettings.legalAcceptedAt;
+          if (currentUserSettings.legalVersion) payload.legalVersion = currentUserSettings.legalVersion;
+        }
         let exists = false;
         try {
           const snap = await ref.get();
@@ -4304,7 +4310,7 @@
       return firstInitialLabel(displayName, email);
     }
     async function loadUserSettings(uid) {
-      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null };
       currentUserSettings = Object.assign({}, defaults);
       if (!db || !uid) return currentUserSettings;
       try {
@@ -4321,6 +4327,7 @@
             interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads),
             reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null,
             legalAccepted: d.legalAccepted === true,
+            legalAcceptedAt: d.legalAcceptedAt ? String(d.legalAcceptedAt) : null,
             legalVersion: d.legalVersion ? String(d.legalVersion) : null
           };
         }
@@ -5774,10 +5781,31 @@
         } catch (admErr) {
           console.warn('[admin] accounts admin cache failed', admErr);
         }
+        const legalByUid = {};
+        try {
+          const settingsSnap = await db.collection('userSettings').get();
+          settingsSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            legalByUid[String(doc.id)] = {
+              legalAccepted: d.legalAccepted === true,
+              legalAcceptedAt: d.legalAcceptedAt || null,
+              legalVersion: d.legalVersion || null
+            };
+          });
+        } catch (setErr) {
+          console.warn('[admin] userSettings legal load failed', setErr);
+        }
         const snap = await db.collection('accounts').get();
         const rows = [];
         snap.forEach(function(doc) {
-          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          const d = doc.data() || {};
+          const uid = String(d.uid || doc.id || '');
+          const legal = legalByUid[uid] || legalByUid[String(doc.id)] || {};
+          rows.push(Object.assign({ id: doc.id }, d, {
+            legalAccepted: d.legalAccepted === true || legal.legalAccepted === true,
+            legalAcceptedAt: d.legalAcceptedAt || legal.legalAcceptedAt || null,
+            legalVersion: d.legalVersion || legal.legalVersion || null
+          }));
         });
         const deduped = dedupeAdminAccountRows(rows);
         adminAccountsCache = deduped.kept;
@@ -5798,6 +5826,16 @@
         setAdminError((e && e.message) || String(e));
       }
     }
+    function formatAdminLegalCell(a) {
+      if (a && a.legalAccepted) {
+        const when = a.legalAcceptedAt ? formatAdminWhen(a.legalAcceptedAt) : '';
+        const ver = a.legalVersion ? String(a.legalVersion) : RR_LEGAL_VERSION;
+        const extra = when && when !== '—' ? when : (ver ? ('v ' + ver) : '');
+        return '<span class="rr-badge verified" title="Agreed to Terms of Use and Privacy Policy' + (ver ? (' (' + escapeHtmlLite(ver) + ')') : '') + (when && when !== '—' ? (' on ' + escapeHtmlLite(when)) : '') + '">Accepted</span>' +
+          (extra ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(extra) + '</div>') : '');
+      }
+      return '<span class="rr-badge banned" title="Has not accepted the current Terms of Use and Privacy Policy">Not accepted</span>';
+    }
     function renderAdminAccounts() {
       const tbody = document.getElementById('admin-accounts-tbody');
       if (!tbody) return;
@@ -5805,7 +5843,8 @@
       const canBan = !!(currentAdminPerms && currentAdminPerms.banUsers);
       const filtered = adminAccountsCache.filter(function(a) {
         if (!q) return true;
-        const blob = [a.email, a.displayName, a.uid, a.id, formatInterestRailroads(a.interestedRailroads)]
+        const legalLabel = a.legalAccepted ? 'accepted terms privacy tos yes' : 'not accepted terms privacy tos no pending';
+        const blob = [a.email, a.displayName, a.uid, a.id, formatInterestRailroads(a.interestedRailroads), legalLabel]
           .map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
         return blob.indexOf(q) !== -1;
       });
@@ -5842,6 +5881,7 @@
           '<td><code style="font-size:11px;">' + escapeHtmlLite(uid) + '</code></td>' +
           '<td>' + escapeHtmlLite(formatAdminWhen(a.createdAt)) + '</td>' +
           '<td>' + escapeHtmlLite(formatAdminWhen(a.lastLoginAt)) + '</td>' +
+          '<td>' + formatAdminLegalCell(a) + '</td>' +
           '<td>' + escapeHtmlLite(formatInterestRailroads(a.interestedRailroads)) + '</td>' +
           '<td>' + (badges.join(' ') || '—') + '</td>' +
           '<td style="white-space:nowrap;">' + actions + '</td>' +
@@ -6496,8 +6536,18 @@
           displayName: (u.displayName && String(u.displayName).trim()) || null,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
+        try {
+          await db.collection('accounts').doc(u.uid).set({
+            legalAccepted: true,
+            legalAcceptedAt: acceptedAt,
+            legalVersion: RR_LEGAL_VERSION
+          }, { merge: true });
+        } catch (acctErr) {
+          console.warn('[legal] accounts mirror failed', acctErr);
+        }
         currentUserSettings = currentUserSettings || {};
         currentUserSettings.legalAccepted = true;
+        currentUserSettings.legalAcceptedAt = acceptedAt;
         currentUserSettings.legalVersion = RR_LEGAL_VERSION;
         clearLegalPending();
         try { sessionStorage.setItem('rr_legal_agreed', '1'); } catch (e) {}
@@ -6712,8 +6762,8 @@
               clearTimeout(signupPromptTimer);
               signupPromptTimer = null;
             }
-            await upsertAccountMirror(user);
             await loadUserSettings(user.uid);
+            await upsertAccountMirror(user);
             if (isLegalPending() && !currentUserSettings.legalAccepted) {
               await persistLegalAcceptance(user);
             }
