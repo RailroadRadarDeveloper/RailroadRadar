@@ -3484,7 +3484,7 @@
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-audit" data-admin-pane="audit">
-          <p class="rr-modal-hint" style="margin-top:0;">Actions users take on RailroadRadar — sign-in, reports, settings, and admin decisions.</p>
+          <p class="rr-modal-hint" style="margin-top:0;">Actions users take on RailroadRadar — sign-in, reports, settings, and admin decisions. Stored for 7 days; older entries are deleted at midnight Eastern.</p>
           <div class="rr-admin-toolbar">
             <input type="search" id="admin-audit-search" placeholder="Filter by email, action, detail…" aria-label="Filter audit log" style="flex:1; min-width:180px;">
             <button type="button" class="rr-btn secondary" id="admin-audit-refresh">Refresh</button>
@@ -4250,6 +4250,10 @@
           : null;
       }
       updateAdminChrome(user);
+      if (currentAdminPerms) {
+        scheduleAuditLogMidnightPurge();
+        purgeExpiredAuditLog(false);
+      }
     }
     function updateAdminChrome(user) {
       const admin = !!(user && isAdminUser(user));
@@ -5964,15 +5968,109 @@
       };
       return map[action] || (action || 'Action');
     }
+    const AUDIT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+    const AUDIT_LOG_TZ = 'America/New_York';
+    function auditLogCutoffDate() {
+      return new Date(Date.now() - AUDIT_LOG_RETENTION_MS);
+    }
+    function rrEasternDateKey() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: AUDIT_LOG_TZ,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(new Date());
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return parts[i].value;
+          return '';
+        };
+        return get('year') + '-' + get('month') + '-' + get('day');
+      } catch (e) {
+        return new Date().toISOString().slice(0, 10);
+      }
+    }
+    function rrMsUntilEasternMidnight() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: AUDIT_LOG_TZ,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23'
+        }).formatToParts(new Date());
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return Number(parts[i].value);
+          return 0;
+        };
+        const elapsed = ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000;
+        const dayMs = 24 * 60 * 60 * 1000;
+        const wait = dayMs - elapsed;
+        return wait < 5000 ? wait + dayMs : wait;
+      } catch (e) {
+        return 60 * 60 * 1000;
+      }
+    }
+    async function purgeExpiredAuditLog(force) {
+      if (!db) return { deleted: 0 };
+      const today = rrEasternDateKey();
+      try {
+        if (!force && localStorage.getItem('rr_audit_purged_on') === today) return { deleted: 0, skipped: true };
+      } catch (_) {}
+      const cutoff = auditLogCutoffDate();
+      let deleted = 0;
+      try {
+        for (let i = 0; i < 6; i++) {
+          const snap = await db.collection('actionLog').where('at', '<', cutoff).orderBy('at', 'asc').limit(250).get();
+          if (!snap || snap.empty) break;
+          const batch = db.batch();
+          snap.forEach(function(doc) { batch.delete(doc.ref); });
+          await batch.commit();
+          deleted += snap.size;
+          if (snap.size < 250) break;
+        }
+        try { localStorage.setItem('rr_audit_purged_on', today); } catch (_) {}
+        if (deleted) console.info('[actionLog] purged ' + deleted + ' entries older than 7 days');
+      } catch (err) {
+        console.warn('[actionLog] purge failed', err);
+      }
+      return { deleted: deleted };
+    }
+    function scheduleAuditLogMidnightPurge() {
+      if (window._rrAuditPurgeTimer) clearTimeout(window._rrAuditPurgeTimer);
+      const wait = Math.min(rrMsUntilEasternMidnight(), 2147483647);
+      window._rrAuditPurgeTimer = setTimeout(function() {
+        purgeExpiredAuditLog(true).then(function() {
+          if (typeof loadAdminAuditLog === 'function' && document.getElementById('admin-pane-audit')) {
+            const pane = document.getElementById('admin-pane-audit');
+            if (pane && pane.style.display !== 'none') loadAdminAuditLog();
+          }
+        }).finally(scheduleAuditLogMidnightPurge);
+      }, wait);
+    }
     async function loadAdminAuditLog() {
       const status = document.getElementById('admin-audit-status');
       if (status) status.textContent = 'Loading audit log…';
       if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
       try {
-        const snap = await db.collection('actionLog').orderBy('at', 'desc').limit(200).get();
+        purgeExpiredAuditLog(false);
+        const cutoff = auditLogCutoffDate();
+        let snap;
+        try {
+          snap = await db.collection('actionLog').where('at', '>=', cutoff).orderBy('at', 'desc').limit(500).get();
+        } catch (qErr) {
+          console.warn('[admin] audit 7-day query failed, falling back', qErr);
+          snap = await db.collection('actionLog').orderBy('at', 'desc').limit(500).get();
+        }
         window._adminAuditCache = [];
+        const cutMs = cutoff.getTime();
         snap.forEach(function(doc) {
-          window._adminAuditCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          const row = Object.assign({ id: doc.id }, doc.data() || {});
+          let atMs = 0;
+          if (row.at && typeof row.at.toMillis === 'function') atMs = row.at.toMillis();
+          else if (row.at && row.at.seconds) atMs = row.at.seconds * 1000;
+          else if (row.at) atMs = Date.parse(row.at) || 0;
+          if (!atMs || atMs >= cutMs) window._adminAuditCache.push(row);
         });
         renderAdminAuditLog();
       } catch (e) {
@@ -6001,7 +6099,7 @@
         const who = r.email || r.label || r.uid || 'Unknown';
         return '<tr><td>' + escapeHtmlLite(when) + '</td><td>' + escapeHtmlLite(who) + '</td><td>' + escapeHtmlLite(formatAuditAction(r.action)) + '</td><td>' + escapeHtmlLite(r.detail || '') + '</td></tr>';
       }).join('');
-      if (status) status.textContent = rows.length + ' of ' + (window._adminAuditCache || []).length + ' recent actions';
+      if (status) status.textContent = rows.length + ' of ' + (window._adminAuditCache || []).length + ' actions (kept 7 days; purge at midnight ET)';
     }
     function renderAdminPendingReports() {
       const tbody = document.getElementById('admin-pending-tbody');
@@ -6334,7 +6432,8 @@
           uid: user.uid || null,
           email: (typeof normalizeEmail === 'function' ? normalizeEmail(user.email) : (user.email || null)) || null,
           label: (user.displayName && String(user.displayName).trim()) || null,
-          at: firebase.firestore.FieldValue.serverTimestamp()
+          at: firebase.firestore.FieldValue.serverTimestamp(),
+          expireAt: new Date(Date.now() + AUDIT_LOG_RETENTION_MS)
         };
         return db.collection('actionLog').add(payload).catch(function(err) {
           console.warn('[actionLog] write failed', err);
