@@ -3633,6 +3633,7 @@
                   <th>Created</th>
                   <th>Last login</th>
                   <th>Terms / Privacy</th>
+                  <th>Cookies</th>
                   <th>Interested railroads</th>
                   <th>Badges</th>
                   <th></th>
@@ -3961,11 +3962,23 @@
       }
 
       function saveFromUi(clarity, preferences) {
-        var prefs = { decided: true, clarity: !!clarity, preferences: preferences !== false };
+        var prefs = {
+          decided: true,
+          clarity: !!clarity,
+          preferences: preferences !== false,
+          decidedAt: new Date().toISOString()
+        };
         writePrefs(prefs);
         bar.hidden = true;
         closeModal();
         applyClarity(prefs.clarity);
+        try {
+          if (typeof window.persistCookieConsentToAccount === 'function') {
+            window.persistCookieConsentToAccount(prefs);
+          } else {
+            window.__rrCookiePrefsPending = prefs;
+          }
+        } catch (_) {}
       }
 
       var existing = readPrefs();
@@ -4202,6 +4215,63 @@
       }
     }
 
+    function cookieConsentStatusFromPrefs(prefs) {
+      if (!prefs || !prefs.decided) return null;
+      const clarity = !!prefs.clarity;
+      const preferences = prefs.preferences !== false;
+      if (clarity && preferences) return 'accepted_all';
+      if (!clarity && !preferences) return 'rejected_all';
+      return 'custom';
+    }
+    function readLocalCookiePrefs() {
+      try {
+        const raw = localStorage.getItem('rr_cookie_prefs');
+        if (raw) {
+          const o = JSON.parse(raw);
+          if (o && typeof o === 'object') return o;
+        }
+      } catch (_) {}
+      try {
+        const leg = localStorage.getItem('rr_cookie_consent');
+        if (leg === 'accepted') return { decided: true, clarity: true, preferences: true };
+        if (leg === 'declined') return { decided: true, clarity: false, preferences: true };
+      } catch (_) {}
+      return null;
+    }
+    async function persistCookieConsentToAccount(prefs, user) {
+      const u = user || currentUser || (auth && auth.currentUser);
+      if (!prefs || !prefs.decided) return false;
+      if (!u || !u.uid || !db) {
+        window.__rrCookiePrefsPending = prefs;
+        return false;
+      }
+      const status = cookieConsentStatusFromPrefs(prefs);
+      const decidedAt = prefs.decidedAt || new Date().toISOString();
+      const payload = {
+        cookieConsent: status,
+        cookieClarity: !!prefs.clarity,
+        cookiePreferences: prefs.preferences !== false,
+        cookieDecidedAt: decidedAt
+      };
+      try {
+        await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
+      } catch (err) {
+        console.warn('[cookies] accounts persist failed', err);
+      }
+      try {
+        await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
+      } catch (err) {
+        console.warn('[cookies] userSettings persist failed', err);
+      }
+      currentUserSettings = currentUserSettings || {};
+      currentUserSettings.cookieConsent = status;
+      currentUserSettings.cookieClarity = !!prefs.clarity;
+      currentUserSettings.cookiePreferences = prefs.preferences !== false;
+      currentUserSettings.cookieDecidedAt = decidedAt;
+      window.__rrCookiePrefsPending = null;
+      return true;
+    }
+    window.persistCookieConsentToAccount = persistCookieConsentToAccount;
     async function upsertAccountMirror(user) {
       if (!db || !user || !user.uid) return;
       const uid = String(user.uid);
@@ -4222,6 +4292,12 @@
           payload.legalAccepted = true;
           if (currentUserSettings.legalAcceptedAt) payload.legalAcceptedAt = currentUserSettings.legalAcceptedAt;
           if (currentUserSettings.legalVersion) payload.legalVersion = currentUserSettings.legalVersion;
+        }
+        if (currentUserSettings && currentUserSettings.cookieConsent) {
+          payload.cookieConsent = currentUserSettings.cookieConsent;
+          payload.cookieClarity = !!currentUserSettings.cookieClarity;
+          payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
+          if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
         }
         let exists = false;
         try {
@@ -4314,7 +4390,7 @@
       return firstInitialLabel(displayName, email);
     }
     async function loadUserSettings(uid) {
-      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null };
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null };
       currentUserSettings = Object.assign({}, defaults);
       if (!db || !uid) return currentUserSettings;
       try {
@@ -4332,7 +4408,11 @@
             reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null,
             legalAccepted: d.legalAccepted === true,
             legalAcceptedAt: d.legalAcceptedAt ? String(d.legalAcceptedAt) : null,
-            legalVersion: d.legalVersion ? String(d.legalVersion) : null
+            legalVersion: d.legalVersion ? String(d.legalVersion) : null,
+            cookieConsent: d.cookieConsent ? String(d.cookieConsent) : null,
+            cookieClarity: d.cookieClarity === true,
+            cookiePreferences: d.cookiePreferences !== false,
+            cookieDecidedAt: d.cookieDecidedAt ? String(d.cookieDecidedAt) : null
           };
         }
       } catch (err) {
@@ -5793,7 +5873,11 @@
             legalByUid[String(doc.id)] = {
               legalAccepted: d.legalAccepted === true,
               legalAcceptedAt: d.legalAcceptedAt || null,
-              legalVersion: d.legalVersion || null
+              legalVersion: d.legalVersion || null,
+              cookieConsent: d.cookieConsent || null,
+              cookieClarity: d.cookieClarity === true,
+              cookiePreferences: d.cookiePreferences !== false,
+              cookieDecidedAt: d.cookieDecidedAt || null
             };
           });
         } catch (setErr) {
@@ -5808,7 +5892,11 @@
           rows.push(Object.assign({ id: doc.id }, d, {
             legalAccepted: d.legalAccepted === true || legal.legalAccepted === true,
             legalAcceptedAt: d.legalAcceptedAt || legal.legalAcceptedAt || null,
-            legalVersion: d.legalVersion || legal.legalVersion || null
+            legalVersion: d.legalVersion || legal.legalVersion || null,
+            cookieConsent: d.cookieConsent || legal.cookieConsent || null,
+            cookieClarity: d.cookieClarity === true || legal.cookieClarity === true,
+            cookiePreferences: (d.cookiePreferences !== undefined ? d.cookiePreferences !== false : (legal.cookiePreferences !== false)),
+            cookieDecidedAt: d.cookieDecidedAt || legal.cookieDecidedAt || null
           }));
         });
         const deduped = dedupeAdminAccountRows(rows);
@@ -5830,6 +5918,25 @@
         setAdminError((e && e.message) || String(e));
       }
     }
+    function formatAdminCookieCell(a) {
+      const status = a && a.cookieConsent ? String(a.cookieConsent) : '';
+      const when = a && a.cookieDecidedAt ? formatAdminWhen(a.cookieDecidedAt) : '';
+      const extra = when && when !== '—' ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(when) + '</div>') : '';
+      if (status === 'accepted_all') {
+        return '<span class="rr-badge verified" title="Accepted all cookies (analytics + preferences)">Accepted all</span>' + extra;
+      }
+      if (status === 'rejected_all') {
+        return '<span class="rr-badge banned" title="Rejected all optional cookies">Rejected all</span>' + extra;
+      }
+      if (status === 'custom') {
+        const bits = [];
+        bits.push(a.cookieClarity ? 'Analytics on' : 'Analytics off');
+        bits.push(a.cookiePreferences === false ? 'Prefs off' : 'Prefs on');
+        return '<span class="rr-badge" title="Custom cookie choices">Custom</span>' +
+          '<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(bits.join(' \u00b7 ')) + '</div>' + extra;
+      }
+      return '<span style="opacity:.65;">—</span>';
+    }
     function formatAdminLegalCell(a) {
       if (a && a.legalAccepted) {
         const when = a.legalAcceptedAt ? formatAdminWhen(a.legalAcceptedAt) : '';
@@ -5848,7 +5955,10 @@
       const filtered = adminAccountsCache.filter(function(a) {
         if (!q) return true;
         const legalLabel = a.legalAccepted ? 'accepted terms privacy tos yes' : 'not accepted terms privacy tos no pending';
-        const blob = [a.email, a.displayName, a.uid, a.id, formatInterestRailroads(a.interestedRailroads), legalLabel]
+        const cookieLabel = a.cookieConsent === 'accepted_all' ? 'accepted all cookies analytics'
+          : (a.cookieConsent === 'rejected_all' ? 'rejected all cookies declined'
+          : (a.cookieConsent === 'custom' ? 'custom cookies' : 'cookies unknown undecided'));
+        const blob = [a.email, a.displayName, a.uid, a.id, formatInterestRailroads(a.interestedRailroads), legalLabel, cookieLabel]
           .map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
         return blob.indexOf(q) !== -1;
       });
@@ -5886,6 +5996,7 @@
           '<td>' + escapeHtmlLite(formatAdminWhen(a.createdAt)) + '</td>' +
           '<td>' + escapeHtmlLite(formatAdminWhen(a.lastLoginAt)) + '</td>' +
           '<td>' + formatAdminLegalCell(a) + '</td>' +
+          '<td>' + formatAdminCookieCell(a) + '</td>' +
           '<td>' + escapeHtmlLite(formatInterestRailroads(a.interestedRailroads)) + '</td>' +
           '<td>' + (badges.join(' ') || '—') + '</td>' +
           '<td style="white-space:nowrap;">' + actions + '</td>' +
@@ -6863,6 +6974,10 @@
             }
             await loadUserSettings(user.uid);
             await upsertAccountMirror(user);
+            try {
+              const cookiePrefs = window.__rrCookiePrefsPending || readLocalCookiePrefs();
+              if (cookiePrefs && cookiePrefs.decided) await persistCookieConsentToAccount(cookiePrefs, user);
+            } catch (_) {}
             if (isLegalPending() && !currentUserSettings.legalAccepted) {
               await persistLegalAcceptance(user);
             }
