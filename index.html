@@ -2657,6 +2657,37 @@
       pointer-events: auto;
       z-index: 100080;
     }
+    body.rr-legal-locked #map,
+    body.rr-legal-locked .header,
+    body.rr-legal-locked .control-panel,
+    body.rr-legal-locked .overlay,
+    body.rr-legal-locked .footer,
+    body.rr-legal-locked .leaflet-control-container {
+      pointer-events: none;
+      user-select: none;
+    }
+    body.rr-legal-locked #legal-accept-modal {
+      pointer-events: auto;
+      z-index: 100081;
+    }
+    .rr-legal-agree {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 12px 0 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #2c3340;
+      cursor: pointer;
+    }
+    .rr-legal-agree input {
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .rr-legal-agree a {
+      color: #1a4a8a;
+      text-decoration: underline;
+    }
     #btn-admin-header {
       display: none;
       margin-left: 0;
@@ -3758,6 +3789,11 @@
       <div class="rr-modal-body">
         <p class="signup-prompt-sub"><strong>Sign in with Google to pair locomotives to live trains and share what you see.</strong></p>
         <p class="signup-prompt-note">RailroadRadar is in beta, so you may run into a few bugs while we build a better experience. We collect your email so we can moderate reports and reach you about your account. We will never sell your information.</p>
+        <label class="rr-legal-agree" for="signup-legal-agree">
+          <input type="checkbox" id="signup-legal-agree" />
+          <span>I agree to the <a href="https://www.railroadradar.com/policies/terms-of-use" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="https://www.railroadradar.com/policies/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
+        </label>
+        <div class="rr-modal-error" id="signup-legal-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
           <button type="button" class="rr-btn" id="signup-prompt-signin">Sign up / Log in</button>
         </div>
@@ -3776,6 +3812,27 @@
         <div class="rr-modal-error" id="interest-railroads-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
           <button type="button" class="rr-btn" id="interest-railroads-save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rr-modal-backdrop" id="legal-accept-modal" aria-hidden="true">
+    <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="legal-accept-title">
+      <div class="rr-modal-header">
+        <span id="legal-accept-title">Please agree to continue</span>
+      </div>
+      <div class="rr-modal-body">
+        <p class="signup-prompt-sub"><strong>You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.</strong></p>
+        <p class="signup-prompt-note">Review our <a href="https://www.railroadradar.com/policies/terms-of-use" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="https://www.railroadradar.com/policies/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>, then check the box below to continue.</p>
+        <label class="rr-legal-agree" for="legal-accept-agree">
+          <input type="checkbox" id="legal-accept-agree" />
+          <span>I agree to the <a href="https://www.railroadradar.com/policies/terms-of-use" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="https://www.railroadradar.com/policies/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
+        </label>
+        <div class="rr-modal-error" id="legal-accept-error"></div>
+        <div class="rr-lightbox-actions signup-prompt-actions">
+          <button type="button" class="rr-btn" id="legal-accept-confirm">I agree</button>
+          <button type="button" class="rr-btn secondary" id="legal-accept-signout">Sign out</button>
         </div>
       </div>
     </div>
@@ -4015,7 +4072,8 @@
     let db = null;
 
     let currentUser = null;
-    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null };
+    const RR_LEGAL_VERSION = '2026-09-14';
+    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
     const INTEREST_RAILROADS = [
       { id: 'mbta', label: 'MBTA Commuter Rail' },
       { id: 'amtrak', label: 'Amtrak' },
@@ -4246,7 +4304,7 @@
       return firstInitialLabel(displayName, email);
     }
     async function loadUserSettings(uid) {
-      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null };
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
       currentUserSettings = Object.assign({}, defaults);
       if (!db || !uid) return currentUserSettings;
       try {
@@ -4261,7 +4319,9 @@
             reportCustomLabel: String(d.reportCustomLabel || ''),
             interestedRailroads: interests,
             interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads),
-            reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null
+            reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null,
+            legalAccepted: d.legalAccepted === true,
+            legalVersion: d.legalVersion ? String(d.legalVersion) : null
           };
         }
       } catch (err) {
@@ -4699,7 +4759,9 @@
           reportCustomLabel: custom,
           interestedRailroads: interests,
           interestedRailroadsSet: true,
-          reportStats: (currentUserSettings && currentUserSettings.reportStats) || null
+          reportStats: (currentUserSettings && currentUserSettings.reportStats) || null,
+          legalAccepted: !!(currentUserSettings && currentUserSettings.legalAccepted),
+          legalVersion: (currentUserSettings && currentUserSettings.legalVersion) || null
         };
         updateInterestSummary(interests);
         if (err) { err.textContent = ''; err.classList.remove('visible'); }
@@ -6166,6 +6228,12 @@
       }
       document.addEventListener('keydown', function(e) {
         if (e.key !== 'Escape') return;
+        const legalM = document.getElementById('legal-accept-modal');
+        if (legalM && legalM.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         const interestM = document.getElementById('interest-railroads-modal');
         if (interestM && interestM.classList.contains('open')) {
           e.preventDefault();
@@ -6400,6 +6468,104 @@
     function markSignupPromptDismissed() {
       try { sessionStorage.setItem('rr_signup_prompt_dismissed', '1'); } catch (e) {}
     }
+    function isSessionLegalAgreed() {
+      try { return sessionStorage.getItem('rr_legal_agreed') === '1'; } catch (e) { return false; }
+    }
+    function markSessionLegalAgreed() {
+      try {
+        sessionStorage.setItem('rr_legal_agreed', '1');
+        sessionStorage.setItem('rr_legal_pending', '1');
+      } catch (e) {}
+    }
+    function clearLegalPending() {
+      try { sessionStorage.removeItem('rr_legal_pending'); } catch (e) {}
+    }
+    function isLegalPending() {
+      try { return sessionStorage.getItem('rr_legal_pending') === '1'; } catch (e) { return false; }
+    }
+    async function persistLegalAcceptance(user) {
+      const u = user || currentUser || (auth && auth.currentUser);
+      if (!u || !db) return false;
+      const acceptedAt = new Date().toISOString();
+      try {
+        await db.collection('userSettings').doc(u.uid).set({
+          legalAccepted: true,
+          legalAcceptedAt: acceptedAt,
+          legalVersion: RR_LEGAL_VERSION,
+          email: normalizeEmail(u.email) || (u.email || null),
+          displayName: (u.displayName && String(u.displayName).trim()) || null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        currentUserSettings = currentUserSettings || {};
+        currentUserSettings.legalAccepted = true;
+        currentUserSettings.legalVersion = RR_LEGAL_VERSION;
+        clearLegalPending();
+        try { sessionStorage.setItem('rr_legal_agreed', '1'); } catch (e) {}
+        return true;
+      } catch (err) {
+        console.warn('[legal] persist failed', err);
+        return false;
+      }
+    }
+    function openLegalAcceptModal() {
+      const modal = document.getElementById('legal-accept-modal');
+      const err = document.getElementById('legal-accept-error');
+      const cb = document.getElementById('legal-accept-agree');
+      if (!modal) return;
+      if (cb) cb.checked = false;
+      if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('rr-legal-locked');
+    }
+    function closeLegalAcceptModal(force) {
+      if (!force && currentUser && currentUserSettings && !currentUserSettings.legalAccepted) {
+        openLegalAcceptModal();
+        return;
+      }
+      const modal = document.getElementById('legal-accept-modal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('rr-legal-locked');
+    }
+    async function confirmLegalAcceptFromModal() {
+      const err = document.getElementById('legal-accept-error');
+      const cb = document.getElementById('legal-accept-agree');
+      const setErr = function(msg) {
+        if (!err) { showNotification(msg, 'error'); return; }
+        err.textContent = msg;
+        err.classList.add('visible');
+      };
+      if (!cb || !cb.checked) {
+        setErr('Please check the box to agree to the Terms of Use and Privacy Policy.');
+        return;
+      }
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user) { setErr('Sign in required.'); return; }
+      const ok = await persistLegalAcceptance(user);
+      if (!ok) {
+        setErr('Could not save agreement. Please try again.');
+        return;
+      }
+      closeLegalAcceptModal(true);
+      if (!currentUserSettings.interestedRailroadsSet) {
+        openInterestRailroadsModal();
+      }
+    }
+    function wireLegalAcceptUI() {
+      const confirmBtn = document.getElementById('legal-accept-confirm');
+      const signoutBtn = document.getElementById('legal-accept-signout');
+      const backdrop = document.getElementById('legal-accept-modal');
+      if (confirmBtn) confirmBtn.addEventListener('click', function() { confirmLegalAcceptFromModal(); });
+      if (signoutBtn) signoutBtn.addEventListener('click', function() { signOutGoogle(); });
+      if (backdrop) backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      });
+    }
     function closeSignupPrompt() {
       const el = document.getElementById('signup-prompt-modal');
       if (!el) return;
@@ -6411,6 +6577,10 @@
       if (!force && isSignupPromptDismissed()) return;
       const el = document.getElementById('signup-prompt-modal');
       if (!el) return;
+      const err = document.getElementById('signup-legal-error');
+      if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      const cb = document.getElementById('signup-legal-agree');
+      if (cb && isSessionLegalAgreed()) cb.checked = true;
       el.classList.add('open');
       el.setAttribute('aria-hidden', 'false');
     }
@@ -6434,6 +6604,31 @@
         openSignupPrompt();
       }, 20000);
     }
+    function beginGoogleSignInWithLegal() {
+      const cb = document.getElementById('signup-legal-agree');
+      const err = document.getElementById('signup-legal-error');
+      if (!cb || !cb.checked) {
+        if (err) {
+          err.textContent = 'Please agree to the Terms of Use and Privacy Policy to continue.';
+          err.classList.add('visible');
+        } else {
+          showNotification('Please agree to the Terms of Use and Privacy Policy to continue.', 'error');
+        }
+        return;
+      }
+      if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      markSessionLegalAgreed();
+      dismissSignupPrompt();
+      signInWithGoogle();
+    }
+    function requestGoogleSignIn() {
+      if (isSessionLegalAgreed()) {
+        markSessionLegalAgreed();
+        signInWithGoogle();
+        return;
+      }
+      openSignupPrompt(true);
+    }
     function wireSignupPromptUI() {
       const closeBtn = document.getElementById('signup-prompt-close');
       const laterBtn = document.getElementById('signup-prompt-later');
@@ -6442,8 +6637,7 @@
       if (closeBtn) closeBtn.addEventListener('click', dismissSignupPrompt);
       if (laterBtn) laterBtn.addEventListener('click', dismissSignupPrompt);
       if (signinBtn) signinBtn.addEventListener('click', function() {
-        dismissSignupPrompt();
-        signInWithGoogle();
+        beginGoogleSignInWithLegal();
       });
       if (backdrop) backdrop.addEventListener('click', function(e) {
         if (e.target === backdrop) dismissSignupPrompt();
@@ -6458,8 +6652,7 @@
       const btnSettings = document.getElementById('btn-account-settings');
       if (btnIn) btnIn.addEventListener('click', function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
-        else signInWithGoogle();
+        requestGoogleSignIn();
       });
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
       if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
@@ -6484,8 +6677,7 @@
       const panelSignin = document.getElementById('btn-account-signin-panel');
       if (panelSignin) panelSignin.addEventListener('click', function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
-        else signInWithGoogle();
+        requestGoogleSignIn();
       });
       const avatarBtn = document.getElementById('header-user-avatar');
       if (avatarBtn) {
@@ -6508,6 +6700,7 @@
       });
       wireAccountAndAdminUI();
       wireSignupPromptUI();
+      wireLegalAcceptUI();
       wireInterestRailroadUI();
       if (auth) {
         auth.onAuthStateChanged(async function(user) {
@@ -6521,14 +6714,20 @@
             }
             await upsertAccountMirror(user);
             await loadUserSettings(user.uid);
+            if (isLegalPending() && !currentUserSettings.legalAccepted) {
+              await persistLegalAcceptance(user);
+            }
             await refreshAdminState(user);
-            if (!currentUserSettings.interestedRailroadsSet) {
+            if (!currentUserSettings.legalAccepted) {
+              openLegalAcceptModal();
+            } else if (!currentUserSettings.interestedRailroadsSet) {
               openInterestRailroadsModal();
             }
           } else {
-            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null };
+            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
             currentAdminPerms = null;
             closeAccountSettingsLightbox();
+            closeLegalAcceptModal(true);
             closeInterestRailroadsModal(true);
             closeAdminDashboard();
             scheduleSignupPrompt();
