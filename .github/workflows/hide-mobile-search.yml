@@ -1,5 +1,10 @@
 name: Hide mobile search
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hide-mobile-search.yml'
+      - '.github/trigger-hide-mobile-search'
   workflow_dispatch:
 jobs:
   patch:
@@ -26,16 +31,22 @@ jobs:
         display: none !important;
       }'''
           count = text.count(old)
-          if count != 1:
+          if count == 0:
+              print('already patched or target missing')
+          elif count != 1:
               raise SystemExit(f'expected 1 match, got {count}')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8')
-          print('patched ok')
+          else:
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+              print('patched ok')
           PY
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git diff --cached --quiet && echo 'No changes' && exit 0
+          if git diff --cached --quiet; then
+            echo 'No changes'
+            exit 0
+          fi
           git commit -m "Hide header search bar on mobile screens"
           git push
