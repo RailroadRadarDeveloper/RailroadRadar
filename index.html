@@ -757,6 +757,7 @@
     html.rr-train-page .header-search-container,
     html.rr-train-page #btn-report-train-header,
     html.rr-train-page #btn-specials-header,
+    html.rr-train-page #btn-leaderboard-header,
     html.rr-train-page #header-auth,
     html.rr-train-page #menu-button,
     html.rr-train-page #btn-admin-header,
@@ -1840,11 +1841,11 @@
    }
    /* Report a train + Specials: header on desktop, panel button on mobile */
    @media (max-width: 767px) {
-     #btn-report-train-header, #btn-specials-header { display: none !important; }
-     #btn-report-train-panel, #btn-specials-panel { display: block; }
+     #btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { display: none !important; }
+     #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }
    }
    @media (min-width: 768px) {
-     #btn-report-train-panel, #btn-specials-panel { display: none !important; }
+     #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: none !important; }
    }
    .rr-board-toolbar {
      display: flex;
@@ -1902,6 +1903,28 @@
    .rr-board-meta { font-size: 12px; color: #2c3340; margin-top: 2px; line-height: 1.35; }
    .rr-board-empty { font-size: 13px; color: #5a6577; margin: 8px 0 0; }
    #specials-board-modal .rr-lightbox { width: min(720px, 100%); max-height: min(88vh, 820px); }
+    .header-leaderboard-btn { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; }
+    .header-leaderboard-icon { display: inline-flex; width: 16px; height: 16px; flex-shrink: 0; }
+    .header-leaderboard-icon svg { width: 16px; height: 16px; display: block; }
+    #weekly-leaderboard-modal .rr-lightbox { width: min(1080px, 96vw); max-height: 94vh; height: 94vh; }
+    .rr-lb-winner { display: flex; align-items: center; gap: 12px; background: #0b1048; color: #fff; border-radius: 12px; padding: 12px 14px; margin: 0 0 16px; }
+    .rr-lb-winner-trophy { width: 42px; height: 42px; flex-shrink: 0; }
+    .rr-lb-winner-trophy svg { width: 42px; height: 42px; display: block; }
+    .rr-lb-winner-photo, .rr-lb-row-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #2c3e6b; flex-shrink: 0; border: 2px solid rgba(255,255,255,.35); }
+    .rr-lb-winner-photo.placeholder, .rr-lb-row-photo.placeholder { display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 13px; }
+    .rr-lb-winner-text { font-size: 15px; line-height: 1.35; font-weight: 650; }
+    .rr-lb-winner-text strong { font-weight: 800; }
+    .rr-lb-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+    .rr-lb-row { display: flex; align-items: center; gap: 12px; background: #f4f6f9; border-radius: 10px; padding: 10px 12px; }
+    .rr-lb-rank { width: 28px; text-align: center; font-weight: 800; color: #07093e; flex-shrink: 0; }
+    .rr-lb-name { flex: 1; font-weight: 750; color: #07093e; min-width: 0; }
+    .rr-lb-meta { text-align: right; font-size: 13px; color: #2c3340; white-space: nowrap; }
+    .rr-lb-meta strong { display: block; color: #07093e; font-size: 15px; }
+    .rr-lb-empty { color: #5a6577; text-align: center; padding: 28px 12px; }
+    @media (max-width: 640px) {
+      .header-leaderboard-label { display: none; }
+      .rr-lb-winner-text { font-size: 13px; }
+    }
    /* Vehicle Alerts card (mobile-friendly) */
    .va-card {
      background: #fff;
@@ -3030,7 +3053,7 @@
         font-size: 11px;
         font-weight: 700;
       }
-      #btn-report-train-header, #btn-specials-header { font-size: 11px; padding: 6px 8px; }
+      #btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { font-size: 11px; padding: 6px 8px; }
       .header-user-avatar {
         width: 32px;
         height: 32px;
@@ -3133,6 +3156,10 @@
       </div>
       <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
       <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
+      <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
+        <span class="header-leaderboard-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="1.5" y="12.2" width="6" height="10.3" rx="1.4" fill="#22c55e"/><rect x="9" y="1.5" width="6" height="21" rx="1.4" fill="#22c55e"/><rect x="16.5" y="6.2" width="6" height="16.3" rx="1.4" fill="#22c55e"/></svg></span>
+        <span class="header-leaderboard-label">Weekly Leaderboard</span>
+      </button>
     </div>
     <div class="header-right">
       <div class="header-auth" id="header-auth">
@@ -3262,6 +3289,7 @@
       </div>
       <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
       <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
+      <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn" style="margin-top:8px;">Weekly Leaderboard</button>
       <button id="refresh-button" class="refresh-button">Refresh Data</button>
       <div id="last-updated" class="last-updated">Last updated: Never</div>
       <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, and CTrail. RailroadRadar is not responsible for inaccuracies.</p></div>
@@ -3778,6 +3806,25 @@
           <div class="rr-board-list" id="board-upcoming-list"></div>
           <p class="rr-board-empty" id="board-upcoming-empty" hidden>No upcoming pairings yet. Report a train with a future service date.</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rr-modal-backdrop" id="weekly-leaderboard-modal" aria-hidden="true">
+    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="weekly-leaderboard-title">
+      <div class="rr-modal-header">
+        <span id="weekly-leaderboard-title">Weekly Leaderboard</span>
+        <button type="button" class="rr-modal-close" id="weekly-leaderboard-close" aria-label="Close">×</button>
+      </div>
+      <div class="rr-lightbox-body">
+        <div class="rr-lb-winner" id="weekly-leaderboard-winner" hidden>
+          <div class="rr-lb-winner-trophy"><svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path fill="#22c55e" d="M12 10h40c1.2 0 2 .8 2 2v6c0 8.4-6.2 15.4-14.4 16.7-.6 4.2-3.4 7.7-7.6 9.1v6.2h8.2c1.1 0 2 .9 2 2v3.2H21.8V52c0-1.1.9-2 2-2H32v-6.2c-4.2-1.4-7-4.9-7.6-9.1C16.2 33.4 10 26.4 10 18v-6c0-1.2.8-2 2-2zm4.2 4v4.2c0 5.3 3.3 9.9 8.1 12.1 1.2-5.3 5.8-9.2 11.7-9.2s10.5 3.9 11.7 9.2c4.8-2.2 8.1-6.8 8.1-12.1V14H16.2z"/><polygon fill="#fff" points="22,18 44,28 22,36"/></svg></div>
+          <div id="weekly-leaderboard-winner-photo-slot"></div>
+          <div class="rr-lb-winner-text" id="weekly-leaderboard-winner-text"></div>
+        </div>
+        <p class="rr-modal-hint" id="weekly-leaderboard-range" style="margin-top:0;"></p>
+        <div class="rr-lb-list" id="weekly-leaderboard-list"></div>
+        <p class="rr-lb-empty" id="weekly-leaderboard-empty" hidden>No train reports this week yet. Report a consist to get on the board.</p>
       </div>
     </div>
   </div>
@@ -8158,6 +8205,7 @@
           reportedByUid: user.uid,
           reportedByDisplayMode: reportedByDisplayMode,
           reportedByLabel: reportedByLabel,
+          reportedByPhotoURL: user.photoURL || null,
           reportedByVerified: !!reporterVerified,
           contributors: contributors,
           updatedAt: now,
@@ -9190,6 +9238,253 @@
         else if (t === 'upcoming') renderUpcomingBoard();
         else renderSpecialsBoard();
       }
+      function rrEtParts(date) {
+        const d = date instanceof Date ? date : new Date(date);
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York',
+          weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', hourCycle: 'h23'
+        }).formatToParts(d);
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return parts[i].value;
+          return '';
+        };
+        const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        return { y: Number(get('year')), m: Number(get('month')), d: Number(get('day')), wd: wdMap[get('weekday')] != null ? wdMap[get('weekday')] : 1, hour: Number(get('hour')) };
+      }
+      function rrEtMidnightMs(y, m, d) {
+        const mm = String(m).padStart(2, '0');
+        const dd = String(d).padStart(2, '0');
+        const iso = y + '-' + mm + '-' + dd + 'T00:00:00';
+        const cands = [iso + '-04:00', iso + '-05:00'];
+        for (let i = 0; i < cands.length; i++) {
+          const t = Date.parse(cands[i]);
+          if (!t) continue;
+          const p = rrEtParts(new Date(t));
+          if (p.y === y && p.m === m && p.d === d && p.hour === 0) return t;
+        }
+        return Date.parse(iso + '-04:00');
+      }
+      function rrAddDaysYmd(y, m, d, days) {
+        const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
+        return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+      }
+      function rrWeekWindow(offsetWeeks) {
+        const nowP = rrEtParts(new Date());
+        const back = (nowP.wd + 6) % 7;
+        const mon = rrAddDaysYmd(nowP.y, nowP.m, nowP.d, -back + (offsetWeeks || 0) * 7);
+        const next = rrAddDaysYmd(mon.y, mon.m, mon.d, 7);
+        const startMs = rrEtMidnightMs(mon.y, mon.m, mon.d);
+        const endMs = rrEtMidnightMs(next.y, next.m, next.d);
+        const pad = function(n) { return String(n).padStart(2, '0'); };
+        return { startMs: startMs, endMs: endMs, weekId: mon.y + '-' + pad(mon.m) + '-' + pad(mon.d), monday: mon, nextMonday: next };
+      }
+      function rrFmtWeekRange(win) {
+        try {
+          const a = new Date(win.startMs);
+          const b = new Date(win.endMs - 1000);
+          const opts = { timeZone: 'America/New_York', month: 'short', day: 'numeric' };
+          return a.toLocaleDateString('en-US', opts) + ' \u2013 ' + b.toLocaleDateString('en-US', opts);
+        } catch (_) { return win.weekId; }
+      }
+      function rrLeaderboardDisplayName(row) {
+        const raw = String(row.name || row.label || '').trim();
+        if (raw && raw.toLowerCase() !== 'anonymous') return firstInitialLabel(raw, row.email || '');
+        return firstInitialLabel('', row.email || '') || 'Anonymous';
+      }
+      function rrLeaderboardInitials(name) {
+        const p = String(name || '').replace(/\./g, '').trim().split(/\s+/).filter(Boolean);
+        if (!p.length) return '?';
+        if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+        return (p[0].charAt(0) + p[p.length - 1].charAt(0)).toUpperCase();
+      }
+      function rrReportUids(rep) {
+        const ids = [];
+        function add(id) {
+          const u = String(id || '').trim();
+          if (u && ids.indexOf(u) === -1) ids.push(u);
+        }
+        add(rep && rep.firstReportedByUid);
+        add(rep && rep.reportedByUid);
+        if (rep && Array.isArray(rep.contributors)) rep.contributors.forEach(function(c) { if (c) add(c.uid); });
+        return ids;
+      }
+      function rrReportNameForUid(rep, uid) {
+        if (!rep) return '';
+        if (rep.firstReportedByUid === uid && rep.firstReportedByLabel) return String(rep.firstReportedByLabel);
+        if (rep.reportedByUid === uid && rep.reportedByLabel) return String(rep.reportedByLabel);
+        if (Array.isArray(rep.contributors)) {
+          for (let i = 0; i < rep.contributors.length; i++) {
+            const c = rep.contributors[i];
+            if (c && c.uid === uid && (c.label || c.name)) return String(c.label || c.name);
+          }
+        }
+        return String(rep.reportedByLabel || rep.firstReportedByLabel || '');
+      }
+      function rrReportPhotoForUid(rep, uid) {
+        if (!rep) return '';
+        if (rep.reportedByUid === uid && rep.reportedByPhotoURL) return String(rep.reportedByPhotoURL);
+        if (Array.isArray(rep.contributors)) {
+          for (let i = 0; i < rep.contributors.length; i++) {
+            const c = rep.contributors[i];
+            if (c && c.uid === uid && c.photoURL) return String(c.photoURL);
+          }
+        }
+        return '';
+      }
+      function buildWeeklyLeaderboardRows(offsetWeeks) {
+        const win = rrWeekWindow(offsetWeeks);
+        const byUid = {};
+        const rowsSrc = (typeof allTrainReports !== 'undefined' && allTrainReports && allTrainReports.length)
+          ? allTrainReports
+          : ((typeof trainReports !== 'undefined' && trainReports) ? trainReports : []);
+        (rowsSrc || []).forEach(function(rep) {
+          const when = parseReportTimestamp((rep && (rep.createdAt || rep.updatedAt)) || null);
+          if (!when) return;
+          const ms = when.getTime();
+          if (ms < win.startMs || ms >= win.endMs) return;
+          rrReportUids(rep).forEach(function(uid) {
+            if (!byUid[uid]) byUid[uid] = { uid: uid, docs: {}, name: '', photoURL: '', email: '' };
+            byUid[uid].docs[String(rep.id || '')] = true;
+            const nm = rrReportNameForUid(rep, uid);
+            if (nm && (!byUid[uid].name || byUid[uid].name === 'Anonymous')) byUid[uid].name = nm;
+            const ph = rrReportPhotoForUid(rep, uid);
+            if (ph && !byUid[uid].photoURL) byUid[uid].photoURL = ph;
+          });
+        });
+        const ptsEach = (typeof RR_POINTS_PER_REPORT === 'number') ? RR_POINTS_PER_REPORT : 5;
+        const list = Object.keys(byUid).map(function(uid) {
+          const r = byUid[uid];
+          const reports = Object.keys(r.docs).filter(Boolean).length;
+          return { uid: uid, name: rrLeaderboardDisplayName(r), photoURL: r.photoURL || '', reports: reports, points: reports * ptsEach };
+        }).filter(function(r) { return r.reports > 0; });
+        list.sort(function(a, b) {
+          if (b.reports !== a.reports) return b.reports - a.reports;
+          if (b.points !== a.points) return b.points - a.points;
+          return String(a.name).localeCompare(String(b.name));
+        });
+        return { week: win, rows: list };
+      }
+      function rrLbPhotoHtml(url, name, extraClass) {
+        const cls = extraClass || 'rr-lb-row-photo';
+        if (url) return '<img class="' + cls + '" src="' + escapeHtmlLite(url) + '" alt="" width="40" height="40" referrerpolicy="no-referrer">';
+        return '<span class="' + cls + ' placeholder">' + escapeHtmlLite(rrLeaderboardInitials(name)) + '</span>';
+      }
+      async function hydrateLeaderboardPhotos(rows) {
+        if (!db || !rows || !rows.length) return rows;
+        const missing = rows.filter(function(r) { return r.uid && !r.photoURL; }).slice(0, 40);
+        await Promise.all(missing.map(function(r) {
+          return db.collection('accounts').doc(r.uid).get().then(function(snap) {
+            if (snap && snap.exists) {
+              const d = snap.data() || {};
+              if (d.photoURL) r.photoURL = d.photoURL;
+              if ((!r.name || r.name === 'Anonymous') && d.displayName) r.name = firstInitialLabel(d.displayName, d.email || '');
+            }
+          }).catch(function() {});
+        }));
+        return rows;
+      }
+      async function loadSavedWeekWinner(weekId) {
+        if (!db || !weekId) return null;
+        try {
+          const snap = await db.collection('leaderboardWeeks').doc(weekId).get();
+          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {});
+        } catch (_) {}
+        return null;
+      }
+      async function saveWeekWinner(weekId, winner) {
+        if (!db || !weekId || !winner) return winner;
+        try {
+          const ref = db.collection('leaderboardWeeks').doc(weekId);
+          const snap = await ref.get();
+          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {}, winner);
+          await ref.set({
+            weekId: weekId, uid: winner.uid || null, name: winner.name || '',
+            photoURL: winner.photoURL || null, reports: winner.reports || 0, points: winner.points || 0,
+            savedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch (err) {
+          console.warn('[leaderboard] save winner skipped', err && err.message ? err.message : err);
+        }
+        return winner;
+      }
+      async function renderWeeklyLeaderboard() {
+        const listEl = document.getElementById('weekly-leaderboard-list');
+        const emptyEl = document.getElementById('weekly-leaderboard-empty');
+        const rangeEl = document.getElementById('weekly-leaderboard-range');
+        const winWrap = document.getElementById('weekly-leaderboard-winner');
+        const winText = document.getElementById('weekly-leaderboard-winner-text');
+        const winPhoto = document.getElementById('weekly-leaderboard-winner-photo-slot');
+        if (typeof loadTrainReports === 'function' && (!allTrainReports || !allTrainReports.length)) {
+          try { await loadTrainReports(); } catch (_) {}
+        }
+        const current = buildWeeklyLeaderboardRows(0);
+        await hydrateLeaderboardPhotos(current.rows);
+        if (rangeEl) rangeEl.textContent = 'This week \u00b7 ' + rrFmtWeekRange(current.week) + ' \u00b7 ' + ((typeof RR_POINTS_PER_REPORT === 'number') ? RR_POINTS_PER_REPORT : 5) + ' points per report';
+        if (!current.rows.length) {
+          if (listEl) listEl.innerHTML = '';
+          if (emptyEl) emptyEl.hidden = false;
+        } else {
+          if (emptyEl) emptyEl.hidden = true;
+          if (listEl) {
+            listEl.innerHTML = current.rows.map(function(r, i) {
+              return '<div class="rr-lb-row">' +
+                '<div class="rr-lb-rank">' + (i + 1) + '</div>' +
+                rrLbPhotoHtml(r.photoURL, r.name) +
+                '<div class="rr-lb-name">' + escapeHtmlLite(r.name) + '</div>' +
+                '<div class="rr-lb-meta"><strong>' + r.points + ' pts</strong>' + r.reports + ' report' + (r.reports === 1 ? '' : 's') + '</div>' +
+                '</div>';
+            }).join('');
+          }
+        }
+        const last = buildWeeklyLeaderboardRows(-1);
+        await hydrateLeaderboardPhotos(last.rows);
+        let winner = last.rows[0] || null;
+        const saved = await loadSavedWeekWinner(last.week.weekId);
+        if (saved && saved.uid) {
+          winner = { uid: saved.uid, name: saved.name || (winner && winner.name) || 'Anonymous', photoURL: saved.photoURL || (winner && winner.photoURL) || '', reports: Number(saved.reports) || (winner && winner.reports) || 0, points: Number(saved.points) || (winner && winner.points) || 0 };
+        } else if (winner) {
+          await saveWeekWinner(last.week.weekId, winner);
+        }
+        if (winner && winner.reports > 0) {
+          if (winWrap) winWrap.hidden = false;
+          if (winPhoto) winPhoto.innerHTML = rrLbPhotoHtml(winner.photoURL, winner.name, 'rr-lb-winner-photo');
+          if (winText) {
+            winText.innerHTML = '<strong>' + escapeHtmlLite(winner.name) + '</strong> won last week\'s leaderboard with a total of <strong>' +
+              winner.reports + '</strong> report' + (winner.reports === 1 ? '' : 's') +
+              ' and <strong>' + winner.points + '</strong> points!';
+          }
+        } else {
+          if (winWrap) winWrap.hidden = true;
+          if (winText) winText.textContent = '';
+          if (winPhoto) winPhoto.innerHTML = '';
+        }
+      }
+      function openWeeklyLeaderboard() {
+        const modal = document.getElementById('weekly-leaderboard-modal');
+        if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+        try {
+          const panel = document.getElementById('control-panel');
+          const overlay = document.getElementById('overlay');
+          if (panel) panel.classList.remove('open');
+          if (overlay) overlay.classList.remove('open');
+        } catch (_) {}
+        renderWeeklyLeaderboard();
+      }
+      function closeWeeklyLeaderboard() {
+        const modal = document.getElementById('weekly-leaderboard-modal');
+        if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+      }
+      function wireWeeklyLeaderboardUI() {
+        const btnH = document.getElementById('btn-leaderboard-header');
+        const btnP = document.getElementById('btn-leaderboard-panel');
+        const btnC = document.getElementById('weekly-leaderboard-close');
+        const modal = document.getElementById('weekly-leaderboard-modal');
+        if (btnH) btnH.addEventListener('click', openWeeklyLeaderboard);
+        if (btnP) btnP.addEventListener('click', openWeeklyLeaderboard);
+        if (btnC) btnC.addEventListener('click', closeWeeklyLeaderboard);
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeWeeklyLeaderboard(); });
+      }
       function openSpecialsBoard() {
         renderSpecialsBoard();
         renderReportsBoard();
@@ -9437,6 +9732,7 @@
       wireAuthUI();
       wireReportTrainUI();
       wireSpecialsBoardUI();
+      wireWeeklyLeaderboardUI();
       setLoadingProgress(20, 'Loading train reports...');
       await withTimeout(loadTrainReports(), 5000, 'loadTrainReports');
       setInterval(loadTrainReports, 7 * 60 * 1000);
