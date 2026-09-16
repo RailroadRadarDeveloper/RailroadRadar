@@ -1904,12 +1904,12 @@
    .rr-board-empty { font-size: 13px; color: #5a6577; margin: 8px 0 0; }
    #specials-board-modal .rr-lightbox { width: min(720px, 100%); max-height: min(88vh, 820px); }
     .header-leaderboard-btn { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; }
-    .header-leaderboard-icon { display: inline-flex; width: 16px; height: 16px; flex-shrink: 0; }
-    .header-leaderboard-icon svg { width: 16px; height: 16px; display: block; }
-    #weekly-leaderboard-modal .rr-lightbox { width: min(1080px, 96vw); max-height: 94vh; height: 94vh; }
+    .header-leaderboard-icon { display: inline-flex; width: 18px; height: 18px; flex-shrink: 0; align-items: center; justify-content: center; }
+    .header-leaderboard-icon img { width: 18px; height: 18px; object-fit: contain; display: block; }
+    #weekly-leaderboard-modal .rr-lightbox { width: min(1180px, 98vw); max-height: 96vh; height: 96vh; }
     .rr-lb-winner { display: flex; align-items: center; gap: 12px; background: #0b1048; color: #fff; border-radius: 12px; padding: 12px 14px; margin: 0 0 16px; }
-    .rr-lb-winner-trophy { width: 42px; height: 42px; flex-shrink: 0; }
-    .rr-lb-winner-trophy svg { width: 42px; height: 42px; display: block; }
+    .rr-lb-winner-trophy { width: 44px; height: 44px; flex-shrink: 0; }
+    .rr-lb-winner-trophy img, .rr-lb-winner-trophy svg { width: 44px; height: 44px; object-fit: contain; display: block; }
     .rr-lb-winner-photo, .rr-lb-row-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #2c3e6b; flex-shrink: 0; border: 2px solid rgba(255,255,255,.35); }
     .rr-lb-winner-photo.placeholder, .rr-lb-row-photo.placeholder { display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 13px; }
     .rr-lb-winner-text { font-size: 15px; line-height: 1.35; font-weight: 650; }
@@ -3157,7 +3157,7 @@
       <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
       <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
       <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
-        <span class="header-leaderboard-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="1.5" y="12.2" width="6" height="10.3" rx="1.4" fill="#22c55e"/><rect x="9" y="1.5" width="6" height="21" rx="1.4" fill="#22c55e"/><rect x="16.5" y="6.2" width="6" height="16.3" rx="1.4" fill="#22c55e"/></svg></span>
+        <span class="header-leaderboard-icon"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAABaCAYAAABwm16CAAAD1ElEQVR42u2dS2skZRSGn/NVdfqSqOmAS9HB20JwpWA2oowXUDci0+jgdn7FLEL/B1euRTERhWF0FroYnEQQd+KsBEUHBBkmIxo7famq46KqwwQxu+6vyn6fZXqRN6ee+qqq6+R8RtNwDMO7X/IsW7zOjBTHomQxnBYZh3x+/DLfzbM1qZzWqIO/S8KAvPc1b7DBnqV08Ih/RfW7PWPMERdGz3N1nrEpJU0bJcDN8uzyhGFo0fG/mGIkkVek3O6jUyQMgavzjBJgEavVkIIdUoO+T3GMFAiRU5lPcTM22SFlSFatSY0QIdBMCqxGl6/yyl80sZBNFcBqmMgkgJAAQgIICSAkgJAAQgIICSAkgJAAQgKIGpKqBEtkl4QHa/DO4AUcowBcAiyLslso1wqwmhiGt/d5VnjcWbgxfJbWcxxWkDOrdE21yTAcs78gOHdA94Pm1yat4mYRclSkkBvn89Gm7wtARZ9zTfyznW2w/1c8j/J8WgtrKdXgz5vdu7wlgRYJNUNX9LmUShvuqo2ttjk5BRmPKnHwOXcAeQ1fOQOVpBLgGVQ1LRdzDAJsOJIAAkgJICQAEICCAkgJICQAEICiBWhfDHhGNcjD1qYc0+3ig7PcgSYz7XJVI7VFMDZZW39EQYODzEhzv+6O04bvODH4+f45GRlMq0EixXgCr3uFlfoc94mwHrENA7Wgu4+u8e/cbG6DEiARQrQ63PB+pz328yiT7mopm6FBxh04L2xcaNpU7caJ4DDOcspMAJEvhEs9cuAIkl4GLhRizbq//NjoBX17FZp6tCl5n0PYDrDVlsAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQFEHQTwmo5jD2fmql/ms+oYalpjx4MHEqjdYOYCP3Nyeb3Edbyatv5fn9eyxh5IUoOfSQk4WbXPfcxClruVBEI+5VcAbp8caGeHwJCMV7ljbc75hBkWecS9k1ubNZ9wyJCsyljcmz3P+SUpBXGcvAbjuZ2UxOCndHSXvW7gYujzCjOIGs6BFIq7fDT+nQN2CKc2i3iqSldw2Sd8ahuszzeZiChs4lOOKLh8KiPAgBwnjOGg+w0fhE3ePamxRcrrQBuKQ64dJ+yVMX5grTfmHYfHyDA8Uklb5D7j5nibj6vA/94zqPrZ+lc87Vu85hkb0c6pBLfAkf3BF3+/xPdn5QXofMsgwBNMI9XYcNZw4NYo4UOeYfYP730YBHEPZZ0AAAAASUVORK5CYII=" alt="" width="18" height="18"></span>
         <span class="header-leaderboard-label">Weekly Leaderboard</span>
       </button>
     </div>
@@ -3289,7 +3289,7 @@
       </div>
       <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
       <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
-      <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn" style="margin-top:8px;">Weekly Leaderboard</button>
+      <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn" style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAABaCAYAAABwm16CAAAD1ElEQVR42u2dS2skZRSGn/NVdfqSqOmAS9HB20JwpWA2oowXUDci0+jgdn7FLEL/B1euRTERhWF0FroYnEQQd+KsBEUHBBkmIxo7famq46KqwwQxu+6vyn6fZXqRN6ee+qqq6+R8RtNwDMO7X/IsW7zOjBTHomQxnBYZh3x+/DLfzbM1qZzWqIO/S8KAvPc1b7DBnqV08Ih/RfW7PWPMERdGz3N1nrEpJU0bJcDN8uzyhGFo0fG/mGIkkVek3O6jUyQMgavzjBJgEavVkIIdUoO+T3GMFAiRU5lPcTM22SFlSFatSY0QIdBMCqxGl6/yyl80sZBNFcBqmMgkgJAAQgIICSAkgJAAQgIICSAkgJAAQgKIGpKqBEtkl4QHa/DO4AUcowBcAiyLslso1wqwmhiGt/d5VnjcWbgxfJbWcxxWkDOrdE21yTAcs78gOHdA94Pm1yat4mYRclSkkBvn89Gm7wtARZ9zTfyznW2w/1c8j/J8WgtrKdXgz5vdu7wlgRYJNUNX9LmUShvuqo2ttjk5BRmPKnHwOXcAeQ1fOQOVpBLgGVQ1LRdzDAJsOJIAAkgJICQAEICCAkgJICQAEICiBWhfDHhGNcjD1qYc0+3ig7PcgSYz7XJVI7VFMDZZW39EQYODzEhzv+6O04bvODH4+f45GRlMq0EixXgCr3uFlfoc94mwHrENA7Wgu4+u8e/cbG6DEiARQrQ63PB+pz328yiT7mopm6FBxh04L2xcaNpU7caJ4DDOcspMAJEvhEs9cuAIkl4GLhRizbq//NjoBX17FZp6tCl5n0PYDrDVlsAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQGEBBASQEgAIQFEHQTwmo5jD2fmql/ms+oYalpjx4MHEqjdYOYCP3Nyeb3Edbyatv5fn9eyxh5IUoOfSQk4WbXPfcxClruVBEI+5VcAbp8caGeHwJCMV7ljbc75hBkWecS9k1ubNZ9wyJCsyljcmz3P+SUpBXGcvAbjuZ2UxOCndHSXvW7gYujzCjOIGs6BFIq7fDT+nQN2CKc2i3iqSldw2Sd8ahuszzeZiChs4lOOKLh8KiPAgBwnjOGg+w0fhE3ePamxRcrrQBuKQ64dJ+yVMX5grTfmHYfHyDA8Uklb5D7j5nibj6vA/94zqPrZ+lc87Vu85hkb0c6pBLfAkf3BF3+/xPdn5QXofMsgwBNMI9XYcNZw4NYo4UOeYfYP730YBHEPZZ0AAAAASUVORK5CYII=" alt="" width="18" height="18" style="flex-shrink:0;">Weekly Leaderboard</button>
       <button id="refresh-button" class="refresh-button">Refresh Data</button>
       <div id="last-updated" class="last-updated">Last updated: Never</div>
       <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, and CTrail. RailroadRadar is not responsible for inaccuracies.</p></div>
