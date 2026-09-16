@@ -1,0 +1,28 @@
+name: apply-leaderboard
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/apply-leaderboard.yml'
+      - 'patches/apply_leaderboard.py'
+      - 'patches/lb_insert.js'
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply leaderboard to index.html
+        run: |
+          set -euo pipefail
+          python3 patches/apply_leaderboard.py
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo no index change
+            exit 0
+          fi
+          git commit -m "Add Weekly Leaderboard next to Specials"
+          git push
