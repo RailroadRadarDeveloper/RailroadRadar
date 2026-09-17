@@ -1929,6 +1929,16 @@
       color: #5a6577;
       text-align: center;
     }
+    .rr-lb-refresh {
+      background: none;
+      border: none;
+      color: #1d4ed8;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+    }
     @media (max-width: 640px) {
       .header-leaderboard-label { display: none; }
       .rr-lb-winner-text { font-size: 13px; }
@@ -3836,7 +3846,7 @@
         <p class="rr-modal-hint" id="weekly-leaderboard-range" style="margin-top:0;"></p>
         <div class="rr-lb-list" id="weekly-leaderboard-list"></div>
         <p class="rr-lb-empty" id="weekly-leaderboard-empty" hidden>No train reports this week yet. Report a consist to get on the board.</p>
-        <p class="rr-lb-updated" id="weekly-leaderboard-updated">Updated at —</p>
+        <p class="rr-lb-updated"><span id="weekly-leaderboard-updated">Updated at —</span> · <button type="button" class="rr-lb-refresh" id="weekly-leaderboard-refresh">Refresh</button></p>
       </div>
     </div>
   </div>
@@ -8015,6 +8025,7 @@
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = false;
           window.__rrTrainReportsLoadedAt = Date.now();
+          window.__rrTrainReportsLoadMeta = { fromServer: true, live: false, count: allTrainReports.length };
           try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
           try { if (typeof renderUpcomingBoard === 'function') renderUpcomingBoard(); } catch (_) {}
           console.log('%c[trainReports] Loaded ' + allTrainReports.length + ' total (' + trainReports.length + ' map-active)', 'color:#27ae60');
@@ -8296,6 +8307,28 @@
           return { pending: true, id: docId };
         }
         await ref.set(data, { merge: true });
+        try {
+          const localRow = Object.assign({ id: docId }, data, {
+            createdAt: existing.exists ? Date.now() : Date.now(),
+            updatedAt: Date.now()
+          });
+          delete localRow.reportedByEmail;
+          delete localRow.reportedByName;
+          delete localRow.firstReportedByEmail;
+          delete localRow.firstReportedByName;
+          if (existing.exists) {
+            const prev = (allTrainReports || []).find(function(r) { return r && r.id === docId; });
+            if (prev && prev.createdAt) localRow.createdAt = prev.createdAt;
+          }
+          const ix = allTrainReports.findIndex(function(r) { return r && r.id === docId; });
+          if (ix >= 0) allTrainReports[ix] = Object.assign({}, allTrainReports[ix], localRow);
+          else allTrainReports.push(localRow);
+          window.__rrTrainReportsLoadedAt = Date.now();
+          const lbOpen = document.getElementById('weekly-leaderboard-modal');
+          if (lbOpen && lbOpen.classList.contains('open') && typeof renderWeeklyLeaderboard === 'function') {
+            renderWeeklyLeaderboard();
+          }
+        } catch (_) {}
         try {
           if (typeof window.logUserAction === 'function') {
             await window.logUserAction('submit_report', (agency + ' ' + (trainNumber || vehicleId)).trim());
@@ -9345,6 +9378,48 @@
         }
         return '';
       }
+      function rrTsInWeek(ts, win) {
+        const d = parseReportTimestamp(ts);
+        if (!d || !win) return false;
+        const ms = d.getTime();
+        return ms >= win.startMs && ms < win.endMs;
+      }
+      function rrServiceDateInWeek(rep, win) {
+        const sd = String((rep && rep.serviceDate) || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sd) || !win) return false;
+        const p = sd.split('-').map(Number);
+        const ms = rrEtMidnightMs(p[0], p[1], p[2]);
+        return ms >= win.startMs && ms < win.endMs;
+      }
+      function rrUidsActiveInWeek(rep, win) {
+        const ids = [];
+        function add(id) {
+          const u = String(id || '').trim();
+          if (u && ids.indexOf(u) === -1) ids.push(u);
+        }
+        if (!rep || !win) return ids;
+        if (Array.isArray(rep.contributors)) {
+          rep.contributors.forEach(function(c) {
+            if (!c) return;
+            if (c.at != null) {
+              if (rrTsInWeek(c.at, win)) add(c.uid);
+            } else if (rrTsInWeek(rep.updatedAt, win) && c.uid === rep.reportedByUid) {
+              add(c.uid);
+            }
+          });
+        }
+        if (rrTsInWeek(rep.updatedAt, win)) add(rep.reportedByUid);
+        if (rrTsInWeek(rep.createdAt, win)) add(rep.firstReportedByUid || rep.reportedByUid);
+        if (rrTsInWeek(rep.submittedAt, win)) add(rep.reportedByUid);
+        if (!ids.length && rrServiceDateInWeek(rep, win)) {
+          rrReportUids(rep).forEach(add);
+        }
+        if (!ids.length && (rrTsInWeek(rep.updatedAt || rep.createdAt, win) || rrServiceDateInWeek(rep, win))) {
+          const label = String(rep.reportedByLabel || rep.firstReportedByLabel || '').trim();
+          if (label) add('label:' + label.toLowerCase());
+        }
+        return ids;
+      }
       function buildWeeklyLeaderboardRows(offsetWeeks) {
         const win = rrWeekWindow(offsetWeeks);
         const byUid = {};
@@ -9352,14 +9427,10 @@
           ? allTrainReports
           : ((typeof trainReports !== 'undefined' && trainReports) ? trainReports : []);
         (rowsSrc || []).forEach(function(rep) {
-          const when = parseReportTimestamp((rep && (rep.createdAt || rep.updatedAt)) || null);
-          if (!when) return;
-          const ms = when.getTime();
-          if (ms < win.startMs || ms >= win.endMs) return;
-          rrReportUids(rep).forEach(function(uid) {
+          rrUidsActiveInWeek(rep, win).forEach(function(uid) {
             if (!byUid[uid]) byUid[uid] = { uid: uid, docs: {}, name: '', photoURL: '', email: '' };
-            byUid[uid].docs[String(rep.id || '')] = true;
-            const nm = rrReportNameForUid(rep, uid);
+            byUid[uid].docs[String(rep.id || uid + ':' + (rep.serviceDate || ''))] = true;
+            const nm = rrReportNameForUid(rep, uid.indexOf('label:') === 0 ? (rep.reportedByUid || '') : uid) || (uid.indexOf('label:') === 0 ? uid.slice(6) : '');
             if (nm && (!byUid[uid].name || byUid[uid].name === 'Anonymous')) byUid[uid].name = nm;
             const ph = rrReportPhotoForUid(rep, uid);
             if (ph && !byUid[uid].photoURL) byUid[uid].photoURL = ph;
@@ -9428,7 +9499,7 @@
         const winWrap = document.getElementById('weekly-leaderboard-winner');
         const winText = document.getElementById('weekly-leaderboard-winner-text');
         const winPhoto = document.getElementById('weekly-leaderboard-winner-photo-slot');
-        if (typeof loadTrainReports === 'function' && (!allTrainReports || !allTrainReports.length)) {
+        if (typeof loadTrainReports === 'function') {
           try { await loadTrainReports(); } catch (_) {}
         }
         const current = buildWeeklyLeaderboardRows(0);
@@ -9513,10 +9584,12 @@
         const btnH = document.getElementById('btn-leaderboard-header');
         const btnP = document.getElementById('btn-leaderboard-panel');
         const btnC = document.getElementById('weekly-leaderboard-close');
+        const btnR = document.getElementById('weekly-leaderboard-refresh');
         const modal = document.getElementById('weekly-leaderboard-modal');
         if (btnH) btnH.addEventListener('click', openWeeklyLeaderboard);
         if (btnP) btnP.addEventListener('click', openWeeklyLeaderboard);
         if (btnC) btnC.addEventListener('click', closeWeeklyLeaderboard);
+        if (btnR) btnR.addEventListener('click', function() { renderWeeklyLeaderboard(); });
         if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeWeeklyLeaderboard(); });
       }
       function openSpecialsBoard() {
