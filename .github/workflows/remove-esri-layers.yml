@@ -1,0 +1,29 @@
+name: Remove Esri map layers
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/remove-esri-layers.py'
+      - '.github/workflows/remove-esri-layers.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch index.html
+        run: python3 scripts/remove-esri-layers.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          rm -f scripts/remove-esri-layers.py .github/workflows/remove-esri-layers.yml
+          git add -A scripts/remove-esri-layers.py .github/workflows/remove-esri-layers.yml || true
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Remove Esri Light and Esri Dark map layers"
+          git push
