@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'scripts/add-marc.py'
+      - 'scripts/marc-runtime.js'
       - 'scripts/marc-static.json'
       - 'scripts/marc-shapes.json'
       - '.github/workflows/add-marc.yml'
@@ -31,7 +32,7 @@ jobs:
           else
             git commit -m "Add MARC commuter rail live trains, stations, and line shapes"
           fi
-          git rm -f scripts/add-marc.py scripts/marc-static.json scripts/marc-shapes.json .github/workflows/add-marc.yml || true
+          git rm -f scripts/add-marc.py scripts/marc-runtime.js scripts/marc-static.json scripts/marc-shapes.json .github/workflows/add-marc.yml || true
           if git diff --cached --quiet; then
             echo "No cleanup"
           else
