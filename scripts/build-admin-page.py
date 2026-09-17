@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build admin.html from index.html and point the map header at /admin.html."""
+"""Build admin.html from index.html and point the map header at admin.railroadradar.com."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -162,7 +162,7 @@ admin_html = admin_html.replace(
 )
 admin_html = admin_html.replace(
     '<button type="button" class="rr-modal-close" id="admin-dashboard-close" aria-label="Close">×</button>',
-    '<a class="rr-modal-close" id="admin-dashboard-close" href="/" aria-label="Back to map">×</a>',
+    '<a class="rr-modal-close" id="admin-dashboard-close" href="https://railroadradar.com/" aria-label="Back to map">×</a>',
 )
 import re
 admin_html = re.sub(
@@ -322,7 +322,7 @@ boot = r"""
       switchAdminTab(first);
       await loadAdminTab(first);
     }
-    function closeAdminDashboard() { window.location.href = '/'; }
+    function closeAdminDashboard() { window.location.href = 'https://railroadradar.com/'; }
     function showGate(which) {
       const dash = document.getElementById('admin-dashboard');
       if (dash) { dash.classList.remove('is-open'); dash.setAttribute('aria-hidden', 'true'); }
@@ -397,8 +397,8 @@ page = f"""<!DOCTYPE html>
   <title>Admin Dashboard · RailroadRadar</title>
   <meta name="theme-color" content="#07093e">
   <meta name="robots" content="noindex,nofollow">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3">
+  <link rel="apple-touch-icon" href="https://railroadradar.com/apple-touch-icon.png?v=2">
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -409,12 +409,12 @@ page = f"""<!DOCTYPE html>
 </head>
 <body>
   <div class="header">
-    <a class="header-brand" href="/">
-      <img class="header-logo" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
+    <a class="header-brand" href="https://railroadradar.com/">
+      <img class="header-logo" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
     </a>
     <div class="header-center">Admin Dashboard</div>
     <div class="header-right">
-      <a class="header-auth-btn" href="/">Back to map</a>
+      <a class="header-auth-btn" href="https://railroadradar.com/">Back to map</a>
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign in</button>
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
@@ -438,7 +438,7 @@ page = f"""<!DOCTYPE html>
   <div class="rr-gate" id="gate-forbidden" style="display:none;">
     <h1>Admin access required</h1>
     <p>This page is only for RailroadRadar admins. You’re signed in, but this account isn’t on the admin list.</p>
-    <a class="rr-btn secondary" href="/" style="display:inline-block;text-decoration:none;">Back to map</a>
+    <a class="rr-btn secondary" href="https://railroadradar.com/" style="display:inline-block;text-decoration:none;">Back to map</a>
   </div>
 
 {admin_html}
@@ -464,7 +464,7 @@ old = """      if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', func
       });"""
 new = """      if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        window.location.href = '/admin.html';
+        window.location.href = 'https://admin.railroadradar.com/';
       });"""
 if old not in idx:
     raise SystemExit("admin header click handler not found")
@@ -477,7 +477,7 @@ old2 = """    async function openAdminDashboard() {
         return;
       }"""
 new2 = """    async function openAdminDashboard() {
-      window.location.href = '/admin.html';
+      window.location.href = 'https://admin.railroadradar.com/';
       return;
       const user = currentUser || (auth && auth.currentUser);
       if (!user) {

@@ -6,8 +6,8 @@
   <title>Admin Dashboard · RailroadRadar</title>
   <meta name="theme-color" content="#07093e">
   <meta name="robots" content="noindex,nofollow">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3">
+  <link rel="apple-touch-icon" href="https://railroadradar.com/apple-touch-icon.png?v=2">
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -451,12 +451,12 @@
 </head>
 <body>
   <div class="header">
-    <a class="header-brand" href="/">
-      <img class="header-logo" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
+    <a class="header-brand" href="https://railroadradar.com/">
+      <img class="header-logo" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
     </a>
     <div class="header-center">Admin Dashboard</div>
     <div class="header-right">
-      <a class="header-auth-btn" href="/">Back to map</a>
+      <a class="header-auth-btn" href="https://railroadradar.com/">Back to map</a>
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign in</button>
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
@@ -480,14 +480,14 @@
   <div class="rr-gate" id="gate-forbidden" style="display:none;">
     <h1>Admin access required</h1>
     <p>This page is only for RailroadRadar admins. You’re signed in, but this account isn’t on the admin list.</p>
-    <a class="rr-btn secondary" href="/" style="display:inline-block;text-decoration:none;">Back to map</a>
+    <a class="rr-btn secondary" href="https://railroadradar.com/" style="display:inline-block;text-decoration:none;">Back to map</a>
   </div>
 
   <div class="rr-admin-shell" id="admin-dashboard" aria-hidden="true">
     <div class="rr-lightbox" role="main" aria-labelledby="admin-dashboard-title">
       <div class="rr-modal-header">
         <span id="admin-dashboard-title">Admin Dashboard</span>
-        <a class="rr-modal-close" id="admin-dashboard-close" href="/" aria-label="Back to map">×</a>
+        <a class="rr-modal-close" id="admin-dashboard-close" href="https://railroadradar.com/" aria-label="Back to map">×</a>
       </div>
       <div class="rr-admin-tabs" role="tablist">
         <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
@@ -2795,7 +2795,7 @@
       switchAdminTab(first);
       await loadAdminTab(first);
     }
-    function closeAdminDashboard() { window.location.href = '/'; }
+    function closeAdminDashboard() { window.location.href = 'https://railroadradar.com/'; }
     function showGate(which) {
       const dash = document.getElementById('admin-dashboard');
       if (dash) { dash.classList.remove('is-open'); dash.setAttribute('aria-hidden', 'true'); }
