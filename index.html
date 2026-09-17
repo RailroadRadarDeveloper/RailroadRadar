@@ -3355,13 +3355,14 @@
         <div><input type="checkbox" id="show-metra" checked><label for="show-metra">Show Metra Trains</label></div>
         <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
         <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
+        <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains</label></div>
       </div>
       <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
       <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
       <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn" style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;"><img src="https://i.postimg.cc/wjS055MP/Untitled-design-(9).png" alt="" width="18" height="18" style="flex-shrink:0;">Weekly Leaderboard</button>
       <button id="refresh-button" class="refresh-button">Refresh Data</button>
       <div id="last-updated" class="last-updated">Last updated: Never</div>
-      <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, and CTrail. RailroadRadar is not responsible for inaccuracies.</p></div>
+      <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.</p></div>
       <div class="location-section">
         <h3>My Location</h3>
         <button id="location-btn" class="location-btn" onclick="requestUserLocation()">Show My Location</button>
@@ -3657,7 +3658,9 @@
               <option value="lirr">LIRR</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
               <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
             </select>
             <label for="admin-roster-id">Loco / unit ID</label>
             <input type="text" id="admin-roster-id" placeholder="e.g. 999" autocomplete="off">
@@ -3763,6 +3766,7 @@
           <option value="lirr">LIRR</option>
           <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
         </select>
         <div id="report-service-date-wrap">
           <label for="report-service-date">Service date</label>
@@ -3819,6 +3823,7 @@
               <option value="metra">Metra</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
             </select>
             <select id="board-specials-sort" aria-label="Sort specials">
               <option value="railroad">Sort by railroad</option>
@@ -3841,6 +3846,7 @@
               <option value="metra">Metra</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
             </select>
             <select id="board-reports-sort" aria-label="Sort reports">
               <option value="newest">Newest first</option>
@@ -3865,6 +3871,7 @@
               <option value="metra">Metra</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
             </select>
             <select id="board-upcoming-sort" aria-label="Sort upcoming">
               <option value="date">Sort by date</option>
@@ -7483,7 +7490,7 @@
       let allTrainReports = [];
       let trainReportsById = {};
       let activeReportVehicleIds = new Set();
-      let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {} }; // agency -> reports
+      let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} }; // agency -> reports
       let trainReportsLoadFailed = false;
       let reportTrainExtraMode = false;
       let reportTrainSelectToken = 0;
@@ -7534,6 +7541,7 @@
         if (a === 'metro-north' || a === 'metronorth' || a === 'metro_north') return 'mnr';
         if (a === 'long island' || a === 'long-island') return 'lirr';
         if (a === 'nj transit' || a === 'njtransit' || a === 'nj-transit' || a === 'njt rail') return 'njt';
+        if (a === 'marc train' || a === 'marc trains' || a === 'maryland transit' || a === 'mta maryland') return 'marc';
         return a;
       }
       function rosterEntry(agency, vehicleId) {
@@ -7545,7 +7553,7 @@
       function rebuildTrainReportIndexes() {
         trainReportsById = {};
         activeReportVehicleIds = new Set();
-        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {} };
+        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} };
         const today = nyServiceDateToday();
         (trainReports || []).forEach(function(rep) {
           if (!rep || !rep.id) return;
@@ -7555,7 +7563,7 @@
           if (vid) activeReportVehicleIds.add(vid);
           if (agency === 'mbta') {
             if (vid) activeTrainNumberReports.mbta[vid] = rep;
-          } else if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt' || agency === 'ctrail') {
+          } else if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt' || agency === 'ctrail' || agency === 'marc') {
             const sd = rep.serviceDate || '';
             const tn = String(rep.trainNumber || '').trim();
             if (tn && (!sd || sd === today)) {
@@ -8040,6 +8048,7 @@
           try { if (typeof fetchLirrTrains === 'function') fetchLirrTrains(); } catch (_) {}
           try { if (typeof fetchMetraTrains === 'function') fetchMetraTrains(); } catch (_) {}
           try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch (_) {}
+          try { if (typeof fetchMarcTrains === 'function') fetchMarcTrains(); } catch (_) {}
         } catch (e) {
           showNotification('Could not confirm: ' + (e && e.message ? e.message : e), 'error');
         }
@@ -8955,7 +8964,7 @@
 
 
       function agencyPrettyName(a) {
-        const map = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail' };
+        const map = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
         return map[normalizeAgency(a)] || String(a || '').toUpperCase();
       }
       function reportTimeMs(r) {
@@ -9844,6 +9853,10 @@
       const metraLastSeen = {};
       let showNjt = true;
       let showCtrail = true;
+      let showMarc = true;
+      const marcMarkers = {};
+      const marcTrainInfo = {};
+      const marcLastSeen = {};
       const njtMarkers = {};
       const njtTrainInfo = {};
       const njtLastSeen = {};
@@ -9933,6 +9946,7 @@
         if (a === 'metra') return !!showMetra;
         if (a === 'njt') return !!showNjt;
         if (a === 'ctrail') return !!showCtrail;
+        if (a === 'marc') return !!showMarc;
         return true;
       }
       function upsertAgencyStationDot(agency, sid, name, lat, lng) {
@@ -9944,7 +9958,7 @@
         if (stationMarkers[key]) return stationMarkers[key];
         const title = String(name || sid || 'Station');
         const esc = (typeof escapeHtml === 'function') ? escapeHtml(title) : title.replace(/</g, '&lt;');
-        const labels = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail' };
+        const labels = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
         const agencyLabel = labels[a] || a.toUpperCase();
         const m = L.marker([latN, lngN], { icon: createStationIcon(), zIndexOffset: -1000 });
         m._rrAgency = a;
@@ -12582,6 +12596,257 @@
         }
       }
 
+      const MARC_POSITIONS_URL = apiUrl('/api/marc/positions');
+      const MARC_TRIPUPDATES_URL = apiUrl('/api/marc/tripupdates');
+      const MARC_COLOR = '#FF8000';
+      const MARC_STATIC = {"stops":{"11940":{"name":"Martinsburg WV","lat":39.458534,"lon":-77.960739},"11941":{"name":"Duffields WV Marc","lat":39.362055,"lon":-77.828072},"11942":{"name":"Harpers Ferry WV Marc","lat":39.324633,"lon":-77.731283},"11943":{"name":"Brunswick Marc","lat":39.312002,"lon":-77.627908},"11944":{"name":"Frederick Marc","lat":39.411687,"lon":-77.40515},"11945":{"name":"Monocacy Marc","lat":39.382593,"lon":-77.39444},"11946":{"name":"Point Of Rocks Marc","lat":39.273486,"lon":-77.533735},"11947":{"name":"Dickerson Marc","lat":39.219981,"lon":-77.422041},"11948":{"name":"Barnesville Marc","lat":39.209769,"lon":-77.382615},"11949":{"name":"Boyds Marc","lat":39.184205,"lon":-77.314338},"11950":{"name":"Germantown Marc","lat":39.17336,"lon":-77.270606},"11951":{"name":"Metropolitan Grove Marc","lat":39.149744,"lon":-77.226701},"11952":{"name":"Gaithersburg Marc","lat":39.141491,"lon":-77.192736},"11953":{"name":"Washington Grove Marc","lat":39.136383,"lon":-77.177721},"11954":{"name":"Rockville Marc","lat":39.084231,"lon":-77.145973},"11955":{"name":"Garrett Park Marc","lat":39.039009,"lon":-77.093597},"11956":{"name":"Kensington Marc","lat":39.026822,"lon":-77.071741},"11957":{"name":"Silver Spring Marc","lat":38.992721,"lon":-77.030304},"11958":{"name":"UNION STATION Washington","lat":38.899036,"lon":-77.006795},"11959":{"name":"Silver Spring Marc","lat":38.993006,"lon":-77.030135},"11960":{"name":"Kensington Marc","lat":39.026892,"lon":-77.071675},"11961":{"name":"Garrett Park Marc","lat":39.039052,"lon":-77.093533},"11962":{"name":"Rockville Marc","lat":39.08429,"lon":-77.145892},"11963":{"name":"Washington Grove Marc","lat":39.136445,"lon":-77.177633},"11964":{"name":"Gaithersburg Marc","lat":39.141586,"lon":-77.192501},"11965":{"name":"Metropolitan Grove Marc","lat":39.149642,"lon":-77.226772},"11966":{"name":"Germantown Marc","lat":39.173284,"lon":-77.270674},"11967":{"name":"Boyds Marc","lat":39.184293,"lon":-77.314294},"11968":{"name":"Barnesville Marc","lat":39.209837,"lon":-77.382585},"11969":{"name":"Dickerson Marc","lat":39.220043,"lon":-77.422033},"11970":{"name":"Point Of Rocks Marc","lat":39.273573,"lon":-77.533707},"11971":{"name":"Monocacy Marc","lat":39.382557,"lon":-77.394327},"11972":{"name":"Frederick Marc","lat":39.411639,"lon":-77.405265},"11973":{"name":"Brunswick Marc","lat":39.312115,"lon":-77.627875},"11974":{"name":"Harpers Ferry WV Marc","lat":39.324703,"lon":-77.731255},"11975":{"name":"Duffields WV Marc","lat":39.362111,"lon":-77.828083},"11976":{"name":"Perryville","lat":39.558112,"lon":-76.073792},"11977":{"name":"Aberdeen Marc","lat":39.508557,"lon":-76.163024},"11978":{"name":"Edgewood Marc","lat":39.415988,"lon":-76.292763},"11979":{"name":"Martin Airport Marc","lat":39.33844,"lon":-76.419345},"11980":{"name":"Penn Station Marc","lat":39.307198,"lon":-76.615715},"11981":{"name":"West Baltimore Marc","lat":39.293351,"lon":-76.653375},"11982":{"name":"Halethorpe Marc","lat":39.236824,"lon":-76.691476},"11984":{"name":"BWI Rail Station Marc","lat":39.19228,"lon":-76.694726},"11985":{"name":"Odenton Marc","lat":39.086896,"lon":-76.706191},"11986":{"name":"Bowie State Marc","lat":39.017732,"lon":-76.765097},"11987":{"name":"Seabrook Marc","lat":38.973334,"lon":-76.843124},"11988":{"name":"New Carrollton Marc","lat":38.947966,"lon":-76.872491},"11989":{"name":"New Carrollton Marc","lat":38.947741,"lon":-76.872205},"11990":{"name":"Seabrook Marc","lat":38.97309,"lon":-76.843291},"11991":{"name":"Bowie State Marc","lat":39.017591,"lon":-76.764903},"11992":{"name":"Odenton Marc","lat":39.086794,"lon":-76.706383},"11993":{"name":"BWI Rail Station Marc","lat":39.192327,"lon":-76.69456},"11994":{"name":"Halethorpe Marc","lat":39.236819,"lon":-76.691217},"11995":{"name":"West Baltimore Marc","lat":39.293319,"lon":-76.653064},"12002":{"name":"Penn Station Marc","lat":39.307223,"lon":-76.615769},"12003":{"name":"Martin Airport Marc","lat":39.338478,"lon":-76.419377},"12004":{"name":"Edgewood Marc","lat":39.41592,"lon":-76.29272},"12005":{"name":"Aberdeen Marc","lat":39.508507,"lon":-76.162905},"12006":{"name":"Camden Station","lat":39.283157,"lon":-76.619527},"12007":{"name":"St Denis Marc","lat":39.224439,"lon":-76.703854},"12008":{"name":"Dorsey Marc","lat":39.181314,"lon":-76.745299},"12009":{"name":"Jessup Marc","lat":39.151561,"lon":-76.776402},"12010":{"name":"Savage Marc","lat":39.122927,"lon":-76.796374},"12011":{"name":"Laurel Racetrack Marc","lat":39.105772,"lon":-76.833944},"12012":{"name":"Laurel Marc","lat":39.102201,"lon":-76.841864},"12013":{"name":"Muirkirk Marc","lat":39.062711,"lon":-76.884428},"12014":{"name":"Greenbelt Marc","lat":39.010054,"lon":-76.912672},"12015":{"name":"College Park Marc","lat":38.977999,"lon":-76.92879},"12016":{"name":"Riverdale Marc","lat":38.962997,"lon":-76.935023},"12017":{"name":"Riverdale Marc","lat":38.962977,"lon":-76.934918},"12018":{"name":"College Park Marc","lat":38.977974,"lon":-76.928688},"12019":{"name":"Greenbelt Marc","lat":39.009951,"lon":-76.912466},"12020":{"name":"Muirkirk Marc","lat":39.062663,"lon":-76.884357},"12021":{"name":"Laurel Marc","lat":39.10216,"lon":-76.841811},"12023":{"name":"Savage Marc","lat":39.122855,"lon":-76.796351},"12024":{"name":"Jessup Marc","lat":39.151525,"lon":-76.776332},"12025":{"name":"Dorsey Marc","lat":39.181578,"lon":-76.744968},"12026":{"name":"St Denis Marc","lat":39.22433,"lon":-76.703801}},"routes":{"11704":{"name":"Brunswick Line","color":"#FF8000","text":"#FFFFFF"},"11705":{"name":"Penn Line","color":"#FF8000","text":"#FFFFFF"},"11706":{"name":"Camden Line","color":"#FF8000","text":"#FFFFFF"}}};
+      const MARC_GTFS_RT_DESCRIPTOR = MNR_GTFS_RT_DESCRIPTOR;
+      let marcFeedMessageType = null;
+      function getMarcFeedMessageType() {
+        if (marcFeedMessageType) return marcFeedMessageType;
+        if (typeof protobuf === 'undefined' || !protobuf.Root) throw new Error('protobufjs not loaded');
+        marcFeedMessageType = protobuf.Root.fromJSON(MARC_GTFS_RT_DESCRIPTOR).lookupType('transit_realtime.FeedMessage');
+        return marcFeedMessageType;
+      }
+      function marcUnixToDate(t) {
+        if (t == null || t === '') return null;
+        let n = (typeof t === 'object' && t !== null && typeof t.toNumber === 'function') ? t.toNumber() : Number(t);
+        if (!isFinite(n) || n <= 0) return null;
+        if (n > 1e12) n = Math.floor(n / 1000);
+        const d = new Date(n * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      function marcFormatTime(d) {
+        if (!d) return null;
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      function marcStopCoords(stopId) {
+        const s = MARC_STATIC.stops[String(stopId || '')];
+        if (!s || s.lat == null || s.lon == null) return null;
+        return { lat: Number(s.lat), lon: Number(s.lon), name: s.name || String(stopId) };
+      }
+      function marcRouteInfo(routeId) {
+        const r = MARC_STATIC.routes[String(routeId || '')] || null;
+        return { id: String(routeId || ''), name: (r && r.name) || 'MARC', color: (r && r.color) || MARC_COLOR, text: (r && r.text) || '#FFFFFF' };
+      }
+      function marcEventTime(ev) { return ev ? marcUnixToDate(ev.time) : null; }
+      function marcEventDelayMin(ev) {
+        if (!ev || ev.delay == null) return null;
+        const sec = Number(ev.delay);
+        return isFinite(sec) ? Math.round(sec / 60) : null;
+      }
+      function marcBuildStopsFromTripUpdate(tu) {
+        const now = Date.now();
+        return ((tu && tu.stop_time_update) || []).map(function(stu) {
+          const stopId = stu.stop_id != null ? String(stu.stop_id) : '';
+          const staticStop = MARC_STATIC.stops[stopId] || null;
+          const name = (staticStop && staticStop.name) || stopId || 'Unknown';
+          const arr = marcEventTime(stu.arrival);
+          const dep = marcEventTime(stu.departure);
+          const primary = dep || arr;
+          const delayMin = marcEventDelayMin(stu.departure);
+          const delayMin2 = delayMin != null ? delayMin : marcEventDelayMin(stu.arrival);
+          return {
+            name: name, stopId: stopId, scheduledTime: primary, predictedTime: primary,
+            delayMinutes: delayMin2, trackNumber: null,
+            formattedScheduledTime: marcFormatTime(primary) || '\u2014',
+            formattedPredictedTime: marcFormatTime(primary),
+            formattedActualTime: null,
+            isCompleted: primary ? primary.getTime() < now : false,
+            lat: staticStop ? Number(staticStop.lat) : null,
+            lng: staticStop ? Number(staticStop.lon) : null
+          };
+        });
+      }
+      function marcDisplayTrainNum(tripId, vehicleId) {
+        const s = String(tripId || vehicleId || '').trim();
+        const m = s.match(/(\d{2,4})\s*$/) || s.match(/Train\s*(\d+)/i);
+        if (m) return m[1];
+        return s.replace(/^Train/i, '') || '?';
+      }
+      function createMarcIcon() {
+        return L.divIcon({
+          className: 'marc-icon',
+          html: '<div style="width:16px;height:16px;background:#FF8000;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>',
+          iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8]
+        });
+      }
+      function createMarcPopupContent(vid, info) {
+        const num = info.trainNum || String(vid).replace(/^marc-/, '');
+        const route = info.routeName || 'MARC';
+        const dest = info.destName || '\u2014';
+        const origin = info.origName || '\u2014';
+        const status = info.statusText || 'On Time';
+        const statusPillClass = info.statusPillClass || 'status-on-time';
+        const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
+        const lastSeenTime = marcLastSeen[vid] ? new Date(marcLastSeen[vid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '\u2014';
+        const badge = '<span class="cape-badge" style="background:#FF8000;">MARC</span>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMarcTrain(\'' + vid + '\')">Refresh</button>';
+        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('marc', vid, num) : '';
+        const hasAlert = !!info.hasAlert;
+        const al = (typeof trainAlertBannerHtml === 'function') ? trainAlertBannerHtml(hasAlert, info.alertHeader) : '';
+        const alertIcon = (typeof trainAlertHeaderIconHtml === 'function') ? trainAlertHeaderIconHtml(hasAlert) : '';
+        const stopsHtml = (info.stops && info.stops.length) ? buildStopsHtml(info.stops, info.lat, info.lng) : '<div class="no-departures">No stop data</div>';
+        let statusDesc = 'On the way to ' + dest;
+        if (info.vehicleStatus === 1 && info.currentStopName) statusDesc = 'Stopped at ' + info.currentStopName;
+        else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
+        else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
+        const speedHtml = speed != null ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>') : '';
+        return '<div class="train-popup"><div class="train-popup-header"><div>' + badge +
+          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + route + '</span> ' +
+          '<span style="font-weight:700;color:#fff;font-style:italic;">' + num + '</span> ' +
+          '<span style="color:#fff;font-style:italic;">to</span> ' +
+          '<span style="font-weight:700;color:#fff;font-style:italic;">' + dest + '</span>' + alertIcon +
+          '</div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;">' +
+          '<p class="status-desc" style="margin:0;">' + statusDesc + '</p><span class="status-pill ' + statusPillClass + '">' + status + '</span></div>' +
+          '<div class="info-grid"><div class="info-item"><span class="info-label">Train</span><span class="info-value">' + num + '</span></div>' +
+          '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + route + '</span></div>' +
+          '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>' + speedHtml + '</div>' +
+          al + '<div class="meta-row">' + origin + ' \u2192 ' + dest + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
+          '<div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + shareBtn + refreshBtn + '</div></div>';
+      }
+      window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
+      function updateMarcVisibility() {
+        Object.values(marcMarkers).forEach(function(m) {
+          if (showMarc) map.addLayer(m); else map.removeLayer(m);
+        });
+      }
+      function marcParseJoined(vehicleEntity, tripUpdate, usedTrainNums) {
+        const v = (vehicleEntity && vehicleEntity.vehicle) || null;
+        if (!v || !v.position) return null;
+        const lat = Number(v.position.latitude);
+        const lon = Number(v.position.longitude);
+        if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) return null;
+        const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
+        const tu = tripUpdate || null;
+        const trip = Object.assign({}, (v && v.trip) || {}, (tu && tu.trip) || {});
+        const tripId = trip.trip_id != null ? String(trip.trip_id) : '';
+        const trainNum = marcDisplayTrainNum(tripId, vehicleId);
+        const routeId = (tu && tu.trip && tu.trip.route_id) ? String(tu.trip.route_id) : (trip.route_id != null ? String(trip.route_id) : '');
+        const route = marcRouteInfo(routeId);
+        const stops = marcBuildStopsFromTripUpdate(tu);
+        const destName = stops.length ? stops[stops.length - 1].name : '\u2014';
+        const origName = stops.length ? stops[0].name : '\u2014';
+        let maxDelay = null;
+        stops.forEach(function(s) {
+          if (s.delayMinutes == null) return;
+          if (maxDelay == null || Math.abs(s.delayMinutes) > Math.abs(maxDelay)) maxDelay = s.delayMinutes;
+        });
+        let statusText = 'On Time';
+        let statusPillClass = 'status-on-time';
+        if (maxDelay != null && Math.abs(maxDelay) > 15) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
+        } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
+        } else if (maxDelay != null && maxDelay > 0) {
+          statusText = maxDelay + ' min late';
+        } else if (!tu) {
+          statusText = 'Live';
+          statusPillClass = 'status-scheduled';
+        }
+        let currentStopName = null;
+        if (v && v.stop_id) {
+          const cs = marcStopCoords(v.stop_id);
+          if (cs) currentStopName = cs.name;
+        }
+        let speedMph = null;
+        if (v.position.speed != null) {
+          const mps = Number(v.position.speed);
+          if (isFinite(mps) && mps >= 0) speedMph = mps * 2.23693629;
+        }
+        let markerKey = 'marc-' + (vehicleId || trainNum);
+        if (usedTrainNums && usedTrainNums.has(markerKey)) markerKey = 'marc-' + String((vehicleEntity && vehicleEntity.id) || vehicleId || trainNum);
+        if (usedTrainNums) usedTrainNums.add(markerKey);
+        return {
+          id: markerKey, trainNum: trainNum, vehicleId: vehicleId || null, routeId: routeId,
+          routeName: route.name, routeColor: route.color, routeText: route.text,
+          lat: lat, lng: lon, coordSource: 'gps', stops: stops, destName: destName, origName: origName,
+          statusText: statusText, statusPillClass: statusPillClass, delayMinutes: maxDelay,
+          vehicleStatus: (v.current_status != null) ? Number(v.current_status) : null,
+          currentStopName: currentStopName, speedMph: speedMph, tripId: tripId || null,
+          hasAlert: false, alertHeader: ''
+        };
+      }
+      async function fetchMarcTrains() {
+        const stat = FetchStats.start('MARC');
+        try {
+          const FeedMessage = getMarcFeedMessageType();
+          const [posRes, tuRes] = await Promise.all([
+            fetch(MARC_POSITIONS_URL),
+            fetch(MARC_TRIPUPDATES_URL)
+          ]);
+          if (!posRes.ok) throw new Error('positions HTTP ' + posRes.status);
+          if (!tuRes.ok) throw new Error('tripupdates HTTP ' + tuRes.status);
+          const [posBuf, tuBuf] = await Promise.all([
+            posRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
+            tuRes.arrayBuffer().then(function(b) { return new Uint8Array(b); })
+          ]);
+          const posFeed = FeedMessage.decode(posBuf);
+          const tuFeed = FeedMessage.decode(tuBuf);
+          const tuByVehicleId = {};
+          const tuByTripId = {};
+          (tuFeed.entity || []).forEach(function(entity) {
+            const tu = entity.trip_update;
+            if (!tu) return;
+            if (tu.vehicle && tu.vehicle.id != null && tu.vehicle.id !== '') tuByVehicleId[String(tu.vehicle.id)] = tu;
+            if (tu.trip && tu.trip.trip_id) tuByTripId[String(tu.trip.trip_id)] = tu;
+          });
+          const now = Date.now();
+          let created = 0, updated = 0, skipped = 0, joined = 0, gpsOnly = 0;
+          const seen = new Set();
+          const usedTrainNums = new Set();
+          (posFeed.entity || []).forEach(function(entity) {
+            const v = entity.vehicle;
+            if (!v || !v.position) { skipped++; return; }
+            const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
+            const tripId = (v.trip && v.trip.trip_id != null) ? String(v.trip.trip_id) : '';
+            const tu = (vehicleId && tuByVehicleId[vehicleId]) || (tripId && tuByTripId[tripId]) || null;
+            if (tu) joined++; else gpsOnly++;
+            const info = marcParseJoined(entity, tu, usedTrainNums);
+            if (!info) { skipped++; return; }
+            const vid = info.id;
+            seen.add(vid);
+            marcTrainInfo[vid] = info;
+            marcLastSeen[vid] = now;
+            const icon = createMarcIcon();
+            const labelInfo = (typeof buildCyclingTrainInfo === 'function') ? buildCyclingTrainInfo({
+              agency: 'MARC', routeName: info.routeName, trainNum: info.trainNum, dest: info.destName,
+              statusText: info.statusText, lat: info.lat, lng: info.lng
+            }) : null;
+            if (marcMarkers[vid]) {
+              marcMarkers[vid].setLatLng([info.lat, info.lng]);
+              marcMarkers[vid].setIcon(icon);
+              if (marcMarkers[vid].getPopup()) marcMarkers[vid].setPopupContent(createMarcPopupContent(vid, info));
+              if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(marcMarkers[vid], labelInfo, false);
+              updated++;
+            } else {
+              const m = L.marker([info.lat, info.lng], { icon: icon });
+              m.bindPopup(createMarcPopupContent(vid, info), rrPopupOpts());
+              if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(m, labelInfo, true);
+              marcMarkers[vid] = m;
+              if (showMarc) m.addTo(map);
+              created++;
+            }
+          });
+          Object.keys(marcMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(marcMarkers[vid]);
+              delete marcMarkers[vid];
+              delete marcTrainInfo[vid];
+              delete marcLastSeen[vid];
+            }
+          });
+          FetchStats.end(stat, { joined: joined, gpsOnly: gpsOnly, created: created, updated: updated, skipped: skipped, active: Object.keys(marcMarkers).length });
+          updateMarcVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('MARC', e);
+          console.warn('%c[MARC] GTFS-RT fetch failed \u2014 add /api/marc/* to railroadradar-proxy', 'color:#f39c12', e);
+        }
+      }
+
       async function fetchStations() {
         try {
           const res = await fetch(stopsUrl);
@@ -12674,6 +12939,7 @@
         if (agency === 'amtrak') return showAmtrak;
         if (agency === 'njt') return showNjt;
         if (agency === 'ctrail') return showCtrail;
+        if (agency === 'marc') return showMarc;
         return true;
       }
       function updateGtfsShapeVisibility() {
@@ -12688,13 +12954,15 @@
       }
       const RR_CTRAIL_SHAPES = {"agency":"ctrail","routes":[{"id":"HART","name":"Hartford Line","color":"#EA0D2A","polylines":[[[41.29717,-72.92594],[41.30246,-72.92322],[41.30769,-72.91994],[41.31131,-72.91177],[41.31338,-72.90624],[41.31673,-72.90121],[41.32077,-72.89652],[41.32972,-72.89487],[41.3359,-72.89476],[41.34214,-72.89464],[41.34811,-72.8931],[41.35634,-72.88896],[41.36188,-72.8862],[41.3674,-72.88343],[41.37295,-72.88064],[41.3784,-72.87791],[41.3856,-72.87217],[41.38925,-72.86725],[41.39299,-72.86222],[41.3969,-72.85747],[41.40294,-72.85041],[41.40784,-72.84668],[41.41346,-72.84421],[41.41904,-72.84175],[41.42743,-72.83808],[41.43302,-72.83558],[41.43864,-72.83312],[41.44431,-72.83065],[41.44986,-72.82819],[41.45836,-72.82444],[41.46379,-72.82149],[41.46926,-72.81843],[41.4746,-72.81545],[41.48274,-72.81117],[41.4886,-72.80982],[41.49431,-72.81183],[41.49941,-72.81521],[41.50818,-72.81532],[41.51418,-72.81381],[41.52,-72.81153],[41.52487,-72.80782],[41.53071,-72.80579],[41.53889,-72.80148],[41.54329,-72.79716],[41.5482,-72.79339],[41.55409,-72.79198],[41.56237,-72.78824],[41.5676,-72.78496],[41.57279,-72.78171],[41.57805,-72.77835],[41.58457,-72.7719],[41.59023,-72.7696],[41.59601,-72.76753],[41.60193,-72.7656],[41.60802,-72.7663],[41.61699,-72.76871],[41.6229,-72.77011],[41.62897,-72.7696],[41.63428,-72.76666],[41.64133,-72.76084],[41.64603,-72.75697],[41.65089,-72.7531],[41.65678,-72.7517],[41.66575,-72.75358],[41.67174,-72.75199],[41.67759,-72.75006],[41.68363,-72.74929],[41.68981,-72.74927],[41.69906,-72.74805],[41.70449,-72.74529],[41.70926,-72.74161],[41.71416,-72.73772],[41.72139,-72.732],[41.72622,-72.72817],[41.73096,-72.72441],[41.73584,-72.72053],[41.74067,-72.71669],[41.74791,-72.71094],[41.75271,-72.70713],[41.75754,-72.70333],[41.76188,-72.69917],[41.76541,-72.69061],[41.76593,-72.68434],[41.7707,-72.68168],[41.77393,-72.67682],[41.7808,-72.67137],[41.78637,-72.66912],[41.79144,-72.66566],[41.79605,-72.66144],[41.80107,-72.65801],[41.80872,-72.65286],[41.81382,-72.64937],[41.8194,-72.64643],[41.82526,-72.64467],[41.83436,-72.64427],[41.84038,-72.64562],[41.8463,-72.64435],[41.85203,-72.64214],[41.86085,-72.6399],[41.86603,-72.63649],[41.87097,-72.63269],[41.87602,-72.62928],[41.88204,-72.62817],[41.89128,-72.62922],[41.89732,-72.62846],[41.90334,-72.62759],[41.9093,-72.62667],[41.91839,-72.62535],[41.92429,-72.62685],[41.93038,-72.62729],[41.93631,-72.62645],[41.94311,-72.62055],[41.94369,-72.6145],[41.94423,-72.60838],[41.94944,-72.60618],[41.95551,-72.60605],[41.96472,-72.60555],[41.97077,-72.60519],[41.97671,-72.60372],[41.98265,-72.60203],[41.99168,-72.60139],[41.99726,-72.60392],[42.00324,-72.60414],[42.00899,-72.60207],[42.01798,-72.60003],[42.02406,-72.59865],[42.02996,-72.59732],[42.03593,-72.59597],[42.04193,-72.59462],[42.05088,-72.59261],[42.0569,-72.59125],[42.06289,-72.58989],[42.06889,-72.58856],[42.07571,-72.58306],[42.08068,-72.57978],[42.08638,-72.58167],[42.0917,-72.5846],[42.09854,-72.59053],[42.10211,-72.59556],[42.10614,-72.59304]],[[42.10614,-72.59304],[42.10204,-72.59554],[42.09851,-72.59056],[42.09158,-72.58458],[42.08616,-72.58164],[42.08033,-72.57985],[42.07563,-72.58331],[42.06885,-72.58862],[42.06291,-72.58994],[42.05691,-72.59131],[42.05092,-72.59265],[42.04182,-72.5947],[42.03591,-72.59603],[42.03,-72.59736],[42.02404,-72.5987],[42.01509,-72.60072],[42.00906,-72.60213],[42.00335,-72.60413],[41.99724,-72.60395],[41.98862,-72.60091],[41.98263,-72.60209],[41.97665,-72.60378],[41.97067,-72.60525],[41.96452,-72.60561],[41.95528,-72.60613],[41.94924,-72.60622],[41.94407,-72.60877],[41.94369,-72.61489],[41.94074,-72.62315],[41.93572,-72.62681],[41.92968,-72.62727],[41.92354,-72.62657],[41.91472,-72.62585],[41.90866,-72.62677],[41.90257,-72.6277],[41.89648,-72.62864],[41.88736,-72.62906],[41.88136,-72.62818],[41.87547,-72.62959],[41.87042,-72.63317],[41.86552,-72.63693],[41.85761,-72.64146],[41.85149,-72.64221],[41.84592,-72.64462],[41.83994,-72.64562],[41.83087,-72.64381],[41.82489,-72.64482],[41.81905,-72.64662],[41.81374,-72.64948],[41.80607,-72.65468],[41.80101,-72.65811],[41.79604,-72.66151],[41.79156,-72.66561],[41.78368,-72.67031],[41.77797,-72.67251],[41.77394,-72.67684],[41.77063,-72.68169],[41.76569,-72.68751],[41.76467,-72.6936],[41.76199,-72.69906],[41.75761,-72.70331],[41.75274,-72.70716],[41.74557,-72.71286],[41.74079,-72.71666],[41.73595,-72.7205],[41.7311,-72.72437],[41.72392,-72.73004],[41.71913,-72.73385],[41.71436,-72.73763],[41.70953,-72.74146],[41.70188,-72.7469],[41.69613,-72.74891],[41.69007,-72.74933],[41.68395,-72.74934],[41.67487,-72.75089],[41.66916,-72.75301],[41.66305,-72.75346],[41.65719,-72.75182],[41.64884,-72.75475],[41.64413,-72.75859],[41.63932,-72.76257],[41.63466,-72.76642],[41.6294,-72.76951],[41.62042,-72.76968],[41.61458,-72.76811],[41.60854,-72.76649],[41.6026,-72.76556],[41.59363,-72.76842],[41.58794,-72.77047],[41.58266,-72.7734],[41.57852,-72.77801],[41.57069,-72.78308],[41.56556,-72.7863],[41.56044,-72.78949],[41.55474,-72.79191],[41.54608,-72.7947],[41.54157,-72.79893],[41.5369,-72.80297],[41.53132,-72.80564],[41.52299,-72.80942],[41.51775,-72.81254],[41.51187,-72.81444],[41.50587,-72.81597],[41.49983,-72.8155],[41.49209,-72.81069],[41.48602,-72.81006],[41.48031,-72.81235],[41.47486,-72.81537],[41.46679,-72.81988],[41.46142,-72.82289],[41.45591,-72.8256],[41.45031,-72.82806],[41.44192,-72.83175],[41.43631,-72.8342],[41.43069,-72.83666],[41.42497,-72.83918],[41.41662,-72.84283],[41.41091,-72.84534],[41.40549,-72.84822],[41.4012,-72.85251],[41.39724,-72.85716],[41.39143,-72.86436],[41.38777,-72.86929],[41.38398,-72.87422],[41.37894,-72.87769],[41.37075,-72.88179],[41.36533,-72.88452],[41.35985,-72.88726],[41.35433,-72.89004],[41.34614,-72.894],[41.34007,-72.89474],[41.33398,-72.89484],[41.32787,-72.89495],[41.31942,-72.8977],[41.31571,-72.90276],[41.31229,-72.90785],[41.31114,-72.91392],[41.30579,-72.92113],[41.30024,-72.92367],[41.29717,-72.92594]]]}]};
       const RR_NJT_SHAPES = {"agency":"njt","routes":[{"id":"ATLC","name":"Atlantic City Rail Line","color":"#005DAA","polylines":[[[39.3633,-74.44149],[39.36674,-74.45437],[39.36794,-74.46084],[39.36908,-74.4637],[39.38723,-74.49024],[39.38946,-74.49291],[39.39207,-74.49492],[39.39621,-74.49659],[39.39962,-74.49697],[39.41343,-74.49682],[39.41675,-74.4972],[39.41993,-74.49846],[39.42284,-74.50055],[39.42535,-74.50338],[39.44682,-74.53388],[39.52645,-74.64802],[39.63166,-74.79948],[39.66649,-74.84979],[39.66909,-74.85253],[39.67221,-74.8541],[39.67556,-74.85434],[39.67879,-74.85322],[39.6904,-74.8453],[39.69359,-74.84364],[39.69699,-74.84287],[39.70043,-74.84303],[39.70691,-74.84451],[39.70976,-74.84562],[39.75201,-74.87739],[39.76989,-74.88814],[39.77282,-74.89049],[39.77531,-74.89357],[39.78362,-74.90771],[39.80467,-74.94369],[39.80611,-74.9469],[39.80901,-74.95646],[39.81005,-74.96002],[39.81154,-74.96388],[39.81772,-74.97345],[39.82044,-74.97759],[39.83058,-74.99664],[39.83241,-74.99903],[39.83578,-75.00156],[39.851,-75.00804],[39.85408,-75.00893],[39.86395,-75.00919],[39.86773,-75.00992],[39.87166,-75.01201],[39.87391,-75.01405],[39.87632,-75.01725],[39.87953,-75.02321],[39.88124,-75.02572],[39.88458,-75.02966],[39.88711,-75.03178],[39.89287,-75.0342],[39.90011,-75.03841],[39.90269,-75.04051],[39.90511,-75.04275],[39.92845,-75.04166],[39.93491,-75.04124],[39.95076,-75.0381],[39.95404,-75.0383],[39.96662,-75.04782],[39.96943,-75.05043],[39.97201,-75.0534],[39.97777,-75.0618],[39.98622,-75.07439],[39.98853,-75.07718],[39.99573,-75.08361],[39.99832,-75.08679],[40.00003,-75.09086],[40.00153,-75.0983],[40.00488,-75.12375],[40.00514,-75.12896],[40.00456,-75.13413],[40.00326,-75.1388],[39.99456,-75.16229],[39.98706,-75.17742],[39.9779,-75.19146],[39.97302,-75.19761],[39.96952,-75.19683],[39.96692,-75.19106],[39.96574,-75.188],[39.9632,-75.18643],[39.95861,-75.18728],[39.95674,-75.18525],[39.95656,-75.18233]],[[39.95656,-75.18233],[39.95675,-75.18546],[39.96185,-75.18646],[39.96551,-75.18778],[39.96692,-75.19106],[39.96859,-75.19649],[39.9725,-75.19795],[39.97672,-75.19341],[39.98618,-75.17895],[39.99383,-75.16397],[40.00326,-75.1388],[40.00456,-75.13413],[40.00514,-75.12896],[40.00488,-75.12375],[40.00153,-75.0983],[40.00035,-75.09221],[39.999,-75.08807],[39.99668,-75.08455],[39.98905,-75.07767],[39.98622,-75.07439],[39.97777,-75.0618],[39.97361,-75.0556],[39.96943,-75.05043],[39.96662,-75.04782],[39.95565,-75.03898],[39.95248,-75.03799],[39.93576,-75.04112],[39.92845,-75.04166],[39.90677,-75.04309],[39.90397,-75.04191],[39.90113,-75.03909],[39.89491,-75.03521],[39.88814,-75.03228],[39.88537,-75.03048],[39.8813,-75.02579],[39.87953,-75.02321],[39.87696,-75.01837],[39.87518,-75.01557],[39.87253,-75.01272],[39.87009,-75.01097],[39.86632,-75.00957],[39.85564,-75.00906],[39.85252,-75.00859],[39.83637,-75.00183],[39.83376,-75.00024],[39.83145,-74.99789],[39.82106,-74.97865],[39.81772,-74.97345],[39.81294,-74.96632],[39.81072,-74.962],[39.80901,-74.95646],[39.8064,-74.94778],[39.80467,-74.94369],[39.78362,-74.90771],[39.77586,-74.89447],[39.77413,-74.89195],[39.77141,-74.88921],[39.75305,-74.87809],[39.71146,-74.84671],[39.70836,-74.84497],[39.70101,-74.84315],[39.69699,-74.84287],[39.69359,-74.84364],[39.6904,-74.8453],[39.67948,-74.85279],[39.67666,-74.85411],[39.67332,-74.85433],[39.67008,-74.85319],[39.66728,-74.85082],[39.63167,-74.7995],[39.52654,-74.64816],[39.44682,-74.53388],[39.42546,-74.50354],[39.42284,-74.50055],[39.41993,-74.49846],[39.41675,-74.4972],[39.41343,-74.49682],[39.39962,-74.49697],[39.39621,-74.49659],[39.39207,-74.49492],[39.38946,-74.49291],[39.38723,-74.49024],[39.37059,-74.46579],[39.36879,-74.46325],[39.36719,-74.45643],[39.3633,-74.44149]]]},{"id":"BNTN","name":"Montclair-Boonton Line","color":"#EE8125","polylines":[[[40.85144,-74.83535],[40.85381,-74.83306],[40.85887,-74.82807],[40.86245,-74.82244],[40.86396,-74.81906],[40.86654,-74.81674],[40.87306,-74.81375],[40.87827,-74.8113],[40.88089,-74.80938],[40.88636,-74.80104],[40.88784,-74.79684],[40.88891,-74.79208],[40.89038,-74.78879],[40.89292,-74.78641],[40.89609,-74.7809],[40.90768,-74.75832],[40.91071,-74.7526],[40.91143,-74.74962],[40.90995,-74.74446],[40.90876,-74.73449],[40.90179,-74.72639],[40.89697,-74.72709],[40.89411,-74.72682],[40.89247,-74.72432],[40.89243,-74.71962],[40.89315,-74.7165],[40.89762,-74.70679],[40.89768,-74.7035],[40.89759,-74.70025],[40.89831,-74.69661],[40.901,-74.68885],[40.90214,-74.68596],[40.90585,-74.67948],[40.90725,-74.67634],[40.90782,-74.67321],[40.90772,-74.6701],[40.90632,-74.66713],[40.89857,-74.66486],[40.89571,-74.66396],[40.89308,-74.66169],[40.8918,-74.65824],[40.89172,-74.65275],[40.89253,-74.64722],[40.89893,-74.62447],[40.9037,-74.60782],[40.90461,-74.60362],[40.90534,-74.59892],[40.90564,-74.59101],[40.90495,-74.58741],[40.8961,-74.56919],[40.88849,-74.56733],[40.88587,-74.5658],[40.88388,-74.56319],[40.883,-74.56028],[40.88455,-74.54566],[40.88441,-74.54265],[40.87984,-74.53299],[40.87894,-74.52944],[40.8806,-74.51971],[40.88057,-74.51615],[40.87767,-74.51051],[40.87748,-74.50717],[40.88153,-74.50001],[40.88281,-74.49725],[40.88338,-74.49412],[40.88361,-74.4895],[40.88389,-74.48151],[40.88433,-74.47793],[40.88457,-74.47465],[40.88538,-74.47093],[40.88554,-74.46758],[40.87982,-74.45002],[40.87991,-74.44567],[40.88087,-74.44203],[40.88278,-74.43843],[40.88595,-74.4336],[40.89595,-74.41861],[40.9011,-74.41369],[40.90308,-74.40866],[40.90573,-74.40381],[40.90719,-74.40035],[40.91548,-74.38872],[40.91739,-74.3859],[40.9214,-74.37815],[40.92213,-74.37521],[40.92156,-74.37216],[40.91965,-74.36928],[40.91795,-74.36589],[40.91582,-74.35675],[40.91699,-74.35033],[40.92122,-74.3458],[40.92309,-74.34343],[40.92444,-74.34065],[40.92744,-74.32775],[40.92809,-74.31935],[40.92414,-74.30183],[40.91697,-74.27139],[40.9144,-74.26816],[40.9084,-74.26331],[40.90531,-74.26078],[40.89615,-74.25401],[40.893,-74.25176],[40.89088,-74.24956],[40.88267,-74.23766],[40.88067,-74.23538],[40.87413,-74.22899],[40.87413,-74.22899],[40.86923,-74.22597],[40.86749,-74.22329],[40.8675,-74.22022],[40.87038,-74.21586],[40.87296,-74.2089],[40.87467,-74.2023],[40.87455,-74.19922],[40.87245,-74.19707],[40.86881,-74.19763],[40.86387,-74.20018],[40.85775,-74.20246],[40.85292,-74.20318],[40.84872,-74.20531],[40.84426,-74.20848],[40.84136,-74.20939],[40.83192,-74.20712],[40.81819,-74.20952],[40.81233,-74.20767],[40.80964,-74.20791],[40.80667,-74.20909],[40.80354,-74.20803],[40.79849,-74.20307],[40.79405,-74.20067],[40.79047,-74.19944],[40.7865,-74.19927],[40.78274,-74.19845],[40.76938,-74.19521],[40.75615,-74.19208],[40.75372,-74.18942],[40.75198,-74.18676],[40.75044,-74.18348],[40.74936,-74.17996],[40.74766,-74.17213],[40.74749,-74.16644],[40.74699,-74.16314],[40.74354,-74.15812],[40.74218,-74.15503],[40.74211,-74.1498],[40.74269,-74.14066],[40.74309,-74.13609],[40.74356,-74.13022],[40.74382,-74.12605],[40.74392,-74.11722],[40.74531,-74.0971],[40.7455,-74.08831],[40.74404,-74.08096],[40.74281,-74.07498],[40.74227,-74.07193],[40.74099,-74.0661],[40.7402,-74.06239],[40.73587,-74.04204],[40.73482,-74.03695],[40.73484,-74.02805]],[[40.73484,-74.02805],[40.73473,-74.03594],[40.73587,-74.04204],[40.73679,-74.04623],[40.74099,-74.0661],[40.7421,-74.07108],[40.74269,-74.07434],[40.74349,-74.07821],[40.74522,-74.08658],[40.74561,-74.08982],[40.74399,-74.11552],[40.74382,-74.12605],[40.74356,-74.13022],[40.74311,-74.13586],[40.74273,-74.14024],[40.7423,-74.14601],[40.74212,-74.1496],[40.74257,-74.15638],[40.74606,-74.16144],[40.74735,-74.16441],[40.74735,-74.16935],[40.74921,-74.17938],[40.75004,-74.18226],[40.75159,-74.186],[40.75557,-74.19182],[40.76057,-74.19311],[40.76935,-74.1952],[40.78271,-74.19845],[40.78616,-74.19925],[40.79047,-74.19944],[40.79849,-74.20307],[40.80106,-74.20512],[40.80313,-74.20766],[40.80585,-74.209],[40.80896,-74.20831],[40.81162,-74.20725],[40.81538,-74.20919],[40.83192,-74.20712],[40.84043,-74.20926],[40.84372,-74.20882],[40.84872,-74.20531],[40.85135,-74.20362],[40.85754,-74.20249],[40.8609,-74.20171],[40.8672,-74.19825],[40.87168,-74.19706],[40.87429,-74.19863],[40.87479,-74.20164],[40.87296,-74.2089],[40.87212,-74.21233],[40.86825,-74.21868],[40.86729,-74.22155],[40.86793,-74.22451],[40.87338,-74.22842],[40.88112,-74.23581],[40.89088,-74.24956],[40.893,-74.25176],[40.90025,-74.25697],[40.90506,-74.26056],[40.9084,-74.26331],[40.91397,-74.26781],[40.91635,-74.26995],[40.92414,-74.30183],[40.92814,-74.3206],[40.92786,-74.32542],[40.92502,-74.33875],[40.92401,-74.34164],[40.9218,-74.34513],[40.9175,-74.34971],[40.9159,-74.35267],[40.91774,-74.36513],[40.91913,-74.36852],[40.92097,-74.37098],[40.92208,-74.37416],[40.92164,-74.37761],[40.91891,-74.38315],[40.91739,-74.3859],[40.90836,-74.39822],[40.90654,-74.40216],[40.90414,-74.40623],[40.90242,-74.41124],[40.90077,-74.41399],[40.89759,-74.41661],[40.88398,-74.43655],[40.88196,-74.43973],[40.88042,-74.44333],[40.87977,-74.44712],[40.88002,-74.45145],[40.88516,-74.46613],[40.88562,-74.46956],[40.88443,-74.47723],[40.88396,-74.48067],[40.88373,-74.48496],[40.88361,-74.4895],[40.88338,-74.49401],[40.88281,-74.49725],[40.88153,-74.50001],[40.87736,-74.50829],[40.87807,-74.51151],[40.87989,-74.5142],[40.88075,-74.51757],[40.87911,-74.52719],[40.87901,-74.53019],[40.8846,-74.54415],[40.88342,-74.55581],[40.88303,-74.55922],[40.88343,-74.56231],[40.88544,-74.56529],[40.8879,-74.56717],[40.89455,-74.56854],[40.90495,-74.58741],[40.90564,-74.59094],[40.90552,-74.59641],[40.90461,-74.60362],[40.9037,-74.60782],[40.89893,-74.62447],[40.89286,-74.64585],[40.89202,-74.64996],[40.89164,-74.65556],[40.89194,-74.659],[40.89349,-74.66225],[40.89672,-74.66441],[40.90309,-74.66542],[40.90755,-74.66947],[40.90782,-74.67321],[40.90725,-74.67634],[40.90585,-74.67948],[40.90365,-74.68274],[40.90214,-74.68596],[40.901,-74.68885],[40.89803,-74.69748],[40.89759,-74.70114],[40.89765,-74.7061],[40.89738,-74.70816],[40.89347,-74.71585],[40.89244,-74.71944],[40.89324,-74.72595],[40.89587,-74.72737],[40.89895,-74.72614],[40.90607,-74.72935],[40.90801,-74.7317],[40.90948,-74.74251],[40.91092,-74.7468],[40.90836,-74.75726],[40.90557,-74.76096],[40.89609,-74.7809],[40.89446,-74.78431],[40.89172,-74.78747],[40.8896,-74.79009],[40.88784,-74.79684],[40.88508,-74.80346],[40.88253,-74.80736],[40.87996,-74.81021],[40.87352,-74.81355],[40.86654,-74.81674],[40.86396,-74.81906],[40.86103,-74.82532],[40.85918,-74.82775],[40.85381,-74.83306],[40.85144,-74.83535]]]},{"id":"MNBN","name":"Main/Bergen County Line","color":"#FFC20E","polylines":[[[40.73484,-74.02805],[40.73473,-74.03594],[40.73587,-74.04204],[40.73679,-74.04623],[40.7402,-74.06239],[40.74103,-74.06578],[40.74348,-74.06749],[40.74923,-74.06925],[40.75315,-74.07036],[40.75715,-74.07239],[40.75993,-74.0748],[40.76708,-74.08059],[40.76953,-74.08262],[40.77226,-74.08488],[40.77598,-74.08796],[40.78247,-74.09489],[40.78932,-74.10208],[40.79595,-74.10925],[40.79899,-74.11132],[40.80573,-74.1136],[40.80879,-74.1156],[40.81163,-74.12004],[40.81377,-74.12253],[40.81646,-74.12424],[40.81951,-74.12614],[40.8246,-74.12873],[40.82798,-74.13034],[40.83137,-74.13126],[40.83436,-74.13179],[40.84189,-74.13315],[40.8455,-74.13373],[40.84927,-74.13392],[40.85247,-74.13541],[40.85772,-74.14147],[40.86692,-74.15211],[40.86963,-74.15441],[40.87248,-74.1564],[40.87922,-74.16268],[40.8819,-74.16521],[40.88521,-74.16684],[40.88949,-74.16715],[40.8938,-74.16644],[40.89699,-74.16587],[40.90006,-74.16451],[40.90328,-74.16371],[40.90666,-74.16575],[40.90926,-74.16727],[40.91489,-74.16733],[40.91965,-74.16733],[40.93495,-74.15854],[40.93833,-74.15643],[40.94254,-74.15242],[40.96224,-74.13346],[40.96883,-74.12725],[40.97336,-74.12461],[40.97919,-74.12138],[40.98941,-74.11582],[40.99321,-74.11371],[40.9962,-74.11317],[41.0025,-74.11573],[41.00548,-74.11738],[41.00776,-74.12078],[41.01001,-74.12289],[41.02044,-74.1248],[41.0273,-74.12813],[41.0309,-74.13096],[41.03471,-74.13444],[41.03751,-74.13627],[41.04339,-74.13735],[41.05642,-74.14188],[41.06533,-74.14512],[41.07505,-74.14549],[41.08616,-74.14545],[41.09437,-74.14661],[41.09976,-74.14754],[41.10636,-74.14978],[41.11354,-74.15345]],[[41.11354,-74.15344],[41.10774,-74.15039],[41.10097,-74.14787],[41.09442,-74.14662],[41.08906,-74.1457],[41.07513,-74.14549],[41.06747,-74.14552],[41.0569,-74.14206],[41.04501,-74.13773],[41.03998,-74.13699],[41.03673,-74.13589],[41.03093,-74.13099],[41.02835,-74.12877],[41.02208,-74.1254],[41.01279,-74.12343],[41.00963,-74.12273],[41.00694,-74.11914],[41.00295,-74.11595],[40.99737,-74.11353],[40.99437,-74.11325],[40.98941,-74.11582],[40.98067,-74.12057],[40.97336,-74.12461],[40.97027,-74.12626],[40.9624,-74.1333],[40.94254,-74.15242],[40.93856,-74.15624],[40.93517,-74.15841],[40.92187,-74.16667],[40.91588,-74.16733],[40.91013,-74.16735],[40.90713,-74.1662],[40.90495,-74.16405],[40.90091,-74.16423],[40.89711,-74.16582],[40.89404,-74.1664],[40.89034,-74.16708],[40.88655,-74.16709],[40.88364,-74.16629],[40.88093,-74.1643],[40.87248,-74.1564],[40.86963,-74.15441],[40.86692,-74.15211],[40.85772,-74.14147],[40.85276,-74.13572],[40.84984,-74.13398],[40.84657,-74.13384],[40.84204,-74.13317],[40.83439,-74.1318],[40.83137,-74.13126],[40.82798,-74.13034],[40.8248,-74.12882],[40.82003,-74.12642],[40.81646,-74.12424],[40.81377,-74.12253],[40.81163,-74.12004],[40.81009,-74.1173],[40.80809,-74.11494],[40.79913,-74.11137],[40.79595,-74.10925],[40.78946,-74.10224],[40.78272,-74.09516],[40.77749,-74.0894],[40.77446,-74.0867],[40.76953,-74.08262],[40.7672,-74.08069],[40.76126,-74.07589],[40.75867,-74.07369],[40.75587,-74.07153],[40.75089,-74.06972],[40.74625,-74.06834],[40.74281,-74.06731],[40.74059,-74.06422],[40.73702,-74.04751],[40.73587,-74.04204],[40.73482,-74.03695],[40.73484,-74.02805]]]},{"id":"MNBNP","name":"Port Jervis Line","color":"#FF8C00","polylines":[[[40.73484,-74.02805],[40.73587,-74.04204],[40.7402,-74.06239],[40.74348,-74.06749],[40.75315,-74.07036],[40.75993,-74.0748],[40.76953,-74.08262],[40.77598,-74.08796],[40.78932,-74.10208],[40.79595,-74.10925],[40.80573,-74.1136],[40.81163,-74.12004],[40.81645,-74.12423],[40.8246,-74.12873],[40.83137,-74.13126],[40.84189,-74.13315],[40.84927,-74.13392],[40.85772,-74.14147],[40.86963,-74.15441],[40.87922,-74.16268],[40.88521,-74.16684],[40.8938,-74.16644],[40.90006,-74.16451],[40.90666,-74.16575],[40.91489,-74.16733],[40.93495,-74.15854],[40.94254,-74.15242],[40.96221,-74.13348],[40.97336,-74.12461],[40.98941,-74.11582],[40.9962,-74.11317],[41.00548,-74.11738],[41.01001,-74.12289],[41.0273,-74.12813],[41.03471,-74.13444],[41.04339,-74.13735],[41.06533,-74.14512],[41.08616,-74.14545],[41.09976,-74.14754],[41.11354,-74.15345],[41.11832,-74.15745],[41.12541,-74.16269],[41.13291,-74.16668],[41.13911,-74.16879],[41.14091,-74.17808],[41.1417,-74.18178],[41.14951,-74.18958],[41.15715,-74.19107],[41.16781,-74.19129],[41.17391,-74.1883],[41.18043,-74.18585],[41.1863,-74.18352],[41.19251,-74.18474],[41.19915,-74.18449],[41.20476,-74.18431],[41.21078,-74.18379],[41.21741,-74.18509],[41.22361,-74.18759],[41.23228,-74.18126],[41.24142,-74.17505],[41.24724,-74.17204],[41.25771,-74.16233],[41.26553,-74.15711],[41.27536,-74.15066],[41.28691,-74.14195],[41.29337,-74.14003],[41.22599,-74.18648],[41.23228,-74.18126],[41.24142,-74.17505],[41.24724,-74.17204],[41.25771,-74.16233],[41.27223,-74.15334],[41.2832,-74.14377],[41.29001,-74.14102],[41.29651,-74.1391],[41.30188,-74.13496],[41.30711,-74.12922],[41.31348,-74.12257],[41.32407,-74.11879],[41.3309,-74.11794],[41.33411,-74.11859],[41.34282,-74.12019],[41.34918,-74.11706],[41.35382,-74.1116],[41.36259,-74.10562],[41.37123,-74.10826],[41.39017,-74.0997],[41.40205,-74.09234],[41.41125,-74.09189],[41.41783,-74.09342],[41.42455,-74.09674],[41.43446,-74.10087],[41.44519,-74.10376],[41.45097,-74.10576],[41.45498,-74.11123],[41.45624,-74.11789],[41.45522,-74.1243],[41.45117,-74.14123],[41.44692,-74.15739],[41.44302,-74.17277],[41.43895,-74.18874],[41.43837,-74.19587],[41.4409,-74.20319],[41.44619,-74.20919],[41.44986,-74.21871],[41.45251,-74.22937],[41.45446,-74.23835],[41.45233,-74.24726],[41.44877,-74.25723],[41.44987,-74.26411],[41.45618,-74.27654],[41.46567,-74.29519],[41.46948,-74.30307],[41.47129,-74.31426],[41.47197,-74.32352],[41.47096,-74.32841],[41.46743,-74.33598],[41.46369,-74.34382],[41.45889,-74.36126],[41.45733,-74.37035],[41.45831,-74.37848],[41.46226,-74.38485],[41.46759,-74.3899],[41.47208,-74.39563],[41.47514,-74.40352],[41.47788,-74.41228],[41.4772,-74.42074],[41.47247,-74.43116],[41.47203,-74.43755],[41.47636,-74.44702],[41.48049,-74.45434],[41.4853,-74.46673],[41.48851,-74.47642],[41.48868,-74.47955],[41.48709,-74.48697],[41.48013,-74.49634],[41.47224,-74.50623],[41.46908,-74.51503],[41.46988,-74.52189],[41.47242,-74.53197],[41.47674,-74.54917],[41.47863,-74.55679],[41.47503,-74.56479],[41.46705,-74.56845],[41.45615,-74.57678],[41.44933,-74.58072],[41.42697,-74.59677],[41.41667,-74.60333],[41.41162,-74.6093],[41.40492,-74.61551],[41.38973,-74.63116],[41.38153,-74.64059],[41.37803,-74.64676],[41.37808,-74.65621],[41.37047,-74.66654],[41.3653,-74.67393],[41.36114,-74.67895],[41.36387,-74.68596],[41.37003,-74.69072],[41.3749,-74.69462]],[[40.73484,-74.02805],[40.73587,-74.04204],[40.7402,-74.06239],[40.74348,-74.06749],[40.74923,-74.06925],[40.75715,-74.07239],[40.76708,-74.08059],[40.77226,-74.08488],[40.78247,-74.09489],[40.79595,-74.10925],[40.79899,-74.11132],[40.80879,-74.1156],[40.81377,-74.12253],[40.81951,-74.12614],[40.82798,-74.13034],[40.83436,-74.13179],[40.84189,-74.13315],[40.84927,-74.13392],[40.85772,-74.14147],[40.86963,-74.15441],[40.87922,-74.16268],[40.88521,-74.16684],[40.88949,-74.16715],[40.89699,-74.16587],[40.90328,-74.16371],[40.90926,-74.16727],[40.91965,-74.16733],[40.93833,-74.15643],[40.94254,-74.15242],[40.96883,-74.12725],[40.97919,-74.12138],[40.99321,-74.11371],[41.0025,-74.11573],[41.00776,-74.12078],[41.01001,-74.12289],[41.0273,-74.12813],[41.03471,-74.13444],[41.04339,-74.13735],[41.06533,-74.14512],[41.08616,-74.14545],[41.09437,-74.14661],[41.10636,-74.14978],[41.11619,-74.15487],[41.12111,-74.15989],[41.1294,-74.16529],[41.13721,-74.16598],[41.13911,-74.16879],[41.14091,-74.17808],[41.14501,-74.18718],[41.15371,-74.19089],[41.16081,-74.19129],[41.17076,-74.19009],[41.17391,-74.1883],[41.18043,-74.18585],[41.1863,-74.18352],[41.19251,-74.18474],[41.19915,-74.18449],[41.20476,-74.18431],[41.21078,-74.18379],[41.21366,-74.18428],[41.22054,-74.18689],[41.22674,-74.18608],[41.23851,-74.17679],[41.24434,-74.17384],[41.25001,-74.16948],[41.25771,-74.16233],[41.27223,-74.15334],[41.2832,-74.14377],[41.29001,-74.14102],[41.29651,-74.1391],[41.30188,-74.13496],[41.30495,-74.13175],[41.31089,-74.12557],[41.31623,-74.12091],[41.32771,-74.11792],[41.33411,-74.11859],[41.34282,-74.12019],[41.34641,-74.11961],[41.35126,-74.11423],[41.35943,-74.10672],[41.36798,-74.10716],[41.3745,-74.1087],[41.39836,-74.09354],[41.40205,-74.09234],[41.41125,-74.09189],[41.41783,-74.09342],[41.42455,-74.09674],[41.43446,-74.10087],[41.44519,-74.10376],[41.44822,-74.10444],[41.45356,-74.10852],[41.45591,-74.11447],[41.45597,-74.12105],[41.45351,-74.13123],[41.44692,-74.15739],[41.44589,-74.16124],[41.44134,-74.17943],[41.43834,-74.19281],[41.43914,-74.19968],[41.44274,-74.20557],[41.44828,-74.21275],[41.44986,-74.21871],[41.45251,-74.22937],[41.45446,-74.23835],[41.45233,-74.24726],[41.44877,-74.25723],[41.44987,-74.26411],[41.45618,-74.27654],[41.46214,-74.28826],[41.46777,-74.29905],[41.47074,-74.31041],[41.47181,-74.31874],[41.47096,-74.32841],[41.46743,-74.33598],[41.46574,-74.33959],[41.46095,-74.35069],[41.45786,-74.36713],[41.4574,-74.37458],[41.45943,-74.38137],[41.46491,-74.38736],[41.46759,-74.3899],[41.47208,-74.39563],[41.47514,-74.40352],[41.47788,-74.41228],[41.4772,-74.42074],[41.47247,-74.43116],[41.47199,-74.43439],[41.47365,-74.44221],[41.47864,-74.45108],[41.4821,-74.45806],[41.48768,-74.47321],[41.48868,-74.47955],[41.4884,-74.48327],[41.48323,-74.4924],[41.47754,-74.49958],[41.46994,-74.51062],[41.46932,-74.5188],[41.47137,-74.52786],[41.47242,-74.53197],[41.47674,-74.54917],[41.47863,-74.55679],[41.47503,-74.56479],[41.46705,-74.56845],[41.45615,-74.57678],[41.45224,-74.57834],[41.44639,-74.58383],[41.4206,-74.59949],[41.41446,-74.60585],[41.40938,-74.61149],[41.39747,-74.62327],[41.38973,-74.63116],[41.37928,-74.64378],[41.37906,-74.65323],[41.37655,-74.65919],[41.3672,-74.67071],[41.36306,-74.67631],[41.36114,-74.67895],[41.36387,-74.68596],[41.37003,-74.69072],[41.3749,-74.69462]]]},{"id":"MNE","name":"Morris & Essex Line","color":"#00A94F","polylines":[[[40.85144,-74.83535],[40.85381,-74.83306],[40.85887,-74.82807],[40.86245,-74.82244],[40.86396,-74.81906],[40.86654,-74.81674],[40.87306,-74.81375],[40.88089,-74.80938],[40.88492,-74.80371],[40.88636,-74.80104],[40.88784,-74.79684],[40.89038,-74.78879],[40.89292,-74.78641],[40.89609,-74.7809],[40.90496,-74.76195],[40.91071,-74.7526],[40.91143,-74.74962],[40.90995,-74.74446],[40.90876,-74.73449],[40.90179,-74.72639],[40.89697,-74.72709],[40.89411,-74.72682],[40.89247,-74.72432],[40.89243,-74.71962],[40.89672,-74.70986],[40.89762,-74.70679],[40.89768,-74.7035],[40.89759,-74.70025],[40.901,-74.68885],[40.90214,-74.68596],[40.90365,-74.68274],[40.90585,-74.67948],[40.90782,-74.67321],[40.90772,-74.6701],[40.90632,-74.66713],[40.9038,-74.66556],[40.89571,-74.66396],[40.89308,-74.66169],[40.8918,-74.65824],[40.89172,-74.65275],[40.89656,-74.63284],[40.89893,-74.62447],[40.9037,-74.60782],[40.90461,-74.60362],[40.90564,-74.59101],[40.90495,-74.58741],[40.89829,-74.57193],[40.8961,-74.56919],[40.88849,-74.56733],[40.88388,-74.56319],[40.883,-74.56028],[40.88341,-74.55589],[40.88455,-74.54566],[40.87984,-74.53299],[40.87894,-74.52944],[40.8806,-74.51971],[40.88057,-74.51615],[40.87767,-74.51051],[40.87748,-74.50717],[40.88153,-74.50001],[40.88281,-74.49725],[40.88361,-74.4895],[40.88373,-74.48496],[40.88349,-74.48175],[40.88126,-74.4799],[40.87301,-74.48314],[40.87007,-74.48324],[40.86792,-74.48079],[40.86543,-74.47395],[40.86322,-74.47197],[40.85248,-74.4763],[40.85021,-74.47843],[40.84727,-74.48018],[40.84007,-74.47888],[40.82871,-74.4782],[40.8203,-74.47731],[40.81724,-74.47709],[40.81374,-74.47777],[40.80683,-74.47843],[40.80354,-74.47793],[40.79954,-74.47565],[40.79721,-74.47416],[40.79216,-74.46384],[40.78956,-74.45669],[40.78802,-74.45408],[40.7818,-74.44746],[40.77674,-74.43986],[40.77502,-74.43688],[40.77198,-74.4309],[40.77013,-74.42834],[40.76262,-74.41929],[40.75987,-74.41742],[40.75707,-74.41514],[40.75224,-74.4097],[40.74897,-74.40582],[40.74458,-74.3989],[40.74236,-74.39307],[40.74153,-74.38993],[40.74027,-74.3852],[40.73662,-74.38008],[40.73066,-74.38234],[40.7279,-74.38449],[40.72469,-74.3879],[40.71902,-74.38833],[40.71713,-74.38529],[40.71685,-74.38202],[40.7182,-74.37525],[40.71835,-74.36638],[40.71654,-74.35781],[40.71558,-74.35357],[40.71446,-74.35075],[40.71818,-74.34147],[40.72071,-74.33968],[40.72378,-74.33839],[40.72592,-74.335],[40.72679,-74.33132],[40.72526,-74.3238],[40.72456,-74.3199],[40.72439,-74.31407],[40.72489,-74.31053],[40.72563,-74.30382],[40.72463,-74.29892],[40.72413,-74.29569],[40.72456,-74.29214],[40.73242,-74.27346],[40.73517,-74.27061],[40.7407,-74.26482],[40.74589,-74.26059],[40.76513,-74.24523],[40.76769,-74.24303],[40.77015,-74.24069],[40.7716,-74.23796],[40.77113,-74.23022],[40.76973,-74.22718],[40.76549,-74.21927],[40.76103,-74.21097],[40.75541,-74.19264],[40.75372,-74.18942],[40.75198,-74.18676],[40.75044,-74.18348],[40.74936,-74.17996],[40.74749,-74.16644],[40.74699,-74.16314],[40.74354,-74.15812],[40.74218,-74.15503],[40.74227,-74.14647],[40.74269,-74.14066],[40.74309,-74.13609],[40.74356,-74.13022],[40.74392,-74.11722],[40.74531,-74.0971],[40.7456,-74.09133],[40.7455,-74.08831],[40.74281,-74.07498],[40.74227,-74.07193],[40.74099,-74.0661],[40.7402,-74.06239],[40.73587,-74.04204],[40.73482,-74.03695],[40.73484,-74.02805]],[[40.73484,-74.02805],[40.73473,-74.03594],[40.73587,-74.04204],[40.7402,-74.06239],[40.74099,-74.0661],[40.7421,-74.07108],[40.74269,-74.07434],[40.74522,-74.08658],[40.74561,-74.08982],[40.74534,-74.09666],[40.74399,-74.11552],[40.74356,-74.13022],[40.74311,-74.13586],[40.74273,-74.14024],[40.7423,-74.14601],[40.74212,-74.1496],[40.74257,-74.15638],[40.74606,-74.16144],[40.74735,-74.16441],[40.74735,-74.16935],[40.75004,-74.18226],[40.75159,-74.186],[40.75367,-74.18935],[40.7553,-74.19229],[40.76083,-74.21059],[40.76513,-74.21861],[40.76973,-74.22718],[40.77113,-74.23022],[40.77189,-74.23656],[40.77096,-74.23949],[40.76797,-74.24277],[40.76549,-74.24494],[40.75541,-74.25299],[40.74159,-74.26402],[40.73543,-74.27035],[40.73317,-74.27263],[40.73115,-74.27541],[40.72413,-74.29478],[40.72463,-74.29892],[40.72562,-74.30375],[40.72592,-74.30706],[40.72438,-74.31373],[40.72456,-74.3199],[40.72503,-74.32299],[40.72641,-74.32791],[40.72679,-74.33132],[40.72462,-74.33749],[40.72186,-74.3394],[40.71892,-74.34065],[40.71495,-74.34592],[40.71531,-74.35272],[40.71653,-74.35776],[40.71822,-74.36518],[40.71834,-74.37174],[40.71696,-74.38135],[40.71697,-74.38466],[40.71823,-74.3875],[40.7209,-74.38926],[40.72384,-74.38863],[40.73066,-74.38234],[40.73431,-74.38038],[40.73743,-74.38041],[40.73951,-74.38306],[40.74236,-74.39307],[40.74368,-74.39685],[40.74592,-74.40139],[40.74772,-74.4042],[40.75553,-74.41353],[40.75863,-74.41648],[40.7626,-74.41928],[40.76629,-74.42249],[40.77108,-74.42943],[40.77502,-74.43688],[40.77674,-74.43986],[40.77902,-74.44341],[40.78107,-74.44656],[40.78848,-74.45465],[40.79216,-74.46384],[40.79481,-74.4713],[40.79718,-74.47414],[40.80599,-74.47848],[40.80907,-74.47789],[40.81266,-74.4778],[40.81596,-74.47728],[40.82871,-74.4782],[40.83461,-74.47884],[40.83776,-74.47873],[40.84586,-74.48013],[40.84885,-74.47961],[40.85762,-74.47414],[40.86215,-74.47214],[40.86495,-74.47304],[40.86792,-74.48079],[40.87301,-74.48314],[40.87586,-74.48193],[40.87923,-74.48051],[40.88225,-74.48016],[40.88361,-74.4895],[40.88338,-74.49401],[40.88281,-74.49725],[40.88153,-74.50001],[40.87736,-74.50829],[40.87807,-74.51151],[40.87989,-74.5142],[40.88075,-74.51757],[40.87911,-74.52719],[40.88369,-74.54057],[40.8846,-74.54415],[40.88342,-74.55581],[40.88303,-74.55922],[40.88544,-74.56529],[40.8879,-74.56717],[40.89455,-74.56854],[40.89743,-74.57044],[40.90564,-74.59094],[40.90552,-74.59641],[40.90461,-74.60362],[40.9037,-74.60782],[40.89893,-74.62447],[40.89286,-74.64585],[40.89202,-74.64996],[40.89164,-74.65556],[40.89194,-74.659],[40.89672,-74.66441],[40.90309,-74.66542],[40.90594,-74.66672],[40.90755,-74.66947],[40.90725,-74.67634],[40.90585,-74.67948],[40.90365,-74.68274],[40.90214,-74.68596],[40.901,-74.68885],[40.89803,-74.69748],[40.89759,-74.70114],[40.89765,-74.7061],[40.89738,-74.70816],[40.89244,-74.71944],[40.89227,-74.7229],[40.89324,-74.72595],[40.89587,-74.72737],[40.90607,-74.72935],[40.90801,-74.7317],[40.90948,-74.74251],[40.91092,-74.7468],[40.90836,-74.75726],[40.90557,-74.76096],[40.89609,-74.7809],[40.89446,-74.78431],[40.89172,-74.78747],[40.88784,-74.79684],[40.88688,-74.79991],[40.88508,-74.80346],[40.88253,-74.80736],[40.87352,-74.81355],[40.86654,-74.81674],[40.86396,-74.81906],[40.86245,-74.82244],[40.85918,-74.82775],[40.85381,-74.83306],[40.85144,-74.83535]]]},{"id":"MNEG","name":"Gladstone Branch","color":"#00A94F","polylines":[[[40.72028,-74.66637],[40.71715,-74.66233],[40.71456,-74.6601],[40.70879,-74.65847],[40.70547,-74.65804],[40.70225,-74.65865],[40.699,-74.65763],[40.69711,-74.65498],[40.69641,-74.6498],[40.69538,-74.64696],[40.69166,-74.64502],[40.68859,-74.6429],[40.68661,-74.63957],[40.68593,-74.63638],[40.68566,-74.6332],[40.68586,-74.62967],[40.68658,-74.62665],[40.68977,-74.61698],[40.69094,-74.61387],[40.69554,-74.60604],[40.69995,-74.60157],[40.70217,-74.59848],[40.70475,-74.59267],[40.70541,-74.58962],[40.70498,-74.58647],[40.70565,-74.5836],[40.70873,-74.58194],[40.71124,-74.57993],[40.71547,-74.57337],[40.71715,-74.57043],[40.71811,-74.56742],[40.71855,-74.56367],[40.7183,-74.56046],[40.71678,-74.55754],[40.69665,-74.55165],[40.69326,-74.55132],[40.68873,-74.55152],[40.68557,-74.55028],[40.68384,-74.54756],[40.68315,-74.54286],[40.68271,-74.53788],[40.68178,-74.53496],[40.6778,-74.52837],[40.67573,-74.52574],[40.67352,-74.5236],[40.67245,-74.52071],[40.67232,-74.51241],[40.67272,-74.50685],[40.67457,-74.49379],[40.67825,-74.46832],[40.67941,-74.46021],[40.67965,-74.45692],[40.67966,-74.45099],[40.68034,-74.44766],[40.68174,-74.44439],[40.6826,-74.44142],[40.68273,-74.43815],[40.682,-74.42897],[40.68232,-74.42575],[40.68581,-74.42025],[40.69264,-74.40778],[40.69502,-74.40323],[40.69634,-74.40071],[40.69893,-74.39773],[40.70036,-74.39501],[40.70075,-74.39194],[40.70282,-74.38958],[40.71103,-74.38689],[40.7139,-74.38507],[40.71581,-74.38195],[40.71787,-74.37589],[40.71834,-74.37174],[40.71835,-74.36638],[40.71654,-74.35781],[40.71558,-74.35357],[40.71446,-74.35075],[40.71417,-74.3478],[40.71818,-74.34147],[40.72071,-74.33968],[40.72378,-74.33839],[40.72592,-74.335],[40.72679,-74.33132],[40.72641,-74.32791],[40.72526,-74.3238],[40.72456,-74.3199],[40.72439,-74.31407],[40.72489,-74.31053],[40.72583,-74.30762],[40.72563,-74.30382],[40.72463,-74.29892],[40.72413,-74.29569],[40.72456,-74.29214],[40.7305,-74.27686],[40.73242,-74.27346],[40.73517,-74.27061],[40.7407,-74.26482],[40.74589,-74.26059],[40.75541,-74.25299],[40.76513,-74.24523],[40.76769,-74.24303],[40.77015,-74.24069],[40.7716,-74.23796],[40.77197,-74.23411],[40.77113,-74.23022],[40.76973,-74.22718],[40.76549,-74.21927],[40.76103,-74.21097],[40.75962,-74.20752],[40.75541,-74.19264],[40.75372,-74.18942],[40.75198,-74.18676],[40.75044,-74.18348],[40.74936,-74.17996],[40.74766,-74.17213],[40.74749,-74.16644],[40.74699,-74.16314],[40.74354,-74.15812],[40.74218,-74.15503],[40.74211,-74.1498],[40.74227,-74.14647],[40.74269,-74.14066],[40.74309,-74.13609],[40.74356,-74.13022],[40.74422,-74.12437],[40.74487,-74.12119],[40.7472,-74.11344],[40.75574,-74.08809],[40.76118,-74.07582],[40.77141,-74.05338],[40.77237,-74.05024],[40.77255,-74.04686],[40.77192,-74.04357],[40.77063,-74.04042],[40.763,-74.02259],[40.75005,-73.99237]],[[40.75005,-73.99236],[40.763,-74.02259],[40.77063,-74.04042],[40.77192,-74.04357],[40.77255,-74.04686],[40.77237,-74.05024],[40.77141,-74.05338],[40.76118,-74.07582],[40.75667,-74.08572],[40.7474,-74.11284],[40.74487,-74.12119],[40.74422,-74.12437],[40.74379,-74.12819],[40.74311,-74.13586],[40.74273,-74.14024],[40.7423,-74.14601],[40.74212,-74.1496],[40.742,-74.15287],[40.74257,-74.15638],[40.74606,-74.16144],[40.74735,-74.16441],[40.74735,-74.16935],[40.74921,-74.17938],[40.75004,-74.18226],[40.75159,-74.186],[40.75367,-74.18935],[40.7553,-74.19229],[40.75962,-74.20752],[40.76094,-74.2108],[40.76513,-74.21861],[40.76973,-74.22718],[40.77113,-74.23022],[40.77188,-74.23314],[40.77189,-74.23656],[40.77096,-74.23949],[40.76797,-74.24277],[40.76549,-74.24494],[40.75541,-74.25299],[40.74589,-74.26059],[40.74159,-74.26402],[40.73543,-74.27035],[40.73317,-74.27263],[40.73115,-74.27541],[40.72485,-74.29131],[40.72413,-74.29478],[40.72463,-74.29892],[40.72562,-74.30375],[40.72592,-74.30706],[40.72489,-74.31053],[40.72438,-74.31373],[40.72456,-74.3199],[40.72503,-74.32299],[40.72641,-74.32791],[40.72679,-74.33132],[40.72607,-74.33464],[40.72462,-74.33749],[40.72186,-74.3394],[40.71892,-74.34065],[40.71495,-74.34592],[40.71409,-74.3491],[40.71531,-74.35272],[40.71653,-74.35776],[40.71822,-74.36518],[40.71834,-74.37174],[40.71806,-74.3753],[40.71581,-74.38195],[40.71413,-74.38482],[40.71136,-74.38679],[40.70282,-74.38958],[40.70075,-74.39194],[40.70036,-74.39501],[40.69893,-74.39773],[40.69669,-74.40012],[40.69502,-74.40323],[40.69264,-74.40778],[40.68647,-74.4192],[40.68352,-74.42329],[40.68215,-74.42646],[40.68273,-74.43815],[40.6826,-74.44142],[40.68174,-74.44439],[40.68034,-74.44766],[40.67966,-74.45099],[40.67965,-74.45692],[40.67941,-74.46021],[40.67826,-74.4683],[40.67471,-74.49284],[40.67272,-74.50685],[40.67239,-74.51015],[40.67233,-74.51929],[40.67304,-74.52271],[40.67495,-74.52521],[40.67731,-74.52747],[40.68178,-74.53496],[40.68271,-74.53788],[40.68307,-74.54144],[40.68339,-74.5455],[40.6844,-74.54879],[40.68652,-74.55098],[40.69326,-74.55132],[40.69652,-74.55162],[40.71138,-74.55527],[40.71487,-74.55617],[40.71752,-74.55858],[40.71855,-74.56185],[40.71827,-74.56634],[40.71755,-74.56947],[40.71547,-74.57337],[40.71124,-74.57993],[40.70879,-74.58193],[40.70586,-74.58332],[40.70498,-74.58647],[40.70541,-74.58962],[40.70475,-74.59267],[40.70217,-74.59848],[40.70017,-74.60137],[40.69732,-74.60387],[40.69155,-74.61272],[40.68977,-74.61698],[40.68658,-74.62665],[40.68586,-74.62967],[40.68565,-74.63308],[40.68593,-74.63638],[40.68661,-74.63957],[40.68859,-74.6429],[40.69145,-74.64494],[40.69451,-74.64615],[40.69624,-74.64877],[40.69654,-74.65217],[40.6974,-74.65561],[40.6995,-74.65798],[40.70259,-74.6586],[40.70606,-74.65801],[40.71291,-74.65946],[40.71608,-74.66118],[40.72028,-74.66637]]]},{"id":"MRL","name":"Meadowlands Rail Line","color":"#C4D600","polylines":[[[40.81305,-74.07211],[40.76119,-74.07582],[40.73484,-74.02805]],[[40.76119,-74.07582],[40.81305,-74.07211]]]},{"id":"NEC","name":"Northeast Corridor","color":"#EF3E42","polylines":[[[40.21851,-74.75393],[40.22179,-74.75004],[40.22404,-74.74724],[40.2553,-74.70413],[40.28198,-74.66728],[40.31631,-74.62376],[40.38629,-74.53483],[40.38855,-74.53209],[40.39107,-74.5296],[40.39378,-74.52747],[40.39665,-74.52573],[40.4001,-74.52373],[40.40571,-74.51992],[40.42449,-74.50704],[40.45213,-74.48807],[40.46431,-74.4797],[40.46901,-74.4757],[40.47689,-74.46734],[40.49675,-74.44629],[40.50024,-74.44213],[40.50491,-74.43605],[40.51915,-74.41098],[40.52617,-74.39954],[40.53048,-74.39257],[40.53193,-74.38989],[40.5345,-74.38451],[40.53587,-74.38029],[40.53624,-74.37721],[40.53656,-74.37396],[40.53735,-74.37086],[40.54069,-74.36065],[40.54231,-74.35574],[40.54365,-74.3526],[40.54547,-74.34988],[40.54767,-74.34772],[40.55358,-74.3447],[40.55677,-74.34239],[40.56093,-74.33701],[40.56553,-74.33283],[40.56792,-74.33025],[40.57079,-74.32582],[40.57234,-74.32245],[40.57476,-74.3183],[40.57864,-74.31275],[40.58158,-74.30818],[40.59224,-74.29303],[40.59521,-74.28933],[40.59959,-74.28461],[40.60639,-74.27682],[40.61093,-74.27161],[40.61731,-74.26456],[40.62948,-74.25178],[40.66034,-74.21931],[40.66292,-74.21748],[40.66622,-74.21629],[40.67961,-74.20665],[40.6857,-74.20212],[40.68976,-74.19935],[40.69372,-74.19705],[40.70441,-74.19072],[40.71322,-74.1855],[40.71616,-74.18325],[40.72109,-74.1781],[40.72453,-74.17454],[40.72807,-74.17077],[40.73194,-74.1671],[40.734,-74.16487],[40.73571,-74.16238],[40.73737,-74.15942],[40.73898,-74.1564],[40.74076,-74.15327],[40.74258,-74.13702],[40.74313,-74.13054],[40.7437,-74.12607],[40.74462,-74.1217],[40.74564,-74.11819],[40.7468,-74.11465],[40.75574,-74.08809],[40.76118,-74.07582],[40.77141,-74.05338],[40.77237,-74.05024],[40.77255,-74.04686],[40.77192,-74.04357],[40.77063,-74.04042],[40.763,-74.02259],[40.75005,-73.99237]],[[40.75005,-73.99236],[40.763,-74.02259],[40.77063,-74.04042],[40.77192,-74.04357],[40.77255,-74.04686],[40.77237,-74.05024],[40.77141,-74.05338],[40.76119,-74.07582],[40.75667,-74.08572],[40.7474,-74.11284],[40.74564,-74.11819],[40.74462,-74.1217],[40.7437,-74.12607],[40.74313,-74.13054],[40.74258,-74.13702],[40.74139,-74.15078],[40.74048,-74.15382],[40.73796,-74.15827],[40.73617,-74.16158],[40.73451,-74.1642],[40.7325,-74.16655],[40.72807,-74.17077],[40.72475,-74.17431],[40.72114,-74.17805],[40.71755,-74.18181],[40.71472,-74.18449],[40.70441,-74.19072],[40.69394,-74.19692],[40.69076,-74.19873],[40.68627,-74.20172],[40.68026,-74.20616],[40.66786,-74.21517],[40.66476,-74.2169],[40.66135,-74.21841],[40.62948,-74.25178],[40.61731,-74.26456],[40.61093,-74.27161],[40.60641,-74.2768],[40.60105,-74.28293],[40.59521,-74.28933],[40.59308,-74.29186],[40.58158,-74.30818],[40.57957,-74.31143],[40.5748,-74.31825],[40.57234,-74.32245],[40.57079,-74.32582],[40.56858,-74.32932],[40.56623,-74.33214],[40.56246,-74.33539],[40.55757,-74.34144],[40.55497,-74.34393],[40.55018,-74.34621],[40.54653,-74.34872],[40.5445,-74.35117],[40.54291,-74.35412],[40.54077,-74.36042],[40.53735,-74.37086],[40.53656,-74.37396],[40.53624,-74.37721],[40.53587,-74.38029],[40.53506,-74.38321],[40.53193,-74.38989],[40.53048,-74.39257],[40.52617,-74.39954],[40.5194,-74.41051],[40.50654,-74.43358],[40.50024,-74.44213],[40.49807,-74.44482],[40.4769,-74.46733],[40.46901,-74.4757],[40.46668,-74.4779],[40.45213,-74.48807],[40.42449,-74.50704],[40.40571,-74.51992],[40.4001,-74.52373],[40.39665,-74.52573],[40.39378,-74.52747],[40.39107,-74.5296],[40.38855,-74.53209],[40.38629,-74.53483],[40.31632,-74.62375],[40.28198,-74.66728],[40.25531,-74.70412],[40.22404,-74.74724],[40.22179,-74.75004],[40.21851,-74.75392]]]},{"id":"NJCL","name":"North Jersey Coast Line","color":"#00A4E4","polylines":[[[40.07718,-74.04618],[40.09272,-74.0482],[40.11028,-74.05052],[40.11449,-74.05034],[40.11759,-74.04922],[40.12057,-74.04767],[40.1383,-74.03851],[40.15055,-74.03547],[40.16879,-74.03139],[40.18059,-74.0273],[40.20376,-74.01897],[40.21536,-74.01479],[40.23765,-74.00677],[40.245,-74.00412],[40.24808,-74.00353],[40.25759,-74.00313],[40.26059,-74.00181],[40.26258,-73.99924],[40.26529,-73.99761],[40.28153,-73.99025],[40.29036,-73.98869],[40.29714,-73.98834],[40.30001,-73.98938],[40.31339,-74.0152],[40.31696,-74.02214],[40.32671,-74.04106],[40.33869,-74.06435],[40.34829,-74.07453],[40.38978,-74.11613],[40.39239,-74.11899],[40.39476,-74.12277],[40.40964,-74.1524],[40.41076,-74.15606],[40.41538,-74.1904],[40.41894,-74.21693],[40.41949,-74.22118],[40.42038,-74.22421],[40.42722,-74.23087],[40.43066,-74.23328],[40.4378,-74.23939],[40.46305,-74.26092],[40.46749,-74.26426],[40.46984,-74.26679],[40.47201,-74.27015],[40.47435,-74.2726],[40.4842,-74.28006],[40.48764,-74.28267],[40.49072,-74.28373],[40.49974,-74.27875],[40.50937,-74.27371],[40.51403,-74.27134],[40.5237,-74.26751],[40.5272,-74.26672],[40.53157,-74.26736],[40.54244,-74.2709],[40.54601,-74.2727],[40.55034,-74.27566],[40.55423,-74.2773],[40.56601,-74.27831],[40.57762,-74.27747],[40.58405,-74.27698],[40.58704,-74.27749],[40.59523,-74.28473],[40.59801,-74.28549],[40.60105,-74.28293],[40.60639,-74.27682],[40.61093,-74.27161],[40.61731,-74.26456],[40.62948,-74.25178],[40.66034,-74.21931],[40.66292,-74.21748],[40.66622,-74.21629],[40.67961,-74.20665],[40.6857,-74.20212],[40.68976,-74.19935],[40.69372,-74.19705],[40.70441,-74.19072],[40.71322,-74.1855],[40.71616,-74.18325],[40.72109,-74.1781],[40.72453,-74.17454],[40.72807,-74.17077],[40.73194,-74.1671],[40.734,-74.16487],[40.73571,-74.16238],[40.73737,-74.15942],[40.73898,-74.1564],[40.74076,-74.15327],[40.74258,-74.13702],[40.74313,-74.13054],[40.7437,-74.12607],[40.74462,-74.1217],[40.74564,-74.11819],[40.7468,-74.11465],[40.75574,-74.08809],[40.76118,-74.07582],[40.77141,-74.05338],[40.77237,-74.05024],[40.77255,-74.04686],[40.77192,-74.04357],[40.77063,-74.04042],[40.763,-74.02259],[40.75005,-73.99237],[40.75005,-73.99236]],[[40.75005,-73.99236],[40.763,-74.02259],[40.77063,-74.04042],[40.77192,-74.04357],[40.77255,-74.04686],[40.77237,-74.05024],[40.77141,-74.05338],[40.76119,-74.07582],[40.75667,-74.08572],[40.7474,-74.11284],[40.74564,-74.11819],[40.74462,-74.1217],[40.7437,-74.12607],[40.74313,-74.13054],[40.74258,-74.13702],[40.74139,-74.15078],[40.74048,-74.15382],[40.73796,-74.15827],[40.73617,-74.16158],[40.73451,-74.1642],[40.7325,-74.16655],[40.72807,-74.17077],[40.72475,-74.17431],[40.72114,-74.17805],[40.71755,-74.18181],[40.71472,-74.18449],[40.70441,-74.19072],[40.69394,-74.19692],[40.69076,-74.19873],[40.68627,-74.20172],[40.68026,-74.20616],[40.66786,-74.21517],[40.66476,-74.2169],[40.66135,-74.21841],[40.62949,-74.25177],[40.61731,-74.26456],[40.61093,-74.27161],[40.60641,-74.2768],[40.60105,-74.28293],[40.59867,-74.28518],[40.59562,-74.28506],[40.5892,-74.27898],[40.58626,-74.2772],[40.57768,-74.27747],[40.56707,-74.27829],[40.55661,-74.27775],[40.55203,-74.27649],[40.54601,-74.2727],[40.54315,-74.27115],[40.53157,-74.26736],[40.5272,-74.26672],[40.5237,-74.26751],[40.51592,-74.2705],[40.50938,-74.2737],[40.50154,-74.27769],[40.49272,-74.28299],[40.48967,-74.28368],[40.48441,-74.28022],[40.47435,-74.2726],[40.47209,-74.27027],[40.46984,-74.26679],[40.46767,-74.26439],[40.46366,-74.26143],[40.4378,-74.23939],[40.4314,-74.23386],[40.42799,-74.23146],[40.42216,-74.22654],[40.42016,-74.22371],[40.41914,-74.21826],[40.41538,-74.1904],[40.41076,-74.15606],[40.40964,-74.1524],[40.39476,-74.12277],[40.39239,-74.11899],[40.38978,-74.11613],[40.34831,-74.07456],[40.3402,-74.06643],[40.32671,-74.04106],[40.31696,-74.02214],[40.31339,-74.0152],[40.3004,-73.98998],[40.29796,-73.98832],[40.29313,-73.98844],[40.28292,-73.98983],[40.26532,-73.9976],[40.26258,-73.99924],[40.26059,-74.00181],[40.25792,-74.0031],[40.24808,-74.00353],[40.245,-74.00412],[40.23766,-74.00677],[40.21536,-74.01479],[40.20377,-74.01896],[40.18059,-74.0273],[40.17077,-74.03083],[40.15056,-74.03547],[40.1405,-74.03771],[40.12062,-74.04765],[40.11759,-74.04922],[40.11449,-74.05034],[40.11129,-74.05061],[40.09272,-74.0482],[40.07953,-74.04646],[40.07718,-74.04619]]]},{"id":"PASC","name":"Pascack Valley Line","color":"#8B1D41","polylines":[[[41.11198,-74.04399],[41.11157,-74.0424],[41.10903,-74.03897],[41.10755,-74.03621],[41.10692,-74.03163],[41.10572,-74.02213],[41.10452,-74.01929],[41.10174,-74.0182],[41.0968,-74.01905],[41.09381,-74.01793],[41.09206,-74.01547],[41.08923,-74.01492],[41.08153,-74.02083],[41.07821,-74.02332],[41.07508,-74.02472],[41.0718,-74.02522],[41.06852,-74.02482],[41.06328,-74.02341],[41.05962,-74.02245],[41.05083,-74.02487],[41.04563,-74.02598],[41.04088,-74.02915],[41.02981,-74.0382],[41.02661,-74.03992],[41.02363,-74.04028],[41.02054,-74.0409],[41.00849,-74.04373],[41.00514,-74.043],[41.00241,-74.04104],[40.99086,-74.03273],[40.9843,-74.02804],[40.98139,-74.02684],[40.97507,-74.02747],[40.95609,-74.03003],[40.95173,-74.02965],[40.94835,-74.02784],[40.94537,-74.02695],[40.94121,-74.02715],[40.93825,-74.02783],[40.93257,-74.03023],[40.92808,-74.0326],[40.92471,-74.03338],[40.92149,-74.03338],[40.91307,-74.03436],[40.90015,-74.04005],[40.89733,-74.04197],[40.89446,-74.04378],[40.88691,-74.04797],[40.87971,-74.05149],[40.87676,-74.05354],[40.87009,-74.05867],[40.86488,-74.06266],[40.85614,-74.06935],[40.85027,-74.07387],[40.84386,-74.0788],[40.84125,-74.08081],[40.83698,-74.08404],[40.83438,-74.08605],[40.8317,-74.08814],[40.82678,-74.09194],[40.82362,-74.09418],[40.81997,-74.09534],[40.81684,-74.09511],[40.81036,-74.09234],[40.80333,-74.08906],[40.79643,-74.08591],[40.79202,-74.08389],[40.7893,-74.08246],[40.78579,-74.08084],[40.7829,-74.0801],[40.77803,-74.08574],[40.77533,-74.08681],[40.76953,-74.08262],[40.7672,-74.08069],[40.76118,-74.07582],[40.75867,-74.07369],[40.75587,-74.07153],[40.75089,-74.06972],[40.74625,-74.06834],[40.74281,-74.06731],[40.74059,-74.06422],[40.73702,-74.04751],[40.73587,-74.04204],[40.73482,-74.03695],[40.73484,-74.02805]],[[40.73484,-74.02805],[40.73473,-74.03594],[40.73587,-74.04204],[40.73679,-74.04623],[40.7402,-74.06239],[40.74103,-74.06578],[40.74348,-74.06749],[40.74923,-74.06925],[40.75315,-74.07036],[40.75715,-74.07239],[40.75993,-74.0748],[40.76708,-74.08059],[40.76953,-74.08262],[40.77411,-74.08641],[40.77701,-74.08652],[40.78141,-74.08066],[40.78518,-74.08061],[40.78887,-74.08227],[40.79202,-74.08389],[40.79643,-74.08591],[40.80325,-74.08902],[40.81033,-74.09233],[40.81502,-74.09449],[40.81871,-74.09539],[40.82243,-74.09473],[40.82649,-74.09215],[40.82939,-74.08997],[40.83435,-74.08607],[40.83685,-74.08413],[40.84116,-74.08088],[40.84386,-74.0788],[40.85027,-74.07387],[40.85611,-74.06937],[40.86486,-74.06268],[40.87005,-74.0587],[40.87566,-74.05433],[40.87884,-74.05197],[40.88646,-74.0482],[40.89574,-74.04307],[40.89896,-74.04071],[40.91084,-74.03505],[40.92149,-74.03338],[40.92471,-74.03338],[40.92798,-74.03266],[40.93133,-74.03083],[40.93515,-74.02914],[40.93825,-74.02783],[40.94121,-74.02715],[40.94537,-74.02695],[40.94835,-74.02784],[40.95099,-74.02943],[40.9542,-74.03009],[40.97504,-74.02747],[40.97974,-74.02684],[40.983,-74.0273],[40.98961,-74.03183],[41.0024,-74.04103],[41.00514,-74.043],[41.00826,-74.04377],[41.01459,-74.04232],[41.018,-74.0415],[41.02224,-74.04051],[41.02555,-74.04015],[41.02866,-74.03902],[41.03231,-74.03617],[41.04065,-74.02935],[41.04314,-74.02721],[41.04939,-74.02527],[41.05704,-74.02258],[41.06328,-74.02341],[41.06852,-74.02482],[41.0718,-74.02522],[41.07508,-74.02472],[41.07821,-74.02332],[41.08153,-74.02083],[41.08863,-74.01528],[41.09149,-74.01504],[41.09351,-74.01756],[41.09607,-74.01909],[41.10174,-74.0182],[41.10452,-74.01929],[41.10572,-74.02213],[41.10657,-74.02908],[41.10729,-74.03489],[41.10831,-74.03799],[41.11042,-74.04048],[41.1119,-74.04355],[41.11197,-74.04399]]]},{"id":"PRIN","name":"Princeton Shuttle","color":"#E31837","polylines":[[[40.31632,-74.62375],[40.31659,-74.62388],[40.31656,-74.62396],[40.31652,-74.62419],[40.3165,-74.62442],[40.31649,-74.62464],[40.3165,-74.62487],[40.31654,-74.6251],[40.31659,-74.62532],[40.31665,-74.62553],[40.31674,-74.62573],[40.31683,-74.62592],[40.31695,-74.62609],[40.31708,-74.62625],[40.31721,-74.62639],[40.31736,-74.62651],[40.31744,-74.62657],[40.31816,-74.62702],[40.31859,-74.62732],[40.31899,-74.62768],[40.31936,-74.6281],[40.31937,-74.6281],[40.33013,-74.64215],[40.33071,-74.64299],[40.33121,-74.6439],[40.33163,-74.64482],[40.33461,-74.65244],[40.33485,-74.65298],[40.33512,-74.65348],[40.33544,-74.65394],[40.33579,-74.65435],[40.33618,-74.65471],[40.3363,-74.65482],[40.3398,-74.65754],[40.34006,-74.65772],[40.3402,-74.65782],[40.3402,-74.65782],[40.34021,-74.65782],[40.34082,-74.65824],[40.34084,-74.65826],[40.34188,-74.6588],[40.34208,-74.65888],[40.34209,-74.65887]],[[40.34209,-74.65887],[40.34208,-74.65888],[40.34188,-74.6588],[40.34084,-74.65826],[40.34082,-74.65824],[40.34021,-74.65782],[40.3402,-74.65782],[40.3402,-74.65782],[40.34006,-74.65772],[40.3398,-74.65754],[40.3363,-74.65482],[40.33618,-74.65471],[40.33579,-74.65435],[40.33544,-74.65394],[40.33512,-74.65348],[40.33485,-74.65298],[40.33461,-74.65244],[40.33163,-74.64482],[40.33121,-74.6439],[40.33071,-74.64299],[40.33013,-74.64215],[40.31937,-74.6281],[40.31936,-74.6281],[40.31899,-74.62768],[40.31859,-74.62732],[40.31816,-74.62702],[40.31744,-74.62657],[40.31736,-74.62651],[40.31721,-74.62639],[40.31708,-74.62625],[40.31695,-74.62609],[40.31683,-74.62592],[40.31674,-74.62573],[40.31665,-74.62553],[40.31659,-74.62532],[40.31654,-74.6251],[40.3165,-74.62487],[40.31649,-74.62464],[40.3165,-74.62442],[40.31652,-74.62419],[40.31656,-74.62396],[40.31659,-74.62388],[40.31632,-74.62375]]]},{"id":"RARV","name":"Raritan Valley Line","color":"#FF7900","polylines":[[[40.66688,-74.89586],[40.65777,-74.89194],[40.65079,-74.88767],[40.64858,-74.88556],[40.64618,-74.8816],[40.64517,-74.87857],[40.64545,-74.87414],[40.64515,-74.87112],[40.64207,-74.86436],[40.64074,-74.86018],[40.63944,-74.84812],[40.63751,-74.8387],[40.6366,-74.83424],[40.63584,-74.82967],[40.63296,-74.81171],[40.6321,-74.80872],[40.61945,-74.78555],[40.61561,-74.77066],[40.59682,-74.69061],[40.59537,-74.68713],[40.59202,-74.6838],[40.58391,-74.67714],[40.57379,-74.67153],[40.5715,-74.66932],[40.57033,-74.66641],[40.57048,-74.65004],[40.57099,-74.63437],[40.57118,-74.62835],[40.57095,-74.6253],[40.56995,-74.62219],[40.56633,-74.61454],[40.56487,-74.6105],[40.56324,-74.60106],[40.5592,-74.57684],[40.55889,-74.57366],[40.5596,-74.55816],[40.55991,-74.55174],[40.56093,-74.53062],[40.56161,-74.51642],[40.56235,-74.51081],[40.56391,-74.50579],[40.56623,-74.50131],[40.59086,-74.46304],[40.60271,-74.44462],[40.61842,-74.42016],[40.62915,-74.40345],[40.63207,-74.39891],[40.64092,-74.38523],[40.64336,-74.38128],[40.645,-74.37732],[40.64598,-74.373],[40.64884,-74.3521],[40.64945,-74.34763],[40.65256,-74.32484],[40.65391,-74.31495],[40.65552,-74.30323],[40.65844,-74.2819],[40.6671,-74.26641],[40.68366,-74.23861],[40.70824,-74.1973],[40.71005,-74.19424],[40.71142,-74.19082],[40.71269,-74.18688],[40.71537,-74.18405],[40.71752,-74.18185],[40.72109,-74.1781],[40.72453,-74.17454],[40.72807,-74.17077],[40.73194,-74.1671],[40.734,-74.16487],[40.73571,-74.16238],[40.73737,-74.15942],[40.73898,-74.1564],[40.74076,-74.15327],[40.74258,-74.13702],[40.74313,-74.13054],[40.7437,-74.12607],[40.74462,-74.1217],[40.74564,-74.11819],[40.7468,-74.11465],[40.75574,-74.08809],[40.76118,-74.07582],[40.77141,-74.05338],[40.77237,-74.05024],[40.77255,-74.04686],[40.77192,-74.04357],[40.77063,-74.04042],[40.763,-74.02259],[40.75005,-73.99237]],[[40.75005,-73.99236],[40.763,-74.02259],[40.77063,-74.04042],[40.77192,-74.04357],[40.77255,-74.04686],[40.77237,-74.05024],[40.77141,-74.05338],[40.76119,-74.07582],[40.75667,-74.08572],[40.7474,-74.11284],[40.74564,-74.11819],[40.74462,-74.1217],[40.7437,-74.12607],[40.74313,-74.13054],[40.74258,-74.13702],[40.74139,-74.15078],[40.74048,-74.15382],[40.73796,-74.15827],[40.73617,-74.16158],[40.73451,-74.1642],[40.7325,-74.16655],[40.72807,-74.17077],[40.72475,-74.17431],[40.72114,-74.17805],[40.71755,-74.18181],[40.71537,-74.18405],[40.71302,-74.18613],[40.71191,-74.18919],[40.71095,-74.1922],[40.7094,-74.19549],[40.68376,-74.23844],[40.6671,-74.26641],[40.65925,-74.27958],[40.65557,-74.30288],[40.65391,-74.31495],[40.65257,-74.32479],[40.64945,-74.34763],[40.64884,-74.3521],[40.64598,-74.373],[40.645,-74.37732],[40.64336,-74.38128],[40.64092,-74.38523],[40.63207,-74.39891],[40.62915,-74.40345],[40.61842,-74.42016],[40.60271,-74.44462],[40.59087,-74.46304],[40.56623,-74.50131],[40.56391,-74.50579],[40.56235,-74.51081],[40.56162,-74.51614],[40.56093,-74.53062],[40.55991,-74.55174],[40.5596,-74.55816],[40.55891,-74.57177],[40.55902,-74.57553],[40.56324,-74.60106],[40.5645,-74.60868],[40.56539,-74.61225],[40.56995,-74.62219],[40.57095,-74.6253],[40.57118,-74.62835],[40.57099,-74.63436],[40.57048,-74.65004],[40.5701,-74.66394],[40.57053,-74.66719],[40.57193,-74.66992],[40.58391,-74.67714],[40.59202,-74.6838],[40.59482,-74.68636],[40.5966,-74.68983],[40.61561,-74.77066],[40.61854,-74.78314],[40.63165,-74.80781],[40.63276,-74.8107],[40.63568,-74.82859],[40.63637,-74.83285],[40.63751,-74.8387],[40.63902,-74.84531],[40.64052,-74.8587],[40.64151,-74.86302],[40.64496,-74.87065],[40.6455,-74.87369],[40.6451,-74.87691],[40.64562,-74.8804],[40.64805,-74.88476],[40.65049,-74.88747],[40.65684,-74.89145],[40.66644,-74.89564]]]}]};
+      const RR_MARC_SHAPES = {"agency":"marc","routes":[{"id":"11704","name":"Brunswick Line","color":"#FF8000","polylines":[[[39.461117,-77.961662],[39.457146,-77.960449],[39.453991,-77.958992],[39.452496,-77.954941],[39.453178,-77.951294],[39.450886,-77.942215],[39.449081,-77.932877],[39.450214,-77.927788],[39.449642,-77.922676],[39.44714,-77.918762],[39.444195,-77.916183],[39.442764,-77.910248],[39.440868,-77.905235],[39.43758,-77.903763],[39.426441,-77.903923],[39.416748,-77.899422],[39.407799,-77.888779],[39.404701,-77.886147],[39.399586,-77.885246],[39.38813,-77.88454],[39.377167,-77.885384],[39.374527,-77.883293],[39.369198,-77.874481],[39.363705,-77.866295],[39.360962,-77.859428],[39.360126,-77.849236],[39.36047,-77.84272],[39.361759,-77.833984],[39.36224,-77.826988],[39.364334,-77.818733],[39.363705,-77.813515],[39.358948,-77.8078],[39.351173,-77.799507],[39.347805,-77.794075],[39.344761,-77.78537],[39.344105,-77.780579],[39.338097,-77.775597],[39.336006,-77.771477],[39.336712,-77.767281],[39.335945,-77.763672],[39.334278,-77.757607],[39.333061,-77.752937],[39.331783,-77.749611],[39.330032,-77.745705],[39.327503,-77.739685],[39.326748,-77.735291],[39.32452,-77.73048],[39.32515,-77.71249],[39.32422,-77.6972],[39.32692,-77.68637],[39.3297,-77.67216],[39.32394,-77.66164],[39.31708,-77.64549],[39.31365,-77.63561],[39.31152,-77.62499],[39.30873,-77.61327],[39.3063,-77.59667],[39.30841,-77.5839],[39.31137,-77.56902],[39.30498,-77.55646],[39.29324,-77.55719],[39.28517,-77.54985],[39.27373,-77.54018],[39.26805,-77.52541],[39.25223,-77.48248],[39.23018,-77.44868],[39.22302,-77.43912],[39.21996,-77.42107],[39.21994,-77.41064],[39.21385,-77.39539],[39.20679,-77.37399],[39.20491,-77.35886],[39.19695,-77.34724],[39.18913,-77.32726],[39.18314,-77.30801],[39.18159,-77.29385],[39.17394,-77.27182],[39.16956,-77.26642],[39.16399,-77.26231],[39.15977,-77.25006],[39.14974,-77.22697],[39.14546,-77.21411],[39.14155,-77.19349],[39.13761,-77.17914],[39.12944,-77.17192],[39.11436,-77.15985],[39.10431,-77.15553],[39.08542,-77.14717],[39.06602,-77.12469],[39.0358,-77.08989],[39.03279,-77.08486],[39.02589,-77.0701],[39.02141,-77.06598],[39.01797,-77.05989],[39.01556,-77.05743],[39.01266,-77.05345],[39.00662,-77.05077],[39.002,-77.0448],[38.9951,-77.03278],[38.98665,-77.02435],[38.974308,-77.017171],[38.959385,-77.005264],[38.95248,-77.002441],[38.940247,-76.997307],[38.926231,-76.99427],[38.918542,-76.996692],[38.90583,-77.003738],[38.899018,-77.006669]]]},{"id":"11706","name":"Camden Line","color":"#FF8000","polylines":[[[38.899027,-77.006772],[38.909987,-77.001924],[38.914874,-76.988519],[38.924413,-76.970031],[38.929365,-76.962283],[38.93512,-76.95556],[38.94492,-76.94639],[38.94752,-76.94396],[38.95146,-76.94055],[38.95573,-76.93797],[38.96353,-76.93471],[38.97127,-76.9315],[38.98403,-76.92621],[38.98716,-76.92491],[39.00018,-76.91943],[39.00586,-76.91597],[39.00861,-76.91364],[39.01211,-76.91067],[39.01471,-76.9089],[39.01582,-76.90833],[39.01896,-76.90746],[39.03401,-76.90606],[39.0387,-76.90499],[39.04347,-76.90283],[39.04826,-76.89937],[39.05009,-76.89755],[39.06406,-76.88283],[39.06808,-76.87681],[39.08234,-76.85543],[39.08457,-76.85341],[39.08989,-76.85041],[39.09705,-76.84647],[39.09891,-76.84528],[39.10098,-76.84337],[39.10294,-76.84064],[39.10406,-76.83879],[39.10525,-76.83565],[39.106,-76.83235],[39.10692,-76.82974],[39.10837,-76.82777],[39.10994,-76.82663],[39.11137,-76.82617],[39.1142,-76.8261],[39.11594,-76.82553],[39.11711,-76.8247],[39.11852,-76.82299],[39.12144,-76.81606],[39.12267,-76.81224],[39.123,-76.80907],[39.12241,-76.80412],[39.12218,-76.80116],[39.12247,-76.79806],[39.12309,-76.79549],[39.12458,-76.79196],[39.12616,-76.78955],[39.12843,-76.78728],[39.13088,-76.78569],[39.13351,-76.78481],[39.13856,-76.78432],[39.14143,-76.7837],[39.14376,-76.78266],[39.14653,-76.78068],[39.15935,-76.7697],[39.1665,-76.7635],[39.16934,-76.75966],[39.17216,-76.75393],[39.17422,-76.75102],[39.17625,-76.74901],[39.18196,-76.74474],[39.18826,-76.73996],[39.1908,-76.73662],[39.19228,-76.73285],[39.19273,-76.7294],[39.19255,-76.72592],[39.19239,-76.72268],[39.19298,-76.72009],[39.19531,-76.71713],[39.20743,-76.71115],[39.21074,-76.70822],[39.21294,-76.70842],[39.21596,-76.71118],[39.21936,-76.71312],[39.22048,-76.71341],[39.22153,-76.7133],[39.22274,-76.71256],[39.22417,-76.7095],[39.22385,-76.70594],[39.22495,-76.70164],[39.22828,-76.69006],[39.23193,-76.67805],[39.23511,-76.67393],[39.23927,-76.66876],[39.24216,-76.66638],[39.24474,-76.66521],[39.25125,-76.66464],[39.25249,-76.66397],[39.2556,-76.65966],[39.25663,-76.65794],[39.25816,-76.65323],[39.26034,-76.64979],[39.2688,-76.63901],[39.2699,-76.63758],[39.27087,-76.63634],[39.2741,-76.6323],[39.27632,-76.62907],[39.27638,-76.6277],[39.27594,-76.62582],[39.27551,-76.62416],[39.27557,-76.62282],[39.27625,-76.62175],[39.2779,-76.62063],[39.27993,-76.61965],[39.28128,-76.61923],[39.28363,-76.61935]]]},{"id":"11705","name":"Penn Line","color":"#FF8000","polylines":[[[39.55817,-76.07326],[39.55304,-76.09021],[39.55148,-76.09534],[39.54924,-76.09947],[39.54355,-76.1064],[39.53491,-76.11464],[39.53145,-76.12013],[39.52222,-76.14175],[39.51477,-76.15759],[39.51178,-76.16064],[39.50011,-76.16757],[39.49078,-76.1752],[39.46361,-76.20256],[39.45164,-76.21513],[39.44356,-76.22791],[39.42159,-76.27875],[39.41161,-76.30238],[39.39742,-76.33626],[39.39299,-76.34314],[39.36951,-76.36266],[39.36014,-76.37096],[39.35087,-76.38373],[39.34611,-76.39424],[39.33908,-76.41753],[39.3302,-76.44715],[39.32819,-76.45775],[39.32864,-76.46417],[39.32868,-76.47332],[39.32751,-76.47856],[39.32449,-76.48459],[39.31779,-76.49037],[39.31233,-76.49461],[39.30875,-76.49973],[39.30473,-76.51022],[39.2997,-76.52689],[39.29864,-76.53256],[39.29715,-76.55026],[39.29696,-76.55436],[39.29785,-76.55811],[39.30017,-76.56331],[39.30251,-76.56929],[39.30251,-76.57673],[39.3023,-76.58251],[39.30254,-76.58683],[39.30346,-76.58855],[39.30565,-76.59159],[39.30632,-76.59375],[39.30626,-76.5967],[39.3061,-76.60109],[39.30598,-76.60368],[39.30583,-76.60762],[39.30589,-76.6111],[39.30655,-76.61306],[39.3076,-76.61539],[39.31042,-76.62023],[39.30997,-76.62595],[39.30246,-76.64659],[39.30111,-76.65009],[39.29932,-76.65119],[39.29545,-76.65183],[39.29312,-76.65338],[39.2897,-76.65957],[39.28699,-76.66464],[39.28374,-76.66981],[39.2805,-76.6721],[39.27141,-76.67902],[39.25911,-76.68867],[39.25559,-76.69033],[39.24359,-76.691],[39.22978,-76.69201],[39.22185,-76.6937],[39.2165,-76.69415],[39.21183,-76.69517],[39.20019,-76.69729],[39.19335,-76.69507],[39.18593,-76.69241],[39.17367,-76.69497],[39.16276,-76.69727],[39.13716,-76.69748],[39.12621,-76.69576],[39.10185,-76.70128],[39.09164,-76.70393],[39.08272,-76.70877],[39.07242,-76.72139],[39.06537,-76.72901],[39.05365,-76.73672],[39.04567,-76.73938],[39.03749,-76.74844],[39.03458,-76.75148],[39.02068,-76.76216],[39.01323,-76.77048],[39.00287,-76.78767],[38.99155,-76.80829],[38.98344,-76.82373],[38.97325,-76.84312],[38.96691,-76.85468],[38.95712,-76.86473],[38.95091,-76.86915],[38.94146,-76.8801],[38.93091,-76.8952],[38.92443,-76.90161],[38.91997,-76.90805],[38.91689,-76.91713],[38.91616,-76.92472],[38.916923,-76.941339],[38.91811,-76.97817],[38.90905,-77.00195],[38.8995,-77.00536]]]}]};
       async function loadStaticGtfsShapes() {
         const agencies = [
           { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
           { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
           { id: 'amtrak', file: rrAssetUrl('/assets/shapes/amtrak.json'), fallback: '#003366' },
           { id: 'njt', file: rrAssetUrl('/assets/shapes/njt.json'), fallback: '#FF671F' },
-          { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: '#EA0D2A' }
+          { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: '#EA0D2A' },
+          { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' }
         ];
         let totalRoutes = 0, totalPolys = 0;
         for (const ag of agencies) {
@@ -12704,6 +12972,8 @@
               data = RR_NJT_SHAPES;
             } else if (ag.id === 'ctrail' && typeof RR_CTRAIL_SHAPES !== 'undefined') {
               data = RR_CTRAIL_SHAPES;
+            } else if (ag.id === 'marc' && typeof RR_MARC_SHAPES !== 'undefined') {
+              data = RR_MARC_SHAPES;
             } else {
               const res = await fetch(ag.file);
               if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -13812,6 +14082,25 @@
             });
           }
         } catch (_) {}
+
+        try {
+          for (const vid in marcTrainInfo) {
+            const t = marcTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^marc-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'MARC', agencyColor: '#FF8000', id: vid, markerMap: marcMarkers,
+              routeName: t.routeName || 'MARC', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
         return res;
       }
 
@@ -13824,10 +14113,11 @@
         if (k.indexOf('metra') >= 0) return 'metra';
         if (k.indexOf('njtransit') >= 0 || k === 'njt') return 'njt';
         if (k.indexOf('ctrail') >= 0) return 'ctrail';
+        if (k.indexOf('marc') >= 0) return 'marc';
         return k;
       }
       function rrNormShareId(s) {
-        return String(s || '').trim().toLowerCase().replace(/^(amtrak|mbta|mnr|lirr|metra|njt|ctrail)[-:]/, '');
+        return String(s || '').trim().toLowerCase().replace(/^(amtrak|mbta|mnr|lirr|metra|njt|ctrail|marc)[-:]/, '');
       }
       function rrTrainShareKey(agency, vid, trainNum) {
         const a = rrNormShareAgency(agency);
@@ -15483,6 +15773,7 @@
         try { addStaticStops(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR', 'mnr'); } catch (e) {}
         try { addStaticStops(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR', 'lirr'); } catch (e) {}
         try { addStaticStops(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra', 'metra'); } catch (e) {}
+        try { addStaticStops(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'MARC', 'marc'); } catch (e) {}
         if (res.length === 0) return;
         const header = document.createElement('div');
         header.className = 'search-section-header';
@@ -15668,6 +15959,12 @@
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
       });
+      document.getElementById('show-marc').addEventListener('change', e => {
+        showMarc = e.target.checked;
+        if (typeof updateMarcVisibility === 'function') updateMarcVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+      });
       document.getElementById('refresh-button').addEventListener('click', async function() {
         this.disabled = true; this.innerHTML = '<span class="loading"></span> Refreshing...';
         Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
@@ -15679,6 +15976,7 @@
         await fetchLirrTrains();
         await fetchMetraTrains();
         await fetchNjtTrains();
+        if (typeof fetchMarcTrains === 'function') await fetchMarcTrains();
         this.disabled = false; this.textContent = 'Refresh Data';
       });
       L.Polyline.fromEncoded = function(encoded, options) {
@@ -15938,7 +16236,8 @@
             withTimeout(fetchMnrTrains(), 20000, 'fetchMnrTrains'),
             withTimeout(fetchLirrTrains(), 20000, 'fetchLirrTrains'),
             withTimeout(fetchMetraTrains(), 20000, 'fetchMetraTrains'),
-            withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains')
+            withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains'),
+            withTimeout(fetchMarcTrains(), 20000, 'fetchMarcTrains')
           ]);
         } catch (bgErr) {
           console.error('[Init] Background load error', bgErr);
@@ -15958,6 +16257,7 @@
       rrLivePoll(fetchLirrTrains, preferKeylessTiles ? 40000 : 25000);
       rrLivePoll(fetchMetraTrains, preferKeylessTiles ? 45000 : 30000);
       rrLivePoll(fetchNjtTrains, preferKeylessTiles ? 45000 : 30000);
+        rrLivePoll(fetchMarcTrains, preferKeylessTiles ? 45000 : 30000);
       rrLivePoll(fetchSchedules, 300000);
       // Vehicle alert signup (unchanged)
       const signupBtn = document.getElementById('signup-button');
