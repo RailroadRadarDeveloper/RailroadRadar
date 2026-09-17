@@ -1,0 +1,40 @@
+name: Add MARC trains
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/add-marc.py'
+      - 'scripts/marc-static.json'
+      - 'scripts/marc-shapes.json'
+      - '.github/workflows/add-marc.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch index.html
+        run: python3 scripts/add-marc.py
+      - name: Commit MARC app changes and clean one-off files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p assets/shapes
+          cp scripts/marc-shapes.json assets/shapes/marc.json
+          git add index.html assets/shapes/marc.json
+          if git diff --cached --quiet; then
+            echo "No app changes"
+          else
+            git commit -m "Add MARC commuter rail live trains, stations, and line shapes"
+          fi
+          git rm -f scripts/add-marc.py scripts/marc-static.json scripts/marc-shapes.json .github/workflows/add-marc.yml || true
+          if git diff --cached --quiet; then
+            echo "No cleanup"
+          else
+            git commit -m "Remove one-off MARC patch workflow"
+          fi
+          git push
