@@ -80,10 +80,24 @@ header_css = r"""
       background: #fff; box-shadow: none; z-index: 20;
     }
     .rr-admin-shell .rr-lightbox {
+      display: flex; flex-direction: column;
+      flex: 1; min-height: 0;
       width: 100%; max-width: none; height: 100%; max-height: none;
       box-shadow: none; overflow: hidden;
     }
     .rr-admin-shell .rr-modal-header { flex-shrink: 0; }
+    .rr-admin-shell .rr-admin-tabs {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      padding: 10px 24px;
+      border-bottom: 1px solid #e8eaef;
+      background: #f4f6fa;
+      position: static;
+      overflow: visible;
+    }
     .rr-admin-shell .rr-lightbox-body {
       max-height: none; overflow: auto; flex: 1; min-height: 0;
       padding: 16px 24px 28px;
@@ -110,13 +124,6 @@ css_a = line_of(".rr-modal-backdrop {")
 css_b = line_of(".admin-badge-icon {")
 admin_css = "\n".join(lines[css_a:css_b])
 admin_css += """
-   .rr-admin-tabs {
-     position: sticky;
-     top: 0;
-     background: #fff;
-     z-index: 4;
-     padding-top: 4px;
-   }
    .rr-admin-table th {
      position: sticky;
      top: 0;
@@ -154,6 +161,13 @@ admin_html = admin_html.replace(
 admin_html = admin_html.replace(
     '<button type="button" class="rr-modal-close" id="admin-dashboard-close" aria-label="Close">×</button>',
     '<a class="rr-modal-close" id="admin-dashboard-close" href="/" aria-label="Back to map">×</a>',
+)
+import re
+admin_html = re.sub(
+    r'(<div class="rr-lightbox-body">)\s*(<div class="rr-admin-tabs" role="tablist">[\s\S]*?</div>\s*)',
+    r'\2\1',
+    admin_html,
+    count=1,
 )
 
 js_parts = []

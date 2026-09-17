@@ -51,10 +51,24 @@
       background: #fff; box-shadow: none; z-index: 20;
     }
     .rr-admin-shell .rr-lightbox {
+      display: flex; flex-direction: column;
+      flex: 1; min-height: 0;
       width: 100%; max-width: none; height: 100%; max-height: none;
       box-shadow: none; overflow: hidden;
     }
     .rr-admin-shell .rr-modal-header { flex-shrink: 0; }
+    .rr-admin-shell .rr-admin-tabs {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      padding: 10px 24px;
+      border-bottom: 1px solid #e8eaef;
+      background: #f4f6fa;
+      position: static;
+      overflow: visible;
+    }
     .rr-admin-shell .rr-lightbox-body {
       max-height: none; overflow: auto; flex: 1; min-height: 0;
       padding: 16px 24px 28px;
@@ -474,17 +488,17 @@
         <span id="admin-dashboard-title">Admin Dashboard</span>
         <a class="rr-modal-close" id="admin-dashboard-close" href="/" aria-label="Back to map">×</a>
       </div>
+      <div class="rr-admin-tabs" role="tablist">
+        <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="pending" id="admin-tab-pending">Pending</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="audit" id="admin-tab-audit">Audit</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
+      </div>
       <div class="rr-lightbox-body">
-        <div class="rr-admin-tabs" role="tablist">
-          <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="pending" id="admin-tab-pending">Pending</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="audit" id="admin-tab-audit">Audit</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
-          <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
-        </div>
         <div class="rr-modal-error" id="admin-dashboard-error"></div>
 
         <div class="rr-admin-pane active" id="admin-pane-reports" data-admin-pane="reports">
@@ -2765,11 +2779,17 @@
       const tabAudit = document.getElementById(ids.audit);
       const tabBans = document.getElementById(ids.bans);
       const tabAdmins = document.getElementById(ids.admins);
+      const tabRoster = document.getElementById(ids.roster);
+      const tabVerified = document.getElementById(ids.verified);
+      const tabAccounts = document.getElementById(ids.accounts);
       if (tabReports) tabReports.style.display = perms.viewReports ? '' : 'none';
       if (tabPending) tabPending.style.display = perms.viewReports ? '' : 'none';
       if (tabAudit) tabAudit.style.display = perms.viewReports ? '' : 'none';
       if (tabBans) tabBans.style.display = perms.banUsers ? '' : 'none';
       if (tabAdmins) tabAdmins.style.display = perms.manageAdmins ? '' : 'none';
+      if (tabRoster) tabRoster.style.display = '';
+      if (tabVerified) tabVerified.style.display = '';
+      if (tabAccounts) tabAccounts.style.display = '';
       let first = perms.viewReports ? 'reports' : (perms.banUsers ? 'bans' : (perms.manageAdmins ? 'admins' : 'roster'));
       switchAdminTab(first);
       await loadAdminTab(first);
