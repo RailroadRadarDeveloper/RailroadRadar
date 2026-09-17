@@ -7211,17 +7211,8 @@
       // Light map is the default; dark uses Mapbox dark-v11
       let currentTheme = 'light';
       let usingMapboxFallback = false;
-      // iOS/Android often show Mapbox/Carto "API key needed" tiles (HTTP 200, so
-      // tileerror never fires). Start those devices on key-free Esri tiles.
-      const preferKeylessTiles = (function() {
-        try {
-          const ua = (navigator.userAgent || '') + ' ' + (navigator.platform || '');
-          const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-          const small = Math.min(screen.width || 0, screen.height || 0) > 0 && Math.min(screen.width, screen.height) <= 900;
-          const mobileUA = /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
-          return !!(touch && (small || mobileUA));
-        } catch (_) { return false; }
-      })();
+      // Mobile uses the same Mapbox Light default as desktop.
+      const preferKeylessTiles = false;
       if (preferKeylessTiles) usingMapboxFallback = true;
       let currentBaseLayer = preferKeylessTiles ? cartoLightLayer : mapboxLightLayer;
       currentBaseLayer.addTo(map);
