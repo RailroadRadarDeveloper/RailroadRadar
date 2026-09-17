@@ -97,11 +97,51 @@ must_replace(
     "if (ag.id === 'ctrail' && typeof RR_CTRAIL_SHAPES !== 'undefined') {\n              data = RR_CTRAIL_SHAPES;\n            } else if (ag.id === 'marc' && typeof RR_MARC_SHAPES !== 'undefined') {\n              data = RR_MARC_SHAPES;",
     'shapes inline data'
 )
-marc_rows = '''
-        try {
-          for (const vid in marcTrainInfo) {
-            const t = marcTrainInfo[vid];
-            const num = t.trainNum || String(vid).replace(/^marc-/, '');
-            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
-            let stopLabel = 'Next', stopName = t.currentStopName or 'X'
-'''
+marc_rows = '''\n        try {\n          for (const vid in marcTrainInfo) {\n            const t = marcTrainInfo[vid];\n            const num = t.trainNum || String(vid).replace(/^marc-/, '');\n            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);\n            let stopLabel = 'Next', stopName = t.currentStopName || '\u2014';\n            if (t.vehicleStatus === 1) stopLabel = 'At';\n            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';\n            res.push({\n              agency: 'MARC', agencyColor: '#FF8000', id: vid, markerMap: marcMarkers,\n              routeName: t.routeName || 'MARC', trainNum: num, dest: t.destName || '\u2014',\n              vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,\n              statusClass: st.statusClass, statusText: st.statusText,\n              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,\n              matchFields: [vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName]\n            });\n          }\n        } catch (_) {}\n'''
+must_replace(
+    "        return res;\n      }\n\n      function rrNormShareAgency(s) {",
+    marc_rows + "        return res;\n      }\n\n      function rrNormShareAgency(s) {",
+    'collectLiveTrainRows'
+)
+must_replace(
+    "if (k.indexOf('ctrail') >= 0) return 'ctrail';\n        return k;",
+    "if (k.indexOf('ctrail') >= 0) return 'ctrail';\n        if (k.indexOf('marc') >= 0) return 'marc';\n        return k;",
+    'rrNormShareAgency'
+)
+must_replace(
+    "replace(/^(amtrak|mbta|mnr|lirr|metra|njt|ctrail)[-:]/, '');",
+    "replace(/^(amtrak|mbta|mnr|lirr|metra|njt|ctrail|marc)[-:]/, '');",
+    'rrNormShareId'
+)
+must_replace(
+    "try { addStaticStops(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra', 'metra'); } catch (e) {}",
+    "try { addStaticStops(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra', 'metra'); } catch (e) {}\n        try { addStaticStops(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'MARC', 'marc'); } catch (e) {}",
+    'search stations'
+)
+must_replace(
+    """      document.getElementById('show-ctrail').addEventListener('change', e => {\n        showCtrail = e.target.checked;\n        if (typeof updateStationVisibility === 'function') updateStationVisibility();\n        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();\n      });""",
+    """      document.getElementById('show-ctrail').addEventListener('change', e => {\n        showCtrail = e.target.checked;\n        if (typeof updateStationVisibility === 'function') updateStationVisibility();\n        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();\n      });\n      document.getElementById('show-marc').addEventListener('change', e => {\n        showMarc = e.target.checked;\n        if (typeof updateMarcVisibility === 'function') updateMarcVisibility();\n        if (typeof updateStationVisibility === 'function') updateStationVisibility();\n        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();\n      });""",
+    'toggle listener'
+)
+must_replace(
+    "await fetchNjtTrains();\n        this.disabled = false; this.textContent = 'Refresh Data';",
+    "await fetchNjtTrains();\n        if (typeof fetchMarcTrains === 'function') await fetchMarcTrains();\n        this.disabled = false; this.textContent = 'Refresh Data';",
+    'refresh button'
+)
+must_replace(
+    "withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains')",
+    "withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains'),\n            withTimeout(fetchMarcTrains(), 20000, 'fetchMarcTrains')",
+    'startup fetch'
+)
+must_replace(
+    "rrLivePoll(fetchNjtTrains, preferKeylessTiles ? 45000 : 30000);",
+    "rrLivePoll(fetchNjtTrains, preferKeylessTiles ? 45000 : 30000);\n        rrLivePoll(fetchMarcTrains, preferKeylessTiles ? 45000 : 30000);",
+    'live poll'
+)
+text = text.replace(
+    "try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch (_) {}",
+    "try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch (_) {}\n          try { if (typeof fetchMarcTrains === 'function') fetchMarcTrains(); } catch (_) {}",
+)
+print('OK extra fetch call sites')
+(root / 'index.html').write_text(text, encoding='utf-8')
+print('Patched index.html', len(text))
