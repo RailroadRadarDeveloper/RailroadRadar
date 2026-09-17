@@ -1,0 +1,99 @@
+name: Prefer GitHub MARC snapshots over missing worker
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fix-marc-skip-worker.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch fetchMarcTrains to skip worker 404s
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = """      const MARC_POSITIONS_URL = apiUrl('/api/marc/positions');
+      const MARC_TRIPUPDATES_URL = apiUrl('/api/marc/tripupdates');
+"""
+          new = """      function marcFeedUrl(path) {
+        try { return (typeof rrAssetUrl === 'function') ? rrAssetUrl(path) : path; } catch (_) { return path; }
+      }
+      function marcFetchFirstOk(urls, label) {
+        return (async function() {
+          let last = null;
+          for (let i = 0; i < urls.length; i++) {
+            const u = urls[i];
+            try {
+              const res = await fetch(u, { cache: 'no-store' });
+              if (res && res.ok) return res;
+              last = new Error(label + ' HTTP ' + (res && res.status));
+            } catch (e) { last = e; }
+          }
+          throw last || new Error(label + ' unavailable');
+        })();
+      }
+      const MARC_POSITIONS_URLS = [
+        marcFeedUrl('/feeds/marc-vp.pb'),
+        'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-vp.pb'
+      ];
+      const MARC_TRIPUPDATES_URLS = [
+        marcFeedUrl('/feeds/marc-tu.pb'),
+        'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-tu.pb'
+      ];
+      const MARC_POSITIONS_URL = MARC_POSITIONS_URLS[0];
+      const MARC_TRIPUPDATES_URL = MARC_TRIPUPDATES_URLS[0];
+"""
+          if old not in s:
+              if 'function marcFetchFirstOk' in s and "marcFeedUrl('/feeds/marc-vp.pb')" in s and "apiUrl('/api/marc/positions')" not in s:
+                  print('already patched')
+              else:
+                  raise SystemExit('URL constants not found')
+          else:
+              s = s.replace(old, new, 1)
+          old2 = """          const [posRes, tuRes] = await Promise.all([
+            fetch(MARC_POSITIONS_URL),
+            fetch(MARC_TRIPUPDATES_URL)
+          ]);
+"""
+          new2 = """          const [posRes, tuRes] = await Promise.all([
+            marcFetchFirstOk(MARC_POSITIONS_URLS, 'positions'),
+            marcFetchFirstOk(MARC_TRIPUPDATES_URLS, 'tripupdates')
+          ]);
+"""
+          if old2 in s:
+              s = s.replace(old2, new2, 1)
+          old3 = "console.warn('%c[MARC] GTFS-RT fetch failed \\u2014 add /api/marc/* to railroadradar-proxy', 'color:#f39c12', e);"
+          new3 = "console.warn('%c[MARC] GTFS-RT snapshot fetch failed', 'color:#f39c12', e);"
+          if old3 in s:
+              s = s.replace(old3, new3, 1)
+          p.write_text(s, encoding='utf-8')
+          print('ok')
+          PY
+      - name: Commit patched index.html
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No index.html change"
+          else
+            git commit -m "Fetch MARC from GitHub snapshots instead of missing worker routes"
+            git push
+          fi
+      - name: Remove one-off workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/fix-marc-skip-worker.yml
+          git add .github/workflows/fix-marc-skip-worker.yml
+          if git diff --cached --quiet; then
+            echo "workflow already gone"
+            exit 0
+          fi
+          git commit -m "Remove one-off MARC worker-skip patch workflow"
+          git push
