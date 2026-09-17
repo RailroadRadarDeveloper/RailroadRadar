@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard · RailroadRadar</title>
+  <meta name="theme-color" content="#07093e">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <style>
+
+    :root { --primary-color: #07093e; --text-color: #333; --light-text: #fff; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; min-height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e8ebf2;
+      color: #1a1a2e;
+    }
+    .header {
+      position: fixed; top: 0; left: 0; right: 0; height: 60px;
+      background: var(--primary-color); color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 40; gap: 12px;
+    }
+    .header-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; }
+    .header-brand img { height: 36px; width: auto; }
+    .header-center { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 14px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .header-auth { display: flex; align-items: center; gap: 8px; }
+    .header-auth-btn {
+      background: #fff; color: #07093e; border: none; padding: 7px 12px;
+      font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    a.header-auth-btn { line-height: 1.2; }
+    .header-auth-btn:hover { background: #e8eaf0; }
+    .header-auth-user { display: flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; font-weight: 700; }
+    .header-user-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.85); }
+    #notification {
+      display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #07093e; color: #fff; padding: 12px 18px; z-index: 80; font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .rr-admin-shell {
+      max-width: 1180px; margin: 76px auto 32px; background: #fff;
+      box-shadow: 0 10px 40px rgba(7,9,62,.12);
+    }
+    .rr-admin-shell .rr-modal-header { position: sticky; top: 60px; z-index: 5; }
+    .rr-admin-shell .rr-lightbox-body { max-height: none; overflow: visible; padding: 18px 20px 28px; }
+    .rr-gate {
+      max-width: 520px; margin: 120px auto; background: #fff; padding: 28px 24px;
+      text-align: center; box-shadow: 0 10px 40px rgba(7,9,62,.12);
+    }
+    .rr-gate h1 { margin: 0 0 8px; color: #07093e; font-size: 22px; }
+    .rr-gate p { color: #5a6577; margin: 0 0 18px; }
+    .rr-gate .rr-btn { min-width: 160px; }
+    #admin-dashboard { display: none; }
+    #admin-dashboard.is-open { display: block; }
+    .rr-modal-close { text-decoration: none; }
+    @media (max-width: 700px) {
+      .header-center { display: none; }
+      .rr-admin-shell { margin: 60px 0 0; }
+      .rr-admin-table { font-size: 11px; }
+    }
+
+   .rr-modal-backdrop {
+     display: none;
+     position: fixed;
+     inset: 0;
+     background: rgba(7,9,62,0.55);
+     z-index: 100050;
+     align-items: center;
+     justify-content: center;
+     padding: 16px;
+   }
+   .rr-modal-backdrop.open { display: flex; }
+   .rr-modal {
+     background: #fff;
+     width: min(420px, 100%);
+     max-height: 90vh;
+     overflow: auto;
+     border-radius: 0;
+     box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+     font-family: 'Segoe UI', sans-serif;
+   }
+   .rr-modal-header {
+     background: #07093e;
+     color: #fff;
+     padding: 14px 16px;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     font-weight: 700;
+     font-size: 16px;
+   }
+   .rr-modal-close {
+     background: transparent;
+     border: none;
+     color: #fff;
+     font-size: 22px;
+     cursor: pointer;
+     line-height: 1;
+   }
+   .rr-modal-body { padding: 16px; }
+   .rr-modal-body label {
+     display: block;
+     font-size: 12px;
+     font-weight: 700;
+     color: #07093e;
+     margin: 10px 0 4px;
+   }
+   .rr-modal-body select,
+   .rr-modal-body input[type="text"],
+   .rr-modal-body input[type="date"] {
+     width: 100%;
+     box-sizing: border-box;
+     padding: 10px;
+     border: 1px solid #c5cad3;
+     font-size: 14px;
+     font-family: inherit;
+     min-height: 44px;
+   }
+   #report-train-pick-row {
+     display: flex;
+     gap: 8px;
+     align-items: flex-end;
+     margin-top: 0;
+   }
+   #report-train-select-wrap {
+     flex: 1;
+     min-width: 0;
+   }
+   #report-train-extra-btn {
+     flex-shrink: 0;
+     min-height: 44px;
+     padding: 8px 12px;
+     border: 1px solid #07093e;
+     background: #fff;
+     color: #07093e;
+     font-size: 13px;
+     font-family: inherit;
+     font-weight: 600;
+     cursor: pointer;
+     white-space: nowrap;
+   }
+   #report-train-extra-btn.active {
+     background: #07093e;
+     color: #fff;
+   }
+   #report-train-select:disabled {
+     opacity: 0.55;
+   }
+   .rr-modal-hint {
+     font-size: 12px;
+     color: #5a6577;
+     margin-top: 8px;
+   }
+   .rr-modal-error {
+     display: none;
+     margin-top: 10px;
+     padding: 10px;
+     background: #fdecea;
+     color: #c0392b;
+     font-size: 13px;
+   }
+
+   .rr-modal-error.visible { display: block; }
+
+   .rr-lightbox {
+     background: #fff;
+     width: min(900px, 100%);
+     max-height: 90vh;
+     overflow: hidden;
+     display: flex;
+     flex-direction: column;
+     border-radius: 0;
+     box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+     font-family: 'Segoe UI', sans-serif;
+   }
+   .rr-lightbox .rr-modal-header { flex-shrink: 0; }
+   .rr-lightbox-body {
+     padding: 16px;
+     overflow: auto;
+     flex: 1;
+     min-height: 0;
+   }
+   .rr-lightbox-section {
+     margin-bottom: 18px;
+     padding-bottom: 14px;
+     border-bottom: 1px solid #e8eaef;
+   }
+   .rr-lightbox-section:last-child { border-bottom: none; margin-bottom: 0; }
+   .rr-lightbox-section h3 {
+     margin: 0 0 10px;
+     font-size: 14px;
+     color: #07093e;
+     text-transform: uppercase;
+     letter-spacing: 0.03em;
+   }
+   .rr-profile-row {
+     display: flex;
+     gap: 14px;
+     align-items: center;
+   }
+   .rr-profile-avatar {
+     width: 64px;
+     height: 64px;
+     border-radius: 50%;
+     object-fit: cover;
+     background: #2c3e6b;
+     flex-shrink: 0;
+   }
+   .rr-profile-meta { font-size: 14px; color: #1a1a2e; line-height: 1.45; }
+   .rr-profile-meta .rr-muted { color: #5a6577; font-size: 13px; }
+   .rr-report-stats {
+     display: grid;
+     grid-template-columns: 1fr 1fr;
+     gap: 10px;
+   }
+   .rr-report-stat {
+     background: #f4f6fa;
+     border: 1px solid #e8eaef;
+     border-radius: 8px;
+     padding: 12px 14px;
+   }
+   .rr-report-stat-value {
+     display: block;
+     font-size: 22px;
+     font-weight: 700;
+     color: #07093e;
+     line-height: 1.15;
+     word-break: break-word;
+   }
+   .rr-report-stat-label {
+     display: block;
+     margin-top: 4px;
+     font-size: 12px;
+     color: #5a6577;
+     font-weight: 600;
+   }
+   .rr-radio-row {
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+     margin: 8px 0;
+   }
+   .rr-radio-row label {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     font-weight: 500;
+     font-size: 14px;
+     color: #1a1a2e;
+     margin: 0;
+     cursor: pointer;
+   }
+   .rr-preview-box {
+     margin-top: 10px;
+     padding: 10px 12px;
+     background: #f4f6fa;
+     border: 1px solid #dfe3ea;
+     font-size: 14px;
+     color: #07093e;
+   }
+   .rr-preview-box strong { font-weight: 700; }
+   .rr-lightbox-actions {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 8px;
+     margin-top: 8px;
+   }
+   .rr-btn {
+     appearance: none;
+     border: 1px solid #07093e;
+     background: #07093e;
+     color: #fff;
+     font-family: inherit;
+     font-size: 13px;
+     font-weight: 700;
+     padding: 10px 14px;
+     cursor: pointer;
+     text-transform: uppercase;
+   }
+   .rr-btn:hover { filter: brightness(1.08); }
+   .rr-btn.secondary {
+     background: #fff;
+     color: #07093e;
+   }
+   .rr-btn.danger {
+     background: #c0392b;
+     border-color: #c0392b;
+   }
+   .rr-btn.danger.secondary {
+     background: #fff;
+     color: #c0392b;
+     border-color: #c0392b;
+   }
+   .rr-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+   .rr-admin-tabs {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 6px;
+     margin-bottom: 14px;
+     border-bottom: 1px solid #e8eaef;
+     padding-bottom: 10px;
+   }
+   .rr-admin-tab {
+     appearance: none;
+     border: 1px solid #c5cad3;
+     background: #f4f6fa;
+     color: #07093e;
+     font-family: inherit;
+     font-size: 13px;
+     font-weight: 700;
+     padding: 8px 12px;
+     cursor: pointer;
+   }
+   .rr-admin-tab.active {
+     background: #07093e;
+     color: #fff;
+     border-color: #07093e;
+   }
+   .rr-admin-pane { display: none; }
+   .rr-admin-pane.active { display: block; }
+   .rr-admin-toolbar {
+     display: flex;
+     flex-wrap: wrap;
+     gap: 8px;
+     margin-bottom: 12px;
+     align-items: center;
+   }
+   .rr-admin-toolbar input[type="text"],
+   .rr-admin-toolbar input[type="search"],
+   .rr-lightbox-body input[type="text"],
+   .rr-lightbox-body input[type="email"],
+   .rr-lightbox-body textarea {
+     box-sizing: border-box;
+     padding: 9px 10px;
+     border: 1px solid #c5cad3;
+     font-size: 14px;
+     font-family: inherit;
+     width: 100%;
+   }
+   .rr-admin-table-wrap { overflow-x: auto; }
+   .rr-admin-table {
+     width: 100%;
+     border-collapse: collapse;
+     font-size: 12px;
+   }
+   .rr-admin-table th,
+   .rr-admin-table td {
+     border: 1px solid #e8eaef;
+     padding: 8px;
+     text-align: left;
+     vertical-align: top;
+   }
+   .rr-admin-table th {
+     background: #f4f6fa;
+     color: #07093e;
+     font-weight: 700;
+     white-space: nowrap;
+   }
+   .rr-admin-table tr:nth-child(even) td { background: #fafbfc; }
+   .rr-admin-card {
+     border: 1px solid #e8eaef;
+     padding: 10px 12px;
+     margin-bottom: 8px;
+     font-size: 13px;
+   }
+   .rr-admin-card .meta { color: #5a6577; font-size: 12px; margin-top: 4px; }
+   .rr-perm-grid {
+     display: grid;
+     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+     gap: 6px 12px;
+     margin: 8px 0;
+   }
+   .rr-perm-grid label {
+     display: flex;
+     align-items: center;
+     gap: 6px;
+     font-weight: 500;
+     font-size: 13px;
+     margin: 0;
+     cursor: pointer;
+   }
+   .rr-badge {
+     display: inline-block;
+     font-size: 10px;
+     font-weight: 700;
+     padding: 2px 6px;
+     background: #8e44ad;
+     color: #fff;
+     margin-left: 6px;
+     vertical-align: middle;
+   }
+   .rr-badge.locked { background: #2c3e6b; }
+   .rr-badge.admin { background: #07093e; }
+   .rr-badge.verified { background: #27ae60; }
+   .rr-badge.banned { background: #c0392b; }
+   .rr-admin-acct-photo {
+     width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+     vertical-align: middle; background: #e8ecf3;
+   }
+
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a class="header-brand" href="/">
+      <img src="/apple-touch-icon.png" alt="">
+      RailroadRadar
+    </a>
+    <div class="header-center">Admin Dashboard</div>
+    <div class="header-right">
+      <a class="header-auth-btn" href="/">Back to map</a>
+      <div class="header-auth" id="header-auth">
+        <button type="button" class="header-auth-btn" id="btn-google-signin">Sign in</button>
+        <div class="header-auth-user" id="header-auth-user" style="display:none;">
+          <img class="header-user-avatar" id="header-user-avatar" alt="Account" width="34" height="34" referrerpolicy="no-referrer">
+          <span id="header-account-name-text">Account</span>
+          <button type="button" class="header-auth-btn" id="btn-google-signout">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rr-gate" id="gate-loading">
+    <h1>Admin Dashboard</h1>
+    <p>Checking your account…</p>
+  </div>
+  <div class="rr-gate" id="gate-signin" style="display:none;">
+    <h1>Sign in required</h1>
+    <p>Sign in with the Google account that has RailroadRadar admin access.</p>
+    <button type="button" class="rr-btn" id="gate-signin-btn">Sign in with Google</button>
+  </div>
+  <div class="rr-gate" id="gate-forbidden" style="display:none;">
+    <h1>Admin access required</h1>
+    <p>This page is only for RailroadRadar admins. You’re signed in, but this account isn’t on the admin list.</p>
+    <a class="rr-btn secondary" href="/" style="display:inline-block;text-decoration:none;">Back to map</a>
+  </div>
+
+  <div class="rr-admin-shell" id="admin-dashboard" aria-hidden="true">
+    <div class="rr-lightbox" role="main" aria-labelledby="admin-dashboard-title">
+      <div class="rr-modal-header">
+        <span id="admin-dashboard-title">Admin Dashboard</span>
+        <a class="rr-modal-close" id="admin-dashboard-close" href="/" aria-label="Back to map">×</a>
+      </div>
+      <div class="rr-lightbox-body">
+        <div class="rr-admin-tabs" role="tablist">
+          <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="pending" id="admin-tab-pending">Pending</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="audit" id="admin-tab-audit">Audit</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
+          <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
+        </div>
+        <div class="rr-modal-error" id="admin-dashboard-error"></div>
+
+        <div class="rr-admin-pane active" id="admin-pane-reports" data-admin-pane="reports">
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-reports-search" placeholder="Filter by email, vehicle, agency…" aria-label="Filter reports" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-reports-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-reports-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Agency</th>
+                  <th>Vehicle / train</th>
+                  <th>Locomotives</th>
+                  <th>Reporter</th>
+                  <th>Doc id</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-reports-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-reports-status">Loading…</p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-pending" data-admin-pane="pending">
+          <p class="rr-modal-hint" style="margin-top:0;">Reports from users marked “require approval” stay here until you approve them onto the map.</p>
+          <div class="rr-admin-toolbar">
+            <button type="button" class="rr-btn secondary" id="admin-pending-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-pending-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Agency</th>
+                  <th>Vehicle / train</th>
+                  <th>Locomotives</th>
+                  <th>Note</th>
+                  <th>Reporter</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-pending-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-pending-status"></p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-audit" data-admin-pane="audit">
+          <p class="rr-modal-hint" style="margin-top:0;">Actions users take on RailroadRadar — sign-in, reports, settings, and admin decisions. Stored for 7 days; older entries are deleted at midnight Eastern.</p>
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-audit-search" placeholder="Filter by email, action, detail…" aria-label="Filter audit log" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-audit-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-audit-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>User</th>
+                  <th>Action</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody id="admin-audit-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-audit-status"></p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-bans" data-admin-pane="bans">
+          <div class="rr-lightbox-section">
+            <h3>Ban a user</h3>
+            <label for="admin-ban-email">Email</label>
+            <input type="email" id="admin-ban-email" placeholder="user@example.com" autocomplete="off">
+            <label for="admin-ban-uid">UID (optional if email matches a recent report)</label>
+            <input type="text" id="admin-ban-uid" placeholder="Firebase uid" autocomplete="off">
+            <label for="admin-ban-reason">Reason</label>
+            <input type="text" id="admin-ban-reason" placeholder="Reason for ban" autocomplete="off">
+            <div class="rr-lightbox-actions" style="margin-top:10px;">
+              <button type="button" class="rr-btn danger" id="admin-ban-submit">Ban user</button>
+            </div>
+          </div>
+          <div class="rr-lightbox-section">
+            <h3>Banned users</h3>
+            <button type="button" class="rr-btn secondary" id="admin-bans-refresh">Refresh</button>
+            <div id="admin-bans-list" style="margin-top:10px;"></div>
+            <p class="rr-modal-hint" id="admin-bans-status"></p>
+          </div>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-admins" data-admin-pane="admins">
+          <div class="rr-lightbox-section">
+            <h3>Add admin</h3>
+            <label for="admin-add-email">Email</label>
+            <input type="email" id="admin-add-email" placeholder="admin@example.com" autocomplete="off">
+            <div class="rr-perm-grid" id="admin-add-perms">
+              <label><input type="checkbox" data-perm="viewReports" checked> viewReports</label>
+              <label><input type="checkbox" data-perm="banUsers" checked> banUsers</label>
+              <label><input type="checkbox" data-perm="manageAdmins"> manageAdmins</label>
+              <label><input type="checkbox" data-perm="deleteReports" checked> deleteReports</label>
+            </div>
+            <div class="rr-lightbox-actions">
+              <button type="button" class="rr-btn" id="admin-add-submit">Add admin</button>
+            </div>
+          </div>
+          <div class="rr-lightbox-section">
+            <h3>Current admins</h3>
+            <button type="button" class="rr-btn secondary" id="admin-admins-refresh">Refresh</button>
+            <div id="admin-admins-list" style="margin-top:10px;"></div>
+            <p class="rr-modal-hint" id="admin-admins-status"></p>
+          </div>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-roster" data-admin-pane="roster">
+          <div class="rr-lightbox-section">
+            <h3>Add / update special locomotive</h3>
+            <label for="admin-roster-agency">Agency</label>
+            <select id="admin-roster-agency">
+              <option value="mbta">MBTA</option>
+              <option value="amtrak">Amtrak</option>
+              <option value="mnr">Metro-North</option>
+              <option value="lirr">LIRR</option>
+              <option value="njt">NJ Transit</option>
+              <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
+              <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
+            </select>
+            <label for="admin-roster-id">Loco / unit ID</label>
+            <input type="text" id="admin-roster-id" placeholder="e.g. 999" autocomplete="off">
+            <label for="admin-roster-name">Name</label>
+            <input type="text" id="admin-roster-name" placeholder="e.g. Test Paint" autocomplete="off">
+            <label for="admin-roster-icon">Icon URL (optional)</label>
+            <input type="url" id="admin-roster-icon" placeholder="https://… or /assets/…" autocomplete="off">
+            <p class="rr-modal-hint">Prefer local <code>/assets/…</code> or a non-postimg URL. Explicit roster icons are used as-is on the map.</p>
+            <div class="rr-lightbox-actions" style="margin-top:10px;">
+              <button type="button" class="rr-btn" id="admin-roster-submit">Add / update</button>
+              <button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear form</button>
+            </div>
+          </div>
+          <div class="rr-lightbox-section">
+            <h3>Special locomotives roster</h3>
+            <div class="rr-admin-toolbar">
+              <button type="button" class="rr-btn secondary" id="admin-roster-refresh">Refresh</button>
+            </div>
+            <div class="rr-admin-table-wrap">
+              <table class="rr-admin-table" id="admin-roster-table">
+                <thead>
+                  <tr>
+                    <th>Agency</th>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Icon</th>
+                    <th>Source</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="admin-roster-tbody"></tbody>
+              </table>
+            </div>
+            <p class="rr-modal-hint" id="admin-roster-status"></p>
+          </div>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-verified" data-admin-pane="verified">
+          <div class="rr-lightbox-section">
+            <h3>Mark verified reporter</h3>
+            <label for="admin-verified-email">Email</label>
+            <input type="email" id="admin-verified-email" placeholder="user@example.com" autocomplete="off">
+            <label for="admin-verified-uid">UID (optional if email matches a recent report)</label>
+            <input type="text" id="admin-verified-uid" placeholder="Firebase uid" autocomplete="off">
+            <div class="rr-lightbox-actions" style="margin-top:10px;">
+              <button type="button" class="rr-btn" id="admin-verified-submit">Verify reporter</button>
+            </div>
+          </div>
+          <div class="rr-lightbox-section">
+            <h3>Verified reporters</h3>
+            <button type="button" class="rr-btn secondary" id="admin-verified-refresh">Refresh</button>
+            <div id="admin-verified-list" style="margin-top:10px;"></div>
+            <p class="rr-modal-hint" id="admin-verified-status"></p>
+          </div>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-accounts" data-admin-pane="accounts">
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-accounts-search" placeholder="Filter by email, name, uid…" aria-label="Filter accounts" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-accounts-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-accounts-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>UID</th>
+                  <th>Created</th>
+                  <th>Last login</th>
+                  <th>Terms / Privacy</th>
+                  <th>Cookies</th>
+                  <th>Interested railroads</th>
+                  <th>Badges</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-accounts-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-accounts-status">Loading…</p>
+          <p class="rr-modal-hint">Only users who have signed in since the Accounts mirror shipped appear here (Auth cannot be listed from the client).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="notification"><span id="notification-text"></span></div>
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
+      authDomain: "railroadradar-accounts.firebaseapp.com",
+      projectId: "railroadradar-accounts",
+      storageBucket: "railroadradar-accounts.firebasestorage.app",
+      messagingSenderId: "896370923309",
+      appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
+    };
+
+    const AUDIT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+    function rrAssetUrl(url) {
+      const u = String(url == null ? '' : url).trim();
+      if (!u) return u;
+      if (/^data:/i.test(u) || /^https?:\/\//i.test(u)) return u;
+      return (u.charAt(0) === '/' ? u : '/' + u);
+    }
+    let firebaseApp = null;
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
+    let currentAdminPerms = null;
+    let verifiedReporterUids = new Set();
+
+    const BOOTSTRAP_ADMIN_EMAILS = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+    const ALL_ADMIN_PERMS = { viewReports: true, banUsers: true, manageAdmins: true, deleteReports: true };
+    function normalizeEmail(email) {
+      return String(email || '').trim().toLowerCase();
+    }
+    function isBootstrapAdmin(email) {
+      const e = normalizeEmail(email);
+      return !!e && BOOTSTRAP_ADMIN_EMAILS.indexOf(e) !== -1;
+    }
+    async function loadAdminRecord(email) {
+      const e = normalizeEmail(email);
+      if (!db || !e) return null;
+      try {
+        const snap = await db.collection('admins').doc(e).get();
+        if (!snap.exists) return null;
+        return Object.assign({ email: e, id: snap.id }, snap.data() || {});
+      } catch (err) {
+        console.warn('[admins] load failed', err);
+        return null;
+      }
+    }
+    async function getAdminPerms(user) {
+      if (!user) return null;
+      const email = normalizeEmail(user.email);
+      if (isBootstrapAdmin(email)) {
+        return Object.assign({}, ALL_ADMIN_PERMS, { _bootstrap: true, email: email });
+      }
+      const rec = await loadAdminRecord(email);
+      if (!rec) return null;
+      const p = rec.perms || {};
+      return {
+        viewReports: !!p.viewReports,
+        banUsers: !!p.banUsers,
+        manageAdmins: !!p.manageAdmins,
+        deleteReports: !!p.deleteReports,
+        _bootstrap: false,
+        email: email
+      };
+    }
+    function isAdminUser(user) {
+      if (!user) return false;
+      if (isBootstrapAdmin(user.email)) return true;
+      return !!(currentAdminPerms && (
+        currentAdminPerms.viewReports ||
+        currentAdminPerms.banUsers ||
+        currentAdminPerms.manageAdmins ||
+        currentAdminPerms.deleteReports
+      ));
+    }
+    async function ensureBootstrapAdminDoc(user) {
+      if (!db || !user || !isBootstrapAdmin(user.email)) return;
+      const e = normalizeEmail(user.email);
+      try {
+        const ref = db.collection('admins').doc(e);
+        const snap = await ref.get();
+        if (snap.exists) return;
+        await ref.set({
+          email: e,
+          addedBy: 'bootstrap',
+          addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          perms: Object.assign({}, ALL_ADMIN_PERMS)
+        }, { merge: true });
+      } catch (err) {
+        console.warn('[admins] bootstrap upsert skipped', err && err.message ? err.message : err);
+      }
+    }
+    async function upsertAccountMirror(user) {
+      if (!db || !user || !user.uid) return;
+      const uid = String(user.uid);
+      const email = normalizeEmail(user.email) || null;
+      const displayName = (user.displayName && String(user.displayName).trim()) || null;
+      const photoURL = user.photoURL || null;
+      const ts = firebase.firestore.FieldValue.serverTimestamp();
+      try {
+        const ref = db.collection('accounts').doc(uid);
+        const payload = {
+          uid: uid,
+          email: email,
+          displayName: displayName,
+          photoURL: photoURL,
+          lastLoginAt: ts
+        };
+        if (currentUserSettings && currentUserSettings.legalAccepted) {
+          payload.legalAccepted = true;
+          if (currentUserSettings.legalAcceptedAt) payload.legalAcceptedAt = currentUserSettings.legalAcceptedAt;
+          if (currentUserSettings.legalVersion) payload.legalVersion = currentUserSettings.legalVersion;
+        }
+        if (currentUserSettings && currentUserSettings.cookieConsent) {
+          payload.cookieConsent = currentUserSettings.cookieConsent;
+          payload.cookieClarity = !!currentUserSettings.cookieClarity;
+          payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
+          if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
+        }
+        let exists = false;
+        try {
+          const snap = await ref.get();
+          exists = !!(snap && snap.exists);
+        } catch (readErr) {
+          exists = false;
+        }
+        if (!exists) payload.createdAt = ts;
+        await ref.set(payload, { merge: true });
+      } catch (err) {
+        console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
+      }
+    }
+    async function refreshAdminState(user) {
+      currentAdminPerms = null;
+      if (!user) return;
+      try {
+        await ensureBootstrapAdminDoc(user);
+        currentAdminPerms = await getAdminPerms(user);
+      } catch (err) {
+        console.warn('[admins] refresh failed', err);
+        currentAdminPerms = isBootstrapAdmin(user.email)
+          ? Object.assign({}, ALL_ADMIN_PERMS, { _bootstrap: true, email: normalizeEmail(user.email) })
+          : null;
+      }
+      updateAdminChrome(user);
+      if (currentAdminPerms) {
+        scheduleAuditLogMidnightPurge();
+        purgeExpiredAuditLog(false);
+      }
+    }
+    function updateAdminChrome(user) {
+      const admin = !!(user && isAdminUser(user));
+      const verified = !!(user && typeof isVerifiedReporterUid === 'function' && isVerifiedReporterUid(user.uid));
+      const showBadge = admin || verified;
+      const badgeTitle = admin ? 'Admin' : (verified ? 'Verified reporter' : '');
+      const adminBtn = document.getElementById('btn-admin-header');
+      if (adminBtn) {
+        if (admin) adminBtn.classList.add('is-visible');
+        else adminBtn.classList.remove('is-visible');
+        adminBtn.setAttribute('aria-hidden', admin ? 'false' : 'true');
+        adminBtn.tabIndex = admin ? 0 : -1;
+      }
+      ['header-admin-badge', 'account-profile-admin-badge'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (showBadge) el.classList.add('is-visible');
+        else el.classList.remove('is-visible');
+        if (verified && !admin) el.classList.add('verified-badge-icon');
+        else el.classList.remove('verified-badge-icon');
+        el.alt = badgeTitle;
+        el.title = badgeTitle;
+      });
+      const acctBtn = document.getElementById('btn-account-settings');
+      if (acctBtn) {
+        if (admin) acctBtn.classList.add('is-admin');
+        else acctBtn.classList.remove('is-admin');
+        if (verified) acctBtn.classList.add('is-verified');
+        else acctBtn.classList.remove('is-verified');
+      }
+    }
+    async function loadUserSettings(uid) {
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null };
+      currentUserSettings = Object.assign({}, defaults);
+      if (!db || !uid) return currentUserSettings;
+      try {
+        const snap = await db.collection('userSettings').doc(uid).get();
+        if (snap.exists) {
+          const d = snap.data() || {};
+          const mode = String(d.reportDisplayMode || 'first_initial');
+          const allowed = ['first_initial', 'full_name', 'anonymous', 'custom'];
+          const interests = normalizeInterestIds(d.interestedRailroads);
+          currentUserSettings = {
+            reportDisplayMode: allowed.indexOf(mode) !== -1 ? mode : 'first_initial',
+            reportCustomLabel: String(d.reportCustomLabel || ''),
+            interestedRailroads: interests,
+            interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads),
+            reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null,
+            legalAccepted: d.legalAccepted === true,
+            legalAcceptedAt: d.legalAcceptedAt ? String(d.legalAcceptedAt) : null,
+            legalVersion: d.legalVersion ? String(d.legalVersion) : null,
+            cookieConsent: d.cookieConsent ? String(d.cookieConsent) : null,
+            cookieClarity: d.cookieClarity === true,
+            cookiePreferences: d.cookiePreferences !== false,
+            cookieDecidedAt: d.cookieDecidedAt ? String(d.cookieDecidedAt) : null
+          };
+        }
+      } catch (err) {
+        console.warn('[userSettings] load failed', err);
+      }
+      return currentUserSettings;
+    }
+    async function checkUserBanned(user) {
+      // After rules: non-admins may only read bannedUsers/{ownUid}. Do not query by email.
+      if (!db || !user) return null;
+      const uid = user.uid;
+      try {
+        const byUid = await db.collection('bannedUsers').doc(uid).get();
+        if (byUid.exists) return Object.assign({ id: byUid.id }, byUid.data() || {});
+      } catch (err) {
+        console.warn('[bannedUsers] check failed', err);
+      }
+      return null;
+    }
+    function escapeHtmlLite(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    async function loadVerifiedReporters() {
+      if (!db) return;
+      try {
+        const snap = await db.collection('verifiedReporters').get();
+        const next = new Set();
+        snap.forEach(function(doc) {
+          const data = doc.data() || {};
+          const uid = String(doc.id || data.uid || '').trim();
+          if (uid) next.add(uid);
+        });
+        verifiedReporterUids = next;
+        console.log('%c[verifiedReporters] Loaded ' + next.size + ' verified reporter(s)', 'color:#27ae60');
+        const user = currentUser || (auth && auth.currentUser);
+        if (user) updateAdminChrome(user);
+      } catch (err) {
+        console.warn('[verifiedReporters] load failed', err);
+      }
+    }
+    function isVerifiedReporterUid(uid) {
+      if (!uid) return false;
+      return verifiedReporterUids.has(String(uid));
+    }
+    function reporterShowsVerifiedBadge(opts) {
+      opts = opts || {};
+      if (opts.verified) return true;
+      if (opts.uid && isVerifiedReporterUid(opts.uid)) return true;
+      if (opts.email && isBootstrapAdmin(opts.email)) return true;
+      return false;
+    }
+    function reporterNameWithBadgeHtml(name, opts) {
+      opts = opts || {};
+      const escaped = escapeHtmlLite(name || '');
+      if (!escaped) return '';
+      if (!reporterShowsVerifiedBadge(opts)) return escaped;
+      const isAdmin = !!opts.isAdmin;
+      const title = isAdmin ? 'Admin' : 'Verified reporter';
+      const cls = isAdmin ? 'admin-badge-icon is-visible' : 'admin-badge-icon verified-badge-icon is-visible';
+      const size = isAdmin ? '15' : '11';
+      return escaped + '<img class="' + cls + '" src="data:image/png;base64,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" alt="' +
+        escapeHtmlLite(title) + '" title="' + escapeHtmlLite(title) + '" width="' + size + '" height="' + size + '">';
+    }
+    function formatAdminWhen(ts) {
+      if (!ts) return '—';
+      let d = null;
+      try {
+        if (typeof ts.toDate === 'function') d = ts.toDate();
+        else if (ts.seconds) d = new Date(ts.seconds * 1000);
+        else d = new Date(ts);
+      } catch (_) { return '—'; }
+      if (!d || isNaN(d.getTime())) return '—';
+      try {
+        return d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET';
+      } catch (_) {
+        return d.toLocaleString();
+      }
+    }
+    function setAdminError(msg) {
+      const err = document.getElementById('admin-dashboard-error');
+      if (!err) return;
+      if (!msg) { err.textContent = ''; err.classList.remove('visible'); return; }
+      err.textContent = msg;
+      err.classList.add('visible');
+    }
+    function switchAdminTab(tab) {
+      adminActiveTab = tab || 'reports';
+      document.querySelectorAll('.rr-admin-tab').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-admin-tab') === adminActiveTab);
+      });
+      document.querySelectorAll('.rr-admin-pane').forEach(function(pane) {
+        pane.classList.toggle('active', pane.getAttribute('data-admin-pane') === adminActiveTab);
+      });
+    }
+    async function loadAdminTab(tab) {
+      const user = currentUser || (auth && auth.currentUser);
+      await refreshAdminState(user);
+      if (!isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        closeAdminDashboard();
+        return;
+      }
+      const perms = currentAdminPerms || {};
+      setAdminError('');
+      if (tab === 'reports') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminReports();
+      } else if (tab === 'bans') {
+        if (!perms.banUsers) { setAdminError('Missing banUsers permission.'); return; }
+        await loadAdminBans();
+      } else if (tab === 'admins') {
+        if (!perms.manageAdmins) { setAdminError('Missing manageAdmins permission.'); return; }
+        await loadAdminAdmins();
+      } else if (tab === 'roster') {
+        await loadAdminRoster();
+      } else if (tab === 'verified') {
+        await loadAdminVerified();
+      } else if (tab === 'accounts') {
+        await loadAdminAccounts();
+      } else if (tab === 'pending') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminPendingReports();
+      } else if (tab === 'audit') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminAuditLog();
+      }
+    }
+    function formatTrainReportLocoLabelAdmin(rep) {
+      if (!rep) return '';
+      if (Array.isArray(rep.locomotives) && rep.locomotives.length) {
+        return rep.locomotives.map(function(L) {
+          return String((L && (L.unitName || L.locomotiveId || L.locoType)) || '').trim();
+        }).filter(Boolean).join(' + ');
+      }
+      const parts = [];
+      if (rep.unitName || rep.locomotiveId) parts.push(rep.unitName || rep.locomotiveId);
+      if (rep.unitName2 || rep.locomotiveId2) parts.push(rep.unitName2 || rep.locomotiveId2);
+      return parts.filter(Boolean).join(' + ') || '—';
+    }
+    async function loadAdminReports() {
+      const tbody = document.getElementById('admin-reports-tbody');
+      const status = document.getElementById('admin-reports-status');
+      if (status) status.textContent = 'Loading reports…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('trainReports').get();
+        const rows = [];
+        snap.forEach(function(doc) {
+          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        // Merge admin-only reporter PII from reportAudit (same doc ids)
+        try {
+          const auditSnap = await db.collection('reportAudit').get();
+          const auditById = {};
+          auditSnap.forEach(function(doc) {
+            auditById[doc.id] = doc.data() || {};
+          });
+          rows.forEach(function(r) {
+            const a = auditById[r.id];
+            if (!a) return;
+            if (a.reportedByEmail) r.reportedByEmail = a.reportedByEmail;
+            else if (!r.reportedByEmail && a.reportedByEmail == null) { /* keep legacy public email if any */ }
+            if (a.reportedByName) r.reportedByName = a.reportedByName;
+            if (a.reportedByUid && !r.reportedByUid) r.reportedByUid = a.reportedByUid;
+            if (a.reportedByLabel && !r.reportedByLabel) r.reportedByLabel = a.reportedByLabel;
+            if (Array.isArray(a.contributors) && a.contributors.length) r._auditContributors = a.contributors;
+          });
+        } catch (auditErr) {
+          console.warn('[admin] reportAudit load failed (using public fields)', auditErr);
+        }
+        rows.sort(function(a, b) {
+          const ta = (a.updatedAt && a.updatedAt.seconds) ? a.updatedAt.seconds : 0;
+          const tb = (b.updatedAt && b.updatedAt.seconds) ? b.updatedAt.seconds : 0;
+          return tb - ta;
+        });
+        adminReportsCache = rows;
+        renderAdminReports();
+        if (status) status.textContent = rows.length + ' report(s)';
+      } catch (e) {
+        console.error('[admin] reports load failed', e);
+        if (status) status.textContent = 'Failed to load reports.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminReports() {
+      const tbody = document.getElementById('admin-reports-tbody');
+      if (!tbody) return;
+      const q = String(((document.getElementById('admin-reports-search') || {}).value || '')).trim().toLowerCase();
+      const canDelete = !!(currentAdminPerms && currentAdminPerms.deleteReports);
+      const filtered = adminReportsCache.filter(function(r) {
+        if (!q) return true;
+        const blob = [
+          r.reportedByEmail, r.reportedByLabel, r.reportedByName, r.reportedByUid,
+          r.vehicleId, r.trainNumber, r.agency, r.unitName, r.comment, r.id
+        ].map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
+        return blob.indexOf(q) !== -1;
+      });
+      tbody.innerHTML = filtered.map(function(r) {
+        const vehicle = r.agency === 'mbta'
+          ? (r.vehicleId || '—')
+          : ((r.trainNumber || r.vehicleId || '—') + (r.serviceDate ? ' · ' + r.serviceDate : ''));
+        const reporterLabel = r.reportedByLabel || r.reportedByName || '—';
+        const reporterIsAdmin = !!(r.reportedByEmail && isBootstrapAdmin(r.reportedByEmail));
+        const reporterBadge = reporterNameWithBadgeHtml(reporterLabel, {
+          uid: r.reportedByUid,
+          verified: !!r.reportedByVerified,
+          email: r.reportedByEmail,
+          isAdmin: reporterIsAdmin
+        });
+        const reporter = reporterBadge +
+          '<div class="meta">' + escapeHtmlLite(r.reportedByEmail || '') +
+          (r.reportedByUid ? '<br>' + escapeHtmlLite(r.reportedByUid) : '') + '</div>';
+        const delBtn = canDelete
+          ? '<button type="button" class="rr-btn danger secondary" data-admin-del-report="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;">Delete</button>'
+          : '';
+        return '<tr>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(r.updatedAt || r.createdAt)) + '</td>' +
+          '<td>' + escapeHtmlLite(r.agency || '') + '</td>' +
+          '<td>' + escapeHtmlLite(vehicle) + '</td>' +
+          '<td>' + escapeHtmlLite(formatTrainReportLocoLabelAdmin(r)) + (r.comment ? '<div class="meta">' + escapeHtmlLite(String(r.comment).slice(0, 140)) + '</div>' : '') + '</td>' +
+          '<td>' + reporter + '</td>' +
+          '<td><code style="font-size:11px;">' + escapeHtmlLite(r.id) + '</code></td>' +
+          '<td>' + delBtn + '</td>' +
+          '</tr>';
+      }).join('');
+      const status = document.getElementById('admin-reports-status');
+      if (status) status.textContent = filtered.length + ' of ' + adminReportsCache.length + ' report(s)';
+    }
+    async function adminDeleteReport(docId) {
+      if (!docId || !db) return;
+      if (!(currentAdminPerms && currentAdminPerms.deleteReports) && !isBootstrapAdmin((currentUser || {}).email)) {
+        setAdminError('Missing deleteReports permission.');
+        return;
+      }
+      if (!window.confirm('Delete report "' + docId + '"? This cannot be undone.')) return;
+      try {
+        await db.collection('trainReports').doc(docId).delete();
+        try {
+          await db.collection('reportAudit').doc(docId).delete();
+        } catch (auditDelErr) {
+          console.warn('[admin] reportAudit delete best-effort failed', auditDelErr);
+        }
+        showNotification('Report deleted');
+        try { await logUserAction('admin_delete_report', 'Deleted report ' + docId); } catch (_) {}
+        await loadAdminReports();
+      } catch (e) {
+        console.error('[admin] delete report failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function loadAdminBans() {
+      const list = document.getElementById('admin-bans-list');
+      const status = document.getElementById('admin-bans-status');
+      if (status) status.textContent = 'Loading bans…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('bannedUsers').get();
+        const rows = [];
+        snap.forEach(function(doc) {
+          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        rows.sort(function(a, b) {
+          const ta = (a.bannedAt && a.bannedAt.seconds) ? a.bannedAt.seconds : 0;
+          const tb = (b.bannedAt && b.bannedAt.seconds) ? b.bannedAt.seconds : 0;
+          return tb - ta;
+        });
+        if (!rows.length) {
+          if (list) list.innerHTML = '<p class="rr-modal-hint">No banned users.</p>';
+        } else if (list) {
+          list.innerHTML = rows.map(function(b) {
+            return '<div class="rr-admin-card">' +
+              '<div><strong>' + escapeHtmlLite(b.email || '(no email)') + '</strong>' +
+              (b.uid ? ' · <code>' + escapeHtmlLite(b.uid) + '</code>' : '') + '</div>' +
+              '<div class="meta">Reason: ' + escapeHtmlLite(b.reason || '—') +
+              '<br>Banned ' + escapeHtmlLite(formatAdminWhen(b.bannedAt)) +
+              ' by ' + escapeHtmlLite(b.bannedByEmail || '—') + '</div>' +
+              '<div class="rr-lightbox-actions" style="margin-top:8px;">' +
+              '<button type="button" class="rr-btn secondary" data-admin-unban="' + escapeHtmlLite(b.id) + '">Unban</button>' +
+              '</div></div>';
+          }).join('');
+        }
+        if (status) status.textContent = rows.length + ' ban(s)';
+      } catch (e) {
+        console.error('[admin] bans load failed', e);
+        if (status) status.textContent = 'Failed to load bans.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminBanUser() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db) return;
+      if (!(currentAdminPerms && currentAdminPerms.banUsers) && !isBootstrapAdmin(user.email)) {
+        setAdminError('Missing banUsers permission.');
+        return;
+      }
+      let email = normalizeEmail(((document.getElementById('admin-ban-email') || {}).value || ''));
+      let uid = String(((document.getElementById('admin-ban-uid') || {}).value || '')).trim();
+      const reason = String(((document.getElementById('admin-ban-reason') || {}).value || '')).trim();
+      if (!email && !uid) {
+        setAdminError('Provide an email and/or UID to ban.');
+        return;
+      }
+      try {
+        if (!uid && email) {
+          // Resolve uid from recent reports by email (legacy public field + reportAudit)
+          const q = await db.collection('trainReports').where('reportedByEmail', '==', email).limit(5).get();
+          if (q.empty) {
+            const hit = adminReportsCache.find(function(r) {
+              return normalizeEmail(r.reportedByEmail) === email && r.reportedByUid;
+            });
+            if (hit) uid = hit.reportedByUid;
+          } else {
+            uid = (q.docs[0].data() || {}).reportedByUid || '';
+          }
+          if (!uid) {
+            try {
+              const aq = await db.collection('reportAudit').where('reportedByEmail', '==', email).limit(5).get();
+              if (!aq.empty) uid = (aq.docs[0].data() || {}).reportedByUid || '';
+            } catch (aqErr) {
+              console.warn('[admin] reportAudit email lookup failed', aqErr);
+            }
+          }
+          if (!uid) {
+            // scan a batch of reports client-side (email casing; cache may include merged audit)
+            if (!adminReportsCache.length) {
+              const snap = await db.collection('trainReports').get();
+              snap.forEach(function(doc) {
+                adminReportsCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+              });
+            }
+            const hit2 = adminReportsCache.find(function(r) {
+              return normalizeEmail(r.reportedByEmail) === email && r.reportedByUid;
+            });
+            if (hit2) uid = String(hit2.reportedByUid);
+          }
+        }
+        if (!uid) {
+          setAdminError('Could not resolve UID from reports. Enter the Firebase UID explicitly.');
+          return;
+        }
+        if (!email) {
+          const hit3 = adminReportsCache.find(function(r) { return r.reportedByUid === uid; });
+          if (hit3) email = normalizeEmail(hit3.reportedByEmail);
+          if (!email) {
+            try {
+              const asnap = await db.collection('reportAudit').where('reportedByUid', '==', uid).limit(1).get();
+              if (!asnap.empty) email = normalizeEmail((asnap.docs[0].data() || {}).reportedByEmail);
+            } catch (_) { /* ignore */ }
+          }
+        }
+        const docId = uid;
+        await db.collection('bannedUsers').doc(docId).set({
+          uid: uid,
+          email: email || null,
+          reason: reason || null,
+          bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          bannedByEmail: normalizeEmail(user.email) || user.email || null,
+          bannedByUid: user.uid
+        }, { merge: true });
+        showNotification('User banned');
+        try { await logUserAction('admin_ban', 'Banned ' + (email || uid)); } catch (_) {}
+        const emailEl = document.getElementById('admin-ban-email');
+        const uidEl = document.getElementById('admin-ban-uid');
+        const reasonEl = document.getElementById('admin-ban-reason');
+        if (emailEl) emailEl.value = '';
+        if (uidEl) uidEl.value = '';
+        if (reasonEl) reasonEl.value = '';
+        setAdminError('');
+        await loadAdminBans();
+      } catch (e) {
+        console.error('[admin] ban failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminUnbanUser(docId) {
+      if (!docId || !db) return;
+      if (!(currentAdminPerms && currentAdminPerms.banUsers) && !isBootstrapAdmin((currentUser || {}).email)) {
+        setAdminError('Missing banUsers permission.');
+        return;
+      }
+      if (!window.confirm('Unban user "' + docId + '"?')) return;
+      try {
+        await db.collection('bannedUsers').doc(docId).delete();
+        showNotification('User unbanned');
+        try { await logUserAction('admin_unban', 'Unbanned ' + docId); } catch (_) {}
+        await loadAdminBans();
+      } catch (e) {
+        console.error('[admin] unban failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function resolveUidEmailFromReports(email, uid) {
+      email = normalizeEmail(email || '');
+      uid = String(uid || '').trim();
+      if (!uid && email) {
+        try {
+          const q = await db.collection('trainReports').where('reportedByEmail', '==', email).limit(5).get();
+          if (!q.empty) uid = (q.docs[0].data() || {}).reportedByUid || '';
+        } catch (_) { /* legacy field may be gone */ }
+        if (!uid) {
+          const hit = adminReportsCache.find(function(r) {
+            return normalizeEmail(r.reportedByEmail) === email && r.reportedByUid;
+          });
+          if (hit) uid = String(hit.reportedByUid);
+        }
+        if (!uid) {
+          try {
+            const aq = await db.collection('reportAudit').where('reportedByEmail', '==', email).limit(5).get();
+            if (!aq.empty) uid = (aq.docs[0].data() || {}).reportedByUid || '';
+          } catch (aqErr) {
+            console.warn('[admin] reportAudit email lookup failed', aqErr);
+          }
+        }
+        if (!uid) {
+          if (!adminReportsCache.length) {
+            try {
+              const snap = await db.collection('trainReports').get();
+              snap.forEach(function(doc) {
+                adminReportsCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+              });
+            } catch (_) {}
+          }
+          const hit2 = adminReportsCache.find(function(r) {
+            return normalizeEmail(r.reportedByEmail) === email && r.reportedByUid;
+          });
+          if (hit2) uid = String(hit2.reportedByUid);
+        }
+      }
+      if (uid && !email) {
+        const hit3 = adminReportsCache.find(function(r) { return r.reportedByUid === uid; });
+        if (hit3) email = normalizeEmail(hit3.reportedByEmail);
+        if (!email) {
+          try {
+            const asnap = await db.collection('reportAudit').where('reportedByUid', '==', uid).limit(1).get();
+            if (!asnap.empty) email = normalizeEmail((asnap.docs[0].data() || {}).reportedByEmail);
+          } catch (_) { /* ignore */ }
+        }
+      }
+      return { email: email || '', uid: uid || '' };
+    }
+    async function loadAdminVerified() {
+      const list = document.getElementById('admin-verified-list');
+      const status = document.getElementById('admin-verified-status');
+      if (status) status.textContent = 'Loading verified reporters…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        await loadVerifiedReporters();
+        const snap = await db.collection('verifiedReporters').get();
+        const rows = [];
+        snap.forEach(function(doc) {
+          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        rows.sort(function(a, b) {
+          const ta = (a.verifiedAt && a.verifiedAt.seconds) ? a.verifiedAt.seconds : 0;
+          const tb = (b.verifiedAt && b.verifiedAt.seconds) ? b.verifiedAt.seconds : 0;
+          return tb - ta;
+        });
+        if (!rows.length) {
+          if (list) list.innerHTML = '<p class="rr-modal-hint">No verified reporters.</p>';
+        } else if (list) {
+          list.innerHTML = rows.map(function(v) {
+            const nameBit = v.displayName ? (' · ' + escapeHtmlLite(v.displayName)) : '';
+            return '<div class="rr-admin-card">' +
+              '<div><strong>' + escapeHtmlLite(v.email || '(no email)') + '</strong>' + nameBit +
+              (v.uid ? ' · <code>' + escapeHtmlLite(v.uid) + '</code>' : '') +
+              ' <img class="admin-badge-icon verified-badge-icon is-visible" src="data:image/png;base64,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" alt="Verified reporter" title="Verified reporter" width="11" height="11">' +
+              '</div>' +
+              '<div class="meta">Verified ' + escapeHtmlLite(formatAdminWhen(v.verifiedAt)) +
+              ' by ' + escapeHtmlLite(v.verifiedByEmail || '—') + '</div>' +
+              '<div class="rr-lightbox-actions" style="margin-top:8px;">' +
+              '<button type="button" class="rr-btn secondary" data-admin-unverify="' + escapeHtmlLite(v.id) + '">Remove</button>' +
+              '</div></div>';
+          }).join('');
+        }
+        if (status) status.textContent = rows.length + ' verified reporter(s)';
+      } catch (e) {
+        console.error('[admin] verified load failed', e);
+        if (status) status.textContent = 'Failed to load verified reporters.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminVerifyReporter() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db) return;
+      if (!isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        return;
+      }
+      let email = normalizeEmail(((document.getElementById('admin-verified-email') || {}).value || ''));
+      let uid = String(((document.getElementById('admin-verified-uid') || {}).value || '')).trim();
+      if (!email && !uid) {
+        setAdminError('Provide an email and/or UID to verify.');
+        return;
+      }
+      try {
+        const resolved = await resolveUidEmailFromReports(email, uid);
+        email = resolved.email;
+        uid = resolved.uid;
+        if (!uid) {
+          setAdminError('Could not resolve UID from reports. Enter the Firebase UID explicitly.');
+          return;
+        }
+        let displayName = null;
+        const hit = adminReportsCache.find(function(r) { return r.reportedByUid === uid; });
+        if (hit && hit.reportedByName) displayName = String(hit.reportedByName).trim() || null;
+        if (!displayName) {
+          try {
+            const asnap = await db.collection('reportAudit').where('reportedByUid', '==', uid).limit(1).get();
+            if (!asnap.empty) {
+              const n = (asnap.docs[0].data() || {}).reportedByName;
+              if (n) displayName = String(n).trim() || null;
+              if (!email) email = normalizeEmail((asnap.docs[0].data() || {}).reportedByEmail);
+            }
+          } catch (_) { /* ignore */ }
+        }
+        await db.collection('verifiedReporters').doc(uid).set({
+          uid: uid,
+          email: email || null,
+          displayName: displayName,
+          verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          verifiedByEmail: normalizeEmail(user.email) || user.email || null,
+          verifiedByUid: user.uid
+        }, { merge: true });
+        showNotification('Reporter verified');
+        try { await logUserAction('admin_verify', 'Verified ' + (email || uid)); } catch (_) {}
+        const emailEl = document.getElementById('admin-verified-email');
+        const uidEl = document.getElementById('admin-verified-uid');
+        if (emailEl) emailEl.value = '';
+        if (uidEl) uidEl.value = '';
+        setAdminError('');
+        await loadVerifiedReporters();
+        await loadAdminVerified();
+      } catch (e) {
+        console.error('[admin] verify failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminUnverifyReporter(docId) {
+      if (!docId || !db) return;
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        return;
+      }
+      if (!window.confirm('Remove verified reporter "' + docId + '"?')) return;
+      try {
+        await db.collection('verifiedReporters').doc(docId).delete();
+        showNotification('Verified reporter removed');
+        try { await logUserAction('admin_unverify', 'Removed verified reporter ' + docId); } catch (_) {}
+        await loadVerifiedReporters();
+        await loadAdminVerified();
+      } catch (e) {
+        console.error('[admin] unverify failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function readPermCheckboxes(rootId) {
+      const root = document.getElementById(rootId);
+      const perms = { viewReports: false, banUsers: false, manageAdmins: false, deleteReports: false };
+      if (!root) return perms;
+      root.querySelectorAll('input[data-perm]').forEach(function(cb) {
+        perms[cb.getAttribute('data-perm')] = !!cb.checked;
+      });
+      return perms;
+    }
+    async function loadAdminAdmins() {
+      const list = document.getElementById('admin-admins-list');
+      const status = document.getElementById('admin-admins-status');
+      if (status) status.textContent = 'Loading admins…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('admins').get();
+        const byEmail = {};
+        snap.forEach(function(doc) {
+          const data = doc.data() || {};
+          const e = normalizeEmail(doc.id || data.email);
+          byEmail[e] = Object.assign({ email: e, id: doc.id }, data);
+        });
+        BOOTSTRAP_ADMIN_EMAILS.forEach(function(e) {
+          if (!byEmail[e]) {
+            byEmail[e] = {
+              email: e,
+              id: e,
+              _bootstrapOnly: true,
+              perms: Object.assign({}, ALL_ADMIN_PERMS),
+              addedBy: 'bootstrap'
+            };
+          } else {
+            byEmail[e]._isBootstrap = true;
+            byEmail[e].perms = Object.assign({}, ALL_ADMIN_PERMS);
+          }
+        });
+        const rows = Object.keys(byEmail).sort().map(function(k) { return byEmail[k]; });
+        if (list) {
+          list.innerHTML = rows.map(function(a) {
+            const isBoot = isBootstrapAdmin(a.email) || a._bootstrapOnly || a._isBootstrap;
+            const p = a.perms || {};
+            const permBits = ['viewReports', 'banUsers', 'manageAdmins', 'deleteReports'].map(function(k) {
+              const checked = isBoot ? true : !!p[k];
+              const disabled = isBoot ? ' disabled' : '';
+              return '<label><input type="checkbox" data-edit-perm="' + k + '" data-admin-email="' + escapeHtmlLite(a.email) + '"' +
+                (checked ? ' checked' : '') + disabled + '> ' + k + '</label>';
+            }).join('');
+            const actions = isBoot
+              ? '<span class="rr-badge locked">Seed admin (locked)</span>'
+              : ('<div class="rr-lightbox-actions" style="margin-top:8px;">' +
+                 '<button type="button" class="rr-btn secondary" data-admin-save-perms="' + escapeHtmlLite(a.email) + '">Save perms</button>' +
+                 '<button type="button" class="rr-btn danger secondary" data-admin-remove="' + escapeHtmlLite(a.email) + '">Remove</button>' +
+                 '</div>');
+            return '<div class="rr-admin-card" data-admin-card="' + escapeHtmlLite(a.email) + '">' +
+              '<div><strong>' + escapeHtmlLite(a.email) + '</strong>' +
+              (isBoot ? '<span class="rr-badge locked">bootstrap</span>' : '') + '</div>' +
+              '<div class="meta">Added by ' + escapeHtmlLite(a.addedBy || '—') +
+              ' · ' + escapeHtmlLite(formatAdminWhen(a.addedAt)) + '</div>' +
+              '<div class="rr-perm-grid">' + permBits + '</div>' +
+              actions + '</div>';
+          }).join('');
+        }
+        if (status) status.textContent = rows.length + ' admin(s)';
+      } catch (e) {
+        console.error('[admin] admins load failed', e);
+        if (status) status.textContent = 'Failed to load admins.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminAddAdmin() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db) return;
+      if (!(currentAdminPerms && currentAdminPerms.manageAdmins) && !isBootstrapAdmin(user.email)) {
+        setAdminError('Missing manageAdmins permission.');
+        return;
+      }
+      const email = normalizeEmail(((document.getElementById('admin-add-email') || {}).value || ''));
+      if (!email || email.indexOf('@') === -1) {
+        setAdminError('Enter a valid admin email.');
+        return;
+      }
+      const perms = readPermCheckboxes('admin-add-perms');
+      try {
+        await db.collection('admins').doc(email).set({
+          email: email,
+          addedBy: normalizeEmail(user.email) || user.email || user.uid,
+          addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          perms: perms
+        }, { merge: true });
+        showNotification('Admin added');
+        try { await logUserAction('admin_add_admin', 'Added admin ' + email); } catch (_) {}
+        const el = document.getElementById('admin-add-email');
+        if (el) el.value = '';
+        setAdminError('');
+        await loadAdminAdmins();
+      } catch (e) {
+        console.error('[admin] add admin failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminSavePerms(email) {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db) return;
+      email = normalizeEmail(email);
+      if (isBootstrapAdmin(email)) {
+        setAdminError('Bootstrap admins always have full permissions.');
+        return;
+      }
+      if (!(currentAdminPerms && currentAdminPerms.manageAdmins) && !isBootstrapAdmin(user.email)) {
+        setAdminError('Missing manageAdmins permission.');
+        return;
+      }
+      const card = document.querySelector('[data-admin-card="' + email + '"]');
+      if (!card) return;
+      const perms = { viewReports: false, banUsers: false, manageAdmins: false, deleteReports: false };
+      card.querySelectorAll('input[data-edit-perm]').forEach(function(cb) {
+        perms[cb.getAttribute('data-edit-perm')] = !!cb.checked;
+      });
+      try {
+        await db.collection('admins').doc(email).set({ perms: perms }, { merge: true });
+        showNotification('Permissions updated');
+        await loadAdminAdmins();
+      } catch (e) {
+        console.error('[admin] save perms failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminRemoveAdmin(email) {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db) return;
+      email = normalizeEmail(email);
+      if (isBootstrapAdmin(email)) {
+        setAdminError('Cannot remove bootstrap seed admins.');
+        return;
+      }
+      if (!(currentAdminPerms && currentAdminPerms.manageAdmins) && !isBootstrapAdmin(user.email)) {
+        setAdminError('Missing manageAdmins permission.');
+        return;
+      }
+      if (!window.confirm('Remove admin "' + email + '"?')) return;
+      try {
+        await db.collection('admins').doc(email).delete();
+        showNotification('Admin removed');
+        await loadAdminAdmins();
+      } catch (e) {
+        console.error('[admin] remove admin failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function specialUnitDocId(agency, id) {
+      return String(agency || '').toLowerCase().trim() + '_' + String(id || '').trim();
+    }
+    function escapeAdminHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function clearAdminRosterForm() {
+      const agencyEl = document.getElementById('admin-roster-agency');
+      const idEl = document.getElementById('admin-roster-id');
+      const nameEl = document.getElementById('admin-roster-name');
+      const iconEl = document.getElementById('admin-roster-icon');
+      if (agencyEl) agencyEl.value = 'mbta';
+      if (idEl) { idEl.value = ''; idEl.disabled = false; }
+      if (nameEl) nameEl.value = '';
+      if (iconEl) iconEl.value = '';
+    }
+    function fillAdminRosterForm(agency, id, name, iconUrl) {
+      const agencyEl = document.getElementById('admin-roster-agency');
+      const idEl = document.getElementById('admin-roster-id');
+      const nameEl = document.getElementById('admin-roster-name');
+      const iconEl = document.getElementById('admin-roster-icon');
+      if (agencyEl) agencyEl.value = agency || 'mbta';
+      if (idEl) { idEl.value = id || ''; idEl.disabled = false; }
+      if (nameEl) nameEl.value = name || '';
+      if (iconEl) iconEl.value = iconUrl || '';
+    }
+    function renderAdminRoster() {
+      const tbody = document.getElementById('admin-roster-tbody');
+      const status = document.getElementById('admin-roster-status');
+      if (!tbody) return;
+      const roster = (typeof window.getSpecialUnitsRoster === 'function')
+        ? (window.getSpecialUnitsRoster() || [])
+        : [];
+      const builtins = (typeof window.getBuiltinSpecialUnitsRoster === 'function')
+        ? (window.getBuiltinSpecialUnitsRoster() || [])
+        : [];
+      const builtinKeys = {};
+      builtins.forEach(function(u) {
+        builtinKeys[String(u.agency) + '|' + String(u.id)] = true;
+      });
+      if (!roster.length) {
+        tbody.innerHTML = '<tr><td colspan="6">No special locomotives loaded.</td></tr>';
+        if (status) status.textContent = '0 unit(s)';
+        return;
+      }
+      tbody.innerHTML = roster.map(function(u) {
+        const agency = String(u.agency || '');
+        const id = String(u.id || '');
+        const key = agency + '|' + id;
+        const isBuiltin = !!u.builtin || !!builtinKeys[key];
+        const overridden = !!(u._overridden || (isBuiltin && u._fromFirestore));
+        const source = isBuiltin
+          ? (overridden ? 'Built-in (override)' : 'Built-in')
+          : 'Custom';
+        const icon = u.iconUrl ? String(u.iconUrl) : '';
+        const iconCell = icon
+          ? ('<a href="' + escapeAdminHtml(icon) + '" target="_blank" rel="noopener">icon</a>')
+          : '—';
+        let actions = '<button type="button" class="rr-btn secondary" data-admin-roster-edit="' +
+          escapeAdminHtml(agency) + '|' + escapeAdminHtml(id) + '">Edit</button> ';
+        if (isBuiltin && !overridden) {
+          actions += '<button type="button" class="rr-btn secondary" data-admin-roster-override="' +
+            escapeAdminHtml(agency) + '|' + escapeAdminHtml(id) + '">Override</button>';
+        } else {
+          actions += '<button type="button" class="rr-btn danger" data-admin-roster-delete="' +
+            escapeAdminHtml(agency) + '|' + escapeAdminHtml(id) + '"' +
+            (isBuiltin ? ' data-admin-roster-is-builtin="1"' : '') + '>' +
+            (isBuiltin ? 'Revert' : 'Delete') + '</button>';
+        }
+        return '<tr>' +
+          '<td>' + escapeAdminHtml(agency) + '</td>' +
+          '<td>' + escapeAdminHtml(id) + '</td>' +
+          '<td>' + escapeAdminHtml(u.name || '') + '</td>' +
+          '<td>' + iconCell + '</td>' +
+          '<td>' + source + '</td>' +
+          '<td style="white-space:nowrap;">' + actions + '</td>' +
+          '</tr>';
+      }).join('');
+      if (status) status.textContent = roster.length + ' unit(s)';
+    }
+    async function loadAdminRoster() {
+      const status = document.getElementById('admin-roster-status');
+      if (status) status.textContent = 'Loading special locomotives…';
+      if (!db) {
+        if (status) status.textContent = 'Firestore unavailable.';
+        return;
+      }
+      try {
+        if (typeof window.loadSpecialUnitsFromFirestore === 'function') {
+          await window.loadSpecialUnitsFromFirestore();
+        }
+        renderAdminRoster();
+      } catch (e) {
+        console.error('[admin] roster load failed', e);
+        setAdminError((e && e.message) || String(e));
+        if (status) status.textContent = 'Load failed.';
+      }
+    }
+    async function adminSaveSpecialUnit() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        return;
+      }
+      if (!db) { setAdminError('Firestore unavailable.'); return; }
+      const agency = String((document.getElementById('admin-roster-agency') || {}).value || '').toLowerCase().trim();
+      const id = String((document.getElementById('admin-roster-id') || {}).value || '').trim();
+      const name = String((document.getElementById('admin-roster-name') || {}).value || '').trim();
+      let iconUrl = String((document.getElementById('admin-roster-icon') || {}).value || '').trim();
+      if (!agency || ['mbta', 'amtrak', 'mnr', 'lirr', 'njt'].indexOf(agency) === -1) {
+        setAdminError('Pick a valid agency.');
+        return;
+      }
+      if (!id) { setAdminError('Loco / unit ID is required.'); return; }
+      if (!name) { setAdminError('Name is required.'); return; }
+      if (!iconUrl) iconUrl = null;
+      setAdminError('');
+      const docId = specialUnitDocId(agency, id);
+      try {
+        await db.collection('specialUnits').doc(docId).set({
+          agency: agency,
+          id: id,
+          name: name,
+          iconUrl: iconUrl,
+          builtin: false,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedByEmail: user.email || null,
+          updatedByUid: user.uid
+        }, { merge: true });
+        if (typeof window.loadSpecialUnitsFromFirestore === 'function') {
+          await window.loadSpecialUnitsFromFirestore();
+        }
+        if (typeof window.populateReportUnitSelect === 'function') {
+          try { window.populateReportUnitSelect(); } catch (_) {}
+        }
+        renderAdminRoster();
+        showNotification('Special locomotive saved: ' + agency + ' ' + id);
+        try {
+          await logUserAction(
+            'admin_save_special',
+            'Saved special ' + agency + ' ' + id + (name ? (' (' + name + ')') : '') + (iconUrl ? ' with icon' : '')
+          );
+        } catch (_) {}
+        clearAdminRosterForm();
+      } catch (e) {
+        console.error('[admin] specialUnits save failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminDeleteSpecialUnit(agency, id) {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) {
+        setAdminError('Admin access required.');
+        return;
+      }
+      if (!db) { setAdminError('Firestore unavailable.'); return; }
+      agency = String(agency || '').toLowerCase().trim();
+      id = String(id || '').trim();
+      if (!agency || !id) return;
+      const builtins = (typeof window.getBuiltinSpecialUnitsRoster === 'function')
+        ? (window.getBuiltinSpecialUnitsRoster() || [])
+        : [];
+      const isBuiltin = builtins.some(function(u) {
+        return String(u.agency) === agency && String(u.id) === id;
+      });
+      const label = isBuiltin
+        ? ('Revert override for built-in ' + agency + ' ' + id + '?')
+        : ('Delete custom special locomotive ' + agency + ' ' + id + '?');
+      if (!window.confirm(label)) return;
+      setAdminError('');
+      const docId = specialUnitDocId(agency, id);
+      try {
+        await db.collection('specialUnits').doc(docId).delete();
+        if (typeof window.loadSpecialUnitsFromFirestore === 'function') {
+          await window.loadSpecialUnitsFromFirestore();
+        }
+        if (typeof window.populateReportUnitSelect === 'function') {
+          try { window.populateReportUnitSelect(); } catch (_) {}
+        }
+        renderAdminRoster();
+        showNotification(isBuiltin ? 'Override removed — built-in restored' : 'Special locomotive deleted');
+        try {
+          await logUserAction(
+            isBuiltin ? 'admin_revert_special' : 'admin_delete_special',
+            (isBuiltin ? 'Reverted override for ' : 'Deleted special ') + agency + ' ' + id
+          );
+        } catch (_) {}
+      } catch (e) {
+        console.error('[admin] specialUnits delete failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function adminTsSeconds(ts) {
+      if (!ts) return 0;
+      if (ts.seconds) return ts.seconds;
+      try {
+        if (typeof ts.toDate === 'function') return Math.floor(ts.toDate().getTime() / 1000);
+      } catch (_) {}
+      try {
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+      } catch (_) {}
+      return 0;
+    }
+    function accountRowUid(a) {
+      return String((a && (a.uid || a.id)) || '').trim();
+    }
+    function accountRowNewer(a, b) {
+      const ta = adminTsSeconds(a && a.lastLoginAt) || adminTsSeconds(a && a.createdAt);
+      const tb = adminTsSeconds(b && b.lastLoginAt) || adminTsSeconds(b && b.createdAt);
+      if (ta !== tb) return ta > tb ? a : b;
+      const aCanon = String((a && a.id) || '') === String((a && a.uid) || (a && a.id) || '');
+      const bCanon = String((b && b.id) || '') === String((b && b.uid) || (b && b.id) || '');
+      if (aCanon !== bCanon) return aCanon ? a : b;
+      return a;
+    }
+    function mergeAccountRowFields(keep, drop) {
+      if (!keep || !drop) return keep;
+      if ((!keep.interestedRailroads || !keep.interestedRailroads.length) && drop.interestedRailroads && drop.interestedRailroads.length) {
+        keep.interestedRailroads = drop.interestedRailroads;
+        keep.interestedRailroadsSet = true;
+      }
+      if (!keep.createdAt && drop.createdAt) keep.createdAt = drop.createdAt;
+      if (!keep.displayName && drop.displayName) keep.displayName = drop.displayName;
+      if (!keep.photoURL && drop.photoURL) keep.photoURL = drop.photoURL;
+      if (!keep.email && drop.email) keep.email = drop.email;
+      return keep;
+    }
+    function dedupeAdminAccountRows(rows) {
+      const extras = [];
+      const byUid = new Map();
+      (rows || []).forEach(function(a) {
+        const uid = accountRowUid(a);
+        if (!uid) { extras.push(a); return; }
+        const prev = byUid.get(uid);
+        if (!prev) { byUid.set(uid, a); return; }
+        const keep = accountRowNewer(a, prev);
+        const drop = keep === a ? prev : a;
+        mergeAccountRowFields(keep, drop);
+        extras.push(drop);
+        byUid.set(uid, keep);
+      });
+      const byEmail = new Map();
+      const noEmail = [];
+      byUid.forEach(function(a) {
+        const email = normalizeEmail(a.email);
+        if (!email) { noEmail.push(a); return; }
+        const prev = byEmail.get(email);
+        if (!prev) { byEmail.set(email, a); return; }
+        const aCanon = String(a.id || '') === String(a.uid || '');
+        const bCanon = String(prev.id || '') === String(prev.uid || '');
+        let keep, drop;
+        if (aCanon !== bCanon) {
+          keep = aCanon ? a : prev;
+          drop = keep === a ? prev : a;
+        } else {
+          keep = accountRowNewer(a, prev);
+          drop = keep === a ? prev : a;
+        }
+        mergeAccountRowFields(keep, drop);
+        extras.push(drop);
+        byEmail.set(email, keep);
+      });
+      const kept = noEmail.concat(Array.from(byEmail.values()));
+      kept.sort(function(a, b) {
+        const ta = adminTsSeconds(a.lastLoginAt) || adminTsSeconds(a.createdAt);
+        const tb = adminTsSeconds(b.lastLoginAt) || adminTsSeconds(b.createdAt);
+        return tb - ta;
+      });
+      return { kept: kept, extras: extras };
+    }
+    async function loadAdminAccounts() {
+      const tbody = document.getElementById('admin-accounts-tbody');
+      const status = document.getElementById('admin-accounts-status');
+      if (status) status.textContent = 'Loading accounts…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        await loadVerifiedReporters();
+        adminBannedUidSet = new Set();
+        adminEmailSet = new Set(BOOTSTRAP_ADMIN_EMAILS);
+        adminReportHoldSet = new Set();
+        try {
+          const holdSnap = await db.collection('reportHold').get();
+          holdSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            if (d.required !== false) adminReportHoldSet.add(String(doc.id || '').trim());
+          });
+        } catch (holdErr) {
+          console.warn('[admin] reportHold load failed', holdErr);
+        }
+        try {
+          const banSnap = await db.collection('bannedUsers').get();
+          banSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            const id = String(doc.id || d.uid || '').trim();
+            if (id) adminBannedUidSet.add(id);
+            if (d.uid) adminBannedUidSet.add(String(d.uid).trim());
+          });
+        } catch (banErr) {
+          console.warn('[admin] accounts ban cache failed', banErr);
+        }
+        try {
+          const admSnap = await db.collection('admins').get();
+          admSnap.forEach(function(doc) {
+            const e = normalizeEmail(doc.id || (doc.data() || {}).email);
+            if (e) adminEmailSet.add(e);
+          });
+        } catch (admErr) {
+          console.warn('[admin] accounts admin cache failed', admErr);
+        }
+        const legalByUid = {};
+        try {
+          const settingsSnap = await db.collection('userSettings').get();
+          settingsSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            legalByUid[String(doc.id)] = {
+              legalAccepted: d.legalAccepted === true,
+              legalAcceptedAt: d.legalAcceptedAt || null,
+              legalVersion: d.legalVersion || null,
+              cookieConsent: d.cookieConsent || null,
+              cookieClarity: d.cookieClarity === true,
+              cookiePreferences: d.cookiePreferences !== false,
+              cookieDecidedAt: d.cookieDecidedAt || null
+            };
+          });
+        } catch (setErr) {
+          console.warn('[admin] userSettings legal load failed', setErr);
+        }
+        const snap = await db.collection('accounts').get();
+        const rows = [];
+        snap.forEach(function(doc) {
+          const d = doc.data() || {};
+          const uid = String(d.uid || doc.id || '');
+          const legal = legalByUid[uid] || legalByUid[String(doc.id)] || {};
+          rows.push(Object.assign({ id: doc.id }, d, {
+            legalAccepted: d.legalAccepted === true || legal.legalAccepted === true,
+            legalAcceptedAt: d.legalAcceptedAt || legal.legalAcceptedAt || null,
+            legalVersion: d.legalVersion || legal.legalVersion || null,
+            cookieConsent: d.cookieConsent || legal.cookieConsent || null,
+            cookieClarity: d.cookieClarity === true || legal.cookieClarity === true,
+            cookiePreferences: (d.cookiePreferences !== undefined ? d.cookiePreferences !== false : (legal.cookiePreferences !== false)),
+            cookieDecidedAt: d.cookieDecidedAt || legal.cookieDecidedAt || null
+          }));
+        });
+        const deduped = dedupeAdminAccountRows(rows);
+        adminAccountsCache = deduped.kept;
+        renderAdminAccounts();
+        if (status) status.textContent = adminAccountsCache.length + ' account(s)';
+        if (deduped.extras && deduped.extras.length) {
+          try {
+            await Promise.all(deduped.extras.map(function(a) {
+              const id = String(a.id || '').trim();
+              if (!id) return Promise.resolve();
+              return db.collection('accounts').doc(id).delete().catch(function() {});
+            }));
+          } catch (_) {}
+        }
+      } catch (e) {
+        console.error('[admin] accounts load failed', e);
+        if (status) status.textContent = 'Failed to load accounts.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function formatAdminCookieCell(a) {
+      const status = a && a.cookieConsent ? String(a.cookieConsent) : '';
+      const when = a && a.cookieDecidedAt ? formatAdminWhen(a.cookieDecidedAt) : '';
+      const extra = when && when !== '—' ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(when) + '</div>') : '';
+      if (status === 'accepted_all') {
+        return '<span class="rr-badge verified" title="Accepted all cookies (analytics + preferences)">Accepted all</span>' + extra;
+      }
+      if (status === 'rejected_all') {
+        return '<span class="rr-badge banned" title="Rejected all optional cookies">Rejected all</span>' + extra;
+      }
+      if (status === 'custom') {
+        const bits = [];
+        bits.push(a.cookieClarity ? 'Analytics on' : 'Analytics off');
+        bits.push(a.cookiePreferences === false ? 'Prefs off' : 'Prefs on');
+        return '<span class="rr-badge" title="Custom cookie choices">Custom</span>' +
+          '<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(bits.join(' \u00b7 ')) + '</div>' + extra;
+      }
+      return '<span style="opacity:.65;">—</span>';
+    }
+    function formatAdminLegalCell(a) {
+      if (a && a.legalAccepted) {
+        const when = a.legalAcceptedAt ? formatAdminWhen(a.legalAcceptedAt) : '';
+        const ver = a.legalVersion ? String(a.legalVersion) : RR_LEGAL_VERSION;
+        const extra = when && when !== '—' ? when : (ver ? ('v ' + ver) : '');
+        return '<span class="rr-badge verified" title="Agreed to Terms of Use and Privacy Policy' + (ver ? (' (' + escapeHtmlLite(ver) + ')') : '') + (when && when !== '—' ? (' on ' + escapeHtmlLite(when)) : '') + '">Accepted</span>' +
+          (extra ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(extra) + '</div>') : '');
+      }
+      return '<span class="rr-badge banned" title="Has not accepted the current Terms of Use and Privacy Policy">Not accepted</span>';
+    }
+    function renderAdminAccounts() {
+      const tbody = document.getElementById('admin-accounts-tbody');
+      if (!tbody) return;
+      const q = String(((document.getElementById('admin-accounts-search') || {}).value || '')).trim().toLowerCase();
+      const canBan = !!(currentAdminPerms && currentAdminPerms.banUsers);
+      const filtered = adminAccountsCache.filter(function(a) {
+        if (!q) return true;
+        const legalLabel = a.legalAccepted ? 'accepted terms privacy tos yes' : 'not accepted terms privacy tos no pending';
+        const cookieLabel = a.cookieConsent === 'accepted_all' ? 'accepted all cookies analytics'
+          : (a.cookieConsent === 'rejected_all' ? 'rejected all cookies declined'
+          : (a.cookieConsent === 'custom' ? 'custom cookies' : 'cookies unknown undecided'));
+        const blob = [a.email, a.displayName, a.uid, a.id, formatInterestRailroads(a.interestedRailroads), legalLabel, cookieLabel]
+          .map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
+        return blob.indexOf(q) !== -1;
+      });
+      tbody.innerHTML = filtered.map(function(a) {
+        const uid = String(a.uid || a.id || '');
+        const email = normalizeEmail(a.email) || String(a.email || '');
+        const name = String(a.displayName || '').trim() || '—';
+        const photo = a.photoURL
+          ? ('<img class="rr-admin-acct-photo" src="' + escapeHtmlLite(a.photoURL) + '" alt="" width="28" height="28" referrerpolicy="no-referrer">')
+          : '<span class="rr-admin-acct-photo" style="display:inline-block;"></span>';
+        const isAdm = !!(email && (adminEmailSet.has(email) || isBootstrapAdmin(email)));
+        const isVer = !!(uid && isVerifiedReporterUid(uid));
+        const isBan = !!(uid && adminBannedUidSet.has(uid));
+        const needsHold = !!(uid && adminReportHoldSet.has(uid));
+        const badges = [];
+        if (isAdm) badges.push('<span class="rr-badge admin">Admin</span>');
+        if (isVer) badges.push('<span class="rr-badge verified">Verified</span>');
+        if (isBan) badges.push('<span class="rr-badge banned">Banned</span>');
+        if (needsHold) badges.push('<span class="rr-badge">Approval required</span>');
+        let actions = '';
+        if (!isVer) {
+          actions += '<button type="button" class="rr-btn secondary" data-admin-acct-verify="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Verify</button>';
+        }
+        if (uid) {
+          actions += '<button type="button" class="rr-btn secondary" data-admin-acct-hold="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" data-hold="' + (needsHold ? '1' : '0') + '" style="padding:6px 8px;font-size:11px;margin:2px;">' + (needsHold ? 'Stop approval' : 'Require approval') + '</button>';
+        }
+        if (canBan && !isBan) {
+          actions += '<button type="button" class="rr-btn danger secondary" data-admin-acct-ban="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Ban</button>';
+        }
+        return '<tr>' +
+          '<td>' + photo + '</td>' +
+          '<td>' + escapeHtmlLite(name) + '</td>' +
+          '<td>' + escapeHtmlLite(email || '—') + '</td>' +
+          '<td><code style="font-size:11px;">' + escapeHtmlLite(uid) + '</code></td>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(a.createdAt)) + '</td>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(a.lastLoginAt)) + '</td>' +
+          '<td>' + formatAdminLegalCell(a) + '</td>' +
+          '<td>' + formatAdminCookieCell(a) + '</td>' +
+          '<td>' + escapeHtmlLite(formatInterestRailroads(a.interestedRailroads)) + '</td>' +
+          '<td>' + (badges.join(' ') || '—') + '</td>' +
+          '<td style="white-space:nowrap;">' + actions + '</td>' +
+          '</tr>';
+      }).join('');
+      const status = document.getElementById('admin-accounts-status');
+      if (status) status.textContent = filtered.length + ' of ' + adminAccountsCache.length + ' account(s)';
+    }
+    async function adminToggleReportHold(uid, email, currentlyHeld) {
+      if (!uid || !db) return;
+      setAdminError('');
+      try {
+        const ref = db.collection('reportHold').doc(uid);
+        if (currentlyHeld) {
+          await ref.delete();
+          adminReportHoldSet.delete(uid);
+          showNotification('Reports from this user go live immediately');
+          try { await logUserAction('admin_hold_off', 'Cleared report approval for ' + (email || uid)); } catch (_) {}
+        } else {
+          const actor = currentUser || (auth && auth.currentUser) || {};
+          await ref.set({
+            required: true,
+            uid: uid,
+            email: email || null,
+            setAt: firebase.firestore.FieldValue.serverTimestamp(),
+            setByUid: actor.uid || null,
+            setByEmail: normalizeEmail(actor.email) || (actor.email || null)
+          });
+          adminReportHoldSet.add(uid);
+          showNotification('New reports from this user need approval');
+          try { await logUserAction('admin_hold_on', 'Required report approval for ' + (email || uid)); } catch (_) {}
+        }
+        renderAdminAccounts();
+      } catch (e) {
+        console.error('[admin] reportHold toggle failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function loadAdminPendingReports() {
+      const status = document.getElementById('admin-pending-status');
+      if (status) status.textContent = 'Loading pending reports…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('pendingReports').get();
+        adminPendingCache = [];
+        snap.forEach(function(doc) {
+          adminPendingCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        adminPendingCache.sort(function(a, b) {
+          return adminTsSeconds(b.submittedAt || b.updatedAt || b.createdAt) - adminTsSeconds(a.submittedAt || a.updatedAt || a.createdAt);
+        });
+        renderAdminPendingReports();
+      } catch (e) {
+        console.error('[admin] pending load failed', e);
+        if (status) status.textContent = 'Failed to load pending reports.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function formatAuditAction(action) {
+      const map = {
+        sign_in: 'Signed in',
+        sign_out: 'Signed out',
+        delete_account: 'Deleted account',
+        save_settings: 'Saved settings',
+        submit_report: 'Submitted report',
+        submit_report_pending: 'Submitted report (pending)',
+        admin_ban: 'Banned user',
+        admin_unban: 'Unbanned user',
+        admin_verify: 'Verified reporter',
+        admin_unverify: 'Removed verified reporter',
+        admin_add_admin: 'Added admin',
+        admin_hold_on: 'Required report approval',
+        admin_hold_off: 'Cleared report approval',
+        admin_approve_report: 'Approved report',
+        admin_reject_report: 'Rejected report',
+        admin_delete_report: 'Deleted report',
+        admin_save_special: 'Saved special loco',
+        admin_delete_special: 'Deleted special loco',
+        admin_revert_special: 'Reverted special override'
+      };
+      return map[action] || (action || 'Action');
+    }
+    function auditLogCutoffDate() {
+      return new Date(Date.now() - AUDIT_LOG_RETENTION_MS);
+    }
+    function rrEasternDateKey() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: AUDIT_LOG_TZ,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(new Date());
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return parts[i].value;
+          return '';
+        };
+        return get('year') + '-' + get('month') + '-' + get('day');
+      } catch (e) {
+        return new Date().toISOString().slice(0, 10);
+      }
+    }
+    function rrMsUntilEasternMidnight() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: AUDIT_LOG_TZ,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23'
+        }).formatToParts(new Date());
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return Number(parts[i].value);
+          return 0;
+        };
+        const elapsed = ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000;
+        const dayMs = 24 * 60 * 60 * 1000;
+        const wait = dayMs - elapsed;
+        return wait < 5000 ? wait + dayMs : wait;
+      } catch (e) {
+        return 60 * 60 * 1000;
+      }
+    }
+    async function purgeExpiredAuditLog(force) {
+      if (!db) return { deleted: 0 };
+      const today = rrEasternDateKey();
+      try {
+        if (!force && localStorage.getItem('rr_audit_purged_on') === today) return { deleted: 0, skipped: true };
+      } catch (_) {}
+      const cutoff = auditLogCutoffDate();
+      let deleted = 0;
+      try {
+        for (let i = 0; i < 6; i++) {
+          const snap = await db.collection('actionLog').where('at', '<', cutoff).orderBy('at', 'asc').limit(250).get();
+          if (!snap || snap.empty) break;
+          const batch = db.batch();
+          snap.forEach(function(doc) { batch.delete(doc.ref); });
+          await batch.commit();
+          deleted += snap.size;
+          if (snap.size < 250) break;
+        }
+        try { localStorage.setItem('rr_audit_purged_on', today); } catch (_) {}
+        if (deleted) console.info('[actionLog] purged ' + deleted + ' entries older than 7 days');
+      } catch (err) {
+        console.warn('[actionLog] purge failed', err);
+      }
+      return { deleted: deleted };
+    }
+    function scheduleAuditLogMidnightPurge() {
+      if (window._rrAuditPurgeTimer) clearTimeout(window._rrAuditPurgeTimer);
+      const wait = Math.min(rrMsUntilEasternMidnight(), 2147483647);
+      window._rrAuditPurgeTimer = setTimeout(function() {
+        purgeExpiredAuditLog(true).then(function() {
+          if (typeof loadAdminAuditLog === 'function' && document.getElementById('admin-pane-audit')) {
+            const pane = document.getElementById('admin-pane-audit');
+            if (pane && pane.style.display !== 'none') loadAdminAuditLog();
+          }
+        }).finally(scheduleAuditLogMidnightPurge);
+      }, wait);
+    }
+    async function loadAdminAuditLog() {
+      const status = document.getElementById('admin-audit-status');
+      if (status) status.textContent = 'Loading audit log…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        purgeExpiredAuditLog(false);
+        const cutoff = auditLogCutoffDate();
+        let snap;
+        try {
+          snap = await db.collection('actionLog').where('at', '>=', cutoff).orderBy('at', 'desc').limit(500).get();
+        } catch (qErr) {
+          console.warn('[admin] audit 7-day query failed, falling back', qErr);
+          snap = await db.collection('actionLog').orderBy('at', 'desc').limit(500).get();
+        }
+        window._adminAuditCache = [];
+        const cutMs = cutoff.getTime();
+        snap.forEach(function(doc) {
+          const row = Object.assign({ id: doc.id }, doc.data() || {});
+          let atMs = 0;
+          if (row.at && typeof row.at.toMillis === 'function') atMs = row.at.toMillis();
+          else if (row.at && row.at.seconds) atMs = row.at.seconds * 1000;
+          else if (row.at) atMs = Date.parse(row.at) || 0;
+          if (!atMs || atMs >= cutMs) window._adminAuditCache.push(row);
+        });
+        renderAdminAuditLog();
+      } catch (e) {
+        console.error('[admin] audit load failed', e);
+        if (status) status.textContent = 'Failed to load audit log.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminAuditLog() {
+      const tbody = document.getElementById('admin-audit-tbody');
+      const status = document.getElementById('admin-audit-status');
+      const q = String(((document.getElementById('admin-audit-search') || {}).value || '')).trim().toLowerCase();
+      const rows = (window._adminAuditCache || []).filter(function(r) {
+        if (!q) return true;
+        const blob = [r.email, r.label, r.uid, r.action, r.detail, formatAuditAction(r.action)].join(' ').toLowerCase();
+        return blob.indexOf(q) !== -1;
+      });
+      if (!tbody) return;
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="rr-admin-empty">No matching actions.</td></tr>';
+        if (status) status.textContent = (window._adminAuditCache || []).length ? '0 shown' : 'No actions logged yet.';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r) {
+        const when = adminTsSeconds(r.at) ? new Date(adminTsSeconds(r.at) * 1000).toLocaleString() : '—';
+        const who = r.email || r.label || r.uid || 'Unknown';
+        return '<tr><td>' + escapeHtmlLite(when) + '</td><td>' + escapeHtmlLite(who) + '</td><td>' + escapeHtmlLite(formatAuditAction(r.action)) + '</td><td>' + escapeHtmlLite(r.detail || '') + '</td></tr>';
+      }).join('');
+      if (status) status.textContent = rows.length + ' of ' + (window._adminAuditCache || []).length + ' actions (kept 7 days; purge at midnight ET)';
+    }
+    function renderAdminPendingReports() {
+      const tbody = document.getElementById('admin-pending-tbody');
+      const status = document.getElementById('admin-pending-status');
+      if (!tbody) return;
+      tbody.innerHTML = adminPendingCache.map(function(r) {
+        const vehicle = r.agency === 'mbta'
+          ? (r.vehicleId || '—')
+          : ((r.trainNumber || r.vehicleId || '—') + (r.serviceDate ? ' · ' + r.serviceDate : ''));
+        const note = String(r.comment || '').trim();
+        return '<tr>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(r.submittedAt || r.updatedAt || r.createdAt)) + '</td>' +
+          '<td>' + escapeHtmlLite(r.agency || '') + '</td>' +
+          '<td>' + escapeHtmlLite(vehicle) + '</td>' +
+          '<td>' + escapeHtmlLite(formatTrainReportLocoLabelAdmin(r)) + '</td>' +
+          '<td>' + escapeHtmlLite(note || '—') + '</td>' +
+          '<td>' + escapeHtmlLite(r.reportedByLabel || r.reportedByEmail || r.reportedByUid || '—') + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" class="rr-btn" data-admin-pending-approve="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Approve</button>' +
+            '<button type="button" class="rr-btn danger secondary" data-admin-pending-reject="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Reject</button>' +
+          '</td>' +
+          '</tr>';
+      }).join('');
+      if (status) status.textContent = adminPendingCache.length + ' pending report(s)';
+    }
+    async function adminApprovePendingReport(docId) {
+      if (!docId || !db) return;
+      const row = adminPendingCache.filter(function(r) { return r.id === docId; })[0];
+      if (!row) return;
+      try {
+        const data = Object.assign({}, row);
+        delete data.id;
+        delete data.status;
+        delete data.submittedAt;
+        data.approvedAt = firebase.firestore.FieldValue.serverTimestamp();
+        data.approvedByUid = ((currentUser || {}).uid) || null;
+        await db.collection('trainReports').doc(docId).set(data, { merge: true });
+        try {
+          await db.collection('reportAudit').doc(docId).set({
+            reportedByUid: data.reportedByUid || null,
+            reportedByEmail: data.reportedByEmail || null,
+            reportedByName: data.reportedByName || null,
+            approvedByUid: ((currentUser || {}).uid) || null,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch (_) {}
+        await db.collection('pendingReports').doc(docId).delete();
+        showNotification('Report approved');
+        try { await logUserAction('admin_approve_report', 'Approved pending report ' + docId); } catch (_) {}
+        if (typeof loadTrainReports === 'function') await loadTrainReports();
+        await loadAdminPendingReports();
+      } catch (e) {
+        console.error('[admin] approve failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminRejectPendingReport(docId) {
+      if (!docId || !db) return;
+      if (!window.confirm('Reject this pending report?')) return;
+      try {
+        await db.collection('pendingReports').doc(docId).delete();
+        showNotification('Pending report rejected');
+        try { await logUserAction('admin_reject_report', 'Rejected pending report ' + docId); } catch (_) {}
+        await loadAdminPendingReports();
+      } catch (e) {
+        console.error('[admin] reject failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function adminAccountsPrefillVerify(uid, email) {
+      const emailEl = document.getElementById('admin-verified-email');
+      const uidEl = document.getElementById('admin-verified-uid');
+      if (emailEl) emailEl.value = email || '';
+      if (uidEl) uidEl.value = uid || '';
+      switchAdminTab('verified');
+      loadAdminTab('verified');
+    }
+    function adminAccountsPrefillBan(uid, email) {
+      const emailEl = document.getElementById('admin-ban-email');
+      const uidEl = document.getElementById('admin-ban-uid');
+      if (emailEl) emailEl.value = email || '';
+      if (uidEl) uidEl.value = uid || '';
+      switchAdminTab('bans');
+      loadAdminTab('bans');
+    }
+    function wireAccountAndAdminUI() {
+      const closeBtn = document.getElementById('account-settings-close');
+      const closeBtn2 = document.getElementById('account-close-btn');
+      const saveBtn = document.getElementById('account-save-settings');
+      const signOutBtn = document.getElementById('account-sign-out');
+      const delBtn = document.getElementById('account-delete');
+      const customLabel = document.getElementById('account-custom-label');
+      const accountModal = document.getElementById('account-settings-modal');
+      if (closeBtn) closeBtn.addEventListener('click', closeAccountSettingsLightbox);
+      if (closeBtn2) closeBtn2.addEventListener('click', closeAccountSettingsLightbox);
+      if (saveBtn) saveBtn.addEventListener('click', saveAccountSettings);
+      if (signOutBtn) signOutBtn.addEventListener('click', function() {
+        closeAccountSettingsLightbox();
+        signOutGoogle();
+      });
+      if (delBtn) delBtn.addEventListener('click', function() {
+        closeAccountSettingsLightbox();
+        deleteAccount();
+      });
+      if (customLabel) customLabel.addEventListener('input', updateAccountPreview);
+      document.querySelectorAll('input[name="report-display-mode"]').forEach(function(r) {
+        r.addEventListener('change', updateAccountPreview);
+      });
+      if (accountModal) {
+        accountModal.addEventListener('click', function(e) {
+          if (e.target === accountModal) closeAccountSettingsLightbox();
+        });
+      }
+      const adminClose = document.getElementById('admin-dashboard-close');
+      const adminModal = document.getElementById('admin-dashboard-modal');
+      if (adminClose) adminClose.addEventListener('click', closeAdminDashboard);
+      if (adminModal) {
+        adminModal.addEventListener('click', function(e) {
+          if (e.target === adminModal) closeAdminDashboard();
+        });
+      }
+      document.querySelectorAll('.rr-admin-tab').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          const tab = btn.getAttribute('data-admin-tab');
+          switchAdminTab(tab);
+          await loadAdminTab(tab);
+        });
+      });
+      const reportsRefresh = document.getElementById('admin-reports-refresh');
+      const reportsSearch = document.getElementById('admin-reports-search');
+      const bansRefresh = document.getElementById('admin-bans-refresh');
+      const banSubmit = document.getElementById('admin-ban-submit');
+      const adminsRefresh = document.getElementById('admin-admins-refresh');
+      const addAdminSubmit = document.getElementById('admin-add-submit');
+      if (reportsRefresh) reportsRefresh.addEventListener('click', loadAdminReports);
+      if (reportsSearch) reportsSearch.addEventListener('input', renderAdminReports);
+      if (bansRefresh) bansRefresh.addEventListener('click', loadAdminBans);
+      if (banSubmit) banSubmit.addEventListener('click', adminBanUser);
+      const verifiedRefresh = document.getElementById('admin-verified-refresh');
+      const verifiedSubmit = document.getElementById('admin-verified-submit');
+      if (verifiedRefresh) verifiedRefresh.addEventListener('click', loadAdminVerified);
+      if (verifiedSubmit) verifiedSubmit.addEventListener('click', adminVerifyReporter);
+      const accountsRefresh = document.getElementById('admin-accounts-refresh');
+      const accountsSearch = document.getElementById('admin-accounts-search');
+      if (accountsRefresh) accountsRefresh.addEventListener('click', loadAdminAccounts);
+      if (accountsSearch) accountsSearch.addEventListener('input', renderAdminAccounts);
+      const accountsTbody = document.getElementById('admin-accounts-tbody');
+      if (accountsTbody) {
+        accountsTbody.addEventListener('click', function(e) {
+          const verifyBtn = e.target.closest('[data-admin-acct-verify]');
+          if (verifyBtn) {
+            adminAccountsPrefillVerify(
+              verifyBtn.getAttribute('data-admin-acct-verify'),
+              verifyBtn.getAttribute('data-email') || ''
+            );
+            return;
+          }
+          const banBtn = e.target.closest('[data-admin-acct-ban]');
+          if (banBtn) {
+            adminAccountsPrefillBan(
+              banBtn.getAttribute('data-admin-acct-ban'),
+              banBtn.getAttribute('data-email') || ''
+            );
+            return;
+          }
+          const holdBtn = e.target.closest('[data-admin-acct-hold]');
+          if (holdBtn) {
+            adminToggleReportHold(
+              holdBtn.getAttribute('data-admin-acct-hold'),
+              holdBtn.getAttribute('data-email') || '',
+              holdBtn.getAttribute('data-hold') === '1'
+            );
+          }
+        });
+      }
+      const pendingRefresh = document.getElementById('admin-pending-refresh');
+      if (pendingRefresh) pendingRefresh.addEventListener('click', loadAdminPendingReports);
+      const auditRefresh = document.getElementById('admin-audit-refresh');
+      if (auditRefresh) auditRefresh.addEventListener('click', loadAdminAuditLog);
+      const auditSearch = document.getElementById('admin-audit-search');
+      if (auditSearch) auditSearch.addEventListener('input', renderAdminAuditLog);
+      const pendingTbody = document.getElementById('admin-pending-tbody');
+      if (pendingTbody) {
+        pendingTbody.addEventListener('click', function(e) {
+          const ap = e.target.closest('[data-admin-pending-approve]');
+          if (ap) { adminApprovePendingReport(ap.getAttribute('data-admin-pending-approve')); return; }
+          const rj = e.target.closest('[data-admin-pending-reject]');
+          if (rj) adminRejectPendingReport(rj.getAttribute('data-admin-pending-reject'));
+        });
+      }
+      if (adminsRefresh) adminsRefresh.addEventListener('click', loadAdminAdmins);
+      if (addAdminSubmit) addAdminSubmit.addEventListener('click', adminAddAdmin);
+      const rosterRefresh = document.getElementById('admin-roster-refresh');
+      const rosterSubmit = document.getElementById('admin-roster-submit');
+      const rosterClear = document.getElementById('admin-roster-clear');
+      if (rosterRefresh) rosterRefresh.addEventListener('click', loadAdminRoster);
+      if (rosterSubmit) rosterSubmit.addEventListener('click', adminSaveSpecialUnit);
+      if (rosterClear) rosterClear.addEventListener('click', clearAdminRosterForm);
+      const rosterTbody = document.getElementById('admin-roster-tbody');
+      if (rosterTbody) {
+        rosterTbody.addEventListener('click', function(e) {
+          const editBtn = e.target.closest('[data-admin-roster-edit], [data-admin-roster-override]');
+          if (editBtn) {
+            const key = editBtn.getAttribute('data-admin-roster-edit') ||
+              editBtn.getAttribute('data-admin-roster-override') || '';
+            const parts = key.split('|');
+            const agency = parts[0] || '';
+            const id = parts.slice(1).join('|');
+            const roster = (typeof window.getSpecialUnitsRoster === 'function')
+              ? (window.getSpecialUnitsRoster() || [])
+              : [];
+            const u = roster.find(function(x) {
+              return String(x.agency) === agency && String(x.id) === id;
+            }) || { agency: agency, id: id, name: '', iconUrl: '' };
+            fillAdminRosterForm(u.agency, u.id, u.name, u.iconUrl);
+            const nameEl = document.getElementById('admin-roster-name');
+            if (nameEl) nameEl.focus();
+            return;
+          }
+          const delBtn = e.target.closest('[data-admin-roster-delete]');
+          if (delBtn) {
+            const key = delBtn.getAttribute('data-admin-roster-delete') || '';
+            const parts = key.split('|');
+            adminDeleteSpecialUnit(parts[0] || '', parts.slice(1).join('|'));
+          }
+        });
+      }
+      const reportsTbody = document.getElementById('admin-reports-tbody');
+      if (reportsTbody) {
+        reportsTbody.addEventListener('click', function(e) {
+          const btn = e.target.closest('[data-admin-del-report]');
+          if (!btn) return;
+          adminDeleteReport(btn.getAttribute('data-admin-del-report'));
+        });
+      }
+      const bansList = document.getElementById('admin-bans-list');
+      if (bansList) {
+        bansList.addEventListener('click', function(e) {
+          const btn = e.target.closest('[data-admin-unban]');
+          if (!btn) return;
+          adminUnbanUser(btn.getAttribute('data-admin-unban'));
+        });
+      }
+      const verifiedList = document.getElementById('admin-verified-list');
+      if (verifiedList) {
+        verifiedList.addEventListener('click', function(e) {
+          const btn = e.target.closest('[data-admin-unverify]');
+          if (!btn) return;
+          adminUnverifyReporter(btn.getAttribute('data-admin-unverify'));
+        });
+      }
+      const adminsList = document.getElementById('admin-admins-list');
+      if (adminsList) {
+        adminsList.addEventListener('click', function(e) {
+          const saveBtn = e.target.closest('[data-admin-save-perms]');
+          if (saveBtn) {
+            adminSavePerms(saveBtn.getAttribute('data-admin-save-perms'));
+            return;
+          }
+          const remBtn = e.target.closest('[data-admin-remove]');
+          if (remBtn) adminRemoveAdmin(remBtn.getAttribute('data-admin-remove'));
+        });
+      }
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const legalM = document.getElementById('legal-accept-modal');
+        if (legalM && legalM.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const interestM = document.getElementById('interest-railroads-modal');
+        if (interestM && interestM.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const adminM = document.getElementById('admin-dashboard-modal');
+        if (adminM && adminM.classList.contains('open')) {
+          closeAdminDashboard();
+          e.stopPropagation();
+          return;
+        }
+        const acctM = document.getElementById('account-settings-modal');
+        if (acctM && acctM.classList.contains('open')) {
+          closeAccountSettingsLightbox();
+          e.stopPropagation();
+        }
+      });
+    }
+    function showNotification(message, type) {
+      type = type || 'success';
+      const el = document.getElementById('notification');
+      const text = document.getElementById('notification-text');
+      if (!el || !text) {
+        console.log('[Notification]', type + ':', message);
+        return;
+      }
+      text.textContent = message;
+      el.style.display = 'block';
+      el.style.background = (type === 'error') ? '#c0392b' : '#07093e';
+      clearTimeout(showNotification._t);
+      showNotification._t = setTimeout(function() { el.style.display = 'none'; }, 4000);
+    }
+    function logUserAction(action, detail, extraUser) {
+      try {
+        if (!db) return Promise.resolve();
+        const user = extraUser || currentUser || (auth && auth.currentUser) || {};
+        const payload = {
+          action: String(action || 'unknown').slice(0, 64),
+          detail: String(detail || '').slice(0, 400),
+          uid: user.uid || null,
+          email: (typeof normalizeEmail === 'function' ? normalizeEmail(user.email) : (user.email || null)) || null,
+          label: (user.displayName && String(user.displayName).trim()) || null,
+          at: firebase.firestore.FieldValue.serverTimestamp(),
+          expireAt: new Date(Date.now() + AUDIT_LOG_RETENTION_MS)
+        };
+        return db.collection('actionLog').add(payload).catch(function(err) {
+          console.warn('[actionLog] write failed', err);
+        });
+      } catch (e) {
+        console.warn('[actionLog] skip', e);
+        return Promise.resolve();
+      }
+    }
+    async function signInWithGoogle() {
+      if (!auth) {
+        showNotification('Firebase is not configured. See SETUP.md.', 'error');
+        return;
+      }
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const cred = await auth.signInWithPopup(provider);
+        if (cred && cred.user) await upsertAccountMirror(cred.user);
+        try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
+        showNotification('Signed in with Google');
+      } catch (e) {
+        console.error('[Auth] Sign-in failed', e);
+        showNotification('Sign-in failed: ' + (e.message || e), 'error');
+      }
+    }
+    async function signOutGoogle() {
+      if (!auth) return;
+      try {
+        const leaving = currentUser || (auth && auth.currentUser);
+        try { await logUserAction('sign_out', 'Signed out', leaving); } catch (_) {}
+        await auth.signOut();
+        showNotification('Signed out');
+      } catch (e) {
+        showNotification('Sign-out failed: ' + (e.message || e), 'error');
+      }
+    }
+      const BUILTIN_SPECIAL_UNITS_ROSTER = [
+        { agency: 'mbta', id: '1030', name: 'B&M Minuteman' },
+        { agency: 'mbta', id: '1036', name: 'NYC Lightning Stripe', iconUrl: '/assets/mbta-1036.png' },
+        { agency: 'mbta', id: '1071', name: 'New Haven McGinnis' },
+        { agency: 'mbta', id: '1072', name: 'B&M McGinnis', iconUrl: '/assets/mbta-1072.png' },
+        { agency: 'mbta', id: '1128', name: 'New Haven' },
+        { agency: 'mbta', id: '1129', name: 'Cranberry' },
+        { agency: 'mbta', id: '1130', name: 'Original MBTA' },
+        { agency: 'mbta', id: '1776', name: 'America 250', iconUrl: '/assets/mbta-1776.png' },
+        { agency: 'mbta', id: '1125', name: 'MassDOT blue', iconUrl: '/assets/mbta-massdot.png' },
+        { agency: 'mbta', id: '1136', name: 'MassDOT blue', iconUrl: '/assets/mbta-massdot.png' },
+        { agency: 'mbta', id: '1137', name: 'MassDOT blue', iconUrl: '/assets/mbta-massdot.png' },
+        { agency: 'amtrak', id: '46', name: 'Phase V 50th' },
+        { agency: 'amtrak', id: '100', name: 'Midnight Blue' },
+        { agency: 'amtrak', id: '108', name: 'Phase VI' },
+        { agency: 'amtrak', id: '130', name: 'Phase II' },
+        { agency: 'amtrak', id: '145', name: 'Phase III' },
+        { agency: 'amtrak', id: '160', name: 'Pepsi Can' },
+        { agency: 'amtrak', id: '164', name: 'Phase IV' },
+        { agency: 'amtrak', id: '174', name: 'Phase VII' },
+        { agency: 'amtrak', id: '301', name: 'Day 1' },
+        { agency: 'amtrak', id: '600', name: 'David L. Gunn' },
+        { agency: 'amtrak', id: '642', name: 'Veterans' },
+        { agency: 'amtrak', id: '90406', name: 'Phase III NPCU' },
+        { agency: 'mnr', id: '201', name: 'Conrail' },
+        { agency: 'mnr', id: '203', name: 'MTA Central' },
+        { agency: 'mnr', id: '208', name: 'Original Metro-North' },
+        { agency: 'mnr', id: '211', name: 'NYC Lightning Stripe' },
+        { agency: 'mnr', id: '214', name: 'Employees' },
+        { agency: 'mnr', id: '216', name: 'Veterans' },
+        { agency: 'mnr', id: '217', name: 'Penn Central' },
+        { agency: 'mnr', id: '218', name: 'Never Forget 9/11' },
+        { agency: 'mnr', id: '222', name: 'New Haven green' },
+        { agency: 'mnr', id: '250', name: 'America 250' },
+        { agency: 'lirr', id: '521', name: 'America 250' }
+      ];
+      let SPECIAL_UNITS_ROSTER = BUILTIN_SPECIAL_UNITS_ROSTER.slice();
+      let ROSTER_IDS = new Set(SPECIAL_UNITS_ROSTER.map(u => String(u.id)));
+      function rebuildRosterIndexes() {
+        ROSTER_IDS = new Set(SPECIAL_UNITS_ROSTER.map(u => String(u.id)));
+      }
+      async function loadSpecialUnitsFromFirestore() {
+        if (!db) {
+          console.warn('%c[specialUnits] Firestore not available', 'color:#f39c12');
+          return;
+        }
+        try {
+          const snap = await db.collection('specialUnits').get();
+          const byKey = {};
+          snap.forEach(function(doc) {
+            const d = doc.data() || {};
+            const agency = String(d.agency || '').toLowerCase().trim();
+            const id = String(d.id != null ? d.id : '').trim();
+            if (!agency || !id) return;
+            if (['mbta', 'amtrak', 'mnr', 'lirr', 'njt'].indexOf(agency) === -1) return;
+            byKey[agency + '|' + id] = {
+              agency: agency,
+              id: id,
+              name: d.name || id,
+              iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : null,
+              builtin: false,
+              _fromFirestore: true
+            };
+          });
+          const merged = BUILTIN_SPECIAL_UNITS_ROSTER.map(function(u) {
+            const key = u.agency + '|' + String(u.id);
+            const overlay = byKey[key];
+            if (overlay) {
+              delete byKey[key];
+              return {
+                agency: u.agency,
+                id: String(u.id),
+                name: overlay.name || u.name,
+                iconUrl: overlay.iconUrl != null ? overlay.iconUrl : (u.iconUrl || null),
+                builtin: true,
+                _overridden: true,
+                _fromFirestore: true
+              };
+            }
+            return {
+              agency: u.agency,
+              id: String(u.id),
+              name: u.name,
+              iconUrl: u.iconUrl || null,
+              builtin: true
+            };
+          });
+          Object.keys(byKey).sort().forEach(function(k) {
+            merged.push(byKey[k]);
+          });
+          SPECIAL_UNITS_ROSTER = merged;
+          rebuildRosterIndexes();
+          try { if (typeof window.rrRenderNotifyTrainChips === 'function') window.rrRenderNotifyTrainChips(); } catch (_) {}
+          console.log('%c[specialUnits] Loaded roster: ' + SPECIAL_UNITS_ROSTER.length + ' unit(s) (' + snap.size + ' Firestore doc(s))', 'color:#27ae60');
+        } catch (e) {
+          console.error('%c[specialUnits] Load failed', 'color:#e74c3c', e);
+        }
+      }
+      window.loadSpecialUnitsFromFirestore = loadSpecialUnitsFromFirestore;
+      window.getSpecialUnitsRoster = function() { return SPECIAL_UNITS_ROSTER; };
+      window.getBuiltinSpecialUnitsRoster = function() { return BUILTIN_SPECIAL_UNITS_ROSTER; };
+
+    function closeAccountSettingsLightbox() {}
+    function openAccountSettingsLightbox() {}
+    function closeAccountMenu() {}
+    function closeSignupPrompt() {}
+    function closeLegalAcceptModal() {}
+    function closeInterestRailroadsModal() {}
+    function scheduleSignupPrompt() {}
+    function persistCookieConsentToAccount() { return Promise.resolve(); }
+    function readLocalCookiePrefs() { return null; }
+    function isLegalPending() { return false; }
+    function persistLegalAcceptance() { return Promise.resolve(); }
+
+    async function openAdminDashboard() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user) { showGate('signin'); return; }
+      await refreshAdminState(user);
+      if (!isAdminUser(user)) { showGate('forbidden'); return; }
+      setAdminError('');
+      const dash = document.getElementById('admin-dashboard');
+      if (dash) {
+        dash.classList.add('is-open');
+        dash.setAttribute('aria-hidden', 'false');
+      }
+      hideGate();
+      const perms = currentAdminPerms || {};
+      const ids = {
+        reports: 'admin-tab-reports', pending: 'admin-tab-pending', audit: 'admin-tab-audit',
+        bans: 'admin-tab-bans', admins: 'admin-tab-admins', roster: 'admin-tab-roster',
+        verified: 'admin-tab-verified', accounts: 'admin-tab-accounts'
+      };
+      const tabReports = document.getElementById(ids.reports);
+      const tabPending = document.getElementById(ids.pending);
+      const tabAudit = document.getElementById(ids.audit);
+      const tabBans = document.getElementById(ids.bans);
+      const tabAdmins = document.getElementById(ids.admins);
+      if (tabReports) tabReports.style.display = perms.viewReports ? '' : 'none';
+      if (tabPending) tabPending.style.display = perms.viewReports ? '' : 'none';
+      if (tabAudit) tabAudit.style.display = perms.viewReports ? '' : 'none';
+      if (tabBans) tabBans.style.display = perms.banUsers ? '' : 'none';
+      if (tabAdmins) tabAdmins.style.display = perms.manageAdmins ? '' : 'none';
+      let first = perms.viewReports ? 'reports' : (perms.banUsers ? 'bans' : (perms.manageAdmins ? 'admins' : 'roster'));
+      switchAdminTab(first);
+      await loadAdminTab(first);
+    }
+    function closeAdminDashboard() { window.location.href = '/'; }
+    function showGate(which) {
+      const dash = document.getElementById('admin-dashboard');
+      if (dash) { dash.classList.remove('is-open'); dash.setAttribute('aria-hidden', 'true'); }
+      document.getElementById('gate-loading').style.display = which === 'loading' ? 'block' : 'none';
+      document.getElementById('gate-signin').style.display = which === 'signin' ? 'block' : 'none';
+      document.getElementById('gate-forbidden').style.display = which === 'forbidden' ? 'block' : 'none';
+    }
+    function hideGate() {
+      document.getElementById('gate-loading').style.display = 'none';
+      document.getElementById('gate-signin').style.display = 'none';
+      document.getElementById('gate-forbidden').style.display = 'none';
+    }
+    function updateHeaderAuthUI(user) {
+      const btnIn = document.getElementById('btn-google-signin');
+      const userWrap = document.getElementById('header-auth-user');
+      const avatar = document.getElementById('header-user-avatar');
+      const nameEl = document.getElementById('header-account-name-text');
+      if (btnIn) btnIn.style.display = user ? 'none' : '';
+      if (userWrap) userWrap.style.display = user ? 'flex' : 'none';
+      if (user && avatar) {
+        const photo = user.photoURL || '';
+        avatar.style.display = photo ? '' : 'none';
+        if (photo) avatar.src = photo;
+      }
+      if (nameEl) nameEl.textContent = user ? (user.displayName || user.email || 'Account') : '';
+    }
+
+    const firebaseConfigured = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_FIREBASE_API_KEY';
+    if (firebaseConfigured && typeof firebase !== 'undefined') {
+      try {
+        firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        auth = firebase.auth();
+        db = firebase.firestore();
+      } catch (e) { console.error('[Firebase] Init failed', e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const btnIn = document.getElementById('btn-google-signin');
+      const btnOut = document.getElementById('btn-google-signout');
+      const gateSignin = document.getElementById('gate-signin-btn');
+      if (btnIn) btnIn.addEventListener('click', function(e) { e.preventDefault(); signInWithGoogle(); });
+      if (gateSignin) gateSignin.addEventListener('click', function(e) { e.preventDefault(); signInWithGoogle(); });
+      if (btnOut) btnOut.addEventListener('click', function() { signOutGoogle(); });
+      wireAccountAndAdminUI();
+      showGate('loading');
+      if (!auth) { showGate('signin'); return; }
+      auth.onAuthStateChanged(async function(user) {
+        currentUser = user;
+        updateHeaderAuthUI(user);
+        if (user) {
+          try { await loadUserSettings(user.uid); } catch (_) {}
+          try { await upsertAccountMirror(user); } catch (_) {}
+          try { await loadVerifiedReporters(); } catch (_) {}
+          try { await loadSpecialUnitsFromFirestore(); } catch (_) {}
+          await refreshAdminState(user);
+          if (isAdminUser(user)) await openAdminDashboard();
+          else showGate('forbidden');
+        } else {
+          currentAdminPerms = null;
+          showGate('signin');
+        }
+      });
+    });
+
+  </script>
+</body>
+</html>

@@ -5009,6 +5009,8 @@
       });
     }
     async function openAdminDashboard() {
+      window.location.href = '/admin.html';
+      return;
       const user = currentUser || (auth && auth.currentUser);
       if (!user) {
         showNotification('Sign in required.', 'error');
@@ -7044,7 +7046,7 @@
       const adminHeaderBtn = document.getElementById('btn-admin-header');
       if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        openAdminDashboard();
+        window.location.href = '/admin.html';
       });
       const panelAccount = document.getElementById('btn-account-settings-panel');
       if (panelAccount) panelAccount.addEventListener('click', function(e) {
