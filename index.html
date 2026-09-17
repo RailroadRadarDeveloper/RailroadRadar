@@ -1841,38 +1841,8 @@
    }
    /* Report a train + Specials: header on desktop, panel button on mobile */
    @media (max-width: 767px) {
-     #btn-report-train-header, #btn-specials-header { display: none !important; }
+     #btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { display: none !important; }
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }
-     /* Leaderboard: icon only, left of login/pfp — no text or background */
-     #btn-leaderboard-header {
-       display: inline-flex !important;
-       align-items: center;
-       justify-content: center;
-       background: transparent !important;
-       border: none !important;
-       box-shadow: none !important;
-       padding: 4px !important;
-       margin: 0 2px 0 0 !important;
-       min-width: 36px;
-       min-height: 36px;
-       gap: 0;
-     }
-     #btn-leaderboard-header:hover {
-       background: rgba(255,255,255,0.12) !important;
-     }
-     #btn-leaderboard-header .header-leaderboard-label {
-       display: none !important;
-     }
-     #btn-leaderboard-header .header-leaderboard-icon {
-       width: 24px;
-       height: 24px;
-     }
-     #btn-leaderboard-header .header-leaderboard-icon img {
-       width: 24px !important;
-       height: 24px !important;
-       display: block !important;
-       object-fit: contain;
-     }
    }
    @media (min-width: 768px) {
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: none !important; }
@@ -1951,6 +1921,14 @@
     .rr-lb-meta { text-align: right; font-size: 13px; color: #2c3340; white-space: nowrap; }
     .rr-lb-meta strong { display: block; color: #07093e; font-size: 15px; }
     .rr-lb-empty { color: #5a6577; text-align: center; padding: 28px 12px; }
+    .rr-lb-updated {
+      margin: 14px 0 0;
+      padding-top: 10px;
+      border-top: 1px solid #e6e9ef;
+      font-size: 12px;
+      color: #5a6577;
+      text-align: center;
+    }
     @media (max-width: 640px) {
       .header-leaderboard-label { display: none; }
       .rr-lb-winner-text { font-size: 13px; }
@@ -3189,12 +3167,12 @@
       </div>
       <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
       <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
-    </div>
-    <div class="header-right">
       <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
         <span class="header-leaderboard-icon"><img src="https://i.postimg.cc/wjS055MP/Untitled-design-(9).png" alt="" width="18" height="18"></span>
         <span class="header-leaderboard-label">Weekly Leaderboard</span>
       </button>
+    </div>
+    <div class="header-right">
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign up / Log in</button>
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
@@ -3858,6 +3836,7 @@
         <p class="rr-modal-hint" id="weekly-leaderboard-range" style="margin-top:0;"></p>
         <div class="rr-lb-list" id="weekly-leaderboard-list"></div>
         <p class="rr-lb-empty" id="weekly-leaderboard-empty" hidden>No train reports this week yet. Report a consist to get on the board.</p>
+        <p class="rr-lb-updated" id="weekly-leaderboard-updated">Updated at —</p>
       </div>
     </div>
   </div>
@@ -8035,6 +8014,7 @@
           trainReports = rows.filter(function(rep) { return reportIsMapActive(rep); });
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = false;
+          window.__rrTrainReportsLoadedAt = Date.now();
           try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
           try { if (typeof renderUpcomingBoard === 'function') renderUpcomingBoard(); } catch (_) {}
           console.log('%c[trainReports] Loaded ' + allTrainReports.length + ' total (' + trainReports.length + ' map-active)', 'color:#27ae60');
@@ -9491,6 +9471,27 @@
           if (winWrap) winWrap.hidden = true;
           if (winText) winText.textContent = '';
           if (winPhoto) winPhoto.innerHTML = '';
+        }
+        var updatedEl = document.getElementById('weekly-leaderboard-updated');
+        if (updatedEl) {
+          var whenMs = window.__rrTrainReportsLoadedAt || Date.now();
+          var whenStr = '';
+          try {
+            whenStr = new Date(whenMs).toLocaleString(undefined, {
+              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit'
+            });
+          } catch (_) {
+            whenStr = new Date(whenMs).toString();
+          }
+          var suffix = '';
+          if (typeof trainReportsLoadFailed !== 'undefined' && trainReportsLoadFailed) {
+            suffix = ' (last successful load — refresh failed)';
+          } else if (window.__rrTrainReportsLoadMeta && window.__rrTrainReportsLoadMeta.live) {
+            suffix = ' · live';
+          } else if (window.__rrTrainReportsLoadMeta && window.__rrTrainReportsLoadMeta.fromServer) {
+            suffix = ' · server';
+          }
+          updatedEl.textContent = 'Updated at ' + whenStr + suffix;
         }
       }
       function openWeeklyLeaderboard() {
