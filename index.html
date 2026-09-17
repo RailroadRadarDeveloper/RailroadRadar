@@ -3255,7 +3255,7 @@
     <div style="width: 280px; height: 6px; background: #07093e; border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
       <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.35s ease;"></div>
     </div>
-    <div id="loading-text" style="font-size: 15px; opacity: 0.9;">0%</div>
+    <div id="loading-text" style="font-size: 15px; opacity: 0.9; max-width: 320px; text-align: center; padding: 0 16px; min-height: 42px; line-height: 1.35;">Check the weekly leaderboard to see if you’re reporting the most!</div>
   </div>
   <div class="overlay" id="overlay"></div>
   <div class="control-panel" id="control-panel">
@@ -9843,28 +9843,50 @@
       const njtStopsCache = {};
       const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
       // ---- Loading progress helper ----
+      const RR_LOADING_TIPS = [
+        'Check the weekly leaderboard to see if you’re reporting the most!',
+        'Guys where is the Readville Switcher??',
+        'If you see a special, tap it. Then report it.',
+        'Worcester Line on time? Screenshot that.',
+        'HSP-46s don’t sparkle themselves.',
+        'North Station is a suggestion, not a promise.'
+      ];
+      let loadingTipTimer = null;
+      let loadingTipIdx = 0;
+      function setLoadingTip(msg) {
+        const txt = document.getElementById('loading-text');
+        if (txt) txt.textContent = msg;
+      }
+      function startLoadingTips() {
+        setLoadingTip(RR_LOADING_TIPS[0]);
+        try { clearInterval(loadingTipTimer); } catch (_) {}
+        loadingTipTimer = setInterval(function() {
+          loadingTipIdx = (loadingTipIdx + 1) % RR_LOADING_TIPS.length;
+          setLoadingTip(RR_LOADING_TIPS[loadingTipIdx]);
+        }, 2800);
+      }
       function setLoadingProgress(percent, message) {
         const bar = document.getElementById('loading-bar');
-        const txt = document.getElementById('loading-text');
         const p = Math.round(Math.min(100, Math.max(0, Number(percent) || 0)));
         if (bar) bar.style.width = p + '%';
-        // Show percentage only (message ignored — kept for call-site compatibility)
-        if (txt) txt.textContent = p + '%';
       }
       function hideLoadingScreen() {
         if (loadingScreenHidden) return;
         loadingScreenHidden = true;
         try { clearTimeout(loadingFailsafeTimer); } catch (_) {}
+        try { clearInterval(loadingTipTimer); } catch (_) {}
         const loadingScreen = document.getElementById('loading-screen');
         if (!loadingScreen) return;
         setLoadingProgress(100, 'Ready!');
+        setLoadingTip('No defects. Detector out. ✌️');
         setTimeout(() => {
           loadingScreen.style.opacity = '0';
           setTimeout(() => {
             loadingScreen.style.display = 'none';
           }, 400);
-        }, 350);
+        }, 2000);
       }
+      startLoadingTips();
       setLoadingProgress(8, 'Starting...');
       await withTimeout(loadSpecialIcons(), 500, 'loadSpecialIcons');
       setLoadingProgress(18, 'Ready for reports...');
