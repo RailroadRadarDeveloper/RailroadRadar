@@ -7185,7 +7185,13 @@
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
-      const mapboxLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}'), {
+      const mapboxAltLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}'), {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: false,
+        maxZoom: 20,
+        errorTileUrl: EMPTY_TILE
+      });
+      const mapboxLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}'), {
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
         maxZoom: 20,
@@ -7227,6 +7233,7 @@
         {
           "Dark": mapboxDarkLayer,
           "Light": mapboxLightLayer,
+          "Alt Light": mapboxAltLightLayer,
           "Esri Dark": cartoDarkLayer,
           "Esri Light": cartoLightLayer,
           "OpenStreetMap": osmLayer
