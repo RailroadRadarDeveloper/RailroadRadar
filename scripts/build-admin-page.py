@@ -56,8 +56,8 @@ header_css = r"""
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 16px; z-index: 40; gap: 12px;
     }
-    .header-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; }
-    .header-brand img { height: 36px; width: auto; }
+    .header-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; min-width: 0; flex-shrink: 1; }
+    .header-brand img, .header-logo { height: 40px; width: auto; display: block; }
     .header-center { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 14px; }
     .header-right { display: flex; align-items: center; gap: 8px; }
     .header-auth { display: flex; align-items: center; gap: 8px; }
@@ -114,8 +114,10 @@ header_css = r"""
     .rr-modal-close { text-decoration: none; }
     @media (max-width: 700px) {
       .header-center { display: none; }
+      .header-brand img, .header-logo { height: 28px; }
       .rr-admin-shell { margin: 0; }
       .rr-admin-shell .rr-lightbox-body { padding: 12px 12px 24px; }
+      .rr-admin-shell .rr-admin-tabs { padding: 10px 12px; }
       .rr-admin-table { font-size: 11px; }
     }
 """
@@ -408,8 +410,7 @@ page = f"""<!DOCTYPE html>
 <body>
   <div class="header">
     <a class="header-brand" href="/">
-      <img src="/apple-touch-icon.png" alt="">
-      RailroadRadar
+      <img class="header-logo" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
     </a>
     <div class="header-center">Admin Dashboard</div>
     <div class="header-right">
