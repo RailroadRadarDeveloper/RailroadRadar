@@ -3255,7 +3255,23 @@
     <div style="width: 280px; height: 6px; background: #07093e; border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
       <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.35s ease;"></div>
     </div>
-    <div id="loading-text" style="font-size: 15px; opacity: 0.9; max-width: 320px; text-align: center; padding: 0 16px; min-height: 42px; line-height: 1.35;">Check the weekly leaderboard to see if you’re reporting the most!</div>
+        <div id="loading-text" style="font-size: 15px; opacity: 0.9; max-width: 320px; text-align: center; padding: 0 16px; min-height: 42px; line-height: 1.35;"></div>
+    <script>
+      window.RR_LOADING_TIPS = window.RR_LOADING_TIPS || [
+        'Check the weekly leaderboard to see if you’re reporting the most!',
+        'Guys where is the Readville Switcher??',
+        'Worcester Line on time? Screenshot that.',
+        'Booking a ticket on the concert train.',
+        'Share a live trip with your family and friends using the share button on train pop-ups!'
+      ];
+      (function () {
+        var t = window.RR_LOADING_TIPS;
+        var el = document.getElementById('loading-text');
+        if (!el || !t || !t.length) return;
+        window.__rrLoadingTipIdx = Math.floor(Math.random() * t.length);
+        el.textContent = t[window.__rrLoadingTipIdx];
+      })();
+    </script>
   </div>
   <div class="overlay" id="overlay"></div>
   <div class="control-panel" id="control-panel">
@@ -9843,12 +9859,8 @@
       const njtStopsCache = {};
       const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
       // ---- Loading progress helper ----
-      const RR_LOADING_TIPS = [
-        'Check the weekly leaderboard to see if you’re reporting the most!',
-        'Guys where is the Readville Switcher??',
-        'Worcester Line on time? Screenshot that.',
-        'Booking a ticket on the concert train.',
-        'Share a live trip with your family and friends using the share button on train pop-ups!'
+      const RR_LOADING_TIPS = window.RR_LOADING_TIPS || [
+        'Check the weekly leaderboard to see if you’re reporting the most!'
       ]
       let loadingTipTimer = null;
       let loadingTipIdx = 0;
@@ -9857,7 +9869,13 @@
         if (txt) txt.textContent = msg;
       }
       function startLoadingTips() {
-        setLoadingTip(RR_LOADING_TIPS[0]);
+        if (!RR_LOADING_TIPS.length) return;
+        if (typeof window.__rrLoadingTipIdx === 'number' && window.__rrLoadingTipIdx >= 0 && window.__rrLoadingTipIdx < RR_LOADING_TIPS.length) {
+          loadingTipIdx = window.__rrLoadingTipIdx;
+        } else {
+          loadingTipIdx = Math.floor(Math.random() * RR_LOADING_TIPS.length);
+        }
+        setLoadingTip(RR_LOADING_TIPS[loadingTipIdx]);
         try { clearInterval(loadingTipTimer); } catch (_) {}
         loadingTipTimer = setInterval(function() {
           loadingTipIdx = (loadingTipIdx + 1) % RR_LOADING_TIPS.length;
