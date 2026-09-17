@@ -1,0 +1,24 @@
+name: Concert train loading tip
+on:
+  push:
+    paths:
+      - 'scripts/concert-tip.py'
+      - '.github/workflows/concert-tip.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/concert-tip.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Add concert train loading tip and drop unused lines"
+          git push
