@@ -7203,19 +7203,7 @@
         maxZoom: 20,
         errorTileUrl: EMPTY_TILE
       });
-      // Free no-key Carto fallbacks (auto-switch if Mapbox fails repeatedly)
-      const cartoLightLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri © OpenStreetMap contributors',
-        maxZoom: 19,
-        maxNativeZoom: 16,
-        errorTileUrl: EMPTY_TILE
-      });
-      const cartoDarkLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri © OpenStreetMap contributors',
-        maxZoom: 19,
-        maxNativeZoom: 16,
-        errorTileUrl: EMPTY_TILE
-      });
+      // Mapbox failure fallback is OpenStreetMap (no Esri layers).
       const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
@@ -7227,15 +7215,13 @@
       // Mobile uses the same Mapbox Light default as desktop.
       const preferKeylessTiles = false;
       if (preferKeylessTiles) usingMapboxFallback = true;
-      let currentBaseLayer = preferKeylessTiles ? cartoLightLayer : mapboxLightLayer;
+      let currentBaseLayer = mapboxLightLayer;
       currentBaseLayer.addTo(map);
       const layersControl = L.control.layers(
         {
           "Dark": mapboxDarkLayer,
           "Light": mapboxLightLayer,
           "Alt Light": mapboxAltLightLayer,
-          "Esri Dark": cartoDarkLayer,
-          "Esri Light": cartoLightLayer,
           "OpenStreetMap": osmLayer
         }
       ).addTo(map);
@@ -7255,9 +7241,9 @@
         if (usingMapboxFallback || mapboxTileErrorTimes.length <= 1) return;
         usingMapboxFallback = true;
         try {
-          console.warn('[RailroadRadar] Mapbox tiles failing repeatedly; switching to Esri fallback');
+          console.warn('[RailroadRadar] Mapbox tiles failing repeatedly; switching to OSM fallback');
         } catch (_) {}
-        const fallback = currentTheme === 'light' ? cartoLightLayer : cartoDarkLayer;
+        const fallback = osmLayer;
         if (map.hasLayer(currentBaseLayer)) map.removeLayer(currentBaseLayer);
         fallback.addTo(map);
         currentBaseLayer = fallback;
@@ -7266,7 +7252,7 @@
       mapboxDarkLayer.on('tileerror', onMapboxTileError);
       function layerForTheme(theme) {
         const light = theme === 'light';
-        if (usingMapboxFallback) return light ? cartoLightLayer : cartoDarkLayer;
+        if (usingMapboxFallback) return osmLayer;
         return light ? mapboxLightLayer : mapboxDarkLayer;
       }
       function setMapTheme(theme) {
@@ -7294,7 +7280,7 @@
         const name = (e && e.name) || '';
         if (/light|openstreetmap|^osm$/i.test(name) && !/dark/i.test(name)) currentTheme = 'light';
         else currentTheme = 'dark';
-        if (name === 'Carto Light' || name === 'Carto Dark' || name === 'Esri Light' || name === 'Esri Dark') usingMapboxFallback = true;
+        if (name === 'OpenStreetMap') usingMapboxFallback = true;
         else if (name === 'Light' || name === 'Dark') {
           usingMapboxFallback = false;
           mapboxTileErrorTimes = [];
