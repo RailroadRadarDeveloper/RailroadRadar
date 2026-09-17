@@ -2,13 +2,13 @@
 from pathlib import Path
 path = Path("index.html")
 text = path.read_text(encoding="utf-8")
-old = """    @media (max-width: 767px) {
-     #btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { display: none !important; }
-     #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }
-    }"""
-new = """    @media (max-width: 767px) {
-     #btn-report-train-header, #btn-specials-header { display: none !important; }
-     #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }
+needle = "#btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { display: none !important; }"
+repl = "#btn-report-train-header, #btn-specials-header { display: none !important; }"
+if needle not in text:
+    raise SystemExit("hide rule not found")
+text = text.replace(needle, repl, 1)
+marker = "#btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }"
+extra = marker + """
      #btn-leaderboard-header {
        display: inline-flex !important;
        align-items: center;
@@ -33,9 +33,9 @@ new = """    @media (max-width: 767px) {
        height: 24px !important;
        display: block !important;
        object-fit: contain;
-     }
-    }"""
-if old not in text:
-    raise SystemExit("mobile leaderboard CSS block not found")
-path.write_text(text.replace(old, new, 1), encoding="utf-8")
+     }"""
+if marker not in text:
+    raise SystemExit("panel show rule not found")
+text = text.replace(marker, extra, 1)
+path.write_text(text, encoding="utf-8")
 print("patched")
