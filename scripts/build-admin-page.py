@@ -45,7 +45,7 @@ header_css = r"""
     :root { --primary-color: #07093e; --text-color: #333; --light-text: #fff; }
     * { box-sizing: border-box; }
     html, body {
-      margin: 0; min-height: 100%;
+      margin: 0; height: 100%; overflow: hidden;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #e8ebf2;
       color: #1a1a2e;
@@ -75,11 +75,19 @@ header_css = r"""
       box-shadow: 0 8px 24px rgba(0,0,0,.25);
     }
     .rr-admin-shell {
-      max-width: 1180px; margin: 76px auto 32px; background: #fff;
-      box-shadow: 0 10px 40px rgba(7,9,62,.12);
+      position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
+      width: 100%; max-width: none; margin: 0;
+      background: #fff; box-shadow: none; z-index: 20;
     }
-    .rr-admin-shell .rr-modal-header { position: sticky; top: 60px; z-index: 5; }
-    .rr-admin-shell .rr-lightbox-body { max-height: none; overflow: visible; padding: 18px 20px 28px; }
+    .rr-admin-shell .rr-lightbox {
+      width: 100%; max-width: none; height: 100%; max-height: none;
+      box-shadow: none; overflow: hidden;
+    }
+    .rr-admin-shell .rr-modal-header { flex-shrink: 0; }
+    .rr-admin-shell .rr-lightbox-body {
+      max-height: none; overflow: auto; flex: 1; min-height: 0;
+      padding: 16px 24px 28px;
+    }
     .rr-gate {
       max-width: 520px; margin: 120px auto; background: #fff; padding: 28px 24px;
       text-align: center; box-shadow: 0 10px 40px rgba(7,9,62,.12);
@@ -88,11 +96,12 @@ header_css = r"""
     .rr-gate p { color: #5a6577; margin: 0 0 18px; }
     .rr-gate .rr-btn { min-width: 160px; }
     #admin-dashboard { display: none; }
-    #admin-dashboard.is-open { display: block; }
+    #admin-dashboard.is-open { display: flex; flex-direction: column; }
     .rr-modal-close { text-decoration: none; }
     @media (max-width: 700px) {
       .header-center { display: none; }
-      .rr-admin-shell { margin: 60px 0 0; }
+      .rr-admin-shell { margin: 0; }
+      .rr-admin-shell .rr-lightbox-body { padding: 12px 12px 24px; }
       .rr-admin-table { font-size: 11px; }
     }
 """
@@ -100,6 +109,36 @@ header_css = r"""
 css_a = line_of(".rr-modal-backdrop {")
 css_b = line_of(".admin-badge-icon {")
 admin_css = "\n".join(lines[css_a:css_b])
+admin_css += """
+   .rr-admin-tabs {
+     position: sticky;
+     top: 0;
+     background: #fff;
+     z-index: 4;
+     padding-top: 4px;
+   }
+   .rr-admin-table th {
+     position: sticky;
+     top: 0;
+     z-index: 1;
+   }
+   .rr-lightbox-body input[type="url"],
+   .rr-lightbox-body select {
+     box-sizing: border-box;
+     padding: 9px 10px;
+     border: 1px solid #c5cad3;
+     font-size: 14px;
+     font-family: inherit;
+     width: 100%;
+   }
+   .rr-lightbox-body label {
+     display: block;
+     font-size: 12px;
+     font-weight: 700;
+     color: #07093e;
+     margin: 10px 0 4px;
+   }
+"""
 
 html_a = line_of('id="admin-dashboard-modal"')
 html_b = line_of("<!-- Toast Notification -->")
