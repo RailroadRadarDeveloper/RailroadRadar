@@ -7215,14 +7215,12 @@
       // Mobile uses the same Mapbox Light default as desktop.
       const preferKeylessTiles = false;
       if (preferKeylessTiles) usingMapboxFallback = true;
-      let currentBaseLayer = mapboxLightLayer;
+      let currentBaseLayer = mapboxAltLightLayer;
       currentBaseLayer.addTo(map);
       const layersControl = L.control.layers(
         {
           "Dark": mapboxDarkLayer,
-          "Light": mapboxLightLayer,
-          "Alt Light": mapboxAltLightLayer,
-          "OpenStreetMap": osmLayer
+          "Alt Light": mapboxAltLightLayer
         }
       ).addTo(map);
       // Auto-fallback: >5 Mapbox tileerrors within 10s → switch to Carto for current theme
@@ -7243,17 +7241,13 @@
         try {
           console.warn('[RailroadRadar] Mapbox tiles failing repeatedly; switching to OSM fallback');
         } catch (_) {}
-        const fallback = osmLayer;
-        if (map.hasLayer(currentBaseLayer)) map.removeLayer(currentBaseLayer);
-        fallback.addTo(map);
-        currentBaseLayer = fallback;
+        return;
       }
-      mapboxLightLayer.on('tileerror', onMapboxTileError);
+      mapboxAltLightLayer.on('tileerror', onMapboxTileError);
       mapboxDarkLayer.on('tileerror', onMapboxTileError);
       function layerForTheme(theme) {
         const light = theme === 'light';
-        if (usingMapboxFallback) return osmLayer;
-        return light ? mapboxLightLayer : mapboxDarkLayer;
+        return light ? mapboxAltLightLayer : mapboxDarkLayer;
       }
       function setMapTheme(theme) {
         currentTheme = theme === 'light' ? 'light' : 'dark';
@@ -7280,8 +7274,7 @@
         const name = (e && e.name) || '';
         if (/light|openstreetmap|^osm$/i.test(name) && !/dark/i.test(name)) currentTheme = 'light';
         else currentTheme = 'dark';
-        if (name === 'OpenStreetMap') usingMapboxFallback = true;
-        else if (name === 'Light' || name === 'Dark') {
+        if (name === 'Alt Light' || name === 'Dark' || name === 'Light') {
           usingMapboxFallback = false;
           mapboxTileErrorTimes = [];
           mapboxTileErrorLogged = false;
