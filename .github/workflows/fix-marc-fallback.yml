@@ -1,0 +1,29 @@
+name: Fix MARC feed fallback
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/fix-marc-fallback.py'
+      - '.github/workflows/fix-marc-fallback.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/fix-marc-fallback.py
+      - run: |
+          mkdir -p feeds
+          curl -fsSL -o feeds/marc-vp.pb "https://mdotmta-gtfs-rt.s3.amazonaws.com/MARC+RT/marc-vp.pb"
+          curl -fsSL -o feeds/marc-tu.pb "https://mdotmta-gtfs-rt.s3.amazonaws.com/MARC+RT/marc-tu.pb"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html feeds/marc-vp.pb feeds/marc-tu.pb
+          if git diff --cached --quiet; then echo "No app changes"; else git commit -m "Use GitHub-hosted MARC GTFS-RT fallback when worker routes 404"; fi
+          git rm -f scripts/fix-marc-fallback.py .github/workflows/fix-marc-fallback.yml || true
+          if git diff --cached --quiet; then echo "No cleanup"; else git commit -m "Remove one-off MARC fallback patch workflow"; fi
+          git push
