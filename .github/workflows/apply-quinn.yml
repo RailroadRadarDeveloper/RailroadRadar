@@ -1,0 +1,30 @@
+name: Apply Quinn map updates
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/via-rail.png.b64'
+      - 'scripts/quinn-index-small.patch.gz.b64'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode icon and apply patch
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          base64 -d scripts/via-rail.png.b64 > assets/via-rail.png
+          base64 -d scripts/quinn-index-small.patch.gz.b64 | gunzip > /tmp/quinn.patch
+          git apply /tmp/quinn.patch
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/via-rail.png index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Add VIA Rail trains and region filters"
+            git push
+          fi
