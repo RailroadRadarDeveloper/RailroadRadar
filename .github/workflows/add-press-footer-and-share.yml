@@ -1,0 +1,27 @@
+name: Add Press footer and article share button
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/add-press-footer-and-share.py
+      - .github/workflows/add-press-footer-and-share.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 scripts/add-press-footer-and-share.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html press/index.html policies/privacy/index.html policies/terms-of-use/index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Add Press footer link and article Share button"
+            git push
+          fi
