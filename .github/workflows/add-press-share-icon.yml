@@ -1,0 +1,41 @@
+name: Add press share icon
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/add-press-share-icon.py
+      - .github/workflows/add-press-share-icon.yml
+permissions:
+  contents: write
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download share icon
+        run: |
+          mkdir -p assets/icons
+          curl -fsSL --retry 5 --retry-delay 2 -o assets/icons/share.png "https://i.postimg.cc/7L54Xs4K/Untitled-design.png"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('assets/icons/share.png')
+          b = p.read_bytes()
+          if b[:8] != b'\x89PNG\r\n\x1a\n':
+              raise SystemExit('share icon is not a png')
+          print('share png bytes', len(b))
+          PY
+      - name: Patch press page
+        run: python3 scripts/add-press-share-icon.py
+      - name: Commit
+        run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/icons/share.png press/index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Use repo share icon on press articles and add image spacing"
+            git push
+          fi
