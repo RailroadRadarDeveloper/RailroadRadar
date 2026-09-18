@@ -26,11 +26,17 @@ betterstack('init', { environment: 'production' });
 .skip{position:absolute;left:-999px;top:8px;background:#fff;color:var(--navy);padding:8px 12px;font-weight:700;z-index:30}
 .skip:focus{left:8px}
 .header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid #1a3a5f}
-.header img{height:40px}.header-right{display:flex;gap:8px;align-items:center}
+.header .wordmark{height:40px;width:auto;display:block}
+.header-right{display:flex;gap:8px;align-items:center}
 .hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
-.hb:focus,.btn:focus,.reader-panel button:focus,.a11y-btn:focus,.share-btn:focus,.back:focus{outline:2px solid #fff;outline-offset:2px}
-.user{display:none;align-items:center;gap:8px;color:#fff;font-size:13px;font-weight:700}
-.user img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+.hb:focus,.btn:focus,.reader-panel button:focus,.a11y-btn:focus,.share-btn:focus,.back:focus,.pfp-btn:focus{outline:2px solid #fff;outline-offset:2px}
+.user{display:none;position:relative;align-items:center}
+.pfp-btn{width:34px;height:34px;padding:0;border:0;background:transparent;cursor:pointer}
+.pfp-btn img,.user-fallback{width:34px;height:34px;border-radius:50%;object-fit:cover;display:block}
+.user-fallback{background:#fff;color:var(--navy);font:800 14px inherit;align-items:center;justify-content:center}
+.acct-menu{display:none;position:absolute;right:0;top:42px;background:#0c1448;border:1px solid #1a3a5f;padding:8px;z-index:30;min-width:110px}
+.acct-menu.open{display:block}
+.acct-menu .hb{width:100%}
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
 h1{color:#fff;margin:0 0 8px}
 .lede,.empty,.meta,.share{color:var(--muted)}
@@ -70,17 +76,23 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 <body>
 <a class="skip" href="#app">Skip to content</a>
 <div class="header">
-  <a href="https://railroadradar.com/"><img src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
+  <a href="https://railroadradar.com/"><img class="wordmark" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
   <div class="header-right">
-    <a class="hb" href="https://railroadradar.com/">Live map</a>
     <button class="hb" id="in">Sign in</button>
-    <div class="user" id="user"><img id="av" alt=""><span id="nm">Account</span><button class="hb" id="out">Sign out</button></div>
+    <div class="user" id="user">
+      <button type="button" class="pfp-btn" id="pfp" aria-label="Account menu" aria-expanded="false" aria-controls="acct-menu">
+        <img id="av" alt="">
+        <span class="user-fallback" id="avfb" style="display:none"></span>
+      </button>
+      <div class="acct-menu" id="acct-menu"><button class="hb" id="out">Sign out</button></div>
+    </div>
   </div>
 </div>
 <div class="wrap" id="app" tabindex="-1"></div>
 <script>
 const CFG={apiKey:"AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",authDomain:"railroadradar-accounts.firebaseapp.com",projectId:"railroadradar-accounts",storageBucket:"railroadradar-accounts.firebasestorage.app",messagingSenderId:"896370923309",appId:"1:896370923309:web:594b0a20d3b1c6822e65a4"};
 const BOOT=['turokerr@gmail.com','railroadradar@gmail.com'];
+const A11Y_ICON='https://railroadradar.com/assets/icons/accessibility.png';
 let auth,db,storage,user=null,perms=null,speaking=false;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
 const email=e=>String(e||'').trim().toLowerCase();
@@ -140,7 +152,22 @@ function bindReader(title,body){
   applyReader();
 }
 async function refreshAdmin(u){perms=null;if(!u)return;if(boot(u.email)){perms={viewReports:1,banUsers:1,manageAdmins:1,deleteReports:1};return;}try{const snap=await db.collection('admins').doc(email(u.email)).get();if(!snap.exists)return;const p=(snap.data()||{}).perms||{};perms={viewReports:!!p.viewReports,banUsers:!!p.banUsers,manageAdmins:!!p.manageAdmins,deleteReports:!!p.deleteReports};}catch(e){}}
-function header(){document.getElementById('in').style.display=user?'none':'';document.getElementById('user').style.display=user?'flex':'none';if(user){const av=document.getElementById('av');av.style.display=user.photoURL?'':'none';if(user.photoURL)av.src=user.photoURL;av.alt=user.displayName||'Account photo';document.getElementById('nm').textContent=user.displayName||user.email||'Account';}}
+function header(){
+  document.getElementById('in').style.display=user?'none':'';
+  document.getElementById('user').style.display=user?'flex':'none';
+  document.getElementById('acct-menu').classList.remove('open');
+  document.getElementById('pfp').setAttribute('aria-expanded','false');
+  if(!user)return;
+  const av=document.getElementById('av');
+  const fb=document.getElementById('avfb');
+  if(user.photoURL){av.style.display='block';av.src=user.photoURL;av.alt='Account';fb.style.display='none';}
+  else {
+    av.style.display='none';av.removeAttribute('src');
+    fb.style.display='flex';
+    const label=user.displayName||user.email||'A';
+    fb.textContent=String(label).trim().charAt(0).toUpperCase()||'A';
+  }
+}
 function form(p){p=p||{};return `<div class="card form-card" id="c"><h2 style="color:#07093e;font-size:16px">${p.slug?'Edit release':'New press release'}</h2><div class="err" id="ce"></div>
 <label>Title</label><input id="t" type="text" maxlength="160" value="${esc(p.title||'')}">
 <label>Images</label><input id="f" type="file" accept="image/*" multiple>
@@ -173,7 +200,7 @@ const imgs=(a.images||[]).map((im,i)=>im&&im.url?`<img class="${i?'':'hero'}" sr
 app.innerHTML=`<p><a class="back" href="/press/index.html">← All press releases</a></p>
 <article class="article size-2">
 <div class="tools">
-<button type="button" class="a11y-btn" id="a11y" aria-label="Accessibility settings" aria-expanded="false" aria-controls="reader-panel"><img src="https://i.postimg.cc/90WfQP3Z/Untitled-design-(11).png" alt=""></button>
+<button type="button" class="a11y-btn" id="a11y" aria-label="Accessibility settings" aria-expanded="false" aria-controls="reader-panel"><img src="${A11Y_ICON}" alt=""></button>
 <button type="button" class="share-btn" id="share">Share</button>
 <div class="reader-panel" id="reader-panel" role="menu" aria-label="Accessibility settings">
 <button type="button" id="r-down" aria-label="Smaller text">A-</button>
@@ -198,6 +225,8 @@ async function route(){const id=idFromLoc();if(id)await article(id);else await l
 firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();try{storage=firebase.storage();}catch(e){storage=null;}
 document.getElementById('in').onclick=()=>auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 document.getElementById('out').onclick=()=>auth.signOut();
+document.getElementById('pfp').onclick=e=>{e.stopPropagation();const m=document.getElementById('acct-menu');const open=!m.classList.contains('open');m.classList.toggle('open',open);document.getElementById('pfp').setAttribute('aria-expanded',open?'true':'false');};
+document.addEventListener('click',e=>{const m=document.getElementById('acct-menu');const b=document.getElementById('pfp');if(!m||!b)return;if(m.contains(e.target)||b.contains(e.target))return;m.classList.remove('open');b.setAttribute('aria-expanded','false');});
 auth.onAuthStateChanged(async u=>{user=u;header();try{if(typeof betterstack==='function'&&u)betterstack('user',{id:u.uid||'',email:u.email||'',username:u.displayName||u.email||''});}catch(e){}await refreshAdmin(u);await route();});
 </script>
 </body>
