@@ -105,11 +105,22 @@ function urlOf(s){return 'https://railroadradar.com/press/index.html?id='+encode
 async function notifyDiscord(a){
   try{
     const hook='https://discord.com/api/webhooks/1550613722161086534/0zz4C0rPGbrpDphlGcmFkRpMig27IuZX0cS-n_sw5wnZw8SjRKNoRDUbean4O1DtkJqw';
-    const desc=String(a.body||'').replace(/\s+/g,' ').trim().slice(0,400);
-    const embed={title:String(a.title||'Press release').slice(0,256),url:urlOf(a.slug),description:desc+(String(a.body||'').length>400?'\u2026':''),color:706304,footer:{text:'RailroadRadar Press'},timestamp:new Date().toISOString()};
+    const raw=String(a.body||'').trim();
+    const title=String(a.title||'Press release').slice(0,256);
+    const chunks=[];
+    for(let i=0;i<raw.length && chunks.length<10;i+=4096)chunks.push(raw.slice(i,i+4096));
+    if(!chunks.length)chunks.push('');
     const img=a.images&&a.images[0]&&a.images[0].url;
-    if(img)embed.image={url:img};
-    await fetch(hook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'RailroadRadar',embeds:[embed]})});
+    const embeds=chunks.map((desc,i)=>({
+      title:i? (title+' (cont.)').slice(0,256):title,
+      url:urlOf(a.slug),
+      description:desc.slice(0,4096),
+      color:706304,
+      footer:{text:'RailroadRadar Press'},
+      timestamp:new Date().toISOString()
+    }));
+    if(img)embeds[0].image={url:img};
+    await fetch(hook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'RailroadRadar',embeds})});
   }catch(e){}
 }
 
@@ -229,6 +240,7 @@ ${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" i
 bindReader(a.title||'',a.body||'');
 const sh=document.getElementById('share');
 if(sh)sh.onclick=async()=>{const url=urlOf(slug);try{if(navigator.share){await navigator.share({title:a.title||'RailroadRadar',text:a.title||'',url});return;}}catch(e){}try{await navigator.clipboard.writeText(url);sh.setAttribute('aria-label','Link copied');setTimeout(()=>sh.setAttribute('aria-label','Share this article'),1600);}catch(e){window.prompt('Copy link',url);}};
+const dc=document.getElementById('dc');if(dc)dc.onclick=async()=>{dc.disabled=true;dc.textContent='Sending…';try{await notifyDiscord({title:a.title||slug,body:a.body||'',slug,images:a.images||[]});dc.textContent='Sent';setTimeout(()=>{dc.textContent='Send to Discord';dc.disabled=false;},1600);}catch(e){dc.textContent='Failed';dc.disabled=false;}};
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/index.html';}};
 const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
