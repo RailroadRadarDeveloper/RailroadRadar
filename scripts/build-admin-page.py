@@ -337,6 +337,18 @@ boot = r"""
       document.getElementById('gate-signin').style.display = 'none';
       document.getElementById('gate-forbidden').style.display = 'none';
     }
+    function rrIdentifyBetterStack(user) {
+      try {
+        if (typeof betterstack !== 'function') return;
+        if (!user) return;
+        betterstack('user', {
+          id: user.uid || '',
+          email: user.email || '',
+          username: user.displayName || user.email || ''
+        });
+      } catch (_) {}
+    }
+
     function updateHeaderAuthUI(user) {
       const btnIn = document.getElementById('btn-google-signin');
       const userWrap = document.getElementById('header-auth-user');
@@ -373,6 +385,7 @@ boot = r"""
       if (!auth) { showGate('signin'); return; }
       auth.onAuthStateChanged(async function(user) {
         currentUser = user;
+        rrIdentifyBetterStack(user);
         updateHeaderAuthUI(user);
         if (user) {
           try { await loadUserSettings(user.uid); } catch (_) {}
@@ -401,6 +414,16 @@ page = f"""<!DOCTYPE html>
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3">
   <link rel="apple-touch-icon" href="https://railroadradar.com/apple-touch-icon.png?v=2">
+  <script>
+    !function(b,e,t,r){
+      b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+      b[t].l=+new Date;
+      var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+      s.src='https://betterstack.net/b.js?t='+r;
+      (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
+    }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+    betterstack('init', { environment: 'production' });
+  </script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -437,8 +460,8 @@ page = f"""<!DOCTYPE html>
     <button type="button" class="rr-btn" id="gate-signin-btn">Sign in with Google</button>
   </div>
   <div class="rr-gate" id="gate-forbidden" style="display:none;">
-    <h1>Admin access required</h1>
-    <p>This page is only for RailroadRadar admins. You’re signed in, but this account isn’t on the admin list.</p>
+    <h1>Access denied</h1>
+    <p>You do not have permission to access this page.</p>
     <a class="rr-btn secondary" href="https://railroadradar.com/" style="display:inline-block;text-decoration:none;">Back to map</a>
   </div>
 

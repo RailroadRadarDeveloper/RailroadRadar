@@ -3191,6 +3191,16 @@
       }
     } catch (e) {}
   </script>
+  <script>
+    !function(b,e,t,r){
+      b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+      b[t].l=+new Date;
+      var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+      s.src='https://betterstack.net/b.js?t='+r;
+      (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
+    }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+    betterstack('init', { environment: 'production' });
+  </script>
 </head>
 <body>
   <div class="header">
@@ -6697,6 +6707,18 @@
       menu.style.display = currentlyHidden ? 'block' : 'none';
       btn.setAttribute('aria-expanded', currentlyHidden ? 'true' : 'false');
     }
+    function rrIdentifyBetterStack(user) {
+      try {
+        if (typeof betterstack !== 'function') return;
+        if (!user) return;
+        betterstack('user', {
+          id: user.uid || '',
+          email: user.email || '',
+          username: user.displayName || user.email || ''
+        });
+      } catch (_) {}
+    }
+
     function updateHeaderAuthUI(user) {
       const btnIn = document.getElementById('btn-google-signin');
       const userWrap = document.getElementById('header-auth-user');
@@ -7091,6 +7113,7 @@
       if (auth) {
         auth.onAuthStateChanged(async function(user) {
           currentUser = user;
+          rrIdentifyBetterStack(user);
           updateHeaderAuthUI(user);
           if (user) {
             closeSignupPrompt();
