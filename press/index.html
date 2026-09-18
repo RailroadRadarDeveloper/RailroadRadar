@@ -34,7 +34,7 @@ betterstack('init', { environment: 'production' });
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
 h1{color:#fff;margin:0 0 8px}
 .lede,.empty,.meta,.share{color:var(--muted)}
-.share a{color:#fff}
+.share-btn{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:5px 10px;font:700 11px inherit;cursor:pointer;text-transform:uppercase;margin-left:8px;vertical-align:middle}
 .back{color:#fff;font-weight:700;text-decoration:none}
 .btn{border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px inherit;padding:10px 14px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-block}
 .btn.sec{background:transparent;color:#fff;border:1px solid #a8c0e0}.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -166,10 +166,13 @@ app.innerHTML=`<p><a class="back" href="/press/index.html">← All press release
 <button type="button" id="r-speak" aria-pressed="false">Listen</button>
 </div>
 <h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
-<p class="share">URL: <a href="${urlOf(slug)}">${urlOf(slug)}</a></p>${imgs}<div class="body">${esc(a.body||'')}</div>
+<p class="share"><button type="button" class="share-btn" id="share">Share</button></p>${imgs}<div class="body">${esc(a.body||'')}</div>
 ${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
 ${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
 bindReader(a.title||'',a.body||'');
+const sh=document.getElementById('share');
+if(sh)sh.onclick=async()=>{const url=urlOf(slug);try{if(navigator.share){await navigator.share({title:a.title||'RailroadRadar',text:a.title||'',url});return;}}catch(e){}try{await navigator.clipboard.writeText(url);sh.textContent='Copied';setTimeout(()=>sh.textContent='Share',1600);}catch(e){window.prompt('Copy link',url);}};
+
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/index.html';}};
 const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
