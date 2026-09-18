@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build admin.html from index.html and point the map header at admin.railroadradar.com."""
+"""Build admin.html from index.html and point the map header at /admin.html."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -464,7 +464,7 @@ old = """      if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', func
       });"""
 new = """      if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        window.location.href = 'https://admin.railroadradar.com/';
+        window.location.href = '/admin.html';
       });"""
 if old not in idx:
     raise SystemExit("admin header click handler not found")
@@ -477,7 +477,7 @@ old2 = """    async function openAdminDashboard() {
         return;
       }"""
 new2 = """    async function openAdminDashboard() {
-      window.location.href = 'https://admin.railroadradar.com/';
+      window.location.href = '/admin.html';
       return;
       const user = currentUser || (auth && auth.currentUser);
       if (!user) {
