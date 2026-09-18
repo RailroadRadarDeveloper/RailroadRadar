@@ -1,0 +1,50 @@
+name: Fix admin interest helpers
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fix-admin-interest-helpers.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+      - name: Restore builder and inject helpers
+        run: |
+          set -euo pipefail
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          if grep -q '^PLACEHOLDER$' scripts/build-admin-page.py; then
+            git show HEAD~1:scripts/build-admin-page.py > scripts/build-admin-page.py
+          fi
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('scripts/build-admin-page.py')
+          text = p.read_text(encoding='utf-8')
+          old = '''needed = [\n    "const BOOTSTRAP_ADMIN_EMAILS",\n'''
+          new = '''needed = [\n    "const INTEREST_RAILROADS",\n    "function interestRailroadLabel",\n    "function formatInterestRailroads",\n    "function normalizeInterestIds",\n    "const BOOTSTRAP_ADMIN_EMAILS",\n'''
+          if 'function formatInterestRailroads' not in text:
+              if old not in text:
+                  raise SystemExit('needed list not found in builder')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          admin = Path('admin.html')
+          src = admin.read_text(encoding='utf-8')
+          if 'function formatInterestRailroads(ids)' not in src:
+              needle = "    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };\n"
+              insert = needle + '''    const INTEREST_RAILROADS = [\n      { id: 'mbta', label: 'MBTA Commuter Rail' },\n      { id: 'amtrak', label: 'Amtrak' },\n      { id: 'mnr', label: 'Metro-North' },\n      { id: 'lirr', label: 'Long Island Rail Road' },\n      { id: 'metra', label: 'Metra' },\n      { id: 'njt', label: 'NJ Transit' },\n      { id: 'ctrail', label: 'CTrail' },\n      { id: 'exploring', label: "I'm just exploring" }\n    ];\n    function interestRailroadLabel(id) {\n      const row = INTEREST_RAILROADS.find(function(r) { return r.id === id; });\n      return row ? row.label : String(id || '');\n    }\n    function formatInterestRailroads(ids) {\n      const list = (ids || []).map(interestRailroadLabel).filter(Boolean);\n      return list.length ? list.join(', ') : '\u2014';\n    }\n    function normalizeInterestIds(ids) {\n      const allow = {};\n      INTEREST_RAILROADS.forEach(function(r) { allow[r.id] = true; });\n      const out = [];\n      const seen = {};\n      (ids || []).forEach(function(id) {\n        const k = String(id || '').trim().toLowerCase();\n        if (!allow[k] || seen[k]) return;\n        seen[k] = true;\n        out.push(k);\n      });\n      return out;\n    }\n'''
+              if needle not in src:
+                  raise SystemExit('admin.html insertion point not found')
+              admin.write_text(src.replace(needle, insert, 1), encoding='utf-8')
+          print('helpers present')
+          PY
+          git add scripts/build-admin-page.py admin.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Fix admin dashboard formatInterestRailroads is not defined"
+            git push
+          fi
