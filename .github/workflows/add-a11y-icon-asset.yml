@@ -1,0 +1,36 @@
+name: Add accessibility icon asset
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/add-a11y-icon-asset.yml
+permissions:
+  contents: write
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download icon into assets
+        run: |
+          mkdir -p assets/icons
+          curl -fsSL -o assets/icons/accessibility.png "https://i.postimg.cc/90WfQP3Z/Untitled-design-%2811%29.png"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('assets/icons/accessibility.png')
+          b = p.read_bytes()
+          if b[:8] != b'\x89PNG\r\n\x1a\n':
+              raise SystemExit('not a png')
+          print('wrote', p, 'bytes', len(b))
+          PY
+      - name: Commit
+        run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/icons/accessibility.png
+          if git diff --cached --quiet; then
+            echo already present
+          else
+            git commit -m "Add accessibility icon to GitHub assets"
+            git push
+          fi
