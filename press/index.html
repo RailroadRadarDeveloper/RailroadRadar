@@ -22,19 +22,22 @@ betterstack('init', { environment: 'production' });
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage-compat.js"></script>
 <style>
-:root{--navy:#07093e;--page:#e8ebf2;--muted:#5a6577;--line:#e8eaef;--danger:#c0392b}
-*{box-sizing:border-box}html,body{margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--page);color:#1a1a2e}
-.header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20}
+:root{--navy:#07093e;--page:#07093e;--muted:#a8c0e0;--line:#e8eaef;--danger:#c0392b}
+*{box-sizing:border-box}html,body{margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--page);color:#fff}
+.header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid #1a3a5f}
 .header img{height:40px}.header-right{display:flex;gap:8px;align-items:center}
 .hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
 .user{display:none;align-items:center;gap:8px;color:#fff;font-size:13px;font-weight:700}
 .user img{width:34px;height:34px;border-radius:50%;object-fit:cover}
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
-h1{color:var(--navy);margin:0 0 8px}
-.lede,.meta,.empty,.share{color:var(--muted)}
-.btn{border:1px solid var(--navy);background:var(--navy);color:#fff;font:700 13px inherit;padding:10px 14px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-block}
-.btn.sec{background:#fff;color:var(--navy)}.btn.danger{background:var(--danger);border-color:var(--danger)}
-.card{background:#fff;border:1px solid var(--line);box-shadow:0 10px 40px rgba(7,9,62,.08);padding:18px 20px;margin:0 0 14px}
+h1{color:#fff;margin:0 0 8px}
+.lede,.empty{color:var(--muted)}
+.meta,.share{color:#5a6577}
+.back{color:#fff;font-weight:700;text-decoration:none}
+.btn{border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px inherit;padding:10px 14px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-block}
+.btn.sec{background:transparent;color:#fff;border:1px solid #a8c0e0}.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.card{background:#fff;color:#1a1a2e;border:1px solid var(--line);box-shadow:0 10px 40px rgba(0,0,0,.25);padding:18px 20px;margin:0 0 14px}
+.card h1,.card h2{color:var(--navy)}
 .card a.t{color:var(--navy);font-size:20px;font-weight:800;text-decoration:none}
 label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:10px 0 4px}
 input[type=text],textarea{width:100%;padding:10px;border:1px solid #c5cad3;font:14px inherit}
@@ -59,7 +62,7 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 const CFG={apiKey:"AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",authDomain:"railroadradar-accounts.firebaseapp.com",projectId:"railroadradar-accounts",storageBucket:"railroadradar-accounts.firebasestorage.app",messagingSenderId:"896370923309",appId:"1:896370923309:web:594b0a20d3b1c6822e65a4"};
 const BOOT=['turokerr@gmail.com','railroadradar@gmail.com'];
 let auth,db,storage,user=null,perms=null;
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
 const email=e=>String(e||'').trim().toLowerCase();
 const boot=e=>BOOT.indexOf(email(e))!==-1;
 const isAdmin=u=>!!u&&(boot(u.email)||(perms&&(perms.viewReports||perms.banUsers||perms.manageAdmins||perms.deleteReports)));
@@ -97,11 +100,11 @@ async function article(slug){const app=document.getElementById('app');const snap
 if(!snap.exists){app.innerHTML='<h1>Not found</h1><p><a class="btn sec" href="/press/">All releases</a></p>';return;}
 const a=snap.data()||{};document.title=(a.title||'Press')+' · RailroadRadar';
 const imgs=(a.images||[]).map((im,i)=>im&&im.url?`<img class="${i?'':'hero'}" src="${esc(im.url)}" alt="">`:'').join('');
-app.innerHTML=`<p><a href="/press/" style="color:#07093e;font-weight:700;text-decoration:none">← All press releases</a></p>
+app.innerHTML=`<p><a class="back" href="/press/">← All press releases</a></p>
 <article class="card"><h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
 <p class="share">URL: <a href="${urlOf(slug)}">${urlOf(slug)}</a></p>${imgs}<div class="body">${esc(a.body||'')}</div>
 ${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
-${a.commentsEnabled?`<div><h2 style="color:#07093e">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
+${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist" class="card"></div></div>`:''}`;
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/';}};
 const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
