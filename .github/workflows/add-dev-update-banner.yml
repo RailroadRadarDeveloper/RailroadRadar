@@ -1,0 +1,27 @@
+name: Add development update banner
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/add-dev-update-banner.py
+      - .github/workflows/add-dev-update-banner.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 scripts/add-dev-update-banner.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Add latest development update banner on the map"
+            git push
+          fi
