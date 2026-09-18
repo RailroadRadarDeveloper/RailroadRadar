@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Press Releases · RailroadRadar</title>
+<script>
+!function(b,e,t,r){
+  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+  b[t].l=+new Date;
+  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+  s.src='https://betterstack.net/b.js?t='+r;
+  (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
+}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+betterstack('init', { environment: 'production' });
+</script>
+
+<meta name="theme-color" content="#07093e"/>
+<link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3"/>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage-compat.js"></script>
+<style>
+:root{--navy:#07093e;--page:#e8ebf2;--muted:#5a6577;--line:#e8eaef;--danger:#c0392b}
+*{box-sizing:border-box}html,body{margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--page);color:#1a1a2e}
+.header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20}
+.header img{height:40px}.header-right{display:flex;gap:8px;align-items:center}
+.hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+.user{display:none;align-items:center;gap:8px;color:#fff;font-size:13px;font-weight:700}
+.user img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+.wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
+h1{color:var(--navy);margin:0 0 8px}
+.lede,.meta,.empty,.share{color:var(--muted)}
+.btn{border:1px solid var(--navy);background:var(--navy);color:#fff;font:700 13px inherit;padding:10px 14px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-block}
+.btn.sec{background:#fff;color:var(--navy)}.btn.danger{background:var(--danger);border-color:var(--danger)}
+.card{background:#fff;border:1px solid var(--line);box-shadow:0 10px 40px rgba(7,9,62,.08);padding:18px 20px;margin:0 0 14px}
+.card a.t{color:var(--navy);font-size:20px;font-weight:800;text-decoration:none}
+label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:10px 0 4px}
+input[type=text],textarea{width:100%;padding:10px;border:1px solid #c5cad3;font:14px inherit}
+textarea{min-height:160px}img.hero,img.thumb{width:100%;display:block;margin:8px 0;object-fit:cover}
+img.thumb{max-height:220px}img.hero{max-height:420px}
+.body{white-space:pre-wrap;line-height:1.6;font-size:16px}
+.err{display:none;background:#fdecea;color:var(--danger);padding:10px;margin:10px 0}.err.on{display:block}
+.comment{border-bottom:1px solid var(--line);padding:10px 0}
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="https://railroadradar.com/"><img src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
+  <div class="header-right">
+    <a class="hb" href="https://railroadradar.com/">Live map</a>
+    <button class="hb" id="in">Sign in</button>
+    <div class="user" id="user"><img id="av" alt=""><span id="nm">Account</span><button class="hb" id="out">Sign out</button></div>
+  </div>
+</div>
+<div class="wrap" id="app"></div>
+<script>
+const CFG={apiKey:"AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",authDomain:"railroadradar-accounts.firebaseapp.com",projectId:"railroadradar-accounts",storageBucket:"railroadradar-accounts.firebasestorage.app",messagingSenderId:"896370923309",appId:"1:896370923309:web:594b0a20d3b1c6822e65a4"};
+const BOOT=['turokerr@gmail.com','railroadradar@gmail.com'];
+let auth,db,storage,user=null,perms=null;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const email=e=>String(e||'').trim().toLowerCase();
+const boot=e=>BOOT.indexOf(email(e))!==-1;
+const isAdmin=u=>!!u&&(boot(u.email)||(perms&&(perms.viewReports||perms.banUsers||perms.manageAdmins||perms.deleteReports)));
+function slugify(t){const s=String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72);return s||('release-'+Date.now().toString(36));}
+function idFromLoc(){const q=new URLSearchParams(location.search);if(q.get('id'))return q.get('id').trim();const m=location.pathname.match(/^\/press\/([^\/]+)\/?$/);return (m&&m[1]&&m[1]!=='index.html')?decodeURIComponent(m[1]):'';}
+function urlOf(s){return 'https://railroadradar.com/press/'+encodeURIComponent(s);}
+function when(ts){try{const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null);return(!d||isNaN(d))? '':d.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});}catch(e){return '';}}
+async function refreshAdmin(u){perms=null;if(!u)return;if(boot(u.email)){perms={viewReports:1,banUsers:1,manageAdmins:1,deleteReports:1};return;}try{const snap=await db.collection('admins').doc(email(u.email)).get();if(!snap.exists)return;const p=(snap.data()||{}).perms||{};perms={viewReports:!!p.viewReports,banUsers:!!p.banUsers,manageAdmins:!!p.manageAdmins,deleteReports:!!p.deleteReports};}catch(e){}}
+function header(){document.getElementById('in').style.display=user?'none':'';document.getElementById('user').style.display=user?'flex':'none';if(user){const av=document.getElementById('av');av.style.display=user.photoURL?'':'none';if(user.photoURL)av.src=user.photoURL;document.getElementById('nm').textContent=user.displayName||user.email||'Account';}}
+function form(p){p=p||{};return `<div class="card" id="c"><h2 style="color:#07093e;font-size:16px">${p.slug?'Edit release':'New press release'}</h2><div class="err" id="ce"></div>
+<label>Title</label><input id="t" type="text" maxlength="160" value="${esc(p.title||'')}">
+<label>Images</label><input id="f" type="file" accept="image/*" multiple>
+<label>Or image URLs (one per line)</label><textarea id="u" style="min-height:70px">${esc((p.images||[]).map(x=>x.url).join('\n'))}</textarea>
+<label>Body</label><textarea id="b">${esc(p.body||'')}</textarea>
+<label style="display:flex;gap:8px;align-items:center;font-weight:600;font-size:14px"><input id="k" type="checkbox"${p.commentsEnabled?' checked':''}> Allow comments</label>
+<p><button class="btn" id="pub">${p.slug?'Save':'Publish'}</button> <button class="btn sec" id="can">Cancel</button></p></div>`;}
+async function ups(slug,files){const out=[];if(!files||!files.length)return out;if(!storage)throw new Error('Uploads unavailable');for(let i=0;i<files.length;i++){const f=files[i];if(!f||!/^image\//.test(f.type||''))continue;if(f.size>8*1024*1024)throw new Error('Images must be under 8 MB');const path='press/'+slug+'/'+Date.now()+'-'+i+'-'+String(f.name||'img').replace(/[^\w.-]+/g,'_');await storage.ref().child(path).put(f,{contentType:f.type});out.push({url:await storage.ref().child(path).getDownloadURL(),name:f.name||''});}return out;}
+async function save(slug0){const title=document.getElementById('t').value.trim(),body=document.getElementById('b').value.trim();if(!title||!body){document.getElementById('ce').textContent='Title and body are required.';document.getElementById('ce').className='err on';return;}
+let slug=slug0||slugify(title);if(!slug0){const ex=await db.collection('pressReleases').doc(slug).get();if(ex.exists)slug+='-'+Date.now().toString(36);}
+try{let images=document.getElementById('u').value.split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url,name:''}));images=images.concat(await ups(slug,document.getElementById('f').files));
+const payload={slug,title,body,images,commentsEnabled:!!document.getElementById('k').checked,published:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),authorUid:user.uid,authorEmail:user.email||'',authorName:user.displayName||user.email||'RailroadRadar'};
+if(!slug0)payload.createdAt=firebase.firestore.FieldValue.serverTimestamp();
+await db.collection('pressReleases').doc(slug).set(payload,{merge:true});location.href='/press/?id='+encodeURIComponent(slug);
+}catch(err){document.getElementById('ce').textContent=err.message||'Publish failed. Add Firestore/Storage rules for pressReleases.';document.getElementById('ce').className='err on';}}
+async function list(){const app=document.getElementById('app');app.innerHTML=`<h1>Press Releases</h1><p class="lede">Official news and announcements from RailroadRadar.</p>${isAdmin(user)?'<p><button class="btn" id="nw">New article</button></p>':''}<div id="slot"></div><div id="list" class="empty">Loading…</div>`;
+const nw=document.getElementById('nw');if(nw)nw.onclick=()=>{document.getElementById('slot').innerHTML=form();document.getElementById('pub').onclick=()=>save(null);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
+try{const snap=await db.collection('pressReleases').orderBy('createdAt','desc').limit(50).get();if(snap.empty){document.getElementById('list').textContent='No press releases yet.';return;}
+document.getElementById('list').innerHTML=snap.docs.map(doc=>{const a=doc.data()||{},s=a.slug||doc.id,img=a.images&&a.images[0]&&a.images[0].url;return `<article class="card">${img?`<img class="thumb" src="${esc(img)}" alt="">`:''}<a class="t" href="/press/?id=${encodeURIComponent(s)}">${esc(a.title||s)}</a><div class="meta">${esc(when(a.createdAt)||'Recently')}</div><div>${esc(String(a.body||'').slice(0,220))}${String(a.body||'').length>220?'…':''}</div></article>`;}).join('');
+}catch(e){document.getElementById('list').textContent='Could not load releases. Add Firestore rules for pressReleases.';}}
+async function comments(slug){const box=document.getElementById('clist');if(!box)return;const snap=await db.collection('pressReleases').doc(slug).collection('comments').orderBy('createdAt','asc').limit(200).get();
+if(snap.empty){box.innerHTML='<p class="empty">No comments yet.</p>';return;}
+box.innerHTML=snap.docs.map(d=>{const c=d.data()||{};const can=user&&(user.uid===c.uid||isAdmin(user));return `<div class="comment"><b>${esc(c.displayName||'User')}</b> <span class="meta">${esc(when(c.createdAt))}</span><div>${esc(c.text||'')}</div>${can?`<button class="btn sec" data-x="${esc(d.id)}">Delete</button>`:''}</div>`;}).join('');
+box.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{await db.collection('pressReleases').doc(slug).collection('comments').doc(b.getAttribute('data-x')).delete();comments(slug);});}
+async function article(slug){const app=document.getElementById('app');const snap=await db.collection('pressReleases').doc(slug).get();
+if(!snap.exists){app.innerHTML='<h1>Not found</h1><p><a class="btn sec" href="/press/">All releases</a></p>';return;}
+const a=snap.data()||{};document.title=(a.title||'Press')+' · RailroadRadar';
+const imgs=(a.images||[]).map((im,i)=>im&&im.url?`<img class="${i?'':'hero'}" src="${esc(im.url)}" alt="">`:'').join('');
+app.innerHTML=`<p><a href="/press/" style="color:#07093e;font-weight:700;text-decoration:none">← All press releases</a></p>
+<article class="card"><h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
+<p class="share">URL: <a href="${urlOf(slug)}">${urlOf(slug)}</a></p>${imgs}<div class="body">${esc(a.body||'')}</div>
+${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
+${a.commentsEnabled?`<div><h2 style="color:#07093e">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
+const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
+const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/';}};
+const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
+if(a.commentsEnabled)await comments(slug);}
+async function route(){const id=idFromLoc();if(id)await article(id);else await list();}
+firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();try{storage=firebase.storage();}catch(e){storage=null;}
+document.getElementById('in').onclick=()=>auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+document.getElementById('out').onclick=()=>auth.signOut();
+auth.onAuthStateChanged(async u=>{user=u;header();try{if(typeof betterstack==='function'&&u)betterstack('user',{id:u.uid||'',email:u.email||'',username:u.displayName||u.email||''});}catch(e){}await refreshAdmin(u);await route();});
+</script>
+</body>
+</html>
