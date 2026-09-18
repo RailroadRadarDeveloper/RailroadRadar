@@ -235,7 +235,7 @@ app.innerHTML=`<p><a class="back" href="/press/index.html">← All press release
 </div>
 <h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
 ${imgs}<div class="body">${esc(a.body||'')}</div>
-${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
+${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn sec" id="dc">Send to Discord</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
 ${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
 bindReader(a.title||'',a.body||'');
 const sh=document.getElementById('share');
