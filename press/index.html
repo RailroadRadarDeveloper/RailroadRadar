@@ -102,6 +102,17 @@ const isAdmin=u=>!!u&&(boot(u.email)||(perms&&(perms.viewReports||perms.banUsers
 function slugify(t){const s=String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72);return s||('release-'+Date.now().toString(36));}
 function idFromLoc(){const q=new URLSearchParams(location.search);if(q.get('id'))return q.get('id').trim();const m=location.pathname.match(/^\/press\/([^\/]+)\/?$/);return (m&&m[1]&&m[1]!=='index.html')?decodeURIComponent(m[1]):'';}
 function urlOf(s){return 'https://railroadradar.com/press/index.html?id='+encodeURIComponent(s);}
+async function notifyDiscord(a){
+  try{
+    const hook='https://discord.com/api/webhooks/1550613722161086534/0zz4C0rPGbrpDphlGcmFkRpMig27IuZX0cS-n_sw5wnZw8SjRKNoRDUbean4O1DtkJqw';
+    const desc=String(a.body||'').replace(/\s+/g,' ').trim().slice(0,400);
+    const embed={title:String(a.title||'Press release').slice(0,256),url:urlOf(a.slug),description:desc+(String(a.body||'').length>400?'\u2026':''),color:706304,footer:{text:'RailroadRadar Press'},timestamp:new Date().toISOString()};
+    const img=a.images&&a.images[0]&&a.images[0].url;
+    if(img)embed.image={url:img};
+    await fetch(hook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'RailroadRadar',embeds:[embed]})});
+  }catch(e){}
+}
+
 function when(ts){try{const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null);return(!d||isNaN(d))? '':d.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});}catch(e){return '';}}
 function readerState(){try{return JSON.parse(localStorage.getItem('rrPressReader')||'{}');}catch(e){return {};}}
 function saveReader(st){try{localStorage.setItem('rrPressReader',JSON.stringify(st));}catch(e){}}
@@ -182,7 +193,7 @@ let slug=slug0||slugify(title);if(!slug0){const ex=await db.collection('pressRel
 try{let images=document.getElementById('u').value.split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url,name:''}));images=images.concat(await ups(slug,document.getElementById('f').files));
 const payload={slug,title,body,images,commentsEnabled:!!document.getElementById('k').checked,published:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),authorUid:user.uid,authorEmail:user.email||'',authorName:user.displayName||user.email||'RailroadRadar'};
 if(!slug0)payload.createdAt=firebase.firestore.FieldValue.serverTimestamp();
-await db.collection('pressReleases').doc(slug).set(payload,{merge:true});location.href='/press/index.html?id='+encodeURIComponent(slug);
+await db.collection('pressReleases').doc(slug).set(payload,{merge:true});if(!slug0)await notifyDiscord({title,body,slug,images});location.href='/press/index.html?id='+encodeURIComponent(slug);
 }catch(err){document.getElementById('ce').textContent=err.message||'Publish failed. Add Firestore/Storage rules for pressReleases.';document.getElementById('ce').className='err on';}}
 async function list(){const app=document.getElementById('app');app.innerHTML=`<h1>Press Releases</h1><p class="lede">Official news and announcements from RailroadRadar.</p>${isAdmin(user)?'<p><button class="btn" id="nw">New article</button></p>':''}<div id="slot"></div><div id="list" class="empty">Loading…</div>`;
 const nw=document.getElementById('nw');if(nw)nw.onclick=()=>{document.getElementById('slot').innerHTML=form();document.getElementById('pub').onclick=()=>save(null);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
