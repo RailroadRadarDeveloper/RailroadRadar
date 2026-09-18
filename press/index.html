@@ -40,7 +40,7 @@ betterstack('init', { environment: 'production' });
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
 h1{color:#fff;margin:0 0 8px}
 .lede,.empty,.meta,.share{color:var(--muted)}
-.share-btn{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:5px 10px;font:700 11px inherit;cursor:pointer;text-transform:uppercase}
+.share-btn{width:36px;height:36px;padding:0;border:0;background:transparent;cursor:pointer}.share-btn img{width:36px;height:36px;display:block}
 .back{color:#fff;font-weight:700;text-decoration:none}
 .btn{border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px inherit;padding:10px 14px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-block}
 .btn.sec{background:transparent;color:#fff;border:1px solid #a8c0e0}.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -49,7 +49,7 @@ h1{color:#fff;margin:0 0 8px}
 .card a.t{color:#fff;font-size:20px;font-weight:800;text-decoration:none}
 .article{color:#fff;padding:0 0 24px}
 .article h1{color:#fff;font-size:32px;line-height:1.2}
-.article .body{color:#fff}
+.article .body{color:#fff;margin-top:12px}
 .tools{display:flex;align-items:center;gap:10px;margin:4px 0 16px;position:relative}
 .a11y-btn{width:36px;height:36px;padding:0;border:0;background:transparent;cursor:pointer}
 .a11y-btn img{width:36px;height:36px;display:block}
@@ -65,7 +65,7 @@ label{display:block;font-size:12px;font-weight:700;color:#fff;margin:10px 0 4px}
 .form-card h2,.form-card label{color:#07093e}
 input[type=text],textarea{width:100%;padding:10px;border:1px solid #c5cad3;font:14px inherit;background:#fff;color:#1a1a2e}
 textarea{min-height:160px}
-img.hero,img.thumb{width:100%;display:block;margin:8px 0 28px;object-fit:cover}
+img.hero,img.thumb{width:100%;display:block;margin:8px 0 48px;object-fit:cover}
 img.thumb{max-height:220px}img.hero{max-height:420px}
 .body{white-space:pre-wrap;line-height:1.7;font-size:17px}
 .err{display:none;background:#fdecea;color:var(--danger);padding:10px;margin:10px 0}.err.on{display:block}
@@ -93,6 +93,7 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 const CFG={apiKey:"AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",authDomain:"railroadradar-accounts.firebaseapp.com",projectId:"railroadradar-accounts",storageBucket:"railroadradar-accounts.firebasestorage.app",messagingSenderId:"896370923309",appId:"1:896370923309:web:594b0a20d3b1c6822e65a4"};
 const BOOT=['turokerr@gmail.com','railroadradar@gmail.com'];
 const A11Y_ICON='https://railroadradar.com/assets/icons/accessibility.png';
+const SHARE_ICON='https://railroadradar.com/assets/icons/share.png';
 let auth,db,storage,user=null,perms=null,speaking=false;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
 const email=e=>String(e||'').trim().toLowerCase();
@@ -201,7 +202,7 @@ app.innerHTML=`<p><a class="back" href="/press/index.html">← All press release
 <article class="article size-2">
 <div class="tools">
 <button type="button" class="a11y-btn" id="a11y" aria-label="Accessibility settings" aria-expanded="false" aria-controls="reader-panel"><img src="${A11Y_ICON}" alt=""></button>
-<button type="button" class="share-btn" id="share">Share</button>
+<button type="button" class="share-btn" id="share" aria-label="Share this article"><img src="${SHARE_ICON}" alt=""></button>
 <div class="reader-panel" id="reader-panel" role="menu" aria-label="Accessibility settings">
 <button type="button" id="r-down" aria-label="Smaller text">A-</button>
 <button type="button" id="r-up" aria-label="Larger text">A+</button>
@@ -216,7 +217,7 @@ ${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class=
 ${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
 bindReader(a.title||'',a.body||'');
 const sh=document.getElementById('share');
-if(sh)sh.onclick=async()=>{const url=urlOf(slug);try{if(navigator.share){await navigator.share({title:a.title||'RailroadRadar',text:a.title||'',url});return;}}catch(e){}try{await navigator.clipboard.writeText(url);sh.textContent='Copied';setTimeout(()=>sh.textContent='Share',1600);}catch(e){window.prompt('Copy link',url);}};
+if(sh)sh.onclick=async()=>{const url=urlOf(slug);try{if(navigator.share){await navigator.share({title:a.title||'RailroadRadar',text:a.title||'',url});return;}}catch(e){}try{await navigator.clipboard.writeText(url);sh.setAttribute('aria-label','Link copied');setTimeout(()=>sh.setAttribute('aria-label','Share this article'),1600);}catch(e){window.prompt('Copy link',url);}};
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/index.html';}};
 const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
