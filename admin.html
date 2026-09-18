@@ -743,6 +743,37 @@
     let db = null;
     let currentUser = null;
     let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
+    const INTEREST_RAILROADS = [
+      { id: 'mbta', label: 'MBTA Commuter Rail' },
+      { id: 'amtrak', label: 'Amtrak' },
+      { id: 'mnr', label: 'Metro-North' },
+      { id: 'lirr', label: 'Long Island Rail Road' },
+      { id: 'metra', label: 'Metra' },
+      { id: 'njt', label: 'NJ Transit' },
+      { id: 'ctrail', label: 'CTrail' },
+      { id: 'exploring', label: "I'm just exploring" }
+    ];
+    function interestRailroadLabel(id) {
+      const row = INTEREST_RAILROADS.find(function(r) { return r.id === id; });
+      return row ? row.label : String(id || '');
+    }
+    function formatInterestRailroads(ids) {
+      const list = (ids || []).map(interestRailroadLabel).filter(Boolean);
+      return list.length ? list.join(', ') : '—';
+    }
+    function normalizeInterestIds(ids) {
+      const allow = {};
+      INTEREST_RAILROADS.forEach(function(r) { allow[r.id] = true; });
+      const out = [];
+      const seen = {};
+      (ids || []).forEach(function(id) {
+        const k = String(id || '').trim().toLowerCase();
+        if (!allow[k] || seen[k]) return;
+        seen[k] = true;
+        out.push(k);
+      });
+      return out;
+    }
     let currentAdminPerms = null;
     let verifiedReporterUids = new Set();
 
