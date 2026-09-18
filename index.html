@@ -64,9 +64,36 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: var(--primary-color);
     }
-    #map {
+    .rr-dev-banner {
       position: fixed;
       top: 60px;
+      left: 0;
+      right: 0;
+      height: 36px;
+      z-index: 9998;
+      background: #0c1448;
+      border-bottom: 1px solid #1a3a5f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      box-sizing: border-box;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .rr-dev-banner a {
+      color: #fff;
+      text-decoration: none;
+    }
+    .rr-dev-banner a:hover {
+      text-decoration: underline;
+    }
+    @media (max-width: 700px) {
+      .rr-dev-banner { font-size: 12px; }
+    }
+    #map {
+      position: fixed;
+      top: 96px;
       left: 0;
       right: 0;
       bottom: 0;
@@ -952,7 +979,7 @@
       display: block;
       position: relative;
       z-index: 20;
-      margin-top: 60px;
+      margin-top: 96px;
       padding: 0 0 24px;
       max-width: none;
       width: 100%;
@@ -3245,6 +3272,10 @@
       </button>
     </div>
   </div>
+  <div class="rr-dev-banner" role="region" aria-label="Development update">
+    <a href="https://railroadradar.com/press/index.html?id=development-update-week-of-september-14-2026">View the latest development update</a>
+  </div>
+
   <div id="offline-banner" class="offline-banner">
     You're offline — live train data unavailable.
     <a onclick="location.reload()">Retry</a>
