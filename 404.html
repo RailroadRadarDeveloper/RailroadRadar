@@ -4,6 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Page Not Found — RailroadRadar</title>
+  <script>
+    (function () {
+      var m = location.pathname.match(/^\/press\/([^\/]+)\/?$/);
+      if (m && m[1] && m[1] !== 'index.html') {
+        location.replace('/press/?id=' + encodeURIComponent(m[1]));
+      }
+    })();
+  </script>
   <style>
     :root {
       --primary-color: #07093e;
@@ -201,6 +209,7 @@
       <span class="copyright">© 2026 RailroadRadar</span>
       <span style="color:#4a6fa5;">|</span>
       <a href="https://www.railroadradar.com/policies/terms-of-use" target="_blank">Terms of Use</a>
+      <a href="https://www.railroadradar.com/press/" target="_blank">Press</a>
       <a href="https://www.railroadradar.com/policies/privacy" target="_blank">Privacy Policy</a>
     </div>
     <div></div>
