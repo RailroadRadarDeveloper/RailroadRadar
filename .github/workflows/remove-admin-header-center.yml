@@ -1,0 +1,27 @@
+name: Remove admin header center title
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/remove-admin-header-center.yml'
+      - 'scripts/remove-admin-header-center.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove centered header title
+        run: |
+          set -euo pipefail
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          python3 scripts/remove-admin-header-center.py
+          git add admin.html scripts/build-admin-page.py
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Remove centered Admin Dashboard header title"
+            git push
+          fi
