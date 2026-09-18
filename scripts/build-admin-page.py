@@ -438,7 +438,6 @@ page = f"""<!DOCTYPE html>
       <img class="header-logo" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
     </a>
     <div class="header-right">
-      <a class="header-auth-btn" href="https://railroadradar.com/">Back to map</a>
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign in</button>
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
