@@ -58,7 +58,6 @@ header_css = r"""
     }
     .header-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; min-width: 0; flex-shrink: 1; }
     .header-brand img, .header-logo { height: 40px; width: auto; display: block; }
-    .header-center { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 14px; }
     .header-right { display: flex; align-items: center; gap: 8px; }
     .header-auth { display: flex; align-items: center; gap: 8px; }
     .header-auth-btn {
@@ -113,7 +112,6 @@ header_css = r"""
     #admin-dashboard.is-open { display: flex; flex-direction: column; }
     .rr-modal-close { text-decoration: none; }
     @media (max-width: 700px) {
-      .header-center { display: none; }
       .header-brand img, .header-logo { height: 28px; }
       .rr-admin-shell { margin: 0; }
       .rr-admin-shell .rr-lightbox-body { padding: 12px 12px 24px; }
@@ -416,7 +414,6 @@ page = f"""<!DOCTYPE html>
     <a class="header-brand" href="https://railroadradar.com/">
       <img class="header-logo" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
     </a>
-    <div class="header-center">Admin Dashboard</div>
     <div class="header-right">
       <a class="header-auth-btn" href="https://railroadradar.com/">Back to map</a>
       <div class="header-auth" id="header-auth">
