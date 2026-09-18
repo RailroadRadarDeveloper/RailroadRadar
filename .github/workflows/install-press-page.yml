@@ -1,0 +1,25 @@
+name: Install press page
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/install-press-page.yml'
+      - 'scripts/install-press-page.py'
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write press page and patch 404
+        run: |
+          set -euo pipefail
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          python3 scripts/install-press-page.py
+          git add press/index.html press.html 404.html scripts/PRESS_FIRESTORE_RULES.txt
+          if git diff --cached --quiet; then echo nothing to commit; else
+            git commit -m "Install RailroadRadar press releases page"
+            git push
+          fi

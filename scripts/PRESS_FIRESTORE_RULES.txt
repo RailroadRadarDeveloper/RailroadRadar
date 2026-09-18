@@ -1,0 +1,35 @@
+Add these rules in Firebase Console → Firestore rules (merge into your existing rules):
+
+match /pressReleases/{id} {
+  allow read: if true;
+  allow create, update, delete: if request.auth != null && (
+    request.auth.token.email in ['turokerr@gmail.com', 'railroadradar@gmail.com']
+    || exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
+  );
+}
+
+match /pressReleases/{id}/comments/{cid} {
+  allow read: if true;
+  allow create: if request.auth != null
+    && request.resource.data.uid == request.auth.uid
+    && request.resource.data.text is string
+    && request.resource.data.text.size() > 0
+    && request.resource.data.text.size() <= 2000;
+  allow delete: if request.auth != null && (
+    request.auth.uid == resource.data.uid
+    || request.auth.token.email in ['turokerr@gmail.com', 'railroadradar@gmail.com']
+    || exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
+  );
+}
+
+Firebase Storage rules (for article image uploads):
+
+match /press/{slug}/{fileName} {
+  allow read: if true;
+  allow write: if request.auth != null && (
+    request.auth.token.email in ['turokerr@gmail.com', 'railroadradar@gmail.com']
+    || firestore.exists(/databases/(default)/documents/admins/$(request.auth.token.email))
+  )
+  && request.resource.size < 8 * 1024 * 1024
+  && request.resource.contentType.matches('image/.*');
+}
