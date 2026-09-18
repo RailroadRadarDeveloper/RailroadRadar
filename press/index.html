@@ -28,13 +28,13 @@ betterstack('init', { environment: 'production' });
 .header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid #1a3a5f}
 .header img{height:40px}.header-right{display:flex;gap:8px;align-items:center}
 .hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
-.hb:focus,.btn:focus,.reader button:focus,.back:focus{outline:2px solid #fff;outline-offset:2px}
+.hb:focus,.btn:focus,.reader-panel button:focus,.a11y-btn:focus,.share-btn:focus,.back:focus{outline:2px solid #fff;outline-offset:2px}
 .user{display:none;align-items:center;gap:8px;color:#fff;font-size:13px;font-weight:700}
 .user img{width:34px;height:34px;border-radius:50%;object-fit:cover}
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
 h1{color:#fff;margin:0 0 8px}
 .lede,.empty,.meta,.share{color:var(--muted)}
-.share-btn{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:5px 10px;font:700 11px inherit;cursor:pointer;text-transform:uppercase;margin-left:8px;vertical-align:middle}
+.share-btn{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:5px 10px;font:700 11px inherit;cursor:pointer;text-transform:uppercase}
 .back{color:#fff;font-weight:700;text-decoration:none}
 .btn{border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px inherit;padding:10px 14px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-block}
 .btn.sec{background:transparent;color:#fff;border:1px solid #a8c0e0}.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -44,9 +44,13 @@ h1{color:#fff;margin:0 0 8px}
 .article{color:#fff;padding:0 0 24px}
 .article h1{color:#fff;font-size:32px;line-height:1.2}
 .article .body{color:#fff}
-.reader{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 18px}
-.reader button{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:7px 10px;font:700 12px inherit;cursor:pointer;text-transform:uppercase}
-.reader button[aria-pressed="true"]{background:#fff;color:var(--navy)}
+.tools{display:flex;align-items:center;gap:10px;margin:4px 0 16px;position:relative}
+.a11y-btn{width:36px;height:36px;padding:0;border:0;background:transparent;cursor:pointer}
+.a11y-btn img{width:36px;height:36px;display:block}
+.reader-panel{display:none;position:absolute;top:42px;left:0;background:#0c1448;border:1px solid #1a3a5f;padding:10px;z-index:8;min-width:230px;flex-wrap:wrap;gap:8px}
+.reader-panel.open{display:flex}
+.reader-panel button{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:7px 10px;font:700 12px inherit;cursor:pointer;text-transform:uppercase}
+.reader-panel button[aria-pressed="true"]{background:#fff;color:var(--navy)}
 .article.size-1 .body{font-size:16px}.article.size-2 .body{font-size:18px}.article.size-3 .body{font-size:21px}.article.size-4 .body{font-size:24px}
 .article.spaced .body{line-height:2;letter-spacing:.02em}
 .article.plain{font-family:Georgia,'Times New Roman',serif}
@@ -103,6 +107,16 @@ function applyReader(){
 }
 function bindReader(title,body){
   const st=()=>Object.assign({size:2,spaced:false,plain:false},readerState());
+  const toggle=document.getElementById('a11y');
+  const panel=document.getElementById('reader-panel');
+  if(toggle&&panel){
+    toggle.onclick=e=>{e.stopPropagation();const open=!panel.classList.contains('open');panel.classList.toggle('open',open);toggle.setAttribute('aria-expanded',open?'true':'false');};
+    document.addEventListener('click',e=>{
+      if(!panel.classList.contains('open'))return;
+      if(panel.contains(e.target)||toggle.contains(e.target))return;
+      panel.classList.remove('open');toggle.setAttribute('aria-expanded','false');
+    });
+  }
   const down=document.getElementById('r-down');
   const up=document.getElementById('r-up');
   const space=document.getElementById('r-space');
@@ -113,8 +127,8 @@ function bindReader(title,body){
   if(space)space.onclick=()=>{const n=st();n.spaced=!n.spaced;saveReader(n);applyReader();};
   if(plain)plain.onclick=()=>{const n=st();n.plain=!n.plain;saveReader(n);applyReader();};
   if(speak){
-    if(!window.speechSynthesis){speak.style.display='none';return;}
-    speak.onclick=()=>{
+    if(!window.speechSynthesis){speak.style.display='none';}
+    else speak.onclick=()=>{
       if(speaking){window.speechSynthesis.cancel();speaking=false;applyReader();return;}
       const u=new SpeechSynthesisUtterance((title||'')+'. '+(body||''));
       u.rate=0.95;
@@ -158,21 +172,24 @@ const a=snap.data()||{};document.title=(a.title||'Press')+' · RailroadRadar';
 const imgs=(a.images||[]).map((im,i)=>im&&im.url?`<img class="${i?'':'hero'}" src="${esc(im.url)}" alt="${esc(a.title||'Press image')}">`:'').join('');
 app.innerHTML=`<p><a class="back" href="/press/index.html">← All press releases</a></p>
 <article class="article size-2">
-<div class="reader" role="toolbar" aria-label="Reader options">
+<div class="tools">
+<button type="button" class="a11y-btn" id="a11y" aria-label="Accessibility settings" aria-expanded="false" aria-controls="reader-panel"><img src="https://i.postimg.cc/90WfQP3Z/Untitled-design-(11).png" alt=""></button>
+<button type="button" class="share-btn" id="share">Share</button>
+<div class="reader-panel" id="reader-panel" role="menu" aria-label="Accessibility settings">
 <button type="button" id="r-down" aria-label="Smaller text">A-</button>
 <button type="button" id="r-up" aria-label="Larger text">A+</button>
 <button type="button" id="r-space" aria-pressed="false">Spacing</button>
 <button type="button" id="r-plain" aria-pressed="false">Serif</button>
 <button type="button" id="r-speak" aria-pressed="false">Listen</button>
 </div>
+</div>
 <h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
-<p class="share"><button type="button" class="share-btn" id="share">Share</button></p>${imgs}<div class="body">${esc(a.body||'')}</div>
+${imgs}<div class="body">${esc(a.body||'')}</div>
 ${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
 ${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
 bindReader(a.title||'',a.body||'');
 const sh=document.getElementById('share');
 if(sh)sh.onclick=async()=>{const url=urlOf(slug);try{if(navigator.share){await navigator.share({title:a.title||'RailroadRadar',text:a.title||'',url});return;}}catch(e){}try{await navigator.clipboard.writeText(url);sh.textContent='Copied';setTimeout(()=>sh.textContent='Share',1600);}catch(e){window.prompt('Copy link',url);}};
-
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/index.html';}};
 const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
