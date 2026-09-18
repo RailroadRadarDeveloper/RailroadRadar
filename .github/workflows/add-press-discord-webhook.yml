@@ -1,0 +1,22 @@
+name: Add press Discord webhook
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/add-press-discord-webhook.py
+      - .github/workflows/add-press-discord-webhook.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 scripts/add-press-discord-webhook.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add press/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Send new press releases to Discord as embeds" && git push; fi
