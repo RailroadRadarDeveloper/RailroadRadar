@@ -14,7 +14,6 @@
 }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
 betterstack('init', { environment: 'production' });
 </script>
-
 <meta name="theme-color" content="#07093e"/>
 <link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3"/>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
@@ -24,9 +23,12 @@ betterstack('init', { environment: 'production' });
 <style>
 :root{--navy:#07093e;--page:#07093e;--muted:#a8c0e0;--line:#1a3a5f;--danger:#c0392b}
 *{box-sizing:border-box}html,body{margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--page);color:#fff}
+.skip{position:absolute;left:-999px;top:8px;background:#fff;color:var(--navy);padding:8px 12px;font-weight:700;z-index:30}
+.skip:focus{left:8px}
 .header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid #1a3a5f}
 .header img{height:40px}.header-right{display:flex;gap:8px;align-items:center}
 .hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+.hb:focus,.btn:focus,.reader button:focus,.back:focus{outline:2px solid #fff;outline-offset:2px}
 .user{display:none;align-items:center;gap:8px;color:#fff;font-size:13px;font-weight:700}
 .user img{width:34px;height:34px;border-radius:50%;object-fit:cover}
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
@@ -42,11 +44,18 @@ h1{color:#fff;margin:0 0 8px}
 .article{color:#fff;padding:0 0 24px}
 .article h1{color:#fff;font-size:32px;line-height:1.2}
 .article .body{color:#fff}
+.reader{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 18px}
+.reader button{background:transparent;color:#fff;border:1px solid #a8c0e0;padding:7px 10px;font:700 12px inherit;cursor:pointer;text-transform:uppercase}
+.reader button[aria-pressed="true"]{background:#fff;color:var(--navy)}
+.article.size-1 .body{font-size:16px}.article.size-2 .body{font-size:18px}.article.size-3 .body{font-size:21px}.article.size-4 .body{font-size:24px}
+.article.spaced .body{line-height:2;letter-spacing:.02em}
+.article.plain{font-family:Georgia,'Times New Roman',serif}
 label{display:block;font-size:12px;font-weight:700;color:#fff;margin:10px 0 4px}
 .form-card{background:#fff;color:#1a1a2e;border:1px solid #e8eaef}
 .form-card h2,.form-card label{color:#07093e}
 input[type=text],textarea{width:100%;padding:10px;border:1px solid #c5cad3;font:14px inherit;background:#fff;color:#1a1a2e}
-textarea{min-height:160px}img.hero,img.thumb{width:100%;display:block;margin:8px 0;object-fit:cover}
+textarea{min-height:160px}
+img.hero,img.thumb{width:100%;display:block;margin:8px 0 28px;object-fit:cover}
 img.thumb{max-height:220px}img.hero{max-height:420px}
 .body{white-space:pre-wrap;line-height:1.7;font-size:17px}
 .err{display:none;background:#fdecea;color:var(--danger);padding:10px;margin:10px 0}.err.on{display:block}
@@ -55,6 +64,7 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 </style>
 </head>
 <body>
+<a class="skip" href="#app">Skip to content</a>
 <div class="header">
   <a href="https://railroadradar.com/"><img src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
   <div class="header-right">
@@ -63,21 +73,60 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
     <div class="user" id="user"><img id="av" alt=""><span id="nm">Account</span><button class="hb" id="out">Sign out</button></div>
   </div>
 </div>
-<div class="wrap" id="app"></div>
+<div class="wrap" id="app" tabindex="-1"></div>
 <script>
 const CFG={apiKey:"AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",authDomain:"railroadradar-accounts.firebaseapp.com",projectId:"railroadradar-accounts",storageBucket:"railroadradar-accounts.firebasestorage.app",messagingSenderId:"896370923309",appId:"1:896370923309:web:594b0a20d3b1c6822e65a4"};
 const BOOT=['turokerr@gmail.com','railroadradar@gmail.com'];
-let auth,db,storage,user=null,perms=null;
+let auth,db,storage,user=null,perms=null,speaking=false;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
 const email=e=>String(e||'').trim().toLowerCase();
 const boot=e=>BOOT.indexOf(email(e))!==-1;
 const isAdmin=u=>!!u&&(boot(u.email)||(perms&&(perms.viewReports||perms.banUsers||perms.manageAdmins||perms.deleteReports)));
 function slugify(t){const s=String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72);return s||('release-'+Date.now().toString(36));}
 function idFromLoc(){const q=new URLSearchParams(location.search);if(q.get('id'))return q.get('id').trim();const m=location.pathname.match(/^\/press\/([^\/]+)\/?$/);return (m&&m[1]&&m[1]!=='index.html')?decodeURIComponent(m[1]):'';}
-function urlOf(s){return 'https://railroadradar.com/press/'+encodeURIComponent(s);}
+function urlOf(s){return 'https://railroadradar.com/press/index.html?id='+encodeURIComponent(s);}
 function when(ts){try{const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null);return(!d||isNaN(d))? '':d.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});}catch(e){return '';}}
+function readerState(){try{return JSON.parse(localStorage.getItem('rrPressReader')||'{}');}catch(e){return {};}}
+function saveReader(st){try{localStorage.setItem('rrPressReader',JSON.stringify(st));}catch(e){}}
+function applyReader(){
+  const art=document.querySelector('.article');
+  if(!art)return;
+  const st=Object.assign({size:2,spaced:false,plain:false},readerState());
+  if(st.size<1)st.size=1;if(st.size>4)st.size=4;
+  art.classList.remove('size-1','size-2','size-3','size-4');
+  art.classList.add('size-'+st.size);
+  art.classList.toggle('spaced',!!st.spaced);
+  art.classList.toggle('plain',!!st.plain);
+  const s=document.getElementById('r-space'); if(s)s.setAttribute('aria-pressed',st.spaced?'true':'false');
+  const p=document.getElementById('r-plain'); if(p)p.setAttribute('aria-pressed',st.plain?'true':'false');
+  const speak=document.getElementById('r-speak'); if(speak)speak.setAttribute('aria-pressed',speaking?'true':'false');
+}
+function bindReader(title,body){
+  const st=()=>Object.assign({size:2,spaced:false,plain:false},readerState());
+  const down=document.getElementById('r-down');
+  const up=document.getElementById('r-up');
+  const space=document.getElementById('r-space');
+  const plain=document.getElementById('r-plain');
+  const speak=document.getElementById('r-speak');
+  if(down)down.onclick=()=>{const n=st();n.size=Math.max(1,(n.size||2)-1);saveReader(n);applyReader();};
+  if(up)up.onclick=()=>{const n=st();n.size=Math.min(4,(n.size||2)+1);saveReader(n);applyReader();};
+  if(space)space.onclick=()=>{const n=st();n.spaced=!n.spaced;saveReader(n);applyReader();};
+  if(plain)plain.onclick=()=>{const n=st();n.plain=!n.plain;saveReader(n);applyReader();};
+  if(speak){
+    if(!window.speechSynthesis){speak.style.display='none';return;}
+    speak.onclick=()=>{
+      if(speaking){window.speechSynthesis.cancel();speaking=false;applyReader();return;}
+      const u=new SpeechSynthesisUtterance((title||'')+'. '+(body||''));
+      u.rate=0.95;
+      u.onend=()=>{speaking=false;applyReader();};
+      u.onerror=()=>{speaking=false;applyReader();};
+      speaking=true;applyReader();window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+    };
+  }
+  applyReader();
+}
 async function refreshAdmin(u){perms=null;if(!u)return;if(boot(u.email)){perms={viewReports:1,banUsers:1,manageAdmins:1,deleteReports:1};return;}try{const snap=await db.collection('admins').doc(email(u.email)).get();if(!snap.exists)return;const p=(snap.data()||{}).perms||{};perms={viewReports:!!p.viewReports,banUsers:!!p.banUsers,manageAdmins:!!p.manageAdmins,deleteReports:!!p.deleteReports};}catch(e){}}
-function header(){document.getElementById('in').style.display=user?'none':'';document.getElementById('user').style.display=user?'flex':'none';if(user){const av=document.getElementById('av');av.style.display=user.photoURL?'':'none';if(user.photoURL)av.src=user.photoURL;document.getElementById('nm').textContent=user.displayName||user.email||'Account';}}
+function header(){document.getElementById('in').style.display=user?'none':'';document.getElementById('user').style.display=user?'flex':'none';if(user){const av=document.getElementById('av');av.style.display=user.photoURL?'':'none';if(user.photoURL)av.src=user.photoURL;av.alt=user.displayName||'Account photo';document.getElementById('nm').textContent=user.displayName||user.email||'Account';}}
 function form(p){p=p||{};return `<div class="card form-card" id="c"><h2 style="color:#07093e;font-size:16px">${p.slug?'Edit release':'New press release'}</h2><div class="err" id="ce"></div>
 <label>Title</label><input id="t" type="text" maxlength="160" value="${esc(p.title||'')}">
 <label>Images</label><input id="f" type="file" accept="image/*" multiple>
@@ -96,21 +145,31 @@ await db.collection('pressReleases').doc(slug).set(payload,{merge:true});locatio
 async function list(){const app=document.getElementById('app');app.innerHTML=`<h1>Press Releases</h1><p class="lede">Official news and announcements from RailroadRadar.</p>${isAdmin(user)?'<p><button class="btn" id="nw">New article</button></p>':''}<div id="slot"></div><div id="list" class="empty">Loading…</div>`;
 const nw=document.getElementById('nw');if(nw)nw.onclick=()=>{document.getElementById('slot').innerHTML=form();document.getElementById('pub').onclick=()=>save(null);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 try{const snap=await db.collection('pressReleases').orderBy('createdAt','desc').limit(50).get();if(snap.empty){document.getElementById('list').textContent='No press releases yet.';return;}
-document.getElementById('list').innerHTML=snap.docs.map(doc=>{const a=doc.data()||{},s=a.slug||doc.id,img=a.images&&a.images[0]&&a.images[0].url;return `<article class="card">${img?`<img class="thumb" src="${esc(img)}" alt="">`:''}<a class="t" href="/press/index.html?id=${encodeURIComponent(s)}">${esc(a.title||s)}</a><div class="meta">${esc(when(a.createdAt)||'Recently')}</div><div>${esc(String(a.body||'').slice(0,220))}${String(a.body||'').length>220?'…':''}</div></article>`;}).join('');
+document.getElementById('list').innerHTML=snap.docs.map(doc=>{const a=doc.data()||{},s=a.slug||doc.id,img=a.images&&a.images[0]&&a.images[0].url;return `<article class="card">${img?`<img class="thumb" src="${esc(img)}" alt="${esc(a.title||'Press image')}">`:''}<a class="t" href="/press/index.html?id=${encodeURIComponent(s)}">${esc(a.title||s)}</a><div class="meta">${esc(when(a.createdAt)||'Recently')}</div><div>${esc(String(a.body||'').slice(0,220))}${String(a.body||'').length>220?'…':''}</div></article>`;}).join('');
 }catch(e){document.getElementById('list').textContent='Could not load releases. Add Firestore rules for pressReleases.';}}
 async function comments(slug){const box=document.getElementById('clist');if(!box)return;const snap=await db.collection('pressReleases').doc(slug).collection('comments').orderBy('createdAt','asc').limit(200).get();
 if(snap.empty){box.innerHTML='<p class="empty">No comments yet.</p>';return;}
 box.innerHTML=snap.docs.map(d=>{const c=d.data()||{};const can=user&&(user.uid===c.uid||isAdmin(user));return `<div class="comment"><b>${esc(c.displayName||'User')}</b> <span class="meta">${esc(when(c.createdAt))}</span><div>${esc(c.text||'')}</div>${can?`<button class="btn sec" data-x="${esc(d.id)}">Delete</button>`:''}</div>`;}).join('');
 box.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{await db.collection('pressReleases').doc(slug).collection('comments').doc(b.getAttribute('data-x')).delete();comments(slug);});}
-async function article(slug){const app=document.getElementById('app');const snap=await db.collection('pressReleases').doc(slug).get();
+async function article(slug){if(window.speechSynthesis)window.speechSynthesis.cancel();speaking=false;
+const app=document.getElementById('app');const snap=await db.collection('pressReleases').doc(slug).get();
 if(!snap.exists){app.innerHTML='<h1>Not found</h1><p><a class="btn sec" href="/press/index.html">All releases</a></p>';return;}
 const a=snap.data()||{};document.title=(a.title||'Press')+' · RailroadRadar';
-const imgs=(a.images||[]).map((im,i)=>im&&im.url?`<img class="${i?'':'hero'}" src="${esc(im.url)}" alt="">`:'').join('');
+const imgs=(a.images||[]).map((im,i)=>im&&im.url?`<img class="${i?'':'hero'}" src="${esc(im.url)}" alt="${esc(a.title||'Press image')}">`:'').join('');
 app.innerHTML=`<p><a class="back" href="/press/index.html">← All press releases</a></p>
-<article class="article"><h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
+<article class="article size-2">
+<div class="reader" role="toolbar" aria-label="Reader options">
+<button type="button" id="r-down" aria-label="Smaller text">A-</button>
+<button type="button" id="r-up" aria-label="Larger text">A+</button>
+<button type="button" id="r-space" aria-pressed="false">Spacing</button>
+<button type="button" id="r-plain" aria-pressed="false">Serif</button>
+<button type="button" id="r-speak" aria-pressed="false">Listen</button>
+</div>
+<h1>${esc(a.title||slug)}</h1><div class="meta">${esc(when(a.createdAt))} ${a.authorName?' · '+esc(a.authorName):''}</div>
 <p class="share">URL: <a href="${urlOf(slug)}">${urlOf(slug)}</a></p>${imgs}<div class="body">${esc(a.body||'')}</div>
 ${isAdmin(user)?`<p><button class="btn sec" id="ed">Edit</button> <button class="btn danger" id="del">Delete</button></p>`:''}</article><div id="slot"></div>
 ${a.commentsEnabled?`<div><h2 style="color:#fff">Comments</h2><div class="err" id="cerr"></div>${user?`<textarea id="ct" style="min-height:90px"></textarea><p><button class="btn" id="pc">Post comment</button></p>`:'<p class="lede">Sign in to comment.</p>'}<div id="clist"></div></div>`:''}`;
+bindReader(a.title||'',a.body||'');
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/index.html';}};
 const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
