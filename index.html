@@ -10031,7 +10031,7 @@
         const agencyLabel = labels[a] || a.toUpperCase();
         const m = L.marker([latN, lngN], { icon: createStationIcon(), zIndexOffset: -1000 });
         m._rrAgency = a;
-        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>');
+        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); }
         stationMarkers[key] = m;
         if (agencyStationsVisible(a)) m.addTo(map);
         return m;
@@ -10876,14 +10876,12 @@
               if (amtrakMarkers[vid]) {
                 amtrakMarkers[vid].setLatLng([lat, lng]);
                 amtrakMarkers[vid].setIcon(icon);
-                if (amtrakMarkers[vid].getPopup()) {
-                  amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
-                }
+
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
                 updated++;
               } else {
                 const m = L.marker([lat, lng], { icon: icon });
-                m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+                /* Amtrak popups disabled */
                 applyCyclingLabel(m, amtrakLabelInfo, true);
                 const zoom = map.getZoom();
                 if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
