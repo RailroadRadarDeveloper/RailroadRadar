@@ -13582,7 +13582,7 @@
               if (days) parts.push(days + ' day' + (days === 1 ? '' : 's'));
               if (hours) parts.push(hours + ' hour' + (hours === 1 ? '' : 's'));
               if (mins || !parts.length) parts.push(mins + ' minute' + (mins === 1 ? '' : 's'));
-              departsMsg = 'Departs in ' + (days && parts.length > 1 ? parts[0] + ', ' + parts.slice(1).join(' ') : parts.join(' '));
+              departsMsg = 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
             }
           }
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
