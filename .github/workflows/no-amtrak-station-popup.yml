@@ -1,0 +1,20 @@
+name: No Amtrak station popup
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/no-amtrak-station-popup.py
+      - .github/workflows/no-amtrak-station-popup.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/no-amtrak-station-popup.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Keep Amtrak train popups; remove Amtrak station popups" && git push; fi
