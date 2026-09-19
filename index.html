@@ -1412,7 +1412,7 @@
       list-style: none;
       padding: 0;
       margin: 0;
-      max-height: 250px;
+      max-height: 360px;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -10175,20 +10175,31 @@
         const key = stationIds.sort().join('-');
         if (stationDeparturesCache[key] && (Date.now() - stationDeparturesCache[key].timestamp) < 300000) return stationDeparturesCache[key].departures;
         try {
-          const [predRes, schedRes] = await Promise.all([
-            fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${stationIds.join(',')}&include=trip,route,schedule,stop&sort=departure_time`)),
-            fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stationIds.join(',')}&include=trip,route,stop&sort=departure_time`))
-          ]);
-          const predData = await predRes.json();
-          const schedData = await schedRes.json();
-          const departures = [];
           const now = new Date();
+          const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          const nyYmd = d => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          const dates = [nyYmd(now)];
+          const endDay = nyYmd(horizon);
+          if (dates.indexOf(endDay) === -1) dates.push(endDay);
+          const stopQ = stationIds.join(',');
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${stopQ}&include=trip,route,schedule,stop&sort=departure_time`));
+          const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time`))));
+          const predData = await predRes.json();
+          const schedData = { data: [], included: [] };
+          for (const r of schedResList) {
+            try {
+              const j = await r.json();
+              if (j.data) schedData.data = schedData.data.concat(j.data);
+              if (j.included) schedData.included = schedData.included.concat(j.included);
+            } catch (e) {}
+          }
+          const departures = [];
           const processed = new Set();
           if (predData.data?.length) {
             predData.data.forEach(p => {
               if (!p.attributes.departure_time) return;
               const depTime = new Date(p.attributes.departure_time);
-              if (depTime < now) return;
+              if (depTime < now || depTime > horizon) return;
               const tripId = p.relationships.trip.data?.id;
               const stopId = p.relationships.stop.data?.id;
               const tKey = `${tripId}-${stopId}`;
@@ -10226,7 +10237,7 @@
             schedData.data.forEach(s => {
               if (!s.attributes.departure_time) return;
               const depTime = new Date(s.attributes.departure_time);
-              if (depTime < now) return;
+              if (depTime < now || depTime > horizon) return;
               const tripId = s.relationships.trip.data?.id;
               const stopId = s.relationships.stop.data?.id;
               const tKey = `${tripId}-${stopId}`;
@@ -10255,7 +10266,7 @@
             });
           }
           departures.sort((a,b) => (a.predictedDeparture || a.scheduledDeparture) - (b.predictedDeparture || b.scheduledDeparture));
-          const limited = departures.slice(0, 15);
+          const limited = departures;
           stationDeparturesCache[key] = { departures: limited, timestamp: Date.now() };
           return limited;
         } catch (e) { return []; }
@@ -12968,7 +12979,7 @@
         let html = '';
         if (!deps.length) html = '<div class="no-departures">No upcoming departures</div>';
         else {
-          html = `<div class="upcoming-stops"><h4>Next Departures <small>(click for full schedule)</small></h4><ul class="departures-list">${ 
+          html = `<div class="upcoming-stops"><h4>Next 24 hours <small>(click a train for its schedule)</small></h4><ul class="departures-list">${ 
             deps.map(d => {
               let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
               const live = d.isLive ? `<span class="live-indicator"><img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" class="live-train-icon"></span>` : '';
