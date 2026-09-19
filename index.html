@@ -485,6 +485,12 @@
       padding: 14px 16px;
       border-radius: 0;
       position: relative;
+      letter-spacing: 0;
+      word-spacing: -0.06em;
+    }
+    .train-popup-header span {
+      letter-spacing: 0;
+      word-spacing: -0.06em;
     }
     .train-popup-header::after {
       content: '';
@@ -10025,7 +10031,7 @@
         const agencyLabel = labels[a] || a.toUpperCase();
         const m = L.marker([latN, lngN], { icon: createStationIcon(), zIndexOffset: -1000 });
         m._rrAgency = a;
-        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><div class="loading-departures">Loading departures...</div></div>'); m.on('popupopen', async function() { const deps = await getCombinedStationDepartures(m._rrStation); if (m.getPopup) m.getPopup().setContent(createStationPopupContent(title, [key], deps, 1)); });
+        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>');
         stationMarkers[key] = m;
         if (agencyStationsVisible(a)) m.addTo(map);
         return m;
@@ -10752,7 +10758,7 @@
         return `
           <div class="train-popup">
             <div class="train-popup-header">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${amtrakSpecialBadge}
                 ${ctrailBadge}
                 ${amtrakBadge}
@@ -11333,7 +11339,7 @@
         return `
           <div class="train-popup">
             <div class="train-popup-header">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${mnrSpecialBadge}
                 ${mnrBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
@@ -11758,7 +11764,7 @@
         return `
           <div class="train-popup">
             <div class="train-popup-header">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${lirrSpecialBadge}
                 ${lirrBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
@@ -12107,7 +12113,7 @@
         return `
           <div class="train-popup">
             <div class="train-popup-header">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${metraSpecialBadge}
                 ${metraBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
@@ -12540,7 +12546,7 @@
         return `
           <div class="train-popup">
             <div class="train-popup-header">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${njtSpecialBadge}
                 ${njtBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
@@ -13595,7 +13601,7 @@
         return `
           <div class="train-popup">
             <div class="train-popup-header">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${mbtaSpecialBadge}
                 ${capeBadge}
                 <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
@@ -13715,7 +13721,7 @@
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
+                <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                   <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${rname || 'Trip'}</span>
                   <span style="font-weight:700; color:#ffffff; font-style:italic;">${(typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid}</span>
