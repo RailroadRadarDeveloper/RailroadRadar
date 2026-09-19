@@ -12,9 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 scripts/embed-mbta-icon.py
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-pil
+          mkdir -p assets/icons
+          curl -fsSL --max-time 120 "https://i.postimg.cc/qR9qn1bC/Untitled-design-(12).png" -o assets/icons/mbta.png
+          python3 scripts/embed-mbta-icon.py
       - run: |
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
-          git add index.html
-          if git diff --cached --quiet; then echo nothing; else git commit -m "Embed MBTA icon in headings and map labels" && git push; fi
+          git add assets/icons/mbta.png index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Embed MBTA heading icon so it always loads" && git push; fi
