@@ -10839,6 +10839,7 @@
             arr.forEach(function(t) {
               if (!amtrakAllTrains) amtrakAllTrains = [];
               amtrakAllTrains.push(t);
+              try { harvestAmtrakStationDots(t); } catch (_) {}
               if (!t || t.lat == null || t.lon == null) { skipped++; return; }
               const trainNum = t.trainNum || t.trainNumRaw || k;
               const vid = 'amtrak-' + (t.trainID || trainNum);
@@ -10900,6 +10901,10 @@
               delete amtrakLastSeen[vid];
             }
           });
+          try {
+            (amtrakAllTrains || []).forEach(function(tr) { harvestAmtrakStationDots(tr); });
+            if (typeof updateStationVisibility === 'function') updateStationVisibility();
+          } catch (_) {}
           FetchStats.end(stat, {
             received: Object.keys(data).length,
             created: created,
