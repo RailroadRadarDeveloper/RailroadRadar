@@ -1,0 +1,20 @@
+name: Fix Amtrak popup and heading spacing
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-amtrak-popup-and-heading.py
+      - .github/workflows/fix-amtrak-popup-and-heading.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-amtrak-popup-and-heading.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Remove broken Amtrak station popup; tighten train heading spacing" && git push; fi
