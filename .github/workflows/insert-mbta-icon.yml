@@ -1,0 +1,20 @@
+name: Insert MBTA heading icon
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/insert-mbta-icon.py
+      - .github/workflows/insert-mbta-icon.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/insert-mbta-icon.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Show MBTA icon before train heading" && git push; fi
