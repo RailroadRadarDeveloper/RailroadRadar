@@ -784,6 +784,15 @@
     html.rr-train-page #loading-screen {
       display: none !important;
     }
+    html.rr-train-page .rr-dev-banner,
+    html.rr-train-page #offline-banner,
+    html.rr-train-page #rr-cookie-bar,
+    html.rr-train-page .rr-cookie {
+      display: none !important;
+    }
+    html.rr-train-page #rr-train-page-card .stop-mileage {
+      color: #fff !important;
+    }
     html.rr-train-page .header-search-container,
     html.rr-train-page #btn-report-train-header,
     html.rr-train-page #btn-specials-header,
@@ -10058,8 +10067,13 @@
       }
       function extractTrainNumber(tripId) {
         if (!tripId) return null;
-        const parts = tripId.split('-');
-        return parts.length > 2 ? parts[2] : null;
+        const raw = String(tripId).trim();
+        const parts = raw.split('-').filter(Boolean);
+        if (!parts.length) return raw;
+        for (let i = parts.length - 1; i >= 0; i--) {
+          if (/^\d+[A-Za-z]?$/.test(parts[i])) return parts[i];
+        }
+        return parts.length > 2 ? parts[2] : parts[parts.length - 1];
       }
       async function getOnTimeStatus(tripIds) {
         if (!tripIds.length) return {};
@@ -10405,7 +10419,7 @@
               if (mileageInfo) mileageInfo += ' • ';
               mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
             }
-            const extraHtml = mileageInfo ? `<br><small style="color:#555; font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
+            const extraHtml = mileageInfo ? `<br><small class="stop-mileage" style="font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
             // Left column shows actual time when we have it, otherwise scheduled
             const leftTime = (stop.isCompleted && stop.formattedActualTime) ? stop.formattedActualTime : stop.formattedScheduledTime;
             return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span><span class="stop-status ${cls}">${disp}</span></li>`;
@@ -13600,7 +13614,7 @@
               <div class="train-popup-header">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:14.5px; line-height:1.3; color:#ffffff; font-style:italic;">
                   <span style="font-weight:700; color:#ffffff; font-style:italic;">${rname || 'Trip'}</span>
-                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${tid}</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${(typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid}</span>
                   <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                   <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest || '—'}</span>
                 </div>
@@ -13611,7 +13625,7 @@
                   <span class="status-pill status-scheduled">Scheduled</span>
                 </div>
                 <div class="info-grid">
-                  <div class="info-item"><span class="info-label">Trip</span><span class="info-value">${tid}</span></div>
+                  <div class="info-item"><span class="info-label">Trip</span><span class="info-value">${(typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid}</span></div>
                   <div class="info-item"><span class="info-label">Route</span><span class="info-value">${rname || '—'}</span></div>
                 </div>
                 <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
@@ -14482,7 +14496,7 @@
         const stopsHtml = (typeof buildStopsHtml === 'function') ? buildStopsHtml(page.stops || []) : '';
         return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px;line-height:1.3;color:#ffffff;font-style:italic;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
-          String(page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;"> to </span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          String((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;"> to </span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
           String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Trip</span><span class="info-value">' +
           String(page.tid || '') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
