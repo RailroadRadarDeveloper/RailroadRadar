@@ -1,0 +1,20 @@
+name: Fix next-day trip stops
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-nextday-trip-stops.py
+      - .github/workflows/fix-nextday-trip-stops.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-nextday-trip-stops.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Fix next-day station trips showing no stops" && git push; fi
