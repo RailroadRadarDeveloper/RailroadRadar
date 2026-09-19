@@ -10031,7 +10031,7 @@
         const agencyLabel = labels[a] || a.toUpperCase();
         const m = L.marker([latN, lngN], { icon: createStationIcon(), zIndexOffset: -1000 });
         m._rrAgency = a;
-        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); }
+        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); } }
         stationMarkers[key] = m;
         if (agencyStationsVisible(a)) m.addTo(map);
         return m;
@@ -13008,7 +13008,7 @@
             const m = L.marker([g.lat, g.lng], { icon: createStationIcon(), zIndexOffset: -1000 });
             m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
             m.on('popupopen', async () => {
-              m._rrStation = { name: g.name, mbtaIds: g.stopIds, lat: g.lat, lng: g.lng }; const deps = await getCombinedStationDepartures(m._rrStation);
+              const deps = await getStationDepartures(g.stopIds);
               m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
             });
             stationMarkers[g.stopIds[0]] = m;
