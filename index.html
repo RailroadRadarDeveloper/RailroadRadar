@@ -12979,7 +12979,7 @@
         let html = '';
         if (!deps.length) html = '<div class="no-departures">No upcoming departures</div>';
         else {
-          html = `<div class="upcoming-stops"><h4>Next 24 hours <small>(click a train for its schedule)</small></h4><ul class="departures-list">${ 
+          html = `<div class="upcoming-stops"><h4>Upcoming Departures <small>(click a train for its schedule)</small></h4><ul class="departures-list">${ 
             deps.map(d => {
               let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
               const live = d.isLive ? `<span class="live-indicator"><img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" class="live-train-icon"></span>` : '';
