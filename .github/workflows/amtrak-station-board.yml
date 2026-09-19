@@ -1,0 +1,21 @@
+name: Amtrak station schedule board
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/amtrak-station-board.py
+      - scripts/amtrak-station-board.js
+      - .github/workflows/amtrak-station-board.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/amtrak-station-board.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Use Amtrak schedule times on combined station boards" && git push; fi
