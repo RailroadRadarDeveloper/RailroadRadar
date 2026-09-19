@@ -1,0 +1,20 @@
+name: Add Clarity to press
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/add-press-clarity.py
+      - .github/workflows/add-press-clarity.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/add-press-clarity.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add press/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Load Microsoft Clarity on press pages after cookie consent" && git push; fi
