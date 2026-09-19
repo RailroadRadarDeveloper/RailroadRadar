@@ -10771,8 +10771,8 @@
                   <span class="info-value">${num}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Trip</span>
-                  <span class="info-value">${tripId}</span>
+                  <span class="info-label">Line</span>
+                  <span class="info-value">${rname || route || '—'}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Heading</span>
@@ -13514,8 +13514,8 @@
                   <span class="info-value">${vid}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Trip</span>
-                  <span class="info-value">${tid}</span>
+                  <span class="info-label">Line</span>
+                  <span class="info-value">${rname || '—'}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Track</span>
@@ -13625,7 +13625,7 @@
                   <span class="status-pill status-scheduled">Scheduled</span>
                 </div>
                 <div class="info-grid">
-                  <div class="info-item"><span class="info-label">Trip</span><span class="info-value">${(typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid}</span></div>
+                  <div class="info-item"><span class="info-label">Line</span><span class="info-value">${rname || '—'}</span></div>
                   <div class="info-item"><span class="info-label">Route</span><span class="info-value">${rname || '—'}</span></div>
                 </div>
                 <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
@@ -14521,8 +14521,8 @@
           String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;"> to </span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
-          String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Trip</span><span class="info-value">' +
-          String(page.tid || '') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
+          String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Line</span><span class="info-value">' +
+          String(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
           String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + shareBtn + '</div></div>';
       }
       function rrRenderScheduledTrainPage() {
@@ -14562,9 +14562,16 @@
           const stops = await getTripStops(spec.id);
           if (!stops || !stops.length) return false;
           const when = stops.map(s => s.predictedTime || s.scheduledTime).find(Boolean);
+          let lineName = '';
+          try {
+            const tr = await fetch(apiUrl('/api/mbta' + '/trips/' + encodeURIComponent(spec.id) + '?include=route'));
+            const td = await tr.json();
+            const route = (td.included || []).find(function(x) { return x && x.type === 'route'; });
+            if (route && route.attributes) lineName = route.attributes.long_name || route.attributes.short_name || '';
+          } catch (e) {}
           rrScheduledPage = {
             tid: spec.id,
-            rname: '',
+            rname: lineName,
             origin: (stops[0] && stops[0].name) || '',
             dest: (stops[stops.length - 1] && stops[stops.length - 1].name) || '',
             stops: stops,
