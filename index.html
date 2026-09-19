@@ -12989,7 +12989,8 @@
               const live = d.isLive ? `<span class="live-indicator"><img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" class="live-train-icon"></span>` : '';
               const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
               const trk = d.trackNumber ? `<span class="track-badge">Track ${d.trackNumber}</span>` : '';
-              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\\'", '${((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'})}')}', '${d.destination.replace(/'/g,"\\'")}')" style="cursor:pointer">
+              const svcDate = ((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\'")}', '${d.destination.replace(/'/g,"\'")}', '${svcDate}')" style="cursor:pointer">
                 <span class="departure-time">${d.formattedScheduledTime}</span>
                 <span class="departure-destination">${d.destination || d.routeName} ${plat} ${trk} ${live}</span>
                 <span class="departure-status ${cls}">${d.status}</span>
