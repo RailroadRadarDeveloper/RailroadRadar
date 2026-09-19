@@ -13569,6 +13569,22 @@
         try {
           const stops = await getTripStops(tid, serviceDate);
           const title = rname ? `${rname} to ${dest}` : `Trip ${tid}`;
+          const _when = (stops||[]).map(s => s.predictedTime || s.scheduledTime).find(tm => tm);
+          let departsMsg = 'Scheduled';
+          if (_when) {
+            const totalMin = Math.round((_when.getTime() - Date.now()) / 60000);
+            if (totalMin <= 0) departsMsg = 'Departed';
+            else {
+              const days = Math.floor(totalMin / 1440);
+              const hours = Math.floor((totalMin % 1440) / 60);
+              const mins = totalMin % 60;
+              const parts = [];
+              if (days) parts.push(days + ' day' + (days === 1 ? '' : 's'));
+              if (hours) parts.push(hours + ' hour' + (hours === 1 ? '' : 's'));
+              if (mins || !parts.length) parts.push(mins + ' minute' + (mins === 1 ? '' : 's'));
+              departsMsg = 'Departs in ' + (days && parts.length > 1 ? parts[0] + ', ' + parts.slice(1).join(' ') : parts.join(' '));
+            }
+          }
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
@@ -13581,7 +13597,7 @@
               </div>
               <div class="train-popup-body">
                 <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                  <p class="status-desc" style="margin:0;">Scheduled — no live vehicle yet</p>
+                  <p class="status-desc" style="margin:0;">${departsMsg}</p>
                   <span class="status-pill status-scheduled">Scheduled</span>
                 </div>
                 <div class="info-grid">
