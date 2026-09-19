@@ -10096,21 +10096,25 @@
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
       }
-      async function getTripStops(tripId) {
-        if (tripStopsCache[tripId] && (Date.now() - tripStopsCache[tripId].timestamp) < 300000) return tripStopsCache[tripId].stops;
+      async function getTripStops(tripId, serviceDate) {
+        const cacheKey = String(tripId) + '|' + String(serviceDate || '');
+        if (tripStopsCache[cacheKey] && (Date.now() - tripStopsCache[cacheKey].timestamp) < 300000) return tripStopsCache[cacheKey].stops;
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout to prevent hanging
-          const [schedRes, predRes] = await Promise.all([
-            fetch(apiUrl('/api/mbta' + `/schedules?filter[trip]=${tripId}&include=stop`), { 
-              signal: controller.signal 
-            }),
-            fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}`), { 
-              signal: controller.signal 
-            })
-          ]);
+          const nyYmd = d => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          const _now = new Date();
+          const dates = [];
+          if (serviceDate) dates.push(String(serviceDate));
+          [nyYmd(_now), nyYmd(new Date(_now.getTime() + 24*60*60*1000)), nyYmd(new Date(_now.getTime() - 24*60*60*1000))].forEach(dt => { if (dates.indexOf(dt) === -1) dates.push(dt); });
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}`), { signal: controller.signal });
+          let schedData = { data: [], included: [] };
+          for (const dt of dates) {
+            const schedRes = await fetch(apiUrl('/api/mbta' + `/schedules?filter[trip]=${encodeURIComponent(tripId)}&filter[date]=${encodeURIComponent(dt)}&include=stop`), { signal: controller.signal });
+            const json = await schedRes.json();
+            if (json && json.data && json.data.length) { schedData = json; break; }
+          }
           clearTimeout(timeoutId);
-          const schedData = await schedRes.json();
           const predData = await predRes.json();
           const stops = [];
           const now = new Date();
@@ -10161,7 +10165,7 @@
               }
             }
           }
-          tripStopsCache[tripId] = { stops, timestamp: Date.now() };
+          tripStopsCache[cacheKey] = { stops, timestamp: Date.now() };
           return stops;
         } catch (e) { 
           if (e.name === 'AbortError') {
@@ -12985,7 +12989,7 @@
               const live = d.isLive ? `<span class="live-indicator"><img src="https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" class="live-train-icon"></span>` : '';
               const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
               const trk = d.trackNumber ? `<span class="track-badge">Track ${d.trackNumber}</span>` : '';
-              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\\'")}', '${d.destination.replace(/'/g,"\\'")}')" style="cursor:pointer">
+              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\\'", '${((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'})}')}', '${d.destination.replace(/'/g,"\\'")}')" style="cursor:pointer">
                 <span class="departure-time">${d.formattedScheduledTime}</span>
                 <span class="departure-destination">${d.destination || d.routeName} ${plat} ${trk} ${live}</span>
                 <span class="departure-status ${cls}">${d.status}</span>
@@ -13552,7 +13556,7 @@
           }
         }
       };
-      window.openTrainSchedule = async function(tid, rname = '', dest = '') {
+      window.openTrainSchedule = async function(tid, rname = '', dest = '', serviceDate = '') {
         let found = null;
         for (const v in trainInfo) if (trainInfo[v].tripId === tid) { found = v; break; }
         if (found && markers[found]) {
@@ -13562,7 +13566,7 @@
         }
         map.closePopup();
         try {
-          const stops = await getTripStops(tid);
+          const stops = await getTripStops(tid, serviceDate);
           const title = rname ? `${rname} to ${dest}` : `Trip ${tid}`;
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
