@@ -13585,6 +13585,7 @@
               departsMsg = 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
             }
           }
+          const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, (typeof extractTrainNumber === 'function' && extractTrainNumber(tid)) || tid) : '';
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
@@ -13606,6 +13607,7 @@
                 </div>
                 <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
               </div>
+              <div class="train-popup-footer">${shareBtn}</div>
             </div>
           `).openOn(map);
         } catch (e) { showNotification('Could not load schedule.', 'error'); }
