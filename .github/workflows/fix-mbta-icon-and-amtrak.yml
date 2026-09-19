@@ -1,0 +1,24 @@
+name: Fix MBTA icon and Amtrak crash
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-mbta-icon-and-amtrak.py
+      - .github/workflows/fix-mbta-icon-and-amtrak.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/icons
+          curl -fsSL "https://i.postimg.cc/qR9qn1bC/Untitled-design-(12).png" -o assets/icons/mbta.png || true
+          python3 scripts/fix-mbta-icon-and-amtrak.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/icons/mbta.png index.html || true
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Fix Amtrak popup crash and show MBTA heading icon" && git push; fi
