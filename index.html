@@ -10876,12 +10876,16 @@
               if (amtrakMarkers[vid]) {
                 amtrakMarkers[vid].setLatLng([lat, lng]);
                 amtrakMarkers[vid].setIcon(icon);
-
+                if (amtrakMarkers[vid].getPopup()) {
+                  amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
+                } else {
+                  amtrakMarkers[vid].bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+                }
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
                 updated++;
               } else {
                 const m = L.marker([lat, lng], { icon: icon });
-                /* Amtrak popups disabled */
+                m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
                 applyCyclingLabel(m, amtrakLabelInfo, true);
                 const zoom = map.getZoom();
                 if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
