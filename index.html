@@ -814,7 +814,8 @@
     html.rr-train-page .leaflet-popup,
     html.rr-train-page .footer,
     html.rr-train-page #rr-cookie-bar,
-    html.rr-train-page #rr-cookie-modal {
+    html.rr-train-page #rr-cookie-modal,
+    html.rr-train-page #rr-rail-picker {
       display: none !important;
     }
     html.rr-train-page .header-center {
@@ -991,6 +992,142 @@
     #rr-cookie-save {
       background: #fff;
       color: #07093e;
+    }
+    /* Pre-load railroad picker (above loading-screen z-index 100000) */
+    #rr-rail-picker {
+      position: fixed;
+      inset: 0;
+      z-index: 100001;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    #rr-rail-picker.is-open {
+      display: flex;
+    }
+    html.rr-train-page #rr-rail-picker {
+      display: none !important;
+    }
+    .rr-rail-picker-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+    }
+    .rr-rail-picker-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      max-height: min(88vh, 640px);
+      overflow: auto;
+      background: #07093e;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      padding: 18px 16px 16px;
+      box-sizing: border-box;
+    }
+    .rr-rail-picker-card h3 {
+      margin: 0 0 6px;
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .rr-rail-picker-lead {
+      margin: 0 0 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #c5c9d8;
+    }
+    .rr-rail-picker-list {
+      list-style: none;
+      margin: 0 0 14px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .rr-rail-picker-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .rr-rail-picker-list li:hover,
+    .rr-rail-picker-list li:focus-within {
+      border-color: rgba(255,255,255,0.28);
+      background: rgba(255,255,255,0.07);
+    }
+    .rr-rail-picker-list label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+    .rr-rail-picker-list input {
+      width: 18px;
+      height: 18px;
+      accent-color: #2ecc71;
+      flex-shrink: 0;
+    }
+    .rr-rail-picker-list span {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .rr-rail-picker-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .rr-rail-picker-actions .rr-rail-picker-spacer {
+      flex: 1 1 auto;
+      min-width: 4px;
+    }
+    #rr-rail-picker-all,
+    #rr-rail-picker-clear,
+    #rr-rail-picker-go {
+      border: none;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #rr-rail-picker-all,
+    #rr-rail-picker-clear {
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    #rr-rail-picker-go {
+      background: #fff;
+      color: #07093e;
+    }
+    #rr-rail-picker-go:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #rr-change-railroads {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #8ec8ff;
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
     }
     #rr-train-page {
       display: none;
@@ -3334,6 +3471,30 @@
       })();
     </script>
   </div>
+  <!-- Pre-load railroad picker -->
+  <div id="rr-rail-picker" hidden aria-hidden="true">
+    <div class="rr-rail-picker-backdrop" id="rr-rail-picker-backdrop"></div>
+    <div class="rr-rail-picker-card" role="dialog" aria-modal="true" aria-labelledby="rr-rail-picker-title">
+      <h3 id="rr-rail-picker-title">Which railroads do you want to see?</h3>
+      <p class="rr-rail-picker-lead">Pick what to load for a faster start. You can change this anytime in Settings.</p>
+      <ul class="rr-rail-picker-list" id="rr-rail-picker-list">
+        <li><label><input type="checkbox" data-rail="mbta" checked> <span>MBTA Commuter Rail</span></label></li>
+        <li><label><input type="checkbox" data-rail="amtrak" checked> <span>Amtrak</span></label></li>
+        <li><label><input type="checkbox" data-rail="mnr" checked> <span>Metro-North</span></label></li>
+        <li><label><input type="checkbox" data-rail="lirr" checked> <span>Long Island Rail Road</span></label></li>
+        <li><label><input type="checkbox" data-rail="metra" checked> <span>Metra</span></label></li>
+        <li><label><input type="checkbox" data-rail="njt" checked> <span>NJ Transit</span></label></li>
+        <li><label><input type="checkbox" data-rail="ctrail" checked> <span>CTrail</span></label></li>
+        <li><label><input type="checkbox" data-rail="marc" checked> <span>MARC</span></label></li>
+      </ul>
+      <div class="rr-rail-picker-actions">
+        <button type="button" id="rr-rail-picker-all">Select all</button>
+        <button type="button" id="rr-rail-picker-clear">Clear</button>
+        <span class="rr-rail-picker-spacer"></span>
+        <button type="button" id="rr-rail-picker-go">Show map</button>
+      </div>
+    </div>
+  </div>
   <div class="overlay" id="overlay"></div>
   <div class="control-panel" id="control-panel">
     <button class="close-panel" id="close-panel" aria-label="Close menu">×</button>
@@ -3410,6 +3571,7 @@
         <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
         <div><input type="checkbox" id="show-clusters"><label for="show-clusters">Cluster Overlapping Trains</label></div>
         <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
+        <div><input type="checkbox" id="show-mbta" checked><label for="show-mbta">Show MBTA Commuter Rail</label></div>
         <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
         <div><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North Trains</label></div>
         <div><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR Trains</label></div>
@@ -3417,6 +3579,7 @@
         <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
         <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
         <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains</label></div>
+        <button type="button" id="rr-change-railroads">Change railroads…</button>
       </div>
       <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
       <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
@@ -9898,6 +10061,7 @@
       let showClusters = false;     // Default OFF — always show HSP icons; toggle enables label declutter badge
       let showRoutes = true;
       let showOnlySpecial = false;
+      let showMbta = true;
       let showAmtrak = true;
       const amtrakMarkers = {};
       const amtrakTrainInfo = {};
@@ -10821,6 +10985,7 @@
       }
       // Amtrak: show every live train. Still gated by the Show Amtrak checkbox.
       async function fetchAmtrakTrains() {
+        if (!showAmtrak) return;
         const stat = FetchStats.start('Amtrak');
         try {
           const officialAlertsP = fetchAmtrakAlertsByTrain();
@@ -11466,6 +11631,7 @@
         };
       }
       async function fetchMnrTrains() {
+        if (!showMnr) return;
         const stat = FetchStats.start('Metro-North');
         try {
           const res = await fetch(MNR_GTFS_RT_URL);
@@ -11897,6 +12063,7 @@
         };
       }
       async function fetchLirrTrains() {
+        if (!showLirr) return;
         const stat = FetchStats.start('LIRR');
         try {
           const res = await fetch(LIRR_GTFS_RT_URL);
@@ -12249,6 +12416,7 @@
         };
       }
       async function fetchMetraTrains() {
+        if (!showMetra) return;
         const stat = FetchStats.start('Metra');
         try {
           const FeedMessage = getMetraFeedMessageType();
@@ -12618,6 +12786,7 @@
         if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
       }
       async function fetchNjtTrains() {
+        if (!showNjt) return;
         const stat = FetchStats.start('NJ Transit');
         try {
           const res = await fetch(NJT_VEHICLES_URL);
@@ -12895,6 +13064,7 @@
         };
       }
       async function fetchMarcTrains() {
+        if (!showMarc) return;
         const stat = FetchStats.start('MARC');
         try {
           const FeedMessage = getMarcFeedMessageType();
@@ -13354,6 +13524,7 @@
         } catch (e) { return {}; }
       }
       async function fetchTrains() {
+        if (!showMbta) return;
         const _ftStat = (typeof FetchStats !== 'undefined' && FetchStats.start) ? FetchStats.start('MBTA fetchTrains') : null;
         let created = 0, updated = 0, skipped = 0;
         try {
@@ -13485,11 +13656,15 @@
         }
       }
       function updateTrainVisibility() {
-        Object.values(markers).forEach(m => {
-          const vid = Object.keys(markers).find(k => markers[k] === m);
-          if (showOnlySpecial && vid && !isSpecialVehicle(vid) && !getSpecialForVehicle('mbta', vid, null)) {
-            if (map.hasLayer(m)) map.removeLayer(m);
-          } else if (!map.hasLayer(m)) map.addLayer(m);
+        Object.keys(markers).forEach(function(vid) {
+          const m = markers[vid];
+          if (!m) return;
+          const okSpecial = !showOnlySpecial || isSpecialVehicle(vid) || !!getSpecialForVehicle('mbta', vid, null);
+          if (showMbta && okSpecial) {
+            if (!map.hasLayer(m)) map.addLayer(m);
+          } else if (map.hasLayer(m)) {
+            map.removeLayer(m);
+          }
         });
         // Re-run clustering so icons stay hidden under circles
         if (typeof updateTrainLabelsVisibility === 'function') {
@@ -13497,6 +13672,7 @@
         }
       }
       async function fetchSchedules() {
+        if (!showMbta) return;
         try {
           const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
           // MBTA rejects filter[route_type] alone on /schedules — must use filter[route]
@@ -16214,6 +16390,336 @@
           }
         }
       };
+      const RR_MAP_RAIL_KEY = 'rr_map_railroads';
+      const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc'];
+      const rrRailPollTimers = {};
+      function defaultMapRailPrefs() {
+        const o = {};
+        RR_MAP_RAIL_IDS.forEach(function(id) { o[id] = true; });
+        return o;
+      }
+      function getMapRailPrefs() {
+        try {
+          const raw = safeStorage.get(RR_MAP_RAIL_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object') return null;
+          const out = {};
+          let any = false;
+          RR_MAP_RAIL_IDS.forEach(function(id) {
+            out[id] = !!parsed[id];
+            if (out[id]) any = true;
+          });
+          return any ? out : null;
+        } catch (_) {
+          return null;
+        }
+      }
+      function setMapRailPrefs(prefs) {
+        try {
+          const out = {};
+          RR_MAP_RAIL_IDS.forEach(function(id) { out[id] = !!(prefs && prefs[id]); });
+          safeStorage.set(RR_MAP_RAIL_KEY, JSON.stringify(out));
+        } catch (_) {}
+      }
+      function rrIsShareDeepLink() {
+        try {
+          if (document.documentElement.classList.contains('rr-train-page')) return true;
+          const q = new URLSearchParams(location.search);
+          return !!(q.get('train') || q.get('t') || q.get('focus'));
+        } catch (_) {
+          return false;
+        }
+      }
+      function prefsForShareDeepLink() {
+        const all = defaultMapRailPrefs();
+        try {
+          const q = new URLSearchParams(location.search);
+          const raw = q.get('train') || q.get('t') || q.get('focus');
+          if (!raw) return all;
+          const spec = (typeof rrParseShareSpec === 'function') ? rrParseShareSpec(raw) : null;
+          const agency = spec && spec.agency ? String(spec.agency).toLowerCase() : '';
+          if (!agency || RR_MAP_RAIL_IDS.indexOf(agency) < 0) return all;
+          const prefs = {};
+          RR_MAP_RAIL_IDS.forEach(function(id) { prefs[id] = false; });
+          prefs[agency] = true;
+          // Share pages often need map context; keep MBTA shapes/stations cheap path on.
+          // CTrail vehicles ride Amtrak feeds in places — enable both when either is shared.
+          if (agency === 'ctrail') prefs.amtrak = true;
+          if (agency === 'amtrak') prefs.ctrail = true;
+          return prefs;
+        } catch (_) {
+          return all;
+        }
+      }
+      function applyMapRailPrefs(prefs) {
+        const p = prefs || defaultMapRailPrefs();
+        showMbta = !!p.mbta;
+        showAmtrak = !!p.amtrak;
+        showMnr = !!p.mnr;
+        showLirr = !!p.lirr;
+        showMetra = !!p.metra;
+        showNjt = !!p.njt;
+        showCtrail = !!p.ctrail;
+        showMarc = !!p.marc;
+        const setCb = function(id, on) {
+          const el = document.getElementById(id);
+          if (el) el.checked = !!on;
+        };
+        setCb('show-mbta', showMbta);
+        setCb('show-amtrak', showAmtrak);
+        setCb('show-mnr', showMnr);
+        setCb('show-lirr', showLirr);
+        setCb('show-metra', showMetra);
+        setCb('show-njt', showNjt);
+        setCb('show-ctrail', showCtrail);
+        setCb('show-marc', showMarc);
+        try { if (typeof updateTrainVisibility === 'function') updateTrainVisibility(); } catch (_) {}
+        try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch (_) {}
+        try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch (_) {}
+        try { if (typeof updateLirrVisibility === 'function') updateLirrVisibility(); } catch (_) {}
+        try { if (typeof updateMetraVisibility === 'function') updateMetraVisibility(); } catch (_) {}
+        try { if (typeof updateNjtVisibility === 'function') updateNjtVisibility(); } catch (_) {}
+        try { if (typeof updateMarcVisibility === 'function') updateMarcVisibility(); } catch (_) {}
+        try { if (typeof updateStationVisibility === 'function') updateStationVisibility(); } catch (_) {}
+        try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
+      }
+      function readPickerPrefsFromDom() {
+        const out = {};
+        RR_MAP_RAIL_IDS.forEach(function(id) { out[id] = false; });
+        const root = document.getElementById('rr-rail-picker-list');
+        if (!root) return out;
+        root.querySelectorAll('input[data-rail]').forEach(function(inp) {
+          const id = inp.getAttribute('data-rail');
+          if (id && out.hasOwnProperty(id)) out[id] = !!inp.checked;
+        });
+        return out;
+      }
+      function syncPickerDom(prefs) {
+        const root = document.getElementById('rr-rail-picker-list');
+        if (!root) return;
+        root.querySelectorAll('input[data-rail]').forEach(function(inp) {
+          const id = inp.getAttribute('data-rail');
+          if (id && prefs && prefs.hasOwnProperty(id)) inp.checked = !!prefs[id];
+        });
+      }
+      function updateRailPickerGoEnabled() {
+        const go = document.getElementById('rr-rail-picker-go');
+        if (!go) return;
+        const prefs = readPickerPrefsFromDom();
+        const any = RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; });
+        go.disabled = !any;
+      }
+      function hideRailPicker() {
+        const el = document.getElementById('rr-rail-picker');
+        if (!el) return;
+        el.classList.remove('is-open');
+        el.hidden = true;
+        el.setAttribute('aria-hidden', 'true');
+      }
+      function showRailPickerUi() {
+        const el = document.getElementById('rr-rail-picker');
+        if (!el) return;
+        el.hidden = false;
+        el.setAttribute('aria-hidden', 'false');
+        el.classList.add('is-open');
+        updateRailPickerGoEnabled();
+      }
+      function promiseMapRailPrefs() {
+        return new Promise(function(resolve) {
+          if (rrIsShareDeepLink()) {
+            resolve(prefsForShareDeepLink());
+            return;
+          }
+          const saved = getMapRailPrefs();
+          if (saved) {
+            resolve(saved);
+            return;
+          }
+          const el = document.getElementById('rr-rail-picker');
+          if (!el) {
+            resolve(defaultMapRailPrefs());
+            return;
+          }
+          syncPickerDom(defaultMapRailPrefs());
+          showRailPickerUi();
+          const list = document.getElementById('rr-rail-picker-list');
+          const go = document.getElementById('rr-rail-picker-go');
+          const allBtn = document.getElementById('rr-rail-picker-all');
+          const clearBtn = document.getElementById('rr-rail-picker-clear');
+          const onChange = function() { updateRailPickerGoEnabled(); };
+          if (list && !list.getAttribute('data-wired')) {
+            list.setAttribute('data-wired', '1');
+            list.addEventListener('change', onChange);
+            // clicking the row label already toggles; also allow row click outside label padding
+          }
+          if (allBtn && !allBtn.getAttribute('data-wired')) {
+            allBtn.setAttribute('data-wired', '1');
+            allBtn.addEventListener('click', function() {
+              syncPickerDom(defaultMapRailPrefs());
+              updateRailPickerGoEnabled();
+            });
+          }
+          if (clearBtn && !clearBtn.getAttribute('data-wired')) {
+            clearBtn.setAttribute('data-wired', '1');
+            clearBtn.addEventListener('click', function() {
+              const empty = {};
+              RR_MAP_RAIL_IDS.forEach(function(id) { empty[id] = false; });
+              syncPickerDom(empty);
+              updateRailPickerGoEnabled();
+            });
+          }
+          window._rrRailPickerOnGo = function() {
+            const prefs = readPickerPrefsFromDom();
+            if (!RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; })) return;
+            setMapRailPrefs(prefs);
+            hideRailPicker();
+            window._rrRailPickerOnGo = null;
+            resolve(prefs);
+          };
+          if (go && !go.getAttribute('data-wired')) {
+            go.setAttribute('data-wired', '1');
+            go.addEventListener('click', function() {
+              try {
+                if (typeof window._rrRailPickerOnGo === 'function') window._rrRailPickerOnGo();
+              } catch (err) { console.warn('[rail-picker] go failed', err); }
+            });
+          }
+          updateRailPickerGoEnabled();
+        });
+      }
+      function stopRailPoll(key) {
+        if (rrRailPollTimers[key]) {
+          try { clearInterval(rrRailPollTimers[key]); } catch (_) {}
+          delete rrRailPollTimers[key];
+        }
+      }
+      function startRailPoll(key, fn, ms) {
+        if (rrRailPollTimers[key]) return;
+        rrRailPollTimers[key] = rrLivePoll(fn, ms);
+      }
+      function startEnabledRailPolls() {
+        if (showMbta) startRailPoll('mbta', fetchTrains, 60000);
+        else stopRailPoll('mbta');
+        if (showAmtrak) startRailPoll('amtrak', fetchAmtrakTrains, 60000);
+        else stopRailPoll('amtrak');
+        if (showMnr) startRailPoll('mnr', fetchMnrTrains, preferKeylessTiles ? 40000 : 25000);
+        else stopRailPoll('mnr');
+        if (showLirr) startRailPoll('lirr', fetchLirrTrains, preferKeylessTiles ? 40000 : 25000);
+        else stopRailPoll('lirr');
+        if (showMetra) startRailPoll('metra', fetchMetraTrains, preferKeylessTiles ? 45000 : 30000);
+        else stopRailPoll('metra');
+        if (showNjt) startRailPoll('njt', fetchNjtTrains, preferKeylessTiles ? 45000 : 30000);
+        else stopRailPoll('njt');
+        if (showMarc) startRailPoll('marc', fetchMarcTrains, preferKeylessTiles ? 45000 : 30000);
+        else stopRailPoll('marc');
+        // MBTA schedules only when MBTA is enabled
+        if (showMbta) startRailPoll('schedules', fetchSchedules, 300000);
+        else stopRailPoll('schedules');
+      }
+      function persistMapRailPrefsFromFlags() {
+        setMapRailPrefs({
+          mbta: !!showMbta,
+          amtrak: !!showAmtrak,
+          mnr: !!showMnr,
+          lirr: !!showLirr,
+          metra: !!showMetra,
+          njt: !!showNjt,
+          ctrail: !!showCtrail,
+          marc: !!showMarc
+        });
+      }
+      function onMapRailToggle(agency, enabled) {
+        persistMapRailPrefsFromFlags();
+        if (enabled) {
+          try {
+            if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, 60000); fetchTrains(); }
+            else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
+            else if (agency === 'mnr') { startRailPoll('mnr', fetchMnrTrains, preferKeylessTiles ? 40000 : 25000); fetchMnrTrains(); }
+            else if (agency === 'lirr') { startRailPoll('lirr', fetchLirrTrains, preferKeylessTiles ? 40000 : 25000); fetchLirrTrains(); }
+            else if (agency === 'metra') { startRailPoll('metra', fetchMetraTrains, preferKeylessTiles ? 45000 : 30000); fetchMetraTrains(); }
+            else if (agency === 'njt') { startRailPoll('njt', fetchNjtTrains, preferKeylessTiles ? 45000 : 30000); fetchNjtTrains(); }
+            else if (agency === 'marc') { startRailPoll('marc', fetchMarcTrains, preferKeylessTiles ? 45000 : 30000); fetchMarcTrains(); }
+            else if (agency === 'ctrail') {
+              // No dedicated vehicle feed — station/shape visibility only
+            }
+          } catch (_) {}
+        } else {
+          if (agency === 'mbta') stopRailPoll('mbta');
+          else if (agency === 'amtrak') stopRailPoll('amtrak');
+          else if (agency === 'mnr') stopRailPoll('mnr');
+          else if (agency === 'lirr') stopRailPoll('lirr');
+          else if (agency === 'metra') stopRailPoll('metra');
+          else if (agency === 'njt') stopRailPoll('njt');
+          else if (agency === 'marc') stopRailPoll('marc');
+          if (agency === 'mbta') stopRailPoll('schedules');
+        }
+      }
+      function reopenMapRailPicker() {
+        const current = {
+          mbta: !!showMbta,
+          amtrak: !!showAmtrak,
+          mnr: !!showMnr,
+          lirr: !!showLirr,
+          metra: !!showMetra,
+          njt: !!showNjt,
+          ctrail: !!showCtrail,
+          marc: !!showMarc
+        };
+        syncPickerDom(current);
+        const go = document.getElementById('rr-rail-picker-go');
+        if (go && !go.getAttribute('data-wired')) {
+          go.setAttribute('data-wired', '1');
+          go.addEventListener('click', function() {
+            try {
+              if (typeof window._rrRailPickerOnGo === 'function') window._rrRailPickerOnGo();
+            } catch (err) { console.warn('[rail-picker] go failed', err); }
+          });
+        }
+        // Wire Select all / Clear if not already (boot path may not have run)
+        const list = document.getElementById('rr-rail-picker-list');
+        const allBtn = document.getElementById('rr-rail-picker-all');
+        const clearBtn = document.getElementById('rr-rail-picker-clear');
+        if (list && !list.getAttribute('data-wired')) {
+          list.setAttribute('data-wired', '1');
+          list.addEventListener('change', function() { updateRailPickerGoEnabled(); });
+        }
+        if (allBtn && !allBtn.getAttribute('data-wired')) {
+          allBtn.setAttribute('data-wired', '1');
+          allBtn.addEventListener('click', function() {
+            syncPickerDom(defaultMapRailPrefs());
+            updateRailPickerGoEnabled();
+          });
+        }
+        if (clearBtn && !clearBtn.getAttribute('data-wired')) {
+          clearBtn.setAttribute('data-wired', '1');
+          clearBtn.addEventListener('click', function() {
+            const empty = {};
+            RR_MAP_RAIL_IDS.forEach(function(id) { empty[id] = false; });
+            syncPickerDom(empty);
+            updateRailPickerGoEnabled();
+          });
+        }
+        window._rrRailPickerOnGo = function() {
+          const prefs = readPickerPrefsFromDom();
+          if (!RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; })) return;
+          setMapRailPrefs(prefs);
+          hideRailPicker();
+          window._rrRailPickerOnGo = null;
+          applyMapRailPrefs(prefs);
+          startEnabledRailPolls();
+          try {
+            if (prefs.mbta) fetchTrains();
+            if (prefs.amtrak) fetchAmtrakTrains();
+            if (prefs.mnr) fetchMnrTrains();
+            if (prefs.lirr) fetchLirrTrains();
+            if (prefs.metra) fetchMetraTrains();
+            if (prefs.njt) fetchNjtTrains();
+            if (prefs.marc) fetchMarcTrains();
+          } catch (_) {}
+        };
+        showRailPickerUi();
+      }
       // Map theme: light default. Mobile ignores a leftover Dark save unless the user picked it.
       function applySavedMapTheme() {
         const savedTheme = safeStorage.get('rr_mapTheme');
@@ -16289,58 +16795,82 @@
         if (typeof updateNjtVisibility === 'function') updateNjtVisibility();
         safeStorage.set('rr_showOnlySpecial', e.target.checked);
       });
+      document.getElementById('show-mbta').addEventListener('change', e => {
+        showMbta = e.target.checked;
+        updateTrainVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('mbta', showMbta);
+      });
       document.getElementById('show-amtrak').addEventListener('change', e => {
         showAmtrak = e.target.checked;
         updateAmtrakVisibility();
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('amtrak', showAmtrak);
       });
       document.getElementById('show-mnr').addEventListener('change', e => {
         showMnr = e.target.checked;
         updateMnrVisibility();
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('mnr', showMnr);
       });
       document.getElementById('show-lirr').addEventListener('change', e => {
         showLirr = e.target.checked;
         updateLirrVisibility();
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('lirr', showLirr);
       });
       document.getElementById('show-metra').addEventListener('change', e => {
         showMetra = e.target.checked;
         updateMetraVisibility();
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        onMapRailToggle('metra', showMetra);
       });
       document.getElementById('show-njt').addEventListener('change', e => {
         showNjt = e.target.checked;
         updateNjtVisibility();
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('njt', showNjt);
       });
       document.getElementById('show-ctrail').addEventListener('change', e => {
         showCtrail = e.target.checked;
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('ctrail', showCtrail);
       });
       document.getElementById('show-marc').addEventListener('change', e => {
         showMarc = e.target.checked;
         if (typeof updateMarcVisibility === 'function') updateMarcVisibility();
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('marc', showMarc);
       });
+      (function wireChangeRailroads() {
+        const btn = document.getElementById('rr-change-railroads');
+        if (!btn || btn.getAttribute('data-wired')) return;
+        btn.setAttribute('data-wired', '1');
+        btn.addEventListener('click', function() {
+          try { reopenMapRailPicker(); } catch (err) { console.warn('[rail-picker] reopen failed', err); }
+        });
+      })();
       document.getElementById('refresh-button').addEventListener('click', async function() {
         this.disabled = true; this.innerHTML = '<span class="loading"></span> Refreshing...';
         Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
         Object.keys(stationDeparturesCache).forEach(k => delete stationDeparturesCache[k]);
-        await fetchTrains();
-        await fetchSchedules();
-        await fetchAmtrakTrains();
-        await fetchMnrTrains();
-        await fetchLirrTrains();
-        await fetchMetraTrains();
-        await fetchNjtTrains();
-        if (typeof fetchMarcTrains === 'function') await fetchMarcTrains();
+        if (showMbta) {
+          await fetchTrains();
+          await fetchSchedules();
+        }
+        if (showAmtrak) await fetchAmtrakTrains();
+        if (showMnr) await fetchMnrTrains();
+        if (showLirr) await fetchLirrTrains();
+        if (showMetra) await fetchMetraTrains();
+        if (showNjt) await fetchNjtTrains();
+        if (showMarc && typeof fetchMarcTrains === 'function') await fetchMarcTrains();
         this.disabled = false; this.textContent = 'Refresh Data';
       });
       L.Polyline.fromEncoded = function(encoded, options) {
@@ -16576,14 +17106,27 @@
       setInterval(updateLabels, 5000);
       // Core MBTA map data first (with timeouts), then hide splash ASAP.
       // Wrapped in async IIFE so this stays valid even if outer scope brace matching drifts.
+      function rrLivePoll(fn, ms) {
+        return setInterval(function() {
+          const keep = (typeof window.rrNotifyShouldBackgroundPoll === 'function') && window.rrNotifyShouldBackgroundPoll();
+          if (typeof document !== 'undefined' && document.hidden && !keep) return;
+          try { fn(); } catch (_) {}
+        }, ms);
+      }
       ;(async function startupCoreLoads() {
         try {
+          // Ask which railroads to load (or apply saved / share-link prefs) before any agency fetches/polls.
+          const railPrefs = await promiseMapRailPrefs();
+          applyMapRailPrefs(railPrefs);
+          startEnabledRailPolls();
           setLoadingProgress(25, 'Loading route shapes...');
           await withTimeout(fetchRouteShapes(), 10000, 'fetchRouteShapes');
           setLoadingProgress(40, 'Loading stations...');
           await withTimeout(fetchStations(), 10000, 'fetchStations');
-          setLoadingProgress(70, 'Loading live trains...');
-          await withTimeout(fetchTrains(), 15000, 'fetchTrains');
+          if (showMbta) {
+            setLoadingProgress(70, 'Loading live trains...');
+            await withTimeout(fetchTrains(), 15000, 'fetchTrains');
+          }
           setLoadingProgress(85, 'Map ready — loading more trains...');
           setupSearch();
         } catch (loadErr) {
@@ -16592,37 +17135,22 @@
           hideLoadingScreen();
           try { rrWireTrainShare(); } catch (_) {}
         }
-        // Background: schedules + Amtrak/MNR/LIRR/Metra (do not block overlay)
+        // Background: schedules + enabled agencies only (do not block overlay)
         try {
-          await Promise.allSettled([
-            withTimeout(fetchSchedules(), 60000, 'fetchSchedules'),
-            withTimeout(fetchAmtrakTrains(), 20000, 'fetchAmtrakTrains'),
-            withTimeout(fetchMnrTrains(), 20000, 'fetchMnrTrains'),
-            withTimeout(fetchLirrTrains(), 20000, 'fetchLirrTrains'),
-            withTimeout(fetchMetraTrains(), 20000, 'fetchMetraTrains'),
-            withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains'),
-            withTimeout(fetchMarcTrains(), 20000, 'fetchMarcTrains')
-          ]);
+          const bg = [];
+          if (showMbta) bg.push(withTimeout(fetchSchedules(), 60000, 'fetchSchedules'));
+          if (showAmtrak) bg.push(withTimeout(fetchAmtrakTrains(), 20000, 'fetchAmtrakTrains'));
+          if (showMnr) bg.push(withTimeout(fetchMnrTrains(), 20000, 'fetchMnrTrains'));
+          if (showLirr) bg.push(withTimeout(fetchLirrTrains(), 20000, 'fetchLirrTrains'));
+          if (showMetra) bg.push(withTimeout(fetchMetraTrains(), 20000, 'fetchMetraTrains'));
+          if (showNjt) bg.push(withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains'));
+          if (showMarc) bg.push(withTimeout(fetchMarcTrains(), 20000, 'fetchMarcTrains'));
+          if (bg.length) await Promise.allSettled(bg);
         } catch (bgErr) {
           console.error('[Init] Background load error', bgErr);
         }
         try { rrWireTrainShare(); } catch (shareErr) { console.warn('[share] wire failed', shareErr); }
       })();
-      function rrLivePoll(fn, ms) {
-        return setInterval(function() {
-          const keep = (typeof window.rrNotifyShouldBackgroundPoll === 'function') && window.rrNotifyShouldBackgroundPoll();
-          if (typeof document !== 'undefined' && document.hidden && !keep) return;
-          try { fn(); } catch (_) {}
-        }, ms);
-      }
-      rrLivePoll(fetchTrains, 60000);
-      rrLivePoll(fetchAmtrakTrains, 60000);
-      rrLivePoll(fetchMnrTrains, preferKeylessTiles ? 40000 : 25000);
-      rrLivePoll(fetchLirrTrains, preferKeylessTiles ? 40000 : 25000);
-      rrLivePoll(fetchMetraTrains, preferKeylessTiles ? 45000 : 30000);
-      rrLivePoll(fetchNjtTrains, preferKeylessTiles ? 45000 : 30000);
-        rrLivePoll(fetchMarcTrains, preferKeylessTiles ? 45000 : 30000);
-      rrLivePoll(fetchSchedules, 300000);
       // Vehicle alert signup (unchanged)
       const signupBtn = document.getElementById('signup-button');
       const signupStat = document.getElementById('signup-status');
@@ -17003,13 +17531,14 @@
       }
       window.addEventListener('online', function() {
         updateOnlineStatus();
-        // Refresh data when connection returns
-        if (typeof fetchTrains === 'function') fetchTrains();
-        if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains();
-        if (typeof fetchMnrTrains === 'function') fetchMnrTrains();
-        if (typeof fetchLirrTrains === 'function') fetchLirrTrains();
-        if (typeof fetchMetraTrains === 'function') fetchMetraTrains();
-        if (typeof fetchNjtTrains === 'function') fetchNjtTrains();
+        // Refresh data when connection returns (respect railroad prefs; early-returns also guard)
+        if (showMbta && typeof fetchTrains === 'function') fetchTrains();
+        if (showAmtrak && typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains();
+        if (showMnr && typeof fetchMnrTrains === 'function') fetchMnrTrains();
+        if (showLirr && typeof fetchLirrTrains === 'function') fetchLirrTrains();
+        if (showMetra && typeof fetchMetraTrains === 'function') fetchMetraTrains();
+        if (showNjt && typeof fetchNjtTrains === 'function') fetchNjtTrains();
+        if (showMarc && typeof fetchMarcTrains === 'function') fetchMarcTrains();
       });
       window.addEventListener('offline', updateOnlineStatus);
       updateOnlineStatus();
