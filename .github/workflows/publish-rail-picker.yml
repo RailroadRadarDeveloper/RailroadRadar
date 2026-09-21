@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'scripts/rail-picker.patch.gz.b64'
       - '.github/workflows/publish-rail-picker.yml'
 permissions:
   contents: write
@@ -12,11 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply railroad picker patch
+      - name: Pull picker index from Cloudflare Pages deploy
         run: |
           set -euo pipefail
-          base64 -d scripts/rail-picker.patch.gz.b64 | gunzip > /tmp/rail-picker.patch
-          patch -p0 < /tmp/rail-picker.patch
+          curl -fsSL "https://f7699bad.railroadradar.pages.dev/index.html" -o index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rr-rail-picker' in t and 'promiseMapRailPrefs' in t, 'picker markers missing'
+          print('ok', len(t))
+          PY
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
           git add index.html
