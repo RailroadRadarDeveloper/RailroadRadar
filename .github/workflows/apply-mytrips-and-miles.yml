@@ -3,7 +3,9 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'scripts/mytrips-and-miles.patch.gz.b64'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part1'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part2'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part3'
       - '.github/workflows/apply-mytrips-and-miles.yml'
 permissions:
   contents: write
@@ -15,7 +17,10 @@ jobs:
       - name: Apply combined mytrips + miles patch
         run: |
           set -euo pipefail
-          base64 -d scripts/mytrips-and-miles.patch.gz.b64 | gunzip > /tmp/mytrips-and-miles.patch
+          cat scripts/mytrips-and-miles.patch.gz.b64.part1 \
+              scripts/mytrips-and-miles.patch.gz.b64.part2 \
+              scripts/mytrips-and-miles.patch.gz.b64.part3 \
+            | tr -d '\n\r ' | base64 -d | gunzip > /tmp/mytrips-and-miles.patch
           git apply /tmp/mytrips-and-miles.patch
           mkdir -p mytrips
           cp index.html mytrips/index.html
