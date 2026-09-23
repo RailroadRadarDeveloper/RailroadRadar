@@ -2506,6 +2506,140 @@
      font-family: inherit;
      min-height: 44px;
    }
+
+    .rr-modal-body input[type="datetime-local"],
+    .rr-lightbox-body input[type="datetime-local"],
+    .rr-lightbox-body select,
+    .rr-lightbox-body input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #c5cad3;
+      font-size: 14px;
+      font-family: inherit;
+      min-height: 44px;
+    }
+    #trip-log-modal .rr-lightbox { width: min(560px, 100%); max-height: min(92vh, 900px); }
+    .trip-log-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .trip-log-stat {
+      background: #f4f6fb;
+      border: 1px solid #e2e6ef;
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .trip-log-stat-value {
+      display: block;
+      font-size: 18px;
+      font-weight: 800;
+      color: #07093e;
+      line-height: 1.2;
+    }
+    .trip-log-stat-label {
+      display: block;
+      font-size: 11px;
+      color: #5a6270;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+    .trip-log-tabs {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 12px;
+    }
+    .trip-log-tab {
+      flex: 1;
+      min-height: 40px;
+      border: 1px solid #c5cad3;
+      background: #fff;
+      color: #07093e;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .trip-log-tab.active {
+      background: #07093e;
+      color: #fff;
+      border-color: #07093e;
+    }
+    .trip-log-pane { display: none; }
+    .trip-log-pane.active { display: block; }
+    .trip-log-list { display: flex; flex-direction: column; gap: 8px; }
+    .trip-log-row {
+      border: 1px solid #e2e6ef;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .trip-log-row-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .trip-log-row-rail {
+      font-weight: 800;
+      color: #07093e;
+      font-size: 13px;
+    }
+    .trip-log-row-miles {
+      font-weight: 700;
+      color: #3a4250;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .trip-log-row-route {
+      font-size: 13px;
+      color: #222;
+      margin-top: 2px;
+    }
+    .trip-log-row-meta {
+      font-size: 12px;
+      color: #5a6270;
+      margin-top: 4px;
+    }
+    .trip-log-row-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+    }
+    .trip-log-row-actions button {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #c5cad3;
+      background: #f7f8fb;
+      color: #07093e;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .trip-log-row-actions button.danger {
+      color: #8b1a1a;
+      border-color: #e0b4b4;
+      background: #fff5f5;
+    }
+    .trip-log-empty, .trip-log-status {
+      font-size: 13px;
+      color: #5a6270;
+      margin: 8px 0;
+    }
+    .trip-log-approx-note {
+      font-size: 11px;
+      color: #7a8290;
+      margin: 6px 0 0;
+    }
+    @media (max-width: 420px) {
+      .trip-log-stats { grid-template-columns: 1fr; }
+    }
+
    #report-train-pick-row {
      display: flex;
      gap: 8px;
@@ -3530,6 +3664,7 @@
         <div id="settings-account-signed-in" hidden>
           <p id="settings-account-summary" style="margin:0 0 10px; font-weight:700;"></p>
           <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
+          <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn" style="margin-top:8px;">Trip log</button>
         </div>
       </div>
       <div class="toggle-section" id="settings-notifications-section">
@@ -3725,12 +3860,93 @@
           </div>
           <div class="rr-interest-summary" id="account-interest-summary"></div>
         </div>
+
+        <div class="rr-lightbox-section">
+          <h3>Trip log</h3>
+          <p class="rr-modal-hint" style="margin-top:0;">Log rides and track your miles (approximate). No GPS breadcrumbs stored.</p>
+          <button type="button" class="rr-btn" id="account-open-trip-log">My trips</button>
+        </div>
+
         <div class="rr-lightbox-section">
           <div class="rr-lightbox-actions">
             <button type="button" class="rr-btn" id="account-save-settings">Save settings</button>
             <button type="button" class="rr-btn secondary" id="account-sign-out">Sign out</button>
             <button type="button" class="rr-btn danger secondary" id="account-delete">Delete account</button>
             <button type="button" class="rr-btn secondary" id="account-close-btn">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Trip Log lightbox -->
+  <div class="rr-modal-backdrop" id="trip-log-modal" aria-hidden="true">
+    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="trip-log-title">
+      <div class="rr-modal-header">
+        <span id="trip-log-title">Trip log</span>
+        <button type="button" class="rr-modal-close" id="trip-log-close" aria-label="Close">×</button>
+      </div>
+      <div class="rr-lightbox-body">
+        <div class="rr-lightbox-section" style="padding-top:0;">
+          <div class="trip-log-stats" aria-live="polite">
+            <div class="trip-log-stat">
+              <span class="trip-log-stat-value" id="trip-log-stat-count">—</span>
+              <span class="trip-log-stat-label">trips</span>
+            </div>
+            <div class="trip-log-stat">
+              <span class="trip-log-stat-value" id="trip-log-stat-miles">—</span>
+              <span class="trip-log-stat-label">total miles</span>
+            </div>
+            <div class="trip-log-stat">
+              <span class="trip-log-stat-value" id="trip-log-stat-top">—</span>
+              <span class="trip-log-stat-label">top railroad</span>
+            </div>
+          </div>
+          <p class="trip-log-approx-note">Miles are great-circle estimates from station coordinates (approximate).</p>
+        </div>
+        <div class="trip-log-tabs" role="tablist">
+          <button type="button" class="trip-log-tab active" data-trip-tab="log" id="trip-tab-log">Log a trip</button>
+          <button type="button" class="trip-log-tab" data-trip-tab="list" id="trip-tab-list">My trips</button>
+        </div>
+        <div class="trip-log-pane active" id="trip-pane-log" data-trip-pane="log">
+          <div class="rr-lightbox-section" style="border:none; padding:0; margin:0;">
+            <label for="trip-log-railroad">Railroad</label>
+            <select id="trip-log-railroad">
+              <option value="mbta">MBTA</option>
+              <option value="amtrak">Amtrak</option>
+              <option value="mnr">Metro-North</option>
+              <option value="lirr">LIRR</option>
+              <option value="metra">Metra</option>
+              <option value="njt">NJ Transit</option>
+              <option value="ctrail">CTrail</option>
+              <option value="marc">MARC</option>
+            </select>
+            <label for="trip-log-origin">Origin</label>
+            <select id="trip-log-origin"><option value="">Select railroad first…</option></select>
+            <label for="trip-log-dest">Destination</label>
+            <select id="trip-log-dest"><option value="">Select railroad first…</option></select>
+            <label for="trip-log-train">Train number</label>
+            <input type="text" id="trip-log-train" maxlength="32" placeholder="e.g. 2150" autocomplete="off">
+            <label for="trip-log-start">Start date / time</label>
+            <input type="datetime-local" id="trip-log-start">
+            <label for="trip-log-notes">Notes (optional)</label>
+            <input type="text" id="trip-log-notes" maxlength="200" placeholder="Optional notes" autocomplete="off">
+            <p class="rr-modal-hint" id="trip-log-miles-preview" style="margin-top:8px;">Estimated miles: —</p>
+            <div class="rr-modal-error" id="trip-log-error"></div>
+            <div class="rr-lightbox-actions" style="margin-top:12px;">
+              <button type="button" class="rr-btn" id="trip-log-save">Save trip</button>
+              <button type="button" class="rr-btn secondary" id="trip-log-goto-list">View my trips</button>
+            </div>
+          </div>
+        </div>
+        <div class="trip-log-pane" id="trip-pane-list" data-trip-pane="list">
+          <div class="trip-log-list" id="trip-log-list"></div>
+          <p class="trip-log-empty" id="trip-log-empty" hidden>No trips logged yet.</p>
+          <p class="trip-log-status" id="trip-log-list-status"></p>
+          <div class="rr-lightbox-actions">
+            <button type="button" class="rr-btn secondary" id="trip-log-load-more" hidden>Load more</button>
+            <button type="button" class="rr-btn secondary" id="trip-log-refresh">Refresh</button>
           </div>
         </div>
       </div>
@@ -6648,6 +6864,563 @@
       loadAdminTab('bans');
     }
 
+
+    /* ===== Trip Log (slice 1: form + list + stats) ===== */
+    const TRIP_LOG_PAGE_SIZE = 20;
+    const TRIP_LOG_RAIL_LABELS = {
+      mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
+      metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC'
+    };
+    const CTRAIL_TRIP_STATIONS = [
+      { id: 'NHV', name: 'New Haven', lat: 41.2976, lon: -72.9267 },
+      { id: 'STS', name: 'New Haven State St', lat: 41.3050, lon: -72.9217 },
+      { id: 'WFD', name: 'Wallingford', lat: 41.4570, lon: -72.8250 },
+      { id: 'MDN', name: 'Meriden', lat: 41.5390, lon: -72.8010 },
+      { id: 'BER', name: 'Berlin', lat: 41.6360, lon: -72.7660 },
+      { id: 'HFD', name: 'Hartford', lat: 41.7690, lon: -72.6810 },
+      { id: 'WND', name: 'Windsor', lat: 41.8520, lon: -72.6420 },
+      { id: 'WNL', name: 'Windsor Locks', lat: 41.9140, lon: -72.6270 },
+      { id: 'SPG', name: 'Springfield', lat: 42.1061, lon: -72.5930 }
+    ];
+    let tripLogStatsCache = null;
+    let tripLogLastDoc = null;
+    let tripLogHasMore = false;
+    let tripLogLoading = false;
+
+    function haversineMiles(lat1, lon1, lat2, lon2) {
+      const toRad = function(d) { return d * Math.PI / 180; };
+      const R = 3958.7613;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function tripLogEmptyStats() {
+      return { tripCount: 0, totalMiles: 0, byRailroad: {}, lastTripAt: null };
+    }
+
+    function normalizeTripLogStats(raw) {
+      const base = tripLogEmptyStats();
+      if (!raw || typeof raw !== 'object') return base;
+      base.tripCount = Number(raw.tripCount) || 0;
+      base.totalMiles = Number(raw.totalMiles) || 0;
+      base.byRailroad = (raw.byRailroad && typeof raw.byRailroad === 'object') ? raw.byRailroad : {};
+      base.lastTripAt = raw.lastTripAt || null;
+      return base;
+    }
+
+    function formatTripMiles(n) {
+      if (n == null || !isFinite(Number(n)) || Number(n) <= 0) return '—';
+      const v = Number(n);
+      if (v >= 100) return Math.round(v).toLocaleString() + ' mi';
+      return (Math.round(v * 10) / 10).toLocaleString() + ' mi';
+    }
+
+    function formatTripWhen(isoOrMs) {
+      try {
+        const d = typeof isoOrMs === 'number' ? new Date(isoOrMs) : new Date(String(isoOrMs || ''));
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      } catch (_) { return '—'; }
+    }
+
+    function collectStationsFromMarkers(agency) {
+      const out = [];
+      const prefix = String(agency || '').toLowerCase() + ':';
+      try {
+        const markers = (typeof stationMarkers !== 'undefined') ? stationMarkers : {};
+        Object.keys(markers || {}).forEach(function(key) {
+          if (!key || key.indexOf(prefix) !== 0) return;
+          const m = markers[key];
+          const sid = key.slice(prefix.length);
+          let name = sid, lat = null, lon = null;
+          if (m && m._rrStation) {
+            name = m._rrStation.name || sid;
+            lat = m._rrStation.lat;
+            lon = m._rrStation.lng != null ? m._rrStation.lng : m._rrStation.lon;
+          } else if (m && typeof m.getLatLng === 'function') {
+            const ll = m.getLatLng();
+            lat = ll && ll.lat; lon = ll && ll.lng;
+            try {
+              const el = m.getPopup && m.getPopup();
+              /* keep sid as name fallback */
+            } catch (_) {}
+          }
+          out.push({ id: String(sid), name: String(name || sid), lat: lat, lon: lon });
+        });
+      } catch (_) {}
+      return out;
+    }
+
+    function collectStationsFromStatic(staticObj) {
+      const out = [];
+      if (!staticObj || !staticObj.stops) return out;
+      const seenName = {};
+      Object.keys(staticObj.stops).forEach(function(sid) {
+        const s = staticObj.stops[sid];
+        if (!s || !s.name) return;
+        const nk = String(s.name).toLowerCase().replace(/\s+/g, ' ').trim();
+        if (seenName[nk]) return;
+        seenName[nk] = true;
+        out.push({
+          id: String(sid),
+          name: String(s.name),
+          lat: s.lat != null ? Number(s.lat) : null,
+          lon: (s.lon != null ? Number(s.lon) : (s.lng != null ? Number(s.lng) : null))
+        });
+      });
+      return out;
+    }
+
+    function getTripLogStations(railroad) {
+      const rr = String(railroad || '').toLowerCase();
+      let list = [];
+      try {
+        if (typeof window.rrCollectTripStations === 'function') {
+          list = window.rrCollectTripStations(rr) || [];
+        }
+      } catch (_) { list = []; }
+      if ((!list || !list.length) && rr === 'ctrail') {
+        list = CTRAIL_TRIP_STATIONS.slice();
+      }
+      const byId = {};
+      (list || []).forEach(function(s) {
+        if (!s || !s.id) return;
+        if (!byId[s.id]) byId[s.id] = s;
+      });
+      return Object.keys(byId).map(function(k) { return byId[k]; })
+        .sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+    }
+
+    function findTripStation(railroad, stationId) {
+      const list = getTripLogStations(railroad);
+      for (let i = 0; i < list.length; i++) {
+        if (String(list[i].id) === String(stationId)) return list[i];
+      }
+      return null;
+    }
+
+    function estimateTripMiles(railroad, originId, destId) {
+      const o = findTripStation(railroad, originId);
+      const d = findTripStation(railroad, destId);
+      if (!o || !d) return null;
+      const lat1 = Number(o.lat), lon1 = Number(o.lon);
+      const lat2 = Number(d.lat), lon2 = Number(d.lon);
+      if (![lat1, lon1, lat2, lon2].every(function(n) { return isFinite(n); })) return null;
+      if (lat1 === lat2 && lon1 === lon2) return 0;
+      const mi = haversineMiles(lat1, lon1, lat2, lon2);
+      return isFinite(mi) ? Math.round(mi * 10) / 10 : null;
+    }
+
+    function fillTripStationSelects() {
+      const rrEl = document.getElementById('trip-log-railroad');
+      const originEl = document.getElementById('trip-log-origin');
+      const destEl = document.getElementById('trip-log-dest');
+      if (!rrEl || !originEl || !destEl) return;
+      const rr = rrEl.value;
+      const stations = getTripLogStations(rr);
+      const prevO = originEl.value;
+      const prevD = destEl.value;
+      const placeholder = stations.length
+        ? '<option value="">Select station…</option>'
+        : '<option value="">No stations loaded yet — open the map for this railroad, then reopen</option>';
+      function opts(selected) {
+        return placeholder + stations.map(function(s) {
+          const sel = String(s.id) === String(selected) ? ' selected' : '';
+          return '<option value="' + String(s.id).replace(/"/g, '&quot;') + '"' + sel + '>' +
+            String(s.name).replace(/</g, '&lt;') + '</option>';
+        }).join('');
+      }
+      originEl.innerHTML = opts(prevO);
+      destEl.innerHTML = opts(prevD);
+      updateTripMilesPreview();
+    }
+
+    function updateTripMilesPreview() {
+      const rr = (document.getElementById('trip-log-railroad') || {}).value;
+      const o = (document.getElementById('trip-log-origin') || {}).value;
+      const d = (document.getElementById('trip-log-dest') || {}).value;
+      const el = document.getElementById('trip-log-miles-preview');
+      if (!el) return;
+      if (!rr || !o || !d) { el.textContent = 'Estimated miles: —'; return; }
+      const mi = estimateTripMiles(rr, o, d);
+      el.textContent = 'Estimated miles: ' + formatTripMiles(mi) + (mi != null ? ' (approx.)' : '');
+    }
+
+    function paintTripLogStats(stats) {
+      tripLogStatsCache = normalizeTripLogStats(stats);
+      const c = document.getElementById('trip-log-stat-count');
+      const m = document.getElementById('trip-log-stat-miles');
+      const t = document.getElementById('trip-log-stat-top');
+      if (c) c.textContent = String(tripLogStatsCache.tripCount || 0);
+      if (m) m.textContent = formatTripMiles(tripLogStatsCache.totalMiles);
+      let top = '—', topMiles = -1;
+      Object.keys(tripLogStatsCache.byRailroad || {}).forEach(function(k) {
+        const row = tripLogStatsCache.byRailroad[k] || {};
+        const miles = Number(row.miles) || 0;
+        const count = Number(row.count) || 0;
+        const score = miles > 0 ? miles : count;
+        if (score > topMiles) {
+          topMiles = score;
+          top = TRIP_LOG_RAIL_LABELS[k] || k.toUpperCase();
+        }
+      });
+      if (t) t.textContent = tripLogStatsCache.tripCount ? top : '—';
+    }
+
+    async function loadTripLogStatsFromServer() {
+      if (!db || !currentUser) {
+        paintTripLogStats(tripLogEmptyStats());
+        return tripLogEmptyStats();
+      }
+      try {
+        const snap = await db.collection('userSettings').doc(currentUser.uid).get();
+        const data = snap.exists ? (snap.data() || {}) : {};
+        const stats = normalizeTripLogStats(data.tripLogStats);
+        paintTripLogStats(stats);
+        return stats;
+      } catch (e) {
+        console.warn('[trip-log] stats load failed', e);
+        paintTripLogStats(tripLogEmptyStats());
+        return tripLogEmptyStats();
+      }
+    }
+
+    function switchTripLogTab(tab) {
+      const name = tab === 'list' ? 'list' : 'log';
+      document.querySelectorAll('.trip-log-tab').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-trip-tab') === name);
+      });
+      document.querySelectorAll('.trip-log-pane').forEach(function(pane) {
+        pane.classList.toggle('active', pane.getAttribute('data-trip-pane') === name);
+      });
+      if (name === 'list') loadTripLogList(true);
+    }
+
+    function renderTripLogRows(docs, append) {
+      const list = document.getElementById('trip-log-list');
+      const empty = document.getElementById('trip-log-empty');
+      if (!list) return;
+      if (!append) list.innerHTML = '';
+      if (!docs.length && !append) {
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+      docs.forEach(function(doc) {
+        const data = doc.data() || {};
+        const row = document.createElement('div');
+        row.className = 'trip-log-row';
+        row.setAttribute('data-trip-id', doc.id);
+        const rail = TRIP_LOG_RAIL_LABELS[data.railroad] || String(data.railroad || '').toUpperCase();
+        const train = data.trainNumber ? ('#' + String(data.trainNumber)) : '';
+        const route = (data.originName || '?') + ' → ' + (data.destName || '?');
+        const miles = formatTripMiles(data.miles);
+        const when = formatTripWhen(data.startTime);
+        row.innerHTML =
+          '<div class="trip-log-row-top">' +
+            '<div class="trip-log-row-rail">' + rail + (train ? (' · ' + train) : '') + '</div>' +
+            '<div class="trip-log-row-miles">' + miles + '</div>' +
+          '</div>' +
+          '<div class="trip-log-row-route"></div>' +
+          '<div class="trip-log-row-meta"></div>' +
+          '<div class="trip-log-row-actions">' +
+            '<button type="button" class="danger" data-trip-delete="' + doc.id + '">Delete</button>' +
+            '<button type="button" disabled title="Coming soon">Map</button>' +
+          '</div>';
+        row.querySelector('.trip-log-row-route').textContent = route;
+        row.querySelector('.trip-log-row-meta').textContent = when + (data.notes ? (' · ' + data.notes) : '');
+        list.appendChild(row);
+      });
+    }
+
+    async function loadTripLogList(reset) {
+      const status = document.getElementById('trip-log-list-status');
+      const moreBtn = document.getElementById('trip-log-load-more');
+      if (!db || !currentUser) {
+        if (status) status.textContent = 'Sign in to view trips.';
+        return;
+      }
+      if (tripLogLoading) return;
+      tripLogLoading = true;
+      if (status) status.textContent = 'Loading…';
+      try {
+        if (reset) {
+          tripLogLastDoc = null;
+          tripLogHasMore = false;
+          const list = document.getElementById('trip-log-list');
+          if (list) list.innerHTML = '';
+        }
+        let q = db.collection('tripLogs')
+          .where('userId', '==', currentUser.uid)
+          .orderBy('startTime', 'desc')
+          .limit(TRIP_LOG_PAGE_SIZE);
+        if (!reset && tripLogLastDoc) q = q.startAfter(tripLogLastDoc);
+        const snap = await q.get();
+        const docs = snap.docs || [];
+        renderTripLogRows(docs, !reset);
+        tripLogLastDoc = docs.length ? docs[docs.length - 1] : tripLogLastDoc;
+        tripLogHasMore = docs.length >= TRIP_LOG_PAGE_SIZE;
+        if (moreBtn) moreBtn.hidden = !tripLogHasMore;
+        if (status) {
+          status.textContent = docs.length || !reset
+            ? (tripLogHasMore ? 'Showing latest trips. Load more for older entries.' : '')
+            : '';
+        }
+        const empty = document.getElementById('trip-log-empty');
+        const list = document.getElementById('trip-log-list');
+        if (empty && list && !list.children.length) empty.hidden = false;
+      } catch (e) {
+        console.warn('[trip-log] list failed', e);
+        if (status) {
+          const msg = String((e && e.message) || e);
+          if (/index/i.test(msg)) {
+            status.textContent = 'Firestore needs a composite index on tripLogs (userId + startTime). Check the browser console for the create-index link.';
+          } else {
+            status.textContent = 'Could not load trips. ' + msg;
+          }
+        }
+      } finally {
+        tripLogLoading = false;
+      }
+    }
+
+    function setTripLogError(msg) {
+      const el = document.getElementById('trip-log-error');
+      if (!el) return;
+      if (msg) {
+        el.textContent = msg;
+        el.classList.add('visible');
+      } else {
+        el.textContent = '';
+        el.classList.remove('visible');
+      }
+    }
+
+    async function saveTripLog() {
+      setTripLogError('');
+      if (!auth || !db) {
+        setTripLogError('Firebase is not available.');
+        return;
+      }
+      if (!currentUser) {
+        setTripLogError('Sign in to log a trip.');
+        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        return;
+      }
+      const rr = (document.getElementById('trip-log-railroad') || {}).value;
+      const originId = (document.getElementById('trip-log-origin') || {}).value;
+      const destId = (document.getElementById('trip-log-dest') || {}).value;
+      const trainNumber = String((document.getElementById('trip-log-train') || {}).value || '').trim();
+      const startVal = (document.getElementById('trip-log-start') || {}).value;
+      const notes = String((document.getElementById('trip-log-notes') || {}).value || '').trim().slice(0, 200);
+      if (!rr) { setTripLogError('Choose a railroad.'); return; }
+      if (!originId || !destId) { setTripLogError('Choose origin and destination.'); return; }
+      if (originId === destId) { setTripLogError('Origin and destination must differ.'); return; }
+      if (!trainNumber) { setTripLogError('Enter a train number.'); return; }
+      if (!startVal) { setTripLogError('Choose a start date and time.'); return; }
+      const startDate = new Date(startVal);
+      if (isNaN(startDate.getTime())) { setTripLogError('Invalid start time.'); return; }
+      const origin = findTripStation(rr, originId);
+      const dest = findTripStation(rr, destId);
+      if (!origin || !dest) { setTripLogError('Station not found for this railroad.'); return; }
+      let miles = estimateTripMiles(rr, originId, destId);
+      if (miles == null) miles = 0;
+      const saveBtn = document.getElementById('trip-log-save');
+      if (saveBtn) saveBtn.disabled = true;
+      try {
+        const uid = currentUser.uid;
+        const tripRef = db.collection('tripLogs').doc();
+        const settingsRef = db.collection('userSettings').doc(uid);
+        const startIso = startDate.toISOString();
+        const startMs = startDate.getTime();
+        await db.runTransaction(async function(tx) {
+          const settingsSnap = await tx.get(settingsRef);
+          const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
+          const stats = normalizeTripLogStats(settingsData.tripLogStats);
+          const by = Object.assign({}, stats.byRailroad || {});
+          const railRow = Object.assign({ count: 0, miles: 0 }, by[rr] || {});
+          railRow.count = (Number(railRow.count) || 0) + 1;
+          railRow.miles = Math.round(((Number(railRow.miles) || 0) + Number(miles || 0)) * 10) / 10;
+          by[rr] = railRow;
+          const next = {
+            tripCount: (Number(stats.tripCount) || 0) + 1,
+            totalMiles: Math.round(((Number(stats.totalMiles) || 0) + Number(miles || 0)) * 10) / 10,
+            byRailroad: by,
+            lastTripAt: startIso
+          };
+          tx.set(tripRef, {
+            userId: uid,
+            railroad: rr,
+            originStationId: String(originId),
+            originName: String(origin.name || originId),
+            destStationId: String(destId),
+            destName: String(dest.name || destId),
+            trainNumber: trainNumber,
+            startTime: startIso,
+            startTimeMs: startMs,
+            notes: notes || null,
+            miles: Number(miles) || 0,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+        try { await logUserAction('trip_log_save', rr + ' ' + trainNumber); } catch (_) {}
+        if (typeof showNotification === 'function') showNotification('Trip saved');
+        const notesEl = document.getElementById('trip-log-notes');
+        const trainEl = document.getElementById('trip-log-train');
+        if (notesEl) notesEl.value = '';
+        if (trainEl) trainEl.value = '';
+        await loadTripLogStatsFromServer();
+        switchTripLogTab('list');
+      } catch (e) {
+        console.warn('[trip-log] save failed', e);
+        setTripLogError('Could not save trip. ' + String((e && e.message) || e));
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    }
+
+    async function deleteTripLog(tripId) {
+      if (!db || !currentUser || !tripId) return;
+      if (!window.confirm('Delete this trip? This cannot be undone.')) return;
+      try {
+        const uid = currentUser.uid;
+        const tripRef = db.collection('tripLogs').doc(tripId);
+        const settingsRef = db.collection('userSettings').doc(uid);
+        await db.runTransaction(async function(tx) {
+          const tripSnap = await tx.get(tripRef);
+          if (!tripSnap.exists) throw new Error('Trip not found');
+          const trip = tripSnap.data() || {};
+          if (trip.userId !== uid) throw new Error('Not your trip');
+          const settingsSnap = await tx.get(settingsRef);
+          const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
+          const stats = normalizeTripLogStats(settingsData.tripLogStats);
+          const miles = Number(trip.miles) || 0;
+          const rr = String(trip.railroad || '');
+          const by = Object.assign({}, stats.byRailroad || {});
+          if (rr && by[rr]) {
+            const railRow = Object.assign({ count: 0, miles: 0 }, by[rr]);
+            railRow.count = Math.max(0, (Number(railRow.count) || 0) - 1);
+            railRow.miles = Math.max(0, Math.round(((Number(railRow.miles) || 0) - miles) * 10) / 10);
+            if (railRow.count === 0 && railRow.miles === 0) delete by[rr];
+            else by[rr] = railRow;
+          }
+          const next = {
+            tripCount: Math.max(0, (Number(stats.tripCount) || 0) - 1),
+            totalMiles: Math.max(0, Math.round(((Number(stats.totalMiles) || 0) - miles) * 10) / 10),
+            byRailroad: by,
+            lastTripAt: stats.lastTripAt || null
+          };
+          tx.delete(tripRef);
+          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+        if (typeof showNotification === 'function') showNotification('Trip deleted');
+        await loadTripLogStatsFromServer();
+        await loadTripLogList(true);
+      } catch (e) {
+        console.warn('[trip-log] delete failed', e);
+        if (typeof showNotification === 'function') showNotification('Could not delete trip', 'error');
+      }
+    }
+
+    function defaultTripStartLocalValue() {
+      const d = new Date();
+      d.setSeconds(0, 0);
+      const pad = function(n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    async function openTripLogModal(e) {
+      if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
+      if (!currentUser) {
+        if (typeof showNotification === 'function') showNotification('Sign in to open Trip log.', 'error');
+        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        return;
+      }
+      try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
+      const modal = document.getElementById('trip-log-modal');
+      if (!modal) return;
+      const startEl = document.getElementById('trip-log-start');
+      if (startEl && !startEl.value) startEl.value = defaultTripStartLocalValue();
+      fillTripStationSelects();
+      setTripLogError('');
+      switchTripLogTab('log');
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      await loadTripLogStatsFromServer();
+    }
+
+    function closeTripLogModal() {
+      const modal = document.getElementById('trip-log-modal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function wireTripLogUI() {
+      const modal = document.getElementById('trip-log-modal');
+      const closeBtn = document.getElementById('trip-log-close');
+      if (closeBtn) closeBtn.addEventListener('click', closeTripLogModal);
+      if (modal) {
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) closeTripLogModal();
+        });
+      }
+      document.querySelectorAll('.trip-log-tab').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          switchTripLogTab(btn.getAttribute('data-trip-tab'));
+        });
+      });
+      const rrEl = document.getElementById('trip-log-railroad');
+      const oEl = document.getElementById('trip-log-origin');
+      const dEl = document.getElementById('trip-log-dest');
+      if (rrEl) rrEl.addEventListener('change', fillTripStationSelects);
+      if (oEl) oEl.addEventListener('change', updateTripMilesPreview);
+      if (dEl) dEl.addEventListener('change', updateTripMilesPreview);
+      const saveBtn = document.getElementById('trip-log-save');
+      if (saveBtn) saveBtn.addEventListener('click', saveTripLog);
+      const gotoList = document.getElementById('trip-log-goto-list');
+      if (gotoList) gotoList.addEventListener('click', function() { switchTripLogTab('list'); });
+      const moreBtn = document.getElementById('trip-log-load-more');
+      if (moreBtn) moreBtn.addEventListener('click', function() { loadTripLogList(false); });
+      const refreshBtn = document.getElementById('trip-log-refresh');
+      if (refreshBtn) refreshBtn.addEventListener('click', function() {
+        loadTripLogStatsFromServer();
+        loadTripLogList(true);
+      });
+      const list = document.getElementById('trip-log-list');
+      if (list) {
+        list.addEventListener('click', function(e) {
+          const del = e.target.closest('[data-trip-delete]');
+          if (del) deleteTripLog(del.getAttribute('data-trip-delete'));
+        });
+      }
+      const acctBtn = document.getElementById('account-open-trip-log');
+      if (acctBtn) acctBtn.addEventListener('click', openTripLogModal);
+      const panelBtn = document.getElementById('btn-trip-log-panel');
+      if (panelBtn) {
+        panelBtn.addEventListener('click', function(e) {
+          try {
+            const panel = document.getElementById('control-panel');
+            const overlay = document.getElementById('overlay');
+            const menuBtn = document.getElementById('menu-button');
+            if (panel) panel.classList.remove('open');
+            if (overlay) overlay.classList.remove('open');
+            if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+          } catch (_) {}
+          openTripLogModal(e);
+        });
+      }
+    }
+    /* ===== end Trip Log ===== */
+
+
     function wireAccountAndAdminUI() {
       const closeBtn = document.getElementById('account-settings-close');
       const closeBtn2 = document.getElementById('account-close-btn');
@@ -7322,6 +8095,7 @@
         if (!wrap.contains(e.target)) closeAccountMenu();
       });
       wireAccountAndAdminUI();
+      wireTripLogUI();
       wireSignupPromptUI();
       wireLegalAcceptUI();
       wireInterestRailroadUI();
@@ -16032,6 +16806,83 @@
         try { addStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra'); } catch (_) {}
         return out;
       }
+      window.rrCollectTripStations = function(railroad) {
+        const rr = String(railroad || '').toLowerCase();
+        const out = [];
+        const seen = {};
+        function push(id, name, lat, lon) {
+          if (id == null || id === '') return;
+          const key = String(id);
+          if (seen[key]) return;
+          seen[key] = true;
+          out.push({
+            id: key,
+            name: String(name || id),
+            lat: (lat != null && isFinite(Number(lat))) ? Number(lat) : null,
+            lon: (lon != null && isFinite(Number(lon))) ? Number(lon) : null
+          });
+        }
+        function fromStatic(staticObj) {
+          if (!staticObj || !staticObj.stops) return;
+          const seenName = {};
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s || !s.name) return;
+            const nk = String(s.name).toLowerCase().replace(/\s+/g, ' ').trim();
+            if (seenName[nk]) return;
+            seenName[nk] = true;
+            push(sid, s.name, s.lat, s.lon != null ? s.lon : s.lng);
+          });
+        }
+        function fromMarkers(agency) {
+          const prefix = agency + ':';
+          try {
+            Object.keys(stationMarkers || {}).forEach(function(key) {
+              if (!key || key.indexOf(prefix) !== 0) return;
+              const m = stationMarkers[key];
+              const sid = key.slice(prefix.length);
+              let name = sid, lat = null, lon = null;
+              if (m && m._rrStation) {
+                name = m._rrStation.name || sid;
+                lat = m._rrStation.lat;
+                lon = m._rrStation.lng != null ? m._rrStation.lng : m._rrStation.lon;
+              } else if (m && typeof m.getLatLng === 'function') {
+                const ll = m.getLatLng();
+                if (ll) { lat = ll.lat; lon = ll.lng; }
+              }
+              push(sid, name, lat, lon);
+            });
+          } catch (_) {}
+        }
+        try {
+          if (rr === 'mbta') {
+            Object.keys(stationsByName || {}).forEach(function(key) {
+              const g = stationsByName[key];
+              if (!g || !g.name) return;
+              const id = (g.stopIds && g.stopIds[0]) ? g.stopIds[0] : key;
+              push(id, g.name, g.lat, g.lng);
+            });
+          } else if (rr === 'mnr') {
+            fromStatic(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null);
+          } else if (rr === 'lirr') {
+            fromStatic(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null);
+          } else if (rr === 'metra') {
+            fromStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null);
+          } else if (rr === 'marc') {
+            fromStatic(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null);
+          } else if (rr === 'ctrail') {
+            fromMarkers('ctrail');
+          } else if (rr === 'amtrak') {
+            fromMarkers('amtrak');
+          } else if (rr === 'njt') {
+            fromMarkers('njt');
+          }
+        } catch (e) {
+          console.warn('[trip-log] collect stations failed', e);
+        }
+        return out;
+      };
+
       function findAskStation(query) {
         const q = String(query || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
         if (!q || q.length < 3) return null;
