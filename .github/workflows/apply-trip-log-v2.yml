@@ -1,0 +1,33 @@
+name: Apply trip log v2
+on:
+  workflow_dispatch:
+    push:
+        paths:
+              - 'scripts/trip-log-v2.patch.gz.b64'      - '.github/workflows/apply-trip-log-v2.yml'
+              permissions:
+                contents: write
+                jobs:
+                  apply:
+                      runs-on: ubuntu-latest
+                          steps:
+                                - uses: actions/checkout@v4
+                                      - name: Apply trip-log v2 patch
+                                              run: |
+                                                        set -euo pipefail
+                                                                  base64 -d scripts/trip-log-v2.patch.gz.b64 | gunzip > /tmp/trip-log-v2.patch
+                                                                            git apply /tmp/trip-log-v2.patch
+                                                                                      python3 - <<'PY'
+                                                                                                from pathlib import Path
+                                                                                                          t = Path('index.html').read_text(errors='replace')
+                                                                                                                    assert 'Add segment for this trip' in t and 'TRIP_LINE_STOPS' in t and 'departTime' in t
+                                                                                                                              print('ok', len(t))
+                                                                                                                                        PY
+                                                                                                                                                  git config user.name "RailroadRadar"
+                                                                                                                                                            git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+                                                                                                                                                                      git add index.html
+                                                                                                                                                                                if git diff --cached --quiet; then
+                                                                                                                                                                                            echo nothing to commit
+                                                                                                                                                                                                      else
+                                                                                                                                                                                                                  git commit -m "Trip log v2: line filter, segments, depart/arrive"
+                                                                                                                                                                                                                              git push
+                                                                                                                                                                                                                                        fi
