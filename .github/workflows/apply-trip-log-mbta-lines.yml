@@ -1,35 +1,36 @@
 name: Apply trip log MBTA lines
 on:
   workflow_dispatch:
-    push:
-        paths:
-              - 'scripts/trip-log-mbta-lines.patch.gz.b64'      - '.github/workflows/apply-trip-log-mbta-lines.yml'
-              permissions:
-                contents: write
-                jobs:
-                  apply:
-                      runs-on: ubuntu-latest
-                          steps:
-                                - uses: actions/checkout@v4
-                                      - name: Apply MBTA trip-log lines patch
-                                              run: |
-                                                        set -euo pipefail
-                                                                  base64 -d scripts/trip-log-mbta-lines.patch.gz.b64 | gunzip > /tmp/trip-log-mbta-lines.patch
-                                                                            git apply /tmp/trip-log-mbta-lines.patch
-                                                                                      python3 - <<'PY'
-                                                                                                from pathlib import Path
-                                                                                                          t = Path('index.html').read_text(errors='replace')
-                                                                                                                    assert 'MBTA_TRIP_STATIONS' in t and 'CR-Providence' in t and 'TRIP_LINE_STOPS' in t
-                                                                                                                              i = t.find('const TRIP_LINE_STOPS')
-                                                                                                                                        assert i > 0 and '"mbta"' in t[i:i+25000]
-                                                                                                                                                  print('ok', len(t))
-                                                                                                                                                            PY
-                                                                                                                                                                      git config user.name "RailroadRadar"
-                                                                                                                                                                                git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
-                                                                                                                                                                                          git add index.html
-                                                                                                                                                                                                    if git diff --cached --quiet; then
-                                                                                                                                                                                                                echo nothing to commit
-                                                                                                                                                                                                                          else
-                                                                                                                                                                                                                                      git commit -m "Trip log: embed MBTA CR lines for Line dropdown"
-                                                                                                                                                                                                                                                  git push
-                                                                                                                                                                                                                                                            fi
+  push:
+    paths:
+      - 'scripts/trip-log-mbta-lines.patch.gz.b64'
+      - '.github/workflows/apply-trip-log-mbta-lines.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply MBTA trip-log lines patch
+        run: |
+          set -euo pipefail
+          base64 -d scripts/trip-log-mbta-lines.patch.gz.b64 | gunzip > /tmp/trip-log-mbta-lines.patch
+          git apply /tmp/trip-log-mbta-lines.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'MBTA_TRIP_STATIONS' in t and 'CR-Providence' in t and 'TRIP_LINE_STOPS' in t
+          i = t.find('const TRIP_LINE_STOPS')
+          assert i > 0 and '"mbta"' in t[i:i+25000]
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Trip log: embed MBTA CR lines for Line dropdown"
+            git push
+          fi
