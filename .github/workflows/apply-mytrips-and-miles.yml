@@ -1,3 +1,42 @@
 name: Apply mytrips page + trip miles
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/mytrips-and-miles.patch.gz.b64'
+      - '.github/workflows/apply-mytrips-and-miles.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply combined mytrips + miles patch
+        run: |
+          set -euo pipefail
+          base64 -d scripts/mytrips-and-miles.patch.gz.b64 | gunzip > /tmp/mytrips-and-miles.patch
+          git apply /tmp/mytrips-and-miles.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rrIsMyTripsPage' in t
+          assert 'rr-mytrips-page' in t
+          assert 'estimateTripMilesAlongStopChain' in t
+          assert 'RR_TRIP_SNAP_MAX_MI' in t
+          assert 'href="/mytrips/"' in t
+          m = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'rrIsMyTripsPage' in m
+          print('ok', len(t), 'mytrips', len(m))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Add /mytrips full-page trip log + polyline stop-chain miles"
+            git push
+          fi
