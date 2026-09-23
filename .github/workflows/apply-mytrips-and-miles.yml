@@ -6,6 +6,11 @@ on:
       - 'scripts/mytrips-and-miles.patch.gz.b64.part1'
       - 'scripts/mytrips-and-miles.patch.gz.b64.part2'
       - 'scripts/mytrips-and-miles.patch.gz.b64.part3'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part4'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part5'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part6'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part7'
+      - 'scripts/mytrips-and-miles.patch.gz.b64.part8'
       - '.github/workflows/apply-mytrips-and-miles.yml'
 permissions:
   contents: write
@@ -17,9 +22,7 @@ jobs:
       - name: Apply combined mytrips + miles patch
         run: |
           set -euo pipefail
-          cat scripts/mytrips-and-miles.patch.gz.b64.part1 \
-              scripts/mytrips-and-miles.patch.gz.b64.part2 \
-              scripts/mytrips-and-miles.patch.gz.b64.part3 \
+          cat scripts/mytrips-and-miles.patch.gz.b64.part{1..8} \
             | tr -d '\n\r ' | base64 -d | gunzip > /tmp/mytrips-and-miles.patch
           git apply /tmp/mytrips-and-miles.patch
           mkdir -p mytrips
