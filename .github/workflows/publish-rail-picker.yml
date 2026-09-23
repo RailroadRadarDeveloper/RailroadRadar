@@ -1,32 +1,32 @@
 name: Publish railroad picker
 on:
   workflow_dispatch:
-    push:
-        paths:
-              - '.github/workflows/publish-rail-picker.yml'permissions:
-                contents: write
-                jobs:
-                  apply:
-                      runs-on: ubuntu-latest
-                          steps:
-                                - uses: actions/checkout@v4
-                                      - name: Pull Trip Log index from Cloudflare Pages deploy
-                                              run: |
-                                                        set -euo pipefail
-                                                                  curl -fsSL "https://railroadradar.pages.dev/index.html" -o index.html
-                                                                            python3 - <<'PY'
-                                                                                      from pathlib import Path
-                                                                                                t = Path('index.html').read_text(errors='replace')
-                                                                                                          assert 'trip-log-modal' in t and 'rrCollectTripStations' in t, 'trip log markers missing'
-                                                                                                                    print('ok', len(t))
-                                                                                                                              PY
-                                                                                                                                        git config user.name "RailroadRadar"
-                                                                                                                                                  git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
-                                                                                                                                                            git add index.html
-                                                                                                                                                                      if git diff --cached --quiet; then
-                                                                                                                                                                                  echo nothing to commit
-                                                                                                                                                                                            else
-                                                                                                                                                                                                        git commit -m "Add Trip Log (form, list, stats)"
-                                                                                                                                                                                                                    git push
-                                                                                                                                                                                                                              fi
-                                                                                                                                                                                                                              
+  push:
+    paths:
+      - '.github/workflows/publish-rail-picker.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull Trip Log index from Cloudflare Pages deploy
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://railroadradar.pages.dev/index.html" -o index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'trip-log-modal' in t and 'rrCollectTripStations' in t, 'trip log markers missing'
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo nothing to commit
+          else
+            git commit -m "Add Trip Log (form, list, stats)"
+            git push
+          fi
