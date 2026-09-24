@@ -1,0 +1,17 @@
+          assert 'rrTripDetailIn' in t
+          assert 'trip-log-row-map:not(.is-empty):not(.is-loading)::after' in t
+          assert 'formatTripRelativeDepart' in t
+          assert 'mapbox/dark-v11' in t
+          assert '/mytrips white chrome' in t
+          assert 'weight: 7' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('Trip visual polish:') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: visual polish (cards, header, detail, maps, empty/loading)"
+            git push
+          fi
