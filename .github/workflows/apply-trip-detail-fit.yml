@@ -1,0 +1,53 @@
+name: Apply trip detail fit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-detail-fit.patch.gz.b64'
+      - '.github/workflows/apply-trip-detail-fit.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply trip detail fit viewport patch and publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, base64, gzip
+          expected = "c12c4d30215f2cb22e840926314618ae66c58b5ac8c6921dd84fd2e60c556c41"
+          path = pathlib.Path('scripts/trip-detail-fit.patch.gz.b64')
+          if not path.exists():
+            raise SystemExit('missing scripts/trip-detail-fit.patch.gz.b64')
+          blob = path.read_text().strip()
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          print('b64', len(blob), h)
+          if h != expected:
+            raise SystemExit(f'b64 sha256 mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-detail-fit.patch').write_bytes(raw)
+          print('gunzip ok', len(raw))
+          PY
+          git apply /tmp/trip-detail-fit.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip detail fit viewport */' in t
+          assert 'height: clamp(132px, 28vh, 220px)' in t
+          assert '100dvh' in t
+          assert '/* Trip live in-progress light */' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip detail fit viewport */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html scripts/trip-detail-fit.patch.gz.b64
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: fit trip detail in one viewport (compact map)"
+            git push
+          fi
