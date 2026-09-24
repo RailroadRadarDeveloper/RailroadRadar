@@ -102,7 +102,7 @@
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        return ({ '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;' })[c];
       });
     }
 
@@ -193,7 +193,7 @@
         '<h1>' + esc(profile.displayName || profile.username || 'Railfan') + '</h1>' +
         '<div class="handle">@' + esc(profile.username || '') + '</div>' +
         '</div></div>' +
-        '<h2 class="trips-title">Trips</h2>' +
+        '<h2 class="trips-title">MyTrips</h2>' +
         '<div id="trips">' + list + '</div>' +
         '<p class="footer-note"><a href="https://railroadradar.com/">RailroadRadar</a> live map</p>';
     }
