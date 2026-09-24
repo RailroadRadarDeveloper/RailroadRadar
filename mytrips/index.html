@@ -2776,6 +2776,18 @@
     }
     html.rr-mytrips-page .trip-detail-meta-label { color: #5a6270; }
     html.rr-mytrips-page .trip-detail-meta-value { color: #07093e; }
+
+    html.rr-mytrips-page .trip-detail-when { color: #07093e; }
+    html.rr-mytrips-page .trip-detail-fact {
+      background: #f4f6fb;
+      border-color: #e2e6ef;
+      color: #07093e;
+    }
+    html.rr-mytrips-page .trip-train-chip {
+      color: #07093e;
+      background: #e8ecf5;
+      border-color: #d0d7e6;
+    }
     html.rr-mytrips-page .trip-detail-notes {
       color: #3a4250;
       background: #fafbfe;
@@ -3259,14 +3271,9 @@
       padding: 8px 14px;
       min-width: 0;
     }
+    /* Legacy labeled meta — superseded by .trip-detail-when + .trip-detail-facts */
     .trip-detail-meta-label {
-      display: inline;
-      font-size: 11px;
-      font-weight: 700;
-      color: #5a6270;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-right: 6px;
+      display: none;
     }
     .trip-detail-meta-value {
       display: inline;
@@ -3395,8 +3402,11 @@
       display: flex;
       justify-content: space-between;
       gap: 8px;
-      align-items: flex-start;
+      align-items: center;
+      margin-bottom: 6px;
     }
+    .trip-log-row-top .trip-log-row-rail { margin-top: 0; flex: 1; min-width: 0; }
+    .trip-log-row-top .trip-log-row-relative { margin-top: 0; flex-shrink: 0; }
     .trip-log-row-rail {
       font-weight: 700;
       color: #3a4250;
@@ -3428,6 +3438,62 @@
       font-weight: 650;
       color: #5a6270;
       font-size: 12px;
+    }
+    .trip-train-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 850;
+      color: #07093e;
+      background: #e8ecf5;
+      border: 1px solid #d0d7e6;
+      line-height: 1.3;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+    .trip-train-chip.compact {
+      font-size: 12px;
+      padding: 2px 8px;
+      font-weight: 800;
+    }
+    .trip-detail-when {
+      margin: 0 0 10px;
+      font-size: clamp(15px, 3.2vw, 18px);
+      font-weight: 750;
+      color: #07093e;
+      letter-spacing: -0.01em;
+      line-height: 1.35;
+    }
+    .trip-detail-facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 16px;
+    }
+    .trip-detail-fact {
+      background: #f4f6fb;
+      border: 1px solid #e2e6ef;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 750;
+      color: #07093e;
+      line-height: 1.35;
+    }
+    .trip-log-row-facts {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 12px;
+      color: #7a8290;
+    }
+    .trip-log-row-facts .trip-log-row-miles,
+    .trip-log-row-facts .trip-log-row-stock {
+      margin-top: 0;
     }
     .trip-log-seg-chips {
       display: flex;
@@ -3702,6 +3768,7 @@
       display: none !important;
     }
 
+    /* Trip cards easy-read: train chip + unlabeled when */
     /* Trip cards: railroad-color fill + light contrast (primary/first segment via --rr-trip-rail) */
     .trip-log-row[data-rail-accent],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] {
@@ -3719,11 +3786,22 @@
     }
     .trip-log-row[data-rail-accent] .trip-log-row-route,
     .trip-log-row[data-rail-accent] .trip-log-row-rail,
-    .trip-log-row[data-rail-accent] .trip-rail-badge-train,
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-route,
-    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-rail,
-    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-rail-badge-train {
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-rail {
       color: #fff;
+    }
+    /* High-contrast train chip on rail-colored cards (never muted white-on-color) */
+    .trip-log-row[data-rail-accent] .trip-train-chip,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-train-chip {
+      color: #07093e !important;
+      background: #fff;
+      border-color: rgba(255, 255, 255, 0.95);
+      font-weight: 850;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-facts,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-facts {
+      color: rgba(255, 255, 255, 0.82);
     }
     .trip-log-row[data-rail-accent] .trip-log-row-miles,
     .trip-log-row[data-rail-accent] .trip-log-row-meta,
@@ -5112,7 +5190,8 @@
         <h2 class="trip-detail-route" id="trip-detail-route">—</h2>
         <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
         <p class="trip-detail-line" id="trip-detail-line"></p>
-        <div class="trip-detail-meta" id="trip-detail-meta"></div>
+        <p class="trip-detail-when" id="trip-detail-when" hidden></p>
+        <div class="trip-detail-facts" id="trip-detail-meta"></div>
         <p class="trip-detail-stock" id="trip-detail-stock" hidden></p>
         <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
         <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
@@ -9257,10 +9336,9 @@
 
       const badges = document.getElementById('trip-detail-badges');
       if (badges) {
-        const train = tripDisplayTrain(data);
         badges.innerHTML = (railIds.map(tripRailBadgeHtml).join('') ||
           '<span class="trip-rail-badge" style="background:#07093e">Trip</span>') +
-          (train ? (' <span class="trip-rail-badge-train">' + train.replace(/</g, '&lt;') + '</span>') : '');
+          tripTrainChipHtml(data);
       }
 
       const od = tripDetailOriginDest(data);
@@ -9279,25 +9357,32 @@
 
       try { startTripDetailRelativeTimer(data); } catch (_) { paintTripDetailRelative(data); }
 
+      const whenEl = document.getElementById('trip-detail-when');
+      if (whenEl) {
+        const when = tripDisplayWhen(data);
+        if (when) {
+          whenEl.hidden = false;
+          whenEl.textContent = when;
+        } else {
+          whenEl.hidden = true;
+          whenEl.textContent = '';
+        }
+      }
+
       const meta = document.getElementById('trip-detail-meta');
       if (meta) {
-        const when = tripDisplayWhen(data);
+        /* Unlabeled fact chips only — no "When" / uppercase micro-labels */
         const railLabel = tripDisplayRail(data);
-        const items = [
-          { label: 'When', value: when },
-          { label: 'Railroad', value: railLabel },
-          { label: 'Distance', value: formatTripMiles(data.miles) }
-        ];
-        const train = tripDisplayTrain(data);
-        if (train) items.push({ label: 'Train', value: train });
-        meta.innerHTML = items.map(function(it) {
-          return '<div class="trip-detail-meta-item">' +
-            '<span class="trip-detail-meta-label">' + it.label + '</span>' +
-            '<span class="trip-detail-meta-value"></span></div>';
-        }).join('');
-        const vals = meta.querySelectorAll('.trip-detail-meta-value');
-        items.forEach(function(it, i) {
-          if (vals[i]) vals[i].textContent = it.value;
+        const facts = [];
+        if (railLabel) facts.push(railLabel);
+        const milesTxt = formatTripMiles(data.miles);
+        if (milesTxt && milesTxt !== '—') facts.push(milesTxt);
+        meta.innerHTML = '';
+        facts.forEach(function(val) {
+          const pill = document.createElement('span');
+          pill.className = 'trip-detail-fact';
+          pill.textContent = val;
+          meta.appendChild(pill);
         });
       }
 
@@ -9340,7 +9425,7 @@
           const top = document.createElement('div');
           top.className = 'trip-detail-seg-top';
           top.innerHTML = tripRailBadgeHtml(rr) +
-            (s.trainNumber ? ('<span class="trip-rail-badge-train">#' + String(s.trainNumber).replace(/</g, '&lt;') + '</span>') : '') +
+            tripTrainChipHtml(s.trainNumber, true) +
             '<span class="trip-rail-badge-train">Leg ' + (i + 1) + '</span>';
           const odEl = document.createElement('div');
           odEl.className = 'trip-detail-seg-od';
@@ -9756,6 +9841,28 @@
       return data.trainNumber ? ('#' + String(data.trainNumber)) : '';
     }
 
+    /** Numbers only (no #) for Train chip label, e.g. "173" or "173 / 86". */
+    function tripDisplayTrainNumbers(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        return segs.map(function(s) { return s.trainNumber ? String(s.trainNumber) : ''; }).filter(Boolean).join(' / ');
+      }
+      return data.trainNumber ? String(data.trainNumber) : '';
+    }
+
+    /** Prominent "Train N" chip HTML; omit entirely if no number. compact=true for segment cards. */
+    function tripTrainChipHtml(dataOrNumber, compact) {
+      let nums = '';
+      if (dataOrNumber != null && typeof dataOrNumber === 'object') {
+        nums = tripDisplayTrainNumbers(dataOrNumber);
+      } else if (dataOrNumber != null && String(dataOrNumber).trim()) {
+        nums = String(dataOrNumber).replace(/^#/, '').trim();
+      }
+      if (!nums) return '';
+      const cls = compact ? 'trip-train-chip compact' : 'trip-train-chip';
+      return '<span class="' + cls + '">Train ' + nums.replace(/</g, '&lt;') + '</span>';
+    }
+
     function tripDisplayWhen(data) {
       const segs = Array.isArray(data.segments) ? data.segments : null;
       if (segs && segs.length) {
@@ -9820,7 +9927,6 @@
         row.setAttribute('tabindex', '0');
         tripLogDataById[doc.id] = data;
         const railIds = tripRailIdsFromData(data);
-        const train = tripDisplayTrain(data);
         const route = tripDisplayRoute(data);
         row.setAttribute('aria-label', 'View trip: ' + route);
         const miles = formatTripMiles(data.miles);
@@ -9830,14 +9936,14 @@
         row.style.setProperty('--rr-trip-rail', accent);
         const badges = railIds.map(tripRailBadgeHtml).join('') ||
           '<span class="trip-rail-badge" style="background:#07093e">Trip</span>';
-        const trainHtml = train ? ('<span class="trip-rail-badge-train">' + train.replace(/</g, '&lt;') + '</span>') : '';
+        const trainHtml = tripTrainChipHtml(data);
         const segs = Array.isArray(data.segments) ? data.segments : null;
         let chipsHtml = '';
         if (segs && segs.length > 1) {
           chipsHtml = '<div class="trip-log-seg-chips">' + segs.map(function(s, i) {
             const rr = String(s.railroad || '').toLowerCase();
             const line = s.lineName ? String(s.lineName) : '';
-            const tn = s.trainNumber ? ('#' + s.trainNumber) : '';
+            const tn = s.trainNumber ? ('Train ' + s.trainNumber) : '';
             const od = (s.originName || '?') + ' → ' + (s.destName || '?');
             const bits = [line, tn, od].filter(Boolean).join(' · ');
             return '<span class="trip-seg-chip" style="--rr-trip-rail:' + tripRailColor(rr) + '">' +
@@ -9851,12 +9957,16 @@
               '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
             '</button>' +
           '</div>' +
+          '<div class="trip-log-row-top">' +
+            '<div class="trip-log-row-rail">' + badges + trainHtml + '</div>' +
+            '<div class="trip-log-row-relative" hidden></div>' +
+          '</div>' +
           '<div class="trip-log-row-route"></div>' +
-          '<div class="trip-log-row-rail">' + badges + trainHtml + '</div>' +
-          '<div class="trip-log-row-relative" hidden></div>' +
           '<div class="trip-log-row-meta"></div>' +
-          '<div class="trip-log-row-miles"></div>' +
-          '<div class="trip-log-row-stock" hidden></div>' +
+          '<div class="trip-log-row-facts">' +
+            '<span class="trip-log-row-miles"></span>' +
+            '<span class="trip-log-row-stock" hidden></span>' +
+          '</div>' +
           chipsHtml +
           '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>';
         row.querySelector('.trip-log-row-route').textContent = route;
