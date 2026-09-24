@@ -13411,6 +13411,12 @@ function closeTripDetailView(opts) {
     }
 
     
+    function rrPreferRedirectSignIn() {
+      try {
+        const ua = navigator.userAgent || '';
+        return /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(ua);
+      } catch (_) { return false; }
+    }
     async function signInWithGoogle() {
       if (!auth) {
         showNotification('Firebase is not configured. See SETUP.md.', 'error');
@@ -13418,6 +13424,10 @@ function closeTripDetailView(opts) {
       }
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
+        if (rrPreferRedirectSignIn()) {
+          await auth.signInWithRedirect(provider);
+          return;
+        }
         const cred = await auth.signInWithPopup(provider);
         if (cred && cred.user) await upsertAccountMirror(cred.user);
         try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
@@ -13652,6 +13662,10 @@ function closeTripDetailView(opts) {
       signInWithGoogle();
     }
     function requestGoogleSignIn() {
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+        signInWithGoogle();
+        return;
+      }
       if (isSessionLegalAgreed()) {
         markSessionLegalAgreed();
         signInWithGoogle();
@@ -13739,6 +13753,13 @@ function closeTripDetailView(opts) {
       wireLegalAcceptUI();
       wireInterestRailroadUI();
       if (auth) {
+        try {
+          auth.getRedirectResult().then(function(cred) {
+            if (cred && cred.user && typeof upsertAccountMirror === 'function') {
+              upsertAccountMirror(cred.user).catch(function() {});
+            }
+          }).catch(function(e) { console.warn('[Auth] redirect result', e); });
+        } catch (e) { console.warn('[Auth] redirect hook', e); }
         auth.onAuthStateChanged(async function(user) {
           currentUser = user;
           rrIdentifyBetterStack(user);
