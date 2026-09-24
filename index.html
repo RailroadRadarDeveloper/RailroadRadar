@@ -12007,6 +12007,42 @@ function closeTripDetailView(opts) {
       empty.hidden = !on;
     }
 
+
+    function tripStartMs(data) {
+      if (!data) return 0;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const raw = (segs && segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime;
+      const d = raw ? new Date(raw) : null;
+      return (d && !isNaN(d.getTime())) ? d.getTime() : 0;
+    }
+    function tripIsUpcoming(data) {
+      return tripStartMs(data) >= Date.now();
+    }
+    function ensureTripLogSections(list) {
+      if (!list) return {};
+      let upcoming = document.getElementById('trip-log-upcoming');
+      let past = document.getElementById('trip-log-past');
+      if (!upcoming) {
+        upcoming = document.createElement('section');
+        upcoming.id = 'trip-log-upcoming';
+        upcoming.className = 'trip-log-section';
+        upcoming.innerHTML = '<h3 class="trip-log-section-title">Upcoming trips</h3><div class="trip-log-section-rows" id="trip-log-upcoming-rows"></div>';
+        list.appendChild(upcoming);
+      }
+      if (!past) {
+        past = document.createElement('section');
+        past.id = 'trip-log-past';
+        past.className = 'trip-log-section';
+        past.innerHTML = '<h3 class="trip-log-section-title">Past trips</h3><div class="trip-log-section-rows" id="trip-log-past-rows"></div>';
+        list.appendChild(past);
+      }
+      return {
+        upcoming: upcoming,
+        past: past,
+        upcomingRows: document.getElementById('trip-log-upcoming-rows'),
+        pastRows: document.getElementById('trip-log-past-rows')
+      };
+    }
     function renderTripLogRows(docs, append) {
       const list = document.getElementById('trip-log-list');
       const empty = document.getElementById('trip-log-empty');
@@ -12016,11 +12052,18 @@ function closeTripDetailView(opts) {
         try { Object.keys(tripLogDataById).forEach(function(k) { delete tripLogDataById[k]; }); } catch (_) {}
         list.innerHTML = '';
       }
+      const sections = ensureTripLogSections(list);
+      const upcomingRows = sections.upcomingRows || list;
+      const pastRows = sections.pastRows || list;
       if (!docs.length && !append) {
         setTripLogEmptyVisible(true);
         return;
       }
       setTripLogEmptyVisible(false);
+      let upcomingCount = upcomingRows ? upcomingRows.querySelectorAll('.trip-log-row').length : 0;
+      let pastCount = pastRows ? pastRows.querySelectorAll('.trip-log-row').length : 0;
+      if (sections.upcoming) sections.upcoming.hidden = !upcomingRows.querySelector('.trip-log-row');
+      if (sections.past) sections.past.hidden = !pastRows.querySelector('.trip-log-row');
       docs.forEach(function(doc) {
         const data = doc.data() || {};
         const row = document.createElement('div');
@@ -12098,7 +12141,7 @@ function closeTripDetailView(opts) {
             relEl.textContent = '';
           }
         }
-        list.appendChild(row);
+        if (tripIsUpcoming(data)) { upcomingRows.appendChild(row); upcomingCount++; } else { pastRows.appendChild(row); pastCount++; };
         try {
           const mapEl = row.querySelector('.trip-log-row-map');
           if (mapEl) scheduleTripLogMiniMap(mapEl, data);
