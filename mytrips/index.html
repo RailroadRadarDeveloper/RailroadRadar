@@ -831,6 +831,21 @@
       margin: -2px 0 8px;
       line-height: 1.35;
     }
+    /* Trip live in-progress light */
+    .trip-detail-live {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #07093e;
+    }
+    .trip-detail-live[data-live-state="on-time"] { color: #1a7f37; }
+    .trip-detail-live[data-live-state="late"] { color: #b45309; }
+    .trip-detail-live[data-live-state="very-late"] { color: #b00020; }
+    .trip-detail-live[data-live-state="arriving"] { color: #1d4ed8; }
+    .trip-detail-live[data-live-state="done"] { color: #5a6577; }
+    .trip-detail-live[data-live-state="miss"] { color: #5a6577; font-weight: 600; }
+    html.rr-mytrips-page .trip-detail-live { color: #07093e; }
     html.rr-train-page,
     html.rr-train-page body {
       overflow: auto;
@@ -5433,6 +5448,7 @@
       <div class="trip-detail-body">
         <div class="trip-detail-badges" id="trip-detail-badges"></div>
         <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
+        <p class="trip-detail-live" id="trip-detail-live" hidden></p>
         <p class="trip-detail-line" id="trip-detail-line"></p>
         <p class="trip-detail-when" id="trip-detail-when" hidden></p>
         <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
@@ -9471,6 +9487,7 @@
     }
 
     function destroyTripDetailMap() {
+      try { tripLiveClearMarker(); } catch (_) {}
       if (tripDetailMap) {
         try { tripDetailMap.remove(); } catch (_) {}
         tripDetailMap = null;
@@ -9816,6 +9833,233 @@
 
     let tripDetailHistoryOpen = false;
 
+
+    /* Trip live in-progress light */
+    // Lean "in progress": wall-clock between depart and arrive (no Firestore status field).
+    // Poll ONLY while detail is open; pause when tab hidden; reuse map live rows; ZERO Firestore writes on poll.
+    const TRIP_LIVE_POLL_MS = 50000;
+    const TRIP_LIVE_MAX_MISSES = 3;
+    const TRIP_LIVE_PRE_DEPART_MS = 15 * 60 * 1000;
+    const TRIP_LIVE_POST_ARRIVE_MS = 30 * 60 * 1000;
+    let tripLiveTimer = null;
+    let tripLiveMisses = 0;
+    let tripLiveMarker = null;
+    let tripLiveActiveId = null;
+    let tripLiveData = null;
+    let tripLiveVisBound = false;
+
+    function tripIsInProgressLight(data) {
+      if (!data) return false;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const startIso = (segs && segs[0] && segs[0].departTime) || data.startTime;
+      const endIso = (segs && segs.length && segs[segs.length - 1].arriveTime) || data.endTime;
+      const start = startIso ? Date.parse(startIso) : NaN;
+      if (!isFinite(start)) return false;
+      const now = Date.now();
+      if (now < start - TRIP_LIVE_PRE_DEPART_MS) return false;
+      const end = endIso ? Date.parse(endIso) : NaN;
+      if (isFinite(end) && now > end + TRIP_LIVE_POST_ARRIVE_MS) return false;
+      return true;
+    }
+
+    function tripLiveClearMarker() {
+      if (tripLiveMarker) {
+        try { tripLiveMarker.remove(); } catch (_) {}
+        tripLiveMarker = null;
+      }
+    }
+
+    function tripLiveSetStatus(text, state) {
+      const el = document.getElementById('trip-detail-live');
+      if (!el) return;
+      if (!text) {
+        el.hidden = true;
+        el.textContent = '';
+        el.removeAttribute('data-live-state');
+        return;
+      }
+      el.hidden = false;
+      el.textContent = text;
+      if (state) el.setAttribute('data-live-state', state);
+      else el.removeAttribute('data-live-state');
+    }
+
+    function tripLivePickSegment(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const now = Date.now();
+        for (let i = 0; i < segs.length; i++) {
+          const a = segs[i].arriveTime ? Date.parse(segs[i].arriveTime) : NaN;
+          if (!isFinite(a) || now <= a + 5 * 60 * 1000) return segs[i];
+        }
+        return segs[segs.length - 1];
+      }
+      return {
+        railroad: data.railroad,
+        trainNumber: data.trainNumber,
+        vehicleId: data.vehicleId
+      };
+    }
+
+    function tripFindLiveRowForTrip(data) {
+      const seg = tripLivePickSegment(data);
+      const agency = tripNormalizeAgency(seg.railroad || data.railroad);
+      const trainNum = String(seg.trainNumber || data.trainNumber || '').split('/')[0].replace(/^#/, '').trim();
+      const vid = String(seg.vehicleId || data.vehicleId || '').trim();
+      try {
+        if (typeof window.rrFindSharedTrain === 'function') {
+          if (vid) {
+            const byVid = window.rrFindSharedTrain({ agency: agency, id: vid });
+            if (byVid) return byVid;
+          }
+          if (trainNum) {
+            const byNum = window.rrFindSharedTrain({ agency: agency, id: trainNum });
+            if (byNum) return byNum;
+          }
+        }
+      } catch (_) {}
+      try {
+        if (typeof window.rrCollectLiveTrainRows === 'function') {
+          const rows = window.rrCollectLiveTrainRows() || [];
+          const wantA = agency;
+          const wantNum = trainNum.replace(/^0+/, '') || trainNum;
+          const wantVid = vid.replace(/^0+/, '') || vid;
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const a = tripNormalizeAgency(r.agency);
+            if (wantA && a && a !== wantA && !(wantA === 'ctrail' && a === 'amtrak')) continue;
+            const ids = [r.id, r.trainNum, r.vehicleLabel].map(function(x) {
+              return String(x || '').trim();
+            });
+            if (wantVid && ids.some(function(x) {
+              return x === vid || (x.replace(/^0+/, '') || x) === wantVid;
+            })) return r;
+            if (wantNum && ids.some(function(x) {
+              const bare = x.replace(/^0+/, '') || x;
+              return x === trainNum || bare === wantNum;
+            })) return r;
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function tripLiveStatusFromRow(row, data) {
+      if (!row) return { text: '', state: '' };
+      const endIso = (data.segments && data.segments.length && data.segments[data.segments.length - 1].arriveTime) || data.endTime;
+      const end = endIso ? Date.parse(endIso) : NaN;
+      if (isFinite(end) && Date.now() > end + TRIP_LIVE_POST_ARRIVE_MS) {
+        return { text: 'Done', state: 'done' };
+      }
+      const raw = String(row.statusText || '').trim();
+      const cls = String(row.statusClass || '');
+      if (/complet|arrived|done/i.test(raw)) return { text: 'Done', state: 'done' };
+      if (/arriv/i.test(raw) || /INCOMING|STOPPED_AT/i.test(String(row.stopLabel || ''))) {
+        return { text: raw || ('Arriving · ' + (row.stopName || '')), state: 'arriving' };
+      }
+      if (cls.indexOf('very-delay') >= 0 || /very|hours?/i.test(raw)) {
+        return { text: raw || 'Running late', state: 'very-late' };
+      }
+      if (cls.indexOf('delay') >= 0 || /late|delay/i.test(raw)) {
+        return { text: raw || 'Late', state: 'late' };
+      }
+      if (/on.?time|scheduled|predeparture/i.test(raw) || cls.indexOf('on-time') >= 0) {
+        return { text: raw || 'On time', state: 'on-time' };
+      }
+      const bits = [];
+      if (raw) bits.push(raw);
+      else bits.push('Live');
+      if (row.stopName && row.stopName !== '—') bits.push((row.stopLabel || 'Near') + ' ' + row.stopName);
+      return { text: bits.join(' · '), state: 'on-time' };
+    }
+
+    function tripLivePaintMarker(row) {
+      tripLiveClearMarker();
+      if (!tripDetailMap || !row) return;
+      const lat = Number(row.lat);
+      const lng = Number(row.lng != null ? row.lng : row.lon);
+      if (!isFinite(lat) || !isFinite(lng)) return;
+      try {
+        tripLiveMarker = L.circleMarker([lat, lng], {
+          radius: 8,
+          color: '#fff',
+          weight: 2,
+          fillColor: '#2563eb',
+          fillOpacity: 1,
+          className: 'trip-live-train-marker'
+        }).addTo(tripDetailMap);
+        tripLiveMarker.bindTooltip('Live train', { direction: 'top', opacity: 0.9 });
+      } catch (_) {}
+    }
+
+    function tripLiveTick() {
+      if (!tripLiveActiveId || !tripLiveData) return;
+      if (document.visibilityState === 'hidden') return;
+      const overlay = document.getElementById('trip-detail-overlay');
+      if (!overlay || !overlay.classList.contains('open')) {
+        stopTripLiveTracking();
+        return;
+      }
+      if (!tripIsInProgressLight(tripLiveData)) {
+        tripLiveSetStatus('Done', 'done');
+        tripLiveClearMarker();
+        stopTripLiveTracking(true);
+        return;
+      }
+      const row = tripFindLiveRowForTrip(tripLiveData);
+      if (!row) {
+        tripLiveMisses += 1;
+        if (tripLiveMisses >= TRIP_LIVE_MAX_MISSES) {
+          tripLiveSetStatus('Live position unavailable — showing scheduled times', 'miss');
+          stopTripLiveTracking(true);
+        } else {
+          tripLiveSetStatus('Looking for live train…', 'miss');
+        }
+        return;
+      }
+      tripLiveMisses = 0;
+      const st = tripLiveStatusFromRow(row, tripLiveData);
+      tripLiveSetStatus(st.text, st.state);
+      tripLivePaintMarker(row);
+      // Display-only: do NOT write live position or ETA back to Firestore.
+    }
+
+    function stopTripLiveTracking(keepStatus) {
+      if (tripLiveTimer) {
+        try { clearInterval(tripLiveTimer); } catch (_) {}
+        tripLiveTimer = null;
+      }
+      tripLiveActiveId = null;
+      tripLiveData = null;
+      tripLiveMisses = 0;
+      tripLiveClearMarker();
+      if (!keepStatus) tripLiveSetStatus('', '');
+    }
+
+    function startTripLiveTracking(tripId, data) {
+      stopTripLiveTracking();
+      if (!tripId || !data || !tripIsInProgressLight(data)) {
+        tripLiveSetStatus('', '');
+        return;
+      }
+      // Cap: only the open detail trip
+      tripLiveActiveId = tripId;
+      tripLiveData = data;
+      tripLiveMisses = 0;
+      if (!tripLiveVisBound) {
+        tripLiveVisBound = true;
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible' && tripLiveActiveId) {
+            tripLiveTick();
+          }
+        });
+      }
+      tripLiveSetStatus('Tracking live…', 'on-time');
+      // Slight delay so detail map exists
+      setTimeout(function() { tripLiveTick(); }, 400);
+      tripLiveTimer = setInterval(tripLiveTick, TRIP_LIVE_POLL_MS);
+    }
+
     function closeTripDetailView(opts) {
       const fromPop = opts && opts.fromPopstate;
       const overlay = document.getElementById('trip-detail-overlay');
@@ -9824,6 +10068,7 @@
         return;
       }
       try { stopTripDetailRelativeTimer(); } catch (_) {}
+      try { stopTripLiveTracking(); } catch (_) {}
       destroyTripDetailMap();
       overlay.classList.remove('open');
       overlay.setAttribute('aria-hidden', 'true');
@@ -9890,9 +10135,11 @@
       rrEnsureTripGeomsShapes(data).then(function() {
         if (tripDetailOpenId !== tripId) return;
         paintTripDetailMap(mapEl, data);
+        try { startTripLiveTracking(tripId, data); } catch (_) {}
       }).catch(function() {
         if (tripDetailOpenId !== tripId) return;
         paintTripDetailMap(mapEl, data);
+        try { startTripLiveTracking(tripId, data); } catch (_) {}
       });
     }
 
@@ -10006,6 +10253,7 @@
           trainNumber: trainNumber,
           departTime: (card.querySelector('[data-seg-field="depart"]') || {}).value || '',
           arriveTime: (card.querySelector('[data-seg-field="arrive"]') || {}).value || '',
+          vehicleId: prev.vehicleId || '',
           trainExtraMode: !!prev.trainExtraMode,
           scheduleStops: prev.scheduleStops || null,
           useFullStationList: !!prev.useFullStationList,
@@ -10183,6 +10431,7 @@
         originId: '',
         destId: '',
         trainNumber: '',
+        vehicleId: '',
         departTime: defaultTripStartLocalValue(),
         arriveTime: '',
         trainExtraMode: false,
@@ -10915,7 +11164,7 @@
         let miles = estimateTripMiles(rr, originId, destId, lineId);
         if (miles == null) miles = 0;
         totalMiles += Number(miles) || 0;
-        segments.push({
+        const segOut = {
           railroad: rr,
           lineId: lineId,
           lineName: lineNameFor(rr, lineId),
@@ -10927,7 +11176,10 @@
           departTime: departIso,
           arriveTime: arriveIso,
           miles: Number(miles) || 0
-        });
+        };
+        const vid = String(seg.vehicleId || '').trim();
+        if (vid) segOut.vehicleId = vid.slice(0, 64);
+        segments.push(segOut);
       }
       const first = segments[0];
       const last = segments[segments.length - 1];
@@ -11127,6 +11379,7 @@
       const seg = emptyTripSegment({
         railroad: rr,
         trainNumber: String(prefill.trainNumber || '').trim(),
+        vehicleId: String(prefill.vehicleId || '').trim(),
         departTime: isoToLocalInput(prefill.departTime) || defaultTripStartLocalValue(),
         arriveTime: isoToLocalInput(prefill.arriveTime) || '',
         trainExtraMode: !tripHasSchedulePicker(rr),
@@ -19551,6 +19804,8 @@
         }
         return fallback;
       }
+      try { window.rrCollectLiveTrainRows = collectLiveTrainRows; } catch (_) {}
+      try { window.rrFindSharedTrain = rrFindSharedTrain; } catch (_) {}
       window.shareTrainLink = async function(agency, vid, trainNum) {
         const url = rrTrainShareUrl(agency, vid, trainNum);
         try {
