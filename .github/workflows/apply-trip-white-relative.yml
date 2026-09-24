@@ -1,0 +1,18 @@
+          assert 'html.rr-mytrips-page #trip-log-close' in t
+          assert 'display: none !important;' in t
+          assert 'Departs in ' in t
+          assert 'Departed ' in t
+          assert 'rrTripMapTileLayer' in t
+          assert 'mapbox/dark-v11' in t
+          assert 'dark inverted chrome' not in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('formatTripRelativeDepart') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: white chrome, remove X, relative depart timing"
+            git push
+          fi
