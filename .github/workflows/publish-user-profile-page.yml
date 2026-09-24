@@ -1,0 +1,42 @@
+name: Publish /user profile page
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/user-index.html.b64.part*'
+      - '.github/workflows/publish-user-profile-page.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble user/index.html from b64 parts
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, hashlib, pathlib
+          expected_b64 = "021a89e6dbe9e7f8bc37ecee8db89a35a9852585b9e1897808d633f6785e0a1e"
+          expected_raw = "a7bf290644033213f29d574e014fa1c1f1dabac70ee624d6fc9833d9741c42cb"
+          parts = sorted(pathlib.Path('scripts').glob('user-index.html.b64.part*'))
+          if not parts:
+            raise SystemExit('missing user-index parts')
+          blob = ''.join(p.read_text().strip() for p in parts)
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected_b64:
+            raise SystemExit(f'b64 hash mismatch {h}')
+          raw = base64.b64decode(blob)
+          if hashlib.sha256(raw).hexdigest() != expected_raw:
+            raise SystemExit('raw hash mismatch')
+          pathlib.Path('user').mkdir(exist_ok=True)
+          pathlib.Path('user/index.html').write_bytes(raw)
+          assert b'Public user profile page' in raw
+          print('ok', len(raw))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add user/index.html
+          if git diff --cached --quiet; then echo nothing
+          else git commit -m "Add /user public profile page" && git push
+          fi
