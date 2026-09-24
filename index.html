@@ -4240,6 +4240,156 @@
       }
     }
 
+
+    /* Trip map light theme */
+    .trip-detail-map,
+    .trip-detail-map .leaflet-container,
+    .trip-log-row-map,
+    .trip-log-row-map .leaflet-container,
+    html.rr-mytrips-page .trip-detail-map,
+    html.rr-mytrips-page .trip-detail-map .leaflet-container,
+    html.rr-mytrips-page .trip-log-row-map,
+    html.rr-mytrips-page .trip-log-row-map .leaflet-container,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-map,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-map .leaflet-container,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-map,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-map .leaflet-container {
+      background: #e8ecf2;
+    }
+    .trip-detail-map.is-empty::after,
+    .trip-log-row-map.is-empty::after,
+    html.rr-mytrips-page .trip-detail-map.is-empty::after,
+    html.rr-mytrips-page .trip-log-row-map.is-empty::after {
+      color: #5a6577;
+    }
+
+    /* Trip detail less transparent */
+    /* Detail-only: raise glass alpha on rail bg so pills/notes/segs read solid. List cards unchanged. */
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-toolbar,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-toolbar {
+      background: rgba(0, 0, 0, 0.28);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+    }
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-fact,
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-meta-item,
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-miles-pill,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-fact,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-meta-item,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-miles-pill {
+      background: rgba(255, 255, 255, 0.36);
+      border-color: rgba(255, 255, 255, 0.48);
+      color: #fff;
+    }
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-notes,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-notes {
+      background: rgba(255, 255, 255, 0.30);
+      border-left-color: rgba(255, 255, 255, 0.7);
+      color: #fff;
+    }
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-seg {
+      background: rgba(255, 255, 255, 0.30);
+      border-color: rgba(255, 255, 255, 0.40);
+      border-left-color: rgba(255, 255, 255, 0.75);
+      color: #fff;
+    }
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-rail-badge,
+    html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-rail-badge {
+      background: rgba(255, 255, 255, 0.36) !important;
+      border-color: rgba(255, 255, 255, 0.48);
+    }
+    #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-detail-accent {
+      background: rgba(0, 0, 0, 0.32);
+    }
+
+    /* Trip detail segment spacing */
+    /* Loosen fit-viewport crush for readable multi-leg detail; single-leg still mostly one screen. */
+    #trip-detail-overlay .trip-detail-toolbar {
+      padding: 10px 14px 8px;
+    }
+    #trip-detail-overlay .trip-detail-body {
+      padding: 6px 14px max(12px, env(safe-area-inset-bottom, 0px));
+    }
+    #trip-detail-overlay .trip-detail-badges {
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    #trip-detail-overlay .trip-detail-relative {
+      margin: 0 0 6px;
+    }
+    #trip-detail-overlay .trip-detail-live {
+      margin: 0 0 6px;
+    }
+    #trip-detail-overlay .trip-detail-line {
+      margin: 0 0 6px;
+    }
+    #trip-detail-overlay .trip-detail-when {
+      margin: 0 0 10px;
+    }
+    #trip-detail-overlay .trip-detail-notes {
+      margin: 0 0 10px;
+      padding: 8px 12px;
+    }
+    #trip-detail-overlay .trip-detail-seg-title {
+      margin: 6px 0 8px;
+    }
+    #trip-detail-overlay .trip-detail-segs {
+      gap: 12px;
+      margin: 4px 0 8px;
+    }
+    #trip-detail-overlay .trip-detail-seg {
+      padding: 12px 12px;
+    }
+    #trip-detail-overlay .trip-detail-seg-top {
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    #trip-detail-overlay .trip-detail-seg-od {
+      line-height: 1.25;
+    }
+    #trip-detail-overlay .trip-detail-seg-sub {
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+    #trip-detail-overlay .trip-detail-facts {
+      margin-top: 12px;
+      margin-bottom: 4px;
+      gap: 8px;
+    }
+    /* 2+ segment legs: clearer separation (slight scroll OK) */
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-map,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-map,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-map,
+    #trip-detail-overlay[data-seg-count="5"] .trip-detail-map,
+    #trip-detail-overlay[data-seg-count="6"] .trip-detail-map {
+      height: clamp(120px, 24vh, 180px);
+      min-height: 120px;
+      max-height: 180px;
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-segs,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-segs,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-segs,
+    #trip-detail-overlay[data-seg-count="5"] .trip-detail-segs,
+    #trip-detail-overlay[data-seg-count="6"] .trip-detail-segs,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) {
+      gap: 14px;
+      margin: 8px 0 12px;
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="5"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="6"] .trip-detail-seg,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg {
+      padding: 14px 12px;
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-facts,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-facts,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-facts,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) ~ .trip-detail-facts {
+      margin-top: 14px;
+    }
+
     /* Trip dual-rail diagonal */
     /* 2+ distinct railroads → diagonal split of first two colors (135deg). Single-rail stays solid. */
     .trip-log-row[data-rail-accent][data-rail-dual],
@@ -9241,11 +9391,12 @@
     // ---- Trip list mini-maps (Leaflet under each My trips card) ----
     const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
     let tripLogMiniMapIO = null;
-    // Same Mapbox Dark pipeline as main map (via Worker /api/mapbox proxy)
+    /* Trip map light theme */
+    // Trip mini-maps + detail map use Mapbox light-v11 via Worker /api/mapbox proxy (home live map stays dark/default).
     const TRIP_MAP_EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     function rrTripMapTileUrl() {
       const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
-      return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}';
+      return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}';
     }
     function rrTripMapTileLayer(opts) {
       const o = opts || {};
@@ -9522,7 +9673,7 @@
           touchZoom: false,
           closePopupOnClick: false
         });
-        rrTripMapTileLayer({ maxZoom: 20, opacity: 0.92 }).addTo(map);
+        rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
       } catch (e) {
         console.warn('[trip-map] init failed', e);
         el.classList.remove('is-loading');
@@ -9538,7 +9689,7 @@
             L.polyline(g.line, {
               color: g.color || '#07093e',
               weight: 5,
-              opacity: 0.92,
+              opacity: 1,
               lineJoin: 'round',
               lineCap: 'round'
             }).addTo(map);
@@ -9569,7 +9720,7 @@
           try {
             L.circleMarker(ll, {
               radius: 5,
-              color: '#fff',
+              color: '#1a2030',
               weight: 2,
               fillColor: isOrigin ? '#1a7f37' : '#b00020',
               fillOpacity: 1
@@ -9583,7 +9734,7 @@
             L.circleMarker(ll, {
               radius: 3.5,
               color: '#07093e',
-              weight: 1.5,
+              weight: 2,
               fillColor: '#fff',
               fillOpacity: 1
             }).addTo(map);
@@ -9730,7 +9881,7 @@
           keyboard: true,
           touchZoom: true
         });
-        rrTripMapTileLayer({ maxZoom: 20, opacity: 0.95 }).addTo(map);
+        rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
       } catch (e) {
         console.warn('[trip-detail] map init failed', e);
         el.classList.remove('is-loading');
@@ -9746,7 +9897,7 @@
             L.polyline(g.line, {
               color: g.color || '#07093e',
               weight: 7,
-              opacity: 0.95,
+              opacity: 1,
               lineJoin: 'round',
               lineCap: 'round'
             }).addTo(map);
@@ -9777,7 +9928,7 @@
           try {
             L.circleMarker(ll, {
               radius: 9,
-              color: '#fff',
+              color: '#1a2030',
               weight: 3,
               fillColor: isOrigin ? '#1a7f37' : '#b00020',
               fillOpacity: 1
@@ -9877,6 +10028,11 @@
       const panel = document.querySelector('#trip-detail-overlay .trip-detail-panel');
       const applied = tripApplyRailAccentVars(panel, railIds, { primaryAttr: true });
       tripApplyRailAccentVars(overlay, railIds, { primaryAttr: true });
+      if (overlay) {
+        const segN = Array.isArray(data.segments) ? data.segments.length : (data.originName || data.destName ? 1 : 0);
+        if (segN > 0) overlay.setAttribute('data-seg-count', String(Math.min(segN, 6)));
+        else overlay.removeAttribute('data-seg-count');
+      }
       try {
         document.documentElement.style.setProperty('--rr-trip-rail', applied.accent);
         if (applied.dual) {
@@ -10187,8 +10343,8 @@
       try {
         tripLiveMarker = L.circleMarker([lat, lng], {
           radius: 8,
-          color: '#fff',
-          weight: 2,
+          color: '#1a2030',
+          weight: 2.5,
           fillColor: '#2563eb',
           fillOpacity: 1,
           className: 'trip-live-train-marker'
@@ -10279,6 +10435,7 @@
       overlay.setAttribute('aria-hidden', 'true');
       overlay.hidden = true;
       tripClearRailAccentVars(overlay);
+      try { overlay.removeAttribute('data-seg-count'); } catch (_) {}
       const panel = overlay.querySelector('.trip-detail-panel');
       tripClearRailAccentVars(panel);
       tripDetailOpenId = null;
