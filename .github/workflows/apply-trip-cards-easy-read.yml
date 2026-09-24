@@ -1,1 +1,62 @@
-PLACEHOLDER2
+name: Apply trip cards easy-read
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-cards-easy-read.patch.gz.b64'
+      - '.github/workflows/apply-trip-cards-easy-read.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "c59ad185504d4aa93b337b07af56f064efd7da7a9f4ced26214a1aec6aa04dd7"
+          single = pathlib.Path('scripts/trip-cards-easy-read.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/trip-cards-easy-read.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/trip-cards-easy-read.patch
+          git apply /tmp/trip-cards-easy-read.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'Trip cards easy-read: train chip + unlabeled when' in t
+          assert 'trip-train-chip' in t
+          assert 'tripDisplayTrainNumbers' in t
+          assert 'tripTrainChipHtml' in t
+          assert 'id="trip-detail-when"' in t
+          assert 'trip-detail-facts' in t
+          assert 'trip-log-row-facts' in t
+          assert "label: 'When'" not in t
+          assert 'trip-detail-meta-label' in t  # CSS legacy hide only
+          fn_start = t.find('function fillTripDetailPanel')
+          fn_end = t.find('function closeTripDetailView')
+          assert fn_start > 0 and fn_end > fn_start
+          assert "label: 'When'" not in t[fn_start:fn_end]
+          assert Path('mytrips/index.html').read_text(errors='replace').count('trip-train-chip') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: easy-read train chip + unlabeled datetime (no When label)"
+            git push
+          fi
