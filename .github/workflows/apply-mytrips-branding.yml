@@ -1,0 +1,69 @@
+name: Apply MyTrips branding
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/mytrips-branding.patch.gz.b64'
+      - 'scripts/mytrips-branding.patch.gz.b64.part*'
+      - '.github/workflows/apply-mytrips-branding.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish index + mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, re
+          expected = "382556604ff206f3e217dd09fd3f4447ad04e211a1278d1d3361c5d2d4013856"
+          def part_num(p):
+              m = re.search(r'part(\d+)$', p.name)
+              return int(m.group(1)) if m else 0
+          parts = sorted(pathlib.Path('scripts').glob('mytrips-branding.patch.gz.b64.part*'), key=part_num)
+          single = pathlib.Path('scripts/mytrips-branding.patch.gz.b64')
+          if parts:
+            blob = ''.join(p.read_text().strip() for p in parts)
+            print('using parts', len(parts), 'len', len(blob))
+          elif single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          else:
+            raise SystemExit('missing mytrips-branding patch b64')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/mytrips-branding.patch
+          git apply /tmp/mytrips-branding.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert "document.title = 'MyTrips — RailroadRadar'" in t
+          assert '>MyTrips</a>' in t
+          assert 'id="trip-tab-list">MyTrips</button>' in t
+          assert 'View MyTrips' in t
+          assert "title.textContent = 'MyTrips'" in t
+          assert "modalTitle.textContent = 'MyTrips'" in t
+          assert 'My trips — RailroadRadar' not in t
+          assert "title.textContent = 'My trips'" not in t
+          assert '/mytrips/' in t
+          assert 'rrIsMyTripsPage' in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert "document.title = 'MyTrips — RailroadRadar'" in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Brand: rename user-facing My trips to MyTrips"
+            git push
+          fi
