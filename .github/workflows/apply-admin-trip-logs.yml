@@ -1,0 +1,48 @@
+name: Apply admin trip logs
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/admin-trip-logs.part0.b64'
+      - 'scripts/admin-trip-logs.part1.b64'
+      - 'scripts/admin-trip-logs.part2.b64'
+      - '.github/workflows/apply-admin-trip-logs.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble, decode, commit admin.html
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib
+          expected = "02755876a75b039aca74b05c337c59038e106430ff19d6e9779121727347184f"
+          parts = []
+          for i in range(3):
+              p = pathlib.Path(f'scripts/admin-trip-logs.part{i}.b64')
+              if not p.exists():
+                  raise SystemExit(f'missing {p}')
+              parts.append(p.read_text().strip())
+          blob = ''.join(parts)
+          print('assembled', len(blob))
+          got = hashlib.sha256(blob.encode()).hexdigest()
+          if got != expected:
+              raise SystemExit(f'hash mismatch: {got}')
+          html = gzip.decompress(base64.b64decode(blob)).decode('utf-8')
+          pathlib.Path('admin.html').write_text(html)
+          assert 'admin-tab-trips' in html
+          assert 'Admin trip logs viewer' in html
+          assert 'loadAdminTrips' in html
+          print('ok', len(html))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add admin.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Admin: view users trip logs"
+            git push
+          fi
