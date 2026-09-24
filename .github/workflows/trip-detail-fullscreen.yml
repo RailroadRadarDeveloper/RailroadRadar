@@ -1,0 +1,20 @@
+name: Trip detail fullscreen
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/trip-detail-fullscreen.py
+      - .github/workflows/trip-detail-fullscreen.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/trip-detail-fullscreen.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Restore full-screen trip detail view" && git push; fi
