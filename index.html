@@ -890,7 +890,7 @@
       left: 12px;
       right: 12px;
       bottom: 12px;
-      z-index: 10050;
+      z-index: 10080;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -943,7 +943,7 @@
     #rr-cookie-modal {
       position: fixed;
       inset: 0;
-      z-index: 10060;
+      z-index: 10085;
       display: flex;
       align-items: flex-end;
       justify-content: center;
@@ -2611,6 +2611,44 @@
     html.rr-mytrips-page .leaflet-control-container {
       display: none !important;
     }
+
+    /* Trip mytrips clarity cookies */
+    /* Keep Accept banner + cookie prefs on /mytrips (footer is hidden; Clarity still consent-gated) */
+    html.rr-mytrips-page #rr-cookie-bar,
+    html.rr-mytrips-page #rr-cookie-modal {
+      display: flex !important;
+    }
+    html.rr-mytrips-page #rr-cookie-bar[hidden],
+    html.rr-mytrips-page #rr-cookie-modal[hidden] {
+      display: none !important;
+    }
+    html.rr-mytrips-page #rr-cookie-bar {
+      z-index: 10080;
+    }
+    html.rr-mytrips-page #rr-cookie-modal {
+      z-index: 10085;
+    }
+    html.rr-mytrips-page #rr-cookie-settings-mytrips {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #07093e;
+      background: #fff;
+      border: 1px solid #d0d5e0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    html.rr-mytrips-page #rr-cookie-settings-mytrips:hover,
+    html.rr-mytrips-page #rr-cookie-settings-mytrips:focus-visible {
+      background: #eef1f7;
+      outline: 2px solid #07093e;
+      outline-offset: 1px;
+    }
+    /* Hide mytrips-only cookie settings control on main map */
+    #rr-cookie-settings-mytrips { display: none; }
     html.rr-mytrips-page .header {
       position: sticky;
       top: 0;
@@ -4530,26 +4568,26 @@
     }
 
     /* Trip detail share png */
-    .trip-detail-toolbar {
-      position: relative;
-    }
+    /* Trip share btn bottom left */
     .trip-detail-share-btn {
       position: absolute;
-      top: 8px;
-      right: 10px;
-      z-index: 6;
+      left: max(12px, env(safe-area-inset-left, 0px));
+      bottom: max(12px, env(safe-area-inset-bottom, 0px));
+      top: auto;
+      right: auto;
+      z-index: 9;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       padding: 0;
-      border-radius: 10px;
+      border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.42);
-      background: rgba(255, 255, 255, 0.36);
+      background: rgba(255, 255, 255, 0.42);
       color: #fff;
       cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
     }
     .trip-detail-share-btn:hover,
     .trip-detail-share-btn:focus-visible {
@@ -4589,8 +4627,12 @@
     #trip-detail-overlay.trip-detail-capturing .trip-detail-share-logo {
       display: block;
     }
+    /* Hide download/share control entirely while rasterizing PNG */
+    #trip-detail-overlay.trip-detail-capturing #trip-detail-share,
     #trip-detail-overlay.trip-detail-capturing .trip-detail-share-btn {
-      visibility: hidden;
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
     }
     #trip-detail-overlay .trip-detail-panel {
       position: relative;
@@ -5903,6 +5945,7 @@
       <div class="rr-modal-header">
         <span id="trip-log-title">Trip log</span>
         <div class="trip-log-page-actions">
+          <button type="button" id="rr-cookie-settings-mytrips" aria-label="Cookie settings" title="Cookie settings">Cookie settings</button>
           <button type="button" class="rr-btn" id="trip-log-primary-log" hidden>Log a trip</button>
           <button type="button" class="rr-modal-close" id="trip-log-close" aria-label="Close">×</button>
         </div>
@@ -5974,11 +6017,11 @@
     <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
       <div class="trip-detail-accent" id="trip-detail-accent"></div>
       <img class="trip-detail-share-logo" id="trip-detail-share-logo" alt="RailroadRadar" decoding="async" src="">
-      <div class="trip-detail-toolbar">
-        <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
-        <button type="button" class="trip-detail-share-btn" id="trip-detail-share" aria-label="Share trip image" title="Share / download image">
+      <button type="button" class="trip-detail-share-btn" id="trip-detail-share" aria-label="Share trip image" title="Share / download image">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
         </button>
+      <div class="trip-detail-toolbar">
+        <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
       </div>
       <div class="trip-detail-body">
         <div class="trip-detail-badges" id="trip-detail-badges"></div>
@@ -6622,6 +6665,15 @@
       if (backdrop) backdrop.addEventListener('click', function () {
         closeModal();
       });
+
+      /* Trip mytrips clarity cookies */
+      window.openRrCookieSettings = openModal;
+      var mytripsCookieBtn = document.getElementById('rr-cookie-settings-mytrips');
+      if (mytripsCookieBtn) {
+        mytripsCookieBtn.addEventListener('click', function () {
+          openModal();
+        });
+      }
     })();
   </script>
   <!-- Jotform scripts (unchanged) -->
