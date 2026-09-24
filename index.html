@@ -5560,7 +5560,7 @@
     try {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         document.documentElement.classList.add('rr-mytrips-page');
-        document.title = 'My trips — RailroadRadar';
+        document.title = 'MyTrips — RailroadRadar';
       }
       var _rrShareQ = new URLSearchParams(location.search);
       if (_rrShareQ.get('train') || _rrShareQ.get('t')) {
@@ -5923,7 +5923,7 @@
         <div class="rr-lightbox-section">
           <h3>Trip log</h3>
           <p class="rr-modal-hint" style="margin-top:0;">Log rides and track your miles (approximate). No GPS breadcrumbs stored.</p>
-          <a class="rr-btn" id="account-open-trip-log" href="/mytrips/" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">My trips</a>
+          <a class="rr-btn" id="account-open-trip-log" href="/mytrips/" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">MyTrips</a>
         </div>
 
         <!-- /* Public profile settings */ -->
@@ -5989,7 +5989,7 @@
         </div>
         <div class="trip-log-tabs" role="tablist">
           <button type="button" class="trip-log-tab active" data-trip-tab="log" id="trip-tab-log">Log a trip</button>
-          <button type="button" class="trip-log-tab" data-trip-tab="list" id="trip-tab-list">My trips</button>
+          <button type="button" class="trip-log-tab" data-trip-tab="list" id="trip-tab-list">MyTrips</button>
         </div>
                 <div class="trip-log-pane active" id="trip-pane-log" data-trip-pane="log">
           <div class="rr-lightbox-section" style="border:none; padding:0; margin:0;">
@@ -6003,7 +6003,7 @@
             <div class="rr-modal-error" id="trip-log-error"></div>
             <div class="rr-lightbox-actions" style="margin-top:12px;">
               <button type="button" class="rr-btn" id="trip-log-save">Save trip</button>
-              <button type="button" class="rr-btn secondary" id="trip-log-goto-list">View my trips</button>
+              <button type="button" class="rr-btn secondary" id="trip-log-goto-list">View MyTrips</button>
             </div>
           </div>
         </div>
@@ -6030,7 +6030,7 @@
     </div>
   </div>
 
-  <!-- Trip detail overlay (My trips click → beautiful full trip view) -->
+  <!-- Trip detail overlay (MyTrips click → beautiful full trip view) -->
   <div id="trip-detail-overlay" class="trip-detail-overlay" aria-hidden="true" hidden>
     <div id="trip-detail-map" class="trip-detail-map is-loading" role="img" aria-label="Trip route map"></div>
     <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
@@ -9122,7 +9122,7 @@
       mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
       metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC'
     };
-    /* My Trips railroad badge colors (user-specified + existing app brand accents) */
+    /* MyTrips railroad badge colors (user-specified + existing app brand accents) */
     const TRIP_LOG_RAIL_COLORS = {
       mbta: '#9d1c80',
       amtrak: '#003b5c',
@@ -9813,7 +9813,7 @@
       return isFinite(mi) ? Math.round(mi * 10) / 10 : null;
     }
 
-    // ---- Trip list mini-maps (Leaflet under each My trips card) ----
+    // ---- Trip list mini-maps (Leaflet under each MyTrips card) ----
     const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
     let tripLogMiniMapIO = null;
     /* Trip map light theme */
@@ -12508,7 +12508,7 @@ function closeTripDetailView(opts) {
           const title = document.createElement('div');
           title.id = 'rr-mytrips-page-title';
           title.className = 'rr-mytrips-page-title';
-          title.textContent = 'My trips';
+          title.textContent = 'MyTrips';
           center.insertBefore(title, center.firstChild);
         }
         const closeBtn = document.getElementById('trip-log-close');
@@ -12518,7 +12518,7 @@ function closeTripDetailView(opts) {
           closeBtn.tabIndex = -1;
         }
         const modalTitle = document.getElementById('trip-log-title');
-        if (modalTitle) modalTitle.textContent = 'My trips';
+        if (modalTitle) modalTitle.textContent = 'MyTrips';
       } catch (_) {}
       // Open list tab once auth is known
       const tryOpen = function() {
