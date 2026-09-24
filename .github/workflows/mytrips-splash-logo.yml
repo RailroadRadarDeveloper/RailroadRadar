@@ -1,0 +1,24 @@
+name: MyTrips splash cover logo
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-splash-logo.py
+      - .github/workflows/mytrips-splash-logo.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/brand
+          curl -fsSL --max-time 90 -A "Mozilla/5.0" "https://i.postimg.cc/mry1p31W/My-Trips-by-Railroad-Radar-(2).png" -o assets/brand/mytrips-splash-logo.png
+          ls -l assets/brand/mytrips-splash-logo.png
+          python3 scripts/mytrips-splash-logo.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/brand/mytrips-splash-logo.png index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Replace MyTrips splash cover logo" && git push; fi
