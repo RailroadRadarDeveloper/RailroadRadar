@@ -1,0 +1,20 @@
+name: Fix signed-in trip log toast
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-trip-log-signin-toast.py
+      - .github/workflows/fix-trip-log-signin-toast.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-trip-log-signin-toast.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Treat Firebase session as signed in before showing Trip log error" && git push; fi
