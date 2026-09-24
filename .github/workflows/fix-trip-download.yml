@@ -1,0 +1,20 @@
+name: Fix trip image download
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-trip-download.py
+      - .github/workflows/fix-trip-download.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-trip-download.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Add a Save image button when auto-download is blocked" && git push; fi
