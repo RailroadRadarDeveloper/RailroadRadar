@@ -11641,7 +11641,7 @@ function closeTripDetailView(opts) {
         trainNumber: '',
         vehicleId: '',
         departTime: defaultTripStartLocalValue(),
-        arriveTime: '',
+        arriveTime: defaultTripStartLocalValue(),
         trainExtraMode: false,
         scheduleStops: null,
         useFullStationList: false,
@@ -11705,6 +11705,11 @@ function closeTripDetailView(opts) {
       if (!seg || !tripHasSchedulePicker(seg.railroad) || seg.trainExtraMode) {
         return;
       }
+      if (!seg.lineId) {
+        sel.disabled = false;
+        sel.innerHTML = '<option value="">Select a line first…</option>';
+        return;
+      }
       const agency = tripNormalizeAgency(seg.railroad);
       const serviceDate = tripServiceDateFromDepartLocal(seg.departTime);
       const token = (tripScheduleFetchTokens[idx] = (tripScheduleFetchTokens[idx] || 0) + 1);
@@ -11713,15 +11718,23 @@ function closeTripDetailView(opts) {
       const prev = sel.value;
       sel.innerHTML = '<option value="">Loading trains…</option>';
       try {
-        const rows = await tripFetchScheduleTrains(agency, serviceDate);
+        const allRows = await tripFetchScheduleTrains(agency, serviceDate);
         if (myToken !== tripScheduleFetchTokens[idx]) return;
+        const lineId = String(seg.lineId || '');
+        const rows = (allRows || []).filter(function(r) {
+          const rid = String(r.lineId || r.routeId || r.route || r.line || '').trim();
+          if (rid && rid === lineId) return true;
+          const matched = tripMatchLineId(seg.railroad, r.name || r.routeName || r.lineName || '');
+          return matched && String(matched) === lineId;
+        });
         let html = '<option value="">Select a train…</option>';
         rows.forEach(function(r) {
           const num = String(r.trainNumber).trim();
-          const label = tripFormatScheduleTrainLabel(r).replace(/</g, '&lt;').replace(/"/g, '&quot;');
-          html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label + '</option>';
+          const dest = String(r.dest || '').trim();
+          const label = dest ? (num + ' · to ' + dest) : num;
+          html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label.replace(/</g, '&lt;').replace(/"/g, '&quot;') + '</option>';
         });
-        if (!rows.length) html = '<option value="">No scheduled trains for this date</option>';
+        if (!rows.length) html = '<option value="">No scheduled trains on this line</option>';
         sel.innerHTML = html;
         const prefer = String(preferNumber != null ? preferNumber : (seg.trainNumber || prev || '')).trim();
         if (prefer) {
@@ -11806,9 +11819,9 @@ function closeTripDetailView(opts) {
           const pickDisabled = seg.trainExtraMode ? ' disabled' : '';
           trainPickHtml =
             '<div class="trip-seg-train-pick-row">' +
-              '<div><label>Train (schedule)</label>' +
+              '<div><label>Train number</label>' +
               '<select data-seg-field="trainPick"' + pickDisabled + '>' +
-                '<option value="">' + (seg.trainExtraMode ? 'Using Extra / free text' : 'Select a train…') + '</option>' +
+                '<option value="">' + (seg.trainExtraMode ? 'Using Extra / free text' : (lineId ? 'Select a train…' : 'Select a line first…')) + '</option>' +
                 (seg.trainNumber && !seg.trainExtraMode
                   ? '<option value="' + escapeTripOpt(seg.trainNumber) + '" selected>' + escapeTripOpt(seg.trainNumber) + '</option>'
                   : '') +
@@ -11828,9 +11841,9 @@ function closeTripDetailView(opts) {
             '</div>' +
             '<label>Railroad</label>' +
             '<select data-seg-field="railroad">' + railOpts + '</select>' +
-            trainPickHtml +
             '<label>Line</label>' +
             '<select data-seg-field="line">' + lineOpts + '</select>' +
+            trainPickHtml +
             '<label>Origin</label>' +
             '<select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select>' +
             '<label>Destination</label>' +
@@ -11911,6 +11924,7 @@ function closeTripDetailView(opts) {
       } else if (field === 'line') {
         seg.originId = '';
         seg.destId = '';
+        seg.trainNumber = '';
         // Manual line change: keep schedule stops only if still relevant; allow full line list
         if (seg.scheduleStops && seg.scheduleStops.length) {
           seg.useFullStationList = false;
