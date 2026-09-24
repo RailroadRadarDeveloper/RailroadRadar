@@ -6113,7 +6113,6 @@
           <source media="(min-width: 768px)" srcset="/assets/brand/mytrips-logo-wide.png">
           <img class="mytrips-guest-logo" src="/assets/brand/mytrips-logo.png" alt="MyTrips by RailroadRadar">
         </picture>
-        <p class="mytrips-guest-kicker">By RailroadRadar</p>
         <h1>Your rides, in one place.</h1>
         <p class="mytrips-guest-lead">Log trains, keep your miles, and share trips with a public MyTrips page.</p>
         <ul class="mytrips-guest-points">
@@ -6122,7 +6121,7 @@
           <li>Share a trip image or your public profile</li>
         </ul>
         <div class="mytrips-guest-actions">
-          <button type="button" class="mytrips-guest-signin" id="mytrips-guest-signin">Sign in to open MyTrips</button>
+          <button type="button" class="mytrips-guest-signin" id="mytrips-guest-signin">Get Started</button>
           <a class="mytrips-guest-map" href="/">Back to the live map</a>
         </div>
       </div>
@@ -13599,6 +13598,7 @@ function closeTripDetailView(opts) {
       el.setAttribute('aria-hidden', 'true');
     }
     function openSignupPrompt(force) {
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
       if (currentUser || (auth && auth.currentUser)) return;
       if (!force && isSignupPromptDismissed()) return;
       const el = document.getElementById('signup-prompt-modal');
@@ -13621,6 +13621,10 @@ function closeTripDetailView(opts) {
     function scheduleSignupPrompt() {
       if (signupPromptTimer) clearTimeout(signupPromptTimer);
       signupPromptTimer = null;
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+        closeSignupPrompt();
+        return;
+      }
       if (currentUser || (auth && auth.currentUser) || isSignupPromptDismissed()) {
         closeSignupPrompt();
         return;
