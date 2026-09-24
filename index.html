@@ -3850,6 +3850,120 @@
       color: rgba(255, 255, 255, 0.78);
     }
 
+    /* Trip detail rail bg */
+    .trip-detail-overlay[data-rail-accent],
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] {
+      background: var(--rr-trip-rail, #07093e);
+    }
+    html.rr-trip-detail-open,
+    html.rr-trip-detail-open body {
+      background: var(--rr-trip-rail, #07093e);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-panel,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-panel {
+      background: var(--rr-trip-rail, #07093e);
+      color: #fff;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-accent {
+      background: rgba(0, 0, 0, 0.18);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-toolbar,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-toolbar {
+      background: rgba(0, 0, 0, 0.12);
+      border-bottom-color: rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-back,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-back {
+      background: #fff;
+      color: #07093e;
+      border-color: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-back:hover,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-back:focus-visible,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-back:hover,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-back:focus-visible {
+      background: #fff;
+      color: #07093e;
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-miles-pill,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-miles-pill {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-route,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-relative,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-when,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-line,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-stock,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-seg-od,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-route,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-relative,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-when,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-line,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-stock,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-seg-od {
+      color: #fff;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-line,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-seg-title,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-seg-sub,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-stock,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-line,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-seg-title,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-seg-sub,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-stock {
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-fact,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-meta-item,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-fact,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-meta-item {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #fff;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-train-chip,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-train-chip {
+      color: #07093e !important;
+      background: #fff;
+      border-color: rgba(255, 255, 255, 0.95);
+      font-weight: 850;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-rail-badge,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-rail-badge {
+      background: rgba(255, 255, 255, 0.18) !important;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-notes,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-notes {
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.12);
+      border-left-color: rgba(255, 255, 255, 0.55);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-seg,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-seg {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.22);
+      border-left-color: rgba(255, 255, 255, 0.55);
+      color: #fff;
+    }
+    /* Map stays Mapbox dark — do not paint rail color onto map chrome */
+    .trip-detail-overlay[data-rail-accent] .trip-detail-map,
+    .trip-detail-overlay[data-rail-accent] .trip-detail-map .leaflet-container,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-map,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-map .leaflet-container {
+      background: #0b0d1a;
+    }
+
     @media (max-width: 420px) {
       .trip-segment-times { grid-template-columns: 1fr; }
     }
@@ -9329,10 +9443,24 @@
     function fillTripDetailPanel(data) {
       const railIds = tripRailIdsFromData(data);
       const accent = railIds.length ? tripRailColor(railIds[0]) : '#07093e';
+      const primaryRail = railIds[0] || '';
       const accentEl = document.getElementById('trip-detail-accent');
+      const overlay = document.getElementById('trip-detail-overlay');
       const panel = document.querySelector('#trip-detail-overlay .trip-detail-panel');
       if (accentEl) accentEl.style.background = accent;
-      if (panel) panel.style.setProperty('--rr-trip-rail', accent);
+      if (panel) {
+        panel.style.setProperty('--rr-trip-rail', accent);
+        if (primaryRail) panel.setAttribute('data-rail-accent', primaryRail);
+        else panel.removeAttribute('data-rail-accent');
+      }
+      if (overlay) {
+        overlay.style.setProperty('--rr-trip-rail', accent);
+        if (primaryRail) overlay.setAttribute('data-rail-accent', primaryRail);
+        else overlay.removeAttribute('data-rail-accent');
+      }
+      try {
+        document.documentElement.style.setProperty('--rr-trip-rail', accent);
+      } catch (_) {}
 
       const badges = document.getElementById('trip-detail-badges');
       if (badges) {
@@ -9461,8 +9589,18 @@
       overlay.classList.remove('open');
       overlay.setAttribute('aria-hidden', 'true');
       overlay.hidden = true;
+      overlay.style.removeProperty('--rr-trip-rail');
+      overlay.removeAttribute('data-rail-accent');
+      const panel = overlay.querySelector('.trip-detail-panel');
+      if (panel) {
+        panel.style.removeProperty('--rr-trip-rail');
+        panel.removeAttribute('data-rail-accent');
+      }
       tripDetailOpenId = null;
-      try { document.documentElement.classList.remove('rr-trip-detail-open'); } catch (_) {}
+      try {
+        document.documentElement.classList.remove('rr-trip-detail-open');
+        document.documentElement.style.removeProperty('--rr-trip-rail');
+      } catch (_) {}
       const focusEl = tripDetailFocusEl;
       tripDetailFocusEl = null;
       if (focusEl && typeof focusEl.focus === 'function') {
