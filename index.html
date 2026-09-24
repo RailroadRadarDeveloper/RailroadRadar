@@ -2607,13 +2607,6 @@
     }
     html.rr-mytrips-page .trip-log-row {
       cursor: pointer;
-      transition: box-shadow 0.15s ease, border-color 0.15s ease;
-    }
-    html.rr-mytrips-page .trip-log-row:hover,
-    html.rr-mytrips-page .trip-log-row:focus-visible {
-      border-color: #07093e;
-      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.1);
-      outline: none;
     }
     html.rr-mytrips-page .trip-log-row-actions button {
       cursor: pointer;
@@ -2687,10 +2680,15 @@
     html.rr-mytrips-page .trip-log-row-route { color: #07093e; }
     html.rr-mytrips-page .trip-log-row-meta { color: #5a6270; }
     html.rr-mytrips-page .trip-log-row-relative {
+      display: inline-flex;
       color: #07093e;
-      font-weight: 700;
+      font-weight: 750;
       font-size: 12px;
-      margin-top: 4px;
+      margin-top: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: #eef1f8;
+      border: 1px solid #d8dee9;
     }
     html.rr-mytrips-page .trip-seg-chip {
       background: #f4f6fb;
@@ -2714,8 +2712,8 @@
     }
     html.rr-mytrips-page .trip-log-row-map {
       background: #0b0d1a;
-      border: 1px solid #d0d5e0;
-      border-radius: 8px;
+      border: none;
+      border-radius: 10px;
     }
     html.rr-mytrips-page .trip-log-row-map .leaflet-container {
       background: #0b0d1a;
@@ -2766,8 +2764,8 @@
     html.rr-mytrips-page .trip-detail-line { color: #3a4250; }
     html.rr-mytrips-page .trip-detail-relative {
       margin: 0 0 10px;
-      font-size: 15px;
-      font-weight: 750;
+      font-size: clamp(16px, 3.5vw, 20px);
+      font-weight: 800;
       color: #07093e;
     }
     html.rr-mytrips-page .trip-detail-meta-item {
@@ -2795,6 +2793,291 @@
       display: none !important;
     }
 
+    /* Trip visual polish: cards, header, detail, maps, empty/loading */
+    html.rr-mytrips-page #trip-log-modal {
+      padding: 8px 12px 40px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    html.rr-mytrips-page #trip-log-modal .rr-lightbox {
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+    }
+    html.rr-mytrips-page #trip-log-modal .rr-lightbox-body {
+      padding: 0 0 8px !important;
+      background: transparent !important;
+    }
+    html.rr-mytrips-page #trip-log-modal .rr-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 2px 14px;
+      background: transparent !important;
+      border-bottom: none !important;
+    }
+    html.rr-mytrips-page #trip-log-modal .rr-modal-header #trip-log-title {
+      font-size: clamp(26px, 5vw, 34px);
+      font-weight: 850;
+      letter-spacing: -0.02em;
+      color: #07093e;
+      line-height: 1.15;
+    }
+    html.rr-mytrips-page .trip-log-page-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    html.rr-mytrips-page #trip-log-primary-log {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid #07093e;
+      background: #07093e;
+      color: #fff;
+      font-weight: 750;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(7, 9, 62, 0.18);
+    }
+    html.rr-mytrips-page #trip-log-primary-log:hover,
+    html.rr-mytrips-page #trip-log-primary-log:focus-visible {
+      background: #12155a;
+      outline: 2px solid #07093e;
+      outline-offset: 2px;
+    }
+    html.rr-mytrips-page .trip-log-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+      margin: 0 0 14px;
+      padding: 8px 12px;
+      background: #f7f8fb;
+      border: 1px solid #e8ebf2;
+      border-radius: 999px;
+      grid-template-columns: none;
+    }
+    html.rr-mytrips-page .trip-log-stat {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      padding: 0;
+      text-align: left;
+      border-radius: 0;
+    }
+    html.rr-mytrips-page .trip-log-stat-value {
+      font-size: 14px;
+      font-weight: 800;
+      color: #07093e;
+    }
+    html.rr-mytrips-page .trip-log-stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5a6270;
+      margin-top: 0;
+      text-transform: none;
+    }
+    html.rr-mytrips-page .trip-log-approx-note {
+      display: none; /* quieter on page; form still shows miles preview */
+    }
+    html.rr-mytrips-page .trip-log-tabs {
+      display: inline-flex;
+      gap: 0;
+      margin: 0 0 16px;
+      padding: 3px;
+      background: #eef1f7;
+      border-radius: 10px;
+      border: 1px solid #e2e6ef;
+      width: auto;
+      max-width: 100%;
+    }
+    html.rr-mytrips-page .trip-log-tab {
+      flex: 0 1 auto;
+      min-height: 34px;
+      padding: 6px 14px;
+      border: none;
+      background: transparent;
+      color: #3a4250;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 8px;
+      box-shadow: none;
+    }
+    html.rr-mytrips-page .trip-log-tab.active {
+      background: #fff;
+      color: #07093e;
+      border: none;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+    html.rr-mytrips-page .trip-log-list { gap: 12px; }
+    html.rr-mytrips-page .trip-log-row {
+      background: #fff;
+      border: 1px solid #e6eaf2;
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+      color: #1a2030;
+      cursor: pointer;
+      transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+    html.rr-mytrips-page .trip-log-row:hover,
+    html.rr-mytrips-page .trip-log-row:focus-visible {
+      border-color: #c9d0de;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+      outline: none;
+      transform: translateY(-1px);
+    }
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] {
+      border-left: 5px solid var(--rr-trip-rail, #07093e);
+      padding-left: 13px;
+    }
+    html.rr-mytrips-page .trip-log-row-route { color: #07093e; }
+    html.rr-mytrips-page .trip-log-row-rail { color: #3a4250; }
+    html.rr-mytrips-page .trip-rail-badge-train { color: #5a6270; }
+    html.rr-mytrips-page .trip-log-row-miles { color: #8a93a3; }
+    html.rr-mytrips-page .trip-log-row-meta { color: #7a8290; }
+    html.rr-mytrips-page .trip-log-row-relative {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 750;
+      color: #07093e;
+      background: #eef1f8;
+      border: 1px solid #d8dee9;
+      line-height: 1.3;
+    }
+    html.rr-mytrips-page .trip-log-row-actions button {
+      background: transparent;
+      color: #9aa3b8;
+      border-color: transparent;
+      opacity: 0.75;
+    }
+    html.rr-mytrips-page .trip-log-row-actions button:hover,
+    html.rr-mytrips-page .trip-log-row-actions button:focus-visible {
+      background: #fff5f5;
+      color: #b42318;
+      border-color: #f0c2c2;
+      opacity: 1;
+    }
+    html.rr-mytrips-page .trip-log-row-actions button.danger {
+      color: #9aa3b8;
+      border-color: transparent;
+      background: transparent;
+    }
+    html.rr-mytrips-page .trip-log-row-map {
+      background: #0b0d1a;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+      overflow: hidden;
+    }
+    html.rr-mytrips-page .trip-log-row-map .leaflet-container {
+      background: #0b0d1a;
+    }
+    html.rr-mytrips-page .trip-log-empty-card {
+      text-align: center;
+      padding: 36px 18px 32px;
+      border: 1px dashed #d0d6e2;
+      border-radius: 14px;
+      background: #fafbfe;
+    }
+    html.rr-mytrips-page .trip-log-empty-title {
+      margin: 0 0 6px;
+      font-size: 18px;
+      font-weight: 800;
+      color: #07093e;
+    }
+    html.rr-mytrips-page .trip-log-empty-copy {
+      margin: 0 0 16px;
+      font-size: 14px;
+      color: #5a6270;
+      line-height: 1.45;
+    }
+    html.rr-mytrips-page .trip-log-empty-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 8px 18px;
+      border-radius: 10px;
+      border: 1px solid #07093e;
+      background: #07093e;
+      color: #fff;
+      font-weight: 750;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    html.rr-mytrips-page .trip-log-skeletons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    html.rr-mytrips-page .trip-log-skeleton {
+      border: 1px solid #e6eaf2;
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    }
+    html.rr-mytrips-page .trip-log-skel-line,
+    html.rr-mytrips-page .trip-log-skel-map {
+      border-radius: 8px;
+      background: linear-gradient(90deg, #eef1f7 0%, #f7f8fb 45%, #eef1f7 90%);
+      background-size: 200% 100%;
+      animation: rrTripSkel 1.2s ease-in-out infinite;
+    }
+    html.rr-mytrips-page .trip-log-skel-line { height: 14px; margin-bottom: 10px; }
+    html.rr-mytrips-page .trip-log-skel-line.lg { height: 20px; width: 72%; }
+    html.rr-mytrips-page .trip-log-skel-line.sm { height: 12px; width: 44%; margin-bottom: 0; }
+    html.rr-mytrips-page .trip-log-skel-map { height: 120px; margin-top: 12px; }
+    @keyframes rrTripSkel {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    html.rr-mytrips-page .trip-detail-overlay {
+      background: #0b0d1a;
+    }
+    html.rr-mytrips-page .trip-detail-map,
+    html.rr-mytrips-page .trip-detail-map .leaflet-container {
+      background: #0b0d1a;
+    }
+    html.rr-mytrips-page .trip-detail-panel {
+      background: #fff;
+      color: #1a2030;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
+    }
+    html.rr-mytrips-page .trip-detail-relative {
+      margin: 0 0 12px;
+      font-size: clamp(16px, 3.5vw, 20px);
+      font-weight: 800;
+      color: #07093e;
+      letter-spacing: -0.01em;
+    }
+    html.rr-mytrips-page .trip-detail-route { color: #07093e; }
+    html.rr-mytrips-page .trip-detail-line { color: #3a4250; }
+    html.rr-mytrips-page .trip-detail-back {
+      background: #fff;
+      color: #07093e;
+      border-color: #d0d5e0;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+
     /* Trip detail overlay (click a trip card) */
     .trip-detail-overlay {
       position: fixed;
@@ -2802,26 +3085,39 @@
       z-index: 10060;
       display: none;
       flex-direction: column;
-      background: #0b1020;
+      background: #0b0d1a;
       overscroll-behavior: contain;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.22s ease, transform 0.22s ease;
     }
     .trip-detail-overlay.open {
       display: flex;
+      opacity: 1;
+      transform: translateY(0);
+      animation: rrTripDetailIn 0.24s ease;
+    }
+    @keyframes rrTripDetailIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .trip-detail-map {
-      height: min(52vh, 520px);
-      min-height: 240px;
+      height: min(58vh, 620px);
+      min-height: 260px;
       width: 100%;
       flex-shrink: 0;
-      background: #1a2236;
+      background: #0b0d1a;
       position: relative;
       z-index: 0;
+      margin: 0;
+      border: none;
     }
     .trip-detail-map .leaflet-container {
       width: 100%;
       height: 100%;
-      background: #1a2236;
+      background: #0b0d1a;
       font: inherit;
+      border-radius: 0;
     }
     .trip-detail-map.is-empty::after {
       content: 'Map unavailable';
@@ -2846,24 +3142,31 @@
       min-height: 0;
       overflow: auto;
       background: #fff;
-      border-radius: 18px 18px 0 0;
-      margin-top: -18px;
+      border-radius: 20px 20px 0 0;
+      margin-top: -22px;
       position: relative;
       z-index: 2;
-      box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.32);
       -webkit-overflow-scrolling: touch;
     }
     .trip-detail-accent {
-      height: 5px;
+      height: 8px;
       background: var(--rr-trip-rail, #07093e);
-      border-radius: 18px 18px 0 0;
+      border-radius: 20px 20px 0 0;
     }
     .trip-detail-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 12px 16px 4px;
+      padding: 12px 16px 10px;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid #eef1f7;
     }
     .trip-detail-back {
       display: inline-flex;
@@ -2907,56 +3210,65 @@
       margin-bottom: 8px;
     }
     .trip-detail-route {
-      font-size: clamp(22px, 4.5vw, 30px);
+      font-size: clamp(24px, 5vw, 34px);
+      font-weight: 850;
+      color: #07093e;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+    .trip-detail-relative {
+      margin: 0 0 10px;
+      font-size: clamp(16px, 3.5vw, 20px);
       font-weight: 800;
       color: #07093e;
-      line-height: 1.2;
       letter-spacing: -0.01em;
-      margin: 0 0 6px;
     }
     .trip-detail-line {
       font-size: 14px;
       font-weight: 650;
       color: #3a4250;
-      margin: 0 0 10px;
-    }
-    .trip-detail-relative {
-      margin: 0 0 10px;
-      font-size: 15px;
-      font-weight: 750;
-      color: #07093e;
+      margin: 0 0 12px;
     }
     .trip-log-row-relative {
-      color: #07093e;
-      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      margin-top: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
       font-size: 12px;
-      margin-top: 4px;
+      font-weight: 750;
+      color: #07093e;
+      background: #eef1f8;
+      border: 1px solid #d8dee9;
+      line-height: 1.3;
     }
     .trip-detail-meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
       margin: 12px 0 16px;
     }
     .trip-detail-meta-item {
       background: #f4f6fb;
       border: 1px solid #e2e6ef;
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      min-width: 0;
     }
     .trip-detail-meta-label {
-      display: block;
+      display: inline;
       font-size: 11px;
       font-weight: 700;
       color: #5a6270;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      margin-bottom: 2px;
+      margin-right: 6px;
     }
     .trip-detail-meta-value {
-      display: block;
-      font-size: 14px;
-      font-weight: 700;
+      display: inline;
+      font-size: 13px;
+      font-weight: 750;
       color: #07093e;
       line-height: 1.35;
     }
@@ -3008,8 +3320,8 @@
     }
     @media (max-width: 520px) {
       .trip-detail-map {
-        height: min(42vh, 360px);
-        min-height: 200px;
+        height: min(48vh, 420px);
+        min-height: 220px;
       }
       .trip-detail-body {
         padding: 6px 14px 28px;
@@ -3067,12 +3379,14 @@
     }
     .trip-log-pane { display: none; }
     .trip-log-pane.active { display: block; }
-    .trip-log-list { display: flex; flex-direction: column; gap: 8px; }
+    .trip-log-list { display: flex; flex-direction: column; gap: 12px; }
     .trip-log-row {
+      position: relative;
       border: 1px solid #e2e6ef;
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 14px;
+      padding: 14px 14px 12px;
       background: #fff;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
     }
     .trip-log-row-top {
       display: flex;
@@ -3081,16 +3395,18 @@
       align-items: flex-start;
     }
     .trip-log-row-rail {
-      font-weight: 800;
-      color: #07093e;
-      font-size: 13px;
+      font-weight: 700;
+      color: #3a4250;
+      font-size: 12px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 6px;
+      margin-top: 6px;
     }
     .trip-log-row[data-rail-accent] {
-      border-left: 4px solid var(--rr-trip-rail, #07093e);
+      border-left: 5px solid var(--rr-trip-rail, #07093e);
+      padding-left: 13px;
     }
     .trip-rail-badge {
       display: inline-flex;
@@ -3106,8 +3422,8 @@
       white-space: nowrap;
     }
     .trip-rail-badge-train {
-      font-weight: 700;
-      color: #3a4250;
+      font-weight: 650;
+      color: #5a6270;
       font-size: 12px;
     }
     .trip-log-seg-chips {
@@ -3140,46 +3456,134 @@
       vertical-align: middle;
     }
     .trip-log-row-miles {
-      font-weight: 700;
-      color: #3a4250;
-      font-size: 12px;
+      font-weight: 600;
+      color: #8a93a3;
+      font-size: 11px;
       white-space: nowrap;
+      margin-top: 4px;
     }
     .trip-log-row-route {
-      font-size: 13px;
-      color: #222;
-      margin-top: 2px;
+      font-size: clamp(16px, 3.6vw, 19px);
+      font-weight: 800;
+      color: #07093e;
+      line-height: 1.25;
+      letter-spacing: -0.015em;
+      margin: 0;
+      padding-right: 36px;
     }
     .trip-log-row-meta {
       font-size: 12px;
-      color: #5a6270;
-      margin-top: 4px;
+      color: #7a8290;
+      margin-top: 6px;
     }
     .trip-log-row-actions {
-      margin-top: 8px;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      margin-top: 0;
       display: flex;
-      gap: 8px;
+      gap: 4px;
+      z-index: 3;
     }
     .trip-log-row-actions button {
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 700;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid #c5cad3;
-      background: #f7f8fb;
-      color: #07093e;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #9aa3b8;
       cursor: pointer;
       font-family: inherit;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.75;
     }
     .trip-log-row-actions button.danger {
-      color: #8b1a1a;
-      border-color: #e0b4b4;
-      background: #fff5f5;
+      color: #9aa3b8;
+      border-color: transparent;
+      background: transparent;
     }
     .trip-log-empty, .trip-log-status {
       font-size: 13px;
       color: #5a6270;
       margin: 8px 0;
+    }
+    .trip-log-empty-card {
+      text-align: center;
+      padding: 28px 16px 24px;
+      border: 1px dashed #d0d6e2;
+      border-radius: 14px;
+      background: #fafbfe;
+      margin: 8px 0 12px;
+    }
+    .trip-log-empty-title {
+      margin: 0 0 6px;
+      font-size: 17px;
+      font-weight: 800;
+      color: #07093e;
+    }
+    .trip-log-empty-copy {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: #5a6270;
+      line-height: 1.45;
+    }
+    .trip-log-empty-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid #07093e;
+      background: #07093e;
+      color: #fff;
+      font-weight: 750;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .trip-log-skeletons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .trip-log-skeletons[hidden],
+    .trip-log-empty-card[hidden],
+    #trip-log-primary-log[hidden] {
+      display: none !important;
+    }
+    .trip-log-skeleton {
+      border: 1px solid #e6eaf2;
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+    .trip-log-skel-line,
+    .trip-log-skel-map {
+      border-radius: 8px;
+      background: linear-gradient(90deg, #eef1f7 0%, #f7f8fb 45%, #eef1f7 90%);
+      background-size: 200% 100%;
+      animation: rrTripSkel 1.2s ease-in-out infinite;
+    }
+    .trip-log-skel-line { height: 14px; margin-bottom: 10px; }
+    .trip-log-skel-line.lg { height: 20px; width: 72%; }
+    .trip-log-skel-line.sm { height: 12px; width: 44%; margin-bottom: 0; }
+    .trip-log-skel-map { height: 120px; margin-top: 12px; }
+    @keyframes rrTripSkel {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    .trip-log-page-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .trip-log-approx-note {
       font-size: 11px;
@@ -3228,21 +3632,33 @@
       white-space: pre-line;
     }
     .trip-log-row-map {
-      margin-top: 8px;
-      height: 140px;
+      margin-top: 10px;
+      height: 148px;
       width: 100%;
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
-      border: 1px solid #e2e6ef;
-      background: #e8edf5;
+      border: none;
+      background: #0b0d1a;
       position: relative;
       z-index: 0;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
     }
     .trip-log-row-map .leaflet-container {
       width: 100%;
       height: 100%;
-      background: #e8edf5;
+      background: #0b0d1a;
       font: inherit;
+    }
+    .trip-log-row-map:not(.is-empty):not(.is-loading)::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 40px;
+      pointer-events: none;
+      z-index: 450; /* above leaflet panes, below controls (none on mini) */
+      background: linear-gradient(to top, rgba(255,255,255,0.94), rgba(255,255,255,0));
     }
     .trip-log-row-map.is-empty::after {
       content: 'Map unavailable';
@@ -3252,9 +3668,9 @@
       align-items: center;
       justify-content: center;
       font-size: 12px;
-      color: #7a8290;
+      color: #9aa3b8;
       pointer-events: none;
-      z-index: 1;
+      z-index: 3;
     }
     .trip-log-row-map.is-loading::after {
       content: 'Loading map…';
@@ -4523,7 +4939,10 @@
     <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="trip-log-title">
       <div class="rr-modal-header">
         <span id="trip-log-title">Trip log</span>
-        <button type="button" class="rr-modal-close" id="trip-log-close" aria-label="Close">×</button>
+        <div class="trip-log-page-actions">
+          <button type="button" class="rr-btn" id="trip-log-primary-log" hidden>Log a trip</button>
+          <button type="button" class="rr-modal-close" id="trip-log-close" aria-label="Close">×</button>
+        </div>
       </div>
       <div class="rr-lightbox-body">
         <div class="rr-lightbox-section" style="padding-top:0;">
@@ -4563,8 +4982,17 @@
         </div>
 
 <div class="trip-log-pane" id="trip-pane-list" data-trip-pane="list">
+          <div class="trip-log-skeletons" id="trip-log-skeletons" hidden aria-hidden="true">
+            <div class="trip-log-skeleton" aria-hidden="true"><div class="trip-log-skel-line lg"></div><div class="trip-log-skel-line"></div><div class="trip-log-skel-line sm"></div><div class="trip-log-skel-map"></div></div>
+            <div class="trip-log-skeleton" aria-hidden="true"><div class="trip-log-skel-line lg"></div><div class="trip-log-skel-line"></div><div class="trip-log-skel-line sm"></div><div class="trip-log-skel-map"></div></div>
+            <div class="trip-log-skeleton" aria-hidden="true"><div class="trip-log-skel-line lg"></div><div class="trip-log-skel-line"></div><div class="trip-log-skel-line sm"></div><div class="trip-log-skel-map"></div></div>
+          </div>
           <div class="trip-log-list" id="trip-log-list"></div>
-          <p class="trip-log-empty" id="trip-log-empty" hidden>No trips logged yet.</p>
+          <div class="trip-log-empty-card" id="trip-log-empty" hidden>
+            <p class="trip-log-empty-title">No trips yet</p>
+            <p class="trip-log-empty-copy">Log a ride to start your miles and see routes on the map.</p>
+            <button type="button" class="trip-log-empty-cta" id="trip-log-empty-cta">Log a trip</button>
+          </div>
           <p class="trip-log-status" id="trip-log-list-status"></p>
           <div class="rr-lightbox-actions">
             <button type="button" class="rr-btn secondary" id="trip-log-load-more" hidden>Load more</button>
@@ -4587,8 +5015,8 @@
       <div class="trip-detail-body">
         <div class="trip-detail-badges" id="trip-detail-badges"></div>
         <h2 class="trip-detail-route" id="trip-detail-route">—</h2>
-        <p class="trip-detail-line" id="trip-detail-line"></p>
         <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
+        <p class="trip-detail-line" id="trip-detail-line"></p>
         <div class="trip-detail-meta" id="trip-detail-meta"></div>
         <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
         <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
@@ -8463,8 +8891,8 @@
           try {
             L.polyline(g.line, {
               color: g.color || '#07093e',
-              weight: 4,
-              opacity: 0.9,
+              weight: 5,
+              opacity: 0.92,
               lineJoin: 'round',
               lineCap: 'round'
             }).addTo(map);
@@ -8630,8 +9058,8 @@
           try {
             L.polyline(g.line, {
               color: g.color || '#07093e',
-              weight: 5,
-              opacity: 0.92,
+              weight: 7,
+              opacity: 0.95,
               lineJoin: 'round',
               lineCap: 'round'
             }).addTo(map);
@@ -8641,8 +9069,8 @@
           try {
             L.polyline([g.origin, g.dest], {
               color: g.color || '#07093e',
-              weight: 4,
-              opacity: 0.8,
+              weight: 5,
+              opacity: 0.85,
               dashArray: '8 8'
             }).addTo(map);
             bounds.push(g.origin, g.dest);
@@ -8652,9 +9080,9 @@
           if (!ll) return;
           try {
             L.circleMarker(ll, {
-              radius: isOrigin ? 7 : 7,
+              radius: isOrigin ? 9 : 9,
               color: '#fff',
-              weight: 2,
+              weight: 3,
               fillColor: isOrigin ? '#1a7f37' : '#b00020',
               fillOpacity: 1
             }).addTo(map);
@@ -9167,6 +9595,14 @@
       document.querySelectorAll('.trip-log-pane').forEach(function(pane) {
         pane.classList.toggle('active', pane.getAttribute('data-trip-pane') === name);
       });
+      try {
+        const primary = document.getElementById('trip-log-primary-log');
+        if (primary) {
+          // On /mytrips list view, offer a single primary CTA in the page header
+          const onPage = typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage();
+          primary.hidden = !(onPage && name === 'list');
+        }
+      } catch (_) {}
       if (name === 'list') loadTripLogList(true);
     }
 
@@ -9233,6 +9669,19 @@
       }).join('\n');
     }
 
+    function setTripLogSkeletons(on) {
+      const sk = document.getElementById('trip-log-skeletons');
+      if (!sk) return;
+      sk.hidden = !on;
+      sk.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+
+    function setTripLogEmptyVisible(on) {
+      const empty = document.getElementById('trip-log-empty');
+      if (!empty) return;
+      empty.hidden = !on;
+    }
+
     function renderTripLogRows(docs, append) {
       const list = document.getElementById('trip-log-list');
       const empty = document.getElementById('trip-log-empty');
@@ -9243,10 +9692,10 @@
         list.innerHTML = '';
       }
       if (!docs.length && !append) {
-        if (empty) empty.hidden = false;
+        setTripLogEmptyVisible(true);
         return;
       }
-      if (empty) empty.hidden = true;
+      setTripLogEmptyVisible(false);
       docs.forEach(function(doc) {
         const data = doc.data() || {};
         const row = document.createElement('div');
@@ -9282,27 +9731,31 @@
           }).join('') + '</div>';
         }
         row.innerHTML =
-          '<div class="trip-log-row-top">' +
-            '<div class="trip-log-row-rail">' + badges + trainHtml + '</div>' +
-            '<div class="trip-log-row-miles">' + miles + '</div>' +
+          '<div class="trip-log-row-actions">' +
+            '<button type="button" class="danger" data-trip-delete="' + doc.id + '" aria-label="Delete trip" title="Delete">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
+            '</button>' +
           '</div>' +
           '<div class="trip-log-row-route"></div>' +
-          chipsHtml +
+          '<div class="trip-log-row-rail">' + badges + trainHtml + '</div>' +
+          '<div class="trip-log-row-relative" hidden></div>' +
           '<div class="trip-log-row-meta"></div>' +
-          '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>' +
-          '<div class="trip-log-row-actions">' +
-            '<button type="button" class="danger" data-trip-delete="' + doc.id + '">Delete</button>' +
-          '</div>';
+          '<div class="trip-log-row-miles"></div>' +
+          chipsHtml +
+          '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>';
         row.querySelector('.trip-log-row-route').textContent = route;
         row.querySelector('.trip-log-row-meta').textContent = when + (data.notes ? (' · ' + data.notes) : '');
+        row.querySelector('.trip-log-row-miles').textContent = miles;
         const relText = formatTripRelativeDepart(data);
-        if (relText) {
-          const relEl = document.createElement('div');
-          relEl.className = 'trip-log-row-relative';
-          relEl.textContent = relText;
-          const metaEl = row.querySelector('.trip-log-row-meta');
-          if (metaEl && metaEl.parentNode) metaEl.parentNode.insertBefore(relEl, metaEl.nextSibling);
-          else row.appendChild(relEl);
+        const relEl = row.querySelector('.trip-log-row-relative');
+        if (relEl) {
+          if (relText) {
+            relEl.hidden = false;
+            relEl.textContent = relText;
+          } else {
+            relEl.hidden = true;
+            relEl.textContent = '';
+          }
         }
         list.appendChild(row);
         try {
@@ -9323,7 +9776,7 @@
       }
       if (tripLogLoading) return;
       tripLogLoading = true;
-      if (status) status.textContent = 'Loading…';
+      if (status) status.textContent = '';
       try {
         if (reset) {
           tripLogLastDoc = null;
@@ -9332,6 +9785,8 @@
           try { closeTripDetailView(); } catch (_) {}
           const list = document.getElementById('trip-log-list');
           if (list) list.innerHTML = '';
+          setTripLogEmptyVisible(false);
+          setTripLogSkeletons(true);
         }
         let q = db.collection('tripLogs')
           .where('userId', '==', currentUser.uid)
@@ -9349,9 +9804,8 @@
             ? (tripLogHasMore ? 'Showing latest trips. Load more for older entries.' : '')
             : '';
         }
-        const empty = document.getElementById('trip-log-empty');
         const list = document.getElementById('trip-log-list');
-        if (empty && list && !list.children.length) empty.hidden = false;
+        if (list && !list.children.length) setTripLogEmptyVisible(true);
       } catch (e) {
         console.warn('[trip-log] list failed', e);
         if (status) {
@@ -9363,6 +9817,7 @@
           }
         }
       } finally {
+        setTripLogSkeletons(false);
         tripLogLoading = false;
       }
     }
@@ -9656,6 +10111,8 @@
           closeBtn.setAttribute('aria-hidden', 'true');
           closeBtn.tabIndex = -1;
         }
+        const modalTitle = document.getElementById('trip-log-title');
+        if (modalTitle) modalTitle.textContent = 'My trips';
       } catch (_) {}
       // Open list tab once auth is known
       const tryOpen = function() {
@@ -9718,6 +10175,10 @@
       if (saveBtn) saveBtn.addEventListener('click', saveTripLog);
       const gotoList = document.getElementById('trip-log-goto-list');
       if (gotoList) gotoList.addEventListener('click', function() { switchTripLogTab('list'); });
+      const primaryLog = document.getElementById('trip-log-primary-log');
+      if (primaryLog) primaryLog.addEventListener('click', function() { switchTripLogTab('log'); });
+      const emptyCta = document.getElementById('trip-log-empty-cta');
+      if (emptyCta) emptyCta.addEventListener('click', function() { switchTripLogTab('log'); });
       const moreBtn = document.getElementById('trip-log-load-more');
       if (moreBtn) moreBtn.addEventListener('click', function() { loadTripLogList(false); });
       const refreshBtn = document.getElementById('trip-log-refresh');
