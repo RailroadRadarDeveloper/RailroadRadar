@@ -2581,25 +2581,255 @@
       pointer-events: auto !important;
       background: transparent !important;
       z-index: 1 !important;
-      padding: 16px 12px 40px;
+      padding: 10px 6px 28px;
       box-sizing: border-box;
       min-height: calc(100vh - 66px);
+      width: 100%;
+      max-width: none;
     }
     html.rr-mytrips-page #trip-log-modal .rr-lightbox {
-      width: min(720px, 100%) !important;
+      width: 100% !important;
+      max-width: none !important;
       max-height: none !important;
-      margin: 0 auto;
-      box-shadow: 0 10px 36px rgba(7, 9, 62, 0.12);
-      border-radius: 14px;
+      margin: 0;
+      box-shadow: 0 6px 24px rgba(7, 9, 62, 0.1);
+      border-radius: 12px;
       overflow: visible;
       background: #fff;
     }
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body {
       max-height: none !important;
       overflow: visible !important;
+      padding: 12px 10px 16px;
     }
     html.rr-mytrips-page #trip-log-close {
       /* still acts as Home on this page */
+    }
+    html.rr-mytrips-page .trip-log-row {
+      cursor: pointer;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    html.rr-mytrips-page .trip-log-row:hover,
+    html.rr-mytrips-page .trip-log-row:focus-visible {
+      border-color: #c5cad3;
+      box-shadow: 0 2px 14px rgba(7, 9, 62, 0.08);
+      outline: none;
+    }
+    html.rr-mytrips-page .trip-log-row-actions button {
+      cursor: pointer;
+    }
+    html.rr-mytrips-page.rr-trip-detail-open,
+    html.rr-mytrips-page.rr-trip-detail-open body {
+      overflow: hidden !important;
+    }
+
+    /* Trip detail overlay (click a trip card) */
+    .trip-detail-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10060;
+      display: none;
+      flex-direction: column;
+      background: #0b1020;
+      overscroll-behavior: contain;
+    }
+    .trip-detail-overlay.open {
+      display: flex;
+    }
+    .trip-detail-map {
+      height: min(52vh, 520px);
+      min-height: 240px;
+      width: 100%;
+      flex-shrink: 0;
+      background: #1a2236;
+      position: relative;
+      z-index: 0;
+    }
+    .trip-detail-map .leaflet-container {
+      width: 100%;
+      height: 100%;
+      background: #1a2236;
+      font: inherit;
+    }
+    .trip-detail-map.is-empty::after {
+      content: 'Map unavailable';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a8b0c0;
+      font-size: 14px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .trip-detail-map.is-loading::after {
+      content: 'Loading map…';
+    }
+    html.rr-mytrips-page #trip-detail-map .leaflet-control-container {
+      display: block !important;
+    }
+    .trip-detail-panel {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background: #fff;
+      border-radius: 18px 18px 0 0;
+      margin-top: -18px;
+      position: relative;
+      z-index: 2;
+      box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.28);
+      -webkit-overflow-scrolling: touch;
+    }
+    .trip-detail-accent {
+      height: 5px;
+      background: var(--rr-trip-rail, #07093e);
+      border-radius: 18px 18px 0 0;
+    }
+    .trip-detail-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 16px 4px;
+    }
+    .trip-detail-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 40px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid #c5cad3;
+      background: #f7f8fb;
+      color: #07093e;
+      font-weight: 700;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .trip-detail-back:hover,
+    .trip-detail-back:focus-visible {
+      background: #eef1f7;
+      outline: 2px solid #07093e;
+      outline-offset: 1px;
+    }
+    .trip-detail-miles-pill {
+      font-weight: 800;
+      font-size: 13px;
+      color: #07093e;
+      background: #f4f6fb;
+      border: 1px solid #e2e6ef;
+      border-radius: 999px;
+      padding: 6px 12px;
+      white-space: nowrap;
+    }
+    .trip-detail-body {
+      padding: 8px 18px 36px;
+    }
+    .trip-detail-badges {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .trip-detail-route {
+      font-size: clamp(22px, 4.5vw, 30px);
+      font-weight: 800;
+      color: #07093e;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin: 0 0 6px;
+    }
+    .trip-detail-line {
+      font-size: 14px;
+      font-weight: 650;
+      color: #3a4250;
+      margin: 0 0 10px;
+    }
+    .trip-detail-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin: 12px 0 16px;
+    }
+    .trip-detail-meta-item {
+      background: #f4f6fb;
+      border: 1px solid #e2e6ef;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .trip-detail-meta-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #5a6270;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+    }
+    .trip-detail-meta-value {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: #07093e;
+      line-height: 1.35;
+    }
+    .trip-detail-notes {
+      font-size: 13px;
+      color: #3a4250;
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      background: #fafbfe;
+      border-left: 3px solid var(--rr-trip-rail, #07093e);
+      border-radius: 0 8px 8px 0;
+    }
+    .trip-detail-seg-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #5a6270;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 8px 0 8px;
+    }
+    .trip-detail-segs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .trip-detail-seg {
+      border: 1px solid #e2e6ef;
+      border-radius: 10px;
+      padding: 12px;
+      background: #fafbfe;
+      border-left: 4px solid var(--rr-trip-rail, #07093e);
+    }
+    .trip-detail-seg-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .trip-detail-seg-od {
+      font-size: 15px;
+      font-weight: 800;
+      color: #07093e;
+    }
+    .trip-detail-seg-sub {
+      font-size: 12px;
+      color: #5a6270;
+      margin-top: 2px;
+    }
+    @media (max-width: 520px) {
+      .trip-detail-map {
+        height: min(42vh, 360px);
+        min-height: 200px;
+      }
+      .trip-detail-body {
+        padding: 6px 14px 28px;
+      }
     }
 
     .trip-log-stats {
@@ -4157,6 +4387,27 @@
             <button type="button" class="rr-btn secondary" id="trip-log-refresh">Refresh</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trip detail overlay (My trips click → beautiful full trip view) -->
+  <div id="trip-detail-overlay" class="trip-detail-overlay" aria-hidden="true" hidden>
+    <div id="trip-detail-map" class="trip-detail-map is-loading" role="img" aria-label="Trip route map"></div>
+    <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
+      <div class="trip-detail-accent" id="trip-detail-accent"></div>
+      <div class="trip-detail-toolbar">
+        <button type="button" class="trip-detail-back" id="trip-detail-back" aria-label="Back to trip list">← Back</button>
+        <div class="trip-detail-miles-pill" id="trip-detail-miles">—</div>
+      </div>
+      <div class="trip-detail-body">
+        <div class="trip-detail-badges" id="trip-detail-badges"></div>
+        <h2 class="trip-detail-route" id="trip-detail-route">—</h2>
+        <p class="trip-detail-line" id="trip-detail-line"></p>
+        <div class="trip-detail-meta" id="trip-detail-meta"></div>
+        <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
+        <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
+        <div class="trip-detail-segs" id="trip-detail-segs"></div>
       </div>
     </div>
   </div>
@@ -7666,6 +7917,10 @@
     const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
     let tripLogMiniMapIO = null;
     const TRIP_MINI_MAP_TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const tripLogDataById = Object.create(null); // tripId -> trip data (for detail view)
+    let tripDetailMap = null;
+    let tripDetailFocusEl = null;
+    let tripDetailOpenId = null;
 
     function rrSnapToPolylineDetailed(lat, lon, poly) {
       let bestDist = Infinity, bestAlong = 0, bestI = 0, bestT = 0, cum = 0;
@@ -8054,6 +8309,307 @@
       }
     }
 
+    function destroyTripDetailMap() {
+      if (tripDetailMap) {
+        try { tripDetailMap.remove(); } catch (_) {}
+        tripDetailMap = null;
+      }
+      const el = document.getElementById('trip-detail-map');
+      if (el) {
+        el.classList.remove('is-empty');
+        el.classList.add('is-loading');
+        el.innerHTML = '';
+      }
+    }
+
+    function paintTripDetailMap(el, data) {
+      if (!el || typeof L === 'undefined' || !L.map) {
+        if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
+        return;
+      }
+      destroyTripDetailMap();
+      el.classList.remove('is-empty');
+      el.classList.add('is-loading');
+      el.innerHTML = '';
+
+      const segs = rrTripSegmentsForMap(data).map(function(s) { return rrResolveTripSegmentGeom(s, data); });
+      const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
+      if (!hasAny) {
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      let map;
+      try {
+        map = L.map(el, {
+          zoomControl: true,
+          attributionControl: false,
+          dragging: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          touchZoom: true
+        });
+        L.tileLayer(TRIP_MINI_MAP_TILE, {
+          maxZoom: 18,
+          opacity: 0.95
+        }).addTo(map);
+      } catch (e) {
+        console.warn('[trip-detail] map init failed', e);
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      const bounds = [];
+      segs.forEach(function(g) {
+        if (g.line && g.line.length >= 2) {
+          try {
+            L.polyline(g.line, {
+              color: g.color || '#07093e',
+              weight: 5,
+              opacity: 0.92,
+              lineJoin: 'round',
+              lineCap: 'round'
+            }).addTo(map);
+            g.line.forEach(function(p) { bounds.push(p); });
+          } catch (_) {}
+        } else if (g.origin && g.dest) {
+          try {
+            L.polyline([g.origin, g.dest], {
+              color: g.color || '#07093e',
+              weight: 4,
+              opacity: 0.8,
+              dashArray: '8 8'
+            }).addTo(map);
+            bounds.push(g.origin, g.dest);
+          } catch (_) {}
+        }
+        function addOdMarker(ll, isOrigin) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: isOrigin ? 7 : 7,
+              color: '#fff',
+              weight: 2,
+              fillColor: isOrigin ? '#1a7f37' : '#b00020',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        addOdMarker(g.origin, true);
+        addOdMarker(g.dest, false);
+      });
+
+      try {
+        if (bounds.length >= 2) {
+          map.fitBounds(bounds, { padding: [36, 36], maxZoom: 14 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 12);
+        } else {
+          map.setView([42.3, -71.1], 7);
+        }
+      } catch (_) {
+        try { map.setView([42.3, -71.1], 7); } catch (__) {}
+      }
+
+      el.classList.remove('is-loading');
+      tripDetailMap = map;
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 60);
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 280);
+    }
+
+    function tripDetailLineLabel(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const names = [];
+        const seen = {};
+        segs.forEach(function(s) {
+          const n = String(s.lineName || '').trim();
+          if (!n || seen[n]) return;
+          seen[n] = true;
+          names.push(n);
+        });
+        if (names.length) return names.join(' · ');
+      }
+      if (data.lineName) return String(data.lineName);
+      if (data.lineId) return lineNameFor(data.railroad, data.lineId) || String(data.lineId);
+      return '';
+    }
+
+    function tripDetailOriginDest(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        return {
+          origin: segs[0].originName || data.originName || '?',
+          dest: segs[segs.length - 1].destName || data.destName || '?'
+        };
+      }
+      return { origin: data.originName || '?', dest: data.destName || '?' };
+    }
+
+    function fillTripDetailPanel(data) {
+      const railIds = tripRailIdsFromData(data);
+      const accent = railIds.length ? tripRailColor(railIds[0]) : '#07093e';
+      const accentEl = document.getElementById('trip-detail-accent');
+      const panel = document.querySelector('#trip-detail-overlay .trip-detail-panel');
+      if (accentEl) accentEl.style.background = accent;
+      if (panel) panel.style.setProperty('--rr-trip-rail', accent);
+
+      const badges = document.getElementById('trip-detail-badges');
+      if (badges) {
+        const train = tripDisplayTrain(data);
+        badges.innerHTML = (railIds.map(tripRailBadgeHtml).join('') ||
+          '<span class="trip-rail-badge" style="background:#07093e">Trip</span>') +
+          (train ? (' <span class="trip-rail-badge-train">' + train.replace(/</g, '&lt;') + '</span>') : '');
+      }
+
+      const od = tripDetailOriginDest(data);
+      const routeEl = document.getElementById('trip-detail-route');
+      if (routeEl) routeEl.textContent = od.origin + ' → ' + od.dest;
+
+      const lineEl = document.getElementById('trip-detail-line');
+      if (lineEl) {
+        const line = tripDetailLineLabel(data);
+        lineEl.textContent = line || '';
+        lineEl.hidden = !line;
+      }
+
+      const milesEl = document.getElementById('trip-detail-miles');
+      if (milesEl) milesEl.textContent = formatTripMiles(data.miles);
+
+      const meta = document.getElementById('trip-detail-meta');
+      if (meta) {
+        const when = tripDisplayWhen(data);
+        const railLabel = tripDisplayRail(data);
+        const items = [
+          { label: 'When', value: when },
+          { label: 'Railroad', value: railLabel },
+          { label: 'Distance', value: formatTripMiles(data.miles) }
+        ];
+        const train = tripDisplayTrain(data);
+        if (train) items.push({ label: 'Train', value: train });
+        meta.innerHTML = items.map(function(it) {
+          return '<div class="trip-detail-meta-item">' +
+            '<span class="trip-detail-meta-label">' + it.label + '</span>' +
+            '<span class="trip-detail-meta-value"></span></div>';
+        }).join('');
+        const vals = meta.querySelectorAll('.trip-detail-meta-value');
+        items.forEach(function(it, i) {
+          if (vals[i]) vals[i].textContent = it.value;
+        });
+      }
+
+      const notesEl = document.getElementById('trip-detail-notes');
+      if (notesEl) {
+        const notes = String(data.notes || '').trim();
+        if (notes) {
+          notesEl.hidden = false;
+          notesEl.textContent = notes;
+        } else {
+          notesEl.hidden = true;
+          notesEl.textContent = '';
+        }
+      }
+
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const heading = document.getElementById('trip-detail-seg-heading');
+      const segsEl = document.getElementById('trip-detail-segs');
+      if (segsEl) segsEl.innerHTML = '';
+      if (segs && segs.length > 1 && segsEl) {
+        if (heading) { heading.hidden = false; heading.textContent = segs.length + ' segments'; }
+        segs.forEach(function(s, i) {
+          const rr = String(s.railroad || '').toLowerCase();
+          const color = tripRailColor(rr);
+          const card = document.createElement('div');
+          card.className = 'trip-detail-seg';
+          card.style.setProperty('--rr-trip-rail', color);
+          const top = document.createElement('div');
+          top.className = 'trip-detail-seg-top';
+          top.innerHTML = tripRailBadgeHtml(rr) +
+            (s.trainNumber ? ('<span class="trip-rail-badge-train">#' + String(s.trainNumber).replace(/</g, '&lt;') + '</span>') : '') +
+            '<span class="trip-rail-badge-train">Leg ' + (i + 1) + '</span>';
+          const odEl = document.createElement('div');
+          odEl.className = 'trip-detail-seg-od';
+          odEl.textContent = (s.originName || '?') + ' → ' + (s.destName || '?');
+          const sub = document.createElement('div');
+          sub.className = 'trip-detail-seg-sub';
+          const bits = [];
+          if (s.lineName) bits.push(String(s.lineName));
+          if (s.departTime || s.arriveTime) {
+            bits.push(
+              (s.departTime ? formatTripWhen(s.departTime) : '?') +
+              ' → ' +
+              (s.arriveTime ? formatTripWhen(s.arriveTime) : '?')
+            );
+          }
+          if (s.miles != null && Number(s.miles) > 0) bits.push(formatTripMiles(s.miles));
+          sub.textContent = bits.join(' · ');
+          card.appendChild(top);
+          card.appendChild(odEl);
+          if (bits.length) card.appendChild(sub);
+          segsEl.appendChild(card);
+        });
+      } else if (heading) {
+        heading.hidden = true;
+      }
+    }
+
+    function closeTripDetailView() {
+      const overlay = document.getElementById('trip-detail-overlay');
+      if (!overlay || overlay.getAttribute('aria-hidden') === 'true') return;
+      destroyTripDetailMap();
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.hidden = true;
+      tripDetailOpenId = null;
+      try { document.documentElement.classList.remove('rr-trip-detail-open'); } catch (_) {}
+      const focusEl = tripDetailFocusEl;
+      tripDetailFocusEl = null;
+      if (focusEl && typeof focusEl.focus === 'function') {
+        try { focusEl.focus({ preventScroll: false }); } catch (_) {
+          try { focusEl.focus(); } catch (__) {}
+        }
+      }
+    }
+
+    function openTripDetailView(tripId, data, fromEl) {
+      if (!data) data = tripLogDataById[tripId];
+      if (!data) return;
+      const overlay = document.getElementById('trip-detail-overlay');
+      const mapEl = document.getElementById('trip-detail-map');
+      if (!overlay || !mapEl) return;
+      tripDetailFocusEl = fromEl || document.activeElement;
+      tripDetailOpenId = tripId || null;
+      fillTripDetailPanel(data);
+      overlay.hidden = false;
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+      try { document.documentElement.classList.add('rr-trip-detail-open'); } catch (_) {}
+
+      const back = document.getElementById('trip-detail-back');
+      if (back) {
+        try { back.focus({ preventScroll: true }); } catch (_) {
+          try { back.focus(); } catch (__) {}
+        }
+      }
+
+      rrEnsureTripGeomsShapes(data).then(function() {
+        if (tripDetailOpenId !== tripId) return;
+        paintTripDetailMap(mapEl, data);
+      }).catch(function() {
+        if (tripDetailOpenId !== tripId) return;
+        paintTripDetailMap(mapEl, data);
+      });
+    }
+
     // Console self-check: CT rail NHV→HFD polyline miles should exceed great-circle;
     // also logs stop-chain (CT + Metra BNSF) when shapes are unavailable.
     // Usage: rrTripMilesSelfCheck()
@@ -8419,6 +8975,7 @@
       if (!list) return;
       if (!append) {
         try { destroyAllTripLogMiniMaps(); } catch (_) {}
+        try { Object.keys(tripLogDataById).forEach(function(k) { delete tripLogDataById[k]; }); } catch (_) {}
         list.innerHTML = '';
       }
       if (!docs.length && !append) {
@@ -8431,9 +8988,13 @@
         const row = document.createElement('div');
         row.className = 'trip-log-row';
         row.setAttribute('data-trip-id', doc.id);
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        tripLogDataById[doc.id] = data;
         const railIds = tripRailIdsFromData(data);
         const train = tripDisplayTrain(data);
         const route = tripDisplayRoute(data);
+        row.setAttribute('aria-label', 'View trip: ' + route);
         const miles = formatTripMiles(data.miles);
         const when = tripDisplayWhen(data);
         const accent = railIds.length ? tripRailColor(railIds[0]) : '#07093e';
@@ -8495,6 +9056,7 @@
           tripLogLastDoc = null;
           tripLogHasMore = false;
           try { destroyAllTripLogMiniMaps(); } catch (_) {}
+          try { closeTripDetailView(); } catch (_) {}
           const list = document.getElementById('trip-log-list');
           if (list) list.innerHTML = '';
         }
@@ -8890,9 +9452,43 @@
       if (list) {
         list.addEventListener('click', function(e) {
           const del = e.target.closest('[data-trip-delete]');
-          if (del) deleteTripLog(del.getAttribute('data-trip-delete'));
+          if (del) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteTripLog(del.getAttribute('data-trip-delete'));
+            return;
+          }
+          if (e.target.closest('.trip-log-row-actions')) return;
+          const row = e.target.closest('.trip-log-row');
+          if (!row) return;
+          const id = row.getAttribute('data-trip-id');
+          if (!id) return;
+          openTripDetailView(id, tripLogDataById[id], row);
+        });
+        list.addEventListener('keydown', function(e) {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          const row = e.target.closest('.trip-log-row');
+          if (!row || e.target.closest('button')) return;
+          e.preventDefault();
+          const id = row.getAttribute('data-trip-id');
+          if (!id) return;
+          openTripDetailView(id, tripLogDataById[id], row);
         });
       }
+      const detailBack = document.getElementById('trip-detail-back');
+      if (detailBack) detailBack.addEventListener('click', function(e) {
+        e.preventDefault();
+        closeTripDetailView();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('trip-detail-overlay');
+        if (overlay && overlay.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeTripDetailView();
+        }
+      }, true);
       const acctBtn = document.getElementById('account-open-trip-log');
       if (acctBtn) {
         acctBtn.addEventListener('click', function(e) {
