@@ -1,0 +1,25 @@
+name: Responsive MyTrips logos
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-logo-responsive.py
+      - .github/workflows/mytrips-logo-responsive.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/brand
+          curl -fsSL --max-time 90 "https://i.postimg.cc/8PzqYZ2S/My-Trips-by-Railroad-Radar.png" -o assets/brand/mytrips-logo.png
+          curl -fsSL --max-time 90 "https://i.postimg.cc/fTdPtk0k/My-Trips-by-Railroad-Radar-(1).png" -o assets/brand/mytrips-logo-wide.png
+          python3 scripts/mytrips-logo-responsive.py
+          ls -l assets/brand/mytrips-logo.png assets/brand/mytrips-logo-wide.png
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/brand/mytrips-logo.png assets/brand/mytrips-logo-wide.png index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Use compact MyTrips logo on mobile and wide logo on desktop" && git push; fi
