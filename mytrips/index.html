@@ -782,6 +782,55 @@
     .share-btn:hover {
       background: #eef0f6;
     }
+    /* Trip log from live */
+    .log-trip-btn {
+      background: #0a7a3e;
+      color: #fff;
+      border: 1px solid #0a7a3e;
+    }
+    .log-trip-btn:hover {
+      background: #086533;
+    }
+    /* Trip schedule train pick */
+    .trip-seg-train-pick-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      margin: 0 0 8px;
+      flex-wrap: wrap;
+    }
+    .trip-seg-train-pick-row > div {
+      flex: 1;
+      min-width: 140px;
+    }
+    .trip-seg-train-pick-row label {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .trip-seg-extra-btn {
+      flex-shrink: 0;
+      min-height: 38px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #c5cad3;
+      background: #f7f8fb;
+      color: #07093e;
+      font-weight: 700;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .trip-seg-extra-btn.active {
+      background: #07093e;
+      color: #fff;
+      border-color: #07093e;
+    }
+    .trip-seg-train-hint {
+      font-size: 11px;
+      color: #5a6577;
+      margin: -2px 0 8px;
+      line-height: 1.35;
+    }
     html.rr-train-page,
     html.rr-train-page body {
       overflow: auto;
@@ -8382,6 +8431,9 @@
     let tripLogHasMore = false;
     let tripLogLoading = false;
     let tripLogSegmentsState = [];
+    let tripScheduleCache = {};
+    let tripScheduleFetchTokens = {};
+    let tripPendingLogTrip = null;
 
     function haversineMiles(lat1, lon1, lat2, lon2) {
       const toRad = function(d) { return d * Math.PI / 180; };
@@ -9928,15 +9980,11 @@
 
     function ensureTripSegmentsState() {
       if (!tripLogSegmentsState.length) {
-        tripLogSegmentsState = [{
-          railroad: 'mbta',
-          lineId: '',
-          originId: '',
-          destId: '',
-          trainNumber: '',
-          departTime: defaultTripStartLocalValue(),
-          arriveTime: ''
-        }];
+        tripLogSegmentsState = [emptyTripSegment({ railroad: 'mbta' })];
+      } else {
+        tripLogSegmentsState = tripLogSegmentsState.map(function(seg) {
+          return emptyTripSegment(seg);
+        });
       }
     }
 
@@ -9944,18 +9992,302 @@
       const root = document.getElementById('trip-log-segments');
       if (!root) return;
       const next = [];
-      root.querySelectorAll('.trip-segment').forEach(function(card) {
-        next.push({
+      root.querySelectorAll('.trip-segment').forEach(function(card, i) {
+        const prev = tripLogSegmentsState[i] || {};
+        const trainInput = card.querySelector('[data-seg-field="train"]');
+        const trainPick = card.querySelector('[data-seg-field="trainPick"]');
+        let trainNumber = String((trainInput && trainInput.value) || '').trim();
+        if (!trainNumber && trainPick && trainPick.value) trainNumber = String(trainPick.value).trim();
+        next.push(emptyTripSegment({
           railroad: (card.querySelector('[data-seg-field="railroad"]') || {}).value || 'mbta',
           lineId: (card.querySelector('[data-seg-field="line"]') || {}).value || '',
           originId: (card.querySelector('[data-seg-field="origin"]') || {}).value || '',
           destId: (card.querySelector('[data-seg-field="dest"]') || {}).value || '',
-          trainNumber: String((card.querySelector('[data-seg-field="train"]') || {}).value || '').trim(),
+          trainNumber: trainNumber,
           departTime: (card.querySelector('[data-seg-field="depart"]') || {}).value || '',
-          arriveTime: (card.querySelector('[data-seg-field="arrive"]') || {}).value || ''
-        });
+          arriveTime: (card.querySelector('[data-seg-field="arrive"]') || {}).value || '',
+          trainExtraMode: !!prev.trainExtraMode,
+          scheduleStops: prev.scheduleStops || null,
+          useFullStationList: !!prev.useFullStationList,
+          scheduleRowName: prev.scheduleRowName || '',
+          scheduleRowDest: prev.scheduleRowDest || ''
+        }));
       });
       if (next.length) tripLogSegmentsState = next;
+    }
+
+
+    /* Trip schedule train pick */
+    const TRIP_SCHEDULE_AGENCIES = { amtrak: 1, mnr: 1, lirr: 1, njt: 1, ctrail: 1, mbta: 1 };
+
+    function tripServiceDateToday() {
+      try {
+        return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      } catch (_) {
+        const d = new Date();
+        const pad = function(n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      }
+    }
+
+    function tripNormalizeAgency(agency) {
+      const a = String(agency || '').toLowerCase().trim();
+      if (a === 'metro-north' || a === 'metronorth' || a === 'metro_north') return 'mnr';
+      if (a === 'long island' || a === 'long-island') return 'lirr';
+      if (a === 'nj transit' || a === 'njtransit' || a === 'nj-transit' || a === 'njt rail') return 'njt';
+      if (a === 'marc train' || a === 'marc trains' || a === 'maryland transit' || a === 'mta maryland') return 'marc';
+      return a;
+    }
+
+    function tripHasSchedulePicker(railroad) {
+      return !!TRIP_SCHEDULE_AGENCIES[tripNormalizeAgency(railroad)];
+    }
+
+    function tripScheduleApiBase() {
+      return String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev').replace(/\/+$/, '');
+    }
+
+    function tripFormatScheduleTrainLabel(row) {
+      const num = String((row && row.trainNumber) || '').trim();
+      const name = String((row && row.name) || '').trim();
+      const dest = String((row && row.dest) || '').trim();
+      let label = num;
+      if (name && dest) label += ' · ' + name + ' to ' + dest;
+      else if (dest) label += ' · to ' + dest;
+      else if (name) label += ' · ' + name;
+      return label;
+    }
+
+    function tripNormLabel(s) {
+      return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    async function tripFetchScheduleTrains(agency, serviceDate) {
+      const a = tripNormalizeAgency(agency);
+      const sd = String(serviceDate || '').trim() || tripServiceDateToday();
+      const key = a + '|' + sd;
+      if (tripScheduleCache[key]) return tripScheduleCache[key];
+      const url = tripScheduleApiBase() + '/api/schedules?agency=' + encodeURIComponent(a) + '&date=' + encodeURIComponent(sd);
+      const res = await fetch(url);
+      if (!res.ok) {
+        let detail = '';
+        try {
+          const j = await res.json();
+          detail = (j && (j.detail || j.error)) ? String(j.detail || j.error) : '';
+        } catch (_) {}
+        throw new Error(detail || ('HTTP ' + res.status));
+      }
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data.filter(function(r) { return r && r.trainNumber; }) : [];
+      tripScheduleCache[key] = rows;
+      return rows;
+    }
+
+    function tripServiceDateFromDepartLocal(departLocal) {
+      const s = isoToLocalInput(departLocal) || String(departLocal || '').trim();
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : tripServiceDateToday();
+    }
+
+    function tripMatchLineId(railroad, routeName) {
+      const want = tripNormLabel(routeName);
+      if (!want) return '';
+      const lines = getTripLogLines(railroad);
+      let hit = lines.find(function(l) { return tripNormLabel(l.name) === want || tripNormLabel(l.id) === want; });
+      if (hit) return hit.id;
+      hit = lines.find(function(l) {
+        const n = tripNormLabel(l.name);
+        return n && (n.indexOf(want) >= 0 || want.indexOf(n) >= 0);
+      });
+      return hit ? hit.id : '';
+    }
+
+    function tripMatchStationId(stations, nameOrCode) {
+      const raw = String(nameOrCode || '').trim();
+      if (!raw) return '';
+      const want = tripNormLabel(raw);
+      const wantCode = raw.toUpperCase();
+      let hit = (stations || []).find(function(s) {
+        return String(s.id).toUpperCase() === wantCode || tripNormLabel(s.id) === want;
+      });
+      if (hit) return hit.id;
+      hit = (stations || []).find(function(s) { return tripNormLabel(s.name) === want; });
+      if (hit) return hit.id;
+      hit = (stations || []).find(function(s) {
+        const n = tripNormLabel(s.name);
+        return n && (n.indexOf(want) >= 0 || want.indexOf(n) >= 0);
+      });
+      return hit ? hit.id : '';
+    }
+
+    /* Trip schedule stations */
+    function tripNormalizeStopList(rawList, railroad) {
+      const rr = tripNormalizeAgency(railroad);
+      const out = [];
+      const seen = {};
+      (rawList || []).forEach(function(s) {
+        if (!s) return;
+        let id = String(s.id || s.code || s.stationCode || s.stopId || s.stop_id || '').trim();
+        let name = String(s.name || s.stopName || s.stationName || s.code || s.stationCode || id).trim();
+        if (!id && name) {
+          // Try resolve against known stations by name
+          const all = getTripLogStations(rr);
+          id = tripMatchStationId(all, name) || tripMatchStationId(all, s.code || s.stationCode);
+        }
+        if (!id) return;
+        if (seen[id]) return;
+        seen[id] = true;
+        // Prefer canonical name from trip station table when available
+        try {
+          const found = findTripStation(rr, id);
+          if (found && found.name) name = found.name;
+        } catch (_) {}
+        out.push({ id: id, name: name || id });
+      });
+      return out;
+    }
+
+    function tripStationsForSegment(seg) {
+      const rr = String(seg.railroad || '').toLowerCase();
+      const lineId = String(seg.lineId || '');
+      const sched = Array.isArray(seg.scheduleStops) ? seg.scheduleStops : null;
+      if (sched && sched.length && !seg.useFullStationList) {
+        return sched.slice();
+      }
+      return lineId ? getTripLogStationsForLine(rr, lineId) : [];
+    }
+
+    function tripDestStationsForSegment(seg, originId) {
+      const stations = tripStationsForSegment(seg);
+      if (!originId || !Array.isArray(seg.scheduleStops) || !seg.scheduleStops.length || seg.useFullStationList) {
+        return stations;
+      }
+      const idx = stations.findIndex(function(s) { return String(s.id) === String(originId); });
+      if (idx < 0) return stations;
+      const downstream = stations.slice(idx + 1);
+      return downstream.length ? downstream : stations.filter(function(s) { return String(s.id) !== String(originId); });
+    }
+
+    function tripStationAllowed(seg, stationId) {
+      const sid = String(stationId || '');
+      if (!sid) return false;
+      if (stationOnLine(seg.railroad, seg.lineId, sid)) return true;
+      if (Array.isArray(seg.scheduleStops) && seg.scheduleStops.some(function(s) { return String(s.id) === sid; })) return true;
+      return false;
+    }
+
+    function emptyTripSegment(partial) {
+      return Object.assign({
+        railroad: 'mbta',
+        lineId: '',
+        originId: '',
+        destId: '',
+        trainNumber: '',
+        departTime: defaultTripStartLocalValue(),
+        arriveTime: '',
+        trainExtraMode: false,
+        scheduleStops: null,
+        useFullStationList: false,
+        scheduleRowName: '',
+        scheduleRowDest: ''
+      }, partial || {});
+    }
+
+    function applyScheduleRowToSegment(seg, row) {
+      if (!seg || !row) return;
+      const num = String(row.trainNumber || '').trim();
+      if (num) seg.trainNumber = num;
+      seg.scheduleRowName = String(row.name || '').trim();
+      seg.scheduleRowDest = String(row.dest || '').trim();
+      seg.trainExtraMode = false;
+      // Line / route from schedule name when present
+      if (seg.scheduleRowName) {
+        const lid = tripMatchLineId(seg.railroad, seg.scheduleRowName);
+        if (lid) seg.lineId = lid;
+      }
+      // Ordered stops when payload includes them (future-proof)
+      const stopRaw = row.stops || row.stations || row.stopList || row.tripStops || null;
+      if (Array.isArray(stopRaw) && stopRaw.length) {
+        seg.scheduleStops = tripNormalizeStopList(stopRaw, seg.railroad);
+        seg.useFullStationList = false;
+      }
+      const stations = tripStationsForSegment(seg);
+      if (seg.scheduleRowDest) {
+        const did = tripMatchStationId(stations, seg.scheduleRowDest);
+        if (did) seg.destId = did;
+      }
+      if (row.origin || row.orig || row.from) {
+        const oid = tripMatchStationId(stations, row.origin || row.orig || row.from);
+        if (oid) seg.originId = oid;
+      } else if (seg.scheduleStops && seg.scheduleStops.length && !seg.originId) {
+        seg.originId = seg.scheduleStops[0].id;
+      }
+      // Times: schedule list has none today — keep user's date; set depart to that date @ now if empty
+      if (!seg.departTime) seg.departTime = defaultTripStartLocalValue();
+      const depTime = row.depart || row.departure || row.depTime || row.scheduledDeparture || row.departTime;
+      const arrTime = row.arrive || row.arrival || row.arrTime || row.scheduledArrival || row.arriveTime;
+      if (depTime) {
+        const local = isoToLocalInput(depTime);
+        if (local) seg.departTime = local;
+      }
+      if (arrTime) {
+        const local = isoToLocalInput(arrTime);
+        if (local) seg.arriveTime = local;
+      }
+      if (seg.originId && seg.destId && seg.originId === seg.destId) seg.destId = '';
+    }
+
+    async function refreshTripSegmentTrainSelect(idx, preferNumber) {
+      const root = document.getElementById('trip-log-segments');
+      if (!root) return;
+      const card = root.querySelector('.trip-segment[data-seg-index="' + idx + '"]');
+      if (!card) return;
+      const sel = card.querySelector('[data-seg-field="trainPick"]');
+      if (!sel) return;
+      const seg = tripLogSegmentsState[idx];
+      if (!seg || !tripHasSchedulePicker(seg.railroad) || seg.trainExtraMode) {
+        return;
+      }
+      const agency = tripNormalizeAgency(seg.railroad);
+      const serviceDate = tripServiceDateFromDepartLocal(seg.departTime);
+      const token = (tripScheduleFetchTokens[idx] = (tripScheduleFetchTokens[idx] || 0) + 1);
+      const myToken = token;
+      sel.disabled = true;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Loading trains…</option>';
+      try {
+        const rows = await tripFetchScheduleTrains(agency, serviceDate);
+        if (myToken !== tripScheduleFetchTokens[idx]) return;
+        let html = '<option value="">Select a train…</option>';
+        rows.forEach(function(r) {
+          const num = String(r.trainNumber).trim();
+          const label = tripFormatScheduleTrainLabel(r).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+          html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label + '</option>';
+        });
+        if (!rows.length) html = '<option value="">No scheduled trains for this date</option>';
+        sel.innerHTML = html;
+        const prefer = String(preferNumber != null ? preferNumber : (seg.trainNumber || prev || '')).trim();
+        if (prefer) {
+          const opts = Array.prototype.slice.call(sel.options || []);
+          const hit = opts.find(function(o) { return o.value === prefer; });
+          if (hit) sel.value = prefer;
+        }
+      } catch (e) {
+        if (myToken !== tripScheduleFetchTokens[idx]) return;
+        console.warn('[trip-log] schedule fetch failed', e);
+        sel.innerHTML = '<option value="">Could not load schedule — use Extra</option>';
+      } finally {
+        if (myToken === tripScheduleFetchTokens[idx]) sel.disabled = !!seg.trainExtraMode;
+      }
+    }
+
+    function refreshAllTripScheduleSelects() {
+      ensureTripSegmentsState();
+      tripLogSegmentsState.forEach(function(seg, idx) {
+        if (tripHasSchedulePicker(seg.railroad) && !seg.trainExtraMode) {
+          refreshTripSegmentTrainSelect(idx, seg.trainNumber);
+        }
+      });
     }
 
     function fillTripStationSelects() {
@@ -9972,10 +10304,13 @@
         let lineId = seg.lineId;
         if (lineId && !lines.some(function(l) { return String(l.id) === String(lineId); })) lineId = '';
         if (!lineId && lines.length === 1) lineId = lines[0].id;
-        const stations = lineId ? getTripLogStationsForLine(seg.railroad, lineId) : [];
+        const useSchedStops = Array.isArray(seg.scheduleStops) && seg.scheduleStops.length && !seg.useFullStationList;
+        let stations = tripStationsForSegment(Object.assign({}, seg, { lineId: lineId }));
         let originId = seg.originId, destId = seg.destId;
         if (originId && !stations.some(function(s) { return String(s.id) === String(originId); })) originId = '';
-        if (destId && !stations.some(function(s) { return String(s.id) === String(destId); })) destId = '';
+        const destStations = tripDestStationsForSegment(Object.assign({}, seg, { lineId: lineId, originId: originId }), originId);
+        if (destId && !destStations.some(function(s) { return String(s.id) === String(destId); }) &&
+            !stations.some(function(s) { return String(s.id) === String(destId); })) destId = '';
         if (originId && destId && originId === destId) destId = '';
         tripLogSegmentsState[idx].lineId = lineId;
         tripLogSegmentsState[idx].originId = originId;
@@ -9990,19 +10325,43 @@
         const lineOpts = linePlaceholder + lines.map(function(l) {
           return '<option value="' + escapeTripOpt(l.id) + '"' + (String(l.id) === String(lineId) ? ' selected' : '') + '>' + escapeTripOpt(l.name) + '</option>';
         }).join('');
-        const stPlaceholder = !lineId
+        const hasPicker = tripHasSchedulePicker(seg.railroad);
+        const stPlaceholder = !lineId && !useSchedStops
           ? '<option value="">Select line first…</option>'
           : (stations.length
             ? '<option value="">Select station…</option>'
-            : '<option value="">No stations on this line — open the map for this railroad, then reopen</option>');
-        function stOpts(selected) {
-          return stPlaceholder + stations.map(function(s) {
+            : '<option value="">No stations — try Extra / Other or open the map for this railroad</option>');
+        function stOpts(selected, list, includeOther) {
+          const base = stPlaceholder + (list || []).map(function(s) {
             return '<option value="' + escapeTripOpt(s.id) + '"' + (String(s.id) === String(selected) ? ' selected' : '') + '>' + escapeTripOpt(s.name) + '</option>';
           }).join('');
+          if (includeOther && useSchedStops) {
+            return base + '<option value="__other__">Other / not listed…</option>';
+          }
+          return base;
         }
         const removeBtn = idx === 0 ? '' :
           '<button type="button" class="trip-segment-remove" data-seg-remove="' + idx + '">Remove segment</button>';
         const segRailColor = tripRailColor(seg.railroad);
+        let trainPickHtml = '';
+        if (hasPicker) {
+          const extraActive = seg.trainExtraMode ? ' active' : '';
+          const pickDisabled = seg.trainExtraMode ? ' disabled' : '';
+          trainPickHtml =
+            '<div class="trip-seg-train-pick-row">' +
+              '<div><label>Train (schedule)</label>' +
+              '<select data-seg-field="trainPick"' + pickDisabled + '>' +
+                '<option value="">' + (seg.trainExtraMode ? 'Using Extra / free text' : 'Select a train…') + '</option>' +
+                (seg.trainNumber && !seg.trainExtraMode
+                  ? '<option value="' + escapeTripOpt(seg.trainNumber) + '" selected>' + escapeTripOpt(seg.trainNumber) + '</option>'
+                  : '') +
+              '</select></div>' +
+              '<button type="button" class="trip-seg-extra-btn' + extraActive + '" data-seg-extra="' + idx + '">' +
+                (seg.trainExtraMode ? 'Using Extra' : 'Extra / not listed') +
+              '</button>' +
+            '</div>' +
+            '<p class="trip-seg-train-hint">Pick a scheduled train to autofill number, line, and stations when available. Metra/MARC stay free-text.</p>';
+        }
         return (
           '<div class="trip-segment" data-seg-index="' + idx + '" data-rail-accent="' + String(seg.railroad || '').toLowerCase() + '" style="--rr-trip-rail:' + segRailColor + '">' +
             '<div class="trip-segment-head">' +
@@ -10012,12 +10371,13 @@
             '</div>' +
             '<label>Railroad</label>' +
             '<select data-seg-field="railroad">' + railOpts + '</select>' +
+            trainPickHtml +
             '<label>Line</label>' +
             '<select data-seg-field="line">' + lineOpts + '</select>' +
             '<label>Origin</label>' +
-            '<select data-seg-field="origin">' + stOpts(originId) + '</select>' +
+            '<select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select>' +
             '<label>Destination</label>' +
-            '<select data-seg-field="dest">' + stOpts(destId) + '</select>' +
+            '<select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select>' +
             '<label>Train number</label>' +
             '<input type="text" data-seg-field="train" maxlength="32" placeholder="e.g. 2150" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
             '<div class="trip-segment-times">' +
@@ -10030,6 +10390,8 @@
         );
       }).join('');
       updateTripMilesPreview();
+      // Populate schedule dropdowns without a second full re-render
+      setTimeout(function() { refreshAllTripScheduleSelects(); }, 0);
     }
 
     function onTripSegmentFieldChange(e) {
@@ -10045,7 +10407,6 @@
       // datetime-local / text: sync only — never rebuild the form (iOS native picker
       // is destroyed by innerHTML re-render and the picked value is lost).
       if (field === 'depart' || field === 'arrive' || field === 'train') {
-        // Normalize any odd picker string into canonical local "YYYY-MM-DDTHH:mm"
         const seg = tripLogSegmentsState[idx];
         if (field === 'depart') seg.departTime = isoToLocalInput(seg.departTime) || seg.departTime || '';
         if (field === 'arrive') seg.arriveTime = isoToLocalInput(seg.arriveTime) || seg.arriveTime || '';
@@ -10053,6 +10414,27 @@
           const norm = field === 'depart' ? seg.departTime : seg.arriveTime;
           if (t.value !== norm) t.value = norm;
         }
+        // Depart date drives schedule list — refresh picker in place (no form rebuild)
+        if (field === 'depart' && tripHasSchedulePicker(seg.railroad) && !seg.trainExtraMode) {
+          refreshTripSegmentTrainSelect(idx, seg.trainNumber);
+        }
+        return;
+      }
+      if (field === 'trainPick') {
+        const seg = tripLogSegmentsState[idx];
+        const num = String(t.value || '').trim();
+        if (!num) return;
+        const agency = tripNormalizeAgency(seg.railroad);
+        const sd = tripServiceDateFromDepartLocal(seg.departTime);
+        const key = agency + '|' + sd;
+        const rows = tripScheduleCache[key] || [];
+        const row = rows.find(function(r) { return String(r.trainNumber).trim() === num; });
+        if (row) applyScheduleRowToSegment(seg, row);
+        else {
+          seg.trainNumber = num;
+          seg.trainExtraMode = false;
+        }
+        renderTripSegmentsForm();
         return;
       }
       const seg = tripLogSegmentsState[idx];
@@ -10060,16 +10442,34 @@
         seg.lineId = '';
         seg.originId = '';
         seg.destId = '';
+        seg.trainNumber = '';
+        seg.trainExtraMode = false;
+        seg.scheduleStops = null;
+        seg.useFullStationList = false;
+        seg.scheduleRowName = '';
+        seg.scheduleRowDest = '';
         const lines = getTripLogLines(seg.railroad);
         if (lines.length === 1) seg.lineId = lines[0].id;
       } else if (field === 'line') {
         seg.originId = '';
         seg.destId = '';
+        // Manual line change: keep schedule stops only if still relevant; allow full line list
+        if (seg.scheduleStops && seg.scheduleStops.length) {
+          seg.useFullStationList = false;
+        }
       } else if (field === 'origin' || field === 'dest') {
+        if (t.value === '__other__') {
+          seg.useFullStationList = true;
+          if (field === 'origin') seg.originId = '';
+          else seg.destId = '';
+          renderTripSegmentsForm();
+          return;
+        }
         if (seg.originId && seg.destId && seg.originId === seg.destId) {
           if (field === 'origin') seg.destId = '';
           else seg.originId = '';
         }
+        // Origin change with ordered schedule stops → filter dest without losing iOS fields via full rebuild is OK (select change)
       }
       renderTripSegmentsForm();
     }
@@ -10080,15 +10480,10 @@
       // Default next depart to previous arrive when available
       let nextDepart = '';
       if (prev.arriveTime) nextDepart = prev.arriveTime;
-      tripLogSegmentsState.push({
+      tripLogSegmentsState.push(emptyTripSegment({
         railroad: prev.railroad || 'mbta',
-        lineId: '',
-        originId: '',
-        destId: '',
-        trainNumber: '',
-        departTime: nextDepart,
-        arriveTime: ''
-      });
+        departTime: nextDepart || defaultTripStartLocalValue()
+      }));
       renderTripSegmentsForm();
     }
 
@@ -10502,8 +10897,8 @@
         if (!originId || !destId) throw new Error('Segment ' + (i + 1) + ': choose origin and destination.');
         if (originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
         if (!trainNumber) throw new Error('Segment ' + (i + 1) + ': enter a train number.');
-        if (!stationOnLine(rr, lineId, originId) || !stationOnLine(rr, lineId, destId)) {
-          throw new Error('Segment ' + (i + 1) + ': both stops must be on the selected line.');
+        if (!tripStationAllowed(seg, originId) || !tripStationAllowed(seg, destId)) {
+          throw new Error('Segment ' + (i + 1) + ': both stops must be on the selected line or this train stop list.');
         }
         if (!seg.departTime) throw new Error('Segment ' + (i + 1) + ': enter a depart time.');
         if (!seg.arriveTime) throw new Error('Segment ' + (i + 1) + ': enter an arrive time.');
@@ -10635,15 +11030,10 @@
         if (notesEl) notesEl.value = '';
         const stockEl = document.getElementById('trip-log-rolling-stock');
         if (stockEl) stockEl.value = '';
-        tripLogSegmentsState = [{
+        tripLogSegmentsState = [emptyTripSegment({
           railroad: payload.railroad || 'mbta',
-          lineId: '',
-          originId: '',
-          destId: '',
-          trainNumber: '',
-          departTime: defaultTripStartLocalValue(),
-          arriveTime: ''
-        }];
+          departTime: defaultTripStartLocalValue()
+        })];
         renderTripSegmentsForm();
         await loadTripLogStatsFromServer();
         switchTripLogTab('list');
@@ -10696,6 +11086,98 @@
       try { location.href = '/'; } catch (_) { location.href = '/index.html'; }
     }
 
+
+    /* Trip log from live */
+    function tripConsumePendingLogTrip() {
+      let pending = tripPendingLogTrip;
+      tripPendingLogTrip = null;
+      if (!pending) {
+        try {
+          const raw = sessionStorage.getItem('rrPendingLogTrip');
+          if (raw) pending = JSON.parse(raw);
+          sessionStorage.removeItem('rrPendingLogTrip');
+        } catch (_) { pending = null; }
+      }
+      return pending;
+    }
+
+    function tripPrefillFromQuery() {
+      try {
+        const q = new URLSearchParams(location.search);
+        const raw = q.get('logtrip') || q.get('logTrip');
+        if (!raw) return null;
+        const parts = String(raw).split(/[:|/]/);
+        if (parts.length < 2) return null;
+        return {
+          railroad: tripNormalizeAgency(parts[0]),
+          trainNumber: parts.slice(1).join(':'),
+          lineName: '',
+          originName: '',
+          destName: '',
+          departTime: defaultTripStartLocalValue(),
+          arriveTime: '',
+          scheduleStops: null
+        };
+      } catch (_) { return null; }
+    }
+
+    function applyTripLogPrefill(prefill) {
+      if (!prefill) return;
+      const rr = tripNormalizeAgency(prefill.railroad || prefill.agency || 'mbta');
+      const seg = emptyTripSegment({
+        railroad: rr,
+        trainNumber: String(prefill.trainNumber || '').trim(),
+        departTime: isoToLocalInput(prefill.departTime) || defaultTripStartLocalValue(),
+        arriveTime: isoToLocalInput(prefill.arriveTime) || '',
+        trainExtraMode: !tripHasSchedulePicker(rr),
+        scheduleStops: Array.isArray(prefill.scheduleStops) ? tripNormalizeStopList(prefill.scheduleStops, rr) : null,
+        useFullStationList: !(prefill.scheduleStops && prefill.scheduleStops.length)
+      });
+      if (prefill.lineId) seg.lineId = String(prefill.lineId);
+      else if (prefill.lineName || prefill.routeName) {
+        seg.lineId = tripMatchLineId(rr, prefill.lineName || prefill.routeName);
+      }
+      const stations = tripStationsForSegment(seg);
+      if (prefill.originId) seg.originId = String(prefill.originId);
+      else if (prefill.originName || prefill.origin) {
+        seg.originId = tripMatchStationId(stations, prefill.originName || prefill.origin);
+      } else if (seg.scheduleStops && seg.scheduleStops.length) {
+        seg.originId = seg.scheduleStops[0].id;
+      }
+      if (prefill.destId) seg.destId = String(prefill.destId);
+      else if (prefill.destName || prefill.dest) {
+        seg.destId = tripMatchStationId(stations, prefill.destName || prefill.dest);
+      } else if (seg.scheduleStops && seg.scheduleStops.length > 1) {
+        seg.destId = seg.scheduleStops[seg.scheduleStops.length - 1].id;
+      }
+      if (seg.originId && seg.destId && seg.originId === seg.destId) seg.destId = '';
+      tripLogSegmentsState = [seg];
+    }
+
+    window.applyTripLogFromLive = async function(prefill) {
+      if (!prefill) return;
+      if (!currentUser) {
+        tripPendingLogTrip = prefill;
+        try { sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill)); } catch (_) {}
+        if (typeof showNotification === 'function') showNotification('Sign in to log this trip.', 'error');
+        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        return;
+      }
+      applyTripLogPrefill(prefill);
+      // Prefer /mytrips/ for a clean form; keep modal on that page
+      if (!rrIsMyTripsPage()) {
+        try {
+          sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill));
+        } catch (_) {}
+        const q = '?logtrip=' + encodeURIComponent(tripNormalizeAgency(prefill.railroad || prefill.agency) + ':' + String(prefill.trainNumber || ''));
+        location.href = '/mytrips/' + q;
+        return;
+      }
+      await openTripLogModal(null, { tab: 'log', forceModal: true });
+      renderTripSegmentsForm();
+      if (typeof showNotification === 'function') showNotification('Trip form prefilled from live train');
+    };
+
     async function openTripLogModal(e, opts) {
       opts = opts || {};
       if (e) {
@@ -10719,9 +11201,14 @@
       try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
       const modal = document.getElementById('trip-log-modal');
       if (!modal) return;
-      ensureTripSegmentsState();
-      if (!tripLogSegmentsState[0].departTime) {
-        tripLogSegmentsState[0].departTime = defaultTripStartLocalValue();
+      const pending = tripConsumePendingLogTrip() || tripPrefillFromQuery();
+      if (pending) {
+        applyTripLogPrefill(pending);
+      } else {
+        ensureTripSegmentsState();
+        if (!tripLogSegmentsState[0].departTime) {
+          tripLogSegmentsState[0].departTime = defaultTripStartLocalValue();
+        }
       }
       renderTripSegmentsForm();
       setTripLogError('');
@@ -10848,6 +11335,23 @@
           }
         });
         segsRoot.addEventListener('click', function(e) {
+          const extra = e.target.closest('[data-seg-extra]');
+          if (extra) {
+            const idx = Number(extra.getAttribute('data-seg-extra'));
+            if (isFinite(idx) && idx >= 0 && idx < tripLogSegmentsState.length) {
+              syncTripSegmentStateFromDom();
+              const seg = tripLogSegmentsState[idx];
+              seg.trainExtraMode = !seg.trainExtraMode;
+              if (seg.trainExtraMode) {
+                seg.scheduleStops = null;
+                seg.useFullStationList = true;
+              } else {
+                seg.useFullStationList = false;
+              }
+              renderTripSegmentsForm();
+            }
+            return;
+          }
           const btn = e.target.closest('[data-seg-remove]');
           if (!btn) return;
           removeTripSegment(Number(btn.getAttribute('data-seg-remove')));
@@ -11642,6 +12146,20 @@
               clearTimeout(signupPromptTimer);
               signupPromptTimer = null;
             }
+            try {
+              if (typeof window.applyTripLogFromLive === 'function') {
+                let pending = tripPendingLogTrip;
+                if (!pending) {
+                  try {
+                    const raw = sessionStorage.getItem('rrPendingLogTrip');
+                    if (raw) pending = JSON.parse(raw);
+                  } catch (_) {}
+                }
+                if (pending) {
+                  setTimeout(function() { window.applyTripLogFromLive(pending); }, 250);
+                }
+              }
+            } catch (_) {}
             await loadUserSettings(user.uid);
             await upsertAccountMirror(user);
             try {
@@ -15219,6 +15737,7 @@
         const amtrakPairingBlock = buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial });
         const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshAmtrakTrain('${vid}')">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('amtrak', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('amtrak', vid, num);
         const amtrakLat = parseFloat(t.lat);
         const amtrakLng = parseFloat(t.lon != null ? t.lon : t.lng);
         const stopsHtml = buildAmtrakStopsHtml(
@@ -15273,7 +15792,7 @@
               </div>
             </div>
             <div class="train-popup-footer">
-              ${shareBtn}${refreshBtn}
+              ${logTripBtn}${shareBtn}${refreshBtn}
             </div>
           </div>
         `;
@@ -15794,6 +16313,7 @@
         const mnrPairingBlock = buildLocoReportPairingBlockHtml('mnr', { trainNumber: num, special: mnrSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMnrTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('mnr', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('mnr', vid, num);
         const hasAlert = !!info.hasAlert;
         const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
         const alertIcon = trainAlertHeaderIconHtml(hasAlert);
@@ -15850,7 +16370,7 @@
               </div>
             </div>
             <div class="train-popup-footer">
-              ${shareBtn}${refreshBtn}
+              ${logTripBtn}${shareBtn}${refreshBtn}
             </div>
           </div>
         `;
@@ -16220,6 +16740,7 @@
         const lirrPairingBlock = buildLocoReportPairingBlockHtml('lirr', { trainNumber: num, special: lirrSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshLirrTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('lirr', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('lirr', vid, num);
         const hasAlert = !!info.hasAlert;
         const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
         const alertIcon = trainAlertHeaderIconHtml(hasAlert);
@@ -16276,7 +16797,7 @@
               </div>
             </div>
             <div class="train-popup-footer">
-              ${shareBtn}${refreshBtn}
+              ${logTripBtn}${shareBtn}${refreshBtn}
             </div>
           </div>
         `;
@@ -16573,6 +17094,7 @@
         const metraSpecialBadge = specialUnitBadgeHtml(metraSpecial);
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMetraTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('metra', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('metra', vid, num);
         const hasAlert = !!info.hasAlert;
         const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
         const alertIcon = trainAlertHeaderIconHtml(hasAlert);
@@ -16628,7 +17150,7 @@
               </div>
             </div>
             <div class="train-popup-footer">
-              ${shareBtn}${refreshBtn}
+              ${logTripBtn}${shareBtn}${refreshBtn}
             </div>
           </div>
         `;
@@ -17008,6 +17530,7 @@
         const njtPairingBlock = buildLocoReportPairingBlockHtml('njt', { trainNumber: num, special: njtSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshNjtTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('njt', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('njt', vid, num);
         const hasAlert = !!info.hasAlert;
         const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
         const alertIcon = trainAlertHeaderIconHtml(hasAlert);
@@ -17063,7 +17586,7 @@
               </div>
             </div>
             <div class="train-popup-footer">
-              ${shareBtn}${refreshBtn}
+              ${logTripBtn}${shareBtn}${refreshBtn}
             </div>
           </div>
         `;
@@ -17284,6 +17807,7 @@
         const badge = '<span class="cape-badge" style="background:#FF8000;">MARC</span>';
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMarcTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('marc', vid, num) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('marc', vid, num) : '';
         const hasAlert = !!info.hasAlert;
         const al = (typeof trainAlertBannerHtml === 'function') ? trainAlertBannerHtml(hasAlert, info.alertHeader) : '';
         const alertIcon = (typeof trainAlertHeaderIconHtml === 'function') ? trainAlertHeaderIconHtml(hasAlert) : '';
@@ -17304,7 +17828,7 @@
           '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + route + '</span></div>' +
           '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>' + speedHtml + '</div>' +
           al + '<div class="meta-row">' + origin + ' \u2192 ' + dest + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
-          '<div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + shareBtn + refreshBtn + '</div></div>';
+          '<div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
       }
       window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
       function updateMarcVisibility() {
@@ -18107,6 +18631,7 @@
         const mbtaPairingBlock = buildLocoReportPairingBlockHtml('mbta', { vehicleId: vid });
         const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshTrainStops('${tid}', '${vid}')">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
+        const logTripBtn = rrLogTripBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
         return `
           <div class="train-popup">
             <div class="train-popup-header">
@@ -18154,7 +18679,7 @@
               </div>
             </div>
             <div class="train-popup-footer">
-              ${shareBtn}${refreshBtn}
+              ${logTripBtn}${shareBtn}${refreshBtn}
             </div>
           </div>
         `;
@@ -18227,6 +18752,7 @@
             }
           }
           const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, tid) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', tid, tid) : '';
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
@@ -18249,7 +18775,7 @@
                 </div>
                 <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
               </div>
-              <div class="train-popup-footer">${shareBtn}</div>
+              <div class="train-popup-footer">${logTripBtn}${shareBtn}</div>
             </div>
           `).openOn(map);
         } catch (e) { showNotification('Could not load schedule.', 'error'); }
@@ -18880,6 +19406,109 @@
         return '<button type="button" class="popup-action-btn share-btn" onclick="shareTrainLink(\'' +
           esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Share</button>';
       }
+      /* Trip log from live */
+      function rrLogTripBtnHtml(agency, vid, trainNum) {
+        const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+        return '<button type="button" class="popup-action-btn log-trip-btn" onclick="logTripFromLive(\'' +
+          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Log trip</button>';
+      }
+      function rrBuildLogTripPrefill(agency, vid, trainNum) {
+        const a = (typeof rrNormShareAgency === 'function') ? rrNormShareAgency(agency) : String(agency || '').toLowerCase();
+        const prefill = {
+          railroad: a,
+          agency: a,
+          trainNumber: String(trainNum || '').trim(),
+          vehicleId: String(vid || ''),
+          lineName: '',
+          routeName: '',
+          originName: '',
+          destName: '',
+          departTime: (typeof defaultTripStartLocalValue === 'function') ? defaultTripStartLocalValue() : '',
+          arriveTime: '',
+          scheduleStops: null
+        };
+        try {
+          if (a === 'amtrak' && typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) {
+            const tinfo = amtrakTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || tinfo.trainNumRaw || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || tinfo.origCode || '';
+            prefill.destName = tinfo.destName || tinfo.destCode || '';
+            prefill.scheduleStops = tinfo.stations || null;
+            if (tinfo.origSchDep || tinfo.scheduledDeparture) {
+              const d = (typeof isoToLocalInput === 'function') ? isoToLocalInput(tinfo.origSchDep || tinfo.scheduledDeparture) : '';
+              if (d) prefill.departTime = d;
+            }
+          } else if (a === 'mnr' && typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) {
+            const tinfo = mnrTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'lirr' && typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) {
+            const tinfo = lirrTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'njt' && typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) {
+            const tinfo = njtTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'metra' && typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) {
+            const tinfo = metraTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'marc' && typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) {
+            const tinfo = marcTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'mbta' && typeof trainInfo !== 'undefined' && trainInfo[vid]) {
+            const tinfo = trainInfo[vid];
+            prefill.trainNumber = String(trainNum || (typeof extractTrainNumber === 'function' ? extractTrainNumber(tinfo.tripId) : '') || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.lineId = tinfo.routeId || '';
+            prefill.destName = tinfo.destination || '';
+            prefill.originName = '';
+          }
+        } catch (e) {
+          console.warn('[trip-log] live prefill', e);
+        }
+        if (!prefill.departTime && typeof defaultTripStartLocalValue === 'function') {
+          prefill.departTime = defaultTripStartLocalValue();
+        }
+        return prefill;
+      }
+      window.logTripFromLive = function(agency, vid, trainNum) {
+        const prefill = rrBuildLogTripPrefill(agency, vid, trainNum);
+        if (typeof window.applyTripLogFromLive === 'function') {
+          window.applyTripLogFromLive(prefill);
+        } else {
+          try {
+            sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill));
+          } catch (_) {}
+          location.href = '/mytrips/?logtrip=' + encodeURIComponent(String(agency || '') + ':' + String(trainNum || ''));
+        }
+      };
+
       function rrParseShareSpec(raw) {
         raw = String(raw || '').trim();
         if (!raw) return null;
@@ -19135,6 +19764,7 @@
       }
       function rrScheduledPopupHtml(page) {
         const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, page.tid) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, page.tid) : '';
         const stopsHtml = (typeof buildStopsHtml === 'function') ? buildStopsHtml(page.stops || []) : '';
         return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px;line-height:1.3;color:#ffffff;font-style:italic;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
@@ -19142,7 +19772,7 @@
           String(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
           String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Line</span><span class="info-value">' +
           String(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
-          String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + shareBtn + '</div></div>';
+          String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
       }
       function rrRenderScheduledTrainPage() {
         const page = rrScheduledPage;
