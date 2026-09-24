@@ -1,0 +1,59 @@
+name: Apply trip dots + datetime fix
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-dots-datetime.patch.gz.b64'
+      - '.github/workflows/apply-trip-dots-datetime.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "ae6a7f501e67dbe3a4b6c73c0d2fe08257eb995111cb1831d3dbc2ea9d8d3400"
+          single = pathlib.Path('scripts/trip-dots-datetime.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/trip-dots-datetime.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/trip-dots-datetime.patch
+          git apply /tmp/trip-dots-datetime.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip transfer dots */' in t
+          assert '/* Trip datetime save fix */' in t
+          assert 'paintTripEndpointMarkers' in t
+          assert 'addTransferMarker' in t
+          assert 'function isoToLocalInput' in t
+          assert 'Parse datetime-local as LOCAL components' in t
+          assert 'never rebuild the form' in t
+          assert 'step="60"' in t
+          assert "field === 'depart' || field === 'arrive' || field === 'train'" in t
+          assert '/* Trip route to-word */' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip transfer dots */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: transfer dots on multi-seg maps; fix datetime-local save on iOS"
+            git push
+          fi
