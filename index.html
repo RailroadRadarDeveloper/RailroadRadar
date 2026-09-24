@@ -3879,11 +3879,12 @@
       color: #fff;
       border: 1px solid rgba(255, 255, 255, 0.28);
     }
+    /* Trip countdown solid white */
     .trip-log-row[data-rail-accent] .trip-log-row-relative,
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-relative {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.16);
-      border-color: rgba(255, 255, 255, 0.28);
+      color: #07093e !important;
+      background: #fff !important;
+      border-color: #e2e6ef !important;
     }
     .trip-log-row[data-rail-accent] .trip-seg-chip,
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-seg-chip {
@@ -4337,6 +4338,100 @@
       color: #5a6577 !important;
       opacity: 1;
     }
+
+    /* Trip route to visible on white segs */
+    /* Comprehensive: beat ALL rail-accent white text inside solid-white multi-seg cards */
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-seg,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg {
+      color: #07093e !important;
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-detail-seg-od,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-detail-seg-od,
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-route-station,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-route-station,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-detail-seg-od,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-route-station,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-detail-seg-od,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-detail-seg-od,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-route-station,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-route-station {
+      color: #07093e !important;
+      opacity: 1 !important;
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-route-to,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-route-to,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-seg .trip-route-to,
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-detail-seg-sub,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-detail-seg-sub,
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-detail-seg-title,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-detail-seg-title,
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-rail-badge-train,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-rail-badge-train,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-route-to,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-detail-seg-sub,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-rail-badge-train,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-route-to,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-route-to,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-detail-seg-sub,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-detail-seg-sub,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-rail-badge-train,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-rail-badge-train {
+      color: #5a6577 !important;
+      opacity: 1 !important;
+    }
+    /* Train chip: keep white/light pill + navy text on white card */
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-train-chip,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-train-chip,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-train-chip,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-train-chip,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-train-chip {
+      color: #07093e !important;
+      background: #eef1f8 !important;
+      border-color: #d0d7e6 !important;
+      box-shadow: none;
+    }
+    /* Rail badge inside white seg: solid rail fill + white label (not frosted white-on-white) */
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-rail-badge,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-rail-badge,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg .trip-rail-badge,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg .trip-rail-badge,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg .trip-rail-badge {
+      color: #fff !important;
+      background: var(--rr-trip-rail, #07093e) !important;
+      border: 1px solid transparent !important;
+    }
+    /* List multi-seg chips: all child text dark */
+    .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip,
+    .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-route-station,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-route-station {
+      color: #07093e !important;
+      opacity: 1 !important;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-route-to,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-route-to {
+      color: #5a6577 !important;
+      opacity: 1 !important;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-rail-badge,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-rail-badge {
+      color: #fff !important;
+      background: var(--rr-trip-rail, #07093e) !important;
+      border-color: transparent !important;
+    }
+    /* Top route heading stays on rail color — keep "to" clearly white */
+    #trip-detail-overlay[data-rail-accent] .trip-detail-toolbar .trip-route-to,
+    #trip-detail-overlay[data-rail-accent] #trip-detail-route .trip-route-to,
+    html.rr-mytrips-page #trip-detail-overlay[data-rail-accent] .trip-detail-toolbar .trip-route-to,
+    html.rr-mytrips-page #trip-detail-overlay[data-rail-accent] #trip-detail-route .trip-route-to {
+      color: #fff !important;
+      opacity: 0.92 !important;
+    }
     #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-rail-badge,
     html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-rail-badge {
       background: rgba(255, 255, 255, 0.36) !important;
@@ -4479,8 +4574,8 @@
       right: 10px;
       bottom: max(8px, env(safe-area-inset-bottom, 0px));
       width: auto;
-      height: 28px;
-      max-width: 42%;
+      height: 44px;
+      max-width: 55%;
       object-fit: contain;
       object-position: right bottom;
       z-index: 8;
@@ -10696,17 +10791,19 @@
         const natW = logo.naturalWidth || logo.width || 1;
         const natH = logo.naturalHeight || logo.height || 1;
         const aspect = natW / natH;
-        // Modest wordmark: ~5.5% of canvas height, capped width
-        let logoH = Math.round(Math.min(canvas.height * 0.055, canvas.width * 0.045));
-        logoH = Math.max(22, Math.min(48, logoH));
+        /* Trip share logo bigger */
+        // Wordmark ~10–12% of min canvas side (~2x prior); still no plate
+        const minSide = Math.min(canvas.width, canvas.height);
+        let logoH = Math.round(minSide * 0.11);
+        logoH = Math.max(40, Math.min(96, logoH));
         let logoW = Math.round(logoH * aspect);
-        const maxW = Math.round(canvas.width * 0.38);
+        const maxW = Math.round(canvas.width * 0.52);
         if (logoW > maxW) {
           logoW = maxW;
           logoH = Math.round(logoW / aspect);
         }
-        const padX = Math.max(12, Math.round(canvas.width * 0.018));
-        const padY = Math.max(10, Math.round(canvas.height * 0.016));
+        const padX = Math.max(14, Math.round(canvas.width * 0.022));
+        const padY = Math.max(12, Math.round(canvas.height * 0.018));
         const x = canvas.width - logoW - padX;
         const y = canvas.height - logoH - padY;
         // No background plate — just the logo pixels (transparent around wordmark)
