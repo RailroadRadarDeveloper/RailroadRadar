@@ -1,0 +1,20 @@
+name: Tweak splash phone size
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/splash-phone-tweak.py
+      - .github/workflows/splash-phone-tweak.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/splash-phone-tweak.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Make splash phone smaller and shift it right on desktop" && git push; fi
