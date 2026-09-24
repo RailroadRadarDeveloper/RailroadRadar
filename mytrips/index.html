@@ -12672,7 +12672,7 @@ function closeTripDetailView(opts) {
         setTripLogError('Firebase is not available.');
         return;
       }
-      if (!currentUser) {
+      if (!rrAuthUser()) {
         setTripLogError('Sign in to log a trip.');
         if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
         return;
@@ -12874,7 +12874,11 @@ function closeTripDetailView(opts) {
           e.preventDefault(); e.stopPropagation();
         } catch (_) {}
       }
-      if (!currentUser) {
+      if (!rrAuthUser()) {
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+          try { showMyTripsGuestHome(); } catch (_) {}
+          return;
+        }
         if (typeof showNotification === 'function') showNotification('Sign in to open Trip log.', 'error');
         if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
         return;
