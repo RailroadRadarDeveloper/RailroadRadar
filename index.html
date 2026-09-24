@@ -4004,6 +4004,49 @@
       margin-top: 0;
     }
 
+    /* Trip detail header route */
+    .trip-detail-overlay {
+      padding-top: env(safe-area-inset-top, 0px);
+      box-sizing: border-box;
+    }
+    .trip-detail-toolbar {
+      display: block;
+      justify-content: flex-start;
+      padding: 14px 16px 12px;
+      padding-top: max(14px, calc(10px + env(safe-area-inset-top, 0px) * 0));
+    }
+    .trip-detail-toolbar .trip-detail-route {
+      margin: 0;
+      font-size: clamp(20px, 4.6vw, 30px);
+      font-weight: 850;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .trip-detail-back,
+    #trip-detail-back,
+    .trip-detail-miles-pill,
+    #trip-detail-miles {
+      display: none !important;
+    }
+    .trip-detail-body .trip-detail-route {
+      display: none;
+    }
+    .trip-detail-facts {
+      margin-top: 16px;
+      margin-bottom: 8px;
+      padding-top: 4px;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-toolbar,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-toolbar {
+      background: rgba(0, 0, 0, 0.14);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-toolbar .trip-detail-route,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-toolbar .trip-detail-route {
+      color: #fff;
+    }
+
     @media (max-width: 420px) {
       .trip-segment-times { grid-template-columns: 1fr; }
     }
@@ -5336,20 +5379,18 @@
     <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
       <div class="trip-detail-accent" id="trip-detail-accent"></div>
       <div class="trip-detail-toolbar">
-        <button type="button" class="trip-detail-back" id="trip-detail-back" aria-label="Back to trip list">← Back</button>
-        <div class="trip-detail-miles-pill" id="trip-detail-miles">—</div>
+        <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
       </div>
       <div class="trip-detail-body">
         <div class="trip-detail-badges" id="trip-detail-badges"></div>
-        <h2 class="trip-detail-route" id="trip-detail-route">—</h2>
         <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
         <p class="trip-detail-line" id="trip-detail-line"></p>
         <p class="trip-detail-when" id="trip-detail-when" hidden></p>
-        <div class="trip-detail-facts" id="trip-detail-meta"></div>
-        <p class="trip-detail-stock" id="trip-detail-stock" hidden></p>
         <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
         <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
         <div class="trip-detail-segs" id="trip-detail-segs"></div>
+        <div class="trip-detail-facts" id="trip-detail-meta" aria-label="Trip facts"></div>
+        <p class="trip-detail-stock" id="trip-detail-stock" hidden></p>
       </div>
     </div>
   </div>
@@ -9582,16 +9623,16 @@
         document.documentElement.style.setProperty('--rr-trip-rail', accent);
       } catch (_) {}
 
-      const badges = document.getElementById('trip-detail-badges');
-      if (badges) {
-        badges.innerHTML = (railIds.map(tripRailBadgeHtml).join('') ||
-          '<span class="trip-rail-badge" style="background:#07093e">Trip</span>') +
-          tripTrainChipHtml(data);
-      }
-
       const od = tripDetailOriginDest(data);
       const routeEl = document.getElementById('trip-detail-route');
       if (routeEl) routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
+
+      // Top badges: train chip only (no railroad/miles — those live in bottom facts)
+      const badges = document.getElementById('trip-detail-badges');
+      if (badges) {
+        badges.innerHTML = tripTrainChipHtml(data) || '';
+        badges.hidden = !badges.innerHTML;
+      }
 
       const lineEl = document.getElementById('trip-detail-line');
       if (lineEl) {
@@ -9599,9 +9640,6 @@
         lineEl.textContent = line || '';
         lineEl.hidden = !line;
       }
-
-      const milesEl = document.getElementById('trip-detail-miles');
-      if (milesEl) milesEl.textContent = formatTripMiles(data.miles);
 
       try { startTripDetailRelativeTimer(data); } catch (_) { paintTripDetailRelative(data); }
 
@@ -9617,33 +9655,56 @@
         }
       }
 
+      // Bottom facts: one pill per distinct railroad, one total-miles, optional stock.
+      // Always clear first so re-opens never accumulate.
       const meta = document.getElementById('trip-detail-meta');
       if (meta) {
-        /* Unlabeled fact chips only — no "When" / uppercase micro-labels */
-        const railLabel = tripDisplayRail(data);
-        const facts = [];
-        if (railLabel) facts.push(railLabel);
-        const milesTxt = formatTripMiles(data.miles);
-        if (milesTxt && milesTxt !== '—') facts.push(milesTxt);
         meta.innerHTML = '';
-        facts.forEach(function(val) {
+        const labels = [];
+        const seenLbl = {};
+        railIds.forEach(function(id) {
+          const lbl = TRIP_LOG_RAIL_LABELS[id] || String(id || '').toUpperCase();
+          if (!lbl || seenLbl[lbl]) return;
+          seenLbl[lbl] = true;
+          labels.push(lbl);
+        });
+        if (!labels.length) {
+          const fallback = tripDisplayRail(data);
+          if (fallback) {
+            String(fallback).split(/\s*\+\s*/).forEach(function(part) {
+              const p = String(part || '').trim();
+              if (p && !seenLbl[p]) { seenLbl[p] = true; labels.push(p); }
+            });
+          }
+        }
+        labels.forEach(function(val) {
           const pill = document.createElement('span');
           pill.className = 'trip-detail-fact';
           pill.textContent = val;
           meta.appendChild(pill);
         });
-      }
-
-      const stockDetail = document.getElementById('trip-detail-stock');
-      if (stockDetail) {
+        const milesTxt = formatTripMiles(data.miles);
+        if (milesTxt && milesTxt !== '—') {
+          const pill = document.createElement('span');
+          pill.className = 'trip-detail-fact';
+          pill.textContent = milesTxt;
+          meta.appendChild(pill);
+        }
         const stock = String(data.rollingStock || '').trim();
         if (stock) {
-          stockDetail.hidden = false;
-          stockDetail.textContent = 'Rolling stock: ' + stock;
-        } else {
-          stockDetail.hidden = true;
-          stockDetail.textContent = '';
+          const pill = document.createElement('span');
+          pill.className = 'trip-detail-fact';
+          pill.textContent = stock;
+          meta.appendChild(pill);
         }
+        meta.hidden = meta.childNodes.length === 0;
+      }
+
+      // Stock is shown as a bottom fact pill; keep legacy node empty/hidden
+      const stockDetail = document.getElementById('trip-detail-stock');
+      if (stockDetail) {
+        stockDetail.hidden = true;
+        stockDetail.textContent = '';
       }
 
       const notesEl = document.getElementById('trip-detail-notes');
@@ -9701,9 +9762,15 @@
       }
     }
 
-    function closeTripDetailView() {
+    let tripDetailHistoryOpen = false;
+
+    function closeTripDetailView(opts) {
+      const fromPop = opts && opts.fromPopstate;
       const overlay = document.getElementById('trip-detail-overlay');
-      if (!overlay || overlay.getAttribute('aria-hidden') === 'true') return;
+      if (!overlay || overlay.getAttribute('aria-hidden') === 'true') {
+        if (fromPop) tripDetailHistoryOpen = false;
+        return;
+      }
       try { stopTripDetailRelativeTimer(); } catch (_) {}
       destroyTripDetailMap();
       overlay.classList.remove('open');
@@ -9728,6 +9795,13 @@
           try { focusEl.focus(); } catch (__) {}
         }
       }
+      // Sync browser/PWA back stack (Escape / programmatic close)
+      if (!fromPop && tripDetailHistoryOpen) {
+        tripDetailHistoryOpen = false;
+        try { history.back(); } catch (_) {}
+      } else if (fromPop) {
+        tripDetailHistoryOpen = false;
+      }
     }
 
     function openTripDetailView(tripId, data, fromEl) {
@@ -9744,10 +9818,20 @@
       overlay.setAttribute('aria-hidden', 'false');
       try { document.documentElement.classList.add('rr-trip-detail-open'); } catch (_) {}
 
-      const back = document.getElementById('trip-detail-back');
-      if (back) {
-        try { back.focus({ preventScroll: true }); } catch (_) {
-          try { back.focus(); } catch (__) {}
+      // Phone/browser back gesture closes detail (no visible Back button)
+      try {
+        if (!tripDetailHistoryOpen) {
+          history.pushState({ rrTripDetail: 1, tripId: tripId || null }, '');
+          tripDetailHistoryOpen = true;
+        } else {
+          history.replaceState({ rrTripDetail: 1, tripId: tripId || null }, '');
+        }
+      } catch (_) {}
+
+      const routeEl = document.getElementById('trip-detail-route');
+      if (routeEl) {
+        try { routeEl.focus({ preventScroll: true }); } catch (_) {
+          try { routeEl.focus(); } catch (__) {}
         }
       }
 
@@ -10813,11 +10897,6 @@
           openTripDetailView(id, tripLogDataById[id], row);
         });
       }
-      const detailBack = document.getElementById('trip-detail-back');
-      if (detailBack) detailBack.addEventListener('click', function(e) {
-        e.preventDefault();
-        closeTripDetailView();
-      });
       document.addEventListener('keydown', function(e) {
         if (e.key !== 'Escape') return;
         const overlay = document.getElementById('trip-detail-overlay');
@@ -10827,6 +10906,14 @@
           closeTripDetailView();
         }
       }, true);
+      window.addEventListener('popstate', function() {
+        const overlay = document.getElementById('trip-detail-overlay');
+        if (overlay && overlay.classList.contains('open')) {
+          closeTripDetailView({ fromPopstate: true });
+        } else {
+          tripDetailHistoryOpen = false;
+        }
+      });
       const acctBtn = document.getElementById('account-open-trip-log');
       if (acctBtn) {
         acctBtn.addEventListener('click', function(e) {
