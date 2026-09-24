@@ -1,0 +1,68 @@
+name: Apply trip dual-rail diagonal
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-dual-rail-diagonal.patch.gz.b64'
+      - '.github/workflows/apply-trip-dual-rail-diagonal.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair b64 if needed, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, base64, gzip
+          expected = "59345ae81738fab8bd71206583aa1070bce4bd74a40815f4a040b34d98d9c791"
+          path = pathlib.Path('scripts/trip-dual-rail-diagonal.patch.gz.b64')
+          if not path.exists():
+            raise SystemExit('missing scripts/trip-dual-rail-diagonal.patch.gz.b64')
+          blob = path.read_text().strip()
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          print('initial', len(blob), h)
+          if h != expected:
+            arr = list(blob)
+            # Known 2-byte MCP paste corruption from 94ee4ed upload
+            if len(arr) > 1184 and arr[1182] == 'T' and arr[1184] == '+' and ''.join(arr[1176:1190]) == 'e/7h5OTz+9NfPn':
+              arr[1182] = 'z'
+              arr[1184] = 'u'
+              print('fixed pos 1182/1184 T/+ -> z/u (OTz+9 -> Ozzu9)')
+            blob = ''.join(arr)
+            h = hashlib.sha256(blob.encode()).hexdigest()
+            print('after repair', len(blob), h)
+            if h != expected:
+              raise SystemExit(f'b64 sha256 mismatch after repair: {h}')
+            path.write_text(blob + '\n')
+            print('wrote repaired b64')
+          else:
+            print('b64 already clean')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-dual-rail-diagonal.patch').write_bytes(raw)
+          print('gunzip ok', len(raw))
+          PY
+          git apply /tmp/trip-dual-rail-diagonal.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip dual-rail diagonal */' in t
+          assert 'tripApplyRailAccentVars' in t
+          assert '--rr-trip-rail-2' in t
+          assert 'data-rail-dual' in t
+          assert '/* Trip detail fit viewport */' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip dual-rail diagonal */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html scripts/trip-dual-rail-diagonal.patch.gz.b64
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: dual-rail diagonal split on cards and detail"
+            git push
+          fi
