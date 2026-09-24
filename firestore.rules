@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function authEmailLower() {
+      return signedIn() && request.auth.token.email is string
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function isBootstrapAdmin() {
+      return signedIn()
+        && authEmailLower() in ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+    }
+
+    function adminDocPath() {
+      return /databases/$(database)/documents/admins/$(authEmailLower());
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin()
+        || (signedIn() && exists(adminDocPath()));
+    }
+
+    function adminHasPerm(perm) {
+      return isBootstrapAdmin()
+        || (isAdmin()
+            && get(adminDocPath()).data.perms[perm] == true);
+    }
+
+    match /pairings/{leadCar} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.resource.data.leadCar == leadCar
+        && request.resource.data.keys().hasAll(['leadCar', 'engine', 'reportedByUid', 'updatedAt'])
+        && request.resource.data.reportedByUid == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.reportedByUid == request.auth.uid;
+    }
+
+    match /trainReports/{id} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
+      allow delete: if isBootstrapAdmin()
+        || adminHasPerm('deleteReports')
+        || (signedIn() && resource.data.reportedByUid == request.auth.uid);
+    }
+
+    match /pendingReports/{id} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.reportedByUid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.reportedByUid == request.auth.uid
+        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid));
+      allow update, delete: if isAdmin();
+    }
+
+    match /reportHold/{uid} {
+      allow read: if isAdmin()
+        || (signedIn() && request.auth.uid == uid);
+      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+    }
+
+    match /reportAudit/{id} {
+      allow read: if isAdmin();
+      allow create, update: if signedIn()
+        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
+      allow delete: if isBootstrapAdmin()
+        || adminHasPerm('deleteReports')
+        || (signedIn() && resource.data.reportedByUid == request.auth.uid);
+    }
+
+    match /actionLog/{id} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasAll(['action', 'uid', 'at']);
+      allow update: if false;
+      allow delete: if isBootstrapAdmin();
+    }
+
+    match /userSettings/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /bannedUsers/{id} {
+      // Admins list/read all; self may read own ban doc by uid
+      allow read: if isAdmin()
+        || (signedIn() && request.auth.uid == id);
+      allow create, update, delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
+    }
+
+    match /admins/{email} {
+      // Own doc readable so the client can detect admin status; full list only for admins
+      allow read: if isAdmin()
+        || (signedIn() && authEmailLower() == email);
+      allow create, update, delete: if isBootstrapAdmin()
+        || adminHasPerm('manageAdmins');
+    }
+
+    match /specialUnits/{id} {
+      allow read: if true; // needed for all clients to build roster
+      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+    }
+
+    match /verifiedReporters/{uid} {
+      allow read: if true; // show checkmarks on others' names
+      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+    }
+
+    // Username claims for public profiles (doc id = lowercased username)
+    match /usernames/{name} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username is string
+        && name == request.resource.data.username.lower();
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username is string
+        && name == request.resource.data.username.lower();
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // Lean public card only (no email). Written when user opts in / updates profile.
+    match /publicProfiles/{uid} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.username is string
+        && request.resource.data.keys().hasAll(['uid', 'username', 'displayName', 'photoURL'])
+        && (request.resource.data.displayName == null || request.resource.data.displayName is string)
+        && (request.resource.data.photoURL == null || request.resource.data.photoURL is string);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Trip log: lean per-trip docs (+ optional segments[]) + summary on userSettings/{uid}.tripLogStats
+    // Public read only when that user's publicProfiles/{uid} exists (opt-out removes the doc).
+    match /tripLogs/{id} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || exists(/databases/$(database)/documents/publicProfiles/$(resource.data.userId));
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'userId', 'railroad', 'originStationId', 'originName',
+          'destStationId', 'destName', 'trainNumber', 'startTime', 'miles'
+        ])
+        && request.resource.data.railroad is string
+        && request.resource.data.trainNumber is string
+        && request.resource.data.miles is number
+        && (!('segments' in request.resource.data)
+            || request.resource.data.segments is list)
+        && (!('endTime' in request.resource.data)
+            || request.resource.data.endTime is string
+            || request.resource.data.endTime == null);
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /accounts/{uid} {
+      // Admins list all; each user may read/write only their own mirror doc
+      allow read: if isAdmin()
+        || (signedIn() && request.auth.uid == uid);
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+      allow delete: if isBootstrapAdmin() || isAdmin();
+    }
+  }
+}
