@@ -1,0 +1,56 @@
+name: Apply trip share max3
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-share-max3.patch.gz.b64'
+      - '.github/workflows/apply-trip-share-max3.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply share PNG + max-3 segments patch and publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, base64, gzip
+          expected = "cc74f776c45a3633db724f40ff6ac1664e2fe6cb4b0f0c21292ebe10f8d9472c"
+          path = pathlib.Path('scripts/trip-share-max3.patch.gz.b64')
+          if not path.exists():
+            raise SystemExit('missing scripts/trip-share-max3.patch.gz.b64')
+          blob = path.read_text().strip()
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          print('b64', len(blob), h)
+          if h != expected:
+            raise SystemExit(f'b64 sha256 mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-share-max3.patch').write_bytes(raw)
+          print('gunzip ok', len(raw))
+          PY
+          git apply /tmp/trip-share-max3.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip detail share png */' in t
+          assert '/* Trip max 3 segments */' in t
+          assert 'TRIP_LOG_MAX_SEGMENTS = 3' in t
+          assert 'tripDetailSharePng' in t
+          assert 'html-to-image@1.11.11' in t
+          assert 'favicon-192.png' in t
+          assert '/* Trip map light theme */' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip detail share png */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html scripts/trip-share-max3.patch.gz.b64
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: share detail PNG with logo; max 3 segments"
+            git push
+          fi
