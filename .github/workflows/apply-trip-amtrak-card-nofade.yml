@@ -1,0 +1,12 @@
+
+          assert Path('mytrips/index.html').read_text(errors='replace').count('AMTRAK_TRIP_STATIONS') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: Amtrak stations, rail-colored cards, no map fade, rolling stock/notes"
+            git push
+          fi
