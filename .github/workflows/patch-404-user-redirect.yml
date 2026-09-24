@@ -1,0 +1,33 @@
+name: Patch 404 user redirect
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add /user redirect to 404.html
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          t = Path('404.html').read_text()
+          old = "    (function () {\n      var m = location.pathname.match(/^\\/press\\/([^\\/]+)\\/?$/);\n      if (m && m[1] && m[1] !== 'index.html') {\n        location.replace('/press/?id=' + encodeURIComponent(m[1]));\n      }\n    })();"
+          new = "    (function () {\n      var press = location.pathname.match(/^\\/press\\/([^\\/]+)\\/?$/);\n      if (press && press[1] && press[1] !== 'index.html') {\n        location.replace('/press/?id=' + encodeURIComponent(press[1]));\n        return;\n      }\n      var user = location.pathname.match(/^\\/user\\/([^\\/]+)\\/?$/);\n      if (user && user[1] && user[1] !== 'index.html') {\n        location.replace('/user/?u=' + encodeURIComponent(user[1]));\n      }\n    })();"
+          if '/user/?u=' in t:
+            print('already patched')
+          else:
+            if old not in t:
+              raise SystemExit('old 404 script not found')
+            Path('404.html').write_text(t.replace(old, new, 1))
+          assert '/user/?u=' in Path('404.html').read_text()
+          print('ok')
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add 404.html
+          if git diff --cached --quiet; then echo nothing
+          else git commit -m "404: redirect /user/name to /user/?u=" && git push
+          fi
