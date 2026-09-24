@@ -1,0 +1,58 @@
+name: Apply trip detail header route
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-detail-header.patch.gz.b64'
+      - '.github/workflows/apply-trip-detail-header.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "c491dd551761d71e68bfb6d3753b7a4a72a4ccb91930b95f7ec4fbeb73f8a70e"
+          single = pathlib.Path('scripts/trip-detail-header.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/trip-detail-header.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/trip-detail-header.patch
+          git apply /tmp/trip-detail-header.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip detail header route */' in t
+          assert 'tripDetailHistoryOpen' in t
+          assert 'popstate' in t
+          assert 'id="trip-detail-back"' not in t
+          assert 'id="trip-detail-miles"' not in t
+          assert 'id="trip-detail-route"' in t
+          assert 'Top badges: train chip only' in t
+          assert 'Bottom facts: one pill per distinct railroad' in t
+          assert '/* Trip transfer dots */' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip detail header route */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: detail header is route; bottom fact pills; history back closes"
+            git push
+          fi
