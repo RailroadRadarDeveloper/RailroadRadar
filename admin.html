@@ -504,6 +504,7 @@
         <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip logs</button>
       </div>
       <div class="rr-lightbox-body">
         <div class="rr-modal-error" id="admin-dashboard-error"></div>
@@ -719,6 +720,33 @@
           </div>
           <p class="rr-modal-hint" id="admin-accounts-status">Loading…</p>
           <p class="rr-modal-hint">Only users who have signed in since the Accounts mirror shipped appear here (Auth cannot be listed from the client).</p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-trips" data-admin-pane="trips">
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-trips-search" placeholder="Filter by email, uid, railroad, train, station…" aria-label="Filter trip logs" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-trips-refresh">Refresh</button>
+          </div>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-trips-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>User</th>
+                  <th>Railroad(s)</th>
+                  <th>Route</th>
+                  <th>Train #</th>
+                  <th>Miles</th>
+                  <th>Legs</th>
+                  <th>Notes</th>
+                  <th>Doc id</th>
+                </tr>
+              </thead>
+              <tbody id="admin-trips-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-trips-status">Loading…</p>
+          <p class="rr-modal-hint">Shows the 500 most recent trip logs across all users. Admins can view only (users still own create/update/delete).</p>
         </div>
       </div>
     </div>
@@ -1084,6 +1112,8 @@
         await loadAdminVerified();
       } else if (tab === 'accounts') {
         await loadAdminAccounts();
+      } else if (tab === 'trips') {
+        await loadAdminTrips();
       } else if (tab === 'pending') {
         if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
         await loadAdminPendingReports();
@@ -2124,6 +2154,123 @@
       const status = document.getElementById('admin-accounts-status');
       if (status) status.textContent = filtered.length + ' of ' + adminAccountsCache.length + ' account(s)';
     }
+    /* Admin trip logs viewer */
+    let adminTripsCache = [];
+    let adminTripsEmailByUid = {};
+    async function loadAdminTrips() {
+      const tbody = document.getElementById('admin-trips-tbody');
+      const status = document.getElementById('admin-trips-status');
+      if (status) status.textContent = 'Loading trip logs…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        adminTripsEmailByUid = {};
+        try {
+          const acctSnap = await db.collection('accounts').get();
+          acctSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            const uid = String(d.uid || doc.id || '').trim();
+            if (!uid) return;
+            const email = normalizeEmail(d.email) || String(d.email || '');
+            const name = String(d.displayName || '').trim();
+            const prev = adminTripsEmailByUid[uid];
+            if (!prev || (email && !prev.email)) {
+              adminTripsEmailByUid[uid] = { email: email, displayName: name };
+            }
+          });
+        } catch (acctErr) {
+          console.warn('[admin] trip logs accounts map failed', acctErr);
+        }
+        let rows = [];
+        try {
+          const snap = await db.collection('tripLogs').orderBy('startTime', 'desc').limit(500).get();
+          snap.forEach(function(doc) {
+            rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          });
+        } catch (orderErr) {
+          console.warn('[admin] tripLogs orderBy failed, falling back', orderErr);
+          const snap = await db.collection('tripLogs').limit(500).get();
+          snap.forEach(function(doc) {
+            rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          });
+          rows.sort(function(a, b) {
+            const ta = Date.parse(a.startTime || a.createdAt || 0) || 0;
+            const tb = Date.parse(b.startTime || b.createdAt || 0) || 0;
+            return tb - ta;
+          });
+        }
+        adminTripsCache = rows;
+        renderAdminTrips();
+        if (status) status.textContent = adminTripsCache.length + ' trip log(s)';
+      } catch (e) {
+        console.error('[admin] trip logs load failed', e);
+        if (status) status.textContent = 'Failed to load trip logs.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminTrips() {
+      const tbody = document.getElementById('admin-trips-tbody');
+      if (!tbody) return;
+      const q = String(((document.getElementById('admin-trips-search') || {}).value || '')).trim().toLowerCase();
+      const filtered = adminTripsCache.filter(function(t) {
+        if (!q) return true;
+        const uid = String(t.userId || '');
+        const acct = adminTripsEmailByUid[uid] || {};
+        const rrList = Array.isArray(t.railroads) && t.railroads.length
+          ? t.railroads.join(' ')
+          : String(t.railroad || '');
+        const blob = [
+          t.startTime, uid, acct.email, acct.displayName,
+          t.railroad, rrList, t.originName, t.destName,
+          t.trainNumber, t.notes, t.id, t.miles, t.segmentCount
+        ].map(function(x) { return String(x || '').toLowerCase(); }).join(' ');
+        return blob.indexOf(q) !== -1;
+      });
+      tbody.innerHTML = filtered.map(function(t) {
+        const uid = String(t.userId || '');
+        const acct = adminTripsEmailByUid[uid] || {};
+        const email = acct.email || '—';
+        const nameBit = acct.displayName ? ('<div class="meta">' + escapeHtmlLite(acct.displayName) + '</div>') : '';
+        const userCell = '<strong>' + escapeHtmlLite(email) + '</strong>' + nameBit +
+          (uid ? '<div class="meta"><code style="font-size:11px;">' + escapeHtmlLite(uid) + '</code></div>' : '');
+        let rrLabel = String(t.railroad || '—');
+        if (Array.isArray(t.railroads) && t.railroads.length) {
+          rrLabel = t.railroads.join(', ');
+        }
+        const route = escapeHtmlLite(String(t.originName || '?')) + ' → ' + escapeHtmlLite(String(t.destName || '?'));
+        const legs = (t.segmentCount != null && t.segmentCount !== '')
+          ? Number(t.segmentCount)
+          : (Array.isArray(t.segments) && t.segments.length ? t.segments.length : 1);
+        let rrExtra = '';
+        if (legs > 1) {
+          rrExtra = '<div class="meta">' + escapeHtmlLite(String(legs)) + ' legs' +
+            (Array.isArray(t.railroads) && t.railroads.length
+              ? (' · ' + escapeHtmlLite(t.railroads.join(', ')))
+              : '') + '</div>';
+        }
+        const notes = String(t.notes || '').trim();
+        const notesCell = notes
+          ? escapeHtmlLite(notes.length > 80 ? notes.slice(0, 80) + '…' : notes)
+          : '<span style="opacity:.65;">—</span>';
+        const miles = (typeof t.miles === 'number' && isFinite(t.miles))
+          ? (Math.round(t.miles * 10) / 10)
+          : (t.miles != null ? t.miles : '—');
+        return '<tr>' +
+          '<td>' + escapeHtmlLite(formatAdminWhen(t.startTime || t.createdAt)) + '</td>' +
+          '<td>' + userCell + '</td>' +
+          '<td>' + escapeHtmlLite(rrLabel) + rrExtra + '</td>' +
+          '<td>' + route + '</td>' +
+          '<td>' + escapeHtmlLite(String(t.trainNumber || '—')) + '</td>' +
+          '<td>' + escapeHtmlLite(String(miles)) + '</td>' +
+          '<td>' + escapeHtmlLite(String(legs)) + '</td>' +
+          '<td>' + notesCell + '</td>' +
+          '<td><code style="font-size:11px;">' + escapeHtmlLite(t.id) + '</code></td>' +
+          '</tr>';
+      }).join('');
+      const status = document.getElementById('admin-trips-status');
+      if (status) status.textContent = filtered.length + ' of ' + adminTripsCache.length + ' trip log(s)';
+    }
+
+
     async function adminToggleReportHold(uid, email, currentlyHeld) {
       if (!uid || !db) return;
       setAdminError('');
@@ -2474,6 +2621,10 @@
       const accountsSearch = document.getElementById('admin-accounts-search');
       if (accountsRefresh) accountsRefresh.addEventListener('click', loadAdminAccounts);
       if (accountsSearch) accountsSearch.addEventListener('input', renderAdminAccounts);
+      const tripsRefresh = document.getElementById('admin-trips-refresh');
+      const tripsSearch = document.getElementById('admin-trips-search');
+      if (tripsRefresh) tripsRefresh.addEventListener('click', loadAdminTrips);
+      if (tripsSearch) tripsSearch.addEventListener('input', renderAdminTrips);
       const accountsTbody = document.getElementById('admin-accounts-tbody');
       if (accountsTbody) {
         accountsTbody.addEventListener('click', function(e) {
@@ -2810,7 +2961,7 @@
       const ids = {
         reports: 'admin-tab-reports', pending: 'admin-tab-pending', audit: 'admin-tab-audit',
         bans: 'admin-tab-bans', admins: 'admin-tab-admins', roster: 'admin-tab-roster',
-        verified: 'admin-tab-verified', accounts: 'admin-tab-accounts'
+        verified: 'admin-tab-verified', accounts: 'admin-tab-accounts', trips: 'admin-tab-trips'
       };
       const tabReports = document.getElementById(ids.reports);
       const tabPending = document.getElementById(ids.pending);
@@ -2820,6 +2971,7 @@
       const tabRoster = document.getElementById(ids.roster);
       const tabVerified = document.getElementById(ids.verified);
       const tabAccounts = document.getElementById(ids.accounts);
+      const tabTrips = document.getElementById(ids.trips);
       if (tabReports) tabReports.style.display = perms.viewReports ? '' : 'none';
       if (tabPending) tabPending.style.display = perms.viewReports ? '' : 'none';
       if (tabAudit) tabAudit.style.display = perms.viewReports ? '' : 'none';
@@ -2828,6 +2980,7 @@
       if (tabRoster) tabRoster.style.display = '';
       if (tabVerified) tabVerified.style.display = '';
       if (tabAccounts) tabAccounts.style.display = '';
+      if (tabTrips) tabTrips.style.display = '';
       let first = perms.viewReports ? 'reports' : (perms.banUsers ? 'bans' : (perms.manageAdmins ? 'admins' : 'roster'));
       switchAdminTab(first);
       await loadAdminTab(first);
