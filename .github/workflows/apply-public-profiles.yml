@@ -1,0 +1,54 @@
+name: Apply public profiles settings
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/public-profiles.patch.gz.b64'
+      - '.github/workflows/apply-public-profiles.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish index + mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "03709e11d0ad199418bb01a8e326e2b2ae7636e0980cc0a98ac04d77797fddec"
+          single = pathlib.Path('scripts/public-profiles.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/public-profiles.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/public-profiles.patch
+          git apply /tmp/public-profiles.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'account-public-profile-toggle' in t
+          assert '/* Public profile settings */' in t
+          assert 'rrSavePublicProfileSettings' in t
+          assert 'RR_RESERVED_USERNAMES' in t
+          assert "publicProfile: false, username: ''" in t or 'publicProfile: false, username: ""' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('rrSavePublicProfileSettings') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Account settings: public profile + username for /user pages"
+            git push
+          fi
