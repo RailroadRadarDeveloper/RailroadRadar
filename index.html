@@ -5790,7 +5790,8 @@
             <div class="header-account-email" id="header-account-email"></div>
             <a class="header-auth-btn" id="header-menu-mytrips" href="/mytrips/" role="menuitem">MyTrips</a>
             <button type="button" class="header-auth-btn" id="header-menu-account-settings" role="menuitem">Account settings</button>
-            <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
+            <button type="button" class="header-auth-btn" id="header-menu-cookie-settings" role="menuitem">Cookie settings</button>
+                        <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
             <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" role="menuitem">Delete account</button>
           </div>
         </div>
@@ -6161,7 +6162,6 @@
       <div class="rr-modal-header">
         <span id="trip-log-title">Trip log</span>
         <div class="trip-log-page-actions">
-          <button type="button" id="rr-cookie-settings-mytrips" aria-label="Cookie settings" title="Cookie settings">Cookie settings</button>
           <button type="button" class="rr-btn" id="trip-log-primary-log" hidden>Log a trip</button>
           <button type="button" class="rr-modal-close" id="trip-log-close" aria-label="Close">×</button>
         </div>
@@ -6887,6 +6887,13 @@
       var mytripsCookieBtn = document.getElementById('rr-cookie-settings-mytrips');
       if (mytripsCookieBtn) {
         mytripsCookieBtn.addEventListener('click', function () {
+          openModal();
+        });
+      }
+      var cookieMenuBtn = document.getElementById('header-menu-cookie-settings');
+      if (cookieMenuBtn) {
+        cookieMenuBtn.addEventListener('click', function () {
+          try { if (typeof closeAccountMenu === 'function') closeAccountMenu(); } catch (_) {}
           openModal();
         });
       }
