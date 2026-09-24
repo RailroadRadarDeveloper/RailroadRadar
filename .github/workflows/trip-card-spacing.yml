@@ -1,0 +1,20 @@
+name: Trip card spacing
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/trip-card-spacing.py
+      - .github/workflows/trip-card-spacing.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/trip-card-spacing.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Add more vertical space between trip cards" && git push; fi
