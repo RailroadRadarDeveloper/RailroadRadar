@@ -4293,6 +4293,50 @@
       border-left-color: rgba(255, 255, 255, 0.75);
       color: #fff;
     }
+
+    /* Trip segment cards solid white */
+    /* Multi-segment detail (and list seg chips): fully opaque white cards, dark text */
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="4"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="5"] .trip-detail-seg,
+    #trip-detail-overlay[data-seg-count="6"] .trip-detail-seg,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg,
+    html.rr-mytrips-page #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg {
+      background: #fff !important;
+      border: 1px solid #e2e6ef !important;
+      border-left: 4px solid var(--rr-trip-rail, #07093e) !important;
+      color: #07093e !important;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg-od,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg-od,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg-od,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg-od,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg-od {
+      color: #07093e !important;
+    }
+    #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg-sub,
+    #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg-sub,
+    #trip-detail-overlay .trip-detail-segs:has(.trip-detail-seg:nth-child(2)) .trip-detail-seg-sub,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="2"] .trip-detail-seg-sub,
+    html.rr-mytrips-page #trip-detail-overlay[data-seg-count="3"] .trip-detail-seg-sub {
+      color: #3a4250 !important;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip {
+      background: #fff !important;
+      color: #07093e !important;
+      border: 1px solid #e2e6ef !important;
+      border-left: 3px solid var(--rr-trip-rail, #07093e) !important;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-route-to,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-seg-chips .trip-seg-chip .trip-route-to {
+      color: #5a6577 !important;
+      opacity: 1;
+    }
     #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-rail-badge,
     html.rr-mytrips-page #trip-detail-overlay.trip-detail-overlay[data-rail-accent] .trip-rail-badge {
       background: rgba(255, 255, 255, 0.36) !important;
@@ -4427,22 +4471,25 @@
       height: 18px;
       display: block;
     }
-    /* Logo used only while rasterizing share PNG (bottom-right of sheet) */
+    /* Trip share header logo */
+    /* Same full wordmark as site header; no plate — transparent around logo pixels only */
     .trip-detail-share-logo {
       display: none;
       position: absolute;
-      right: 12px;
-      bottom: max(10px, env(safe-area-inset-bottom, 0px));
-      width: 44px;
-      height: 44px;
+      right: 10px;
+      bottom: max(8px, env(safe-area-inset-bottom, 0px));
+      width: auto;
+      height: 28px;
+      max-width: 42%;
       object-fit: contain;
+      object-position: right bottom;
       z-index: 8;
       pointer-events: none;
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: 10px;
-      padding: 4px;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
       box-sizing: border-box;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.28));
     }
     #trip-detail-overlay.trip-detail-capturing .trip-detail-share-logo {
       display: block;
@@ -5831,7 +5878,7 @@
     <div id="trip-detail-map" class="trip-detail-map is-loading" role="img" aria-label="Trip route map"></div>
     <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
       <div class="trip-detail-accent" id="trip-detail-accent"></div>
-      <img class="trip-detail-share-logo" id="trip-detail-share-logo" alt="" width="44" height="44" decoding="async" src="/assets/icons/favicon-192.png?v=3">
+      <img class="trip-detail-share-logo" id="trip-detail-share-logo" alt="RailroadRadar" decoding="async" src="">
       <div class="trip-detail-toolbar">
         <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
         <button type="button" class="trip-detail-share-btn" id="trip-detail-share" aria-label="Share trip image" title="Share / download image">
@@ -10498,7 +10545,21 @@
     
     /* Trip detail share png */
     let tripHtmlToImageLoading = null;
-    const TRIP_SHARE_LOGO_SRC = '/assets/icons/favicon-192.png?v=3';
+    /* Trip share header logo */
+    // Prefer the live header wordmark (.header-logo); fall back to embedded /assets/logo.png map if present.
+    function tripShareLogoSrc() {
+      try {
+        const headerLogo = document.querySelector('img.header-logo');
+        const src = headerLogo && (headerLogo.currentSrc || headerLogo.src);
+        if (src) return src;
+      } catch (_) {}
+      try {
+        if (typeof RR_EMBEDDED_ASSETS !== 'undefined' && RR_EMBEDDED_ASSETS['/assets/logo.png']) {
+          return RR_EMBEDDED_ASSETS['/assets/logo.png'];
+        }
+      } catch (_) {}
+      return '/assets/logo.png';
+    }
 
     function tripShareSlugPart(s) {
       return String(s || '')
@@ -10585,6 +10646,11 @@
       if (!overlay || !panel) throw new Error('Trip detail not open');
       const lib = await tripEnsureHtmlToImage();
       overlay.classList.add('trip-detail-capturing');
+      try {
+        const domLogo = document.getElementById('trip-detail-share-logo');
+        const src = tripShareLogoSrc();
+        if (domLogo && src) domLogo.src = src;
+      } catch (_) {}
       // Let logo paint + Leaflet settle
       try { if (tripDetailMap) tripDetailMap.invalidateSize(false); } catch (_) {}
       await new Promise(function(r) { setTimeout(r, 80); });
@@ -10620,27 +10686,30 @@
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
       try {
-        const logo = await tripLoadImage(TRIP_SHARE_LOGO_SRC);
-        const target = Math.round(Math.min(canvas.width, canvas.height) * 0.09);
-        const logoW = Math.max(36, Math.min(72, target));
-        const logoH = logoW;
-        const pad = Math.max(14, Math.round(logoW * 0.28));
-        // white rounded plate behind logo for contrast on rail colors
-        const x = canvas.width - logoW - pad;
-        const y = canvas.height - logoH - pad;
-        const platePad = Math.round(logoW * 0.12);
-        const rw = logoW + platePad * 2;
-        const rh = logoH + platePad * 2;
-        const rx = x - platePad;
-        const ry = y - platePad;
-        const rad = Math.round(logoW * 0.22);
-        ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(rx, ry, rw, rh, rad);
-        else {
-          ctx.rect(rx, ry, rw, rh);
+        const logoSrc = tripShareLogoSrc();
+        // Keep DOM logo in sync for capture pass
+        try {
+          const domLogo = document.getElementById('trip-detail-share-logo');
+          if (domLogo && logoSrc) domLogo.src = logoSrc;
+        } catch (_) {}
+        const logo = await tripLoadImage(logoSrc);
+        const natW = logo.naturalWidth || logo.width || 1;
+        const natH = logo.naturalHeight || logo.height || 1;
+        const aspect = natW / natH;
+        // Modest wordmark: ~5.5% of canvas height, capped width
+        let logoH = Math.round(Math.min(canvas.height * 0.055, canvas.width * 0.045));
+        logoH = Math.max(22, Math.min(48, logoH));
+        let logoW = Math.round(logoH * aspect);
+        const maxW = Math.round(canvas.width * 0.38);
+        if (logoW > maxW) {
+          logoW = maxW;
+          logoH = Math.round(logoW / aspect);
         }
-        ctx.fill();
+        const padX = Math.max(12, Math.round(canvas.width * 0.018));
+        const padY = Math.max(10, Math.round(canvas.height * 0.016));
+        const x = canvas.width - logoW - padX;
+        const y = canvas.height - logoH - padY;
+        // No background plate — just the logo pixels (transparent around wordmark)
         ctx.drawImage(logo, x, y, logoW, logoH);
       } catch (logoErr) {
         console.warn('[trip-share] logo overlay skipped', logoErr);
