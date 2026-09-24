@@ -1,0 +1,25 @@
+name: MyTrips splash track art
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-splash-tracks.py
+      - .github/workflows/mytrips-splash-tracks.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/brand
+          curl -fsSL --max-time 90 -A "Mozilla/5.0" "https://i.postimg.cc/YSgrjhMx/Background-Right-Top.png" -o assets/brand/tracks-right-top.png
+          curl -fsSL --max-time 90 -A "Mozilla/5.0" "https://i.postimg.cc/c1vD3YVL/Backgrond404.png" -o assets/brand/tracks-left-bottom.png
+          ls -l assets/brand/tracks-right-top.png assets/brand/tracks-left-bottom.png
+          python3 scripts/mytrips-splash-tracks.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/brand/tracks-right-top.png assets/brand/tracks-left-bottom.png index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Add 404 track line artwork to the MyTrips splash" && git push; fi
