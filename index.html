@@ -9222,6 +9222,7 @@
       }
 
       const bounds = [];
+      /* Trip transfer dots */
       segs.forEach(function(g) {
         if (g.line && g.line.length >= 2) {
           try {
@@ -9245,11 +9246,20 @@
             bounds.push(g.origin, g.dest);
           } catch (_) {}
         }
+      });
+      (function paintTripEndpointMarkers() {
+        function llKey(ll) {
+          if (!ll) return '';
+          const lat = Array.isArray(ll) ? Number(ll[0]) : Number(ll.lat);
+          const lng = Array.isArray(ll) ? Number(ll[1]) : Number(ll.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return '';
+          return lat.toFixed(5) + ',' + lng.toFixed(5);
+        }
         function addOdMarker(ll, isOrigin) {
           if (!ll) return;
           try {
             L.circleMarker(ll, {
-              radius: isOrigin ? 5 : 5,
+              radius: 5,
               color: '#fff',
               weight: 2,
               fillColor: isOrigin ? '#1a7f37' : '#b00020',
@@ -9258,9 +9268,39 @@
             bounds.push(ll);
           } catch (_) {}
         }
-        addOdMarker(g.origin, true);
-        addOdMarker(g.dest, false);
-      });
+        function addTransferMarker(ll) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 3.5,
+              color: '#07093e',
+              weight: 1.5,
+              fillColor: '#fff',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        if (!segs.length) return;
+        if (segs.length === 1) {
+          addOdMarker(segs[0].origin, true);
+          addOdMarker(segs[0].dest, false);
+          return;
+        }
+        addOdMarker(segs[0].origin, true);
+        const endKeys = Object.create(null);
+        const ok = llKey(segs[0].origin); if (ok) endKeys[ok] = 1;
+        const dk = llKey(segs[segs.length - 1].dest); if (dk) endKeys[dk] = 1;
+        const seen = Object.create(null);
+        for (let i = 0; i < segs.length - 1; i++) {
+          const ll = segs[i].dest || (segs[i + 1] && segs[i + 1].origin);
+          const k = llKey(ll);
+          if (!k || endKeys[k] || seen[k]) continue;
+          seen[k] = 1;
+          addTransferMarker(ll);
+        }
+        addOdMarker(segs[segs.length - 1].dest, false);
+      })();
 
       try {
         if (bounds.length >= 2) {
@@ -9389,6 +9429,7 @@
       }
 
       const bounds = [];
+      /* Trip transfer dots */
       segs.forEach(function(g) {
         if (g.line && g.line.length >= 2) {
           try {
@@ -9412,11 +9453,20 @@
             bounds.push(g.origin, g.dest);
           } catch (_) {}
         }
+      });
+      (function paintTripEndpointMarkers() {
+        function llKey(ll) {
+          if (!ll) return '';
+          const lat = Array.isArray(ll) ? Number(ll[0]) : Number(ll.lat);
+          const lng = Array.isArray(ll) ? Number(ll[1]) : Number(ll.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return '';
+          return lat.toFixed(5) + ',' + lng.toFixed(5);
+        }
         function addOdMarker(ll, isOrigin) {
           if (!ll) return;
           try {
             L.circleMarker(ll, {
-              radius: isOrigin ? 9 : 9,
+              radius: 9,
               color: '#fff',
               weight: 3,
               fillColor: isOrigin ? '#1a7f37' : '#b00020',
@@ -9425,9 +9475,39 @@
             bounds.push(ll);
           } catch (_) {}
         }
-        addOdMarker(g.origin, true);
-        addOdMarker(g.dest, false);
-      });
+        function addTransferMarker(ll) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 6,
+              color: '#07093e',
+              weight: 2,
+              fillColor: '#fff',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        if (!segs.length) return;
+        if (segs.length === 1) {
+          addOdMarker(segs[0].origin, true);
+          addOdMarker(segs[0].dest, false);
+          return;
+        }
+        addOdMarker(segs[0].origin, true);
+        const endKeys = Object.create(null);
+        const ok = llKey(segs[0].origin); if (ok) endKeys[ok] = 1;
+        const dk = llKey(segs[segs.length - 1].dest); if (dk) endKeys[dk] = 1;
+        const seen = Object.create(null);
+        for (let i = 0; i < segs.length - 1; i++) {
+          const ll = segs[i].dest || (segs[i + 1] && segs[i + 1].origin);
+          const k = llKey(ll);
+          if (!k || endKeys[k] || seen[k]) continue;
+          seen[k] = 1;
+          addTransferMarker(ll);
+        }
+        addOdMarker(segs[segs.length - 1].dest, false);
+      })();
 
       try {
         if (bounds.length >= 2) {
@@ -9720,11 +9800,46 @@
         'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
 
+    /* Trip datetime save fix */
+    // datetime-local wants "YYYY-MM-DDTHH:mm" in the user's local zone.
+    // Never feed Date.parse / new Date('YYYY-MM-DD') (UTC midnight → day shift in US).
+    function isoToLocalInput(isoOrVal) {
+      if (isoOrVal == null || isoOrVal === '') return '';
+      const s = String(isoOrVal).trim();
+      // Already a local datetime-local value (optionally with seconds)
+      const localMatch = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+      if (localMatch && s.indexOf('Z') < 0 && !/[+-]\d{2}:\d{2}$/.test(s)) {
+        return localMatch[1];
+      }
+      const d = typeof isoOrVal === 'number' ? new Date(isoOrVal) : new Date(s);
+      if (isNaN(d.getTime())) return '';
+      const pad = function(n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
     function localInputToIso(val) {
       if (!val) return null;
-      const d = new Date(val);
-      if (isNaN(d.getTime())) return null;
-      return d.toISOString();
+      const s = String(val).trim();
+      // Parse datetime-local as LOCAL components (avoids Safari/UTC quirks)
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/);
+      if (m) {
+        const d = new Date(
+          Number(m[1]),
+          Number(m[2]) - 1,
+          Number(m[3]),
+          Number(m[4]),
+          Number(m[5]),
+          Number(m[6] || 0),
+          0
+        );
+        if (isNaN(d.getTime())) return null;
+        return d.toISOString();
+      }
+      // Already an absolute ISO / offset string
+      const d2 = new Date(s);
+      if (isNaN(d2.getTime())) return null;
+      return d2.toISOString();
     }
 
     function ensureTripSegmentsState() {
@@ -9823,9 +9938,9 @@
             '<input type="text" data-seg-field="train" maxlength="32" placeholder="e.g. 2150" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
             '<div class="trip-segment-times">' +
               '<div><label>Depart</label>' +
-              '<input type="datetime-local" data-seg-field="depart" value="' + escapeTripOpt(seg.departTime || '') + '"></div>' +
+              '<input type="datetime-local" data-seg-field="depart" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.departTime) || '') + '"></div>' +
               '<div><label>Arrive</label>' +
-              '<input type="datetime-local" data-seg-field="arrive" value="' + escapeTripOpt(seg.arriveTime || '') + '"></div>' +
+              '<input type="datetime-local" data-seg-field="arrive" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.arriveTime) || '') + '"></div>' +
             '</div>' +
           '</div>'
         );
@@ -9843,6 +9958,19 @@
       const idx = Number(card.getAttribute('data-seg-index'));
       if (!isFinite(idx) || idx < 0 || idx >= tripLogSegmentsState.length) return;
       syncTripSegmentStateFromDom();
+      // datetime-local / text: sync only — never rebuild the form (iOS native picker
+      // is destroyed by innerHTML re-render and the picked value is lost).
+      if (field === 'depart' || field === 'arrive' || field === 'train') {
+        // Normalize any odd picker string into canonical local "YYYY-MM-DDTHH:mm"
+        const seg = tripLogSegmentsState[idx];
+        if (field === 'depart') seg.departTime = isoToLocalInput(seg.departTime) || seg.departTime || '';
+        if (field === 'arrive') seg.arriveTime = isoToLocalInput(seg.arriveTime) || seg.arriveTime || '';
+        if (t && (field === 'depart' || field === 'arrive') && seg[field === 'depart' ? 'departTime' : 'arriveTime']) {
+          const norm = field === 'depart' ? seg.departTime : seg.arriveTime;
+          if (t.value !== norm) t.value = norm;
+        }
+        return;
+      }
       const seg = tripLogSegmentsState[idx];
       if (field === 'railroad') {
         seg.lineId = '';
@@ -10605,7 +10733,34 @@
           const f = e.target && e.target.getAttribute && e.target.getAttribute('data-seg-field');
           if (f === 'train' || f === 'depart' || f === 'arrive') {
             syncTripSegmentStateFromDom();
+            if (f === 'depart' || f === 'arrive') {
+              const card = e.target.closest('.trip-segment');
+              const idx = card ? Number(card.getAttribute('data-seg-index')) : -1;
+              if (isFinite(idx) && idx >= 0 && idx < tripLogSegmentsState.length) {
+                const seg = tripLogSegmentsState[idx];
+                if (f === 'depart') seg.departTime = isoToLocalInput(seg.departTime) || seg.departTime || '';
+                if (f === 'arrive') seg.arriveTime = isoToLocalInput(seg.arriveTime) || seg.arriveTime || '';
+              }
+            }
             updateTripMilesPreview();
+          }
+        });
+        // iOS sometimes finalizes datetime-local on blur rather than change
+        segsRoot.addEventListener('focusout', function(e) {
+          const f = e.target && e.target.getAttribute && e.target.getAttribute('data-seg-field');
+          if (f === 'depart' || f === 'arrive') {
+            syncTripSegmentStateFromDom();
+            const card = e.target.closest('.trip-segment');
+            const idx = card ? Number(card.getAttribute('data-seg-index')) : -1;
+            if (isFinite(idx) && idx >= 0 && idx < tripLogSegmentsState.length) {
+              const seg = tripLogSegmentsState[idx];
+              const norm = isoToLocalInput(f === 'depart' ? seg.departTime : seg.arriveTime);
+              if (norm) {
+                if (f === 'depart') seg.departTime = norm;
+                else seg.arriveTime = norm;
+                if (e.target.value !== norm) e.target.value = norm;
+              }
+            }
           }
         });
         segsRoot.addEventListener('click', function(e) {
