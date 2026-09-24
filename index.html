@@ -10484,10 +10484,11 @@
       })();
 
       try {
+        map._rrTripBounds = bounds.slice();
         if (bounds.length >= 2) {
-          map.fitBounds(bounds, { padding: [36, 36], maxZoom: 14 });
+          map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12, animate: false });
         } else if (bounds.length === 1) {
-          map.setView(bounds[0], 12);
+          map.setView(bounds[0], 11);
         } else {
           map.setView([42.3, -71.1], 7);
         }
@@ -11073,9 +11074,20 @@
         if (domLogo && src) domLogo.src = src;
       } catch (_) {}
       // Let logo paint + Leaflet settle
-      try { if (tripDetailMap) tripDetailMap.invalidateSize(false); } catch (_) {}
-      await new Promise(function(r) { setTimeout(r, 220); });
-      try { if (tripDetailMap) tripDetailMap.invalidateSize(false); } catch (_) {}
+      function rrRefitTripShot() {
+        if (!tripDetailMap) return;
+        try { tripDetailMap.invalidateSize(false); } catch (_) {}
+        try {
+          const b = tripDetailMap._rrTripBounds;
+          if (b && b.length >= 2) {
+            tripDetailMap.fitBounds(b, { padding: [32, 32], maxZoom: 11, animate: false });
+          }
+        } catch (_) {}
+      }
+      rrRefitTripShot();
+      await new Promise(function(r) { setTimeout(r, 180); });
+      rrRefitTripShot();
+      await new Promise(function(r) { setTimeout(r, 160); });
       let dataUrl;
       try {
         // Prefer full overlay (map + panel). Same-origin /api/mapbox tiles avoid canvas taint.
