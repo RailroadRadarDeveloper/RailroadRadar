@@ -1,11 +1,56 @@
-') >= 1
-          print('ok', len(t))
-          PY
-          git config user.name "RailroadRadar"
-          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
-          git add index.html mytrips/index.html
-          if git diff --cached --quiet; then echo nothing to commit
-          else
-            git commit -m "My trips: full-width list + beautiful trip detail view"
-            git push
-          fi
+name: Apply trip detail full-width
+on:
+  workflow_dispatch:
+    push:
+        paths:
+              - 'scripts/trip-detail-fullwidth.patch.gz.b64'      - '.github/workflows/apply-trip-detail-fullwidth.yml'
+              permissions:
+                contents: write
+                jobs:
+                  apply:
+                      runs-on: ubuntu-latest
+                          steps:
+                                - uses: actions/checkout@v4
+                                      - name: Decode patch, apply, publish mytrips
+                                              run: |
+                                                        set -euo pipefail
+                                                                  python3 <<'PY'
+                                                                            import hashlib, pathlib, sys
+                                                                                      expected = "5861cc53b9278fca45c33c454de104121b19243ba788e0cea450a51c3ed4ffc3"
+                                                                                                single = pathlib.Path('scripts/trip-detail-fullwidth.patch.gz.b64')
+                                                                                                          if not single.exists():
+                                                                                                                      raise SystemExit('missing scripts/trip-detail-fullwidth.patch.gz.b64')
+                                                                                                                                blob = single.read_text().strip()
+                                                                                                                                          print('using single b64', len(blob))
+                                                                                                                                                    h=hashlib.sha256(blob.encode()).hexdigest()
+                                                                                                                                                              if h!=expected:
+                                                                                                                                                                          raise SystemExit(f'full hash mismatch: {h}')
+                                                                                                                                                                                    pathlib.Path('/tmp/all.b64').write_text(blob)
+                                                                                                                                                                                              print('hash ok')
+                                                                                                                                                                                                        PY
+                                                                                                                                                                                                                  base64 -d /tmp/all.b64 | gunzip > /tmp/trip-detail-fullwidth.patch
+                                                                                                                                                                                                                            git apply /tmp/trip-detail-fullwidth.patch
+                                                                                                                                                                                                                                      mkdir -p mytrips
+                                                                                                                                                                                                                                                cp index.html mytrips/index.html
+                                                                                                                                                                                                                                                          python3 - <<'PY'
+                                                                                                                                                                                                                                                                    from pathlib import Path
+                                                                                                                                                                                                                                                                              t = Path('index.html').read_text(errors='replace')
+                                                                                                                                                                                                                                                                                        assert 'trip-detail-overlay' in t
+                                                                                                                                                                                                                                                                                                  assert 'openTripDetailView' in t
+                                                                                                                                                                                                                                                                                                            assert 'closeTripDetailView' in t
+                                                                                                                                                                                                                                                                                                                      assert 'paintTripDetailMap' in t
+                                                                                                                                                                                                                                                                                                                                assert 'tripLogDataById' in t
+                                                                                                                                                                                                                                                                                                                                          assert 'rr-trip-detail-open' in t
+                                                                                                                                                                                                                                                                                                                                                    assert 'width: 100% !important' in t
+                                                                                                                                                                                                                                                                                                                                                              assert Path('mytrips/index.html').read_text(errors='replace').count('openTripDetailView') >= 1
+                                                                                                                                                                                                                                                                                                                                                                        print('ok', len(t))
+                                                                                                                                                                                                                                                                                                                                                                                  PY
+                                                                                                                                                                                                                                                                                                                                                                                            git config user.name "RailroadRadar"
+                                                                                                                                                                                                                                                                                                                                                                                                      git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+                                                                                                                                                                                                                                                                                                                                                                                                                git add index.html mytrips/index.html
+                                                                                                                                                                                                                                                                                                                                                                                                                          if git diff --cached --quiet; then echo nothing to commit
+                                                                                                                                                                                                                                                                                                                                                                                                                                    else
+                                                                                                                                                                                                                                                                                                                                                                                                                                                git commit -m "My trips: full-width list + beautiful trip detail view"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                            git push
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      fi
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
