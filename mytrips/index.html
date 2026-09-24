@@ -2745,6 +2745,12 @@
     .mytrips-guest-map { color: #fff; font-weight: 700; text-decoration: none; }
     .mytrips-guest-phone-wrap { flex: 1 1 42%; display: flex; justify-content: center; }
     .mytrips-guest-phone { width: min(280px, 72vw); height: auto; display: block; filter: drop-shadow(0 18px 40px rgba(0,0,0,.35)); }
+    @media (min-width: 860px) {
+      .mytrips-guest-phone { width: min(520px, 42vw); }
+    }
+    @media (min-width: 1200px) {
+      .mytrips-guest-phone { width: min(620px, 46vw); }
+    }
     html.rr-mytrips-page #header-auth {
       display: flex !important;
     }
