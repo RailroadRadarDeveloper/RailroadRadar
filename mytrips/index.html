@@ -4390,6 +4390,74 @@
       margin-top: 14px;
     }
 
+    /* Trip detail share png */
+    .trip-detail-toolbar {
+      position: relative;
+    }
+    .trip-detail-share-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      z-index: 6;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      background: rgba(255, 255, 255, 0.36);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+    }
+    .trip-detail-share-btn:hover,
+    .trip-detail-share-btn:focus-visible {
+      background: rgba(255, 255, 255, 0.5);
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+    .trip-detail-share-btn:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+    .trip-detail-share-btn svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+    /* Logo used only while rasterizing share PNG (bottom-right of sheet) */
+    .trip-detail-share-logo {
+      display: none;
+      position: absolute;
+      right: 12px;
+      bottom: max(10px, env(safe-area-inset-bottom, 0px));
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      z-index: 8;
+      pointer-events: none;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 10px;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+    #trip-detail-overlay.trip-detail-capturing .trip-detail-share-logo {
+      display: block;
+    }
+    #trip-detail-overlay.trip-detail-capturing .trip-detail-share-btn {
+      visibility: hidden;
+    }
+    #trip-detail-overlay .trip-detail-panel {
+      position: relative;
+    }
+    #trip-log-add-segment:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     /* Trip dual-rail diagonal */
     /* 2+ distinct railroads → diagonal split of first two colors (135deg). Single-rail stays solid. */
     .trip-log-row[data-rail-accent][data-rail-dual],
@@ -5763,8 +5831,12 @@
     <div id="trip-detail-map" class="trip-detail-map is-loading" role="img" aria-label="Trip route map"></div>
     <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
       <div class="trip-detail-accent" id="trip-detail-accent"></div>
+      <img class="trip-detail-share-logo" id="trip-detail-share-logo" alt="" width="44" height="44" decoding="async" src="/assets/icons/favicon-192.png?v=3">
       <div class="trip-detail-toolbar">
         <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
+        <button type="button" class="trip-detail-share-btn" id="trip-detail-share" aria-label="Share trip image" title="Share / download image">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </button>
       </div>
       <div class="trip-detail-body">
         <div class="trip-detail-badges" id="trip-detail-badges"></div>
@@ -8797,6 +8869,8 @@
     let tripLogHasMore = false;
     let tripLogLoading = false;
     let tripLogSegmentsState = [];
+    /* Trip max 3 segments */
+    const TRIP_LOG_MAX_SEGMENTS = 3; // max 3 segments per trip
     let tripScheduleCache = {};
     let tripScheduleFetchTokens = {};
     let tripPendingLogTrip = null;
@@ -10421,7 +10495,183 @@
       tripLiveTimer = setInterval(tripLiveTick, TRIP_LIVE_POLL_MS);
     }
 
-    function closeTripDetailView(opts) {
+    
+    /* Trip detail share png */
+    let tripHtmlToImageLoading = null;
+    const TRIP_SHARE_LOGO_SRC = '/assets/icons/favicon-192.png?v=3';
+
+    function tripShareSlugPart(s) {
+      return String(s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 28) || 'trip';
+    }
+
+    function tripShareFilename(data) {
+      const od = (typeof tripDetailOriginDest === 'function') ? tripDetailOriginDest(data || {}) : { origin: 'trip', dest: '' };
+      const train = String((data && data.trainNumber) || '').split('/')[0].trim().replace(/[^a-zA-Z0-9]+/g, '') || '';
+      const bits = ['railroadradar-trip'];
+      if (train) bits.push(train.slice(0, 12));
+      bits.push(tripShareSlugPart(od.origin));
+      bits.push(tripShareSlugPart(od.dest));
+      return bits.filter(Boolean).join('-').slice(0, 80) + '.png';
+    }
+
+    function tripEnsureHtmlToImage() {
+      if (window.htmlToImage && typeof window.htmlToImage.toPng === 'function') {
+        return Promise.resolve(window.htmlToImage);
+      }
+      if (tripHtmlToImageLoading) return tripHtmlToImageLoading;
+      tripHtmlToImageLoading = new Promise(function(resolve, reject) {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js';
+        s.async = true;
+        s.onload = function() {
+          if (window.htmlToImage && typeof window.htmlToImage.toPng === 'function') resolve(window.htmlToImage);
+          else reject(new Error('Share library failed to load'));
+        };
+        s.onerror = function() { reject(new Error('Could not load share library')); };
+        document.head.appendChild(s);
+      });
+      return tripHtmlToImageLoading;
+    }
+
+    function tripLoadImage(src) {
+      return new Promise(function(resolve, reject) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() { resolve(img); };
+        img.onerror = function() { reject(new Error('logo load failed')); };
+        img.src = src;
+      });
+    }
+
+    function tripDownloadPngBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'railroadradar-trip.png';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        try { URL.revokeObjectURL(url); } catch (_) {}
+        try { a.remove(); } catch (_) {}
+      }, 1500);
+    }
+
+    async function tripSharePngBlob(blob, filename) {
+      const file = new File([blob], filename || 'railroadradar-trip.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+          await navigator.share({
+            files: [file],
+            title: 'RailroadRadar trip',
+            text: 'My trip on RailroadRadar'
+          });
+          return 'shared';
+        }
+      } catch (e) {
+        if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return 'aborted';
+      }
+      tripDownloadPngBlob(blob, filename);
+      return 'downloaded';
+    }
+
+    async function tripDetailCapturePngBlob() {
+      const overlay = document.getElementById('trip-detail-overlay');
+      const panel = overlay && overlay.querySelector('.trip-detail-panel');
+      if (!overlay || !panel) throw new Error('Trip detail not open');
+      const lib = await tripEnsureHtmlToImage();
+      overlay.classList.add('trip-detail-capturing');
+      // Let logo paint + Leaflet settle
+      try { if (tripDetailMap) tripDetailMap.invalidateSize(false); } catch (_) {}
+      await new Promise(function(r) { setTimeout(r, 80); });
+      let dataUrl;
+      try {
+        // Prefer full overlay (map + panel). Same-origin /api/mapbox tiles avoid canvas taint.
+        dataUrl = await lib.toPng(overlay, {
+          pixelRatio: Math.min(2, window.devicePixelRatio || 2),
+          cacheBust: true,
+          skipFonts: false,
+          filter: function(node) {
+            if (!node || !node.classList) return true;
+            // Hide leaflet controls in export
+            if (node.classList.contains('leaflet-control-container')) return false;
+            return true;
+          }
+        });
+      } catch (err) {
+        // Fallback: panel only (no map) if tiles taint canvas
+        console.warn('[trip-share] full capture failed, trying panel', err);
+        dataUrl = await lib.toPng(panel, {
+          pixelRatio: Math.min(2, window.devicePixelRatio || 2),
+          cacheBust: true
+        });
+      } finally {
+        overlay.classList.remove('trip-detail-capturing');
+      }
+      // Draw logo bottom-right onto canvas (ensures logo even if DOM logo missed)
+      const img = await tripLoadImage(dataUrl);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      try {
+        const logo = await tripLoadImage(TRIP_SHARE_LOGO_SRC);
+        const target = Math.round(Math.min(canvas.width, canvas.height) * 0.09);
+        const logoW = Math.max(36, Math.min(72, target));
+        const logoH = logoW;
+        const pad = Math.max(14, Math.round(logoW * 0.28));
+        // white rounded plate behind logo for contrast on rail colors
+        const x = canvas.width - logoW - pad;
+        const y = canvas.height - logoH - pad;
+        const platePad = Math.round(logoW * 0.12);
+        const rw = logoW + platePad * 2;
+        const rh = logoH + platePad * 2;
+        const rx = x - platePad;
+        const ry = y - platePad;
+        const rad = Math.round(logoW * 0.22);
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(rx, ry, rw, rh, rad);
+        else {
+          ctx.rect(rx, ry, rw, rh);
+        }
+        ctx.fill();
+        ctx.drawImage(logo, x, y, logoW, logoH);
+      } catch (logoErr) {
+        console.warn('[trip-share] logo overlay skipped', logoErr);
+      }
+      return await new Promise(function(resolve, reject) {
+        canvas.toBlob(function(blob) {
+          if (blob) resolve(blob);
+          else reject(new Error('Could not create PNG'));
+        }, 'image/png');
+      });
+    }
+
+    async function tripDetailSharePng() {
+      const btn = document.getElementById('trip-detail-share');
+      const data = tripDetailOpenId ? tripLogDataById[tripDetailOpenId] : null;
+      if (btn) btn.disabled = true;
+      try {
+        const blob = await tripDetailCapturePngBlob();
+        const filename = tripShareFilename(data || {});
+        await tripSharePngBlob(blob, filename);
+      } catch (e) {
+        console.warn('[trip-share] failed', e);
+        try {
+          alert('Could not create trip image. Try again.');
+        } catch (_) {}
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+function closeTripDetailView(opts) {
       const fromPop = opts && opts.fromPopstate;
       const overlay = document.getElementById('trip-detail-overlay');
       if (!overlay || overlay.getAttribute('aria-hidden') === 'true') {
@@ -10999,6 +11249,7 @@
         );
       }).join('');
       updateTripMilesPreview();
+      try { updateTripAddSegmentButton(); } catch (_) {}
       // Populate schedule dropdowns without a second full re-render
       setTimeout(function() { refreshAllTripScheduleSelects(); }, 0);
     }
@@ -11085,6 +11336,11 @@
 
     function addTripSegment() {
       syncTripSegmentStateFromDom();
+      // max 3 segments
+      if (tripLogSegmentsState.length >= TRIP_LOG_MAX_SEGMENTS) {
+        updateTripAddSegmentButton();
+        return;
+      }
       const prev = tripLogSegmentsState[tripLogSegmentsState.length - 1] || {};
       // Default next depart to previous arrive when available
       let nextDepart = '';
@@ -11094,6 +11350,22 @@
         departTime: nextDepart || defaultTripStartLocalValue()
       }));
       renderTripSegmentsForm();
+    }
+
+    function updateTripAddSegmentButton() {
+      const btn = document.getElementById('trip-log-add-segment');
+      if (!btn) return;
+      const n = tripLogSegmentsState.length;
+      const atMax = n >= TRIP_LOG_MAX_SEGMENTS;
+      btn.disabled = atMax;
+      btn.setAttribute('aria-disabled', atMax ? 'true' : 'false');
+      if (atMax) {
+        btn.textContent = 'Max 3 segments';
+        btn.title = 'Trips can have at most 3 segments';
+      } else {
+        btn.textContent = 'Add segment for this trip';
+        btn.title = '';
+      }
     }
 
     function removeTripSegment(idx) {
@@ -11490,6 +11762,10 @@
     }
 
     function buildTripPayloadFromSegments(segs, notes, rollingStock) {
+      // max 3 segments — reject extras on save
+      if (Array.isArray(segs) && segs.length > TRIP_LOG_MAX_SEGMENTS) {
+        throw new Error('Trips can have at most 3 segments.');
+      }
       const segments = [];
       let totalMiles = 0;
       for (let i = 0; i < segs.length; i++) {
@@ -11970,6 +12246,11 @@
       }
       const addBtn = document.getElementById('trip-log-add-segment');
       if (addBtn) addBtn.addEventListener('click', addTripSegment);
+      const shareBtn = document.getElementById('trip-detail-share');
+      if (shareBtn) shareBtn.addEventListener('click', function(ev) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+        tripDetailSharePng();
+      });
       const saveBtn = document.getElementById('trip-log-save');
       if (saveBtn) saveBtn.addEventListener('click', saveTripLog);
       const gotoList = document.getElementById('trip-log-goto-list');
