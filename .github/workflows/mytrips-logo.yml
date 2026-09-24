@@ -1,0 +1,23 @@
+name: MyTrips header logo
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-logo.py
+      - .github/workflows/mytrips-logo.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/brand
+          curl -fsSL --max-time 90 "https://i.postimg.cc/8PzqYZ2S/My-Trips-by-Railroad-Radar.png" -o assets/brand/mytrips-logo.png
+          python3 scripts/mytrips-logo.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/brand/mytrips-logo.png index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Use MyTrips by RailroadRadar logo on MyTrips pages" && git push; fi
