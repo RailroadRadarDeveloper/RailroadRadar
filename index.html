@@ -12344,6 +12344,15 @@ function closeTripDetailView(opts) {
           console.warn('[trip-map] schedule failed', mapErr);
         }
       });
+      if (upcomingRows) {
+        const rows = Array.prototype.slice.call(upcomingRows.querySelectorAll('.trip-log-row'));
+        rows.sort(function(a, b) {
+          const da = tripLogDataById[a.getAttribute('data-trip-id')] || {};
+          const db = tripLogDataById[b.getAttribute('data-trip-id')] || {};
+          return tripStartMs(da) - tripStartMs(db);
+        });
+        rows.forEach(function(row) { upcomingRows.appendChild(row); });
+      }
       if (sections && sections.upcoming) sections.upcoming.hidden = !(upcomingRows && upcomingRows.querySelector('.trip-log-row'));
       if (sections && sections.past) sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'));
     }
