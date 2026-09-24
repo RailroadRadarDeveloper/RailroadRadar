@@ -12072,8 +12072,6 @@ function closeTripDetailView(opts) {
       setTripLogEmptyVisible(false);
       let upcomingCount = upcomingRows ? upcomingRows.querySelectorAll('.trip-log-row').length : 0;
       let pastCount = pastRows ? pastRows.querySelectorAll('.trip-log-row').length : 0;
-      if (sections.upcoming) sections.upcoming.hidden = !upcomingRows.querySelector('.trip-log-row');
-      if (sections.past) sections.past.hidden = !pastRows.querySelector('.trip-log-row');
       docs.forEach(function(doc) {
         const data = doc.data() || {};
         const row = document.createElement('div');
@@ -12159,6 +12157,8 @@ function closeTripDetailView(opts) {
           console.warn('[trip-map] schedule failed', mapErr);
         }
       });
+      if (sections && sections.upcoming) sections.upcoming.hidden = !(upcomingRows && upcomingRows.querySelector('.trip-log-row'));
+      if (sections && sections.past) sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'));
     }
 
     async function loadTripLogList(reset) {
