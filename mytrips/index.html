@@ -3964,6 +3964,46 @@
       background: #0b0d1a;
     }
 
+    /* Trip route to-word */
+    .trip-route-to {
+      font-weight: 600;
+      font-size: 0.82em;
+      opacity: 0.7;
+      letter-spacing: 0;
+      padding: 0 0.05em;
+    }
+    .trip-log-row[data-rail-accent] .trip-route-to,
+    .trip-detail-overlay[data-rail-accent] .trip-route-to,
+    .trip-seg-chip .trip-route-to,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-route-to,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-route-to {
+      color: rgba(255, 255, 255, 0.78);
+      opacity: 1;
+    }
+    .trip-log-row-route,
+    .trip-detail-route,
+    .trip-detail-seg-od {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* Trip detail square corners */
+    .trip-detail-overlay,
+    .trip-detail-panel,
+    .trip-detail-accent,
+    .trip-detail-map,
+    .trip-detail-map .leaflet-container,
+    html.rr-mytrips-page .trip-detail-overlay,
+    html.rr-mytrips-page .trip-detail-panel,
+    html.rr-mytrips-page .trip-detail-map,
+    html.rr-mytrips-page .trip-detail-map .leaflet-container {
+      border-radius: 0;
+    }
+    .trip-detail-panel,
+    html.rr-mytrips-page .trip-detail-panel {
+      margin-top: 0;
+    }
+
     @media (max-width: 420px) {
       .trip-segment-times { grid-template-columns: 1fr; }
     }
@@ -9471,7 +9511,7 @@
 
       const od = tripDetailOriginDest(data);
       const routeEl = document.getElementById('trip-detail-route');
-      if (routeEl) routeEl.textContent = od.origin + ' → ' + od.dest;
+      if (routeEl) routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
 
       const lineEl = document.getElementById('trip-detail-line');
       if (lineEl) {
@@ -9557,7 +9597,7 @@
             '<span class="trip-rail-badge-train">Leg ' + (i + 1) + '</span>';
           const odEl = document.createElement('div');
           odEl.className = 'trip-detail-seg-od';
-          odEl.textContent = (s.originName || '?') + ' → ' + (s.destName || '?');
+          odEl.innerHTML = tripRouteOdHtml(s.originName, s.destName);
           const sub = document.createElement('div');
           sub.className = 'trip-detail-seg-sub';
           const bits = [];
@@ -9944,15 +9984,38 @@
       if (name === 'list') loadTripLogList(true);
     }
 
+    function tripRouteOdHtml(origin, dest) {
+      const o = String(origin == null || origin === '' ? '?' : origin).replace(/</g, '&lt;');
+      const d = String(dest == null || dest === '' ? '?' : dest).replace(/</g, '&lt;');
+      return '<span class="trip-route-station">' + o + '</span>' +
+        ' <span class="trip-route-to">to</span> ' +
+        '<span class="trip-route-station">' + d + '</span>';
+    }
+    function tripRouteOdText(origin, dest) {
+      const o = String(origin == null || origin === '' ? '?' : origin);
+      const d = String(dest == null || dest === '' ? '?' : dest);
+      return o + ' to ' + d;
+    }
+
     function tripDisplayRoute(data) {
       const segs = Array.isArray(data.segments) ? data.segments : null;
       if (segs && segs.length) {
         const o = segs[0].originName || data.originName || '?';
         const d = segs[segs.length - 1].destName || data.destName || '?';
         const n = segs.length;
-        return o + ' → ' + d + (n > 1 ? (' (' + n + ' trains)') : '');
+        return tripRouteOdText(o, d) + (n > 1 ? (' (' + n + ' trains)') : '');
       }
-      return (data.originName || '?') + ' → ' + (data.destName || '?');
+      return tripRouteOdText(data.originName, data.destName);
+    }
+    function tripDisplayRouteHtml(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const o = segs[0].originName || data.originName || '?';
+        const d = segs[segs.length - 1].destName || data.destName || '?';
+        const n = segs.length;
+        return tripRouteOdHtml(o, d) + (n > 1 ? (' <span class="trip-route-extra">(' + n + ' trains)</span>') : '');
+      }
+      return tripRouteOdHtml(data.originName, data.destName);
     }
 
     function tripDisplayRail(data) {
@@ -10025,7 +10088,7 @@
           times = ' · ' + (s.departTime ? formatTripWhen(s.departTime) : '?') +
             ' → ' + (s.arriveTime ? formatTripWhen(s.arriveTime) : '?');
         }
-        return (i + 1) + '. ' + rail + line + ': ' + (s.originName || '?') + ' → ' + (s.destName || '?') + train + times;
+        return (i + 1) + '. ' + rail + line + ': ' + tripRouteOdText(s.originName, s.destName) + train + times;
       }).join('\n');
     }
 
@@ -10065,7 +10128,7 @@
         row.setAttribute('tabindex', '0');
         tripLogDataById[doc.id] = data;
         const railIds = tripRailIdsFromData(data);
-        const route = tripDisplayRoute(data);
+        const route = tripDisplayRouteHtml(data);
         row.setAttribute('aria-label', 'View trip: ' + route);
         const miles = formatTripMiles(data.miles);
         const when = tripDisplayWhen(data);
@@ -10082,11 +10145,14 @@
             const rr = String(s.railroad || '').toLowerCase();
             const line = s.lineName ? String(s.lineName) : '';
             const tn = s.trainNumber ? ('Train ' + s.trainNumber) : '';
-            const od = (s.originName || '?') + ' → ' + (s.destName || '?');
-            const bits = [line, tn, od].filter(Boolean).join(' · ');
+            const odHtml = tripRouteOdHtml(s.originName, s.destName);
+            const bits = [];
+            if (line) bits.push(String(line).replace(/</g, '&lt;'));
+            if (tn) bits.push(String(tn).replace(/</g, '&lt;'));
+            bits.push(odHtml);
             return '<span class="trip-seg-chip" style="--rr-trip-rail:' + tripRailColor(rr) + '">' +
               tripRailBadgeHtml(rr) +
-              '<span>' + String(i + 1) + '. ' + bits.replace(/</g, '&lt;') + '</span></span>';
+              '<span>' + String(i + 1) + '. ' + bits.join(' · ') + '</span></span>';
           }).join('') + '</div>';
         }
         row.innerHTML =
@@ -10107,7 +10173,7 @@
           '</div>' +
           chipsHtml +
           '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>';
-        row.querySelector('.trip-log-row-route').textContent = route;
+        row.querySelector('.trip-log-row-route').innerHTML = route;
         row.querySelector('.trip-log-row-meta').textContent = when;
         row.querySelector('.trip-log-row-miles').textContent = miles;
         const stockRow = row.querySelector('.trip-log-row-stock');
