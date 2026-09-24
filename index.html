@@ -5926,6 +5926,25 @@
           <a class="rr-btn" id="account-open-trip-log" href="/mytrips/" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">My trips</a>
         </div>
 
+        <!-- /* Public profile settings */ -->
+        <div class="rr-lightbox-section" id="account-public-profile-section">
+          <h3>Public profile</h3>
+          <p class="rr-modal-hint" style="margin-top:0;">Share a public page with your name, photo, and trip log. Email stays private.</p>
+          <label class="rr-checkbox-row" style="display:flex;align-items:center;gap:8px;font-weight:600;margin:8px 0;">
+            <input type="checkbox" id="account-public-profile-toggle"> Make my profile public
+          </label>
+          <label for="account-username">Username</label>
+          <input type="text" id="account-username" maxlength="24" placeholder="yourname" autocomplete="off" spellcheck="false">
+          <p class="rr-modal-hint" id="account-username-hint">railroadradar.com/user/yourname · 3–24 chars, letters, numbers, underscore</p>
+          <div id="account-public-link-row" style="display:none;margin-top:10px;">
+            <label for="account-public-link">Your public link</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="text" id="account-public-link" readonly style="flex:1;min-width:180px;">
+              <button type="button" class="rr-btn secondary" id="account-public-link-copy">Copy</button>
+            </div>
+          </div>
+        </div>
+
         <div class="rr-lightbox-section">
           <div class="rr-lightbox-actions">
             <button type="button" class="rr-btn" id="account-save-settings">Save settings</button>
@@ -6746,7 +6765,7 @@
 
     let currentUser = null;
     const RR_LEGAL_VERSION = '2026-09-14';
-    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
+    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null, publicProfile: false, username: '' };
     const INTEREST_RAILROADS = [
       { id: 'mbta', label: 'MBTA Commuter Rail' },
       { id: 'amtrak', label: 'Amtrak' },
@@ -7049,7 +7068,7 @@
       return firstInitialLabel(displayName, email);
     }
     async function loadUserSettings(uid) {
-      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null };
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null, publicProfile: false, username: '' };
       currentUserSettings = Object.assign({}, defaults);
       if (!db || !uid) return currentUserSettings;
       try {
@@ -7071,7 +7090,9 @@
             cookieConsent: d.cookieConsent ? String(d.cookieConsent) : null,
             cookieClarity: d.cookieClarity === true,
             cookiePreferences: d.cookiePreferences !== false,
-            cookieDecidedAt: d.cookieDecidedAt ? String(d.cookieDecidedAt) : null
+            cookieDecidedAt: d.cookieDecidedAt ? String(d.cookieDecidedAt) : null,
+            publicProfile: d.publicProfile === true,
+            username: d.username ? String(d.username) : ''
           };
         }
       } catch (err) {
@@ -7343,6 +7364,11 @@
       const err = document.getElementById('account-settings-error');
       if (err) { err.textContent = ''; err.classList.remove('visible'); }
       updateAdminChrome(user);
+      const pubToggle = document.getElementById('account-public-profile-toggle');
+      if (pubToggle) pubToggle.checked = !!(settings && settings.publicProfile);
+      const unameEl = document.getElementById('account-username');
+      if (unameEl) unameEl.value = (settings && settings.username) || '';
+      updateAccountPublicProfileUi();
       updateAccountPreview();
       paintAccountReportStats(settings && settings.reportStats);
     }
@@ -7465,6 +7491,106 @@
         modal.setAttribute('aria-hidden', 'true');
       }
     }
+
+    /* Public profile settings */
+    const RR_RESERVED_USERNAMES = ['admin','api','assets','mytrips','press','policies','user','users','www','index','login','auth','null','undefined'];
+    function rrNormalizeUsername(raw) {
+      return String(raw == null ? '' : raw).trim();
+    }
+    function rrUsernameLower(raw) {
+      return rrNormalizeUsername(raw).toLowerCase();
+    }
+    function rrValidateUsername(raw) {
+      const u = rrNormalizeUsername(raw);
+      if (!u) return { ok: false, error: 'Enter a username.' };
+      if (u.length < 3 || u.length > 24) return { ok: false, error: 'Username must be 3–24 characters.' };
+      if (!/^[a-zA-Z0-9_]+$/.test(u)) return { ok: false, error: 'Username may only use letters, numbers, and underscore.' };
+      if (RR_RESERVED_USERNAMES.indexOf(u.toLowerCase()) !== -1) return { ok: false, error: 'That username is reserved.' };
+      return { ok: true, username: u, lower: u.toLowerCase() };
+    }
+    function rrPublicProfileUrl(username) {
+      const u = rrNormalizeUsername(username);
+      if (!u) return '';
+      return 'https://railroadradar.com/user/' + encodeURIComponent(u);
+    }
+    function updateAccountPublicProfileUi() {
+      const toggle = document.getElementById('account-public-profile-toggle');
+      const userEl = document.getElementById('account-username');
+      const row = document.getElementById('account-public-link-row');
+      const link = document.getElementById('account-public-link');
+      const hint = document.getElementById('account-username-hint');
+      const uname = rrNormalizeUsername(userEl && userEl.value);
+      const on = !!(toggle && toggle.checked);
+      if (hint) {
+        hint.textContent = uname
+          ? ('railroadradar.com/user/' + uname + ' · 3–24 chars, letters, numbers, underscore')
+          : 'railroadradar.com/user/yourname · 3–24 chars, letters, numbers, underscore';
+      }
+      if (row && link) {
+        if (on && uname) {
+          const url = rrPublicProfileUrl(uname);
+          link.value = url;
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      }
+    }
+    async function rrSavePublicProfileSettings(user, opts) {
+      opts = opts || {};
+      const wantPublic = !!opts.publicProfile;
+      const nextUsername = rrNormalizeUsername(opts.username);
+      const prevUsername = rrNormalizeUsername(opts.prevUsername);
+      const displayName = (user.displayName && String(user.displayName).trim()) || null;
+      const photoURL = (user.photoURL && String(user.photoURL).trim()) || null;
+      const settingsRef = db.collection('userSettings').doc(user.uid);
+      const profileRef = db.collection('publicProfiles').doc(user.uid);
+      const batch = db.batch();
+      const settingsPayload = {
+        publicProfile: wantPublic,
+        username: nextUsername || '',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      batch.set(settingsRef, settingsPayload, { merge: true });
+      if (wantPublic) {
+        const v = rrValidateUsername(nextUsername);
+        if (!v.ok) throw new Error(v.error);
+        const newNameRef = db.collection('usernames').doc(v.lower);
+        if (prevUsername && rrUsernameLower(prevUsername) !== v.lower) {
+          batch.delete(db.collection('usernames').doc(rrUsernameLower(prevUsername)));
+        }
+        batch.set(newNameRef, {
+          uid: user.uid,
+          username: v.username,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.set(profileRef, {
+          uid: user.uid,
+          username: v.username,
+          displayName: displayName,
+          photoURL: photoURL,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } else {
+        batch.delete(profileRef);
+        // Keep username claim reserved so they can re-enable; still allow changing/clearing claim when provided
+        if (nextUsername) {
+          const v = rrValidateUsername(nextUsername);
+          if (!v.ok) throw new Error(v.error);
+          if (prevUsername && rrUsernameLower(prevUsername) !== v.lower) {
+            batch.delete(db.collection('usernames').doc(rrUsernameLower(prevUsername)));
+          }
+          batch.set(db.collection('usernames').doc(v.lower), {
+            uid: user.uid,
+            username: v.username,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+      await batch.commit();
+      return { username: nextUsername, publicProfile: wantPublic };
+    }
+
     async function saveAccountSettings() {
       const user = currentUser || (auth && auth.currentUser);
       const err = document.getElementById('account-settings-error');
@@ -7487,6 +7613,32 @@
           setErr('Select at least one railroad you use RailroadRadar for.');
           return;
         }
+        const pubToggle = document.getElementById('account-public-profile-toggle');
+        const wantPublic = !!(pubToggle && pubToggle.checked);
+        const usernameRaw = rrNormalizeUsername((document.getElementById('account-username') || {}).value);
+        if (wantPublic || usernameRaw) {
+          const v = rrValidateUsername(usernameRaw);
+          if (!v.ok) { setErr(v.error); return; }
+        }
+        if (wantPublic && !usernameRaw) {
+          setErr('Choose a username to make your profile public.');
+          return;
+        }
+        const prevUsername = (currentUserSettings && currentUserSettings.username) || '';
+        try {
+          await rrSavePublicProfileSettings(user, {
+            publicProfile: wantPublic,
+            username: usernameRaw,
+            prevUsername: prevUsername
+          });
+        } catch (pubErr) {
+          console.error('[publicProfile] save failed', pubErr);
+          const msg = (pubErr && pubErr.code === 'permission-denied')
+            ? 'Could not claim username (taken or rules not published yet).'
+            : ('Could not save public profile: ' + ((pubErr && pubErr.message) || pubErr));
+          setErr(msg);
+          return;
+        }
         await db.collection('userSettings').doc(user.uid).set({
           reportDisplayMode: mode,
           reportCustomLabel: custom,
@@ -7494,6 +7646,8 @@
           interestedRailroadsSet: true,
           email: normalizeEmail(user.email) || (user.email || null),
           displayName: (user.displayName && String(user.displayName).trim()) || null,
+          publicProfile: wantPublic,
+          username: usernameRaw || '',
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
         try {
@@ -7511,8 +7665,11 @@
           interestedRailroadsSet: true,
           reportStats: (currentUserSettings && currentUserSettings.reportStats) || null,
           legalAccepted: !!(currentUserSettings && currentUserSettings.legalAccepted),
-          legalVersion: (currentUserSettings && currentUserSettings.legalVersion) || null
+          legalVersion: (currentUserSettings && currentUserSettings.legalVersion) || null,
+          publicProfile: wantPublic,
+          username: usernameRaw || ''
         };
+        updateAccountPublicProfileUi();
         updateInterestSummary(interests);
         if (err) { err.textContent = ''; err.classList.remove('visible'); }
         showNotification('Account settings saved');
@@ -12571,6 +12728,34 @@ function closeTripDetailView(opts) {
       const closeBtn = document.getElementById('account-settings-close');
       const closeBtn2 = document.getElementById('account-close-btn');
       const saveBtn = document.getElementById('account-save-settings');
+      const pubToggleBind = document.getElementById('account-public-profile-toggle');
+      const unameBind = document.getElementById('account-username');
+      const copyBind = document.getElementById('account-public-link-copy');
+      if (pubToggleBind && !pubToggleBind.getAttribute('data-rr-pub-bound')) {
+        pubToggleBind.setAttribute('data-rr-pub-bound', '1');
+        pubToggleBind.addEventListener('change', updateAccountPublicProfileUi);
+      }
+      if (unameBind && !unameBind.getAttribute('data-rr-pub-bound')) {
+        unameBind.setAttribute('data-rr-pub-bound', '1');
+        unameBind.addEventListener('input', updateAccountPublicProfileUi);
+      }
+      if (copyBind && !copyBind.getAttribute('data-rr-pub-bound')) {
+        copyBind.setAttribute('data-rr-pub-bound', '1');
+        copyBind.addEventListener('click', function() {
+          const link = document.getElementById('account-public-link');
+          const val = link && link.value;
+          if (!val) return;
+          const done = function() { showNotification('Profile link copied'); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(val).then(done).catch(function() {
+              try { link.select(); document.execCommand('copy'); done(); } catch (_) {}
+            });
+          } else {
+            try { link.select(); document.execCommand('copy'); done(); } catch (_) {}
+          }
+        });
+      }
+
       const signOutBtn = document.getElementById('account-sign-out');
       const delBtn = document.getElementById('account-delete');
       const customLabel = document.getElementById('account-custom-label');
