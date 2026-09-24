@@ -1,0 +1,70 @@
+name: Apply trip share logo white
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-share-logo-white.patch.gz.b64'
+      - '.github/workflows/apply-trip-share-logo-white.yml'
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Decode, verify, apply patch
+        run: |
+          set -euo pipefail
+          B64=scripts/trip-share-logo-white.patch.gz.b64
+          test -f "$B64"
+          EXPECTED_SHA="148fc5166c5245b6dabdd1f1b39bd1d8610a425ed3090460e8ae496f90210ab7"
+          ACTUAL_SHA=$(sha256sum "$B64" | awk '{print $1}')
+          echo "b64 sha256=$ACTUAL_SHA"
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::b64 SHA mismatch (got $ACTUAL_SHA expected $EXPECTED_SHA)"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import base64, gzip, pathlib, subprocess, sys
+          b64 = pathlib.Path("scripts/trip-share-logo-white.patch.gz.b64").read_text().strip()
+          raw = gzip.decompress(base64.b64decode(b64))
+          pathlib.Path("/tmp/trip-share-logo-white.patch").write_bytes(raw)
+          for m in [b"Trip share header logo", b"Trip segment cards solid white", b"tripShareLogoSrc"]:
+              if m not in raw:
+                  print("missing marker", m)
+                  sys.exit(1)
+          print("patch bytes", len(raw))
+          PY
+          # Apply to index.html (and mytrips copy if present as separate)
+          git apply --whitespace=nowarn /tmp/trip-share-logo-white.patch || {
+            echo "git apply failed; trying patch -p0"
+            patch -p0 --forward < /tmp/trip-share-logo-white.patch
+          }
+          # Keep mytrips/index.html identical if it exists as a copy
+          if [ -f mytrips/index.html ]; then
+            cp -a index.html mytrips/index.html
+          fi
+          grep -q "Trip share header logo" index.html
+          grep -q "Trip segment cards solid white" index.html
+          grep -q "tripShareLogoSrc" index.html
+          ! grep -q "TRIP_SHARE_LOGO_SRC = '/assets/icons/favicon-192" index.html
+          echo "markers OK"
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "RailroadRadar Bot"
+          git config user.email "bot@railroadradar.com"
+          git add index.html mytrips/index.html 2>/dev/null || git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "My trips: share header wordmark logo; solid white multi-seg cards"
+          git push origin HEAD:main
