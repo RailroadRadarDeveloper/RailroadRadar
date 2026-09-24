@@ -1,0 +1,34 @@
+name: Restore user profile page
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/restore-user-page.yml
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          git checkout 20f86b940741289a126cb9d235663f512ec59590 -- user/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('user/index.html')
+          t=p.read_text(encoding='utf-8')
+          old='      const upcoming = trips.filter(function (t) { return tripStartMs(t) >= Date.now(); });\n      const past = trips.filter(function (t) { return tripStartMs(t) < Date.now(); });'
+          new='      const upcoming = trips.filter(function (t) { return tripStartMs(t) >= Date.now(); }).sort(function (a, b) { return tripStartMs(a) - tripStartMs(b); });\n      const past = trips.filter(function (t) { return tripStartMs(t) < Date.now(); });'
+          if old in t:
+              t=t.replace(old,new,1)
+              p.write_text(t, encoding='utf-8')
+              print('sorted')
+          else:
+              print('restore only', 'PLACEHOLDER' in t)
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add user/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Restore MyTrips public profile page" && git push; fi
