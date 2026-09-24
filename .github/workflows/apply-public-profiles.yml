@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'scripts/public-profiles.patch.gz.b64.part*'
       - 'scripts/public-profiles.patch.gz.b64'
       - '.github/workflows/apply-public-profiles.yml'
 permissions:
@@ -18,11 +19,16 @@ jobs:
           python3 <<'PY'
           import hashlib, pathlib, sys
           expected = "03709e11d0ad199418bb01a8e326e2b2ae7636e0980cc0a98ac04d77797fddec"
+          parts = sorted(pathlib.Path('scripts').glob('public-profiles.patch.gz.b64.part*'))
           single = pathlib.Path('scripts/public-profiles.patch.gz.b64')
-          if not single.exists():
-            raise SystemExit('missing scripts/public-profiles.patch.gz.b64')
-          blob = single.read_text().strip()
-          print('using single b64', len(blob))
+          if parts:
+            blob = ''.join(p.read_text().strip() for p in parts)
+            print('using parts', len(parts), 'len', len(blob))
+          elif single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          else:
+            raise SystemExit('missing public-profiles patch b64')
           h=hashlib.sha256(blob.encode()).hexdigest()
           if h!=expected:
             raise SystemExit(f'full hash mismatch: {h}')
