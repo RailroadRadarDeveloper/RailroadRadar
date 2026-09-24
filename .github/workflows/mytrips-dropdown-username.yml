@@ -1,0 +1,20 @@
+name: MyTrips dropdown and username
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-dropdown-username.py
+      - .github/workflows/mytrips-dropdown-username.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/mytrips-dropdown-username.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Move MyTrips into account dropdown; clarify username in settings" && git push; fi
