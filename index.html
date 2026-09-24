@@ -2746,10 +2746,12 @@
     .mytrips-guest-phone-wrap { flex: 1 1 42%; display: flex; justify-content: center; }
     .mytrips-guest-phone { width: min(280px, 72vw); height: auto; display: block; filter: drop-shadow(0 18px 40px rgba(0,0,0,.35)); }
     @media (min-width: 860px) {
-      .mytrips-guest-phone { width: min(520px, 42vw); }
+      .mytrips-guest-phone-wrap { justify-content: flex-end; padding-right: 2vw; }
+      .mytrips-guest-phone { width: min(380px, 34vw); }
     }
     @media (min-width: 1200px) {
-      .mytrips-guest-phone { width: min(620px, 46vw); }
+      .mytrips-guest-phone-wrap { padding-right: 4vw; }
+      .mytrips-guest-phone { width: min(420px, 32vw); }
     }
     html.rr-mytrips-page #header-auth {
       display: flex !important;
