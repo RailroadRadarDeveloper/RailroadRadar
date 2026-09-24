@@ -2813,6 +2813,42 @@
       margin-top: 4px;
       white-space: pre-line;
     }
+    .trip-log-row-map {
+      margin-top: 8px;
+      height: 140px;
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e6ef;
+      background: #e8edf5;
+      position: relative;
+      z-index: 0;
+    }
+    .trip-log-row-map .leaflet-container {
+      width: 100%;
+      height: 100%;
+      background: #e8edf5;
+      font: inherit;
+    }
+    .trip-log-row-map.is-empty::after {
+      content: 'Map unavailable';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #7a8290;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .trip-log-row-map.is-loading::after {
+      content: 'Loading map…';
+    }
+    html.rr-mytrips-page .trip-log-row-map .leaflet-control-container {
+      display: none !important;
+    }
+
     @media (max-width: 420px) {
       .trip-segment-times { grid-template-columns: 1fr; }
     }
@@ -7626,6 +7662,398 @@
       return isFinite(mi) ? Math.round(mi * 10) / 10 : null;
     }
 
+    // ---- Trip list mini-maps (Leaflet under each My trips card) ----
+    const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
+    let tripLogMiniMapIO = null;
+    const TRIP_MINI_MAP_TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+    function rrSnapToPolylineDetailed(lat, lon, poly) {
+      let bestDist = Infinity, bestAlong = 0, bestI = 0, bestT = 0, cum = 0;
+      for (let i = 0; i < poly.length - 1; i++) {
+        const a = poly[i], b = poly[i + 1];
+        const proj = rrProjectToSegmentMiles(lat, lon, a[0], a[1], b[0], b[1]);
+        if (proj.dist < bestDist) {
+          bestDist = proj.dist;
+          bestAlong = cum + proj.along;
+          bestI = i;
+          bestT = proj.t;
+        }
+        cum += haversineMiles(a[0], a[1], b[0], b[1]);
+      }
+      return { dist: bestDist, along: bestAlong, total: cum, i: bestI, t: bestT };
+    }
+
+    function rrDedupeLatLngs(pts) {
+      const out = [];
+      for (let i = 0; i < (pts || []).length; i++) {
+        const p = pts[i];
+        if (!p || !isFinite(p[0]) || !isFinite(p[1])) continue;
+        if (!out.length) { out.push([p[0], p[1]]); continue; }
+        const last = out[out.length - 1];
+        if (haversineMiles(last[0], last[1], p[0], p[1]) < 0.02) continue;
+        out.push([p[0], p[1]]);
+      }
+      return out;
+    }
+
+    function rrSlicePolylineBetween(poly, oLat, oLon, dLat, dLon, maxSnapMi) {
+      if (!poly || poly.length < 2) return null;
+      const maxSnap = maxSnapMi == null ? RR_TRIP_SNAP_MAX_MI : maxSnapMi;
+      const o = rrSnapToPolylineDetailed(oLat, oLon, poly);
+      const d = rrSnapToPolylineDetailed(dLat, dLon, poly);
+      if (!(o.dist <= maxSnap && d.dist <= maxSnap)) return null;
+      function pointAt(snap) {
+        const a = poly[snap.i], b = poly[snap.i + 1] || a;
+        return [a[0] + snap.t * (b[0] - a[0]), a[1] + snap.t * (b[1] - a[1])];
+      }
+      const forward = o.along <= d.along;
+      const start = forward ? o : d;
+      const end = forward ? d : o;
+      const pts = [pointAt(start)];
+      for (let i = start.i + 1; i <= end.i; i++) pts.push(poly[i]);
+      pts.push(pointAt(end));
+      const deduped = rrDedupeLatLngs(pts);
+      if (deduped.length < 2) return null;
+      if (!forward) deduped.reverse();
+      return deduped;
+    }
+
+    function rrTripStopChainLatLngs(railroad, lineId, originId, destId) {
+      const o = findTripStation(railroad, originId);
+      const d = findTripStation(railroad, destId);
+      if (!o || !d || !lineId) return null;
+      const oLat = Number(o.lat), oLon = Number(o.lon);
+      const dLat = Number(d.lat), dLon = Number(d.lon);
+      if (![oLat, oLon, dLat, dLon].every(function(n) { return isFinite(n); })) return null;
+      if (oLat === dLat && oLon === dLon) return [[oLat, oLon]];
+      const od = haversineMiles(oLat, oLon, dLat, dLon);
+      if (!(od > 0) || !isFinite(od)) return null;
+
+      let corridorPts = null;
+      const stations = getTripLogStationsForLine(railroad, lineId) || [];
+      const corridor = [];
+      corridor.push({ lat: oLat, lon: oLon, dO: 0 });
+      corridor.push({ lat: dLat, lon: dLon, dO: od });
+      stations.forEach(function(s) {
+        if (!s) return;
+        const lat = Number(s.lat), lon = Number(s.lon);
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        const dO = haversineMiles(oLat, oLon, lat, lon);
+        const dD = haversineMiles(lat, lon, dLat, dLon);
+        if (!isFinite(dO) || !isFinite(dD)) return;
+        if (dO + dD > od * 1.5 + 0.75) return;
+        if (dO > od + 0.75 || dD > od + 0.75) return;
+        corridor.push({ lat: lat, lon: lon, dO: dO });
+      });
+      corridor.sort(function(a, b) { return a.dO - b.dO; });
+      corridorPts = rrDedupeLatLngs(corridor.map(function(p) { return [p.lat, p.lon]; }));
+
+      let indexPts = null;
+      const rr = String(railroad || '').toLowerCase();
+      const pack = (typeof TRIP_LINE_STOPS !== 'undefined') ? TRIP_LINE_STOPS[rr] : null;
+      const lid = String(lineId || '');
+      if (pack && pack[lid] && Array.isArray(pack[lid].s)) {
+        const ids = pack[lid].s;
+        let oi = -1, di = -1;
+        for (let i = 0; i < ids.length; i++) {
+          if (String(ids[i]) === String(originId)) oi = i;
+          if (String(ids[i]) === String(destId)) di = i;
+        }
+        if (oi >= 0 && di >= 0 && oi !== di) {
+          const lo = Math.min(oi, di), hi = Math.max(oi, di);
+          const slicePts = [];
+          for (let i = lo; i <= hi; i++) {
+            const st = findTripStation(railroad, ids[i]);
+            if (!st) continue;
+            const lat = Number(st.lat), lon = Number(st.lon);
+            if (!isFinite(lat) || !isFinite(lon)) continue;
+            slicePts.push([lat, lon]);
+          }
+          indexPts = rrDedupeLatLngs(slicePts);
+          if (oi > di && indexPts) indexPts.reverse();
+        }
+      }
+
+      function pathLen(pts) {
+        if (!pts || pts.length < 2) return 0;
+        let sum = 0;
+        for (let i = 1; i < pts.length; i++) sum += haversineMiles(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+        return sum;
+      }
+      const cLen = pathLen(corridorPts);
+      const iLen = pathLen(indexPts);
+      let chosen = null;
+      if (corridorPts && corridorPts.length >= 2 && indexPts && indexPts.length >= 2) {
+        chosen = (iLen >= cLen) ? indexPts : corridorPts;
+      } else if (indexPts && indexPts.length >= 2) {
+        chosen = indexPts;
+      } else if (corridorPts && corridorPts.length >= 2) {
+        chosen = corridorPts;
+      }
+      return chosen;
+    }
+
+    function rrTripSegIds(seg, data) {
+      const rr = String((seg && seg.railroad) || (data && data.railroad) || '').toLowerCase();
+      const lineId = String((seg && (seg.lineId || seg.line_id)) || (data && data.lineId) || '');
+      const originId = String((seg && (seg.originStationId || seg.originId)) || (data && data.originStationId) || '');
+      const destId = String((seg && (seg.destStationId || seg.destId)) || (data && data.destStationId) || '');
+      return { railroad: rr, lineId: lineId, originId: originId, destId: destId };
+    }
+
+    function rrResolveTripSegmentGeom(seg, data) {
+      const ids = rrTripSegIds(seg, data);
+      const color = tripRailColor(ids.railroad);
+      const o = findTripStation(ids.railroad, ids.originId);
+      const d = findTripStation(ids.railroad, ids.destId);
+      let origin = null, dest = null;
+      if (o) {
+        const lat = Number(o.lat), lon = Number(o.lon);
+        if (isFinite(lat) && isFinite(lon)) origin = [lat, lon];
+      }
+      if (d) {
+        const lat = Number(d.lat), lon = Number(d.lon);
+        if (isFinite(lat) && isFinite(lon)) dest = [lat, lon];
+      }
+      let line = null;
+      if (origin && dest) {
+        const polys = rrGetCachedTripPolylines(ids.railroad, ids.lineId);
+        if (polys && polys.length) {
+          let best = null, bestLen = Infinity;
+          polys.forEach(function(pl) {
+            const sliced = rrSlicePolylineBetween(pl, origin[0], origin[1], dest[0], dest[1]);
+            if (!sliced || sliced.length < 2) return;
+            let len = 0;
+            for (let i = 1; i < sliced.length; i++) len += haversineMiles(sliced[i - 1][0], sliced[i - 1][1], sliced[i][0], sliced[i][1]);
+            if (len < bestLen) { bestLen = len; best = sliced; }
+          });
+          line = best;
+        }
+        if (!line && ids.lineId) {
+          line = rrTripStopChainLatLngs(ids.railroad, ids.lineId, ids.originId, ids.destId);
+        }
+        if (!line) line = [origin, dest];
+      }
+      return {
+        railroad: ids.railroad,
+        lineId: ids.lineId,
+        originId: ids.originId,
+        destId: ids.destId,
+        color: color,
+        origin: origin,
+        dest: dest,
+        line: line
+      };
+    }
+
+    function rrTripSegmentsForMap(data) {
+      const segs = Array.isArray(data && data.segments) ? data.segments : null;
+      if (segs && segs.length) return segs;
+      if (!data) return [];
+      return [{
+        railroad: data.railroad,
+        lineId: data.lineId || '',
+        originStationId: data.originStationId,
+        destStationId: data.destStationId,
+        originName: data.originName,
+        destName: data.destName
+      }];
+    }
+
+    function rrEnsureTripGeomsShapes(data) {
+      const segs = rrTripSegmentsForMap(data);
+      const promises = [];
+      const seen = {};
+      segs.forEach(function(seg) {
+        const ids = rrTripSegIds(seg, data);
+        if (!ids.railroad || !ids.lineId) return;
+        const key = ids.railroad + ':' + ids.lineId;
+        if (seen[key]) return;
+        seen[key] = true;
+        if (rrGetCachedTripPolylines(ids.railroad, ids.lineId)) return;
+        try {
+          promises.push(ensureTripShapesForMiles(ids.railroad, ids.lineId));
+        } catch (_) {}
+      });
+      return Promise.all(promises).then(function() { return true; });
+    }
+
+    function destroyTripLogMiniMap(tripId) {
+      const entry = tripLogMiniMaps[tripId];
+      if (!entry) return;
+      try { if (entry.io && entry.el) entry.io.unobserve(entry.el); } catch (_) {}
+      try { if (entry.map) entry.map.remove(); } catch (_) {}
+      delete tripLogMiniMaps[tripId];
+    }
+
+    function destroyAllTripLogMiniMaps() {
+      Object.keys(tripLogMiniMaps).forEach(destroyTripLogMiniMap);
+      if (tripLogMiniMapIO) {
+        try { tripLogMiniMapIO.disconnect(); } catch (_) {}
+        tripLogMiniMapIO = null;
+      }
+    }
+
+    function paintTripLogMiniMap(el, data) {
+      if (!el || typeof L === 'undefined' || !L.map) {
+        if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
+        return;
+      }
+      const tripId = el.getAttribute('data-trip-map') || '';
+      destroyTripLogMiniMap(tripId);
+      el.classList.remove('is-empty');
+      el.classList.add('is-loading');
+      el.innerHTML = '';
+
+      const segs = rrTripSegmentsForMap(data).map(function(s) { return rrResolveTripSegmentGeom(s, data); });
+      const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
+      if (!hasAny) {
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      let map;
+      try {
+        map = L.map(el, {
+          zoomControl: false,
+          attributionControl: false,
+          dragging: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          tap: false,
+          touchZoom: false,
+          closePopupOnClick: false
+        });
+        L.tileLayer(TRIP_MINI_MAP_TILE, {
+          maxZoom: 18,
+          opacity: 0.92
+        }).addTo(map);
+      } catch (e) {
+        console.warn('[trip-map] init failed', e);
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      const bounds = [];
+      segs.forEach(function(g) {
+        if (g.line && g.line.length >= 2) {
+          try {
+            L.polyline(g.line, {
+              color: g.color || '#07093e',
+              weight: 4,
+              opacity: 0.9,
+              lineJoin: 'round',
+              lineCap: 'round'
+            }).addTo(map);
+            g.line.forEach(function(p) { bounds.push(p); });
+          } catch (_) {}
+        } else if (g.origin && g.dest) {
+          try {
+            L.polyline([g.origin, g.dest], {
+              color: g.color || '#07093e',
+              weight: 3,
+              opacity: 0.75,
+              dashArray: '6 6'
+            }).addTo(map);
+            bounds.push(g.origin, g.dest);
+          } catch (_) {}
+        }
+        function addOdMarker(ll, isOrigin) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: isOrigin ? 5 : 5,
+              color: '#fff',
+              weight: 2,
+              fillColor: isOrigin ? '#1a7f37' : '#b00020',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        addOdMarker(g.origin, true);
+        addOdMarker(g.dest, false);
+      });
+
+      try {
+        if (bounds.length >= 2) {
+          map.fitBounds(bounds, { padding: [18, 18], maxZoom: 13 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 11);
+        } else {
+          map.setView([42.3, -71.1], 7);
+        }
+      } catch (_) {
+        try { map.setView([42.3, -71.1], 7); } catch (__) {}
+      }
+
+      el.classList.remove('is-loading');
+      tripLogMiniMaps[tripId] = { map: map, el: el, io: tripLogMiniMapIO };
+
+      // Leaflet needs a tick after layout
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 50);
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 250);
+    }
+
+    function ensureTripLogMiniMapIO() {
+      if (tripLogMiniMapIO) return tripLogMiniMapIO;
+      if (typeof IntersectionObserver === 'undefined') {
+        return null;
+      }
+      tripLogMiniMapIO = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          if (!el || el.getAttribute('data-trip-map-ready') === '1') return;
+          el.setAttribute('data-trip-map-ready', '1');
+          try { tripLogMiniMapIO.unobserve(el); } catch (_) {}
+          const data = el._tripMapData;
+          if (!data) {
+            el.classList.add('is-empty');
+            return;
+          }
+          rrEnsureTripGeomsShapes(data).then(function() {
+            if (!el.isConnected) return;
+            paintTripLogMiniMap(el, data);
+          }).catch(function() {
+            if (!el.isConnected) return;
+            paintTripLogMiniMap(el, data);
+          });
+        });
+      }, { root: null, rootMargin: '120px 0px', threshold: 0.05 });
+      return tripLogMiniMapIO;
+    }
+
+    function scheduleTripLogMiniMap(el, data) {
+      if (!el) return;
+      el._tripMapData = data || null;
+      el.classList.add('is-loading');
+      el.classList.remove('is-empty');
+      const io = ensureTripLogMiniMapIO();
+      if (!io) {
+        // No IntersectionObserver — init immediately
+        el.setAttribute('data-trip-map-ready', '1');
+        rrEnsureTripGeomsShapes(data).then(function() {
+          paintTripLogMiniMap(el, data);
+        }).catch(function() {
+          paintTripLogMiniMap(el, data);
+        });
+        return;
+      }
+      try { io.observe(el); } catch (_) {
+        el.setAttribute('data-trip-map-ready', '1');
+        paintTripLogMiniMap(el, data);
+      }
+    }
+
     // Console self-check: CT rail NHV→HFD polyline miles should exceed great-circle;
     // also logs stop-chain (CT + Metra BNSF) when shapes are unavailable.
     // Usage: rrTripMilesSelfCheck()
@@ -7989,7 +8417,10 @@
       const list = document.getElementById('trip-log-list');
       const empty = document.getElementById('trip-log-empty');
       if (!list) return;
-      if (!append) list.innerHTML = '';
+      if (!append) {
+        try { destroyAllTripLogMiniMaps(); } catch (_) {}
+        list.innerHTML = '';
+      }
       if (!docs.length && !append) {
         if (empty) empty.hidden = false;
         return;
@@ -8033,13 +8464,19 @@
           '<div class="trip-log-row-route"></div>' +
           chipsHtml +
           '<div class="trip-log-row-meta"></div>' +
+          '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>' +
           '<div class="trip-log-row-actions">' +
             '<button type="button" class="danger" data-trip-delete="' + doc.id + '">Delete</button>' +
-            '<button type="button" disabled title="Coming soon">Map</button>' +
           '</div>';
         row.querySelector('.trip-log-row-route').textContent = route;
         row.querySelector('.trip-log-row-meta').textContent = when + (data.notes ? (' · ' + data.notes) : '');
         list.appendChild(row);
+        try {
+          const mapEl = row.querySelector('.trip-log-row-map');
+          if (mapEl) scheduleTripLogMiniMap(mapEl, data);
+        } catch (mapErr) {
+          console.warn('[trip-map] schedule failed', mapErr);
+        }
       });
     }
 
@@ -8057,6 +8494,7 @@
         if (reset) {
           tripLogLastDoc = null;
           tripLogHasMore = false;
+          try { destroyAllTripLogMiniMaps(); } catch (_) {}
           const list = document.getElementById('trip-log-list');
           if (list) list.innerHTML = '';
         }
