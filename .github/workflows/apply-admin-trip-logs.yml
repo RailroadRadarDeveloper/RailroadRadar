@@ -3,9 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'scripts/admin-trip-logs.part0.b64'
-      - 'scripts/admin-trip-logs.part1.b64'
-      - 'scripts/admin-trip-logs.part2.b64'
+      - 'scripts/admin-trip-logs.patch.gz.b64'
       - '.github/workflows/apply-admin-trip-logs.yml'
 permissions:
   contents: write
@@ -14,29 +12,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble, decode, commit admin.html
+      - name: Decode patch, apply, commit admin.html
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import base64, gzip, hashlib, pathlib
-          expected = "02755876a75b039aca74b05c337c59038e106430ff19d6e9779121727347184f"
-          parts = []
-          for i in range(3):
-              p = pathlib.Path(f'scripts/admin-trip-logs.part{i}.b64')
-              if not p.exists():
-                  raise SystemExit(f'missing {p}')
-              parts.append(p.read_text().strip())
-          blob = ''.join(parts)
-          print('assembled', len(blob))
+          import hashlib, pathlib
+          expected = "6be3510a2fdf2b6d03773ead11508dc2d61951918ef69510468d9cd2580954d3"
+          p = pathlib.Path('scripts/admin-trip-logs.patch.gz.b64')
+          if not p.exists():
+              raise SystemExit('missing patch artifact')
+          blob = p.read_text().strip()
+          print('b64 len', len(blob))
           got = hashlib.sha256(blob.encode()).hexdigest()
           if got != expected:
               raise SystemExit(f'hash mismatch: {got}')
-          html = gzip.decompress(base64.b64decode(blob)).decode('utf-8')
-          pathlib.Path('admin.html').write_text(html)
-          assert 'admin-tab-trips' in html
-          assert 'Admin trip logs viewer' in html
-          assert 'loadAdminTrips' in html
-          print('ok', len(html))
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/admin-trip-logs.patch
+          patch -p1 < /tmp/admin-trip-logs.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('admin.html').read_text(errors='replace')
+          assert 'admin-tab-trips' in t
+          assert 'Admin trip logs viewer' in t
+          assert 'loadAdminTrips' in t
+          print('ok', len(t))
           PY
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
