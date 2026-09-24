@@ -2526,8 +2526,8 @@
       overflow: auto !important;
       height: auto !important;
       min-height: 100%;
-      background: #07093e !important;
-      color: #e8eaf4;
+      background: #fff !important;
+      color: #1a2030;
     }
     html.rr-mytrips-page #map,
     html.rr-mytrips-page #rr-train-page,
@@ -2593,20 +2593,17 @@
       max-width: none !important;
       max-height: none !important;
       margin: 0;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
       border-radius: 12px;
       overflow: visible;
-      background: #12153a;
-      border: 1px solid #2a2f55;
-      color: #e8eaf4;
+      background: #fff;
+      border: 1px solid #e2e6ef;
+      color: #1a2030;
     }
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body {
       max-height: none !important;
       overflow: visible !important;
       padding: 12px 10px 16px;
-    }
-    html.rr-mytrips-page #trip-log-close {
-      /* still acts as Home on this page */
     }
     html.rr-mytrips-page .trip-log-row {
       cursor: pointer;
@@ -2614,8 +2611,8 @@
     }
     html.rr-mytrips-page .trip-log-row:hover,
     html.rr-mytrips-page .trip-log-row:focus-visible {
-      border-color: #4a5280;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+      border-color: #07093e;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.1);
       outline: none;
     }
     html.rr-mytrips-page .trip-log-row-actions button {
@@ -2626,19 +2623,23 @@
       overflow: hidden !important;
     }
 
-    /* /mytrips dark inverted chrome */
+    /* /mytrips white chrome (undo dark navy page background) */
     html.rr-mytrips-page #trip-log-modal .rr-modal-header {
-      background: #0b0d1a;
-      border-bottom: 1px solid #2a2f55;
+      background: #fff;
+      border-bottom: 1px solid #e2e6ef;
+      color: #07093e;
+    }
+    html.rr-mytrips-page #trip-log-modal .rr-modal-header #trip-log-title {
+      color: #07093e;
     }
     html.rr-mytrips-page #trip-log-modal .rr-modal-body,
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body {
-      background: #12153a;
-      color: #e8eaf4;
+      background: #fff;
+      color: #1a2030;
     }
     html.rr-mytrips-page #trip-log-modal .rr-modal-body label,
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body label {
-      color: #c8cde0;
+      color: #3a4250;
     }
     html.rr-mytrips-page #trip-log-modal .rr-modal-body select,
     html.rr-mytrips-page #trip-log-modal .rr-modal-body input[type="text"],
@@ -2646,137 +2647,152 @@
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body select,
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body input[type="text"],
     html.rr-mytrips-page #trip-log-modal .rr-lightbox-body input[type="datetime-local"] {
-      background: #0b0d1a;
-      color: #e8eaf4;
-      border-color: #3a4060;
+      background: #fff;
+      color: #07093e;
+      border-color: #c5cad3;
     }
     html.rr-mytrips-page #trip-log-modal .rr-modal-hint,
     html.rr-mytrips-page .trip-log-approx-note,
     html.rr-mytrips-page .trip-log-empty,
     html.rr-mytrips-page .trip-log-status {
-      color: #9aa3b8;
+      color: #5a6270;
     }
     html.rr-mytrips-page #trip-log-modal .rr-modal-error {
-      color: #ffb4b4;
+      color: #b42318;
     }
     html.rr-mytrips-page .trip-log-stat {
-      background: #0b0d1a;
-      border-color: #2a2f55;
+      background: #f7f8fb;
+      border-color: #e2e6ef;
     }
-    html.rr-mytrips-page .trip-log-stat-value { color: #f0f2fa; }
-    html.rr-mytrips-page .trip-log-stat-label { color: #9aa3b8; }
+    html.rr-mytrips-page .trip-log-stat-value { color: #07093e; }
+    html.rr-mytrips-page .trip-log-stat-label { color: #5a6270; }
     html.rr-mytrips-page .trip-log-tab {
-      background: #0b0d1a;
-      color: #e8eaf4;
-      border-color: #3a4060;
+      background: #f7f8fb;
+      color: #07093e;
+      border-color: #c5cad3;
     }
     html.rr-mytrips-page .trip-log-tab.active {
-      background: #2a3170;
+      background: #07093e;
       color: #fff;
-      border-color: #5a64a8;
+      border-color: #07093e;
     }
     html.rr-mytrips-page .trip-log-row {
-      background: #0b0d1a;
-      border-color: #2a2f55;
-      color: #e8eaf4;
+      background: #fff;
+      border-color: #e2e6ef;
+      color: #1a2030;
     }
-    html.rr-mytrips-page .trip-log-row-rail { color: #f0f2fa; }
-    html.rr-mytrips-page .trip-rail-badge-train { color: #b8c0d4; }
-    html.rr-mytrips-page .trip-log-row-miles { color: #c8cde0; }
-    html.rr-mytrips-page .trip-log-row-route { color: #e8eaf4; }
-    html.rr-mytrips-page .trip-log-row-meta { color: #9aa3b8; }
+    html.rr-mytrips-page .trip-log-row-rail { color: #07093e; }
+    html.rr-mytrips-page .trip-rail-badge-train { color: #3a4250; }
+    html.rr-mytrips-page .trip-log-row-miles { color: #3a4250; }
+    html.rr-mytrips-page .trip-log-row-route { color: #07093e; }
+    html.rr-mytrips-page .trip-log-row-meta { color: #5a6270; }
+    html.rr-mytrips-page .trip-log-row-relative {
+      color: #07093e;
+      font-weight: 700;
+      font-size: 12px;
+      margin-top: 4px;
+    }
     html.rr-mytrips-page .trip-seg-chip {
-      background: #15183f;
-      color: #e8eaf4;
-      border-color: #2a2f55;
+      background: #f4f6fb;
+      color: #1a2030;
+      border-color: #e2e6ef;
     }
     html.rr-mytrips-page .trip-log-row-actions button {
-      background: #15183f;
-      color: #e8eaf4;
-      border-color: #3a4060;
+      background: #f7f8fb;
+      color: #07093e;
+      border-color: #c5cad3;
     }
     html.rr-mytrips-page .trip-log-row-actions button.danger {
-      color: #ffb4b4;
-      border-color: #7a3a3a;
-      background: #2a1518;
+      color: #b42318;
+      border-color: #f0b4b4;
+      background: #fff5f5;
     }
     html.rr-mytrips-page .trip-segment {
-      background: #0b0d1a;
-      border-color: #2a2f55;
-      color: #e8eaf4;
+      background: #fff;
+      border-color: #e2e6ef;
+      color: #1a2030;
     }
     html.rr-mytrips-page .trip-log-row-map {
       background: #0b0d1a;
-      border: 1px solid #2a2f55;
+      border: 1px solid #d0d5e0;
       border-radius: 8px;
     }
     html.rr-mytrips-page .trip-log-row-map .leaflet-container {
       background: #0b0d1a;
     }
     html.rr-mytrips-page #trip-log-modal .rr-btn.secondary {
-      background: #15183f;
-      color: #e8eaf4;
-      border-color: #4a5280;
+      background: #f7f8fb;
+      color: #07093e;
+      border-color: #c5cad3;
     }
     html.rr-mytrips-page #trip-log-modal .rr-btn:not(.secondary):not(.danger) {
-      background: #2a3170;
-      border-color: #5a64a8;
+      background: #07093e;
+      border-color: #07093e;
       color: #fff;
     }
     html.rr-mytrips-page #trip-log-modal .rr-btn.danger.secondary {
-      background: #2a1518;
-      color: #ffb4b4;
-      border-color: #7a3a3a;
+      background: #fff5f5;
+      color: #b42318;
+      border-color: #f0b4b4;
     }
     html.rr-mytrips-page .trip-detail-overlay {
-      background: #07093e;
+      background: #f4f6fb;
     }
     html.rr-mytrips-page .trip-detail-map,
     html.rr-mytrips-page .trip-detail-map .leaflet-container {
       background: #0b0d1a;
     }
     html.rr-mytrips-page .trip-detail-panel {
-      background: #12153a;
-      color: #e8eaf4;
-      box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.5);
+      background: #fff;
+      color: #1a2030;
+      box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.18);
     }
     html.rr-mytrips-page .trip-detail-back {
-      background: #0b0d1a;
-      color: #e8eaf4;
-      border-color: #3a4060;
+      background: #f7f8fb;
+      color: #07093e;
+      border-color: #c5cad3;
     }
     html.rr-mytrips-page .trip-detail-back:hover,
     html.rr-mytrips-page .trip-detail-back:focus-visible {
-      background: #15183f;
-      outline-color: #5a64a8;
+      background: #eef1f7;
+      outline-color: #07093e;
     }
     html.rr-mytrips-page .trip-detail-miles-pill {
-      color: #e8eaf4;
-      background: #0b0d1a;
-      border-color: #2a2f55;
+      color: #07093e;
+      background: #f4f6fb;
+      border-color: #e2e6ef;
     }
-    html.rr-mytrips-page .trip-detail-route { color: #f0f2fa; }
-    html.rr-mytrips-page .trip-detail-line { color: #b8c0d4; }
+    html.rr-mytrips-page .trip-detail-route { color: #07093e; }
+    html.rr-mytrips-page .trip-detail-line { color: #3a4250; }
+    html.rr-mytrips-page .trip-detail-relative {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 750;
+      color: #07093e;
+    }
     html.rr-mytrips-page .trip-detail-meta-item {
-      background: #0b0d1a;
-      border-color: #2a2f55;
+      background: #f4f6fb;
+      border-color: #e2e6ef;
     }
-    html.rr-mytrips-page .trip-detail-meta-label { color: #9aa3b8; }
-    html.rr-mytrips-page .trip-detail-meta-value { color: #f0f2fa; }
+    html.rr-mytrips-page .trip-detail-meta-label { color: #5a6270; }
+    html.rr-mytrips-page .trip-detail-meta-value { color: #07093e; }
     html.rr-mytrips-page .trip-detail-notes {
-      color: #c8cde0;
-      background: #0b0d1a;
+      color: #3a4250;
+      background: #fafbfe;
     }
-    html.rr-mytrips-page .trip-detail-seg-title { color: #9aa3b8; }
+    html.rr-mytrips-page .trip-detail-seg-title { color: #5a6270; }
     html.rr-mytrips-page .trip-detail-seg {
-      background: #0b0d1a;
-      border-color: #2a2f55;
+      background: #fff;
+      border-color: #e2e6ef;
     }
-    html.rr-mytrips-page .trip-detail-seg-od { color: #f0f2fa; }
-    html.rr-mytrips-page .trip-detail-seg-sub { color: #9aa3b8; }
+    html.rr-mytrips-page .trip-detail-seg-od { color: #07093e; }
+    html.rr-mytrips-page .trip-detail-seg-sub { color: #5a6270; }
     html.rr-mytrips-page .trip-detail-map.is-empty::after,
     html.rr-mytrips-page .trip-log-row-map.is-empty::after {
       color: #9aa3b8;
+    }
+    html.rr-mytrips-page #trip-log-close {
+      display: none !important;
     }
 
     /* Trip detail overlay (click a trip card) */
@@ -2903,6 +2919,18 @@
       font-weight: 650;
       color: #3a4250;
       margin: 0 0 10px;
+    }
+    .trip-detail-relative {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 750;
+      color: #07093e;
+    }
+    .trip-log-row-relative {
+      color: #07093e;
+      font-weight: 700;
+      font-size: 12px;
+      margin-top: 4px;
     }
     .trip-detail-meta {
       display: grid;
@@ -4560,6 +4588,7 @@
         <div class="trip-detail-badges" id="trip-detail-badges"></div>
         <h2 class="trip-detail-route" id="trip-detail-route">—</h2>
         <p class="trip-detail-line" id="trip-detail-line"></p>
+        <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
         <div class="trip-detail-meta" id="trip-detail-meta"></div>
         <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
         <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
@@ -7596,6 +7625,73 @@
       } catch (_) { return '—'; }
     }
 
+    function tripDepartInstant(data) {
+      if (!data) return null;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const raw = (segs && segs.length && segs[0].departTime) || data.startTime || data.departTime || null;
+      if (raw == null || raw === '') return null;
+      try {
+        const d = typeof raw === 'number' ? new Date(raw) : new Date(String(raw));
+        if (isNaN(d.getTime())) return null;
+        return d;
+      } catch (_) { return null; }
+    }
+
+    function formatTripRelativeDepart(data, nowMs) {
+      const d = tripDepartInstant(data);
+      if (!d) return '';
+      const now = (nowMs != null) ? Number(nowMs) : Date.now();
+      const diffMs = d.getTime() - now;
+      const past = diffMs < 0;
+      let absMs = Math.abs(diffMs);
+      // Round up partial minutes so "just left" shows at least 1 min soon
+      const totalMins = Math.floor(absMs / 60000);
+      const days = Math.floor(totalMins / (60 * 24));
+      const hours = Math.floor((totalMins % (60 * 24)) / 60);
+      const mins = totalMins % 60;
+      const parts = [];
+      if (days > 0) parts.push(days + (days === 1 ? ' day' : ' days'));
+      if (hours > 0) parts.push(hours + (hours === 1 ? ' hour' : ' hours'));
+      if (mins > 0 || !parts.length) parts.push(mins + (mins === 1 ? ' min' : ' mins'));
+      const joined = parts.join(', ');
+      if (past) return 'Departed ' + joined + ' ago';
+      return 'Departs in ' + joined;
+    }
+
+    let tripDetailRelativeTimer = null;
+    let tripDetailRelativeData = null;
+
+    function stopTripDetailRelativeTimer() {
+      if (tripDetailRelativeTimer) {
+        try { clearInterval(tripDetailRelativeTimer); } catch (_) {}
+        tripDetailRelativeTimer = null;
+      }
+      tripDetailRelativeData = null;
+    }
+
+    function paintTripDetailRelative(data) {
+      const el = document.getElementById('trip-detail-relative');
+      if (!el) return;
+      const textRel = formatTripRelativeDepart(data || tripDetailRelativeData);
+      if (!textRel) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+      }
+      el.hidden = false;
+      el.textContent = textRel;
+    }
+
+    function startTripDetailRelativeTimer(data) {
+      stopTripDetailRelativeTimer();
+      tripDetailRelativeData = data || null;
+      paintTripDetailRelative(data);
+      if (!formatTripRelativeDepart(data)) return;
+      tripDetailRelativeTimer = setInterval(function() {
+        paintTripDetailRelative(tripDetailRelativeData);
+      }, 30000);
+    }
+
     function getTripLogStations(railroad) {
       const rr = String(railroad || '').toLowerCase();
       let list = [];
@@ -8650,6 +8746,8 @@
       const milesEl = document.getElementById('trip-detail-miles');
       if (milesEl) milesEl.textContent = formatTripMiles(data.miles);
 
+      try { startTripDetailRelativeTimer(data); } catch (_) { paintTripDetailRelative(data); }
+
       const meta = document.getElementById('trip-detail-meta');
       if (meta) {
         const when = tripDisplayWhen(data);
@@ -8730,6 +8828,7 @@
     function closeTripDetailView() {
       const overlay = document.getElementById('trip-detail-overlay');
       if (!overlay || overlay.getAttribute('aria-hidden') === 'true') return;
+      try { stopTripDetailRelativeTimer(); } catch (_) {}
       destroyTripDetailMap();
       overlay.classList.remove('open');
       overlay.setAttribute('aria-hidden', 'true');
@@ -9196,6 +9295,15 @@
           '</div>';
         row.querySelector('.trip-log-row-route').textContent = route;
         row.querySelector('.trip-log-row-meta').textContent = when + (data.notes ? (' · ' + data.notes) : '');
+        const relText = formatTripRelativeDepart(data);
+        if (relText) {
+          const relEl = document.createElement('div');
+          relEl.className = 'trip-log-row-relative';
+          relEl.textContent = relText;
+          const metaEl = row.querySelector('.trip-log-row-meta');
+          if (metaEl && metaEl.parentNode) metaEl.parentNode.insertBefore(relEl, metaEl.nextSibling);
+          else row.appendChild(relEl);
+        }
         list.appendChild(row);
         try {
           const mapEl = row.querySelector('.trip-log-row-map');
@@ -9543,7 +9651,11 @@
           center.insertBefore(title, center.firstChild);
         }
         const closeBtn = document.getElementById('trip-log-close');
-        if (closeBtn) closeBtn.setAttribute('aria-label', 'Back to map');
+        if (closeBtn) {
+          closeBtn.hidden = true;
+          closeBtn.setAttribute('aria-hidden', 'true');
+          closeBtn.tabIndex = -1;
+        }
       } catch (_) {}
       // Open list tab once auth is known
       const tryOpen = function() {
