@@ -2699,7 +2699,22 @@
     }
     html.rr-mytrips-page.rr-mytrips-guest,
     html.rr-mytrips-page.rr-mytrips-guest body {
-      background: #07093e !important;
+      background-color: #07093e !important;
+      background-image:
+        url('/assets/brand/tracks-right-top.png'),
+        url('/assets/brand/tracks-left-bottom.png');
+      background-position: top -40px right -60px, bottom left -80px;
+      background-repeat: no-repeat, no-repeat;
+      background-size: min(480px, 60vw), min(520px, 70vw);
+    }
+    html.rr-mytrips-page .mytrips-guest {
+      background-color: transparent;
+      background-image:
+        url('/assets/brand/tracks-right-top.png'),
+        url('/assets/brand/tracks-left-bottom.png');
+      background-position: top -40px right -60px, bottom left -80px;
+      background-repeat: no-repeat, no-repeat;
+      background-size: min(480px, 60vw), min(520px, 70vw);
     }
     .mytrips-guest[hidden] { display: none !important; }
     html.rr-mytrips-page .mytrips-guest {
@@ -2708,7 +2723,7 @@
       align-items: center;
       justify-content: center;
       padding: 24px 18px 48px;
-      background: #07093e;
+      background-color: transparent;
       color: #fff;
     }
     .mytrips-guest-inner {
