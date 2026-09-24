@@ -12609,7 +12609,7 @@ function closeTripDetailView(opts) {
     }
 
     function rrGoHomeFromMyTrips() {
-      try { location.href = '/'; } catch (_) { location.href = '/index.html'; }
+      try { location.href = '/mytrips/'; } catch (_) { location.href = '/mytrips/index.html'; }
     }
 
 
@@ -12793,11 +12793,14 @@ function closeTripDetailView(opts) {
       if (!rrIsMyTripsPage()) return;
       try { document.documentElement.classList.add('rr-mytrips-page'); } catch (_) {}
       try {
-        const logo = document.querySelector('.header-logo');
+        const logo = document.querySelector('.header-logo-picture') || document.querySelector('.header-logo');
         if (logo) {
           logo.style.cursor = 'pointer';
-          logo.addEventListener('click', function() { rrGoHomeFromMyTrips(); });
-          logo.setAttribute('title', 'Home');
+          logo.addEventListener('click', function(e) {
+            e.preventDefault();
+            rrGoHomeFromMyTrips();
+          });
+          logo.setAttribute('title', 'MyTrips');
           logo.setAttribute('role', 'link');
         }
         const oldTitle = document.getElementById('rr-mytrips-page-title');
