@@ -123,6 +123,13 @@
       height: 40px;
       margin-right: 10px;
     }
+    html.rr-mytrips-page img.header-logo {
+      height: 48px;
+      width: auto;
+      max-width: min(320px, 46vw);
+      object-fit: contain;
+    }
+
     .header-center {
       position: absolute;
       left: 46%;
@@ -5562,6 +5569,16 @@
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         document.documentElement.classList.add('rr-mytrips-page');
         document.title = 'MyTrips — RailroadRadar';
+        document.addEventListener('DOMContentLoaded', function() {
+          var img = document.querySelector('img.header-logo');
+          if (!img) return;
+          img.src = '/assets/brand/mytrips-logo.png';
+          img.alt = 'MyTrips by RailroadRadar';
+          img.onerror = function() {
+            img.onerror = null;
+            img.src = 'https://i.postimg.cc/8PzqYZ2S/My-Trips-by-Railroad-Radar.png';
+          };
+        });
       }
       var _rrShareQ = new URLSearchParams(location.search);
       if (_rrShareQ.get('train') || _rrShareQ.get('t')) {
