@@ -2697,6 +2697,9 @@
     html.rr-mytrips-page.rr-mytrips-guest #trip-log-modal {
       display: none !important;
     }
+    .mytrips-guest[hidden] {
+      display: none !important;
+    }
     .mytrips-guest {
       min-height: calc(100vh - 64px);
       display: flex;
@@ -12770,6 +12773,10 @@ function closeTripDetailView(opts) {
 
 
     function showMyTripsGuestHome() {
+      if (currentUser || (typeof auth !== 'undefined' && auth && auth.currentUser)) {
+        hideMyTripsGuestHome();
+        return;
+      }
       const el = document.getElementById('mytrips-guest');
       if (el) el.hidden = false;
       try { document.documentElement.classList.add('rr-mytrips-guest'); } catch (_) {}
@@ -12828,7 +12835,8 @@ function closeTripDetailView(opts) {
         let tries = 0;
         const tick = function() {
           tries++;
-          if (currentUser) {
+          if (currentUser || (auth && auth.currentUser)) {
+            hideMyTripsGuestHome();
             openTripLogModal(null, { tab: 'list', forceModal: true });
             return;
           }
