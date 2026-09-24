@@ -1,0 +1,58 @@
+name: Apply trip detail rail bg
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-detail-rail-bg.patch.gz.b64'
+      - '.github/workflows/apply-trip-detail-rail-bg.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "d67e4f3d6689366396ac8b33c861d765774f090d6ec05d1892e6c8cf44800a21"
+          single = pathlib.Path('scripts/trip-detail-rail-bg.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/trip-detail-rail-bg.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/trip-detail-rail-bg.patch
+          git apply /tmp/trip-detail-rail-bg.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip detail rail bg */' in t
+          assert "overlay.setAttribute('data-rail-accent'" in t or 'overlay.setAttribute("data-rail-accent"' in t or "overlay.setAttribute('data-rail-accent', primaryRail)" in t
+          assert "overlay.removeAttribute('data-rail-accent')" in t
+          assert "document.documentElement.style.setProperty('--rr-trip-rail', accent)" in t
+          assert "document.documentElement.style.removeProperty('--rr-trip-rail')" in t
+          assert 'primaryRail' in t
+          assert '.trip-detail-overlay[data-rail-accent]' in t
+          # list cards easy-read still present; do not regress
+          assert 'Trip cards easy-read: train chip + unlabeled when' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip detail rail bg */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: full-screen trip detail uses railroad color background"
+            git push
+          fi
