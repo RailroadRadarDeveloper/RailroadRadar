@@ -5393,6 +5393,7 @@
       border-radius: 0;
       padding: 10px 12px;
     }
+    .header-account-menu a.header-auth-btn { text-decoration: none; box-sizing: border-box; }
     .header-account-menu .header-auth-btn:hover { background: #f1f2f6; }
     .header-account-menu .header-auth-btn.delete-account {
       color: #c0392b;
@@ -5609,6 +5610,8 @@
           <button type="button" class="header-auth-btn settings" id="btn-account-settings" aria-haspopup="true" aria-expanded="false"><span class="header-account-name-text" id="header-account-name-text">Account</span><span class="header-report-points" id="header-report-points" hidden title="Report points">0</span><img class="admin-badge-icon" id="header-admin-badge" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAKG0lEQVR42t2aa5BUxRXHf6e7Z3ceu8uqETEgyktFCOILeZYxiYmJ+iGJqPGNJCk/qESrfCSWEU2iKSyNGDEmJlYFNCpoYpmKlUpM8AkLPhAFQ0V8ARFINMDszuzszu0++XDvDLPsArssy4f01lRtzd7t+z+n/+d/Tp9uoa/jVgxzEQRf+arhNY4NyjRVpgiMIzAcpRlIowiGkirbxbBRDWvEsswEXmk7mXXVeRXLXJTbCH2BI316VjEV4JlVDDWB89TzDZQTqScrAuqBykdr3mLjj1hQBTooIqxSy1OUWdI+mU1VQ4RQ89/7wYAYeACof4mRNst1KBdLlkGUQUuAJyBoYqggu8ytaPL3+DeLkTSQAi2Qx7DIe+7pmMT7u76zfwYsxXE6EYupy47gBoTrJUOTtgGBKHmR9HE1KyYpQsDgpAG0nTzKXcUPmMd5dFbfvc8GJBNkX+J4MjwkWU7RVsATAbabl/d1KAp4LE4aQYu8SjvfKc5g9d6MkL2BTy/nfFPHb8SR08J+Br4bQySH04hC6GR2aQpP7MkIsyfwmeVcY7M8TkROC3gEN2DgY3cKgtMCnoiczfJ4ZjnXcDoRS3G9M6AGvGlkvrbjkwC1DPCQSjgJlgjVdrxpYn7mFebszoiu3lyM5Tx8ZhkzTQOLtZ0IP4CU6eJJoaRKnZDIj8aUsnjJ4PwOzi/NYHEFY3cDEtnKrWCcOlbiSRMlbhlo8CKUvHJkeihbOj+mFJSctUTqQQk4wNIhJSYVprGmVmJNAl5YgqCkQuARHFmiJIcOuOcN5SAc5Jp5YXwLfzj2WQanBpOPPE5c7MAIFUcmGBaxhroEq9TGgOE8fLaFG0wzEykQHQjOA4gYOkLg16MfZmjdMM5oPpOWCSv4cvMXyJcjAiCC1QKRaWZidgc3JBQyO8sD0PTLHGHqeQfIEPWQSQdgOHHkyxHXHzGHeUfeS6RR9XtFmbvhFn6++T46tICoqjpVoD10cFxpOhsBMTyPQVBjuUly5IgIBwK8FUs+ipg+6BR+MvwuvHqsWJw4vHpUlduG/5hR6aPoCAExIkQEyZEzlpsQlOcxApBdwRCU9QhZfKLHA6w4kQpZk2Pl8W8wKj2aQMAkjI40wonjxo+uZd7Ge2lMWXwc0IoFlCLC6OKpbDEA6vmWNJEj4A+E90UsJR/45ehfMSo9Gq9RFbzXOHj/tO0Z5m26l5xLwFcSXcBLEzlVLqgEsYgwk3JSSR4A3reWI64ZeiXnHnIBkUZYifNTIGDFsqlzI99eP4t6Y5ICdpfcVUZFmQkgdSs42gXewlAfZ4+BM8KKpS3ynNI4kRfHt+DEYSTOvooS1CNi+craz/Pc9hdpckku6Km4V0qRMsG4wGlkqMfHijWQZU4UoMllWTjmd9Sb+kTqpEodK47bN97Mc9tepMm5nsDHU3kCadLOcJpRYYpIIqgDmm0t7d6zYOQDHJMZS6QRRrry/q/b/8yPNtxJQ2q34Kt7QxFQZaoRZbz6JBvvxYNmHxNzhfdXHj6Liw69rKoyFd4bMWzp3MwV6y/DGQHdy45SEfUgyjijMCwpjWRPmwZFaQ9xkPWN94Y2H3FC43HcM2JBVe8r5X/QOO3Mfu8SNnX8m7QxhN7sJGPMw4wIzXvT/oDBiGVsdjSt5RhAb9RWqnqfZuGYx8iYTPX7Wurcsek2nv30b3viffeJ48cOMgTSe1otJ472cuDaw2+gZcKbzB5yOa1ljybe3ZvqtEee+0bOZ3x2QiKZtgv4F3b8nVs3zKXBuZ1637vdG0C9ZJftvnRwYslHnq8d/EX+OPYvVdV4cMsCrvvgWjq1TM66ag3TU50za8iFPDz60W68F4RPyp8w6a2J/KtzM/VGCBr6Gl5Bsi0Ugcyuq2DEUPCBI+s/y8oJq/hM6tDqC6xYlrW+zGX/vIT17R/SlOpqhBVD0QeOzY6h5XOvkzU5RKSq9xXvf33dWTz9ybM0pWzvqNM9MNuNKtuT+kK7UEzhUHcwTx7zNIemBhM0DmArlkgjpjZO55UJLZxzyFfJlyOM2GRDKHgV6iTFojGP0WAbk+5JV97f/fFPE/Cu7+CTmkiV7UZgE7aGVYkB5aAcXjeEo9IjahoGO+nh1TM4dRjPjH2WW4Z/n7bIU1YlZVIUI889I+7mhNxJPfJ+WevL/ODDm8n1lfd0aUQiwkajwhqxXRNZIJC28HbxHU58cyIv5JfuLHOTx6xYQvJz+/A7eOrYJQyyB7O9vZOLBs/kyiFXd+e9CNui/3LZuxcl+h+6OKYvTU5xoLDG1s1mMI5zKHeVUgXqjWFblOfR/yyiyTUxpXFqXBCqR8RUgzrSiHHZ8Zx98Nl86j9hwagHSZt0tc7ZWSpYZq2/kJe2r6DBWXzfg3YnOIdImQfiYk5ZnXSSuxVzRgxBlWKkXH7Yxdw/6hfkTEMX79YC7GlUnr1/88+4+r3rugV9n+HXFHPxhmY5yyTLZC0Skj5yt7xhxZIvR5zUOJFFRz/C2My4Kr8rXg4EUKqKU2vYa20rmfH2NIxo0jTZ59LLSxajRZYXpzAt3tAoS0glwrSboI80YlDK8XrhTaa/NZUnP32iunetpH6D6UIbRRER8j7Ppe9emBis/QEfT5tCVFhS7UqI5THNU8Bg9zR7WSMaraUQ8sxcdwE3f3QjJinyelITrx6D4ar3v8s/Cu+RtW7feV/xiMFqK20my2OxAUtxxVPZQmChNCDJ0cTu1089KREanOWOjfM4650z2VreXM0Pu/L+oa0PsGjrE/3l/U76NCB4FhYmsJWluJ1tldc5woS+tVVS4tgRRYxMD+e3YxYyvem0qtQ6cawurGLa25NRfH95H3vfEbdVYGzpFDbFbZW4RWdKJ7OBMj+VRszeVqGWUk3O8lHHBs5Y+yUWbLmv2hpp861c+u6FlELn/uB97P1GDJ47S5PYmDQ3gqnmrsXY4iDmhe28KTkc2jsjIvVkrMGI56r1c7hi/aXsiHZw3YfX8FbbOnL95X3sfS85XNjBqmIjd7EYC7Fy7LfmriAYMbRGnqMzw9nUuSHRiH6DrzR3S1JkUmEGa7s3d2MEAcUWTmVtKDJL0hhs74lbqTIbneX9jg3Vhe33iY0lSBqjHVxemMFaFldPMXs44BA8S3GlGSwOBeZIDke8w+s1gb160rIfmtoBxRAkhwutzGmfyhKW4mrPBna/D649pckyPzlG9QeqY43isVjJQGjle+3TmL+7c7L/00M+oHImVZrCE5SZphGvSjMOiwDR/tDFXYBHWESacVrmVYpM2xv4PRtQY0RxMquL7zFdi/wQR16auhjS62sBPcAOVeDxnHktcEvxfab35owY9uWqwUpGWsO1wCX9umpgMJKh9qrBI95z9/6/atBlH1Rz2aOFYTjOlcA39/myh+UNFX4/8Jc9akcP120aV3OMLzNDA5NFGY9yxB6v2wjLTR0vt03o/3Wb/wE9KhkHfPA0mwAAAABJRU5ErkJggg==" alt="" title="Admin" width="18" height="18"></button>
           <div class="header-account-menu" id="header-account-menu" style="display:none;" role="menu">
             <div class="header-account-email" id="header-account-email"></div>
+            <a class="header-auth-btn" id="header-menu-mytrips" href="/mytrips/" role="menuitem">MyTrips</a>
+            <button type="button" class="header-auth-btn" id="header-menu-account-settings" role="menuitem">Account settings</button>
             <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
             <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" role="menuitem">Delete account</button>
           </div>
@@ -5920,15 +5923,10 @@
           <div class="rr-interest-summary" id="account-interest-summary"></div>
         </div>
 
-        <div class="rr-lightbox-section">
-          <h3>Trip log</h3>
-          <p class="rr-modal-hint" style="margin-top:0;">Log rides and track your miles (approximate). No GPS breadcrumbs stored.</p>
-          <a class="rr-btn" id="account-open-trip-log" href="/mytrips/" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">MyTrips</a>
-        </div>
 
         <!-- /* Public profile settings */ -->
         <div class="rr-lightbox-section" id="account-public-profile-section">
-          <h3>Public profile</h3>
+          <h3>Username &amp; public profile</h3>
           <p class="rr-modal-hint" style="margin-top:0;">Share a public page with your name, photo, and trip log. Email stays private.</p>
           <label class="rr-checkbox-row" style="display:flex;align-items:center;gap:8px;font-weight:600;margin:8px 0;">
             <input type="checkbox" id="account-public-profile-toggle"> Make my profile public
@@ -13384,6 +13382,11 @@ function closeTripDetailView(opts) {
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
       if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
       if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
+      const menuSettings = document.getElementById('header-menu-account-settings');
+      if (menuSettings) menuSettings.addEventListener('click', function(e) {
+        if (typeof closeAccountMenu === 'function') closeAccountMenu();
+        openAccountSettingsLightbox(e);
+      });
       const adminHeaderBtn = document.getElementById('btn-admin-header');
       if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', function(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
