@@ -3,14 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part1'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part2'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part3'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part4'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part5'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part6'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part7'
-      - 'scripts/mytrips-and-miles.patch.gz.b64.part8'
+      - 'scripts/patch-parts/mytrips-and-miles.patch.gz.b64.p166'
       - '.github/workflows/apply-mytrips-and-miles.yml'
 permissions:
   contents: write
@@ -19,11 +12,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply combined mytrips + miles patch
+      - name: Assemble patch parts, verify, apply
         run: |
           set -euo pipefail
-          cat scripts/mytrips-and-miles.patch.gz.b64.part{1..8} \
-            | tr -d '\n\r ' | base64 -d | gunzip > /tmp/mytrips-and-miles.patch
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "a38aca0090e8445c69235520044583a6396ff7315cde30347ec88f0544b2745c"
+          parts=[]
+          for i in range(1, 166+1):
+            p=pathlib.Path(f'scripts/patch-parts/mytrips-and-miles.patch.gz.b64.p{i:03d}')
+            if not p.exists():
+              print('missing', p); sys.exit(0)
+            parts.append(p.read_text().strip())
+          blob=''.join(parts)
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('assembled', len(blob), 'ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/mytrips-and-miles.patch
           git apply /tmp/mytrips-and-miles.patch
           mkdir -p mytrips
           cp index.html mytrips/index.html
@@ -31,9 +39,11 @@ jobs:
           from pathlib import Path
           t = Path('index.html').read_text(errors='replace')
           assert 'rrIsMyTripsPage' in t
-          assert 'rr-mytrips-page' in t
+          assert 'TRIP_LOG_RAIL_COLORS' in t
+          assert '#9d1c80' in t
+          assert '#003b5c' in t
+          assert '#ee0034' in t
           assert 'estimateTripMilesAlongStopChain' in t
-          assert 'RR_TRIP_SNAP_MAX_MI' in t
           assert 'href="/mytrips/"' in t
           m = Path('mytrips/index.html').read_text(errors='replace')
           assert 'rrIsMyTripsPage' in m
@@ -42,9 +52,8 @@ jobs:
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
           git add index.html mytrips/index.html
-          if git diff --cached --quiet; then
-            echo nothing to commit
+          if git diff --cached --quiet; then echo nothing to commit
           else
-            git commit -m "Add /mytrips full-page trip log + polyline stop-chain miles"
+            git commit -m "Add /mytrips full-page trip log, stop-chain miles, railroad colors"
             git push
           fi
