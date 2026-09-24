@@ -1,0 +1,24 @@
+name: MyTrips splash default
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-splash-default.py
+      - .github/workflows/mytrips-splash-default.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/brand
+          curl -fsSL --max-time 90 "https://i.postimg.cc/0y9tHnbJ/No-train-data-avaliable-(6).png" -o assets/brand/mytrips-phone.png
+          ls -l assets/brand/mytrips-phone.png
+          python3 scripts/mytrips-splash-default.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/brand/mytrips-phone.png index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Show MyTrips splash while login loads, dark blue with phone mockup" && git push; fi
