@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile · RailroadRadar</title>
+  <meta name="theme-color" content="#07093e">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3">
+  <link rel="apple-touch-icon" href="https://railroadradar.com/apple-touch-icon.png?v=2">
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root { --navy:#07093e; --muted:#a8c0e0; --line:#1a3a5f; --card:#0c1448; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; min-height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--navy); color: #fff;
+    }
+    .header {
+      position: fixed; top: 0; left: 0; right: 0; height: 60px;
+      background: var(--navy); display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 20; border-bottom: 1px solid var(--line);
+    }
+    .header a.brand { display: flex; align-items: center; text-decoration: none; }
+    .header .wordmark { height: 40px; width: auto; display: block; }
+    .header-right { display: flex; gap: 8px; align-items: center; }
+    .hb {
+      background: #fff; color: var(--navy); border: 0; padding: 7px 12px;
+      font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 84px 16px 56px; }
+    .state {
+      background: var(--card); border: 1px solid var(--line); padding: 28px 22px;
+      text-align: center; color: var(--muted);
+    }
+    .state h1 { color: #fff; margin: 0 0 8px; font-size: 22px; }
+    .state p { margin: 0 0 18px; line-height: 1.45; }
+    .profile-head {
+      display: flex; gap: 18px; align-items: center; margin-bottom: 22px;
+      background: var(--card); border: 1px solid var(--line); padding: 20px;
+    }
+    .avatar {
+      width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+      border: 3px solid rgba(255,255,255,.85); background: #2c3e6b; flex-shrink: 0;
+    }
+    .avatar-fallback {
+      width: 96px; height: 96px; border-radius: 50%; background: #2c3e6b;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px; font-weight: 800; color: #fff; flex-shrink: 0;
+      border: 3px solid rgba(255,255,255,.85);
+    }
+    .profile-meta h1 { margin: 0 0 4px; font-size: 26px; line-height: 1.2; }
+    .profile-meta .handle { color: var(--muted); font-weight: 700; font-size: 15px; }
+    .trips-title { margin: 0 0 12px; font-size: 16px; font-weight: 800; letter-spacing: .02em; }
+    .trip {
+      background: var(--card); border: 1px solid var(--line); padding: 14px 16px; margin: 0 0 10px;
+    }
+    .trip-route { font-size: 16px; font-weight: 800; margin: 0 0 6px; }
+    .trip-meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .trip-meta span { margin-right: 10px; }
+    .empty-trips { color: var(--muted); padding: 12px 0; }
+    .footer-note { margin-top: 28px; color: #7a9bb8; font-size: 13px; text-align: center; }
+    .footer-note a { color: #fff; font-weight: 700; text-decoration: none; }
+    .footer-note a:hover { text-decoration: underline; }
+    @media (max-width: 520px) {
+      .profile-head { flex-direction: column; text-align: center; }
+      .profile-meta h1 { font-size: 22px; }
+      .avatar, .avatar-fallback { width: 84px; height: 84px; font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- /* Public user profile page */ -->
+  <div class="header">
+    <a class="brand" href="https://railroadradar.com/">
+      <img class="wordmark" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
+    </a>
+    <div class="header-right">
+      <a class="hb" href="https://railroadradar.com/">Live map</a>
+    </div>
+  </div>
+  <div class="wrap" id="app">
+    <div class="state" id="state-loading">
+      <h1>Loading profile…</h1>
+      <p>Pulling public trips from RailroadRadar.</p>
+    </div>
+  </div>
+
+  <script>
+  /* Public user profile page */
+  (function () {
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
+      authDomain: "railroadradar-accounts.firebaseapp.com",
+      projectId: "railroadradar-accounts",
+      storageBucket: "railroadradar-accounts.firebasestorage.app",
+      messagingSenderId: "896370923309",
+      appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
+    };
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+      });
+    }
+
+    function usernameFromLoc() {
+      const q = new URLSearchParams(location.search);
+      const u = (q.get('u') || '').trim();
+      if (u) return u;
+      const m = location.pathname.match(/^\/user\/([^\/]+)\/?$/);
+      if (m && m[1] && m[1] !== 'index.html') {
+        try { return decodeURIComponent(m[1]); } catch (_) { return m[1]; }
+      }
+      return '';
+    }
+
+    function showState(title, body, extraHtml) {
+      const app = document.getElementById('app');
+      app.innerHTML = '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(body) + '</p>' +
+        (extraHtml || '') +
+        '<p><a class="hb" href="https://railroadradar.com/">Back to live map</a></p></div>';
+    }
+
+    function railLabel(rr) {
+      const id = String(rr || '').toLowerCase();
+      const map = {
+        amtrak: 'Amtrak', mbta: 'MBTA', mnr: 'Metro-North', lirr: 'LIRR',
+        metra: 'Metra', njt: 'NJ Transit', septa: 'SEPTA', via: 'VIA Rail'
+      };
+      return map[id] || (rr ? String(rr) : 'Railroad');
+    }
+
+    function formatDate(raw) {
+      if (!raw) return '';
+      try {
+        let d = null;
+        if (raw && typeof raw.toDate === 'function') d = raw.toDate();
+        else if (typeof raw === 'string') d = new Date(raw);
+        else if (typeof raw === 'number') d = new Date(raw);
+        if (!d || isNaN(d.getTime())) return String(raw);
+        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      } catch (_) {
+        return String(raw);
+      }
+    }
+
+    function formatMiles(n) {
+      const x = Number(n);
+      if (!isFinite(x)) return '';
+      return (Math.round(x * 10) / 10).toLocaleString('en-US') + ' mi';
+    }
+
+    function initialFrom(name, username) {
+      const s = String(name || username || '?').trim();
+      return (s.charAt(0) || '?').toUpperCase();
+    }
+
+    function avatarHtml(profile) {
+      const name = profile.displayName || profile.username || 'User';
+      if (profile.photoURL) {
+        return '<img class="avatar" src="' + esc(profile.photoURL) + '" alt="' + esc(name) + '" referrerpolicy="no-referrer">';
+      }
+      return '<div class="avatar-fallback" aria-hidden="true">' + esc(initialFrom(profile.displayName, profile.username)) + '</div>';
+    }
+
+    function tripCard(d) {
+      const origin = d.originName || d.originStationId || 'Origin';
+      const dest = d.destName || d.destStationId || 'Destination';
+      const rr = railLabel(d.railroad);
+      const train = d.trainNumber ? ('Train ' + d.trainNumber) : '';
+      const when = formatDate(d.startTime || d.createdAt);
+      const miles = formatMiles(d.miles);
+      const bits = [rr, train, when, miles].filter(Boolean).map(function (x) {
+        return '<span>' + esc(x) + '</span>';
+      }).join('');
+      return '<article class="trip">' +
+        '<div class="trip-route">' + esc(origin) + ' → ' + esc(dest) + '</div>' +
+        '<div class="trip-meta">' + bits + '</div>' +
+        '</article>';
+    }
+
+    function renderProfile(profile, trips) {
+      document.title = (profile.displayName || profile.username || 'Profile') + ' · RailroadRadar';
+      const list = trips.length
+        ? trips.map(tripCard).join('')
+        : '<p class="empty-trips">No public trips yet.</p>';
+      document.getElementById('app').innerHTML =
+        '<div class="profile-head">' + avatarHtml(profile) +
+        '<div class="profile-meta">' +
+        '<h1>' + esc(profile.displayName || profile.username || 'Railfan') + '</h1>' +
+        '<div class="handle">@' + esc(profile.username || '') + '</div>' +
+        '</div></div>' +
+        '<h2 class="trips-title">Trips</h2>' +
+        '<div id="trips">' + list + '</div>' +
+        '<p class="footer-note"><a href="https://railroadradar.com/">RailroadRadar</a> live map</p>';
+    }
+
+    async function main() {
+      const username = usernameFromLoc();
+      if (!username) {
+        showState('Profile not found', 'No username was provided in this link.');
+        return;
+      }
+      let app, db;
+      try {
+        app = firebase.initializeApp(FIREBASE_CONFIG);
+        db = firebase.firestore();
+      } catch (e) {
+        showState('Could not load', 'Firebase failed to start. Try again later.');
+        return;
+      }
+
+      const lower = username.toLowerCase();
+      let unameSnap;
+      try {
+        unameSnap = await db.collection('usernames').doc(lower).get();
+      } catch (e) {
+        showState('Could not load', 'Unable to look up this profile right now.');
+        return;
+      }
+
+      if (!unameSnap.exists) {
+        showState('Profile not found', 'We couldn’t find a public profile for that username.');
+        return;
+      }
+
+      const unameData = unameSnap.data() || {};
+      const uid = unameData.uid;
+      if (!uid) {
+        showState('Profile not found', 'We couldn’t find a public profile for that username.');
+        return;
+      }
+
+      let profileSnap;
+      try {
+        profileSnap = await db.collection('publicProfiles').doc(uid).get();
+      } catch (e) {
+        showState('Could not load', 'Unable to load this profile right now.');
+        return;
+      }
+
+      if (!profileSnap.exists) {
+        showState('This profile isn’t public', 'This user has not published a public RailroadRadar profile.');
+        return;
+      }
+
+      const profile = Object.assign({ uid: uid }, profileSnap.data() || {});
+      if (!profile.username) profile.username = unameData.username || username;
+
+      let trips = [];
+      try {
+        const tripSnap = await db.collection('tripLogs')
+          .where('userId', '==', uid)
+          .orderBy('startTime', 'desc')
+          .limit(50)
+          .get();
+        trips = tripSnap.docs.map(function (doc) {
+          return Object.assign({ id: doc.id }, doc.data() || {});
+        });
+      } catch (e) {
+        // Fallback without composite index / order
+        try {
+          const tripSnap = await db.collection('tripLogs')
+            .where('userId', '==', uid)
+            .limit(50)
+            .get();
+          trips = tripSnap.docs.map(function (doc) {
+            return Object.assign({ id: doc.id }, doc.data() || {});
+          });
+          trips.sort(function (a, b) {
+            const ta = String(a.startTime || '');
+            const tb = String(b.startTime || '');
+            return tb.localeCompare(ta);
+          });
+        } catch (e2) {
+          console.warn('[public profile] trips load failed', e, e2);
+          trips = [];
+        }
+      }
+
+      renderProfile(profile, trips);
+    }
+
+    main();
+  })();
+  </script>
+</body>
+</html>
