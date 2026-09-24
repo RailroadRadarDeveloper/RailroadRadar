@@ -1,0 +1,20 @@
+name: MyTrips upcoming and past
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-upcoming-past.py
+      - .github/workflows/mytrips-upcoming-past.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/mytrips-upcoming-past.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Split MyTrips list into upcoming and past" && git push; fi
