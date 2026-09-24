@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'scripts/mytrips-and-miles.patch.gz.b64'
       - 'scripts/patch-parts/mytrips-and-miles.patch.gz.b64.p166'
       - '.github/workflows/apply-mytrips-and-miles.yml'
 permissions:
@@ -12,24 +13,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Assemble patch parts, verify, apply
+      - name: Decode patch (single b64 or 166 parts), apply, publish mytrips
         run: |
           set -euo pipefail
           python3 <<'PY'
           import hashlib, pathlib, sys
           expected = "a38aca0090e8445c69235520044583a6396ff7315cde30347ec88f0544b2745c"
-          parts=[]
-          for i in range(1, 166+1):
-            p=pathlib.Path(f'scripts/patch-parts/mytrips-and-miles.patch.gz.b64.p{i:03d}')
-            if not p.exists():
-              print('missing', p); sys.exit(0)
-            parts.append(p.read_text().strip())
-          blob=''.join(parts)
+          single = pathlib.Path('scripts/mytrips-and-miles.patch.gz.b64')
+          if single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          else:
+            parts=[]
+            for i in range(1, 167):
+              p=pathlib.Path(f'scripts/patch-parts/mytrips-and-miles.patch.gz.b64.p{i:03d}')
+              if not p.exists():
+                print('missing', p); sys.exit(0)
+              parts.append(p.read_text().strip())
+            blob=''.join(parts)
+            print('using parts', len(parts), len(blob))
           h=hashlib.sha256(blob.encode()).hexdigest()
           if h!=expected:
             raise SystemExit(f'full hash mismatch: {h}')
           pathlib.Path('/tmp/all.b64').write_text(blob)
-          print('assembled', len(blob), 'ok')
+          print('hash ok')
           PY
           base64 -d /tmp/all.b64 | gunzip > /tmp/mytrips-and-miles.patch
           git apply /tmp/mytrips-and-miles.patch
@@ -40,14 +47,11 @@ jobs:
           t = Path('index.html').read_text(errors='replace')
           assert 'rrIsMyTripsPage' in t
           assert 'TRIP_LOG_RAIL_COLORS' in t
-          assert '#9d1c80' in t
-          assert '#003b5c' in t
-          assert '#ee0034' in t
+          assert '#9d1c80' in t and '#003b5c' in t and '#ee0034' in t
           assert 'estimateTripMilesAlongStopChain' in t
           assert 'href="/mytrips/"' in t
-          m = Path('mytrips/index.html').read_text(errors='replace')
-          assert 'rrIsMyTripsPage' in m
-          print('ok', len(t), 'mytrips', len(m))
+          assert 'rrIsMyTripsPage' in Path('mytrips/index.html').read_text(errors='replace')
+          print('ok', len(t))
           PY
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
