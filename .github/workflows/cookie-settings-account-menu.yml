@@ -1,0 +1,20 @@
+name: Cookie settings in account menu
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/cookie-settings-account-menu.py
+      - .github/workflows/cookie-settings-account-menu.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/cookie-settings-account-menu.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Move Cookie settings into the account dropdown" && git push; fi
