@@ -1,0 +1,61 @@
+name: Apply trip route to-word
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-route-to-word.patch.gz.b64'
+      - '.github/workflows/apply-trip-route-to-word.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "f4b4a0e4263106c093823ae169cd2ade50cd8455b60d932637333974bbe66af1"
+          single = pathlib.Path('scripts/trip-route-to-word.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/trip-route-to-word.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/trip-route-to-word.patch
+          git apply /tmp/trip-route-to-word.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip route to-word */' in t
+          assert '/* Trip detail square corners */' in t
+          assert 'tripRouteOdHtml' in t
+          assert 'tripDisplayRouteHtml' in t
+          assert "routeEl.innerHTML = tripRouteOdHtml" in t
+          assert 'trip-route-to' in t
+          assert 'border-radius: 0' in t
+          # time arrows still present; station OD arrows via helpers only
+          assert "formatTripWhen(dep) + ' → ' + formatTripWhen(arr)" in t
+          assert "od.origin + ' → '" not in t
+          assert 'Trip cards easy-read: train chip + unlabeled when' in t
+          assert '/* Trip detail rail bg */' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('/* Trip route to-word */') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "My trips: route uses 'to' instead of arrow; square detail corners"
+            git push
+          fi
