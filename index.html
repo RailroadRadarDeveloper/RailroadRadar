@@ -12539,17 +12539,11 @@ function closeTripDetailView(opts) {
         if (logo) {
           logo.style.cursor = 'pointer';
           logo.addEventListener('click', function() { rrGoHomeFromMyTrips(); });
-          logo.setAttribute('title', 'RailroadRadar home');
+          logo.setAttribute('title', 'Home');
           logo.setAttribute('role', 'link');
         }
-        const center = document.querySelector('.header-center');
-        if (center && !document.getElementById('rr-mytrips-page-title')) {
-          const title = document.createElement('div');
-          title.id = 'rr-mytrips-page-title';
-          title.className = 'rr-mytrips-page-title';
-          title.textContent = 'MyTrips';
-          center.insertBefore(title, center.firstChild);
-        }
+        const oldTitle = document.getElementById('rr-mytrips-page-title');
+        if (oldTitle && oldTitle.parentNode) oldTitle.parentNode.removeChild(oldTitle);
         const closeBtn = document.getElementById('trip-log-close');
         if (closeBtn) {
           closeBtn.hidden = true;
