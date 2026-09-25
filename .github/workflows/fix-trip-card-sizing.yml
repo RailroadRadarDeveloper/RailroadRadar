@@ -1,0 +1,23 @@
+name: Fix trip card sizing
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-trip-card-sizing.py
+      - .github/workflows/fix-trip-card-sizing.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-trip-card-sizing.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Keep MyTrips cards a fixed size with icon-only corner actions" && git push; fi
