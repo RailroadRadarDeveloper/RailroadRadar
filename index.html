@@ -9496,8 +9496,8 @@
       const dep = (segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime;
       const arr = (segs.length && (segs[segs.length - 1].arriveTime || segs[segs.length - 1].endTime)) || data.endTime;
       if (!dep || !arr) return '';
-      const a = new Date(dep).getTime();
-      const b = new Date(arr).getTime();
+      const a = (tripAsDate(dep) || new Date(dep)).getTime();
+      const b = (tripAsDate(arr) || new Date(arr)).getTime();
       if (!isFinite(a) || !isFinite(b) || b <= a) return '';
       const mins = Math.round((b - a) / 60000);
       if (mins < 60) return mins + ' min';
@@ -9523,19 +9523,38 @@
 
     function formatTripWhen(isoOrMs) {
       try {
-        const d = typeof isoOrMs === 'number' ? new Date(isoOrMs) : new Date(String(isoOrMs || ''));
-        if (isNaN(d.getTime())) return '—';
+        const d = tripAsDate(isoOrMs);
+        if (!d || isNaN(d.getTime())) return '—';
         return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
       } catch (_) { return '—'; }
     }
 
+    function tripAsDate(raw) {
+      if (raw == null || raw === '') return null;
+      try {
+        if (typeof raw.toDate === 'function') {
+          const d = raw.toDate();
+          return (d && !isNaN(d.getTime())) ? d : null;
+        }
+        if (typeof raw === 'object' && raw.seconds != null) {
+          const d = new Date(Number(raw.seconds) * 1000 + Math.floor(Number(raw.nanoseconds || 0) / 1e6));
+          return isNaN(d.getTime()) ? null : d;
+        }
+        if (typeof raw === 'number') {
+          const d = new Date(raw);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const d = new Date(String(raw));
+        return isNaN(d.getTime()) ? null : d;
+      } catch (_) { return null; }
+    }
     function tripDepartInstant(data) {
       if (!data) return null;
       const segs = Array.isArray(data.segments) ? data.segments : null;
-      const raw = (segs && segs.length && segs[0].departTime) || data.startTime || data.departTime || null;
-      if (raw == null || raw === '') return null;
+      const raw = (segs && segs.length && (segs[0].departTime || segs[0].startTime)) || data.startTime || data.departTime || data.startTimeMs || null;
+      const d = tripAsDate(raw);
+      if (!d) return null;
       try {
-        const d = typeof raw === 'number' ? new Date(raw) : new Date(String(raw));
         if (isNaN(d.getTime())) return null;
         return d;
       } catch (_) { return null; }
@@ -12411,8 +12430,8 @@ function closeTripDetailView(opts) {
     function tripStartMs(data) {
       if (!data) return 0;
       const segs = Array.isArray(data.segments) ? data.segments : null;
-      const raw = (segs && segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime;
-      const d = raw ? new Date(raw) : null;
+      const raw = (segs && segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime || data.startTimeMs || data.departTime;
+      const d = tripAsDate(raw);
       return (d && !isNaN(d.getTime())) ? d.getTime() : 0;
     }
     function tripIsUpcoming(data) {
