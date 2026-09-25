@@ -1,33 +1,21 @@
 name: Fix train load syntax
+
 on:
   workflow_dispatch:
   push:
     paths:
       - scripts/fix-train-syntax-11656.py
       - .github/workflows/fix-train-syntax-11656.yml
+
 permissions:
   contents: write
+
 jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/fix-train-syntax-11656.py
-      - run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          t=Path('index.html').read_text(encoding='utf-8')
-          # extract the function and eval-check via node
-          PY
-          node --check <(python3 - <<'PY'
-from pathlib import Path
-t=Path('index.html').read_text(encoding='utf-8')
-s=t.find('function tripTrainNumMatch')
-e=t.find('async function tripEnrichMbtaStopTimes', s)
-print(t[s:e])
-PY
-          ) || true
       - run: |
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
