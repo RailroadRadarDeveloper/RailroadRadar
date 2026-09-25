@@ -11653,7 +11653,7 @@ function closeTripDetailView(opts) {
       if (!n || !h) return false;
       if (h === n) return true;
       if (h.slice(-n.length) === n && (h.length === n.length || /[-_#\s]/.test(h.charAt(h.length - n.length - 1)))) return true;
-      try { return new RegExp('(^|[^0-9])' + n.replace(/[.*+?^${}()|[\]\]/g, '\$&') + '([^0-9]|$)').test(h); }
+      try { return new RegExp('(^|[^0-9])' + n.replace("/[.*+?^${}()|[\\]\\]/g", '\$&') + '([^0-9]|$)').test(h); }
       catch (_) { return h.indexOf(n) >= 0; }
     }
     async function tripEnrichMbtaStopTimes(seg) {
