@@ -9490,6 +9490,30 @@
       return base;
     }
 
+    function tripDurationLabel(data) {
+      if (!data) return '';
+      const segs = Array.isArray(data.segments) ? data.segments : [];
+      const dep = (segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime;
+      const arr = (segs.length && (segs[segs.length - 1].arriveTime || segs[segs.length - 1].endTime)) || data.endTime;
+      if (!dep || !arr) return '';
+      const a = new Date(dep).getTime();
+      const b = new Date(arr).getTime();
+      if (!isFinite(a) || !isFinite(b) || b <= a) return '';
+      const mins = Math.round((b - a) / 60000);
+      if (mins < 60) return mins + ' min';
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m ? (h + ' hr ' + m + ' min') : (h + ' hr');
+    }
+    function tripMilesValue(data) {
+      if (!data) return 0;
+      let n = Number(data.miles);
+      if (isFinite(n) && n > 0) return n;
+      if (Array.isArray(data.segments)) {
+        n = data.segments.reduce(function(sum, s) { return sum + (Number(s.miles) || 0); }, 0);
+      }
+      return isFinite(n) ? n : 0;
+    }
     function formatTripMiles(n) {
       if (n == null || !isFinite(Number(n)) || Number(n) <= 0) return '—';
       const v = Number(n);
@@ -10777,8 +10801,15 @@
           pill.textContent = val;
           meta.appendChild(pill);
         });
-        const milesTxt = formatTripMiles(data.miles);
-        if (milesTxt && milesTxt !== '—') {
+        const durTxt = tripDurationLabel(data);
+        if (durTxt) {
+          const dp = document.createElement('span');
+          dp.className = 'trip-detail-fact';
+          dp.textContent = durTxt;
+          meta.appendChild(dp);
+        }
+        const milesTxt = formatTripMiles(tripMilesValue(data));
+        if (milesTxt) {
           const pill = document.createElement('span');
           pill.className = 'trip-detail-fact';
           pill.textContent = milesTxt;
@@ -12427,10 +12458,13 @@ function closeTripDetailView(opts) {
       });
       const week = tripWeekStartMs();
       let weekMiles = 0;
+      let allMiles = 0;
       const days = {};
       all.forEach(function(t) {
         const ms = tripStartMs(t);
-        weekMiles += (ms >= week) ? (Number(t.miles) || 0) : 0;
+        const mv = tripMilesValue(t);
+        allMiles += mv;
+        weekMiles += (ms >= week) ? mv : 0;
         if (ms) {
           const key = new Date(ms).toISOString().slice(0,10);
           days[key] = true;
@@ -12462,6 +12496,7 @@ function closeTripDetailView(opts) {
         return '<option value="' + r + '">' + r.toUpperCase() + '</option>';
       }));
       bar.innerHTML =
+        '<span class="trip-dash-stat">' + (Math.round(allMiles * 10) / 10) + ' mi total</span>' +
         '<span class="trip-dash-stat">' + (Math.round(weekMiles * 10) / 10) + ' mi this week</span>' +
         '<span class="trip-dash-stat">' + (streak ? (streak + '-day streak') : 'No streak yet') + '</span>' +
         '<span class="trip-dash-stat">' + all.length + ' trips</span>' +
@@ -12651,7 +12686,9 @@ function closeTripDetailView(opts) {
           '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>';
         row.querySelector('.trip-log-row-route').innerHTML = route;
         row.querySelector('.trip-log-row-meta').textContent = when;
-        row.querySelector('.trip-log-row-miles').textContent = miles;
+        const dur = tripDurationLabel(data);
+        const milesVal = formatTripMiles(tripMilesValue(data));
+        row.querySelector('.trip-log-row-miles').textContent = [milesVal !== '—' ? milesVal : '', dur].filter(Boolean).join(' · ') || milesVal;
         const stockRow = row.querySelector('.trip-log-row-stock');
         const stockVal = String(data.rollingStock || '').trim();
         if (stockRow) {
@@ -12669,6 +12706,9 @@ function closeTripDetailView(opts) {
           if (relText) {
             relEl.hidden = false;
             relEl.textContent = relText;
+          } else if (!tripIsUpcoming(data) && tripDisplayWhen(data)) {
+            relEl.hidden = false;
+            relEl.textContent = 'Completed';
           } else {
             relEl.hidden = true;
             relEl.textContent = '';
