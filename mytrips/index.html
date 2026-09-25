@@ -11654,9 +11654,11 @@ function closeTripDetailView(opts) {
       const h = String(hay || '');
       if (!n || !h) return false;
       if (h === n) return true;
-      if (h.slice(-n.length) === n && (h.length === n.length || /[-_#\s]/.test(h.charAt(h.length - n.length - 1)))) return true;
-      try { return new RegExp('(^|[^0-9])' + n.replace(/[.*+?^${}()|[\]\]/g, '\$&') + '([^0-9]|$)').test(h); }
-      catch (_) { return h.indexOf(n) >= 0; }
+      if (h.length >= n.length && h.slice(-n.length) === n) {
+        const prev = h.charAt(h.length - n.length - 1);
+        if (!prev || ' -_#/'.indexOf(prev) >= 0) return true;
+      }
+      return h.indexOf(n) >= 0;
     }
     async function tripEnrichMbtaStopTimes(seg) {
       const lineId = String(seg.lineId || '');
