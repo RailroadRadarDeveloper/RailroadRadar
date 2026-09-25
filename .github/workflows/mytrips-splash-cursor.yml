@@ -1,0 +1,27 @@
+name: MyTrips splash cursor
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/mytrips-splash-cursor.py
+      - .github/workflows/mytrips-splash-cursor.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p assets/brand
+          curl -fsSL --max-time 90 -A "Mozilla/5.0" "https://i.postimg.cc/CLy7pHL5/Train-Icons-(15).png" -o assets/brand/mytrips-cursor.png
+          ls -l assets/brand/mytrips-cursor.png
+          python3 scripts/mytrips-splash-cursor.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/brand/mytrips-cursor.png index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Use train icon cursor on the MyTrips splash page only" && git push; fi
