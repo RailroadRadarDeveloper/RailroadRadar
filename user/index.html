@@ -303,6 +303,8 @@
     function renderProfile(profile, trips) {
       const name = profile.displayName || profile.username || 'Railfan';
       document.title = name + ' · MyTrips';
+      window.__rrProfileShare = location.href.split('#')[0];
+      trips = (trips || []).filter(function (t) { return !t.hiddenPublic; });
       const upcoming = trips.filter(function (t) { return tripStartMs(t) >= Date.now(); }).sort(function (a, b) { return tripStartMs(a) - tripStartMs(b); });
       const past = trips.filter(function (t) { return tripStartMs(t) < Date.now(); });
       const photo = profile.photoURL
