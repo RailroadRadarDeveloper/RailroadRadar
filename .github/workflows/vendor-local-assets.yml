@@ -1,0 +1,47 @@
+name: Vendor local assets
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/vendor-local-assets.py
+      - .github/workflows/vendor-local-assets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download vendor files
+        run: |
+          set -e
+          mkdir -p assets/brand vendor/leaflet/images
+          dl() { curl -fsSL --max-time 90 -A "Mozilla/5.0" -o "$2" "$1" && ls -l "$2"; }
+          dl "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" vendor/leaflet/leaflet.css
+          dl "https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" vendor/leaflet/leaflet.js
+          dl "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" vendor/leaflet/images/marker-icon.png || true
+          dl "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png" vendor/leaflet/images/marker-icon-2x.png || true
+          dl "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png" vendor/leaflet/images/marker-shadow.png || true
+          dl "https://unpkg.com/leaflet@1.7.1/dist/images/layers.png" vendor/leaflet/images/layers.png || true
+          dl "https://unpkg.com/leaflet@1.7.1/dist/images/layers-2x.png" vendor/leaflet/images/layers-2x.png || true
+          dl "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js" vendor/html-to-image.min.js
+          dl "https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js" vendor/protobuf.min.js
+          dl "https://i.postimg.cc/3xMFGsJX/Alert.png" assets/brand/alert.png
+          dl "https://i.postimg.cc/8PdC8gPp/Needham-Heights-2.png" assets/brand/needham-heights-2.png
+          dl "https://i.postimg.cc/gjwV0kj6/Needham-Heights-1.png" assets/brand/needham-heights-1.png
+          dl "https://i.postimg.cc/wBWNG26K/Completed.png" assets/brand/completed.png
+          dl "https://i.postimg.cc/wjS055MP/Untitled-design-(9).png" assets/brand/header-icon.png
+          dl "https://i.postimg.cc/8PzqYZ2S/My-Trips-by-Railroad-Radar.png" assets/brand/mytrips-logo.png || true
+          dl "https://i.postimg.cc/W18XKxcx/Stay-Off-The-Tracks-5.png" assets/brand/rr-wordmark.png
+          dl "https://i.postimg.cc/YSgrjhMx/Background-Right-Top.png" assets/brand/tracks-right-top.png || true
+          dl "https://i.postimg.cc/c1vD3YVL/Backgrond404.png" assets/brand/tracks-left-bottom.png || true
+          python3 scripts/vendor-local-assets.py
+      - name: Commit
+        run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets vendor scripts/vendor-local-assets.py index.html mytrips/index.html user/index.html 404.html press/index.html || true
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Serve images and libraries from the RailroadRadar site instead of CDNs" && git push; fi
