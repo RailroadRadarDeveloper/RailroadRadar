@@ -17027,12 +17027,7 @@ function closeTripDetailView(opts) {
         }
         setLoadingProgress(100, 'Ready!');
         setLoadingTip('No defects. Detector out. ✌️');
-        setTimeout(() => {
-          loadingScreen.style.opacity = '0';
-          setTimeout(() => {
-            loadingScreen.style.display = 'none';
-          }, 400);
-        }, 2000);
+        loadingScreen.style.display = 'none';
       }
       startLoadingTips();
       setLoadingProgress(8, 'Starting...');
