@@ -23733,13 +23733,18 @@ function closeTripDetailView(opts) {
             return;
           }
           const saved = getMapRailPrefs();
-          if (saved) {
+          function prefsAreUsable(p) {
+            if (!p || typeof p !== 'object') return false;
+            return RR_MAP_RAIL_IDS.some(function(id) { return !!p[id]; });
+          }
+          if (prefsAreUsable(saved)) {
             resolve(saved);
             return;
           }
+          // Never block the map waiting for the picker. Load defaults now.
+          resolve(defaultMapRailPrefs());
           const el = document.getElementById('rr-rail-picker');
           if (!el) {
-            resolve(defaultMapRailPrefs());
             return;
           }
           syncPickerDom(defaultMapRailPrefs());
@@ -24740,6 +24745,8 @@ function closeTripDetailView(opts) {
       console.log('%cRailroadRadar v4.5 ready (NEC icon by position)', 'color:#07093e');
       // Loading screen already hidden after core MBTA load (failsafe + finally)
       // Offline / online detection
+          #offline-banner.offline-banner { display: none; }
+    #offline-banner.offline-banner.visible { display: block; }
       function updateOnlineStatus() {
         const banner = document.getElementById('offline-banner');
         if (!banner) return;
