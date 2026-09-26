@@ -23732,22 +23732,17 @@ function closeTripDetailView(opts) {
             resolve(prefsForShareDeepLink());
             return;
           }
-          const saved = getMapRailPrefs();
-          function prefsAreUsable(p) {
-            if (!p || typeof p !== 'object') return false;
-            return RR_MAP_RAIL_IDS.some(function(id) { return !!p[id]; });
-          }
-          if (prefsAreUsable(saved)) {
-            resolve(saved);
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+            resolve(defaultMapRailPrefs());
             return;
           }
-          // Never block the map waiting for the picker. Load defaults now.
-          resolve(defaultMapRailPrefs());
+          const saved = getMapRailPrefs();
           const el = document.getElementById('rr-rail-picker');
           if (!el) {
+            resolve((saved && RR_MAP_RAIL_IDS.some(function(id) { return !!saved[id]; })) ? saved : defaultMapRailPrefs());
             return;
           }
-          syncPickerDom(defaultMapRailPrefs());
+          syncPickerDom((saved && typeof saved === 'object') ? saved : defaultMapRailPrefs());
           showRailPickerUi();
           const list = document.getElementById('rr-rail-picker-list');
           const go = document.getElementById('rr-rail-picker-go');
