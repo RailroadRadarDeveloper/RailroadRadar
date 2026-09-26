@@ -1,0 +1,36 @@
+name: Fix JS parse loading
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-js-parse-loading.py
+      - .github/workflows/fix-js-parse-loading.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-js-parse-loading.py
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path,re
+          import re, subprocess, tempfile
+          t = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script(?![^>]+src=)[^>]*>([\\s\\S]*?)</script>', t)
+          big = max(scripts, key=len)
+          Path('/tmp/rrcheck.js').write_text(big, encoding='utf-8')
+          r = subprocess.run(['node','--check','/tmp/rrcheck.js'], capture_output=True, text=True)
+          print(r.stderr or 'syntax ok')
+          if r.returncode != 0:
+              raise SystemExit(1)
+          PY
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Fix script parse error that froze the loading screen" && git push; fi
