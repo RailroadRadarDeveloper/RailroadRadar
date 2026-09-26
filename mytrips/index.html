@@ -5791,6 +5791,12 @@
     }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
     betterstack('init', { environment: 'production' });
   </script>
+  <style id="rr-loading-fix">
+    #offline-banner.offline-banner { display: none; }
+    #offline-banner.offline-banner.visible { display: block; }
+    #loading-screen { z-index: 100000; }
+    #rr-rail-picker.is-open { display: flex !important; z-index: 100002; }
+  </style>
 </head>
 <body>
   <div class="header">
@@ -24745,8 +24751,6 @@ function closeTripDetailView(opts) {
       console.log('%cRailroadRadar v4.5 ready (NEC icon by position)', 'color:#07093e');
       // Loading screen already hidden after core MBTA load (failsafe + finally)
       // Offline / online detection
-          #offline-banner.offline-banner { display: none; }
-    #offline-banner.offline-banner.visible { display: block; }
       function updateOnlineStatus() {
         const banner = document.getElementById('offline-banner');
         if (!banner) return;
