@@ -1,0 +1,23 @@
+name: Picker every map load
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/picker-every-load.py
+      - .github/workflows/picker-every-load.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/picker-every-load.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Show railroad picker on every live map load" && git push; fi
