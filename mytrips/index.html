@@ -1090,7 +1090,8 @@
       font-family: 'Segoe UI', sans-serif;
     }
     #rr-rail-picker.is-open {
-      display: flex;
+      display: flex !important;
+      z-index: 100002;
     }
     html.rr-train-page #rr-rail-picker {
       display: none !important;
@@ -23719,9 +23720,11 @@ function closeTripDetailView(opts) {
         el.setAttribute('aria-hidden', 'true');
       }
       function showRailPickerUi() {
+        try { hideLoadingScreen(); } catch (_) {}
         const el = document.getElementById('rr-rail-picker');
         if (!el) return;
         el.hidden = false;
+        el.removeAttribute('hidden');
         el.setAttribute('aria-hidden', 'false');
         el.classList.add('is-open');
         updateRailPickerGoEnabled();
