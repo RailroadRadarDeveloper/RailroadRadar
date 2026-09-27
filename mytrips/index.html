@@ -14300,7 +14300,19 @@ function closeTripDetailView(opts) {
           if (timer) clearTimeout(timer);
         }
       }
+      
+      function rrRefreshMapTiles() {
+        try {
+          if (typeof map === 'undefined' || !map) return;
+          map.invalidateSize({ animate: false });
+          map.eachLayer(function(layer) {
+            try { if (layer && typeof layer.redraw === 'function') layer.redraw(); } catch (_) {}
+          });
+        } catch (_) {}
+      }
       const map = L.map('map').setView([43.0, -71.5], 7);
+      window.addEventListener('resize', function() { try { rrRefreshMapTiles(); } catch (_) {} });
+      map.whenReady(function() { try { rrRefreshMapTiles(); } catch (_) {} });
       // API_BASE: '' = same-origin /api/* (Pages+Worker on one host).
       // For split hosting set e.g. 'https://railroadradar-proxy.YOUR.workers.dev'
       const API_BASE = 'https://railroadradar-proxy.railroadradar.workers.dev';
@@ -14337,18 +14349,27 @@ function closeTripDetailView(opts) {
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
         maxZoom: 20,
+        keepBuffer: 8,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
         errorTileUrl: EMPTY_TILE
       });
       const mapboxLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}'), {
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
         maxZoom: 20,
+        keepBuffer: 8,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
         errorTileUrl: EMPTY_TILE
       });
       const mapboxDarkLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}'), {
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
         maxZoom: 20,
+        keepBuffer: 8,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
         errorTileUrl: EMPTY_TILE
       });
       // Mapbox failure fallback is OpenStreetMap (no Esri layers).
@@ -17038,6 +17059,7 @@ function closeTripDetailView(opts) {
         const skipWait = document.documentElement.classList.contains('rr-train-page') || document.documentElement.classList.contains('rr-mytrips-page') || !!(new URLSearchParams(location.search).get('train') || new URLSearchParams(location.search).get('t'));
         if (skipWait) {
           loadingScreen.style.display = 'none';
+        try { rrRefreshMapTiles(); } catch (_) {}
           loadingScreen.style.opacity = '0';
           return;
         }
@@ -17047,6 +17069,7 @@ function closeTripDetailView(opts) {
           loadingScreen.style.opacity = '0';
           setTimeout(() => {
             loadingScreen.style.display = 'none';
+        try { rrRefreshMapTiles(); } catch (_) {}
           }, 400);
         }, 2000);
       }
