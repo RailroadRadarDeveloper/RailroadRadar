@@ -17554,21 +17554,29 @@ function closeTripDetailView(opts) {
         if (!stops?.length) return '<div class="no-departures">No stops found</div>';
         return `<div class="upcoming-stops"><h4>Stops</h4><ul class="stops-list">${ 
           stops.map(stop => {
-            let cls = 'status-on-time', disp = stop.formattedPredictedTime || stop.formattedScheduledTime || 'Scheduled';
+            const sched = stop.formattedScheduledTime || '';
+            const pred = stop.formattedPredictedTime || '';
+            const actual = stop.formattedActualTime || '';
+            let cls = 'status-on-time';
+            let disp = 'On time';
             if (stop.isCompleted) {
-              if (stop.formattedActualTime) {
-                disp = stop.formattedActualTime;
-              } else {
-                disp = stop.formattedPredictedTime || stop.formattedScheduledTime || 'Passed';
-              }
               if (stop.delayMinutes > 15) cls = 'status-very-delayed';
               else if (stop.delayMinutes > 5) cls = 'status-delayed';
               else cls = 'status-passed';
+              disp = (actual && actual !== sched) ? actual : 'Departed';
             } else if (!stop.predictedTime) {
               cls = 'status-scheduled';
               disp = 'Scheduled';
-            } else if (stop.delayMinutes > 15) { cls = 'status-very-delayed'; disp = `Now ${stop.formattedPredictedTime}`; }
-            else if (stop.delayMinutes > 5) { cls = 'status-delayed'; disp = `Now ${stop.formattedPredictedTime}`; }
+            } else if (stop.delayMinutes > 15) {
+              cls = 'status-very-delayed';
+              disp = pred ? ('Now ' + pred) : 'Delayed';
+            } else if (stop.delayMinutes > 5) {
+              cls = 'status-delayed';
+              disp = pred ? ('Now ' + pred) : 'Delayed';
+            } else {
+              cls = 'status-on-time';
+              disp = 'On time';
+            }
             const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
             const done = stop.isCompleted ? `<img src="https://i.postimg.cc/wBWNG26K/Completed.png" class="checkmark">` : '';
             let mileageInfo = '';
