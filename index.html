@@ -5836,14 +5836,37 @@
     }
   </style>
   <style id="rr-stop-status-fix">
-    .leaflet-popup .stop-status {
-      flex-shrink: 0 !important;
-      white-space: nowrap !important;
-      min-width: max-content !important;
+    .stops-list li {
+      display: grid !important;
+      grid-template-columns: 70px minmax(0, 1fr);
+      column-gap: 8px;
+      align-items: start;
       overflow: visible !important;
     }
-    .leaflet-popup .stops-list li {
-      overflow: visible;
+    .stops-list li .stop-time {
+      grid-column: 1;
+      white-space: nowrap;
+    }
+    .stops-list li .stop-main {
+      grid-column: 2;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+    }
+    .stops-list li .stop-name {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .stops-list li .stop-status {
+      flex: 0 0 auto;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      min-width: max-content !important;
+    }
+    .stops-list li .stop-mileage {
+      flex: 1 1 100%;
     }
   </style>
 </head>
@@ -17682,7 +17705,7 @@ function closeTripDetailView(opts) {
             const leftTime = stop.isCompleted
               ? (stop.formattedActualTime || stop.formattedPredictedTime || stop.formattedScheduledTime)
               : (stop.formattedScheduledTime || stop.formattedPredictedTime || '');
-            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span><span class="stop-status ${cls}">${disp}</span></li>`;
+            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-main"><span class="stop-name">${stop.name} ${track}${done}</span><span class="stop-status ${cls}">${disp}</span>${extraHtml}</span></li>`;
           }).join('')
         }</ul></div>`;
       }
