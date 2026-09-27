@@ -1486,11 +1486,13 @@
     .stop-status {
       font-weight: 700;
       font-size: 11px;
-      padding: 1px 7px;
+      padding: 2px 6px;
       border-radius: 0;
       white-space: nowrap;
       align-self: flex-start;
       margin-top: 2px;
+      flex-shrink: 0;
+      min-width: max-content;
     }
     .stop-status.status-on-time { background: #d4edda; color: #155724; }
     .stop-status.status-delayed { background: #fff3cd; color: #856404; }
@@ -5831,6 +5833,17 @@
         min-width: min(300px, calc(100vw - 24px)) !important;
         max-width: min(360px, calc(100vw - 24px)) !important;
       }
+    }
+  </style>
+  <style id="rr-stop-status-fix">
+    .leaflet-popup .stop-status {
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+      min-width: max-content !important;
+      overflow: visible !important;
+    }
+    .leaflet-popup .stops-list li {
+      overflow: visible;
     }
   </style>
 </head>
@@ -17645,10 +17658,10 @@ function closeTripDetailView(opts) {
               disp = 'Scheduled';
             } else if (stop.delayMinutes > 15) {
               cls = 'status-very-delayed';
-              disp = pred ? ('Now ' + pred) : 'Delayed';
+              disp = pred ? pred : 'Delayed';
             } else if (stop.delayMinutes > 5) {
               cls = 'status-delayed';
-              disp = pred ? ('Now ' + pred) : 'Delayed';
+              disp = pred ? pred : 'Delayed';
             } else {
               cls = 'status-on-time';
               disp = 'On time';
