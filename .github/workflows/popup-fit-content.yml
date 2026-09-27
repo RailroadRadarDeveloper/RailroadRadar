@@ -1,0 +1,23 @@
+name: Popup fit content
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/popup-fit-content.py
+      - .github/workflows/popup-fit-content.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/popup-fit-content.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Fit popup width to content and remove scale clipping" && git push; fi
