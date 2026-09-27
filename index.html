@@ -5805,18 +5805,24 @@
     
         <style id="rr-popup-zoom">
     .leaflet-popup-content-wrapper {
-      transform: scale(0.78);
-      transform-origin: bottom center;
-      margin-bottom: -6px;
+      transform: none !important;
+      overflow: visible !important;
     }
-    .leaflet-popup-tip-container {
-      margin-top: -8px;
+    .leaflet-popup-content {
+      width: auto !important;
+      max-width: min(640px, calc(100vw - 16px)) !important;
+      overflow: visible !important;
     }
-    @media (max-width: 700px) {
-      .leaflet-popup-content-wrapper {
-        transform: scale(0.74);
-        transform-origin: bottom center;
-      }
+    .train-popup,
+    .station-popup {
+      width: max-content !important;
+      max-width: min(640px, calc(100vw - 16px)) !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
+    }
+    .train-popup .stops-list,
+    .station-popup .departures-list {
+      overflow-x: visible !important;
     }
   </style>
   <style id="rr-stop-status-fix">
@@ -14384,8 +14390,8 @@ function closeTripDetailView(opts) {
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
-        if (w <= 700) return { maxWidth: Math.max(200, w - 28), minWidth: 180, closeOnClick: true, autoClose: true, closeButton: true };
-        return { maxWidth: 520, minWidth: 280, closeOnClick: true, autoClose: true, closeButton: true };
+        if (w <= 700) return { maxWidth: Math.max(280, w - 16), minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true };
+        return { maxWidth: 640, minWidth: 320, closeOnClick: true, autoClose: true, closeButton: true };
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
