@@ -488,10 +488,10 @@
     }
     .train-popup {
       font-size: 14px;
-      min-width: 320px;
-      max-width: 580px;
+      min-width: 360px;
+      max-width: 680px;
       width: max-content;
-      overflow: hidden;
+      overflow: visible;
       border-radius: 6px;
       box-shadow: none;
       border: none;
@@ -5804,57 +5804,52 @@
   </style>
     
         <style id="rr-popup-zoom">
-    .leaflet-popup {
-      zoom: 1;
-    }
     .leaflet-popup-content-wrapper {
       transform: scale(0.88);
       transform-origin: bottom center;
       margin-bottom: -6px;
-    }
-    .leaflet-popup-tip-container {
-      margin-top: -8px;
+      overflow: visible !important;
     }
     .leaflet-popup-content {
-      max-width: 580px !important;
+      max-width: 680px !important;
+      overflow: visible !important;
     }
     .train-popup,
     .station-popup {
-      min-width: 320px !important;
-      max-width: 580px !important;
+      min-width: 360px !important;
+      max-width: 680px !important;
+      overflow: visible !important;
     }
     @media (max-width: 700px) {
       .leaflet-popup-content-wrapper {
-        transform: scale(0.84);
+        transform: scale(0.86);
         transform-origin: bottom center;
       }
+      .leaflet-popup-content,
       .train-popup,
       .station-popup {
-        min-width: min(300px, calc(100vw - 24px)) !important;
-        max-width: min(360px, calc(100vw - 24px)) !important;
+        min-width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        width: calc(100vw - 20px) !important;
       }
     }
   </style>
   <style id="rr-stop-status-fix">
     .stops-list li {
       display: grid !important;
-      grid-template-columns: 68px minmax(0, 1fr) max-content;
+      grid-template-columns: 72px minmax(0, 1fr) max-content;
       column-gap: 8px;
       align-items: start;
       overflow: visible !important;
     }
-    .stops-list li .stop-time {
-      white-space: nowrap;
-    }
     .stops-list li .stop-name {
       min-width: 0;
-      overflow: hidden;
+      overflow: visible !important;
     }
     .stops-list li .stop-status {
       white-space: nowrap !important;
-      flex-shrink: 0 !important;
-      min-width: max-content !important;
       overflow: visible !important;
+      min-width: max-content !important;
       justify-self: end;
     }
   </style>
