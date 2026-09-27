@@ -489,8 +489,8 @@
     .train-popup {
       font-size: 13px;
       min-width: 0;
-      max-width: 340px;
-      width: 340px;
+      max-width: 280px;
+      width: 280px;
       overflow: visible;
       border-radius: 6px;
       box-shadow: none;
@@ -5808,19 +5808,24 @@
     .leaflet-popup-content,
     .train-popup,
     .station-popup {
-      width: min(340px, calc(100vw - 20px)) !important;
-      min-width: 0 !important;
-      max-width: min(340px, calc(100vw - 20px)) !important;
+      width: 280px !important;
+      min-width: 280px !important;
+      max-width: 280px !important;
       box-sizing: border-box !important;
       transform: none !important;
     }
-    .leaflet-popup-content {
-      margin: 0 !important;
-    }
-    .train-popup-header,
-    .train-popup-body,
-    .train-popup-footer {
-      padding: 8px 10px !important;
+    .leaflet-popup-content { margin: 0 !important; }
+    .train-popup-header, .train-popup-body, .train-popup-footer { padding: 8px 10px !important; }
+    .stops-list, .departures-list { max-height: 160px !important; }
+    @media (max-width: 700px) {
+      .leaflet-popup-content-wrapper,
+      .leaflet-popup-content,
+      .train-popup,
+      .station-popup {
+        width: min(280px, calc(100vw - 24px)) !important;
+        min-width: 0 !important;
+        max-width: min(280px, calc(100vw - 24px)) !important;
+      }
     }
   </style>
   <style id="rr-stop-status-fix">
@@ -14345,6 +14350,22 @@ function closeTripDetailView(opts) {
         } catch (_) {}
       }
       const map = L.map('map').setView([43.0, -71.5], 7);
+      map.on('popupopen', function(ev) {
+        try {
+          const box = ev && ev.popup && ev.popup._container;
+          if (!box) return;
+          const w = (window.innerWidth && window.innerWidth < 320) ? (window.innerWidth - 24) : 280;
+          box.style.width = w + 'px';
+          box.style.maxWidth = w + 'px';
+          const nodes = box.querySelectorAll('.leaflet-popup-content-wrapper, .leaflet-popup-content, .train-popup, .station-popup');
+          for (let i = 0; i < nodes.length; i++) {
+            nodes[i].style.width = w + 'px';
+            nodes[i].style.maxWidth = w + 'px';
+            nodes[i].style.minWidth = '0px';
+          }
+        } catch (_) {}
+      });
+
       try {
         map.options.closePopupOnClick = true;
         map.on('click', function() {
@@ -14388,8 +14409,8 @@ function closeTripDetailView(opts) {
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
-        if (w <= 700) return { maxWidth: Math.min(340, Math.max(220, w - 20)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
-        return { maxWidth: 340, minWidth: 220, closeOnClick: true, autoClose: true, closeButton: true };
+        if (w <= 700) return { maxWidth: Math.min(280, Math.max(200, w - 24)), minWidth: 180, closeOnClick: true, autoClose: true, closeButton: true };
+        return { maxWidth: 280, minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
