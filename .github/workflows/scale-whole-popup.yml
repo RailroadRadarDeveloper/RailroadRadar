@@ -1,0 +1,23 @@
+name: Scale whole popup
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/scale-whole-popup.py
+      - .github/workflows/scale-whole-popup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/scale-whole-popup.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Scale whole popup down so more map shows around it" && git push; fi
