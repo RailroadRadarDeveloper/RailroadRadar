@@ -17330,6 +17330,9 @@ function closeTripDetailView(opts) {
                 trackNumber: track,
                 formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
                 formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
+                formattedActualTime: isCompleted
+                  ? ((predTime || schedTime) ? (predTime || schedTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null)
+                  : null,
                 isCompleted,
                 lat: stopInfo?.attributes?.latitude || null,
                 lng: stopInfo?.attributes?.longitude || null
@@ -17591,8 +17594,10 @@ function closeTripDetailView(opts) {
               mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
             }
             const extraHtml = mileageInfo ? `<br><small class="stop-mileage" style="font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
-            // Left column shows actual time when we have it, otherwise scheduled
-            const leftTime = (stop.isCompleted && stop.formattedActualTime) ? stop.formattedActualTime : stop.formattedScheduledTime;
+            // Past stops: actual / last live prediction. Upcoming: schedule.
+            const leftTime = stop.isCompleted
+              ? (stop.formattedActualTime || stop.formattedPredictedTime || stop.formattedScheduledTime)
+              : (stop.formattedScheduledTime || stop.formattedPredictedTime || '');
             return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span><span class="stop-status ${cls}">${disp}</span></li>`;
           }).join('')
         }</ul></div>`;
