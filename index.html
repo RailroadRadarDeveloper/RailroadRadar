@@ -488,8 +488,8 @@
     }
     .train-popup {
       font-size: 14px;
-      min-width: 280px;
-      max-width: 520px;
+      min-width: 320px;
+      max-width: 580px;
       width: max-content;
       overflow: hidden;
       border-radius: 6px;
@@ -1792,7 +1792,7 @@
     .leaflet-popup-content {
       margin: 0 !important;
       padding: 0 !important;
-      max-width: 520px;
+      max-width: 580px;
       width: max-content;
       overflow-x: hidden;
       overflow-y: auto;
@@ -5803,11 +5803,33 @@
     
         <style id="rr-popup-zoom">
     .leaflet-popup {
-      zoom: 0.72;
+      zoom: 1;
+    }
+    .leaflet-popup-content-wrapper {
+      transform: scale(0.78);
+      transform-origin: bottom center;
+      margin-bottom: -6px;
+    }
+    .leaflet-popup-tip-container {
+      margin-top: -8px;
+    }
+    .leaflet-popup-content {
+      max-width: 580px !important;
+    }
+    .train-popup,
+    .station-popup {
+      min-width: 320px !important;
+      max-width: 580px !important;
     }
     @media (max-width: 700px) {
-      .leaflet-popup {
-        zoom: 0.68;
+      .leaflet-popup-content-wrapper {
+        transform: scale(0.74);
+        transform-origin: bottom center;
+      }
+      .train-popup,
+      .station-popup {
+        min-width: min(300px, calc(100vw - 24px)) !important;
+        max-width: min(360px, calc(100vw - 24px)) !important;
       }
     }
   </style>
