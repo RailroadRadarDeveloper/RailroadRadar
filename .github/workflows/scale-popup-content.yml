@@ -1,0 +1,23 @@
+name: Scale popup content
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/scale-popup-content.py
+      - .github/workflows/scale-popup-content.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/scale-popup-content.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Keep popup size, scale down inner text and padding" && git push; fi
