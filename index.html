@@ -5882,12 +5882,13 @@
     }
     .train-popup,
     .station-popup {
+      font-size: 12px !important;
       min-width: 0 !important;
       max-width: 100% !important;
       width: 100% !important;
       box-sizing: border-box !important;
       overflow: hidden !important;
-      font-size: 13px !important;
+      font-size: 12px !important;
     }
     .train-popup *,
     .station-popup * {
@@ -5913,7 +5914,7 @@
     .station-popup h3,
     .station-popup h4,
     .upcoming-stops h4 {
-      font-size: 14px !important;
+      font-size: 12px !important;
       line-height: 1.25 !important;
       margin: 0 0 4px !important;
       overflow-wrap: anywhere;
@@ -5966,6 +5967,12 @@
         max-height: 130px !important;
       }
     }
+  </style>
+  <style id="rr-popup-text-sm">
+    .train-popup, .station-popup, .leaflet-popup-content { font-size: 12px !important; }
+    .train-popup-header h3, .station-popup h3, .upcoming-stops h4 { font-size: 13px !important; }
+    .stop-time, .stop-name, .stop-status, .info-item { font-size: 11px !important; }
+    .popup-action-btn { font-size: 11px !important; }
   </style>
 </head>
 <body>
@@ -17369,7 +17376,7 @@ function closeTripDetailView(opts) {
       } catch (_) { return new Date().toISOString().slice(0,10); }
     }
     function rrStopActualDocId(agency, trainNumber, serviceDate) {
-      return [String(agency || 'mbta').toLowerCase(), String(serviceDate || rrStopServiceDate()), String(trainNumber || '').replace(/\s+/g, '')].join('_');
+      return [String(agency || 'mbta').toLowerCase(), String(serviceDate || rrStopServiceDate()), String(trainNumber || '').replace(/[^A-Za-z0-9_-]/g, '')].slice(0, 140).join('_');
     }
     const rrStopActualMem = {};
     async function rrLoadStopActuals(agency, trainNumber, serviceDate) {
@@ -17447,7 +17454,16 @@ function closeTripDetailView(opts) {
     }
     async function getTripStops(tripId, serviceDate) {
         const cacheKey = String(tripId) + '|' + String(serviceDate || '');
-        if (tripStopsCache[cacheKey] && (Date.now() - tripStopsCache[cacheKey].timestamp) < 300000) return tripStopsCache[cacheKey].stops;
+        if (tripStopsCache[cacheKey] && (Date.now() - tripStopsCache[cacheKey].timestamp) < 300000) {
+          const cachedStops = tripStopsCache[cacheKey].stops || [];
+          try {
+            const svc = serviceDate || rrStopServiceDate();
+            const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId || '');
+            const cached = rrStopActualMem[rrStopActualDocId('mbta', tnum, svc)] || null;
+            if (cached) rrApplyStopActuals(cachedStops, cached);
+          } catch (_) {}
+          return cachedStops;
+        }
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout to prevent hanging
@@ -17739,6 +17755,9 @@ function closeTripDetailView(opts) {
               else if (stop.delayMinutes > 5) cls = 'status-delayed';
               else cls = 'status-passed';
               disp = (actual && actual !== sched) ? actual : 'Departed';
+            } else if (stop.formattedActualTime) {
+              cls = 'status-passed';
+              disp = stop.formattedActualTime;
             } else if (!stop.predictedTime) {
               cls = 'status-scheduled';
               disp = 'Scheduled';
