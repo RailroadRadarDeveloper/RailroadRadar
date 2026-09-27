@@ -5804,32 +5804,17 @@
     
         <style id="rr-popup-zoom">
     .leaflet-popup-content-wrapper {
-      transform: scale(0.88);
+      transform: scale(0.78);
       transform-origin: bottom center;
       margin-bottom: -6px;
-      overflow: visible !important;
     }
-    .leaflet-popup-content {
-      max-width: 680px !important;
-      overflow: visible !important;
-    }
-    .train-popup,
-    .station-popup {
-      min-width: 360px !important;
-      max-width: 680px !important;
-      overflow: visible !important;
+    .leaflet-popup-tip-container {
+      margin-top: -8px;
     }
     @media (max-width: 700px) {
       .leaflet-popup-content-wrapper {
-        transform: scale(0.86);
+        transform: scale(0.74);
         transform-origin: bottom center;
-      }
-      .leaflet-popup-content,
-      .train-popup,
-      .station-popup {
-        min-width: calc(100vw - 20px) !important;
-        max-width: calc(100vw - 20px) !important;
-        width: calc(100vw - 20px) !important;
       }
     }
   </style>
@@ -14353,6 +14338,20 @@ function closeTripDetailView(opts) {
         } catch (_) {}
       }
       const map = L.map('map').setView([43.0, -71.5], 7);
+      try {
+        map.options.closePopupOnClick = true;
+        map.on('click', function() {
+          try { map.closePopup(); } catch (_) {}
+        });
+        document.addEventListener('click', function(e) {
+          const pop = e.target && e.target.closest && e.target.closest('.leaflet-popup');
+          const onMap = e.target && e.target.closest && e.target.closest('#map');
+          if (onMap && !pop) {
+            try { map.closePopup(); } catch (_) {}
+          }
+        }, true);
+      } catch (_) {}
+
       window.addEventListener('resize', function() { try { rrRefreshMapTiles(); } catch (_) {} });
       map.whenReady(function() { try { rrRefreshMapTiles(); } catch (_) {} });
       // API_BASE: '' = same-origin /api/* (Pages+Worker on one host).
@@ -14382,8 +14381,8 @@ function closeTripDetailView(opts) {
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
-        if (w <= 700) return { maxWidth: Math.max(200, w - 28), minWidth: 180 };
-        return { maxWidth: 520, minWidth: 280 };
+        if (w <= 700) return { maxWidth: Math.max(200, w - 28), minWidth: 180, closeOnClick: true, autoClose: true, closeButton: true };
+        return { maxWidth: 520, minWidth: 280, closeOnClick: true, autoClose: true, closeButton: true };
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
