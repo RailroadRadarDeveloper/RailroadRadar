@@ -487,10 +487,10 @@
       margin-right: 10px;
     }
     .train-popup {
-      font-size: 14px;
-      min-width: 360px;
-      max-width: 680px;
-      width: max-content;
+      font-size: 13px;
+      min-width: 0;
+      max-width: 340px;
+      width: 340px;
       overflow: visible;
       border-radius: 6px;
       box-shadow: none;
@@ -5803,34 +5803,23 @@
   </style>
     
         <style id="rr-popup-zoom">
-    .leaflet-popup-content-wrapper {
-      transform: none !important;
-      overflow: visible !important;
-    }
-    .leaflet-popup-content {
-      width: auto !important;
-      max-width: min(420px, calc(100vw - 20px)) !important;
-      overflow: visible !important;
-    }
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-content,
     .train-popup,
     .station-popup {
-      width: max-content !important;
-      max-width: min(420px, calc(100vw - 20px)) !important;
-      overflow: visible !important;
-      font-size: 12px !important;
+      width: min(340px, calc(100vw - 20px)) !important;
+      min-width: 0 !important;
+      max-width: min(340px, calc(100vw - 20px)) !important;
+      box-sizing: border-box !important;
+      transform: none !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
     }
     .train-popup-header,
     .train-popup-body,
     .train-popup-footer {
       padding: 8px 10px !important;
-    }
-    .train-popup-header h3 {
-      font-size: 14px !important;
-    }
-    .stops-list li,
-    .departures-list li {
-      font-size: 11px !important;
-      padding: 4px 6px !important;
     }
   </style>
   <style id="rr-stop-status-fix">
@@ -14396,8 +14385,8 @@ function closeTripDetailView(opts) {
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
-        if (w <= 700) return { maxWidth: Math.max(260, w - 20), minWidth: 220, closeOnClick: true, autoClose: true, closeButton: true };
-        return { maxWidth: 420, minWidth: 260, closeOnClick: true, autoClose: true, closeButton: true };
+        if (w <= 700) return { maxWidth: Math.min(340, Math.max(220, w - 20)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
+        return { maxWidth: 340, minWidth: 220, closeOnClick: true, autoClose: true, closeButton: true };
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
