@@ -1,0 +1,24 @@
+name: Firestore stop actuals
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/firestore-stop-actuals.py
+      - .github/workflows/firestore-stop-actuals.yml
+      - firestore.trainStopActuals.snippet.rules
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/firestore-stop-actuals.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html firestore.trainStopActuals.snippet.rules
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Store actual stop times in Firestore for 24 hours" && git push; fi

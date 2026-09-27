@@ -1,0 +1,11 @@
+// Add this block inside service cloud.firestore > match /databases/{database}/documents
+
+match /trainStopActuals/{id} {
+  allow read: if true;
+  allow create, update: if request.resource.data.keys().hasAll(['agency', 'trainNumber', 'stops', 'updatedAt', 'expiresAt'])
+    && request.resource.data.agency is string
+    && request.resource.data.trainNumber is string
+    && request.resource.data.stops is list
+    && request.resource.data.stops.size() <= 80;
+  allow delete: if request.auth != null;
+}
