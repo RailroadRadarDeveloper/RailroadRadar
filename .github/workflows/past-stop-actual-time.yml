@@ -1,0 +1,23 @@
+name: Past stop actual time
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/past-stop-actual-time.py
+      - .github/workflows/past-stop-actual-time.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/past-stop-actual-time.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Use actual or last live time for completed stops" && git push; fi
