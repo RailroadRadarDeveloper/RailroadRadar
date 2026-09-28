@@ -489,9 +489,9 @@
     .train-popup {
       font-size: 13px;
       min-width: 0;
-      max-width: 280px;
-      width: 280px;
-      overflow: visible;
+      max-width: 350px;
+      width: 350px;
+      overflow: hidden;
       border-radius: 6px;
       box-shadow: none;
       border: none;
@@ -1109,7 +1109,9 @@
       width: 100%;
       max-width: 420px;
       max-height: min(88vh, 640px);
-      overflow: auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
       background: #07093e;
       color: #fff;
       border: 1px solid rgba(255,255,255,0.18);
@@ -1136,6 +1138,9 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      overflow-y: auto;
+      max-height: min(48vh, 360px);
+      scrollbar-width: thin;
     }
     .rr-rail-picker-list li {
       display: flex;
@@ -1797,8 +1802,8 @@
       max-width: 580px;
       width: max-content;
       overflow-x: hidden;
-      overflow-y: auto;
-      max-height: 460px;
+      overflow-y: hidden;
+      max-height: min(520px, 75vh);
       word-wrap: break-word;
       background: transparent !important;
     }
@@ -1914,9 +1919,9 @@
       text-align: center;
     }
     .notify-confirm-btn:disabled {
-      background: #bdc3c7;
-      border-color: #bdc3c7;
-      color: #FFFFFF;
+      background: #d5dbe6;
+      border-color: #b7bfd0;
+      color: #07093e;
       cursor: not-allowed;
     }
     @media (max-width: 700px) {
@@ -2324,10 +2329,10 @@
      padding: 12px 16px;
      font-size: 15px;
      font-weight: 700;
-     border: none;
+     border: 1px solid #b7bfd0;
      border-radius: 8px;
-     background: #c5cad6;
-     color: #fff;
+     background: #d8dde8;
+     color: #07093e;
      cursor: not-allowed;
    }
    .va-status {
@@ -5803,71 +5808,226 @@
     #rr-rail-picker.is-open { display: flex !important; z-index: 100002; }
   </style>
     
-        <style id="rr-popup-zoom">
+                <style id="rr-popup-zoom">
+    /* rr-ui-fix-2026-09-28: readable popups + settings contrast */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
     .station-popup {
-      width: 280px !important;
+      width: min(350px, calc(100vw - 24px)) !important;
       min-width: 0 !important;
-      max-width: 280px !important;
+      max-width: min(350px, calc(100vw - 24px)) !important;
       box-sizing: border-box !important;
       transform: none !important;
     }
-    .train-popup,
-    .station-popup,
+    .leaflet-popup-content-wrapper {
+      overflow: hidden !important;
+      border-radius: 8px !important;
+      background: #fff !important;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.28) !important;
+      padding: 0 !important;
+    }
     .leaflet-popup-content {
-      font-size: 11px !important;
-      line-height: 1.25 !important;
+      overflow: hidden !important;
+      max-height: min(520px, 75vh) !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: min(350px, calc(100vw - 24px)) !important;
+      max-width: min(350px, calc(100vw - 24px)) !important;
+    }
+    .train-popup,
+    .station-popup {
+      font-size: 13px !important;
+      line-height: 1.35 !important;
+      overflow: hidden !important;
+      border-radius: 8px !important;
+      max-height: min(520px, 75vh) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: #fff !important;
     }
     .train-popup-header,
     .train-popup-body,
     .train-popup-footer,
     .station-popup {
-      padding: 6px 8px !important;
+      padding: 10px 12px !important;
+    }
+    .train-popup-header {
+      flex-shrink: 0 !important;
+      border-radius: 8px 8px 0 0 !important;
+      padding: 12px 14px !important;
+    }
+    .train-popup-body {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .train-popup-footer {
+      flex-shrink: 0 !important;
+      display: flex !important;
+      gap: 8px !important;
+      align-items: stretch !important;
+      padding: 10px 12px !important;
+      border-radius: 0 0 8px 8px !important;
     }
     .train-popup-header h2,
     .train-popup-header h3,
     .station-popup h3 {
-      font-size: 13px !important;
-      line-height: 1.2 !important;
-      margin: 0 0 2px !important;
+      font-size: 15px !important;
+      line-height: 1.25 !important;
+      margin: 0 0 4px !important;
     }
     .train-popup-header img,
     .station-popup img {
-      width: 22px !important;
-      height: 22px !important;
+      width: 26px !important;
+      height: 26px !important;
     }
-    .info-grid { gap: 4px 6px !important; margin-bottom: 6px !important; }
-    .info-item, .info-label, .info-value, .quick-status { font-size: 10px !important; }
-    .upcoming-stops h4 { font-size: 11px !important; margin: 4px 0 6px !important; }
-    .stops-list, .departures-list { max-height: 150px !important; }
+    .info-grid { gap: 8px 10px !important; margin-bottom: 10px !important; }
+    .info-item, .info-label, .info-value, .quick-status { font-size: 12px !important; }
+    .upcoming-stops { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .upcoming-stops h4 { font-size: 12px !important; margin: 6px 0 8px !important; flex-shrink: 0; }
+    .stops-list, .departures-list {
+      max-height: 250px !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      padding-bottom: 6px !important;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(7,9,62,0.35) transparent;
+    }
+    .stops-list::-webkit-scrollbar,
+    .departures-list::-webkit-scrollbar { width: 6px; }
+    .stops-list::-webkit-scrollbar-thumb,
+    .departures-list::-webkit-scrollbar-thumb {
+      background: rgba(7,9,62,0.35);
+      border-radius: 6px;
+    }
     .stops-list li, .departures-list li {
-      padding: 3px 4px !important;
-      font-size: 10px !important;
-      gap: 4px !important;
+      padding: 6px 6px !important;
+      font-size: 12px !important;
+      gap: 6px !important;
     }
-    .stop-time, .stop-name, .stop-status, .departure-time, .track-badge {
-      font-size: 10px !important;
+    .stop-time, .stop-name, .stop-status, .departure-time, .track-badge,
+    .departure-destination {
+      font-size: 12px !important;
     }
-    .stop-mileage { font-size: 9px !important; }
-    .checkmark { width: 10px !important; height: 10px !important; }
-    .track-badge { padding: 1px 4px !important; }
+    .stop-mileage { font-size: 11px !important; }
+    .checkmark { width: 12px !important; height: 12px !important; }
+    .track-badge { padding: 2px 6px !important; }
     .train-popup button, .station-popup button, .popup-action-btn,
     .train-popup .rr-btn, .train-popup a.button {
-      font-size: 10px !important;
-      padding: 5px 6px !important;
+      font-size: 12.5px !important;
+      padding: 9px 10px !important;
       line-height: 1.2 !important;
+      min-height: 38px !important;
+      box-sizing: border-box !important;
+    }
+    .train-popup-footer .popup-action-btn,
+    .train-popup-footer button {
+      flex: 1 1 0 !important;
+    }
+    /* Station: Refresh stays below scrollable departures */
+    .station-popup > h3,
+    .station-popup > p {
+      flex-shrink: 0 !important;
+    }
+    .station-popup > .refresh-button,
+    .station-popup > button.refresh-button {
+      flex-shrink: 0 !important;
+      margin-top: 8px !important;
+      margin-bottom: 0 !important;
+      position: relative !important;
+      z-index: 2 !important;
+    }
+    .station-popup .departures-list {
+      margin-bottom: 0 !important;
+    }
+    /* Close × readable on navy popup headers */
+    .leaflet-container a.leaflet-popup-close-button,
+    .leaflet-popup-close-button {
+      color: #fff !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+      font-size: 20px !important;
+      width: 28px !important;
+      height: 28px !important;
+      line-height: 24px !important;
+      top: 6px !important;
+      right: 6px !important;
+      opacity: 1 !important;
+      z-index: 5 !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button:hover,
+    .leaflet-popup-close-button:hover {
+      color: #e8ecff !important;
+      background: rgba(255,255,255,0.12);
+      border-radius: 4px;
+    }
+    /* Station popups have light headers — dark × */
+    .leaflet-popup:has(.station-popup) .leaflet-popup-close-button,
+    .leaflet-popup:has(.station-popup) a.leaflet-popup-close-button {
+      color: #07093e !important;
+      text-shadow: none;
     }
     @media (max-width: 700px) {
       .leaflet-popup-content-wrapper,
       .leaflet-popup-content,
       .train-popup,
       .station-popup {
-        width: min(280px, calc(100vw - 24px)) !important;
-        max-width: min(280px, calc(100vw - 24px)) !important;
+        width: min(350px, calc(100vw - 24px)) !important;
+        max-width: min(350px, calc(100vw - 24px)) !important;
       }
     }
+  </style>
+
+  <style id="rr-settings-contrast">
+    /* rr-ui-fix-2026-09-28: readable popups + settings contrast */
+    /* White/light × on dark navy headers (Settings, Alerts-related modals, etc.) */
+    .rr-modal-header .rr-modal-close,
+    .rr-lightbox .rr-modal-header .rr-modal-close,
+    #account-settings-modal .rr-modal-close,
+    #admin-dashboard-modal .rr-modal-close,
+    #report-train-modal .rr-modal-close,
+    #specials-board-modal .rr-modal-close,
+    #weekly-leaderboard-modal .rr-modal-close,
+    #signup-prompt-modal .rr-modal-close {
+      color: #fff !important;
+      opacity: 1 !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .rr-modal-header .rr-modal-close:hover {
+      color: #e8ecff !important;
+    }
+    /* Light-grey buttons must not use white text */
+    .va-cta,
+    .va-cta:disabled,
+    button.va-cta {
+      background: #d8dde8 !important;
+      color: #07093e !important;
+      border: 1px solid #b7bfd0 !important;
+    }
+    .notify-confirm-btn:disabled,
+    button.notify-confirm-btn:disabled {
+      background: #d5dbe6 !important;
+      border-color: #b7bfd0 !important;
+      color: #07093e !important;
+    }
+    /* Railroad picker: keep corner radius; scroll the list, not the card */
+    .rr-rail-picker-card {
+      overflow: hidden !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .rr-rail-picker-list {
+      overflow-y: auto !important;
+      max-height: min(48vh, 360px) !important;
+      margin-bottom: 12px !important;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }
+    .rr-rail-picker-actions { flex-shrink: 0 !important; }
   </style>
   <style id="rr-stop-status-fix">
     .stops-list li {
@@ -14395,7 +14555,7 @@ function closeTripDetailView(opts) {
         try {
           const box = ev && ev.popup && ev.popup._container;
           if (!box) return;
-          const w = (window.innerWidth && window.innerWidth < 320) ? (window.innerWidth - 24) : 280;
+          const w = (window.innerWidth && window.innerWidth < 380) ? Math.max(260, window.innerWidth - 24) : 350;
           box.style.width = w + 'px';
           box.style.maxWidth = w + 'px';
           const nodes = box.querySelectorAll('.leaflet-popup-content-wrapper, .leaflet-popup-content, .train-popup, .station-popup');
@@ -14450,8 +14610,8 @@ function closeTripDetailView(opts) {
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
-        if (w <= 700) return { maxWidth: Math.min(280, Math.max(200, w - 24)), minWidth: 180, closeOnClick: true, autoClose: true, closeButton: true };
-        return { maxWidth: 280, minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
+        if (w <= 700) return { maxWidth: Math.min(350, Math.max(240, w - 24)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
+        return { maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true };
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
