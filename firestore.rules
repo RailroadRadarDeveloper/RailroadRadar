@@ -170,6 +170,26 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
+
+    // Shared lean cache of observed/past stop departure times for live train popups.
+    // Public read+write: values are derived from public GTFS/realtime feeds (not PII).
+    // Schema-validated; size-capped. Admins may delete stale docs.
+    match /trainStopActuals/{id} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll([
+          'agency', 'trainNumber', 'serviceDate', 'stops', 'updatedAt'
+        ])
+        && request.resource.data.agency is string
+        && request.resource.data.trainNumber is string
+        && request.resource.data.serviceDate is string
+        && request.resource.data.stops is list
+        && request.resource.data.stops.size() <= 250
+        && request.resource.data.agency.size() <= 32
+        && request.resource.data.trainNumber.size() <= 64
+        && request.resource.data.serviceDate.size() <= 16;
+      allow delete: if isBootstrapAdmin() || isAdmin();
+    }
+
     match /accounts/{uid} {
       // Admins list all; each user may read/write only their own mirror doc
       allow read: if isAdmin()
