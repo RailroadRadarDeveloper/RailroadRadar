@@ -1,0 +1,58 @@
+name: Apply popup + settings contrast
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/popup-settings-contrast.patch.gz.b64'
+      - '.github/workflows/apply-popup-settings-contrast.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib, sys
+          expected = "a64d4158e8689f02fb4b8aea80f2cf6cc59b88bd83fb748b906f4a220c606471"
+          single = pathlib.Path('scripts/popup-settings-contrast.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/popup-settings-contrast.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/popup-settings-contrast.patch
+          git apply /tmp/popup-settings-contrast.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rr-ui-fix-2026-09-28: readable popups + settings contrast' in t
+          assert 'id="rr-popup-zoom"' in t
+          assert 'id="rr-settings-contrast"' in t
+          zoom = t[t.find('id="rr-popup-zoom"'):t.find('id="rr-popup-zoom"')+4000]
+          assert '280px !important' not in zoom
+          assert '350px' in zoom
+          assert '250px' in zoom
+          assert 'maxWidth: 350' in t
+          assert 'background: #d8dde8' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('rr-settings-contrast') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "UI: readable map popups (~350px) + Settings contrast fixes"
+            git push
+          fi
