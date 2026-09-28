@@ -1,0 +1,61 @@
+name: Apply mobile popup shrink
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/mobile-popup-shrink.patch.gz.b64'
+      - '.github/workflows/apply-mobile-popup-shrink.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib, pathlib
+          expected = "01303ee5dd185f3859fd4dd928f4077cd5811e124f4f3f458831ba0d9bb5e558"
+          single = pathlib.Path('scripts/mobile-popup-shrink.patch.gz.b64')
+          if not single.exists():
+            raise SystemExit('missing scripts/mobile-popup-shrink.patch.gz.b64')
+          blob = single.read_text().strip()
+          print('using single b64', len(blob))
+          h=hashlib.sha256(blob.encode()).hexdigest()
+          if h!=expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          pathlib.Path('/tmp/all.b64').write_text(blob)
+          print('hash ok')
+          PY
+          base64 -d /tmp/all.b64 | gunzip > /tmp/mobile-popup-shrink.patch
+          git apply /tmp/mobile-popup-shrink.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rr-ui-fix-2026-09-28c' in t
+          assert 'min(320px, calc(100vw - 40px))' in t
+          assert 'min(420px, 62vh)' in t
+          assert 'min(380px, 58vh)' in t
+          assert 'Math.min(320, Math.max(260, vw - 40))' in t
+          assert 'Math.min(320, Math.max(240, w - 40))' in t
+          # Desktop sizing preserved
+          assert 'width: min(350px, calc(100vw - 24px)) !important;' in t
+          assert 'max-height: min(520px, 75vh) !important;' in t
+          # Stop-actuals / loading-stops fixes preserved
+          assert 'm._rrStops' in t
+          assert 'rrHydrateAmtrakStopActuals' in t
+          assert Path('mytrips/index.html').read_text(errors='replace').count('rr-ui-fix-2026-09-28c') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "UI: shrink map train/station popups on mobile (~320px, ~62vh)"
+            git push
+          fi
