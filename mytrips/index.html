@@ -1503,7 +1503,7 @@
     .stop-status.status-delayed { background: #fff3cd; color: #856404; }
     .stop-status.status-very-delayed { background: #f8d7da; color: #721c24; }
     .stop-status.status-scheduled { background: #d1ecf1; color: #0c5460; }
-    .stop-status.status-passed { background: #e2e3e5; color: #555; }
+    .stop-status.status-passed { background: #3d4454; color: #ffffff; }
     .track-badge {
       background: #07093e;
       color: white;
@@ -5808,8 +5808,8 @@
     #rr-rail-picker.is-open { display: flex !important; z-index: 100002; }
   </style>
     
-                <style id="rr-popup-zoom">
-    /* rr-ui-fix-2026-09-28: readable popups + settings contrast */
+                                <style id="rr-popup-zoom">
+    /* rr-ui-fix-2026-09-28b: train popup layout + past stops + no header scrollbar */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
@@ -5834,6 +5834,8 @@
       padding: 0 !important;
       width: min(350px, calc(100vw - 24px)) !important;
       max-width: min(350px, calc(100vw - 24px)) !important;
+      display: flex !important;
+      flex-direction: column !important;
     }
     .train-popup,
     .station-popup {
@@ -5845,6 +5847,8 @@
       display: flex !important;
       flex-direction: column !important;
       background: #fff !important;
+      width: 100% !important;
+      max-width: 100% !important;
     }
     .train-popup-header,
     .train-popup-body,
@@ -5856,6 +5860,8 @@
       flex-shrink: 0 !important;
       border-radius: 8px 8px 0 0 !important;
       padding: 12px 14px !important;
+      position: relative !important;
+      z-index: 2 !important;
     }
     .train-popup-body {
       flex: 1 1 auto !important;
@@ -5871,6 +5877,8 @@
       align-items: stretch !important;
       padding: 10px 12px !important;
       border-radius: 0 0 8px 8px !important;
+      position: relative !important;
+      z-index: 2 !important;
     }
     .train-popup-header h2,
     .train-popup-header h3,
@@ -5886,15 +5894,24 @@
     }
     .info-grid { gap: 8px 10px !important; margin-bottom: 10px !important; }
     .info-item, .info-label, .info-value, .quick-status { font-size: 12px !important; }
+    .stops-wrapper {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      margin-top: 8px !important;
+    }
     .upcoming-stops { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .upcoming-stops h4 { font-size: 12px !important; margin: 6px 0 8px !important; flex-shrink: 0; }
+    .upcoming-stops h4 { font-size: 12px !important; margin: 4px 0 8px !important; flex-shrink: 0; color: #07093e; font-weight: 700; }
     .stops-list, .departures-list {
-      max-height: 250px !important;
+      max-height: 220px !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
       min-height: 0 !important;
       flex: 1 1 auto !important;
-      padding-bottom: 6px !important;
+      padding: 0 8px 6px 0 !important;
+      scrollbar-gutter: stable;
       scrollbar-width: thin;
       scrollbar-color: rgba(7,9,62,0.35) transparent;
     }
@@ -5911,12 +5928,19 @@
       gap: 6px !important;
     }
     .stop-time, .stop-name, .stop-status, .departure-time, .track-badge,
-    .departure-destination {
+    .departure-destination, .departure-status {
       font-size: 12px !important;
     }
     .stop-mileage { font-size: 11px !important; }
     .checkmark { width: 12px !important; height: 12px !important; }
     .track-badge { padding: 2px 6px !important; }
+    /* Readable Departed / passed badge (was pale grey + light text) */
+    .stop-status.status-passed,
+    .stops-list li .stop-status.status-passed {
+      background: #3d4454 !important;
+      color: #ffffff !important;
+      border: none !important;
+    }
     .train-popup button, .station-popup button, .popup-action-btn,
     .train-popup .rr-btn, .train-popup a.button {
       font-size: 12.5px !important;
@@ -5931,7 +5955,9 @@
     }
     /* Station: Refresh stays below scrollable departures */
     .station-popup > h3,
-    .station-popup > p {
+    .station-popup > p,
+    .station-popup > .upcoming-departures,
+    .station-popup > .departures-section {
       flex-shrink: 0 !important;
     }
     .station-popup > .refresh-button,
@@ -5944,6 +5970,13 @@
     }
     .station-popup .departures-list {
       margin-bottom: 0 !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+    }
+    .station-popup .departure-status {
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+      margin-right: 2px !important;
     }
     /* Close × readable on navy popup headers */
     .leaflet-container a.leaflet-popup-close-button,
@@ -5981,8 +6014,7 @@
       }
     }
   </style>
-
-  <style id="rr-settings-contrast">
+<style id="rr-settings-contrast">
     /* rr-ui-fix-2026-09-28: readable popups + settings contrast */
     /* White/light × on dark navy headers (Settings, Alerts-related modals, etc.) */
     .rr-modal-header .rr-modal-close,
@@ -6029,7 +6061,8 @@
     }
     .rr-rail-picker-actions { flex-shrink: 0 !important; }
   </style>
-  <style id="rr-stop-status-fix">
+    <style id="rr-stop-status-fix">
+    /* rr-ui-fix-2026-09-28b: stop row grid + readable Departed */
     .stops-list li {
       display: grid !important;
       grid-template-columns: 72px minmax(0, 1fr) max-content;
@@ -6046,6 +6079,10 @@
       overflow: visible !important;
       min-width: max-content !important;
       justify-self: end;
+    }
+    .stop-status.status-passed {
+      background: #3d4454 !important;
+      color: #ffffff !important;
     }
   </style>
 </head>
@@ -17878,13 +17915,20 @@ function closeTripDetailView(opts) {
             let cls = 'status-on-time';
             let disp = 'On time';
             if (stop.isCompleted) {
-              if (stop.delayMinutes > 15) cls = 'status-very-delayed';
-              else if (stop.delayMinutes > 5) cls = 'status-delayed';
-              else cls = 'status-passed';
-              disp = (actual && actual !== sched) ? actual : 'Departed';
+              // Past stops: left column shows actual/schedule time; badge always Departed (+ delay if late)
+              cls = 'status-passed';
+              if (stop.delayMinutes > 15) {
+                cls = 'status-very-delayed';
+                disp = 'Departed · ' + Math.round(stop.delayMinutes) + 'm late';
+              } else if (stop.delayMinutes > 5) {
+                cls = 'status-delayed';
+                disp = 'Departed · ' + Math.round(stop.delayMinutes) + 'm late';
+              } else {
+                disp = 'Departed';
+              }
             } else if (stop.formattedActualTime) {
               cls = 'status-passed';
-              disp = stop.formattedActualTime;
+              disp = 'Departed';
             } else if (!stop.predictedTime) {
               cls = 'status-scheduled';
               disp = 'Scheduled';
@@ -18119,10 +18163,37 @@ function closeTripDetailView(opts) {
           };
         });
       }
-      function buildAmtrakStopsHtml(stations, currentLat, currentLng) {
-        const stops = amtrakStationsToStops(stations);
+      function buildAmtrakStopsHtml(stations, currentLat, currentLng, trainNumber) {
+        let stops = amtrakStationsToStops(stations);
+        try {
+          const svc = rrStopServiceDate();
+          const tnum = String(trainNumber || '');
+          const cached = rrStopActualMem[rrStopActualDocId('amtrak', tnum, svc)] || null;
+          if (cached) rrApplyStopActuals(stops, cached);
+        } catch (_) {}
         if (!stops.length) return '<div class="no-departures">No stop data</div>';
         return buildStopsHtml(stops, currentLat, currentLng);
+      }
+      async function rrHydrateAmtrakStopActuals(vid, t) {
+        try {
+          const num = (t && (t.trainNum || t.trainNumRaw)) || String(vid || '').replace('amtrak-', '');
+          const svc = rrStopServiceDate();
+          let stops = amtrakStationsToStops((t && t.stations) || []);
+          const cached = await rrLoadStopActuals('amtrak', num, svc);
+          if (cached) rrApplyStopActuals(stops, cached);
+          // Prefer live Amtrak departed stamps; Firebase fills gaps for already-passed stops missing times
+          rrSaveStopActuals('amtrak', num, svc, stops);
+          if (amtrakMarkers[vid] && amtrakMarkers[vid].isPopupOpen && amtrakMarkers[vid].isPopupOpen()) {
+            const info = amtrakTrainInfo[vid] || t;
+            amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
+            amtrakMarkers[vid].getPopup().update();
+            scrollStopsListToNextStop(amtrakMarkers[vid].getPopup());
+          }
+          return stops;
+        } catch (e) {
+          console.warn('[stopActuals] amtrak hydrate', e && e.message);
+          return null;
+        }
       }
       function amtrakTrainNumKey(n) {
         const s = String(n == null ? '' : n).trim();
@@ -18237,7 +18308,8 @@ function closeTripDetailView(opts) {
         const stopsHtml = buildAmtrakStopsHtml(
           t.stations,
           isNaN(amtrakLat) ? null : amtrakLat,
-          isNaN(amtrakLng) ? null : amtrakLng
+          isNaN(amtrakLng) ? null : amtrakLng,
+          num
         );
         return `
           <div class="train-popup">
@@ -18291,7 +18363,13 @@ function closeTripDetailView(opts) {
           </div>
         `;
       }
-      window.refreshAmtrakTrain = async () => fetchAmtrakTrains();
+      window.refreshAmtrakTrain = async function(vid) {
+        await fetchAmtrakTrains();
+        try {
+          const id = vid || Object.keys(amtrakMarkers || {}).find(function(k){ return amtrakMarkers[k] && amtrakMarkers[k].isPopupOpen && amtrakMarkers[k].isPopupOpen(); });
+          if (id && amtrakTrainInfo[id]) await rrHydrateAmtrakStopActuals(id, amtrakTrainInfo[id]);
+        } catch (_) {}
+      };
       function updateAmtrakVisibility() {
         Object.keys(amtrakMarkers).forEach(function(vid) {
           const m = amtrakMarkers[vid];
@@ -18371,6 +18449,9 @@ function closeTripDetailView(opts) {
               } else {
                 const m = L.marker([lat, lng], { icon: icon });
                 m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+              m.on('popupopen', function() {
+                try { rrHydrateAmtrakStopActuals(vid, amtrakTrainInfo[vid] || info); } catch (_) {}
+              });
                 applyCyclingLabel(m, amtrakLabelInfo, true);
                 const zoom = map.getZoom();
                 if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -20935,7 +21016,7 @@ function closeTripDetailView(opts) {
               markers[vid].setLatLng([lat, lng]);
               markers[vid].setIcon(createTrainIcon(delay, vid));
               updated++;
-              if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
+              if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
               markers[vid]._info = [
                 rname || 'Unknown',
                 (extractTrainNumber(tripId) || tripId || '—') + ' to ' + (head || '—'),
@@ -20956,6 +21037,11 @@ function closeTripDetailView(opts) {
                 updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
                 // Then try to enrich with actual times from history (non-blocking for the user)
                 stops = await enrichStopsWithActualTimes(stops, vid);
+                try {
+                  const svc = rrStopServiceDate();
+                  const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId || '');
+                  rrSaveStopActuals('mbta', tnum, svc, stops);
+                } catch (_) {}
                 if (m.isPopupOpen()) {
                   updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
                 }
@@ -21197,6 +21283,15 @@ function closeTripDetailView(opts) {
         }
       }
       function updateTrainPopupContent(m, vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert) {
+        // Cache loaded stops so live poll refresh does not wipe the list back to "Loading stops..."
+        if (stops !== null && stops !== undefined) {
+          try { m._rrStops = stops; } catch (_) {}
+          try { if (vid && trainInfo[vid]) trainInfo[vid].stops = stops; } catch (_) {}
+        } else if (m && m._rrStops) {
+          stops = m._rrStops;
+        } else if (vid && trainInfo[vid] && trainInfo[vid].stops) {
+          stops = trainInfo[vid].stops;
+        }
         m.getPopup().setContent(createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert));
         m.getPopup().update();
         // Auto-scroll stops list so the next upcoming stop is at the top
@@ -21212,6 +21307,11 @@ function closeTripDetailView(opts) {
           updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, stops, t.trackNumber, t.speedMph, t.hasAlert);
           // Then enrich
           stops = await enrichStopsWithActualTimes(stops, vid);
+          try {
+            const svc = rrStopServiceDate();
+            const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tid) : '') || String(tid || '');
+            rrSaveStopActuals('mbta', tnum, svc, stops);
+          } catch (_) {}
           if (m.isPopupOpen()) {
             updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, stops, t.trackNumber, t.speedMph, t.hasAlert);
           }
