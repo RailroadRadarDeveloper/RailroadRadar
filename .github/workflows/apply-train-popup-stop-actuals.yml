@@ -1,0 +1,60 @@
+name: Apply train popup + stop actuals fix
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/train-popup-stop-actuals.patch.gz.b64.part*'
+      - 'scripts/train-popup-stop-actuals.patch.gz.b64'
+      - '.github/workflows/apply-train-popup-stop-actuals.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble b64 parts, apply patch, publish
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          parts = sorted(glob.glob('scripts/train-popup-stop-actuals.patch.gz.b64.part*'))
+          blob = None
+          if parts:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in parts)
+            print('assembled parts', len(parts), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest()[:16])
+          single = pathlib.Path('scripts/train-popup-stop-actuals.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/train-popup-stop-actuals.patch').write_bytes(raw)
+          print('patch bytes', len(raw))
+          PY
+          patch -p1 < /tmp/train-popup-stop-actuals.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rr-ui-fix-2026-09-28b' in t
+          assert 'm._rrStops' in t
+          assert 'rrHydrateAmtrakStopActuals' in t
+          assert 'background: #3d4454' in t
+          assert 'markers[vid]._rrStops' in t
+          assert 'trainStopActuals' in t
+          poll = [ln for ln in t.splitlines() if 'markers[vid].isPopupOpen()' in ln and 'updateTrainPopupContent' in ln][0]
+          assert '_rrStops' in poll
+          assert Path('mytrips/index.html').read_text(errors='replace').count('rr-ui-fix-2026-09-28b') >= 1
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Fix train popup (no Loading wipe, readable Departed) + Firebase stop actuals hydrate"
+            git push
+          fi
