@@ -1926,15 +1926,15 @@
     }
     @media (max-width: 700px) {
       .leaflet-popup-content {
-        max-width: calc(100vw - 28px) !important;
-        width: auto !important;
-        max-height: min(460px, 70vh);
+        max-width: min(320px, calc(100vw - 40px)) !important;
+        width: min(320px, calc(100vw - 40px)) !important;
+        max-height: min(420px, 62vh);
       }
       .train-popup,
       .station-popup {
         min-width: 0 !important;
-        max-width: calc(100vw - 28px) !important;
-        width: auto !important;
+        max-width: min(320px, calc(100vw - 40px)) !important;
+        width: min(320px, calc(100vw - 40px)) !important;
       }
       .train-popup-header { padding: 10px 12px; }
       .train-popup-body { padding: 10px 12px; }
@@ -5809,7 +5809,7 @@
   </style>
     
                                 <style id="rr-popup-zoom">
-    /* rr-ui-fix-2026-09-28b: train popup layout + past stops + no header scrollbar */
+    /* rr-ui-fix-2026-09-28c: mobile popup shrink (keep desktop ~350px) */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
@@ -6005,12 +6005,39 @@
       text-shadow: none;
     }
     @media (max-width: 700px) {
+      /* Mobile: healthier side margins + shorter card so map stays visible */
       .leaflet-popup-content-wrapper,
       .leaflet-popup-content,
       .train-popup,
       .station-popup {
-        width: min(350px, calc(100vw - 24px)) !important;
-        max-width: min(350px, calc(100vw - 24px)) !important;
+        width: min(320px, calc(100vw - 40px)) !important;
+        max-width: min(320px, calc(100vw - 40px)) !important;
+        min-width: 0 !important;
+      }
+      .leaflet-popup-content,
+      .train-popup,
+      .station-popup {
+        max-height: min(420px, 62vh) !important;
+      }
+      .train-popup-header { padding: 10px 12px !important; }
+      .train-popup-body { padding: 8px 12px !important; }
+      .train-popup-footer { padding: 8px 10px !important; gap: 6px !important; }
+      .info-grid { gap: 6px 8px !important; margin-bottom: 8px !important; }
+      .stops-list, .departures-list {
+        max-height: none !important; /* flex fills remaining height */
+      }
+      .train-popup button, .station-popup button, .popup-action-btn,
+      .train-popup .rr-btn, .train-popup a.button {
+        min-height: 40px !important;
+        padding: 9px 8px !important;
+        font-size: 12px !important;
+      }
+    }
+    @media (max-width: 700px) and (max-height: 700px) {
+      .leaflet-popup-content,
+      .train-popup,
+      .station-popup {
+        max-height: min(380px, 58vh) !important;
       }
     }
   </style>
@@ -14592,7 +14619,7 @@ function closeTripDetailView(opts) {
         try {
           const box = ev && ev.popup && ev.popup._container;
           if (!box) return;
-          const w = (window.innerWidth && window.innerWidth < 380) ? Math.max(260, window.innerWidth - 24) : 350;
+          const vw = window.innerWidth || 520; const w = (vw <= 700) ? Math.min(320, Math.max(260, vw - 40)) : 350;
           box.style.width = w + 'px';
           box.style.maxWidth = w + 'px';
           const nodes = box.querySelectorAll('.leaflet-popup-content-wrapper, .leaflet-popup-content, .train-popup, .station-popup');
@@ -14647,7 +14674,7 @@ function closeTripDetailView(opts) {
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
-        if (w <= 700) return { maxWidth: Math.min(350, Math.max(240, w - 24)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
+        if (w <= 700) return { maxWidth: Math.min(320, Math.max(240, w - 40)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
         return { maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true };
       }
 
