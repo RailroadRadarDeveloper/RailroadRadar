@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'scripts/user-trip-maps.patch.gz.b64.mega*'
+      - 'scripts/user-trip-maps.heals.json'
       - '.github/workflows/apply-user-trip-maps.yml'
 permissions:
   contents: write
@@ -18,9 +19,22 @@ jobs:
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import base64, gzip, hashlib, pathlib
+          import base64, gzip, hashlib, json, pathlib
           expected = "0c0465f4f94eba8da267fa08e8d96c19fa1f8fb6497f12b246b69937cbb0328b"
           expected_raw = "91075cfaa9c5fbf583c5a34e4e798b5ec5efba313160bf130740b8420bd78aa7"
+          heal_path = pathlib.Path('scripts/user-trip-maps.heals.json')
+          HEALS = json.loads(heal_path.read_text()) if heal_path.exists() else {}
+          for path, fixes in HEALS.items():
+            p = pathlib.Path(path)
+            if not p.exists():
+              continue
+            t = list(p.read_text().strip())
+            for i_str, ch in fixes.items():
+              i = int(i_str)
+              if i < len(t) and t[i] != ch:
+                print('heal', path, i, t[i], '->', ch)
+                t[i] = ch
+            p.write_text(''.join(t))
           parts = []
           for i in range(1, 11):
             a = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}a.hex')
