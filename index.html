@@ -10424,8 +10424,11 @@
       // Prefer embedded MBTA parent stations so Line membership (place-* ids) matches
       // even when live map station/route data is missing or still loading.
       // Amtrak: embedded GTFS catalog (codes match TRIP_LINE_STOPS); live markers are often empty on /mytrips.
+      // MNR: embedded catalog so /mytrips minimaps work before map-init assigns rrCollectTripStations.
       if (rr === 'mbta' && typeof MBTA_TRIP_STATIONS !== 'undefined' && MBTA_TRIP_STATIONS.length) {
         list = MBTA_TRIP_STATIONS.slice();
+      } else if (rr === 'mnr' && typeof MNR_TRIP_STATIONS !== 'undefined' && MNR_TRIP_STATIONS.length) {
+        list = MNR_TRIP_STATIONS.slice();
       } else if (rr === 'amtrak' && typeof AMTRAK_TRIP_STATIONS !== 'undefined' && AMTRAK_TRIP_STATIONS.length) {
         list = AMTRAK_TRIP_STATIONS.slice();
       } else {
@@ -10443,6 +10446,9 @@
       }
       if ((!list || !list.length) && rr === 'mbta' && typeof MBTA_TRIP_STATIONS !== 'undefined') {
         list = MBTA_TRIP_STATIONS.slice();
+      }
+      if ((!list || !list.length) && rr === 'mnr' && typeof MNR_TRIP_STATIONS !== 'undefined') {
+        list = MNR_TRIP_STATIONS.slice();
       }
       const byId = {};
       (list || []).forEach(function(s) {
@@ -10594,6 +10600,27 @@
     // window.RR_TRIP_SHAPES[agency][lineId] = array of polylines, each [[lat,lon], ...]
     window.RR_TRIP_SHAPES = window.RR_TRIP_SHAPES || {};
     window.RR_TRIP_SHAPES_PROMISES = window.RR_TRIP_SHAPES_PROMISES || {};
+    /* Trip map past-live + MBTA poly + MNR stations 2026-09-29 */
+    const MNR_TRIP_STATIONS = [{"id":"1","name":"Grand Central","lat":40.752998,"lon":-73.977056},{"id":"4","name":"Harlem-125 St","lat":40.805157,"lon":-73.939149},{"id":"622","name":"Yankees-E 153 St","lat":40.8253,"lon":-73.9299},{"id":"184","name":"Highbridge Yard","lat":40.8359,"lon":-73.9315},{"id":"9","name":"Morris Heights","lat":40.854252,"lon":-73.919583},{"id":"10","name":"University Heights","lat":40.862248,"lon":-73.91312},{"id":"11","name":"Marble Hill","lat":40.874333,"lon":-73.910941},{"id":"14","name":"Spuyten Duyvil","lat":40.878245,"lon":-73.921455},{"id":"16","name":"Riverdale","lat":40.903981,"lon":-73.914126},{"id":"17","name":"Ludlow","lat":40.924972,"lon":-73.904612},{"id":"18","name":"Yonkers","lat":40.935795,"lon":-73.902668},{"id":"19","name":"Glenwood","lat":40.950496,"lon":-73.899062},{"id":"20","name":"Greystone","lat":40.972705,"lon":-73.889069},{"id":"22","name":"Hastings-on-Hudson","lat":40.994109,"lon":-73.884512},{"id":"23","name":"Dobbs Ferry","lat":41.012459,"lon":-73.87949},{"id":"24","name":"Ardsley-on-Hudson","lat":41.026198,"lon":-73.876543},{"id":"25","name":"Irvington","lat":41.039993,"lon":-73.873083},{"id":"27","name":"Tarrytown","lat":41.076473,"lon":-73.864563},{"id":"29","name":"Philipse Manor","lat":41.09492,"lon":-73.869755},{"id":"30","name":"Scarborough","lat":41.135763,"lon":-73.866163},{"id":"31","name":"Ossining","lat":41.157663,"lon":-73.869281},{"id":"33","name":"Croton-Harmon","lat":41.189903,"lon":-73.882394},{"id":"37","name":"Cortlandt","lat":41.246259,"lon":-73.921884},{"id":"39","name":"Peekskill","lat":41.285962,"lon":-73.93042},{"id":"40","name":"Manitou","lat":41.332601,"lon":-73.970426},{"id":"42","name":"Garrison","lat":41.38178,"lon":-73.947202},{"id":"43","name":"Cold Spring","lat":41.415283,"lon":-73.95809},{"id":"44","name":"Breakneck Ridge","lat":41.450181,"lon":-73.982449},{"id":"46","name":"Beacon","lat":41.504007,"lon":-73.984528},{"id":"49","name":"New Hamburg","lat":41.587448,"lon":-73.947226},{"id":"51","name":"Poughkeepsie","lat":41.705839,"lon":-73.937946},{"id":"54","name":"Melrose","lat":40.825761,"lon":-73.915231},{"id":"55","name":"Tremont","lat":40.847301,"lon":-73.89955},{"id":"56","name":"Fordham","lat":40.8615,"lon":-73.89058},{"id":"57","name":"Botanical Garden","lat":40.866555,"lon":-73.883109},{"id":"58","name":"Williams Bridge","lat":40.878569,"lon":-73.871064},{"id":"59","name":"Woodlawn","lat":40.895361,"lon":-73.862916},{"id":"61","name":"Wakefield","lat":40.905936,"lon":-73.85568},{"id":"62","name":"Mt Vernon West","lat":40.912142,"lon":-73.851129},{"id":"64","name":"Fleetwood","lat":40.92699,"lon":-73.83948},{"id":"65","name":"Bronxville","lat":40.93978,"lon":-73.835208},{"id":"66","name":"Tuckahoe","lat":40.949393,"lon":-73.830166},{"id":"68","name":"Crestwood","lat":40.958997,"lon":-73.820564},{"id":"71","name":"Scarsdale","lat":40.989168,"lon":-73.808634},{"id":"72","name":"Hartsdale","lat":41.010333,"lon":-73.796407},{"id":"74","name":"White Plains","lat":41.032589,"lon":-73.775208},{"id":"76","name":"North White Plains","lat":41.049806,"lon":-73.773142},{"id":"78","name":"Valhalla","lat":41.072819,"lon":-73.772599},{"id":"79","name":"Mt Pleasant","lat":41.095877,"lon":-73.793822},{"id":"80","name":"Hawthorne","lat":41.108581,"lon":-73.79625},{"id":"81","name":"Pleasantville","lat":41.135222,"lon":-73.792661},{"id":"83","name":"Chappaqua","lat":41.158015,"lon":-73.774885},{"id":"84","name":"Mt Kisco","lat":41.208242,"lon":-73.729778},{"id":"85","name":"Bedford Hills","lat":41.237316,"lon":-73.699936},{"id":"86","name":"Katonah","lat":41.259552,"lon":-73.684155},{"id":"88","name":"Goldens Bridge","lat":41.294338,"lon":-73.677655},{"id":"89","name":"Purdy's","lat":41.325775,"lon":-73.659061},{"id":"90","name":"Croton Falls","lat":41.347722,"lon":-73.662269},{"id":"91","name":"Brewster","lat":41.39447,"lon":-73.619802},{"id":"94","name":"Southeast","lat":41.413203,"lon":-73.623787},{"id":"97","name":"Patterson","lat":41.511827,"lon":-73.604584},{"id":"98","name":"Pawling","lat":41.564205,"lon":-73.600524},{"id":"99","name":"Appalachian Trail","lat":41.592871,"lon":-73.588032},{"id":"100","name":"Harlem Valley-Wingdale","lat":41.637525,"lon":-73.57145},{"id":"101","name":"Dover Plains","lat":41.740401,"lon":-73.576502},{"id":"176","name":"Tenmile River","lat":41.779938,"lon":-73.558204},{"id":"177","name":"Wassaic","lat":41.814722,"lon":-73.562197},{"id":"105","name":"Mt Vernon East","lat":40.912161,"lon":-73.832185},{"id":"106","name":"Pelham","lat":40.910321,"lon":-73.810242},{"id":"108","name":"New Rochelle","lat":40.911605,"lon":-73.783807},{"id":"110","name":"Larchmont","lat":40.933394,"lon":-73.759792},{"id":"111","name":"Mamaroneck","lat":40.954061,"lon":-73.736125},{"id":"112","name":"Harrison","lat":40.969432,"lon":-73.712964},{"id":"114","name":"Rye","lat":40.985922,"lon":-73.682553},{"id":"115","name":"Port Chester","lat":41.000732,"lon":-73.6647},{"id":"116","name":"Greenwich","lat":41.021277,"lon":-73.624621},{"id":"118","name":"Cos Cob","lat":41.030171,"lon":-73.598306},{"id":"120","name":"Riverside","lat":41.031682,"lon":-73.588173},{"id":"121","name":"Old Greenwich","lat":41.033817,"lon":-73.565859},{"id":"124","name":"Stamford","lat":41.046611,"lon":-73.542846},{"id":"153","name":"Glenbrook","lat":41.070547,"lon":-73.520021},{"id":"651","name":"Springdale MW Facility","lat":41.082147,"lon":-73.519675},{"id":"154","name":"Springdale","lat":41.08876,"lon":-73.517828},{"id":"155","name":"Talmadge Hill","lat":41.116012,"lon":-73.498149},{"id":"157","name":"New Canaan","lat":41.146305,"lon":-73.495626},{"id":"127","name":"Noroton Heights","lat":41.069041,"lon":-73.49788},{"id":"128","name":"Darien","lat":41.076913,"lon":-73.472966},{"id":"129","name":"Rowayton","lat":41.077456,"lon":-73.445527},{"id":"131","name":"South Norwalk","lat":41.09673,"lon":-73.421132},{"id":"158","name":"Merritt 7","lat":41.146618,"lon":-73.427859},{"id":"160","name":"Wilton","lat":41.196202,"lon":-73.432434},{"id":"161","name":"Cannondale","lat":41.21662,"lon":-73.426703},{"id":"162","name":"Branchville","lat":41.26763,"lon":-73.441421},{"id":"163","name":"Redding","lat":41.325684,"lon":-73.4338},{"id":"164","name":"Bethel","lat":41.376225,"lon":-73.418171},{"id":"165","name":"Danbury","lat":41.396146,"lon":-73.44879},{"id":"133","name":"East Norwalk","lat":41.103996,"lon":-73.404588},{"id":"134","name":"Westport","lat":41.118928,"lon":-73.371413},{"id":"136","name":"Green's Farms","lat":41.122265,"lon":-73.315408},{"id":"137","name":"Southport","lat":41.134844,"lon":-73.28897},{"id":"138","name":"Fairfield","lat":41.143077,"lon":-73.257742},{"id":"188","name":"Fairfield-Black Rock","lat":41.161,"lon":-73.234336},{"id":"140","name":"Bridgeport","lat":41.178677,"lon":-73.187076},{"id":"143","name":"Stratford","lat":41.194255,"lon":-73.131532},{"id":"167","name":"Derby-Shelton","lat":41.319718,"lon":-73.083548},{"id":"168","name":"Ansonia","lat":41.344156,"lon":-73.079892},{"id":"169","name":"Seymour","lat":41.395139,"lon":-73.072499},{"id":"170","name":"Beacon Falls","lat":41.441752,"lon":-73.06359},{"id":"171","name":"Naugatuck","lat":41.494204,"lon":-73.052655},{"id":"172","name":"Waterbury","lat":41.552728,"lon":-73.046126},{"id":"145","name":"Milford","lat":41.223231,"lon":-73.057647},{"id":"190","name":"West Haven","lat":41.27142,"lon":-72.963488},{"id":"149","name":"New Haven","lat":41.296501,"lon":-72.92829},{"id":"151","name":"New Haven-State St","lat":41.304979,"lon":-72.921747}];
+
+    function rrDecodeGooglePolyline(encoded) {
+      const points = [];
+      if (!encoded) return points;
+      let index = 0, lat = 0, lng = 0;
+      const s = String(encoded);
+      while (index < s.length) {
+        let b, shift = 0, result = 0;
+        do { b = s.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lat += ((result & 1) ? ~(result >> 1) : (result >> 1));
+        shift = 0; result = 0;
+        do { b = s.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lng += ((result & 1) ? ~(result >> 1) : (result >> 1));
+        points.push([lat / 1e5, lng / 1e5]);
+      }
+      return points;
+    }
+    window.rrDecodeGooglePolyline = rrDecodeGooglePolyline;
+
     const RR_TRIP_SNAP_MAX_MI = 1.5;
 
     function rrNormalizePolyLatLngs(pl) {
@@ -10799,12 +10826,20 @@
         }
       }
 
+      // Reject index sums that look like out-of-order TRIP_LINE_STOPS jumps
+      // (e.g. MBTA Fitchburg North→Lincoln via Wachusett). Prefer corridor then shorter.
+      if (indexSum != null && corridorSum != null && indexSum > Math.max(corridorSum * 1.35, od * 1.6 + 8)) {
+        indexSum = null;
+      } else if (indexSum != null && indexSum > od * 2.8 + 20) {
+        indexSum = null;
+      }
       const full = [];
       if (corridorSum != null && corridorSum >= od) full.push(corridorSum);
       if (indexSum != null && indexSum >= od) full.push(indexSum);
       let chosen = null;
       if (full.length >= 2) {
-        chosen = Math.max(full[0], full[1]);
+        // Prefer shorter of two valid chains (longer often means zigzag mis-order)
+        chosen = Math.min(full[0], full[1]);
       } else if (full.length === 1) {
         chosen = full[0];
       } else {
@@ -10813,7 +10848,7 @@
         if (indexSum != null) soft.push(indexSum);
         if (soft.length === 1 && soft[0] >= od * 0.98) chosen = soft[0];
         else if (soft.length === 2) {
-          const best = Math.max(soft[0], soft[1]);
+          const best = Math.min(soft[0], soft[1]);
           if (best >= od * 0.98) chosen = best;
           else if (best < od * 0.95) chosen = null;
         }
@@ -10865,11 +10900,14 @@
                 const enc = s.attributes && s.attributes.polyline;
                 if (!enc) return;
                 try {
-                  if (typeof L !== 'undefined' && L.Polyline && typeof L.Polyline.fromEncoded === 'function') {
-                    const pts = L.Polyline.fromEncoded(enc).getLatLngs();
-                    const n = rrNormalizePolyLatLngs(pts);
-                    if (n) polys.push(n);
+                  let pts = null;
+                  if (typeof rrDecodeGooglePolyline === 'function') {
+                    pts = rrDecodeGooglePolyline(enc);
+                  } else if (typeof L !== 'undefined' && L.Polyline && typeof L.Polyline.fromEncoded === 'function') {
+                    pts = L.Polyline.fromEncoded(enc).getLatLngs();
                   }
+                  const n = rrNormalizePolyLatLngs(pts);
+                  if (n) polys.push(n);
                 } catch (_) {}
               });
               const next = sd.links && sd.links.next;
@@ -11078,15 +11116,32 @@
         for (let i = 1; i < pts.length; i++) sum += haversineMiles(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
         return sum;
       }
+      function pathHasJump(pts, maxJumpMi) {
+        if (!pts || pts.length < 2) return false;
+        const lim = maxJumpMi == null ? 10 : maxJumpMi;
+        for (let i = 1; i < pts.length; i++) {
+          if (haversineMiles(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]) > lim) return true;
+        }
+        return false;
+      }
+      // MBTA TRIP_LINE_STOPS mixes platform ids + place-* out of geographic order;
+      // index slices can jump (e.g. North Station → Wachusett). Prefer corridor / catalog shapes.
+      const indexOk = indexPts && indexPts.length >= 2 && !pathHasJump(indexPts, 10);
+      const corridorOk = corridorPts && corridorPts.length >= 2 && !pathHasJump(corridorPts, 12);
       const cLen = pathLen(corridorPts);
       const iLen = pathLen(indexPts);
       let chosen = null;
-      if (corridorPts && corridorPts.length >= 2 && indexPts && indexPts.length >= 2) {
-        chosen = (iLen >= cLen) ? indexPts : corridorPts;
-      } else if (indexPts && indexPts.length >= 2) {
+      if (indexOk && corridorOk) {
+        // Prefer shorter sane path (not the longer jumpy one).
+        chosen = (iLen <= cLen * 1.08) ? indexPts : corridorPts;
+      } else if (corridorOk) {
+        chosen = corridorPts;
+      } else if (indexOk) {
         chosen = indexPts;
       } else if (corridorPts && corridorPts.length >= 2) {
         chosen = corridorPts;
+      } else if (indexPts && indexPts.length >= 2) {
+        chosen = indexPts;
       }
       return chosen;
     }
@@ -11117,12 +11172,15 @@
       if (origin && dest) {
         const polys = rrGetCachedTripPolylines(ids.railroad, ids.lineId);
         if (polys && polys.length) {
+          const odMi = haversineMiles(origin[0], origin[1], dest[0], dest[1]);
           let best = null, bestLen = Infinity;
           polys.forEach(function(pl) {
             const sliced = rrSlicePolylineBetween(pl, origin[0], origin[1], dest[0], dest[1]);
             if (!sliced || sliced.length < 2) return;
             let len = 0;
             for (let i = 1; i < sliced.length; i++) len += haversineMiles(sliced[i - 1][0], sliced[i - 1][1], sliced[i][0], sliced[i][1]);
+            // Reject absurd detours (wrong shape variant / concatenated noise)
+            if (odMi > 0.5 && len > Math.max(odMi * 2.8, odMi + 25)) return;
             if (len < bestLen) { bestLen = len; best = sliced; }
           });
           line = best;
@@ -11788,7 +11846,14 @@
       const now = Date.now();
       if (now < start - TRIP_LIVE_PRE_DEPART_MS) return false;
       const end = endIso ? Date.parse(endIso) : NaN;
-      if (isFinite(end) && now > end + TRIP_LIVE_POST_ARRIVE_MS) return false;
+      // Finished past trips: hide live chip / "Looking for…" once arrive time has passed.
+      // Keep live only while the ride is in progress (or within pre-depart window).
+      if (isFinite(end)) {
+        if (now > end) return false;
+      } else {
+        // No arrive time stored — stop polling after 3h from depart (same heuristic as card live).
+        if (now > start + 3 * 60 * 60 * 1000) return false;
+      }
       return true;
     }
 
@@ -11931,7 +11996,7 @@
       if (!row) return { text: '', state: '' };
       const endIso = (data && data.segments && data.segments.length && data.segments[data.segments.length - 1].arriveTime) || (data && data.endTime);
       const end = endIso ? Date.parse(endIso) : NaN;
-      if (isFinite(end) && Date.now() > end + TRIP_LIVE_POST_ARRIVE_MS) {
+      if (isFinite(end) && Date.now() > end) {
         return { text: 'Trip complete', state: 'done' };
       }
       const raw = String(row.statusText || '').trim();
