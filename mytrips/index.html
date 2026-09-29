@@ -868,6 +868,89 @@
     .trip-detail-live[data-live-state="done"] { color: #5a6577; }
     .trip-detail-live[data-live-state="miss"] { color: #5a6577; font-weight: 600; }
     html.rr-mytrips-page .trip-detail-live { color: #07093e; }
+    /* Trip live progress cards + post-trip enrich */
+    .trip-log-row-live {
+      margin: 6px 0 0;
+      font-size: 12.5px;
+      font-weight: 750;
+      letter-spacing: 0.01em;
+      color: #07093e;
+      line-height: 1.35;
+    }
+    .trip-log-row-live[hidden] { display: none !important; }
+    .trip-log-row-live[data-live-state="on-time"] { color: #1a7f37; }
+    .trip-log-row-live[data-live-state="late"] { color: #b45309; }
+    .trip-log-row-live[data-live-state="very-late"] { color: #b00020; }
+    .trip-log-row-live[data-live-state="arriving"] { color: #1d4ed8; }
+    .trip-log-row-live[data-live-state="done"] { color: #5a6577; }
+    .trip-log-row-live[data-live-state="miss"] { color: #5a6577; font-weight: 600; }
+    .trip-log-row[data-rail-accent] .trip-log-row-live,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      display: inline-block;
+      padding: 3px 10px;
+      margin-top: 8px;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"],
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"] {
+      color: #d8ffe3; background: rgba(26, 127, 55, 0.35); border-color: rgba(216, 255, 227, 0.35);
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"],
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"] {
+      color: #fff3d6; background: rgba(180, 83, 9, 0.4); border-color: rgba(255, 243, 214, 0.35);
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"],
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] {
+      color: #ffd6dc; background: rgba(176, 0, 32, 0.4); border-color: rgba(255, 214, 220, 0.35);
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="arriving"],
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="arriving"] {
+      color: #dbeafe; background: rgba(29, 78, 216, 0.4); border-color: rgba(219, 234, 254, 0.35);
+    }
+    .trip-log-row-actual {
+      margin: 2px 0 0;
+      font-size: 11.5px;
+      font-weight: 650;
+      color: #5a6577;
+      line-height: 1.35;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-actual,
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-actual {
+      color: rgba(255, 255, 255, 0.78);
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-live,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-live {
+      color: #fff;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="on-time"],
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="on-time"] {
+      color: #b8f5c8;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="late"],
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="late"] {
+      color: #ffd89a;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="very-late"],
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="very-late"] {
+      color: #ffb3bd;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="arriving"],
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-live[data-live-state="arriving"] {
+      color: #bfdbfe;
+    }
+    .trip-detail-actual {
+      margin: 0 0 8px;
+      font-size: 12.5px;
+      font-weight: 650;
+      color: #5a6577;
+    }
+    .trip-detail-overlay[data-rail-accent] .trip-detail-actual,
+    html.rr-mytrips-page .trip-detail-overlay[data-rail-accent] .trip-detail-actual {
+      color: rgba(255, 255, 255, 0.82);
+    }
     html.rr-train-page,
     html.rr-train-page body {
       overflow: auto;
@@ -6710,6 +6793,7 @@
         <p class="trip-detail-live" id="trip-detail-live" hidden></p>
         <p class="trip-detail-line" id="trip-detail-line"></p>
         <p class="trip-detail-when" id="trip-detail-when" hidden></p>
+        <p class="trip-detail-actual" id="trip-detail-actual" hidden></p>
         <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
         <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
         <div class="trip-detail-segs" id="trip-detail-segs"></div>
@@ -11210,6 +11294,7 @@
       }
 
       try { startTripDetailRelativeTimer(data); } catch (_) { paintTripDetailRelative(data); }
+      try { tripPaintDetailActual(data); } catch (_) {}
 
       const whenEl = document.getElementById('trip-detail-when');
       if (whenEl) {
@@ -11342,17 +11427,25 @@
 
     /* Trip live in-progress light */
     // Lean "in progress": wall-clock between depart and arrive (no Firestore status field).
-    // Poll ONLY while detail is open; pause when tab hidden; reuse map live rows; ZERO Firestore writes on poll.
+    // Poll detail while open + slow list poll for in-progress cards; pause when tab hidden;
+    // reuse map live rows; ZERO Firestore writes on poll. Post-trip enrich writes actuals only.
+    /* Trip live progress cards + post-trip enrich */
     const TRIP_LIVE_POLL_MS = 50000;
+    const TRIP_LIVE_LIST_POLL_MS = 55000;
     const TRIP_LIVE_MAX_MISSES = 3;
     const TRIP_LIVE_PRE_DEPART_MS = 15 * 60 * 1000;
     const TRIP_LIVE_POST_ARRIVE_MS = 30 * 60 * 1000;
+    const TRIP_ENRICH_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
     let tripLiveTimer = null;
     let tripLiveMisses = 0;
     let tripLiveMarker = null;
     let tripLiveActiveId = null;
     let tripLiveData = null;
     let tripLiveVisBound = false;
+    let tripListLiveTimer = null;
+    let tripListLiveVisBound = false;
+    const tripCardLiveMarkers = Object.create(null); // tripId -> L.circleMarker
+    const tripEnrichInFlight = Object.create(null);
 
     function tripIsInProgressLight(data) {
       if (!data) return false;
@@ -11368,6 +11461,19 @@
       return true;
     }
 
+    function tripHasEndedForEnrich(data) {
+      if (!data) return false;
+      if (tripIsInProgressLight(data)) return false;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const endIso = (segs && segs.length && segs[segs.length - 1].arriveTime) || data.endTime || data.startTime;
+      const end = endIso ? Date.parse(endIso) : NaN;
+      if (!isFinite(end)) return false;
+      const now = Date.now();
+      if (now < end) return false;
+      if (now - end > TRIP_ENRICH_LOOKBACK_MS) return false;
+      return true;
+    }
+
     function tripLiveClearMarker() {
       if (tripLiveMarker) {
         try { tripLiveMarker.remove(); } catch (_) {}
@@ -11375,8 +11481,32 @@
       }
     }
 
+    function tripLiveClearCardMarker(tripId) {
+      const m = tripCardLiveMarkers[tripId];
+      if (m) {
+        try { m.remove(); } catch (_) {}
+        delete tripCardLiveMarkers[tripId];
+      }
+    }
+
     function tripLiveSetStatus(text, state) {
       const el = document.getElementById('trip-detail-live');
+      if (!el) return;
+      if (!text) {
+        el.hidden = true;
+        el.textContent = '';
+        el.removeAttribute('data-live-state');
+        return;
+      }
+      el.hidden = false;
+      el.textContent = text;
+      if (state) el.setAttribute('data-live-state', state);
+      else el.removeAttribute('data-live-state');
+    }
+
+    function tripLiveSetCardStatus(rowEl, text, state) {
+      if (!rowEl) return;
+      const el = rowEl.querySelector('.trip-log-row-live');
       if (!el) return;
       if (!text) {
         el.hidden = true;
@@ -11450,33 +11580,74 @@
       return null;
     }
 
-    function tripLiveStatusFromRow(row, data) {
+    function tripLiveParseDelayMin(row) {
+      if (!row) return null;
+      if (row.delayMinutes != null && isFinite(Number(row.delayMinutes))) {
+        return Math.round(Number(row.delayMinutes));
+      }
+      const raw = String(row.statusText || '');
+      const m = raw.match(/(\d+)\s*min/i);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (/early/i.test(raw)) return -n;
+        return n;
+      }
+      return null;
+    }
+
+    // Warm short copy for cards + detail: "Next: Providence · 8 min late"
+    function tripLiveWarmCopy(row, data) {
       if (!row) return { text: '', state: '' };
-      const endIso = (data.segments && data.segments.length && data.segments[data.segments.length - 1].arriveTime) || data.endTime;
+      const endIso = (data && data.segments && data.segments.length && data.segments[data.segments.length - 1].arriveTime) || (data && data.endTime);
       const end = endIso ? Date.parse(endIso) : NaN;
       if (isFinite(end) && Date.now() > end + TRIP_LIVE_POST_ARRIVE_MS) {
-        return { text: 'Done', state: 'done' };
+        return { text: 'Trip complete', state: 'done' };
       }
       const raw = String(row.statusText || '').trim();
       const cls = String(row.statusClass || '');
-      if (/complet|arrived|done/i.test(raw)) return { text: 'Done', state: 'done' };
-      if (/arriv/i.test(raw) || /INCOMING|STOPPED_AT/i.test(String(row.stopLabel || ''))) {
-        return { text: raw || ('Arriving · ' + (row.stopName || '')), state: 'arriving' };
+      if (/complet|arrived|done/i.test(raw) && !/arriv/i.test(String(row.stopLabel || ''))) {
+        return { text: 'Trip complete', state: 'done' };
       }
-      if (cls.indexOf('very-delay') >= 0 || /very|hours?/i.test(raw)) {
-        return { text: raw || 'Running late', state: 'very-late' };
+      const stop = String(row.stopName || '').trim();
+      const label = String(row.stopLabel || 'Next').trim();
+      const delayMin = tripLiveParseDelayMin(row);
+      let state = 'on-time';
+      let delayBit = '';
+      if (cls.indexOf('very-delay') >= 0 || (delayMin != null && delayMin > 15) || /hours?/i.test(raw)) {
+        delayBit = (delayMin != null && delayMin > 0) ? (delayMin + ' min late') : 'Running late';
+        state = 'very-late';
+      } else if (cls.indexOf('delay') >= 0 || (delayMin != null && delayMin > 5) || /late|delay/i.test(raw)) {
+        delayBit = (delayMin != null && delayMin > 0) ? (delayMin + ' min late') : 'Late';
+        state = 'late';
+      } else if (/on.?time/i.test(raw) || cls.indexOf('on-time') >= 0 || (delayMin != null && Math.abs(delayMin) <= 5)) {
+        delayBit = 'On time';
+        state = 'on-time';
+      } else if (raw && !/scheduled|predeparture|unknown|^live$/i.test(raw)) {
+        delayBit = raw.replace(/^Delayed\s+/i, '').replace(/\bDelayed\b/i, 'late');
+        if (/^\d+\s*min$/i.test(delayBit)) delayBit = delayBit + ' late';
+      } else {
+        delayBit = 'On time';
       }
-      if (cls.indexOf('delay') >= 0 || /late|delay/i.test(raw)) {
-        return { text: raw || 'Late', state: 'late' };
+      let stopBit = '';
+      if (stop && stop !== '—' && stop !== '-') {
+        if (/^At$/i.test(label) || /STOPPED_AT/i.test(String(row.stopLabel || ''))) {
+          stopBit = 'At ' + stop;
+          if (state === 'on-time') state = 'arriving';
+        } else if (/arriv/i.test(label) || /INCOMING/i.test(String(row.stopLabel || ''))) {
+          stopBit = 'Arriving ' + stop;
+          state = 'arriving';
+        } else {
+          stopBit = 'Next: ' + stop;
+        }
       }
-      if (/on.?time|scheduled|predeparture/i.test(raw) || cls.indexOf('on-time') >= 0) {
-        return { text: raw || 'On time', state: 'on-time' };
-      }
-      const bits = [];
-      if (raw) bits.push(raw);
-      else bits.push('Live');
-      if (row.stopName && row.stopName !== '—') bits.push((row.stopLabel || 'Near') + ' ' + row.stopName);
-      return { text: bits.join(' · '), state: 'on-time' };
+      if (stopBit && delayBit) return { text: stopBit + ' · ' + delayBit, state: state };
+      if (stopBit) return { text: stopBit, state: state };
+      if (delayBit) return { text: delayBit, state: state };
+      return { text: 'Live', state: 'on-time' };
+    }
+
+    function tripLiveStatusFromRow(row, data) {
+      return tripLiveWarmCopy(row, data);
     }
 
     function tripLivePaintMarker(row) {
@@ -11498,6 +11669,27 @@
       } catch (_) {}
     }
 
+    function tripLivePaintCardMarker(tripId, row) {
+      tripLiveClearCardMarker(tripId);
+      if (!tripId || !row) return;
+      const entry = tripLogMiniMaps[tripId];
+      if (!entry || !entry.map) return;
+      const lat = Number(row.lat);
+      const lng = Number(row.lng != null ? row.lng : row.lon);
+      if (!isFinite(lat) || !isFinite(lng)) return;
+      try {
+        const m = L.circleMarker([lat, lng], {
+          radius: 6,
+          color: '#1a2030',
+          weight: 2,
+          fillColor: '#2563eb',
+          fillOpacity: 1,
+          className: 'trip-live-train-marker'
+        }).addTo(entry.map);
+        tripCardLiveMarkers[tripId] = m;
+      } catch (_) {}
+    }
+
     function tripLiveTick() {
       if (!tripLiveActiveId || !tripLiveData) return;
       if (document.visibilityState === 'hidden') return;
@@ -11507,24 +11699,25 @@
         return;
       }
       if (!tripIsInProgressLight(tripLiveData)) {
-        tripLiveSetStatus('Done', 'done');
+        tripLiveSetStatus('Trip complete', 'done');
         tripLiveClearMarker();
         stopTripLiveTracking(true);
+        try { tripTryEnrichActualTimes(tripLiveActiveId, tripLiveData); } catch (_) {}
         return;
       }
       const row = tripFindLiveRowForTrip(tripLiveData);
       if (!row) {
         tripLiveMisses += 1;
         if (tripLiveMisses >= TRIP_LIVE_MAX_MISSES) {
-          tripLiveSetStatus('Live position unavailable — showing scheduled times', 'miss');
+          tripLiveSetStatus('Live position unavailable', 'miss');
           stopTripLiveTracking(true);
         } else {
-          tripLiveSetStatus('Looking for live train…', 'miss');
+          tripLiveSetStatus('Looking for your train…', 'miss');
         }
         return;
       }
       tripLiveMisses = 0;
-      const st = tripLiveStatusFromRow(row, tripLiveData);
+      const st = tripLiveWarmCopy(row, tripLiveData);
       tripLiveSetStatus(st.text, st.state);
       tripLivePaintMarker(row);
       // Display-only: do NOT write live position or ETA back to Firestore.
@@ -11546,6 +11739,7 @@
       stopTripLiveTracking();
       if (!tripId || !data || !tripIsInProgressLight(data)) {
         tripLiveSetStatus('', '');
+        try { if (tripId && data) tripTryEnrichActualTimes(tripId, data); } catch (_) {}
         return;
       }
       // Cap: only the open detail trip
@@ -11564,6 +11758,329 @@
       // Slight delay so detail map exists
       setTimeout(function() { tripLiveTick(); }, 400);
       tripLiveTimer = setInterval(tripLiveTick, TRIP_LIVE_POLL_MS);
+    }
+
+    function tripListLiveTick() {
+      if (document.visibilityState === 'hidden') return;
+      const list = document.getElementById('trip-log-list');
+      if (!list) return;
+      const rows = list.querySelectorAll('.trip-log-row[data-trip-id]');
+      rows.forEach(function(rowEl) {
+        const id = rowEl.getAttribute('data-trip-id');
+        const data = tripLogDataById[id];
+        if (!data) return;
+        if (!tripIsInProgressLight(data)) {
+          const liveEl = rowEl.querySelector('.trip-log-row-live');
+          const st = liveEl && liveEl.getAttribute('data-live-state');
+          if (st && st !== 'done') {
+            tripLiveSetCardStatus(rowEl, '', '');
+            tripLiveClearCardMarker(id);
+          }
+          return;
+        }
+        const liveRow = tripFindLiveRowForTrip(data);
+        if (!liveRow) {
+          tripLiveSetCardStatus(rowEl, 'Looking for your train…', 'miss');
+          return;
+        }
+        const warm = tripLiveWarmCopy(liveRow, data);
+        tripLiveSetCardStatus(rowEl, warm.text, warm.state);
+        tripLivePaintCardMarker(id, liveRow);
+      });
+    }
+
+    function stopTripListLivePoll() {
+      if (tripListLiveTimer) {
+        try { clearInterval(tripListLiveTimer); } catch (_) {}
+        tripListLiveTimer = null;
+      }
+    }
+
+    function startTripListLivePoll() {
+      if (!document.getElementById('trip-log-list')) return;
+      if (!tripListLiveVisBound) {
+        tripListLiveVisBound = true;
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible') tripListLiveTick();
+        });
+      }
+      if (!tripListLiveTimer) {
+        tripListLiveTimer = setInterval(tripListLiveTick, TRIP_LIVE_LIST_POLL_MS);
+      }
+      setTimeout(function() { tripListLiveTick(); }, 600);
+    }
+
+    function tripActualDisplayText(data) {
+      if (!data) return '';
+      const dep = data.actualDepartTime || null;
+      const arr = data.actualArriveTime || null;
+      if (!dep && !arr) {
+        const segs = Array.isArray(data.segments) ? data.segments : null;
+        if (segs && segs.length) {
+          const d0 = segs[0].actualDepartTime;
+          const aN = segs[segs.length - 1].actualArriveTime;
+          if (d0 || aN) {
+            if (d0 && aN) return 'Actual ' + formatTripWhen(d0) + ' → ' + formatTripWhen(aN);
+            if (d0) return 'Actual dep ' + formatTripWhen(d0);
+            return 'Actual arr ' + formatTripWhen(aN);
+          }
+        }
+        return '';
+      }
+      if (dep && arr) return 'Actual ' + formatTripWhen(dep) + ' → ' + formatTripWhen(arr);
+      if (dep) return 'Actual dep ' + formatTripWhen(dep);
+      return 'Actual arr ' + formatTripWhen(arr);
+    }
+
+    function tripPaintCardActual(rowEl, data) {
+      if (!rowEl) return;
+      const el = rowEl.querySelector('.trip-log-row-actual');
+      if (!el) return;
+      const txt = tripActualDisplayText(data);
+      if (txt) {
+        el.hidden = false;
+        el.textContent = txt;
+      } else {
+        el.hidden = true;
+        el.textContent = '';
+      }
+    }
+
+    function tripPaintDetailActual(data) {
+      const el = document.getElementById('trip-detail-actual');
+      if (!el) return;
+      const txt = tripActualDisplayText(data);
+      if (txt) {
+        el.hidden = false;
+        el.textContent = txt;
+      } else {
+        el.hidden = true;
+        el.textContent = '';
+      }
+    }
+
+    function tripNormStopKey(s) {
+      return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    function tripMatchActualStop(stops, stationId, stationName) {
+      if (!stops || !stops.length) return null;
+      const wantId = String(stationId || '').trim();
+      const wantName = tripNormStopKey(stationName);
+      let byId = null;
+      let byName = null;
+      for (let i = 0; i < stops.length; i++) {
+        const s = stops[i];
+        if (!s) continue;
+        const sid = String(s.stopId || s.id || '').trim();
+        const sname = tripNormStopKey(s.name);
+        if (wantId && sid && (sid === wantId || sid.replace(/^place-/, '') === wantId.replace(/^place-/, ''))) {
+          byId = s;
+          break;
+        }
+        if (wantName && sname && (sname === wantName || sname.indexOf(wantName) >= 0 || wantName.indexOf(sname) >= 0)) {
+          if (!byName) byName = s;
+        }
+      }
+      return byId || byName || null;
+    }
+
+    function tripParseClockOnServiceDate(serviceDate, clockStr) {
+      if (!serviceDate || !clockStr) return null;
+      const raw = String(clockStr).trim();
+      // Already ISO-ish
+      if (/^\d{4}-\d{2}-\d{2}T/.test(raw) || /Z$|[+-]\d{2}:\d{2}$/.test(raw)) {
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : d.toISOString();
+      }
+      let m = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (!m) m = raw.match(/^(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)?$/i);
+      if (!m) return null;
+      let hh = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      const ap = (m[3] || '').toUpperCase();
+      if (ap === 'PM' && hh < 12) hh += 12;
+      if (ap === 'AM' && hh === 12) hh = 0;
+      const parts = String(serviceDate).split('-');
+      if (parts.length < 3) return null;
+      const y = parseInt(parts[0], 10);
+      const mo = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(y, mo, day, hh, mm, 0, 0);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString();
+    }
+
+    function tripActualIsoFromStopEntry(entry, serviceDate, preferDep) {
+      if (!entry) return null;
+      // Prefer ISO-like fields if present
+      const isoCand = preferDep
+        ? (entry.depIso || entry.departureIso || entry.dep || entry.departure || entry.actual)
+        : (entry.arrIso || entry.arrivalIso || entry.arr || entry.arrival || entry.actual);
+      if (isoCand && /^\d{4}-\d{2}-\d{2}T/.test(String(isoCand))) {
+        const d = new Date(isoCand);
+        if (!isNaN(d.getTime())) return d.toISOString();
+      }
+      const clock = entry.actual || entry.predicted || entry.scheduled || isoCand;
+      return tripParseClockOnServiceDate(serviceDate, clock);
+    }
+
+    async function tripLoadActualStopsForSeg(seg) {
+      const agency = tripNormalizeAgency(seg.railroad);
+      const trainNum = String(seg.trainNumber || '').split('/')[0].replace(/^#/, '').trim();
+      if (!agency || !trainNum) return null;
+      const sd = (typeof tripServiceDateFromDepartLocal === 'function'
+        ? tripServiceDateFromDepartLocal(seg.departTime)
+        : null) || (typeof tripServiceDateToday === 'function' ? tripServiceDateToday() : null);
+      // 1) Amtrak live stations (ISO dep/arr) when still in memory
+      try {
+        if (agency === 'amtrak' && typeof amtrakAllTrains !== 'undefined' && Array.isArray(amtrakAllTrains)) {
+          const train = amtrakAllTrains.find(function(tr) {
+            return tripTrainNumMatch(tr.number || tr.trainNum || tr.trainNumber || '', trainNum);
+          });
+          if (train && Array.isArray(train.stations) && train.stations.length) {
+            const stops = train.stations.map(function(s) {
+              const st = String(s.status || '').toLowerCase();
+              const completed = st === 'departed' || st === 'arrived';
+              return {
+                name: s.name || s.code || '',
+                stopId: s.code || s.stationCode || '',
+                actual: (completed ? (s.dep || s.arr) : null) || null,
+                dep: s.dep || null,
+                arr: s.arr || null,
+                completed: completed,
+                scheduled: s.schDep || s.schArr || null
+              };
+            });
+            return { agency: agency, trainNumber: trainNum, serviceDate: sd, stops: stops, source: 'amtrak-live' };
+          }
+        }
+      } catch (_) {}
+      // 2) Shared trainStopActuals cache (same source as main-map popups)
+      try {
+        if (typeof rrLoadStopActuals === 'function') {
+          const cached = await rrLoadStopActuals(agency, trainNum, sd);
+          if (cached && Array.isArray(cached.stops) && cached.stops.length) {
+            return Object.assign({ source: 'trainStopActuals' }, cached);
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function tripBuildActualPatch(data) {
+      const segs = Array.isArray(data.segments) && data.segments.length
+        ? data.segments.map(function(s) { return Object.assign({}, s); })
+        : [{
+            railroad: data.railroad,
+            trainNumber: data.trainNumber,
+            originStationId: data.originStationId,
+            originName: data.originName,
+            destStationId: data.destStationId,
+            destName: data.destName,
+            departTime: data.startTime,
+            arriveTime: data.endTime
+          }];
+      let any = false;
+      let firstDep = null;
+      let lastArr = null;
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        // Never overwrite existing actuals with guesses
+        if (seg.actualDepartTime && seg.actualArriveTime) {
+          if (!firstDep) firstDep = seg.actualDepartTime;
+          lastArr = seg.actualArriveTime;
+          continue;
+        }
+        const bag = await tripLoadActualStopsForSeg(seg);
+        if (!bag || !bag.stops) continue;
+        const sd = bag.serviceDate || (typeof tripServiceDateFromDepartLocal === 'function'
+          ? tripServiceDateFromDepartLocal(seg.departTime) : null);
+        const origin = tripMatchActualStop(bag.stops, seg.originStationId, seg.originName);
+        const dest = tripMatchActualStop(bag.stops, seg.destStationId, seg.destName);
+        let depIso = seg.actualDepartTime || null;
+        let arrIso = seg.actualArriveTime || null;
+        if (!depIso && origin && (origin.actual || origin.dep || origin.completed)) {
+          depIso = tripActualIsoFromStopEntry(origin, sd, true);
+        }
+        if (!arrIso && dest && (dest.actual || dest.arr || dest.completed)) {
+          arrIso = tripActualIsoFromStopEntry(dest, sd, false);
+        }
+        // Only accept if we got a real parseable instant
+        if (depIso && !seg.actualDepartTime) {
+          seg.actualDepartTime = depIso;
+          any = true;
+        }
+        if (arrIso && !seg.actualArriveTime) {
+          seg.actualArriveTime = arrIso;
+          any = true;
+        }
+        if (seg.actualDepartTime && !firstDep) firstDep = seg.actualDepartTime;
+        if (seg.actualArriveTime) lastArr = seg.actualArriveTime;
+      }
+      if (!any && data.actualDepartTime && data.actualArriveTime) return null;
+      if (!any && !firstDep && !lastArr) return null;
+      // If only summary lacked actuals but segments already had them from prior enrich
+      if (!any && (data.actualDepartTime || data.actualArriveTime)) return null;
+      if (!any) return null;
+      const patch = {
+        actualTimesEnrichedAt: new Date().toISOString(),
+        actualTimesSource: 'live-stop-actuals'
+      };
+      if (firstDep && !data.actualDepartTime) patch.actualDepartTime = firstDep;
+      if (lastArr && !data.actualArriveTime) patch.actualArriveTime = lastArr;
+      if (Array.isArray(data.segments) && data.segments.length) {
+        patch.segments = segs;
+      }
+      return patch;
+    }
+
+    async function tripTryEnrichActualTimes(tripId, data) {
+      if (!tripId || !data || !db) return false;
+      if (data.actualTimesEnrichedAt && data.actualDepartTime && data.actualArriveTime) return false;
+      if (!tripHasEndedForEnrich(data) && tripIsInProgressLight(data)) return false;
+      // Allow enrich when ended OR when open detail of a trip past its arrive window
+      if (tripIsInProgressLight(data)) return false;
+      if (!tripHasEndedForEnrich(data)) {
+        // Also allow if end is missing but start was recent and not upcoming
+        const start = tripStartMs(data);
+        if (!start || Date.now() - start > TRIP_ENRICH_LOOKBACK_MS || tripIsUpcoming(data)) return false;
+      }
+      if (tripEnrichInFlight[tripId]) return false;
+      tripEnrichInFlight[tripId] = true;
+      try {
+        const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (!user) return false;
+        const patch = await tripBuildActualPatch(data);
+        if (!patch) return false;
+        // Only persist real actuals — never overwrite user-entered scheduled times
+        await db.collection('tripLogs').doc(tripId).set(patch, { merge: true });
+        const merged = Object.assign({}, data, patch);
+        tripLogDataById[tripId] = merged;
+        const rowEl = document.querySelector('.trip-log-row[data-trip-id="' + tripId + '"]');
+        if (rowEl) tripPaintCardActual(rowEl, merged);
+        if (tripDetailOpenId === tripId) tripPaintDetailActual(merged);
+        return true;
+      } catch (e) {
+        console.warn('[trip-enrich] actual times failed', e && e.message);
+        return false;
+      } finally {
+        delete tripEnrichInFlight[tripId];
+      }
+    }
+
+    function tripEnrichRecentCompletedTrips() {
+      const ids = Object.keys(tripLogDataById || {});
+      let n = 0;
+      ids.forEach(function(id) {
+        if (n >= 6) return;
+        const data = tripLogDataById[id];
+        if (!data) return;
+        if (data.actualTimesEnrichedAt && data.actualDepartTime) return;
+        if (!tripHasEndedForEnrich(data)) return;
+        n += 1;
+        tripTryEnrichActualTimes(id, data);
+      });
     }
 
     
@@ -13136,6 +13653,8 @@ function closeTripDetailView(opts) {
             '<span class="trip-log-row-miles"></span>' +
             '<span class="trip-log-row-stock" hidden></span>' +
           '</div>' +
+          '<div class="trip-log-row-live" hidden></div>' +
+          '<div class="trip-log-row-actual" hidden></div>' +
           chipsHtml +
           '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>';
         row.querySelector('.trip-log-row-route').innerHTML = route;
@@ -13168,6 +13687,7 @@ function closeTripDetailView(opts) {
             relEl.textContent = '';
           }
         }
+        try { tripPaintCardActual(row, data); } catch (_) {}
         if (tripIsUpcoming(data)) { upcomingRows.appendChild(row); upcomingCount++; } else { pastRows.appendChild(row); pastCount++; };
         try {
           const mapEl = row.querySelector('.trip-log-row-map');
@@ -13187,6 +13707,8 @@ function closeTripDetailView(opts) {
       }
       if (sections && sections.upcoming) sections.upcoming.hidden = !(upcomingRows && upcomingRows.querySelector('.trip-log-row'));
       if (sections && sections.past) sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'));
+      try { startTripListLivePoll(); } catch (_) {}
+      try { tripEnrichRecentCompletedTrips(); } catch (_) {}
     }
 
     async function loadTripLogList(reset) {
@@ -22005,6 +22527,7 @@ function closeTripDetailView(opts) {
               routeName: t.routeName || 'MBTA', trainNum: tripNum || '—', dest: t.destination || '—',
               vehicleLabel: vid, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
               statusClass: st.statusClass, statusText: st.statusText,
+              delayMinutes: (t.delayMinutes != null ? Number(t.delayMinutes) : null),
               hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
               matchFields: [vid, t.tripId, tripNum, t.routeName, t.destination]
             });
