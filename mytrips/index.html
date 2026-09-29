@@ -15370,54 +15370,53 @@ function closeTripDetailView(opts) {
       }
     }
     function rrWireEarlyAuth() {
+      // rrAuthSafariItp: await LOCAL persistence before getRedirectResult; keep pending
+      // flag when redirect result is null so onAuthStateChanged can still win the race.
       if (!auth || rrEarlyAuthWired) return;
       rrEarlyAuthWired = true;
-      try {
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function() {});
-      } catch (_) {}
-      try {
-        auth.getRedirectResult().then(function(cred) {
-          if (cred && cred.user) {
-            rrMarkAuthResolved(cred.user);
-            if (typeof upsertAccountMirror === 'function') {
-              upsertAccountMirror(cred.user).catch(function() {});
+      const rrStartEarlyAuthHooks = function() {
+        try {
+          auth.getRedirectResult().then(function(cred) {
+            if (cred && cred.user) {
+              rrMarkAuthResolved(cred.user);
+              if (typeof upsertAccountMirror === 'function') {
+                upsertAccountMirror(cred.user).catch(function() {});
+              }
+              try {
+                if (typeof logUserAction === 'function') {
+                  logUserAction('sign_in', 'Signed in with Google (redirect)', cred.user);
+                }
+              } catch (_) {}
+              try { if (typeof showNotification === 'function') showNotification('Signed in with Google'); } catch (_) {}
+              rrSyncMyTripsAuthGate(cred.user);
+              return;
             }
+            // No redirect cred. Do NOT clear rrAuthRedirect yet — Safari/ITP often
+            // returns null here while auth may still hydrate via onAuthStateChanged.
+            // Failsafe below clears pending if still unsigned-in.
+          }).catch(function(e) {
+            console.warn('[Auth] early redirect result', e);
             try {
-              if (typeof logUserAction === 'function') {
-                logUserAction('sign_in', 'Signed in with Google (redirect)', cred.user);
+              if (e && (e.code || e.message) && typeof showNotification === 'function') {
+                showNotification('Sign-in redirect failed: ' + (e.message || e.code), 'error');
               }
             } catch (_) {}
-            try { if (typeof showNotification === 'function') showNotification('Signed in with Google'); } catch (_) {}
-            rrSyncMyTripsAuthGate(cred.user);
-            return;
-          }
-          // No redirect cred — clear pending flag so guest can show if still signed out.
-          try {
-            if (sessionStorage.getItem('rrAuthRedirect') === '1') {
-              sessionStorage.removeItem('rrAuthRedirect');
-              if (rrAuthResolved && !(auth && auth.currentUser) && !currentUser) {
-                rrSyncMyTripsAuthGate(null);
-              }
-            }
-          } catch (_) {}
-        }).catch(function(e) {
-          console.warn('[Auth] early redirect result', e);
-          try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
-          try {
-            if (e && (e.code || e.message) && typeof showNotification === 'function') {
-              showNotification('Sign-in redirect failed: ' + (e.message || e.code), 'error');
-            }
-          } catch (_) {}
-          try { rrSyncMyTripsAuthGate(currentUser || (auth && auth.currentUser) || null); } catch (_) {}
-        });
-      } catch (e) { console.warn('[Auth] early redirect hook', e); }
+            // Keep pending flag; failsafe / onAuthStateChanged decide guest vs signed-in.
+          });
+        } catch (e) { console.warn('[Auth] early redirect hook', e); }
+        try {
+          auth.onAuthStateChanged(function(user) {
+            rrMarkAuthResolved(user || null);
+            try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(user || null); } catch (_) {}
+            rrSyncMyTripsAuthGate(user || null);
+          });
+        } catch (e) { console.warn('[Auth] early auth listener', e); }
+      };
       try {
-        auth.onAuthStateChanged(function(user) {
-          rrMarkAuthResolved(user || null);
-          try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(user || null); } catch (_) {}
-          rrSyncMyTripsAuthGate(user || null);
-        });
-      } catch (e) { console.warn('[Auth] early auth listener', e); }
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+          .then(rrStartEarlyAuthHooks)
+          .catch(function() { rrStartEarlyAuthHooks(); });
+      } catch (_) { rrStartEarlyAuthHooks(); }
     }
     try {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
@@ -15442,8 +15441,13 @@ function closeTripDetailView(opts) {
             sessionStorage.removeItem('rrAuthRedirect');
             rrAuthResolved = true;
             rrSyncMyTripsAuthGate(null);
+            try {
+              if (typeof showNotification === 'function') {
+                showNotification('Sign-in did not complete. On Safari, allow popups and try Get Started again.', 'error');
+              }
+            } catch (_) {}
           } catch (_) {}
-        }, 12000);
+        }, 20000);
       } else if (auth) {
         // Still process redirect on non-mytrips pages ASAP
         rrWireEarlyAuth();
@@ -15592,10 +15596,25 @@ function closeTripDetailView(opts) {
     }
 
     
-    function rrPreferRedirectSignIn() {
+    function rrIsSafariAuthRedirectBroken() {
+      // Cross-origin authDomain (*.firebaseapp.com) + Safari/iOS ITP blocks the
+      // storage handoff that getRedirectResult needs. Prefer popup (Firebase Option 2).
+      // Marker: rrAuthSafariItp
       try {
         const ua = navigator.userAgent || '';
-        return /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(ua);
+        const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIOS) return true;
+        const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|Android/i.test(ua);
+        return !!isSafari;
+      } catch (_) { return false; }
+    }
+    function rrPreferRedirectSignIn() {
+      try {
+        // Safari / iOS: redirect is broken without same-origin /__/auth proxy.
+        if (rrIsSafariAuthRedirectBroken()) return false;
+        const ua = navigator.userAgent || '';
+        return /Android|Mobile|webOS/i.test(ua);
       } catch (_) { return false; }
     }
     let rrSignInBusy = false;
@@ -15613,6 +15632,9 @@ function closeTripDetailView(opts) {
           try {
             const btn = document.getElementById('mytrips-guest-signin');
             if (btn) btn.textContent = 'Signing in…';
+          } catch (_) {}
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
           } catch (_) {}
           await auth.signInWithRedirect(provider);
         };
@@ -15632,6 +15654,15 @@ function closeTripDetailView(opts) {
         } catch (popupErr) {
           const code = popupErr && popupErr.code;
           if (code === 'auth/popup-blocked') {
+            if (rrIsSafariAuthRedirectBroken()) {
+              // Redirect fallback would silently fail on Safari/iOS (ITP + cross-origin authDomain).
+              showNotification('Allow popups for railroadradar.com, then tap Get Started again.', 'error');
+              try {
+                const btn = document.getElementById('mytrips-guest-signin');
+                if (btn) btn.textContent = 'Get Started';
+              } catch (_) {}
+              return;
+            }
             showNotification('Popup blocked — redirecting to Google sign-in…');
             await beginRedirect();
             return;
