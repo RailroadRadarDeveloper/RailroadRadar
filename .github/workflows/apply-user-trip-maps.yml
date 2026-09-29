@@ -18,15 +18,30 @@ jobs:
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import base64, gzip, hashlib, pathlib, glob, re
+          import base64, gzip, hashlib, pathlib
           expected = "0c0465f4f94eba8da267fa08e8d96c19fa1f8fb6497f12b246b69937cbb0328b"
           expected_raw = "91075cfaa9c5fbf583c5a34e4e798b5ec5efba313160bf130740b8420bd78aa7"
-          megas = sorted(glob.glob('scripts/user-trip-maps.patch.gz.b64.mega*'),
-                         key=lambda p: int(re.search(r'mega(\d+)', p).group(1)))
-          if not megas:
-            raise SystemExit('no mega parts')
-          blob = ''.join(pathlib.Path(p).read_text().strip() for p in megas)
-          print('megas', len(megas), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
+          parts = []
+          for i in range(1, 11):
+            a = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}a.hex')
+            b = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}b.hex')
+            hx = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}.hex')
+            tx = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}')
+            if a.exists() and b.exists():
+              blob_i = bytes.fromhex((a.read_text()+b.read_text()).replace('\n','').replace(' ','')).decode('ascii')
+              src = 'ab.hex'
+            elif hx.exists():
+              blob_i = bytes.fromhex(hx.read_text().strip()).decode('ascii')
+              src = 'hex'
+            elif tx.exists():
+              blob_i = tx.read_text().strip()
+              src = 'text'
+            else:
+              raise SystemExit(f'missing mega{i}')
+            parts.append(blob_i)
+            print(f'mega{i} from {src}', len(blob_i))
+          blob = ''.join(parts)
+          print('megas', len(parts), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
           h = hashlib.sha256(blob.encode()).hexdigest()
           if h != expected:
             raise SystemExit(f'full hash mismatch: {h}')
