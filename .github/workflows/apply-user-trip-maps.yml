@@ -3,8 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'scripts/user-trip-maps.patch.gz.b64'
-      - 'scripts/user-trip-maps.patch.gz.b64.part*'
+      - 'scripts/user-trip-maps.patch.gz.b64.mega*'
       - '.github/workflows/apply-user-trip-maps.yml'
 permissions:
   contents: write
@@ -15,32 +14,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Assemble user/index.html from gzip+b64
+      - name: Assemble from mega parts and publish user/index.html
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import base64, gzip, hashlib, pathlib, glob
+          import base64, gzip, hashlib, pathlib, glob, re
           expected = "0c0465f4f94eba8da267fa08e8d96c19fa1f8fb6497f12b246b69937cbb0328b"
           expected_raw = "91075cfaa9c5fbf583c5a34e4e798b5ec5efba313160bf130740b8420bd78aa7"
-          part_paths = sorted(
-              [p for p in glob.glob('scripts/user-trip-maps.patch.gz.b64.part*')],
-              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
-          )
-          blob = None
-          if part_paths:
-            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
-            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
-          single = pathlib.Path('scripts/user-trip-maps.patch.gz.b64')
-          if single.exists():
-            sblob = single.read_text().strip()
-            if blob is None:
-              blob = sblob
-              print('using single b64', len(blob))
-            elif hashlib.sha256(sblob.encode()).hexdigest() == expected:
-              blob = sblob
-              print('preferring verified single b64', len(blob))
-          if not blob:
-            raise SystemExit('no user-trip-maps b64 found')
+          megas = sorted(glob.glob('scripts/user-trip-maps.patch.gz.b64.mega*'),
+                         key=lambda p: int(re.search(r'mega(\d+)', p).group(1)))
+          if not megas:
+            raise SystemExit('no mega parts')
+          blob = ''.join(pathlib.Path(p).read_text().strip() for p in megas)
+          print('megas', len(megas), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
           h = hashlib.sha256(blob.encode()).hexdigest()
           if h != expected:
             raise SystemExit(f'full hash mismatch: {h}')
@@ -48,27 +34,18 @@ jobs:
           if hashlib.sha256(raw).hexdigest() != expected_raw:
             raise SystemExit('raw hash mismatch')
           text = raw.decode('utf-8')
-          for marker in [
-            'Public profile trip maps',
-            'rrTripMapTileUrl',
-            'AMTRAK_TRIP_STATIONS',
-            'MNR_TRIP_STATIONS',
-            'findTripStation',
-            'paintTripLogMiniMap',
-            'hiddenPublic',
-            'Public user profile page',
-            'northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7',
-          ]:
+          for marker in ['Public profile trip maps','rrTripMapTileUrl','AMTRAK_TRIP_STATIONS','MNR_TRIP_STATIONS','findTripStation','paintTripLogMiniMap','hiddenPublic','Public user profile page','northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7']:
             if marker not in text:
-              raise SystemExit('missing marker: ' + marker)
+              raise SystemExit('missing marker: '+marker)
           pathlib.Path('user').mkdir(exist_ok=True)
           pathlib.Path('user/index.html').write_bytes(raw)
-          print('ok user/index.html', len(raw))
+          pathlib.Path('scripts/user-trip-maps.patch.gz.b64').write_text(blob)
+          print('ok', len(raw))
           PY
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
-          git add user/index.html
-          if git diff --cached --quiet; then echo nothing to commit
+          git add user/index.html scripts/user-trip-maps.patch.gz.b64
+          if git diff --cached --quiet; then echo nothing
           else
             git commit -m "Fix: public profile trip card maps (station catalogs + Mapbox tiles)"
             git pull --rebase origin main || true
