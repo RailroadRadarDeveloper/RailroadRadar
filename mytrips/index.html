@@ -5809,7 +5809,7 @@
   </style>
     
                                 <style id="rr-popup-zoom">
-    /* rr-ui-fix-2026-09-28d: restore stops list min-height (fix mobile flex collapse) */
+    /* rr-ui-fix-2026-09-28e: train-popup-body scrolls so stops not clipped below fold */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
@@ -5866,9 +5866,19 @@
     .train-popup-body {
       flex: 1 1 auto !important;
       min-height: 0 !important;
-      overflow: hidden !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important; /* 28e: scroll to stops; was overflow:hidden clipping list */
       display: flex !important;
       flex-direction: column !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .train-popup-body > .quick-status,
+    .train-popup-body > .info-grid,
+    .train-popup-body > .meta-row,
+    .train-popup-body > .alert-banner,
+    .train-popup-body > .loco-report-block,
+    .train-popup-body > .report-loco-row {
+      flex-shrink: 0 !important;
     }
     .train-popup-footer {
       flex-shrink: 0 !important;
@@ -5896,20 +5906,22 @@
     .info-item, .info-label, .info-value, .quick-status { font-size: 12px !important; }
     .stops-wrapper {
       flex: 1 1 auto !important;
-      min-height: min(180px, 30vh) !important;
+      flex-shrink: 0 !important; /* never collapse under alert/report */
+      min-height: 180px !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
       margin-top: 8px !important;
     }
-    .upcoming-stops { flex: 1 1 auto; min-height: min(180px, 30vh); display: flex; flex-direction: column; overflow: hidden; }
+    .upcoming-stops { flex: 1 1 auto; flex-shrink: 0; min-height: 180px; display: flex; flex-direction: column; overflow: hidden; }
     .upcoming-stops h4 { font-size: 12px !important; margin: 4px 0 8px !important; flex-shrink: 0; color: #07093e; font-weight: 700; }
     .stops-list, .departures-list {
       max-height: 220px !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
-      min-height: min(180px, 30vh) !important;
+      min-height: 180px !important;
       flex: 1 1 auto !important;
+      flex-shrink: 0 !important;
       padding: 0 8px 6px 0 !important;
       scrollbar-gutter: stable;
       scrollbar-width: thin;
@@ -6023,16 +6035,27 @@
       .train-popup-body { padding: 8px 12px !important; }
       .train-popup-footer { padding: 8px 10px !important; gap: 6px !important; }
       .info-grid { gap: 6px 8px !important; margin-bottom: 8px !important; }
-      /* Keep stops/departures visible: real min-height so flex cannot collapse to 0 */
+      /* 28e: body scrolls; keep stops block non-collapsing + visible min height */
+      .train-popup-body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+      }
+      .loco-report-block,
+      .alert-banner {
+        max-height: 72px !important;
+        overflow: hidden !important;
+      }
       .stops-wrapper,
       .upcoming-stops {
-        min-height: min(180px, 30vh) !important;
+        min-height: 160px !important;
         flex: 1 1 auto !important;
+        flex-shrink: 0 !important;
       }
       .stops-list, .departures-list {
-        min-height: min(180px, 30vh) !important;
-        max-height: min(200px, 36vh) !important;
+        min-height: 160px !important;
+        max-height: min(220px, 40vh) !important;
         flex: 1 1 auto !important;
+        flex-shrink: 0 !important;
         overflow-y: auto !important;
       }
       .train-popup button, .station-popup button, .popup-action-btn,
