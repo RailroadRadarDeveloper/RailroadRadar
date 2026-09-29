@@ -12635,12 +12635,13 @@ function closeTripDetailView(opts) {
     }
 
     async function loadTripLogStatsFromServer() {
-      if (!db || !currentUser) {
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!db || !user) {
         paintTripLogStats(tripLogEmptyStats());
         return tripLogEmptyStats();
       }
       try {
-        const snap = await db.collection('userSettings').doc(currentUser.uid).get();
+        const snap = await db.collection('userSettings').doc(user.uid).get();
         const data = snap.exists ? (snap.data() || {}) : {};
         const stats = normalizeTripLogStats(data.tripLogStats);
         paintTripLogStats(stats);
@@ -13126,7 +13127,8 @@ function closeTripDetailView(opts) {
     async function loadTripLogList(reset) {
       const status = document.getElementById('trip-log-list-status');
       const moreBtn = document.getElementById('trip-log-load-more');
-      if (!db || !currentUser) {
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!db || !user) {
         if (status) status.textContent = 'Sign in to view trips.';
         return;
       }
@@ -13145,7 +13147,7 @@ function closeTripDetailView(opts) {
           setTripLogSkeletons(true);
         }
         let q = db.collection('tripLogs')
-          .where('userId', '==', currentUser.uid)
+          .where('userId', '==', user.uid)
           .orderBy('startTime', 'desc')
           .limit(TRIP_LOG_PAGE_SIZE);
         if (!reset && tripLogLastDoc) q = q.startAfter(tripLogLastDoc);
@@ -13501,6 +13503,17 @@ function closeTripDetailView(opts) {
       renderTripSegmentsForm();
       if (typeof showNotification === 'function') showNotification('Trip form prefilled from live train');
     };
+
+    function rrAuthUser() {
+      try {
+        if (currentUser) return currentUser;
+        if (typeof auth !== 'undefined' && auth && auth.currentUser) {
+          currentUser = auth.currentUser;
+          return currentUser;
+        }
+      } catch (_) {}
+      return null;
+    }
 
     async function openTripLogModal(e, opts) {
       opts = opts || {};
