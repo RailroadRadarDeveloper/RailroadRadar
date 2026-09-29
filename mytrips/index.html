@@ -5809,7 +5809,7 @@
   </style>
     
                                 <style id="rr-popup-zoom">
-    /* rr-ui-fix-2026-09-28f: smaller stop-row type/padding so list fits without crowding; keep 28e body scroll */
+    /* rr-ui-fix-2026-09-28g: hide Departed/passed stop-status pill; keep checkmark + upcoming On time/late/scheduled */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
@@ -6137,7 +6137,7 @@
     .rr-rail-picker-actions { flex-shrink: 0 !important; }
   </style>
     <style id="rr-stop-status-fix">
-    /* rr-ui-fix-2026-09-28b: stop row grid + readable Departed; 28f tighter cols */
+    /* rr-ui-fix-2026-09-28b: stop row grid; 28f tighter cols; 28g omit Departed pill in JS */
     .stops-list li {
       display: grid !important;
       grid-template-columns: 58px minmax(0, 1fr) max-content;
@@ -17989,33 +17989,28 @@ function closeTripDetailView(opts) {
             const actual = stop.formattedActualTime || '';
             let cls = 'status-on-time';
             let disp = 'On time';
-            if (stop.isCompleted) {
-              // Past stops: left column shows actual/schedule time; badge always Departed (+ delay if late)
+            // 28g: completed/passed stops — no Departed (or late-Departed) status pill; checkmark stays
+            let statusHtml = '';
+            if (stop.isCompleted || stop.formattedActualTime) {
               cls = 'status-passed';
-              if (stop.delayMinutes > 15) {
-                cls = 'status-very-delayed';
-                disp = 'Departed · ' + Math.round(stop.delayMinutes) + 'm late';
-              } else if (stop.delayMinutes > 5) {
-                cls = 'status-delayed';
-                disp = 'Departed · ' + Math.round(stop.delayMinutes) + 'm late';
-              } else {
-                disp = 'Departed';
-              }
-            } else if (stop.formattedActualTime) {
-              cls = 'status-passed';
-              disp = 'Departed';
+              disp = '';
+              statusHtml = '';
             } else if (!stop.predictedTime) {
               cls = 'status-scheduled';
               disp = 'Scheduled';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             } else if (stop.delayMinutes > 15) {
               cls = 'status-very-delayed';
               disp = pred ? pred : 'Delayed';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             } else if (stop.delayMinutes > 5) {
               cls = 'status-delayed';
               disp = pred ? pred : 'Delayed';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             } else {
               cls = 'status-on-time';
               disp = 'On time';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             }
             const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
             const done = stop.isCompleted ? `<img src="https://i.postimg.cc/wBWNG26K/Completed.png" class="checkmark">` : '';
@@ -18033,7 +18028,7 @@ function closeTripDetailView(opts) {
             const leftTime = stop.isCompleted
               ? (stop.formattedActualTime || stop.formattedPredictedTime || stop.formattedScheduledTime)
               : (stop.formattedScheduledTime || stop.formattedPredictedTime || '');
-            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span><span class="stop-status ${cls}">${disp}</span></li>`;
+            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
           }).join('')
         }</ul></div>`;
       }
