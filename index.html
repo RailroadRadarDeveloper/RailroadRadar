@@ -3120,6 +3120,45 @@
       margin-top: 0;
       text-transform: none;
     }
+    html.rr-mytrips-page .trip-nearby-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 12px;
+      margin: 10px 0 4px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(7, 9, 62, 0.12);
+      background: linear-gradient(180deg, #f7f9ff 0%, #eef3ff 100%);
+      box-shadow: 0 1px 2px rgba(7, 9, 62, 0.06);
+    }
+    html.rr-mytrips-page .trip-nearby-banner[hidden] { display: none !important; }
+    html.rr-mytrips-page .trip-nearby-banner-text {
+      flex: 1 1 220px;
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.35;
+      color: #07093e;
+      font-weight: 600;
+    }
+    html.rr-mytrips-page .trip-nearby-banner-meta {
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #5a6270;
+    }
+    html.rr-mytrips-page .trip-nearby-banner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    html.rr-mytrips-page .trip-nearby-banner-actions .rr-btn {
+      min-height: 36px;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
     html.rr-mytrips-page .trip-log-approx-note {
       display: none; /* quieter on page; form still shows miles preview */
     }
@@ -6583,6 +6622,13 @@
             </div>
           </div>
           <p class="trip-log-approx-note">Miles are great-circle estimates from station coordinates (approximate).</p>
+          <div id="trip-nearby-banner" class="trip-nearby-banner" data-rr-nearby-trip="1" hidden aria-live="polite">
+            <p class="trip-nearby-banner-text" id="trip-nearby-banner-text"></p>
+            <div class="trip-nearby-banner-actions">
+              <button type="button" class="rr-btn" id="trip-nearby-log">Log this trip</button>
+              <button type="button" class="rr-btn secondary" id="trip-nearby-dismiss">Not now</button>
+            </div>
+          </div>
         </div>
         <div class="trip-log-tabs" role="tablist">
           <button type="button" class="trip-log-tab active" data-trip-tab="log" id="trip-tab-log">Log a trip</button>
@@ -13558,6 +13604,11 @@ function closeTripDetailView(opts) {
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
       await loadTripLogStatsFromServer();
+      try {
+        if (typeof window.rrStartMyTripsNearbyPrompt === 'function') {
+          window.rrStartMyTripsNearbyPrompt();
+        }
+      } catch (_) {}
     }
 
     function closeTripLogModal() {
@@ -24873,13 +24924,21 @@ function closeTripDetailView(opts) {
           map.setView([userLat, userLng], 13);
         }
         renderClosestTrains(userLat, userLng);
+        try {
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+            rrEvaluateNearbyTripPrompt(userLat, userLng);
+          }
+        } catch (_) {}
       }
       function onUserLocationError(err) {
         const statusEl = document.getElementById('location-status');
         const btn = document.getElementById('location-btn');
         if (btn) { btn.disabled = false; btn.textContent = 'Show My Location'; }
         let msg = 'Could not get location.';
-        if (err.code === 1) msg = 'Location permission denied. Tap the button to try again.';
+        if (err.code === 1) {
+          msg = 'Location permission denied. Tap the button to try again.';
+          try { rrNearbyGeoDenied = true; } catch (_) {}
+        }
         else if (err.code === 2) msg = 'Location unavailable.';
         else if (err.code === 3) msg = 'Location request timed out.';
         if (statusEl) statusEl.textContent = msg;
@@ -25375,8 +25434,287 @@ function closeTripDetailView(opts) {
       });
       window.addEventListener('offline', updateOnlineStatus);
       updateOnlineStatus();
+      // ==================== MyTrips nearby live train prompt ====================
+      // "Very close" ≈ 200 m (~0.124 mi). Suggest at most the closest train.
+      const RR_NEARBY_TRIP_MILES = 200 / 1609.344;
+      let rrNearbyDismissedKey = '';
+      let rrNearbyAskedGeo = false;
+      let rrNearbyGeoDenied = false;
+      let rrNearbyCurrent = null;
+      let rrNearbyRetryTimer = null;
+      let rrNearbyWired = false;
+
+      function rrCollectLiveVehiclesForNearby() {
+        const out = [];
+        function pushAgency(agency, mapObj, pick) {
+          if (!mapObj) return;
+          Object.keys(mapObj).forEach(function(vid) {
+            const t = mapObj[vid];
+            if (!t) return;
+            const lat = (t.lat != null) ? Number(t.lat) : NaN;
+            const lng = (t.lng != null) ? Number(t.lng) : ((t.lon != null) ? Number(t.lon) : NaN);
+            if (!isFinite(lat) || !isFinite(lng)) return;
+            const picked = pick(t, vid) || {};
+            out.push({
+              agency: agency,
+              vid: String(vid),
+              lat: lat,
+              lng: lng,
+              trainNumber: String(picked.trainNumber || '').trim(),
+              routeName: String(picked.routeName || '').trim(),
+              routeId: String(picked.routeId || '').trim(),
+              destName: String(picked.destName || '').trim()
+            });
+          });
+        }
+        try {
+          pushAgency('mbta', typeof trainInfo !== 'undefined' ? trainInfo : null, function(t, vid) {
+            let num = '';
+            try {
+              if (typeof extractTrainNumber === 'function') num = extractTrainNumber(t.tripId) || '';
+            } catch (_) {}
+            return {
+              trainNumber: num || String(vid || ''),
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destination || ''
+            };
+          });
+          pushAgency('amtrak', typeof amtrakTrainInfo !== 'undefined' ? amtrakTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || t.trainNumRaw || '',
+              routeName: t.routeName || '',
+              routeId: '',
+              destName: t.destName || t.destCode || ''
+            };
+          });
+          pushAgency('mnr', typeof mnrTrainInfo !== 'undefined' ? mnrTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('lirr', typeof lirrTrainInfo !== 'undefined' ? lirrTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('metra', typeof metraTrainInfo !== 'undefined' ? metraTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('njt', typeof njtTrainInfo !== 'undefined' ? njtTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('marc', typeof marcTrainInfo !== 'undefined' ? marcTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+        } catch (e) {
+          console.warn('[mytrips-nearby] collect failed', e);
+        }
+        return out;
+      }
+
+      function rrNearbyVehicleKey(v) {
+        if (!v) return '';
+        return String(v.agency || '') + ':' + String(v.vid || '') + ':' + String(v.trainNumber || '');
+      }
+
+      function rrFindClosestLiveVehicle(lat, lng) {
+        const vehicles = rrCollectLiveVehiclesForNearby();
+        let best = null;
+        for (let i = 0; i < vehicles.length; i++) {
+          const v = vehicles[i];
+          const d = haversine(lat, lng, v.lat, v.lng);
+          if (!(d >= 0) || d > RR_NEARBY_TRIP_MILES) continue;
+          if (!best || d < best.distanceMiles) {
+            best = Object.assign({}, v, { distanceMiles: d });
+          }
+        }
+        return best;
+      }
+
+      function rrNearbyRailLabel(agency) {
+        try {
+          if (typeof TRIP_LOG_RAIL_LABELS !== 'undefined' && TRIP_LOG_RAIL_LABELS[agency]) {
+            return TRIP_LOG_RAIL_LABELS[agency];
+          }
+        } catch (_) {}
+        const fallback = {
+          mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
+          metra: 'Metra', njt: 'NJ Transit', marc: 'MARC', ctrail: 'CTrail'
+        };
+        return fallback[agency] || String(agency || 'Railroad');
+      }
+
+      function rrNearbyPromptHtml(v) {
+        const rail = rrNearbyRailLabel(v.agency);
+        const line = v.routeName || 'Line';
+        const train = v.trainNumber || v.vid || '?';
+        const distFt = Math.round((v.distanceMiles || 0) * 5280);
+        const distLabel = distFt < 1000 ? (distFt + ' ft away') : ((v.distanceMiles || 0).toFixed(2) + ' mi away');
+        return 'Are you traveling on ' + rail + ', ' + line + ', train ' + train + '?' +
+          '<span class="trip-nearby-banner-meta">' + distLabel + (v.destName ? (' · to ' + v.destName) : '') + '</span>';
+      }
+
+      function rrHideNearbyTripBanner() {
+        const el = document.getElementById('trip-nearby-banner');
+        if (el) el.hidden = true;
+        rrNearbyCurrent = null;
+      }
+
+      function rrShowNearbyTripBanner(v) {
+        const el = document.getElementById('trip-nearby-banner');
+        const text = document.getElementById('trip-nearby-banner-text');
+        if (!el || !text || !v) return;
+        rrNearbyCurrent = v;
+        text.innerHTML = rrNearbyPromptHtml(v);
+        el.hidden = false;
+      }
+
+      function rrWireNearbyTripBanner() {
+        if (rrNearbyWired) return;
+        rrNearbyWired = true;
+        const logBtn = document.getElementById('trip-nearby-log');
+        const dismissBtn = document.getElementById('trip-nearby-dismiss');
+        if (logBtn) {
+          logBtn.addEventListener('click', function() {
+            const v = rrNearbyCurrent;
+            if (!v) return;
+            rrNearbyDismissedKey = rrNearbyVehicleKey(v);
+            rrHideNearbyTripBanner();
+            try {
+              if (typeof window.logTripFromLive === 'function') {
+                window.logTripFromLive(v.agency, v.vid, v.trainNumber);
+              } else if (typeof window.applyTripLogFromLive === 'function') {
+                window.applyTripLogFromLive({
+                  railroad: v.agency,
+                  agency: v.agency,
+                  trainNumber: v.trainNumber,
+                  vehicleId: v.vid,
+                  lineName: v.routeName,
+                  routeName: v.routeName,
+                  lineId: v.routeId,
+                  destName: v.destName
+                });
+              }
+            } catch (e) {
+              console.warn('[mytrips-nearby] log failed', e);
+            }
+          });
+        }
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', function() {
+            if (rrNearbyCurrent) rrNearbyDismissedKey = rrNearbyVehicleKey(rrNearbyCurrent);
+            rrHideNearbyTripBanner();
+          });
+        }
+      }
+
+      function rrEvaluateNearbyTripPrompt(lat, lng) {
+        try {
+          if (typeof rrIsMyTripsPage !== 'function' || !rrIsMyTripsPage()) return;
+          const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+          if (!user) { rrHideNearbyTripBanner(); return; }
+          if (document.documentElement.classList.contains('rr-mytrips-guest')) {
+            rrHideNearbyTripBanner();
+            return;
+          }
+          rrWireNearbyTripBanner();
+          const best = rrFindClosestLiveVehicle(lat, lng);
+          if (!best) {
+            rrHideNearbyTripBanner();
+            return;
+          }
+          const key = rrNearbyVehicleKey(best);
+          if (key && key === rrNearbyDismissedKey) return;
+          rrShowNearbyTripBanner(best);
+        } catch (e) {
+          console.warn('[mytrips-nearby] evaluate failed', e);
+        }
+      }
+
+      function rrScheduleNearbyRetries(lat, lng) {
+        if (rrNearbyRetryTimer) {
+          try { clearInterval(rrNearbyRetryTimer); } catch (_) {}
+          rrNearbyRetryTimer = null;
+        }
+        let tries = 0;
+        rrNearbyRetryTimer = setInterval(function() {
+          tries++;
+          rrEvaluateNearbyTripPrompt(lat, lng);
+          if (tries >= 8 || (rrNearbyCurrent && !document.getElementById('trip-nearby-banner').hidden)) {
+            try { clearInterval(rrNearbyRetryTimer); } catch (_) {}
+            rrNearbyRetryTimer = null;
+          }
+        }, 4000);
+      }
+
+      window.rrStartMyTripsNearbyPrompt = function() {
+        try {
+          if (typeof rrIsMyTripsPage !== 'function' || !rrIsMyTripsPage()) return;
+          const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+          if (!user) return;
+          if (rrNearbyGeoDenied) return;
+          rrWireNearbyTripBanner();
+          const runWith = function(lat, lng) {
+            rrEvaluateNearbyTripPrompt(lat, lng);
+            rrScheduleNearbyRetries(lat, lng);
+          };
+          if (userLat != null && userLng != null) {
+            runWith(userLat, userLng);
+            return;
+          }
+          if (!navigator.geolocation) return;
+          if (rrNearbyAskedGeo) return;
+          rrNearbyAskedGeo = true;
+          navigator.geolocation.getCurrentPosition(
+            function(pos) {
+              try {
+                userLat = pos.coords.latitude;
+                userLng = pos.coords.longitude;
+              } catch (_) {}
+              runWith(pos.coords.latitude, pos.coords.longitude);
+            },
+            function(err) {
+              if (err && err.code === 1) rrNearbyGeoDenied = true;
+              // Do not loop on denial / errors.
+            },
+            { enableHighAccuracy: true, maximumAge: 60000, timeout: 12000 }
+          );
+        } catch (e) {
+          console.warn('[mytrips-nearby] start failed', e);
+        }
+      };
+
       // Ask for location as soon as the map is ready; track movement continuously
       startLocationWatch();
+      try {
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+          setTimeout(function() {
+            if (typeof window.rrStartMyTripsNearbyPrompt === 'function') window.rrStartMyTripsNearbyPrompt();
+          }, 1200);
+        }
+      } catch (_) {}
     });
     // Legacy email/password/2FA/account-settings code removed — Google Sign up / Log in only.
 
