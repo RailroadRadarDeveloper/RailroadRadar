@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Decode patch, apply, publish mytrips
         run: |
           set -euo pipefail
@@ -61,5 +63,6 @@ jobs:
           if git diff --cached --quiet; then echo nothing to commit
           else
             git commit -m "UI: train popup body scrolls so stops list is not clipped (28e)"
+            git pull --rebase origin main
             git push
           fi
