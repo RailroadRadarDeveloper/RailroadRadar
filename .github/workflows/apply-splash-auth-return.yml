@@ -1,0 +1,78 @@
+name: Apply splash auth return fix
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/splash-auth-return.patch.gz.b64'
+      - 'scripts/splash-auth-return.patch.gz.b64.part*'
+      - '.github/workflows/apply-splash-auth-return.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "1a7fe7f08ca85317c54853b668b9c2a4e9d8d1eb97d6dc7c2a454ff6ce12db56"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/splash-auth-return.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest()[:16])
+          single = pathlib.Path('scripts/splash-auth-return.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/splash-auth-return.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/splash-auth-return.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rrWireEarlyAuth' in t
+          assert 'rrAuthResolved' in t
+          assert 'rrAuthRedirect' in t
+          assert 'rrSyncMyTripsAuthGate' in t
+          assert 'Signing in…' in t
+          assert 'early guest wire failed' in t
+          assert 'rrSignInBusy' in t
+          assert 'auth/popup-blocked' in t
+          assert 'function rrAuthUser' in t
+          assert 'rrStartMyTripsNearbyPrompt' in t
+          assert 'tripLogEditingId' in t
+          assert 'tripMbtaCanonicalStationId' in t
+          assert 'Looking for your train' in t
+          assert 'rrTripMapTileUrl' in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'rrWireEarlyAuth' in mt
+          assert 'rrAuthRedirect' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Fix: MyTrips splash stays guest after Google redirect (early auth gate)"
+            git pull --rebase origin main || true
+            git push
+          fi
