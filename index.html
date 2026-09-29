@@ -5809,7 +5809,7 @@
   </style>
     
                                 <style id="rr-popup-zoom">
-    /* rr-ui-fix-2026-09-28e: train-popup-body scrolls so stops not clipped below fold */
+    /* rr-ui-fix-2026-09-28f: smaller stop-row type/padding so list fits without crowding; keep 28e body scroll */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
@@ -5907,22 +5907,22 @@
     .stops-wrapper {
       flex: 1 1 auto !important;
       flex-shrink: 0 !important; /* never collapse under alert/report */
-      min-height: 180px !important;
+      min-height: 150px !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
-      margin-top: 8px !important;
+      margin-top: 6px !important;
     }
-    .upcoming-stops { flex: 1 1 auto; flex-shrink: 0; min-height: 180px; display: flex; flex-direction: column; overflow: hidden; }
-    .upcoming-stops h4 { font-size: 12px !important; margin: 4px 0 8px !important; flex-shrink: 0; color: #07093e; font-weight: 700; }
+    .upcoming-stops { flex: 1 1 auto; flex-shrink: 0; min-height: 150px; display: flex; flex-direction: column; overflow: hidden; }
+    .upcoming-stops h4 { font-size: 11px !important; margin: 2px 0 4px !important; flex-shrink: 0; color: #07093e; font-weight: 700; }
     .stops-list, .departures-list {
-      max-height: 220px !important;
+      max-height: 200px !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
-      min-height: 180px !important;
+      min-height: 150px !important;
       flex: 1 1 auto !important;
       flex-shrink: 0 !important;
-      padding: 0 8px 6px 0 !important;
+      padding: 0 6px 4px 0 !important;
       scrollbar-gutter: stable;
       scrollbar-width: thin;
       scrollbar-color: rgba(7,9,62,0.35) transparent;
@@ -5935,17 +5935,20 @@
       border-radius: 6px;
     }
     .stops-list li, .departures-list li {
-      padding: 6px 6px !important;
-      font-size: 12px !important;
-      gap: 6px !important;
+      padding: 3px 4px !important;
+      font-size: 11px !important;
+      gap: 4px !important;
+      line-height: 1.2 !important;
     }
     .stop-time, .stop-name, .stop-status, .departure-time, .track-badge,
     .departure-destination, .departure-status {
-      font-size: 12px !important;
+      font-size: 11px !important;
     }
-    .stop-mileage { font-size: 11px !important; }
-    .checkmark { width: 12px !important; height: 12px !important; }
-    .track-badge { padding: 2px 6px !important; }
+    .stop-time { min-width: 58px !important; font-size: 10.5px !important; }
+    .stop-status { font-size: 10px !important; padding: 1px 4px !important; }
+    .stop-mileage { font-size: 9.5px !important; }
+    .checkmark { width: 10px !important; height: 10px !important; }
+    .track-badge { padding: 1px 4px !important; font-size: 9.5px !important; }
     /* Readable Departed / passed badge (was pale grey + light text) */
     .stop-status.status-passed,
     .stops-list li .stop-status.status-passed {
@@ -6047,17 +6050,30 @@
       }
       .stops-wrapper,
       .upcoming-stops {
-        min-height: 160px !important;
+        min-height: 130px !important;
         flex: 1 1 auto !important;
         flex-shrink: 0 !important;
       }
       .stops-list, .departures-list {
-        min-height: 160px !important;
-        max-height: min(220px, 40vh) !important;
+        min-height: 130px !important;
+        max-height: min(200px, 38vh) !important;
         flex: 1 1 auto !important;
         flex-shrink: 0 !important;
         overflow-y: auto !important;
       }
+      .stops-list li, .departures-list li {
+        padding: 2px 3px !important;
+        font-size: 10.5px !important;
+        gap: 3px !important;
+      }
+      .stop-time, .stop-name, .stop-status, .departure-time, .track-badge,
+      .departure-destination, .departure-status {
+        font-size: 10.5px !important;
+      }
+      .stop-time { min-width: 52px !important; font-size: 10px !important; }
+      .stop-status { font-size: 9.5px !important; padding: 1px 3px !important; }
+      .stop-mileage { font-size: 9px !important; }
+      .track-badge { padding: 0 3px !important; font-size: 9px !important; }
       .train-popup button, .station-popup button, .popup-action-btn,
       .train-popup .rr-btn, .train-popup a.button {
         min-height: 40px !important;
@@ -6121,11 +6137,11 @@
     .rr-rail-picker-actions { flex-shrink: 0 !important; }
   </style>
     <style id="rr-stop-status-fix">
-    /* rr-ui-fix-2026-09-28b: stop row grid + readable Departed */
+    /* rr-ui-fix-2026-09-28b: stop row grid + readable Departed; 28f tighter cols */
     .stops-list li {
       display: grid !important;
-      grid-template-columns: 72px minmax(0, 1fr) max-content;
-      column-gap: 8px;
+      grid-template-columns: 58px minmax(0, 1fr) max-content;
+      column-gap: 4px;
       align-items: start;
       overflow: visible !important;
     }
