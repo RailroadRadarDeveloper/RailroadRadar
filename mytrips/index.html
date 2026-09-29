@@ -4509,7 +4509,7 @@
     }
 
 
-    /* Trip map light theme */
+    /* Trip map main-style tiles */
     .trip-detail-map,
     .trip-detail-map .leaflet-container,
     .trip-log-row-map,
@@ -10528,12 +10528,12 @@
     // ---- Trip list mini-maps (Leaflet under each MyTrips card) ----
     const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
     let tripLogMiniMapIO = null;
-    /* Trip map light theme */
-    // Trip mini-maps + detail map use Mapbox light-v11 via Worker /api/mapbox proxy (home live map stays dark/default).
+    /* Trip map main-style tiles */
+    // Trip mini-maps + detail map use main-map default style (northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7) via Worker /api/mapbox proxy.
     const TRIP_MAP_EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     function rrTripMapTileUrl() {
       const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
-      return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}';
+      return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
     }
     function rrTripMapTileLayer(opts) {
       const o = opts || {};
