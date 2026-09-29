@@ -1,0 +1,70 @@
+name: Apply MyTrips cards wider + no outer frame
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-cards-wider-noborder.patch.gz.b64'
+      - 'scripts/trip-cards-wider-noborder.patch.gz.b64.part*'
+      - '.github/workflows/apply-trip-cards-wider-noborder.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "f7d6fc7186893f26f79a8dd578e8dc9c892a79b0d2332cf5cabdbf636116de41"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/trip-cards-wider-noborder.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest()[:16])
+          single = pathlib.Path('scripts/trip-cards-wider-noborder.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-cards-wider-noborder.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/trip-cards-wider-noborder.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'Trip cards wider + no outer frame' in t
+          assert 'max-width: min(1100px, 100%)' in t
+          assert 'html.rr-mytrips-page .trip-log-section-rows {' in t
+          assert 'background: var(--rr-trip-rail, #07093e)' in t
+          bad = 'trip-log-section-rows,\n    html.rr-mytrips-page .trip-dash-bar'
+          assert bad not in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'Trip cards wider + no outer frame' in mt
+          assert 'max-width: min(1100px, 100%)' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Fix: MyTrips trip cards wider + remove outer frame border"
+            git pull --rebase origin main
+            git push
+          fi
