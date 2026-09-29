@@ -14805,6 +14805,11 @@ function closeTripDetailView(opts) {
         hideMyTripsGuestHome();
         return;
       }
+      // Wait for first auth callback so Google redirect return is not painted as guest.
+      try {
+        if (typeof rrAuthResolved !== 'undefined' && !rrAuthResolved) return;
+        if (sessionStorage.getItem('rrAuthRedirect') === '1') return;
+      } catch (_) {}
       const el = document.getElementById('mytrips-guest');
       if (el) el.hidden = false;
       try { document.documentElement.classList.add('rr-mytrips-guest'); } catch (_) {}
@@ -14813,6 +14818,10 @@ function closeTripDetailView(opts) {
         modal.classList.remove('open');
         modal.setAttribute('aria-hidden', 'true');
       }
+      try {
+        const btn = document.getElementById('mytrips-guest-signin');
+        if (btn && btn.textContent === 'Signing in…') btn.textContent = 'Get Started';
+      } catch (_) {}
     }
     function hideMyTripsGuestHome() {
       const el = document.getElementById('mytrips-guest');
@@ -14856,15 +14865,16 @@ function closeTripDetailView(opts) {
         const modalTitle = document.getElementById('trip-log-title');
         if (modalTitle) modalTitle.textContent = 'MyTrips';
       } catch (_) {}
-      // Open list tab once auth is known
+      // Open list tab once auth is known (do not paint guest before auth resolves)
       wireMyTripsGuestHome();
-      showMyTripsGuestHome();
+      try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
       const tryOpen = function() {
         if (!auth) {
+          rrAuthResolved = true;
           showMyTripsGuestHome();
           return;
         }
-        // wait briefly for first auth callback
+        // wait for first auth callback / redirect result
         let tries = 0;
         const tick = function() {
           tries++;
@@ -14873,8 +14883,14 @@ function closeTripDetailView(opts) {
             openTripLogModal(null, { tab: 'list', forceModal: true });
             return;
           }
-          if (tries < 40) setTimeout(tick, 100);
+          if (typeof rrAuthResolved !== 'undefined' && rrAuthResolved) {
+            wireMyTripsGuestHome();
+            showMyTripsGuestHome();
+            return;
+          }
+          if (tries < 80) setTimeout(tick, 100);
           else {
+            rrAuthResolved = true;
             wireMyTripsGuestHome();
             showMyTripsGuestHome();
           }
@@ -15320,13 +15336,117 @@ function closeTripDetailView(opts) {
       console.warn('%c[Firebase] Not configured — set FIREBASE_CONFIG to enable Sign up / Log in', 'color:#f39c12');
     }
 
-    // MyTrips splash: wire Get Started immediately (don't wait for map/DOMContentLoaded).
-    // Guest CTA is CSS-visible as soon as rr-mytrips-page is set; late wiring made early taps no-ops.
+    // MyTrips splash: wire Get Started immediately, but do NOT paint guest until auth resolves.
+    // Prior bug: eager showMyTripsGuestHome() before getRedirectResult/onAuthStateChanged left the
+    // splash stuck after Google redirect (auth UI was only wired later inside wireAuthUI/map init).
+    let rrAuthResolved = false;
+    let rrEarlyAuthWired = false;
+    function rrMarkAuthResolved(user) {
+      rrAuthResolved = true;
+      try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
+      try {
+        if (user) currentUser = user;
+        else if (user === null) currentUser = null;
+      } catch (_) {}
+    }
+    function rrSyncMyTripsAuthGate(user) {
+      try {
+        if (typeof rrIsMyTripsPage !== 'function' || !rrIsMyTripsPage()) return;
+        if (user) {
+          if (typeof hideMyTripsGuestHome === 'function') hideMyTripsGuestHome();
+          if (typeof openTripLogModal === 'function') {
+            openTripLogModal(null, { tab: 'list', forceModal: true });
+          }
+          return;
+        }
+        if (!rrAuthResolved) return;
+        // Still awaiting redirect handoff — don't paint guest yet.
+        try {
+          if (sessionStorage.getItem('rrAuthRedirect') === '1') return;
+        } catch (_) {}
+        if (typeof showMyTripsGuestHome === 'function') showMyTripsGuestHome();
+      } catch (e) {
+        console.warn('[mytrips] auth gate sync failed', e);
+      }
+    }
+    function rrWireEarlyAuth() {
+      if (!auth || rrEarlyAuthWired) return;
+      rrEarlyAuthWired = true;
+      try {
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function() {});
+      } catch (_) {}
+      try {
+        auth.getRedirectResult().then(function(cred) {
+          if (cred && cred.user) {
+            rrMarkAuthResolved(cred.user);
+            if (typeof upsertAccountMirror === 'function') {
+              upsertAccountMirror(cred.user).catch(function() {});
+            }
+            try {
+              if (typeof logUserAction === 'function') {
+                logUserAction('sign_in', 'Signed in with Google (redirect)', cred.user);
+              }
+            } catch (_) {}
+            try { if (typeof showNotification === 'function') showNotification('Signed in with Google'); } catch (_) {}
+            rrSyncMyTripsAuthGate(cred.user);
+            return;
+          }
+          // No redirect cred — clear pending flag so guest can show if still signed out.
+          try {
+            if (sessionStorage.getItem('rrAuthRedirect') === '1') {
+              sessionStorage.removeItem('rrAuthRedirect');
+              if (rrAuthResolved && !(auth && auth.currentUser) && !currentUser) {
+                rrSyncMyTripsAuthGate(null);
+              }
+            }
+          } catch (_) {}
+        }).catch(function(e) {
+          console.warn('[Auth] early redirect result', e);
+          try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
+          try {
+            if (e && (e.code || e.message) && typeof showNotification === 'function') {
+              showNotification('Sign-in redirect failed: ' + (e.message || e.code), 'error');
+            }
+          } catch (_) {}
+          try { rrSyncMyTripsAuthGate(currentUser || (auth && auth.currentUser) || null); } catch (_) {}
+        });
+      } catch (e) { console.warn('[Auth] early redirect hook', e); }
+      try {
+        auth.onAuthStateChanged(function(user) {
+          rrMarkAuthResolved(user || null);
+          try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(user || null); } catch (_) {}
+          rrSyncMyTripsAuthGate(user || null);
+        });
+      } catch (e) { console.warn('[Auth] early auth listener', e); }
+    }
     try {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         document.documentElement.classList.add('rr-mytrips-page');
         if (typeof wireMyTripsGuestHome === 'function') wireMyTripsGuestHome();
-        if (typeof showMyTripsGuestHome === 'function') showMyTripsGuestHome();
+        try {
+          if (sessionStorage.getItem('rrAuthRedirect') === '1') {
+            const btn = document.getElementById('mytrips-guest-signin');
+            if (btn) btn.textContent = 'Signing in…';
+          }
+        } catch (_) {}
+        rrWireEarlyAuth();
+        // Failsafe: never leave "Signing in…" forever if redirect handoff stalls
+        setTimeout(function() {
+          try {
+            if (sessionStorage.getItem('rrAuthRedirect') !== '1') return;
+            if (currentUser || (auth && auth.currentUser)) {
+              sessionStorage.removeItem('rrAuthRedirect');
+              rrSyncMyTripsAuthGate(currentUser || auth.currentUser);
+              return;
+            }
+            sessionStorage.removeItem('rrAuthRedirect');
+            rrAuthResolved = true;
+            rrSyncMyTripsAuthGate(null);
+          } catch (_) {}
+        }, 12000);
+      } else if (auth) {
+        // Still process redirect on non-mytrips pages ASAP
+        rrWireEarlyAuth();
       }
     } catch (earlyGuestErr) {
       console.warn('[mytrips] early guest wire failed', earlyGuestErr);
@@ -15488,20 +15608,32 @@ function closeTripDetailView(opts) {
       rrSignInBusy = true;
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        if (rrPreferRedirectSignIn()) {
+        const beginRedirect = async function() {
+          try { sessionStorage.setItem('rrAuthRedirect', '1'); } catch (_) {}
+          try {
+            const btn = document.getElementById('mytrips-guest-signin');
+            if (btn) btn.textContent = 'Signing in…';
+          } catch (_) {}
           await auth.signInWithRedirect(provider);
+        };
+        if (rrPreferRedirectSignIn()) {
+          await beginRedirect();
           return;
         }
         try {
           const cred = await auth.signInWithPopup(provider);
-          if (cred && cred.user) await upsertAccountMirror(cred.user);
+          if (cred && cred.user) {
+            await upsertAccountMirror(cred.user);
+            rrMarkAuthResolved(cred.user);
+            rrSyncMyTripsAuthGate(cred.user);
+          }
           try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
           showNotification('Signed in with Google');
         } catch (popupErr) {
           const code = popupErr && popupErr.code;
           if (code === 'auth/popup-blocked') {
             showNotification('Popup blocked — redirecting to Google sign-in…');
-            await auth.signInWithRedirect(provider);
+            await beginRedirect();
             return;
           }
           if (code === 'auth/cancelled-popup-request') {
@@ -15516,6 +15648,7 @@ function closeTripDetailView(opts) {
       } catch (e) {
         console.error('[Auth] Sign-in failed', e);
         showNotification('Sign-in failed: ' + (e.message || e), 'error');
+        try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
       } finally {
         rrSignInBusy = false;
       }
@@ -15839,7 +15972,9 @@ function closeTripDetailView(opts) {
       wireLegalAcceptUI();
       wireInterestRailroadUI();
       if (auth) {
+        try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
         try {
+          // Redirect may already be consumed by rrWireEarlyAuth; still safe to call.
           auth.getRedirectResult().then(function(cred) {
             if (cred && cred.user && typeof upsertAccountMirror === 'function') {
               upsertAccountMirror(cred.user).catch(function() {});
@@ -15848,6 +15983,7 @@ function closeTripDetailView(opts) {
         } catch (e) { console.warn('[Auth] redirect hook', e); }
         auth.onAuthStateChanged(async function(user) {
           currentUser = user;
+          try { rrMarkAuthResolved(user || null); } catch (_) {}
           rrIdentifyBetterStack(user);
           updateHeaderAuthUI(user);
           if (user) {
@@ -15897,11 +16033,13 @@ function closeTripDetailView(opts) {
             closeInterestRailroadsModal(true);
             closeAdminDashboard();
             scheduleSignupPrompt();
+            try { rrSyncMyTripsAuthGate(null); } catch (_) {}
           }
         });
       } else {
         updateHeaderAuthUI(null);
         scheduleSignupPrompt();
+        try { rrAuthResolved = true; rrSyncMyTripsAuthGate(null); } catch (_) {}
       }
     }
 
