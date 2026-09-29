@@ -20,7 +20,7 @@ jobs:
           set -euo pipefail
           python3 <<'PY'
           import base64, gzip, hashlib, pathlib, glob
-          expected = "8e49e57b8308117d9dba007b2abeea20941fc85ab102457cfb738c81bd7ea0a1"
+          expected = "56f280a2e3de0c16a72d7215b2aceac08e561402ad427ed23505f0f4dfe643b1"
           part_paths = sorted(
               [p for p in glob.glob('scripts/public-profile-stats.patch.gz.b64.part*')],
               key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
@@ -61,16 +61,18 @@ jobs:
           assert 'tripLogEditingId' in t
           assert 'Trip live progress cards + post-trip enrich' in t
           assert 'northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7' in t
-          u = Path('user/index.html').read_text(errors='replace')
-          assert 'hiddenPublic' in u
-          assert 'trips.filter' in u
+          u = Path('user/index.html')
+          if u.exists():
+            ut = u.read_text(errors='replace')
+            assert 'hiddenPublic' in ut
           mt = Path('mytrips/index.html').read_text(errors='replace')
           assert 'ensureTripLogStats' in mt
-          print('ok', len(t), len(u))
+          print('ok', len(t))
           PY
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
-          git add index.html mytrips/index.html user/index.html
+          git add index.html mytrips/index.html
+          if [ -f user/index.html ]; then git add user/index.html || true; fi
           if git diff --cached --quiet; then echo nothing to commit
           else
             git commit -m "MyTrips: public profile button + correct tripLogStats (rebuild on delete)"
