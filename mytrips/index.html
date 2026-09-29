@@ -6820,7 +6820,7 @@
 
 
 
-  <div id="mytrips-guest" class="mytrips-guest">
+  <div id="mytrips-guest" class="mytrips-guest" hidden>
     <div class="mytrips-guest-inner">
       <div class="mytrips-guest-copy">
         <img class="mytrips-guest-logo" src="/assets/brand/mytrips-splash-logo.png" alt="MyTrips by RailroadRadar">
@@ -14470,9 +14470,14 @@ function closeTripDetailView(opts) {
         setTripLogError('Firebase is not available.');
         return;
       }
-      if (!rrAuthUser()) {
+      const saveUser = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!saveUser) {
         setTripLogError('Sign in to log a trip.');
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+          try { showMyTripsGuestHome(); } catch (_) {}
+        } else if (typeof openSignupPrompt === 'function') {
+          openSignupPrompt(true);
+        }
         return;
       }
       syncTripSegmentStateFromDom();
@@ -14488,7 +14493,7 @@ function closeTripDetailView(opts) {
       const saveBtn = document.getElementById('trip-log-save');
       if (saveBtn) saveBtn.disabled = true;
       try {
-        const uid = currentUser.uid;
+        const uid = saveUser.uid;
         const editingId = tripLogEditingId;
         const oldData = editingId ? (tripLogDataById[editingId] || {}) : null;
         const tripRef = editingId ? db.collection('tripLogs').doc(editingId) : db.collection('tripLogs').doc();
@@ -15315,6 +15320,18 @@ function closeTripDetailView(opts) {
       console.warn('%c[Firebase] Not configured — set FIREBASE_CONFIG to enable Sign up / Log in', 'color:#f39c12');
     }
 
+    // MyTrips splash: wire Get Started immediately (don't wait for map/DOMContentLoaded).
+    // Guest CTA is CSS-visible as soon as rr-mytrips-page is set; late wiring made early taps no-ops.
+    try {
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+        document.documentElement.classList.add('rr-mytrips-page');
+        if (typeof wireMyTripsGuestHome === 'function') wireMyTripsGuestHome();
+        if (typeof showMyTripsGuestHome === 'function') showMyTripsGuestHome();
+      }
+    } catch (earlyGuestErr) {
+      console.warn('[mytrips] early guest wire failed', earlyGuestErr);
+    }
+
     function showNotification(message, type) {
       type = type || 'success';
       const el = document.getElementById('notification');
@@ -15461,24 +15478,46 @@ function closeTripDetailView(opts) {
         return /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(ua);
       } catch (_) { return false; }
     }
+    let rrSignInBusy = false;
     async function signInWithGoogle() {
       if (!auth) {
         showNotification('Firebase is not configured. See SETUP.md.', 'error');
         return;
       }
+      if (rrSignInBusy) return;
+      rrSignInBusy = true;
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
         if (rrPreferRedirectSignIn()) {
           await auth.signInWithRedirect(provider);
           return;
         }
-        const cred = await auth.signInWithPopup(provider);
-        if (cred && cred.user) await upsertAccountMirror(cred.user);
-        try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
-        showNotification('Signed in with Google');
+        try {
+          const cred = await auth.signInWithPopup(provider);
+          if (cred && cred.user) await upsertAccountMirror(cred.user);
+          try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
+          showNotification('Signed in with Google');
+        } catch (popupErr) {
+          const code = popupErr && popupErr.code;
+          if (code === 'auth/popup-blocked') {
+            showNotification('Popup blocked — redirecting to Google sign-in…');
+            await auth.signInWithRedirect(provider);
+            return;
+          }
+          if (code === 'auth/cancelled-popup-request') {
+            return;
+          }
+          if (code === 'auth/popup-closed-by-user') {
+            showNotification('Sign-in cancelled', 'error');
+            return;
+          }
+          throw popupErr;
+        }
       } catch (e) {
         console.error('[Auth] Sign-in failed', e);
         showNotification('Sign-in failed: ' + (e.message || e), 'error');
+      } finally {
+        rrSignInBusy = false;
       }
     }
 
@@ -15738,10 +15777,13 @@ function closeTripDetailView(opts) {
       const btnOut = document.getElementById('btn-google-signout');
       const btnDel = document.getElementById('btn-delete-account');
       const btnSettings = document.getElementById('btn-account-settings');
-      if (btnIn) btnIn.addEventListener('click', function(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        requestGoogleSignIn();
-      });
+      if (btnIn && btnIn.getAttribute('data-rr-auth-wired') !== '1') {
+        btnIn.setAttribute('data-rr-auth-wired', '1');
+        btnIn.addEventListener('click', function(e) {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
+          requestGoogleSignIn();
+        });
+      }
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
       if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
       if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
