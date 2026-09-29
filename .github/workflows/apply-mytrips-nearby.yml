@@ -1,0 +1,72 @@
+name: Apply MyTrips nearby train prompt
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/mytrips-nearby.patch.gz.b64'
+      - 'scripts/mytrips-nearby.patch.gz.b64.part*'
+      - '.github/workflows/apply-mytrips-nearby.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "254b2406ddaf112c998041a8928e837c4d890e393fd5001f3def76ca441deb25"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/mytrips-nearby.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest()[:16])
+          single = pathlib.Path('scripts/mytrips-nearby.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/mytrips-nearby.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/mytrips-nearby.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'data-rr-nearby-trip="1"' in t
+          assert 'window.rrStartMyTripsNearbyPrompt' in t
+          assert 'RR_NEARBY_TRIP_MILES = 200 / 1609.344' in t
+          assert 'Are you traveling on ' in t
+          assert 'id="trip-nearby-log"' in t
+          assert 'function rrAuthUser' in t
+          assert t.count('function rrAuthUser') == 1
+          assert "(typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser" in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'data-rr-nearby-trip="1"' in mt
+          assert 'rrStartMyTripsNearbyPrompt' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Feat: MyTrips nearby live-train prompt to log trip"
+            git pull --rebase origin main
+            git push
+          fi
