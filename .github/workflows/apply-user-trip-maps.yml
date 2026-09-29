@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import base64, gzip, hashlib, json, pathlib
+          import base64, gzip, hashlib, json, pathlib, glob, re
           expected = "0c0465f4f94eba8da267fa08e8d96c19fa1f8fb6497f12b246b69937cbb0328b"
           expected_raw = "91075cfaa9c5fbf583c5a34e4e798b5ec5efba313160bf130740b8420bd78aa7"
           heal_path = pathlib.Path('scripts/user-trip-maps.heals.json')
@@ -35,15 +35,24 @@ jobs:
                 print('heal', path, i, t[i], '->', ch)
                 t[i] = ch
             p.write_text(''.join(t))
+          def load_half(i, half):
+            pattern = f'scripts/user-trip-maps.patch.gz.b64.mega{i}{half}.s*.hex'
+            slices = sorted(glob.glob(pattern), key=lambda p: int(re.search(r'\.s(\d+)\.hex$', p).group(1)))
+            if slices:
+              return ''.join(pathlib.Path(p).read_text().strip() for p in slices), f'slices:{len(slices)}'
+            p = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}{half}.hex')
+            if p.exists():
+              return p.read_text().strip(), 'half.hex'
+            return None, None
           parts = []
           for i in range(1, 11):
-            a = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}a.hex')
-            b = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}b.hex')
+            a, asrc = load_half(i, 'a')
+            b, bsrc = load_half(i, 'b')
             hx = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}.hex')
             tx = pathlib.Path(f'scripts/user-trip-maps.patch.gz.b64.mega{i}')
-            if a.exists() and b.exists():
-              blob_i = bytes.fromhex((a.read_text()+b.read_text()).replace('\n','').replace(' ','')).decode('ascii')
-              src = 'ab.hex'
+            if a is not None and b is not None:
+              blob_i = bytes.fromhex((a+b).replace('\n','').replace(' ','')).decode('ascii')
+              src = f'{asrc}+{bsrc}'
             elif hx.exists():
               blob_i = bytes.fromhex(hx.read_text().strip()).decode('ascii')
               src = 'hex'
