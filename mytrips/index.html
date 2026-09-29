@@ -5809,7 +5809,7 @@
   </style>
     
                                 <style id="rr-popup-zoom">
-    /* rr-ui-fix-2026-09-28c: mobile popup shrink (keep desktop ~350px) */
+    /* rr-ui-fix-2026-09-28d: restore stops list min-height (fix mobile flex collapse) */
     .leaflet-popup-content-wrapper,
     .leaflet-popup-content,
     .train-popup,
@@ -5896,19 +5896,19 @@
     .info-item, .info-label, .info-value, .quick-status { font-size: 12px !important; }
     .stops-wrapper {
       flex: 1 1 auto !important;
-      min-height: 0 !important;
+      min-height: min(180px, 30vh) !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
       margin-top: 8px !important;
     }
-    .upcoming-stops { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .upcoming-stops { flex: 1 1 auto; min-height: min(180px, 30vh); display: flex; flex-direction: column; overflow: hidden; }
     .upcoming-stops h4 { font-size: 12px !important; margin: 4px 0 8px !important; flex-shrink: 0; color: #07093e; font-weight: 700; }
     .stops-list, .departures-list {
       max-height: 220px !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
-      min-height: 0 !important;
+      min-height: min(180px, 30vh) !important;
       flex: 1 1 auto !important;
       padding: 0 8px 6px 0 !important;
       scrollbar-gutter: stable;
@@ -6023,8 +6023,17 @@
       .train-popup-body { padding: 8px 12px !important; }
       .train-popup-footer { padding: 8px 10px !important; gap: 6px !important; }
       .info-grid { gap: 6px 8px !important; margin-bottom: 8px !important; }
+      /* Keep stops/departures visible: real min-height so flex cannot collapse to 0 */
+      .stops-wrapper,
+      .upcoming-stops {
+        min-height: min(180px, 30vh) !important;
+        flex: 1 1 auto !important;
+      }
       .stops-list, .departures-list {
-        max-height: none !important; /* flex fills remaining height */
+        min-height: min(180px, 30vh) !important;
+        max-height: min(200px, 36vh) !important;
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
       }
       .train-popup button, .station-popup button, .popup-action-btn,
       .train-popup .rr-btn, .train-popup a.button {
