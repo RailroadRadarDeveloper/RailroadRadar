@@ -1,1 +1,83 @@
-PLACEHOLDER4
+name: Apply MyTrips live progress + post-trip enrich
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/trip-live-enrich.patch.gz.b64'
+      - 'scripts/trip-live-enrich.patch.gz.b64.part*'
+      - '.github/workflows/apply-trip-live-enrich.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "3a5034ca0ab63c169ff12567526fb6308cd5d62e5138311de1867b0f0ee1975b"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/trip-live-enrich.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest()[:16])
+          single = pathlib.Path('scripts/trip-live-enrich.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-live-enrich.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/trip-live-enrich.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert '/* Trip live progress cards + post-trip enrich */' in t
+          assert 'TRIP_LIVE_LIST_POLL_MS' in t
+          assert 'tripLiveWarmCopy' in t
+          assert 'startTripListLivePoll' in t
+          assert 'tripTryEnrichActualTimes' in t
+          assert 'actualDepartTime' in t
+          assert 'trip-log-row-live' in t
+          assert 'trip-detail-actual' in t
+          assert '/* Trip live in-progress light */' in t
+          assert 'startTripLiveTracking' in t
+          assert 'rrLoadStopActuals' in t
+          assert 'window.rrCollectLiveTrainRows' in t
+          assert 'window.rrFindSharedTrain' in t
+          assert 'rrStartMyTripsNearbyPrompt' in t
+          assert 'function rrAuthUser' in t
+          assert 'rrTripMapTileUrl' in t
+          assert 'northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7' in t
+          assert 'background: var(--rr-trip-rail, #07093e)' in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert '/* Trip live progress cards + post-trip enrich */' in mt
+          assert 'tripTryEnrichActualTimes' in mt
+          assert 'trip-log-row-live' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "MyTrips: live progress on cards + post-trip actual times"
+            git pull --rebase origin main
+            git push
+          fi
