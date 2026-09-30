@@ -2720,9 +2720,12 @@
     html.rr-mytrips-page #btn-report-train-header,
     html.rr-mytrips-page #btn-specials-header,
     html.rr-mytrips-page #btn-leaderboard-header,
-    html.rr-mytrips-page #btn-admin-header,
     html.rr-mytrips-page .leaflet-control-container {
       display: none !important;
+    }
+    /* Keep admin dashboard icon for admins (same gate as main map: .is-visible) */
+    html.rr-mytrips-page #btn-admin-header.is-visible {
+      display: inline-flex !important;
     }
 
     /* Trip mytrips clarity cookies */
