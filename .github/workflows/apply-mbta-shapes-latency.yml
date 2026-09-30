@@ -1,0 +1,68 @@
+name: Apply MBTA shapes latency fix
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/mbta-shapes-latency.patch.gz.b64'
+      - 'scripts/mbta-shapes-latency.patch.gz.b64.part*'
+      - 'assets/shapes/mbta.json'
+      - '.github/workflows/apply-mbta-shapes-latency.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode patch, apply, publish shapes asset
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob, shutil
+          expected = "7ec2f66e63b6b31506f0845e80e103f05f90275477f8c34280398c6b0328ce32"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/mbta-shapes-latency.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+          single = pathlib.Path('scripts/mbta-shapes-latency.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/mbta-shapes-latency.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/mbta-shapes-latency.patch
+          mkdir -p mytrips assets/shapes
+          cp index.html mytrips/index.html
+          test -f assets/shapes/mbta.json
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'assets/shapes/mbta.json' in t
+          assert 'skipped per-route API' in t
+          assert "agency === 'mbta') return !!showMbta" in t
+          assert 'Prefer static pack' in t
+          j = Path('assets/shapes/mbta.json').read_text()
+          assert 'CR-Newburyport' in j
+          assert '"agency":"mbta"' in j
+          print('ok', len(t), 'mbta.json', Path('assets/shapes/mbta.json').stat().st_size)
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html assets/shapes/mbta.json
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Fix: MBTA route shapes via static CDN pack (drop slow per-route proxy)"
+            git pull --rebase origin main || true
+            git push
+          fi
