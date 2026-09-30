@@ -48,6 +48,9 @@ jobs:
           if not mparts:
             raise SystemExit('no mbta.json.gz.b64.part*')
           mb = ''.join(pathlib.Path(p).read_text().strip() for p in mparts)
+          # Repair two transcription corruptions from part1 upload (B←F, 9←7).
+          mb = mb.replace('KwnCJBxTwE4hwCegogKV', 'KwnCJFxTwE4hwCegogKV', 1)
+          mb = mb.replace('fvPy+9s3n/rPH8XvPxj5', 'fvPy+7s3n/rPH8XvPxj5', 1)
           expected_m = "164b00ec5570129e1b26a91791b22bdca665d006a22211068cab4e495e1bc0fc"
           hm = hashlib.sha256(mb.encode()).hexdigest()
           if hm != expected_m:
