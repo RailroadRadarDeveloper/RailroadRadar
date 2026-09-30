@@ -10893,6 +10893,19 @@
         try {
           if (ag === 'mbta') {
             if (!lid) return null;
+            // Prefer static pack (same as main map) so trip maps avoid slow proxy shapes.
+            try {
+              if (!(window.RR_TRIP_SHAPES.mbta && Object.keys(window.RR_TRIP_SHAPES.mbta).length)) {
+                const assetUrl = rrTripShapesAssetUrl('mbta');
+                const res = await fetch(assetUrl);
+                if (res.ok) {
+                  const data = await res.json();
+                  rrRegisterTripShapes('mbta', (data && data.routes) || []);
+                }
+              }
+              const cached = rrGetCachedTripPolylines('mbta', lid);
+              if (cached && cached.length) return cached;
+            } catch (_) {}
             let url = rrTripMbtaShapesUrl(lid);
             const polys = [];
             while (url) {
@@ -22249,6 +22262,7 @@ function closeTripDetailView(opts) {
       function gtfsShapeKey(agency, routeId) { return 'gtfs-' + agency + '-' + routeId; }
       function shouldShowGtfsShape(agency) {
         if (!showRoutes) return false;
+        if (agency === 'mbta') return !!showMbta;
         if (agency === 'mnr') return showMnr;
         if (agency === 'lirr') return showLirr;
         if (agency === 'amtrak') return showAmtrak;
@@ -22286,6 +22300,7 @@ function closeTripDetailView(opts) {
       } catch (_) {}
       async function loadStaticGtfsShapes() {
         const agencies = [
+          { id: 'mbta', file: rrAssetUrl('/assets/shapes/mbta.json'), fallback: '#800080' },
           { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
           { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
           { id: 'amtrak', file: rrAssetUrl('/assets/shapes/amtrak.json'), fallback: '#003366' },
@@ -22293,6 +22308,7 @@ function closeTripDetailView(opts) {
           { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: '#EA0D2A' },
           { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' }
         ].filter(function(ag) {
+          if (ag.id === 'mbta') return !!showMbta;
           if (ag.id === 'mnr') return !!showMnr;
           if (ag.id === 'lirr') return !!showLirr;
           if (ag.id === 'amtrak') return !!showAmtrak;
@@ -22324,6 +22340,7 @@ function closeTripDetailView(opts) {
             let agencyPolys = 0;
             routes.forEach(function(rt) {
               const color = rt.color || ag.fallback;
+              if (ag.id === 'mbta' && rt.id) routeColors[rt.id] = color;
               const grp = L.layerGroup();
               (rt.polylines || []).forEach(function(pl) {
                 if (!pl || pl.length < 2) return;
@@ -22356,23 +22373,27 @@ function closeTripDetailView(opts) {
 
       async function fetchRouteShapes() {
         try {
-          if (!showMbta) {
-            try {
-              setLoadingProgress(32, 'Loading route lines...');
-              await loadStaticGtfsShapes();
-            } catch (gtfsShapeErr) {
-              console.warn('[Shapes] static GTFS load error', gtfsShapeErr);
-            }
+          // Prefer one CDN fetch of /assets/shapes/mbta.json (~50KB) over N× proxy→MBTA
+          // shapes calls (each can be ~1–2s TTFB on Cache MISS). Still non-blocking for splash.
+          try {
+            setLoadingProgress(32, 'Loading route lines...');
+            await loadStaticGtfsShapes();
+          } catch (gtfsShapeErr) {
+            console.warn('[Shapes] static GTFS load error', gtfsShapeErr);
+          }
+          if (!showMbta) return;
+          const hasMbtaStatic = Object.keys(routeLines).some(function(k) {
+            return k.indexOf('gtfs-mbta-') === 0;
+          });
+          if (hasMbtaStatic) {
+            console.log('%c[Shapes] MBTA lines from static mbta.json (skipped per-route API)', 'color:#27ae60;font-weight:bold');
             return;
           }
+          // Fallback: proxy MBTA shapes API (warm Cache API / long TTL on worker).
           const r = await fetch(routesUrl);
           const rd = await r.json();
           rd.data.forEach(rt => routeColors[rt.id] = `#${rt.attributes.color || '800080'}`);
-          // Ensure CapeFlyer gets a nice distinct color
-          if (!routeColors['CapeFlyer']) {
-            routeColors['CapeFlyer'] = '#00ccff'; // Cyan for CapeFLYER (requested by user)
-          }
-          // Process all normal commuter rail routes in parallel (was a sequential waterfall).
+          if (!routeColors['CapeFlyer']) routeColors['CapeFlyer'] = '#00ccff';
           async function loadMbtaRouteShapes(rid) {
             let shapes = [];
             let url = apiUrl('/api/mbta' + `/shapes?filter[route]=${rid}&page[limit]=1000`);
@@ -22420,62 +22441,6 @@ function closeTripDetailView(opts) {
                 console.warn('[Shapes] route failed', rid, e && e.message);
               });
             }));
-          }
-          // === CAPEFLYER ROUTE LINE (improved detection) ===
-          // Try to find and load CapeFLYER route shapes
-          try {
-            let capeFlyerRouteId = 'CapeFlyer';
-            // First, try to discover the actual route ID (in case it's different)
-            try {
-              const routeListRes = await fetch(apiUrl('/api/mbta/routes?filter[type]=2'));
-              const routeList = await routeListRes.json();
-              const capeRoute = routeList.data.find(r => 
-                r.attributes.long_name?.toLowerCase().includes('cape') ||
-                r.id.toLowerCase().includes('cape') ||
-                r.attributes.short_name?.toLowerCase().includes('cape')
-              );
-              if (capeRoute) {
-                capeFlyerRouteId = capeRoute.id;
-                console.log('%c[CapeFLYER] Discovered route ID:', 'color:#e67e22', capeFlyerRouteId);
-              }
-            } catch (_) {}
-            // Now load shapes for the (possibly discovered) CapeFLYER route
-            let shapes = [];
-            let url = apiUrl('/api/mbta' + `/shapes?filter[route]=${capeFlyerRouteId}&page[limit]=1000`);
-            let more = true;
-            while (more) {
-              const sr = await fetch(url);
-              if (!sr.ok) break;
-              const sd = await sr.json();
-              if (sd.data) {
-                sd.data.forEach(s => { if (s.attributes?.polyline) shapes.push(s.attributes.polyline); });
-              }
-              url = mbtaProxyUrl(sd.links?.next);
-              more = !!url;
-            }
-            if (shapes.length > 0) {
-              const grp = L.layerGroup();
-              shapes.forEach(pl => {
-                const pts = L.Polyline.fromEncoded(pl).getLatLngs();
-                grp.addLayer(L.polyline(pts, { color: '#00ccff', weight: 3, opacity: 0.75 }));
-              });
-              routeLines['CapeFlyer'] = grp;
-              if (showRoutes) grp.addTo(map);
-              // Note: L.layerGroup does not support bringToBack(), so we skip it.
-              // CapeFLYER line will usually render fine on top or we can improve z-order later if needed.
-              console.log('%c[CapeFLYER] Route line loaded successfully', 'color:#27ae60');
-            } else {
-              console.log('%c[CapeFLYER] No shapes found for route ID:', 'color:#f39c12', capeFlyerRouteId);
-            }
-          } catch (e) {
-            console.log('%c[CapeFLYER] Could not load route line', 'color:#e74c3c', e.message);
-          }
-          // MNR / LIRR / Amtrak static GTFS shapes (self-hosted under /assets/shapes/)
-          try {
-            setLoadingProgress(32, 'Loading MNR / LIRR / Amtrak route lines...');
-            await loadStaticGtfsShapes();
-          } catch (gtfsShapeErr) {
-            console.warn('[Shapes] static GTFS load error', gtfsShapeErr);
           }
         } catch (e) { console.error("Routes error", e); }
       }
