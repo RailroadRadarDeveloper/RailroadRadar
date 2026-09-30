@@ -22070,6 +22070,7 @@ function closeTripDetailView(opts) {
       }
 
       async function fetchStations() {
+        if (!showMbta) return;
         try {
           const res = await fetch(stopsUrl);
           const data = await res.json();
@@ -22291,7 +22292,15 @@ function closeTripDetailView(opts) {
           { id: 'njt', file: rrAssetUrl('/assets/shapes/njt.json'), fallback: '#FF671F' },
           { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: '#EA0D2A' },
           { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' }
-        ];
+        ].filter(function(ag) {
+          if (ag.id === 'mnr') return !!showMnr;
+          if (ag.id === 'lirr') return !!showLirr;
+          if (ag.id === 'amtrak') return !!showAmtrak;
+          if (ag.id === 'njt') return !!showNjt;
+          if (ag.id === 'ctrail') return !!showCtrail;
+          if (ag.id === 'marc') return !!showMarc;
+          return true;
+        });
         let totalRoutes = 0, totalPolys = 0;
         for (const ag of agencies) {
           try {
@@ -22347,6 +22356,15 @@ function closeTripDetailView(opts) {
 
       async function fetchRouteShapes() {
         try {
+          if (!showMbta) {
+            try {
+              setLoadingProgress(32, 'Loading route lines...');
+              await loadStaticGtfsShapes();
+            } catch (gtfsShapeErr) {
+              console.warn('[Shapes] static GTFS load error', gtfsShapeErr);
+            }
+            return;
+          }
           const r = await fetch(routesUrl);
           const rd = await r.json();
           rd.data.forEach(rt => routeColors[rt.id] = `#${rt.attributes.color || '800080'}`);
@@ -22354,8 +22372,8 @@ function closeTripDetailView(opts) {
           if (!routeColors['CapeFlyer']) {
             routeColors['CapeFlyer'] = '#00ccff'; // Cyan for CapeFLYER (requested by user)
           }
-          // Process all normal commuter rail routes first
-          for (const rid of rd.data.map(r => r.id)) {
+          // Process all normal commuter rail routes in parallel (was a sequential waterfall).
+          async function loadMbtaRouteShapes(rid) {
             let shapes = [];
             let url = apiUrl('/api/mbta' + `/shapes?filter[route]=${rid}&page[limit]=1000`);
             let more = true;
@@ -22392,6 +22410,16 @@ function closeTripDetailView(opts) {
             if (showRoutes && shapes.length > 0) {
               grp.addTo(map);
             }
+          }
+          const mbtaShapeIds = rd.data.map(r => r.id);
+          const SHAPE_CONCURRENCY = 6;
+          for (let i = 0; i < mbtaShapeIds.length; i += SHAPE_CONCURRENCY) {
+            const batch = mbtaShapeIds.slice(i, i + SHAPE_CONCURRENCY);
+            await Promise.all(batch.map(function(rid) {
+              return loadMbtaRouteShapes(rid).catch(function(e) {
+                console.warn('[Shapes] route failed', rid, e && e.message);
+              });
+            }));
           }
           // === CAPEFLYER ROUTE LINE (improved detection) ===
           // Try to find and load CapeFLYER route shapes
@@ -26394,15 +26422,22 @@ function closeTripDetailView(opts) {
             const railPrefs = await promiseMapRailPrefs();
             applyMapRailPrefs(railPrefs);
             startEnabledRailPolls();
-            setLoadingProgress(25, 'Loading route shapes...');
-            await withTimeout(fetchRouteShapes(), 10000, 'fetchRouteShapes');
-            setLoadingProgress(40, 'Loading stations...');
-            await withTimeout(fetchStations(), 10000, 'fetchStations');
+            // First paint: live trains (+ MBTA stations) in parallel. Route shapes load in background
+            // so splash is not blocked on the MBTA shapes waterfall / large amtrak.json.
+            setLoadingProgress(35, 'Loading live trains...');
+            const firstPaint = [];
             if (showMbta) {
-              setLoadingProgress(70, 'Loading live trains...');
-              await withTimeout(fetchTrains(), 15000, 'fetchTrains');
+              firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
+              firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
             }
-            setLoadingProgress(85, 'Map ready — loading more trains...');
+            if (showAmtrak) firstPaint.push(withTimeout(fetchAmtrakTrains(), 12000, 'fetchAmtrakTrains'));
+            if (showMnr) firstPaint.push(withTimeout(fetchMnrTrains(), 10000, 'fetchMnrTrains'));
+            if (showLirr) firstPaint.push(withTimeout(fetchLirrTrains(), 10000, 'fetchLirrTrains'));
+            if (showMetra) firstPaint.push(withTimeout(fetchMetraTrains(), 10000, 'fetchMetraTrains'));
+            if (showNjt) firstPaint.push(withTimeout(fetchNjtTrains(), 10000, 'fetchNjtTrains'));
+            if (showMarc) firstPaint.push(withTimeout(fetchMarcTrains(), 10000, 'fetchMarcTrains'));
+            if (firstPaint.length) await Promise.allSettled(firstPaint);
+            setLoadingProgress(85, 'Map ready — loading route lines...');
             setupSearch();
           }
         } catch (loadErr) {
@@ -26417,13 +26452,10 @@ function closeTripDetailView(opts) {
             // skip live agency background fetches on /mytrips
           } else {
             const bg = [];
+            // Shapes are non-blocking for map usability; parallelized inside fetchRouteShapes.
+            bg.push(withTimeout(fetchRouteShapes(), 60000, 'fetchRouteShapes'));
             if (showMbta) bg.push(withTimeout(fetchSchedules(), 60000, 'fetchSchedules'));
-            if (showAmtrak) bg.push(withTimeout(fetchAmtrakTrains(), 20000, 'fetchAmtrakTrains'));
-            if (showMnr) bg.push(withTimeout(fetchMnrTrains(), 20000, 'fetchMnrTrains'));
-            if (showLirr) bg.push(withTimeout(fetchLirrTrains(), 20000, 'fetchLirrTrains'));
-            if (showMetra) bg.push(withTimeout(fetchMetraTrains(), 20000, 'fetchMetraTrains'));
-            if (showNjt) bg.push(withTimeout(fetchNjtTrains(), 20000, 'fetchNjtTrains'));
-            if (showMarc) bg.push(withTimeout(fetchMarcTrains(), 20000, 'fetchMarcTrains'));
+            // Live agencies already fetched on first paint; polls keep them fresh.
             if (bg.length) await Promise.allSettled(bg);
           }
         } catch (bgErr) {
