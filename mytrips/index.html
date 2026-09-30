@@ -9049,14 +9049,20 @@
           }
         }
         const docId = uid;
-        await db.collection('bannedUsers').doc(docId).set({
-          uid: uid,
-          email: email || null,
-          reason: reason || null,
-          bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          bannedByEmail: normalizeEmail(user.email) || user.email || null,
-          bannedByUid: user.uid
-        }, { merge: true });
+        try {
+          await db.collection('bannedUsers').doc(docId).set({
+            uid: uid,
+            email: email || null,
+            reason: reason || null,
+            bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            bannedByEmail: normalizeEmail(user.email) || user.email || null,
+            bannedByUid: user.uid
+          }, { merge: true });
+        } catch (banWriteErr) {
+          const msg = (banWriteErr && banWriteErr.message) ? banWriteErr.message : String(banWriteErr);
+          setAdminError('Ban failed: ' + msg + '. Publish rules that let admins write bannedUsers.');
+          return;
+        }
         showNotification('User banned');
         try { await logUserAction('admin_ban', 'Banned ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-ban-email');
@@ -14487,6 +14493,15 @@ function closeTripDetailView(opts) {
         return;
       }
       const saveUser = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (saveUser && typeof checkUserBanned === 'function') {
+        try {
+          const ban = await checkUserBanned(saveUser);
+          if (ban) {
+            setTripLogError('This account is banned' + (ban.reason ? (': ' + ban.reason) : '.'));
+            return;
+          }
+        } catch (_) {}
+      }
       if (!saveUser) {
         setTripLogError('Sign in to log a trip.');
         if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
@@ -16034,6 +16049,19 @@ function closeTripDetailView(opts) {
           rrIdentifyBetterStack(user);
           updateHeaderAuthUI(user);
           if (user) {
+            try {
+              if (typeof checkUserBanned === 'function') {
+                const ban = await checkUserBanned(user);
+                if (ban) {
+                  const why = ban.reason ? (' Reason: ' + ban.reason) : '';
+                  try { await auth.signOut(); } catch (_) {}
+                  currentUser = null;
+                  if (typeof showNotification === 'function') showNotification('This account is banned.' + why);
+                  else alert('This account is banned.' + why);
+                  return;
+                }
+              }
+            } catch (banErr) { console.warn('[bannedUsers] auth check', banErr); }
             if (typeof hideMyTripsGuestHome === 'function') hideMyTripsGuestHome();
             if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage() && typeof openTripLogModal === 'function') {
               openTripLogModal(null, { tab: 'list', forceModal: true });
