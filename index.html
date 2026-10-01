@@ -6454,14 +6454,14 @@
     if (!msg) return;
     document.documentElement.classList.add('rr-banned');
     var s = document.createElement('style');
-    s.textContent = 'html.rr-banned #map, html.rr-banned .header, html.rr-banned #loading-screen { display:none !important; }';
+    s.textContent = 'html.rr-banned #map, html.rr-banned #loading-screen { display:none !important; } html.rr-banned .header { display:flex !important; z-index:100000 !important; }';
     document.documentElement.appendChild(s);
   } catch (e) {}
 })();
 </script>
 </head>
 <body>
-    <div id="rr-banned-screen" hidden style="display:none;position:fixed;inset:0;z-index:2147483000;background:#07093e;color:#fff;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
+    <div id="rr-banned-screen" hidden style="display:none;position:fixed;top:60px;left:0;right:0;bottom:0;z-index:9000;background:#07093e;color:#fff;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
     <div style="max-width:420px;width:100%;text-align:center;">
       <h2 style="margin:0 0 10px;font-size:22px;">Account banned</h2>
       <p id="rr-banned-reason" style="margin:0;font-size:15px;line-height:1.45;color:#d7d9ee;">This account cannot use RailroadRadar.</p>
