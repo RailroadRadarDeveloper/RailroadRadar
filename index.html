@@ -14126,26 +14126,29 @@ function closeTripDetailView(opts) {
       return tripStartMs(data) >= Date.now();
     }
     function ensureTripLogSections(list) {
+      // rr-trip-inprogress-section-2026-10-03
       if (!list) return {};
-      let upcoming = document.getElementById('trip-log-upcoming');
-      let past = document.getElementById('trip-log-past');
-      if (!upcoming) {
-        upcoming = document.createElement('section');
-        upcoming.id = 'trip-log-upcoming';
-        upcoming.className = 'trip-log-section';
-        upcoming.innerHTML = '<h3 class="trip-log-section-title">Upcoming trips</h3><div class="trip-log-section-rows" id="trip-log-upcoming-rows"></div>';
-        list.appendChild(upcoming);
+      function makeSection(id, title, rowsId) {
+        let el = document.getElementById(id);
+        if (!el) {
+          el = document.createElement('section');
+          el.id = id;
+          el.className = 'trip-log-section';
+          el.innerHTML = '<h3 class="trip-log-section-title">' + title + '</h3><div class="trip-log-section-rows" id="' + rowsId + '"></div>';
+        }
+        return el;
       }
-      if (!past) {
-        past = document.createElement('section');
-        past.id = 'trip-log-past';
-        past.className = 'trip-log-section';
-        past.innerHTML = '<h3 class="trip-log-section-title">Past trips</h3><div class="trip-log-section-rows" id="trip-log-past-rows"></div>';
-        list.appendChild(past);
-      }
+      const inprogress = makeSection('trip-log-inprogress', 'In Progress', 'trip-log-inprogress-rows');
+      const upcoming = makeSection('trip-log-upcoming', 'Upcoming trips', 'trip-log-upcoming-rows');
+      const past = makeSection('trip-log-past', 'Past trips', 'trip-log-past-rows');
+      list.appendChild(inprogress);
+      list.appendChild(upcoming);
+      list.appendChild(past);
       return {
+        inprogress: inprogress,
         upcoming: upcoming,
         past: past,
+        inprogressRows: document.getElementById('trip-log-inprogress-rows'),
         upcomingRows: document.getElementById('trip-log-upcoming-rows'),
         pastRows: document.getElementById('trip-log-past-rows')
       };
@@ -14330,13 +14333,18 @@ function closeTripDetailView(opts) {
         list.innerHTML = '';
       }
       const sections = ensureTripLogSections(list);
+      const inprogressRows = sections.inprogressRows || list;
       const upcomingRows = sections.upcomingRows || list;
       const pastRows = sections.pastRows || list;
       if (!docs.length && !append) {
+        if (sections.inprogress) sections.inprogress.hidden = true;
+        if (sections.upcoming) sections.upcoming.hidden = true;
+        if (sections.past) sections.past.hidden = true;
         setTripLogEmptyVisible(true);
         return;
       }
       setTripLogEmptyVisible(false);
+      let inprogressCount = inprogressRows ? inprogressRows.querySelectorAll('.trip-log-row').length : 0;
       let upcomingCount = upcomingRows ? upcomingRows.querySelectorAll('.trip-log-row').length : 0;
       let pastCount = pastRows ? pastRows.querySelectorAll('.trip-log-row').length : 0;
       docs.forEach(function(doc) {
@@ -14427,7 +14435,7 @@ function closeTripDetailView(opts) {
           }
         }
         try { tripPaintCardActual(row, data); } catch (_) {}
-        if (tripIsUpcoming(data)) { upcomingRows.appendChild(row); upcomingCount++; } else { pastRows.appendChild(row); pastCount++; };
+        if (tripIsInProgressLight(data)) { inprogressRows.appendChild(row); inprogressCount++; } else if (tripIsUpcoming(data)) { upcomingRows.appendChild(row); upcomingCount++; } else { pastRows.appendChild(row); pastCount++; };
         try {
           const mapEl = row.querySelector('.trip-log-row-map');
           if (mapEl) scheduleTripLogMiniMap(mapEl, data);
@@ -14435,6 +14443,15 @@ function closeTripDetailView(opts) {
           console.warn('[trip-map] schedule failed', mapErr);
         }
       });
+      if (inprogressRows) {
+        const rows = Array.prototype.slice.call(inprogressRows.querySelectorAll('.trip-log-row'));
+        rows.sort(function(a, b) {
+          const da = tripLogDataById[a.getAttribute('data-trip-id')] || {};
+          const db = tripLogDataById[b.getAttribute('data-trip-id')] || {};
+          return tripStartMs(da) - tripStartMs(db);
+        });
+        rows.forEach(function(row) { inprogressRows.appendChild(row); });
+      }
       if (upcomingRows) {
         const rows = Array.prototype.slice.call(upcomingRows.querySelectorAll('.trip-log-row'));
         rows.sort(function(a, b) {
@@ -14444,6 +14461,7 @@ function closeTripDetailView(opts) {
         });
         rows.forEach(function(row) { upcomingRows.appendChild(row); });
       }
+      if (sections && sections.inprogress) sections.inprogress.hidden = !(inprogressRows && inprogressRows.querySelector('.trip-log-row'));
       if (sections && sections.upcoming) sections.upcoming.hidden = !(upcomingRows && upcomingRows.querySelector('.trip-log-row'));
       if (sections && sections.past) sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'));
       try { startTripListLivePoll(); } catch (_) {}
