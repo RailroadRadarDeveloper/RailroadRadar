@@ -884,31 +884,60 @@
     .trip-log-row-live[data-live-state="arriving"] { color: #1d4ed8; }
     .trip-log-row-live[data-live-state="done"] { color: #5a6577; }
     .trip-log-row-live[data-live-state="miss"] { color: #5a6577; font-weight: 600; }
+    /* rr-live-status-bar-2026-10-03: left bar + two lines, no pill */
+    .trip-log-row-live-late {
+      display: block;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .trip-log-row-live-place {
+      display: block;
+      font-style: italic;
+      font-weight: 500;
+      opacity: 0.82;
+      line-height: 1.3;
+      margin-top: 1px;
+    }
     .trip-log-row[data-rail-accent] .trip-log-row-live,
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live {
       color: #fff;
-      background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      border-radius: 999px;
-      display: inline-block;
-      padding: 3px 10px;
+      background: none;
+      border: none;
+      border-radius: 0;
+      display: block;
+      padding: 1px 0 1px 8px;
       margin-top: 8px;
+      border-left: 3px solid rgba(255, 255, 255, 0.45);
     }
     .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"] {
-      color: #d8ffe3; background: rgba(26, 127, 55, 0.35); border-color: rgba(216, 255, 227, 0.35);
+      color: #fff; background: none; border: none; border-left: 3px solid #3ddc6a;
     }
     .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"] {
-      color: #fff3d6; background: rgba(180, 83, 9, 0.4); border-color: rgba(255, 243, 214, 0.35);
+      color: #fff; background: none; border: none; border-left: 3px solid #f5b942;
     }
     .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] {
-      color: #ffd6dc; background: rgba(176, 0, 32, 0.4); border-color: rgba(255, 214, 220, 0.35);
+      color: #fff; background: none; border: none; border-left: 3px solid #ff5a6a;
     }
     .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="arriving"],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="arriving"] {
-      color: #dbeafe; background: rgba(29, 78, 216, 0.4); border-color: rgba(219, 234, 254, 0.35);
+      color: #fff; background: none; border: none; border-left: 3px solid #1d4ed8;
+    }
+    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="miss"],
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="miss"],
+    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="done"],
+    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="done"] {
+      color: rgba(255, 255, 255, 0.78);
+      background: none;
+      border: none;
+      border-left: none;
+      border-radius: 0;
+      padding-left: 0;
+      font-weight: 500;
+      font-style: italic;
     }
     .trip-log-row-actual {
       margin: 2px 0 0;
@@ -11970,20 +11999,35 @@
       else el.removeAttribute('data-live-state');
     }
 
-    function tripLiveSetCardStatus(rowEl, text, state) {
+    function tripLiveSetCardStatus(rowEl, text, state, parts) {
       if (!rowEl) return;
       const el = rowEl.querySelector('.trip-log-row-live');
       if (!el) return;
-      if (!text) {
+      const lateLine = parts && parts.lateLine ? String(parts.lateLine) : '';
+      const placeLine = parts && parts.placeLine ? String(parts.placeLine) : '';
+      if (!text && !lateLine && !placeLine) {
         el.hidden = true;
         el.textContent = '';
         el.removeAttribute('data-live-state');
         return;
       }
       el.hidden = false;
-      el.textContent = text;
       if (state) el.setAttribute('data-live-state', state);
       else el.removeAttribute('data-live-state');
+      // Looking / done / single string: quiet line, no lateness bar markup.
+      if (state === 'miss' || state === 'done' || (!lateLine && !placeLine)) {
+        el.textContent = text;
+        return;
+      }
+      const esc = function(s) {
+        return String(s).replace(/[&<>"]/g, function(c) {
+          return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+        });
+      };
+      let html = '';
+      if (lateLine) html += '<span class="trip-log-row-live-late">' + esc(lateLine) + '</span>';
+      if (placeLine) html += '<span class="trip-log-row-live-place">' + esc(placeLine) + '</span>';
+      el.innerHTML = html;
     }
 
     function tripLivePickSegment(data) {
@@ -12095,21 +12139,26 @@
         delayBit = 'On time';
       }
       let stopBit = '';
+      let placeLine = '';
       if (stop && stop !== '—' && stop !== '-') {
         if (/^At$/i.test(label) || /STOPPED_AT/i.test(String(row.stopLabel || ''))) {
           stopBit = 'At ' + stop;
+          placeLine = 'Stopped at ' + stop;
           if (state === 'on-time') state = 'arriving';
         } else if (/arriv/i.test(label) || /INCOMING/i.test(String(row.stopLabel || ''))) {
           stopBit = 'Arriving ' + stop;
+          placeLine = 'On the way to ' + stop;
           state = 'arriving';
         } else {
           stopBit = 'Next: ' + stop;
+          placeLine = 'On the way to ' + stop;
         }
       }
-      if (stopBit && delayBit) return { text: stopBit + ' · ' + delayBit, state: state };
-      if (stopBit) return { text: stopBit, state: state };
-      if (delayBit) return { text: delayBit, state: state };
-      return { text: 'Live', state: 'on-time' };
+      const lateLine = delayBit || '';
+      if (stopBit && delayBit) return { text: stopBit + ' · ' + delayBit, state: state, lateLine: lateLine, placeLine: placeLine };
+      if (stopBit) return { text: stopBit, state: state, lateLine: lateLine, placeLine: placeLine };
+      if (delayBit) return { text: delayBit, state: state, lateLine: lateLine, placeLine: placeLine };
+      return { text: 'Live', state: 'on-time', lateLine: 'Live', placeLine: '' };
     }
 
     function tripLiveStatusFromRow(row, data) {
@@ -12252,7 +12301,7 @@
           return;
         }
         const warm = tripLiveWarmCopy(liveRow, data);
-        tripLiveSetCardStatus(rowEl, warm.text, warm.state);
+        tripLiveSetCardStatus(rowEl, warm.text, warm.state, warm);
         tripLivePaintCardMarker(id, liveRow);
       });
     }
