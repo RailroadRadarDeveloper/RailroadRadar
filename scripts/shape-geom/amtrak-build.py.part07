@@ -1,0 +1,12 @@
+ min(1.0, ((px - ax) * dx + (py - ay) * dy) / L2))
+        return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+    keep = []
+    def rec(s, e):
+        if e <= s + 1:
+            return
+        mx, idx = -1, None
+        for i in range(s + 1, e):
+            d = perp(pts[i], pts[s], pts[e])
+            if d > mx:
+                mx, idx = d, i
+        if mx > eps and idx 

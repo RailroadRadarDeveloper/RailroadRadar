@@ -1,0 +1,13 @@
+lse] * len(chains)
+        nxt = []
+        for i, c in enumerate(chains):
+            if used[i]:
+                continue
+            used[i] = True
+            grew = True
+            while grew:
+                grew = False
+                for j, o in enumerate(chains):
+                    if used[j]:
+                        continue
+                    if hav(c[-1], o[0]) 

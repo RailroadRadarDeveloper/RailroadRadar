@@ -1,0 +1,11 @@
+ef perp(p, a, b):
+        ay, ax = a; by, bx = b; py, px = p
+        k = 111.0 * math.cos(math.radians((ay + by) / 2))
+        ax, ay = ax * k, ay * 111.0
+        bx, by = bx * k, by * 111.0
+        px, py = px * k, py * 111.0
+        dx, dy = bx - ax, by - ay
+        L2 = dx * dx + dy * dy
+        if L2 == 0:
+            return math.hypot(px - ax, py - ay)
+        t = max(0.0,

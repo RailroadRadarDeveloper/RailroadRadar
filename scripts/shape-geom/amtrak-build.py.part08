@@ -1,0 +1,12 @@
+is not None:
+            rec(s, idx); keep.append(idx); rec(idx, e)
+    rec(0, len(pts) - 1)
+    return [pts[i] for i in [0] + sorted(set(keep)) + [len(pts) - 1]]
+
+def length(c):
+    return sum(hav(a, b) for a, b in zip(c, c[1:]))
+
+def stitch(members):
+    ways = []
+    for m in members:
+        if m.get("type") != "way" or m.get("role") not in ("", "forward", "backward", None)
