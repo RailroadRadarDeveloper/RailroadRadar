@@ -1,0 +1,47 @@
+name: Restore route geometry
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/shape-fix/**
+      - .github/workflows/restore-route-geometry.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode geometry packs
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          root = pathlib.Path("scripts/shape-fix")
+          for name, expect in {
+              "mnr": "47a7694c143887aa0b26eb38891c258bf6f14f5dbe80266b5ed2a4755b437746",
+          }.items():
+              parts = sorted(root.glob(f"{name}.b64.part*"))
+              if not parts:
+                  raise SystemExit("missing parts "+name)
+              b64 = "".join(p.read_text().strip() for p in parts)
+              raw = gzip.decompress(base64.b64decode(b64))
+              h = hashlib.sha256(raw).hexdigest()
+              if h != expect:
+                  raise SystemExit(f"{name} hash {h}")
+              dest = pathlib.Path("assets/shapes")/f"{name}.json"
+              dest.write_bytes(raw)
+              print(name, len(raw), h)
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/shapes/mnr.json
+          if git diff --cached --quiet; then
+            echo "already published"
+          else
+            git commit -m "Restore Metro-North track-following route geometry."
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
