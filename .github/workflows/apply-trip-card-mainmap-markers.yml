@@ -1,0 +1,78 @@
+name: Apply trip-card main-map markers
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "ed2e625110b6ba231cb137405bc8993ddb5d98e7767d12710bc5ee919a7e47ce"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/trip-card-mainmap-markers.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
+          single = pathlib.Path('scripts/trip-card-mainmap-markers.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-card-mainmap-markers.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/trip-card-mainmap-markers.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rr-trip-card-mainmap-markers-2026-10-03' in t
+          assert 'function tripCardStationDotIcon' in t
+          assert "rrAssetUrl('/assets/station.png')" in t
+          assert 'iconSize: [18, 18]' in t
+          assert 'function tripCardIconFromMainMarker' in t
+          assert "className: o.className || 'train-icon'" in t
+          assert 'zIndexOffset: -1000' in t
+          assert t.count("className: 'trip-live-train-marker'") == 1
+          assert 'radius: 9' in t
+          assert 'fillColor: isOrigin ? \'#1a7f37\' : \'#b00020\'' in t
+          assert 'rr-live-status-bar-2026-10-03' in t
+          assert 'window.rrEnsureMyTripsLiveFeeds' in t
+          assert 'function rrEnsureMyTripsLiveFeeds' in t
+          assert 'rrAuthSafariItp' in t
+          assert 'rrStartMyTripsNearbyPrompt' in t
+          assert 'tripTryEnrichActualTimes' in t
+          assert 'startTripLiveTracking' in t
+          assert 'TRIP_LIVE_LIST_POLL_MS = 55000' in t
+          assert 'Finished past trips' in t
+          assert 'background: rgba(255, 255, 255, 0.14)' not in t
+          assert "disp = 'Departed'" not in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'rr-trip-card-mainmap-markers-2026-10-03' in mt
+          assert 'tripCardIconFromMainMarker' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "MyTrips: card mini-map uses main-map train icon and station dots"
+            git pull --rebase origin main
+            git push
+          fi
