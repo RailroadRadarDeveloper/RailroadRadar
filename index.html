@@ -12159,6 +12159,7 @@
     function tripLiveTick() {
       if (!tripLiveActiveId || !tripLiveData) return;
       if (document.visibilityState === 'hidden') return;
+      try { if (typeof window.rrEnsureMyTripsLiveFeeds === 'function') window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
       const overlay = document.getElementById('trip-detail-overlay');
       if (!overlay || !overlay.classList.contains('open')) {
         stopTripLiveTracking();
@@ -12228,6 +12229,7 @@
 
     function tripListLiveTick() {
       if (document.visibilityState === 'hidden') return;
+      try { if (typeof window.rrEnsureMyTripsLiveFeeds === 'function') window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
       const list = document.getElementById('trip-log-list');
       if (!list) return;
       const rows = list.querySelectorAll('.trip-log-row[data-trip-id]');
@@ -26448,10 +26450,60 @@ function closeTripDetailView(opts) {
       ;(async function startupCoreLoads() {
         try {
           if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-            // Light page: auth + Firestore + station/line data for trip form; skip live train polls.
+            // Light page: stations for the trip form. No route-shape waterfall.
+            // Live vehicle polls start only for railroads on an in-progress trip.
+            // /* MyTrips live feeds for in-progress cards */
             setLoadingProgress(40, 'Preparing trip log...');
+            window.rrEnsureMyTripsLiveFeeds = function rrEnsureMyTripsLiveFeeds() {
+              if (typeof rrIsMyTripsPage === 'function' && !rrIsMyTripsPage()) return;
+              const need = Object.create(null);
+              function note(data) {
+                if (!data) return;
+                if (typeof tripIsInProgressLight === 'function' && !tripIsInProgressLight(data)) return;
+                const segs = (Array.isArray(data.segments) && data.segments.length) ? data.segments : [data];
+                for (let i = 0; i < segs.length; i++) {
+                  const s = segs[i] || {};
+                  let a = (typeof tripNormalizeAgency === 'function')
+                    ? tripNormalizeAgency(s.railroad || data.railroad)
+                    : String(s.railroad || data.railroad || '').toLowerCase();
+                  if (a === 'ctrail') a = 'amtrak';
+                  if (a === 'mbta' || a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'metra' || a === 'njt' || a === 'marc') need[a] = 1;
+                }
+              }
+              try {
+                if (typeof tripLogDataById !== 'undefined' && tripLogDataById) {
+                  Object.keys(tripLogDataById).forEach(function(id) { note(tripLogDataById[id]); });
+                }
+              } catch (_) {}
+              try { if (typeof tripLiveData !== 'undefined') note(tripLiveData); } catch (_) {}
+              const jobs = [];
+              const kick = window.rrEnsureMyTripsLiveFeeds._kick || (window.rrEnsureMyTripsLiveFeeds._kick = Object.create(null));
+              function arm(key, turnOn, pollFn, ms, fetchFn) {
+                if (!need[key] || kick[key]) return;
+                kick[key] = 1;
+                try { turnOn(); } catch (_) {}
+                try { startRailPoll(key, pollFn, ms); } catch (_) {}
+                try {
+                  const p = fetchFn();
+                  if (p && typeof p.then === 'function') jobs.push(p);
+                } catch (_) {}
+              }
+              const slow = (typeof preferKeylessTiles !== 'undefined' && preferKeylessTiles);
+              arm('mbta', function() { showMbta = true; }, fetchTrains, 60000, fetchTrains);
+              arm('amtrak', function() { showAmtrak = true; }, fetchAmtrakTrains, 60000, fetchAmtrakTrains);
+              arm('mnr', function() { showMnr = true; }, fetchMnrTrains, slow ? 40000 : 25000, fetchMnrTrains);
+              arm('lirr', function() { showLirr = true; }, fetchLirrTrains, slow ? 40000 : 25000, fetchLirrTrains);
+              arm('metra', function() { showMetra = true; }, fetchMetraTrains, slow ? 45000 : 30000, fetchMetraTrains);
+              arm('njt', function() { showNjt = true; }, fetchNjtTrains, slow ? 45000 : 30000, fetchNjtTrains);
+              arm('marc', function() { showMarc = true; }, fetchMarcTrains, slow ? 45000 : 30000, fetchMarcTrains);
+              if (!jobs.length) return;
+              Promise.allSettled(jobs).then(function() {
+                try { if (typeof tripListLiveTick === 'function') tripListLiveTick(); } catch (_) {}
+                try { if (typeof tripLiveActiveId !== 'undefined' && tripLiveActiveId && typeof tripLiveTick === 'function') tripLiveTick(); } catch (_) {}
+              });
+            };
             try {
-              // Prefs defaulted off so startEnabledRailPolls is a no-op if called elsewhere
+              // Keep map polls off until an in-progress trip needs that railroad.
               const emptyPrefs = {};
               if (typeof RR_MAP_RAIL_IDS !== 'undefined') RR_MAP_RAIL_IDS.forEach(function(id) { emptyPrefs[id] = false; });
               applyMapRailPrefs(emptyPrefs);
@@ -26460,6 +26512,7 @@ function closeTripDetailView(opts) {
             await withTimeout(fetchStations(), 12000, 'fetchStations');
             setLoadingProgress(90, 'Trip log ready');
             try { setupSearch(); } catch (_) {}
+            try { window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
           } else {
             // Ask which railroads to load (or apply saved / share-link prefs) before any agency fetches/polls.
             const railPrefs = await promiseMapRailPrefs();
@@ -26492,7 +26545,7 @@ function closeTripDetailView(opts) {
         // Background: schedules + enabled agencies only (do not block overlay)
         try {
           if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-            // skip live agency background fetches on /mytrips
+            // Route shapes stay off on /mytrips. In-progress vehicles: rrEnsureMyTripsLiveFeeds.
           } else {
             const bg = [];
             // Shapes are non-blocking for map usability; parallelized inside fetchRouteShapes.
