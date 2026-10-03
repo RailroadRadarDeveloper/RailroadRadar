@@ -13,7 +13,7 @@ jobs:
           set -euo pipefail
           python3 <<'PY'
           import base64, gzip, hashlib, pathlib, glob
-          expected = "ed2e625110b6ba231cb137405bc8993ddb5d98e7767d12710bc5ee919a7e47ce"
+          expected = "9470c7e2014c7419b4b203684b98b6c8d68c33deeb62f37d799becb8a0fdc3e9"
           part_paths = sorted(
               [p for p in glob.glob('scripts/trip-card-mainmap-markers.patch.gz.b64.part*')],
               key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
@@ -42,6 +42,14 @@ jobs:
           from pathlib import Path
           t = Path('index.html').read_text(errors='replace')
           assert 'rr-trip-card-mainmap-markers-2026-10-03' in t
+          assert 'rr-live-bar-lateness-only-2026-10-03' in t
+          assert "state = 'arriving'" not in t
+          assert 'border-left: 3px solid #1d4ed8' not in t
+          assert '#3ddc6a' in t
+          assert '#f5b942' in t
+          assert '#ff5a6a' in t
+          assert "placeLine = 'Stopped at ' + stop" in t
+          assert "placeLine = 'On the way to ' + stop" in t
           assert 'function tripCardStationDotIcon' in t
           assert "rrAssetUrl('/assets/station.png')" in t
           assert 'iconSize: [18, 18]' in t
@@ -65,6 +73,8 @@ jobs:
           mt = Path('mytrips/index.html').read_text(errors='replace')
           assert 'rr-trip-card-mainmap-markers-2026-10-03' in mt
           assert 'tripCardIconFromMainMarker' in mt
+          assert 'rr-live-bar-lateness-only-2026-10-03' in mt
+          assert "state = 'arriving'" not in mt
           print('ok', len(t))
           PY
           git config user.name "RailroadRadar"
@@ -72,7 +82,7 @@ jobs:
           git add index.html mytrips/index.html
           if git diff --cached --quiet; then echo nothing to commit
           else
-            git commit -m "MyTrips: card mini-map uses main-map train icon and station dots"
+            git commit -m "MyTrips: card markers match main map; status bar follows lateness only"
             git pull --rebase origin main
             git push
           fi
