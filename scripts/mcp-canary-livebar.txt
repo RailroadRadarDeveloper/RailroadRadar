@@ -1,7 +1,0 @@
-CANARY 0 o O 4 5
-0000
-oooo
-OOOO
-4444
-5555
-0o4O5
