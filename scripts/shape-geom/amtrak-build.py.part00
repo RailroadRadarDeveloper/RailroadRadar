@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+import json, math, os, pathlib, subprocess, time
+EPS = 0.08
+CACHE = pathlib.Path(os.environ.get("OSM_CACHE", "/tmp/osm-cache"))
+OUT = pathlib.Path(os.environ.get("AMTRAK_OUT", "assets/shapes/amtrak.json"))
+CACHE.mkdir(parents=True, exist_ok=True)
+ROWS = """
+36921|Empire Service|#003366|10322900
+36923|Crescent|#003366|12041225
+36924|Coast Starlight|#003366
