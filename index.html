@@ -881,7 +881,6 @@
     .trip-log-row-live[data-live-state="on-time"] { color: #1a7f37; }
     .trip-log-row-live[data-live-state="late"] { color: #b45309; }
     .trip-log-row-live[data-live-state="very-late"] { color: #b00020; }
-    .trip-log-row-live[data-live-state="arriving"] { color: #1d4ed8; }
     .trip-log-row-live[data-live-state="done"] { color: #5a6577; }
     .trip-log-row-live[data-live-state="miss"] { color: #5a6577; font-weight: 600; }
     /* rr-live-status-bar-2026-10-03: left bar + two lines, no pill */
@@ -921,10 +920,6 @@
     .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] {
       color: #fff; background: none; border: none; border-left: 3px solid #ff5a6a;
-    }
-    .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="arriving"],
-    html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="arriving"] {
-      color: #fff; background: none; border: none; border-left: 3px solid #1d4ed8;
     }
     .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="miss"],
     html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="miss"],
@@ -4325,6 +4320,14 @@
       height: 100%;
       background: #0b0d1a;
       font: inherit;
+    }
+    /* rr-trip-card-mainmap-markers-2026-10-03: card train icons scaled from the 44px main-map assets */
+    .trip-log-row-map .leaflet-marker-icon.train-icon,
+    .trip-log-row-map .leaflet-marker-icon.amtrak-nec-icon {
+      width: 28px !important;
+      height: 28px !important;
+      max-width: 28px !important;
+      max-height: 28px !important;
     }
     /* Trip mini-map fade removed (user: fade is bad) */
     .trip-log-row-map.is-empty::after {
@@ -11349,7 +11352,54 @@
       }
     }
 
-    function paintTripLogMiniMap(el, data) {
+function tripCardStationDotIcon() {
+      // Same station dot as main-map createStationIcon (/assets/station.png).
+      // rr-trip-card-mainmap-markers-2026-10-03
+      if (tripCardStationDotIcon._cached) return tripCardStationDotIcon._cached;
+      tripCardStationDotIcon._cached = L.icon({
+        iconUrl: rrAssetUrl('/assets/station.png'),
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+        popupAnchor: [0, -9]
+      });
+      return tripCardStationDotIcon._cached;
+    }
+
+    function tripCardIconFromMainMarker(row) {
+      // Reuse the live main-map marker icon (same URL / divIcon html / class). Scale 44px assets to 28px for the 148px card.
+      let src = null;
+      try {
+        const mm = row && row.markerMap;
+        const id = row && row.id;
+        const mk = (mm && id != null) ? mm[id] : null;
+        if (mk && typeof mk.getIcon === 'function') src = mk.getIcon();
+      } catch (_) {}
+      if (!src || !src.options) return null;
+      const o = src.options;
+      if (o.html) {
+        return L.divIcon({
+          className: o.className || '',
+          html: o.html,
+          iconSize: o.iconSize,
+          iconAnchor: o.iconAnchor,
+          popupAnchor: o.popupAnchor
+        });
+      }
+      if (!o.iconUrl) return src;
+      const base = (o.iconSize && o.iconSize[0]) || 44;
+      const nw = base > 24 ? 28 : base;
+      const nh = base > 24 ? 28 : ((o.iconSize && o.iconSize[1]) || base);
+      return L.icon({
+        iconUrl: o.iconUrl,
+        iconRetinaUrl: o.iconRetinaUrl,
+        iconSize: [nw, nh],
+        iconAnchor: [Math.round(nw / 2), Math.round(nh / 2)],
+        popupAnchor: [0, -Math.round(nh / 2)],
+        className: o.className || 'train-icon'
+      });
+    }
+
+        function paintTripLogMiniMap(el, data) {
       if (!el || typeof L === 'undefined' || !L.map) {
         if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
         return;
@@ -11427,12 +11477,11 @@
         function addOdMarker(ll, isOrigin) {
           if (!ll) return;
           try {
-            L.circleMarker(ll, {
-              radius: 5,
-              color: '#1a2030',
-              weight: 2,
-              fillColor: isOrigin ? '#1a7f37' : '#b00020',
-              fillOpacity: 1
+            L.marker(ll, {
+              icon: tripCardStationDotIcon(),
+              interactive: false,
+              keyboard: false,
+              zIndexOffset: -1000
             }).addTo(map);
             bounds.push(ll);
           } catch (_) {}
@@ -11932,7 +11981,7 @@
     let tripLiveVisBound = false;
     let tripListLiveTimer = null;
     let tripListLiveVisBound = false;
-    const tripCardLiveMarkers = Object.create(null); // tripId -> L.circleMarker
+    const tripCardLiveMarkers = Object.create(null); // tripId -> L.marker (main-map train icon)
     const tripEnrichInFlight = Object.create(null);
 
     function tripIsInProgressLight(data) {
@@ -12143,12 +12192,10 @@
       if (stop && stop !== '—' && stop !== '-') {
         if (/^At$/i.test(label) || /STOPPED_AT/i.test(String(row.stopLabel || ''))) {
           stopBit = 'At ' + stop;
-          placeLine = 'Stopped at ' + stop;
-          if (state === 'on-time') state = 'arriving';
+          placeLine = 'Stopped at ' + stop; // rr-live-bar-lateness-only-2026-10-03
         } else if (/arriv/i.test(label) || /INCOMING/i.test(String(row.stopLabel || ''))) {
           stopBit = 'Arriving ' + stop;
           placeLine = 'On the way to ' + stop;
-          state = 'arriving';
         } else {
           stopBit = 'Next: ' + stop;
           placeLine = 'On the way to ' + stop;
@@ -12193,13 +12240,13 @@
       const lng = Number(row.lng != null ? row.lng : row.lon);
       if (!isFinite(lat) || !isFinite(lng)) return;
       try {
-        const m = L.circleMarker([lat, lng], {
-          radius: 6,
-          color: '#1a2030',
-          weight: 2,
-          fillColor: '#2563eb',
-          fillOpacity: 1,
-          className: 'trip-live-train-marker'
+        const icon = tripCardIconFromMainMarker(row);
+        if (!icon) return;
+        const m = L.marker([lat, lng], {
+          icon: icon,
+          interactive: false,
+          keyboard: false,
+          zIndexOffset: 600
         }).addTo(entry.map);
         tripCardLiveMarkers[tripId] = m;
       } catch (_) {}
