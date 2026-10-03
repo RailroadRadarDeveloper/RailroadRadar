@@ -1,0 +1,91 @@
+name: Apply trip in-progress section
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "12d6d069e6f292b611ad59933bece86835712d7ebe88dd8acb497ee84fdb4a8d"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/trip-inprogress-section.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
+          single = pathlib.Path('scripts/trip-inprogress-section.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          def swap_o0_45(s):
+            return s.translate(str.maketrans({'o':'0','0':'o','4':'5','5':'4'}))
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            alt = swap_o0_45(blob)
+            ha = hashlib.sha256(alt.encode()).hexdigest()
+            print('raw mismatch', h, 'swapped', ha)
+            if ha == expected:
+              blob = alt
+              h = ha
+              print('repaired o/0 and 5/4 swap')
+            else:
+              raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/trip-inprogress-section.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/trip-inprogress-section.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          t = Path('index.html').read_text(errors='replace')
+          assert 'rr-trip-inprogress-section-2026-10-03' in t
+          assert "makeSection('trip-log-inprogress', 'In Progress', 'trip-log-inprogress-rows')" in t
+          assert "list.appendChild(inprogress);\n      list.appendChild(upcoming);\n      list.appendChild(past);" in t
+          assert "if (tripIsInProgressLight(data)) { inprogressRows.appendChild(row); inprogressCount++; } else if (tripIsUpcoming(data))" in t
+          assert "sections.inprogress.hidden = !(inprogressRows && inprogressRows.querySelector('.trip-log-row'))" in t
+          assert "sections.upcoming.hidden = !(upcomingRows && upcomingRows.querySelector('.trip-log-row'))" in t
+          assert "sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'))" in t
+          assert 'rr-trip-card-mainmap-markers-2026-10-03' in t
+          assert 'rr-live-bar-lateness-only-2026-10-03' in t
+          assert "state = 'arriving'" not in t
+          assert 'border-left: 3px solid #1d4ed8' not in t
+          assert '#3ddc6a' in t
+          assert '#f5b942' in t
+          assert '#ff5a6a' in t
+          assert "placeLine = 'Stopped at ' + stop" in t
+          assert "placeLine = 'On the way to ' + stop" in t
+          assert 'function tripCardStationDotIcon' in t
+          assert "rrAssetUrl('/assets/station.png')" in t
+          assert 'function tripCardIconFromMainMarker' in t
+          assert 'function rrEnsureMyTripsLiveFeeds' in t
+          assert 'window.rrEnsureMyTripsLiveFeeds' in t
+          assert 'tripTryEnrichActualTimes' in t
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'rr-trip-inprogress-section-2026-10-03' in mt
+          assert "makeSection('trip-log-inprogress', 'In Progress'" in mt
+          assert 'rr-trip-card-mainmap-markers-2026-10-03' in mt
+          assert 'rr-live-bar-lateness-only-2026-10-03' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "MyTrips: In Progress section above Upcoming and Past"
+            git pull --rebase origin main
+            git push
+          fi
