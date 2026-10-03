@@ -1,0 +1,6 @@
+<= 0.12:
+                        c.extend(o[1:]); used[j] = True; grew = True; changed = True
+                    elif hav(c[-1], o[-1]) <= 0.12:
+                        c.extend(list(reversed(o))[1:]); used[j] = True; grew = True; changed = True
+                    elif hav(c[0], o[-1]) <= 0.12:
+                        c[:] = list(o[:-1]) + c; used[j] = True; grew = True; chan

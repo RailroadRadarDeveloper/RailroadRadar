@@ -1,0 +1,13 @@
+     if best > thr:
+            far += 1
+    return far / max(n, 1) < 0.08
+
+def load_rel(i):
+    p = CACHE / f"{i}.json"
+    if not p.exists() or p.stat().st_size < 500:
+        q = "[out:json][timeout:180];relation(%d);out geom;" % i
+        last = None
+        for attempt in range(5):
+            try:
+                out = subprocess.check_output(
+                    ["curl",

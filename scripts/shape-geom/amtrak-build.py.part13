@@ -1,0 +1,12 @@
+ged = True
+                    elif hav(c[0], o[0]) <= 0.12:
+                        c[:] = list(reversed(o))[:-1] + c; used[j] = True; grew = True; changed = True
+            nxt.append(c)
+        chains = nxt
+    return [c for c in chains if len(c) >= 2]
+
+def contained(a, b, thr=2.5):
+    step = max(1, len(a) // 70)
+    bs = max(1, len(b) // 350)
+    far = n = 0
+    for i in 

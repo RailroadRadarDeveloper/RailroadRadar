@@ -1,0 +1,14 @@
+time.sleep(3 + attempt * 4)
+        else:
+            raise SystemExit("fetch %s %s" % (i, last))
+    data = json.loads(p.read_text())
+    if isinstance(data, dict) and data.get("elements"):
+        return data["elements"][0]
+    return data
+
+def simplify(c):
+    c = dedupe(c)
+    s = dp(c)
+    out, prev = [], None
+    for lat, lng in s:
+        p = (round(lat, 5), round(lng, 5

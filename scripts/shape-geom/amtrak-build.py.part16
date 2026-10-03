@@ -1,0 +1,10 @@
+ "-fsSL", "--retry", "2", "--max-time", "180", "-G",
+                     "https://overpass.openstreetmap.fr/api/interpreter",
+                     "--data-urlencode", "data=" + q],
+                    timeout=200)
+                json.loads(out)
+                p.write_bytes(out)
+                break
+            except Exception as e:
+                last = e
+                
