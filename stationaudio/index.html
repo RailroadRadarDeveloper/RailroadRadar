@@ -43,6 +43,8 @@
     <select id="station" aria-label="Station picker"></select>
     <p id="station-count"></p>
     <p id="selected">No station selected</p>
+    <label for="voice">Voice</label>
+    <select id="voice" aria-label="Announcement voice"></select>
     <div class="row">
       <button type="button" id="start">Start</button>
       <button type="button" id="stop" disabled>Stop</button>
@@ -301,10 +303,11 @@
       } else if (f.fn === 3 && f.bytes) a.header = translated(f.bytes);
       else if (f.fn === 4 && f.bytes) a.desc = translated(f.bytes);
       else if (f.fn === 5 && f.bytes) {
-        var e = { agency: '', routeId: '', stopId: '', tripId: '' };
+        var e = { agency: '', routeId: '', routeType: null, stopId: '', tripId: '' };
         parseFields(f.bytes).forEach(function (x) {
           if (x.fn === 1 && x.bytes) e.agency = dec(x.bytes);
           if (x.fn === 2 && x.bytes) e.routeId = dec(x.bytes);
+          if (x.fn === 3 && x.vi != null) e.routeType = s32(x.vi);
           if (x.fn === 4 && x.bytes) e.tripId = fieldStr(parseFields(x.bytes), 1);
           if (x.fn === 5 && x.bytes) e.stopId = dec(x.bytes);
         });
@@ -369,6 +372,7 @@
             text: text.slice(0, 400),
             stopIds: e.alert.entities.map(function (x) { return x.stopId; }).filter(Boolean),
             routeIds: e.alert.entities.map(function (x) { return x.routeId; }).filter(Boolean),
+            routeTypes: e.alert.entities.map(function (x) { return x.routeType; }).filter(function (t) { return t != null; }),
             tripIds: e.alert.entities.map(function (x) { return x.tripId; }).filter(Boolean),
             agencies: e.alert.entities.map(function (x) { return (x.agency || '').toUpperCase(); })
           });
@@ -788,21 +792,146 @@
     while (ol.children.length > 40) ol.removeChild(ol.lastChild);
   }
 
+
+  var VOICE_KEY = 'rr-station-audio-voice';
+  var RAIL_AGENCIES = { AMTRAK: 1, MNR: 1, LI: 1, LIRR: 1, METRA: 1, MARC: 1, 'MTA MARC': 1, NJT: 1, NJTR: 1, CTRAIL: 1 };
+
+  function routeTypeNum(v) {
+    if (v == null || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function isSubwayOrBusRouteId(id) {
+    var s = String(id || '').trim();
+    if (!s) return false;
+    if (/^(red|orange|blue|mattapan)$/i.test(s)) return true;
+    if (/^green(-[bcde])?$/i.test(s)) return true;
+    if (/silver/i.test(s)) return true;
+    return false;
+  }
+
+  function isMbtaNonRailRouteId(id) {
+    var s = String(id || '').trim();
+    if (!s || /^CR-/i.test(s)) return false;
+    if (isSubwayOrBusRouteId(s)) return true;
+    if (/^\d+$/.test(s)) return true;
+    return false;
+  }
+
+  function isNonRailAgency(name) {
+    return /NYCT|MTASBWY|SUBWAY|MTABC|MTA\s*BUS|BUSCO|\bBUS\b|SIR\b/.test(String(name || '').toUpperCase());
+  }
+
+  function isCommuterRailTrain(t) {
+    if (!t) return false;
+    if (isSubwayOrBusRouteId(t.routeId) || isSubwayOrBusRouteId(t.routeName)) return false;
+    var rt = routeTypeNum(t.routeType);
+    var known = t.agency === 'amtrak' || t.agency === 'mnr' || t.agency === 'lirr' || t.agency === 'metra' || t.agency === 'marc' || t.agency === 'njt' || t.agency === 'ctrail';
+    if (known) {
+      if (rt != null && rt !== 2) return false;
+      return true;
+    }
+    if (t.agency === 'mbta') {
+      if (isMbtaNonRailRouteId(t.routeId)) return false;
+      if (rt === 2) return true;
+      if (rt != null) return false;
+      return /^CR-/i.test(String(t.routeId || ''));
+    }
+    if (rt == null) return false;
+    return rt === 2;
+  }
+
+  function isRailAlert(alert) {
+    if (!alert) return false;
+    var types = (alert.routeTypes || []).map(routeTypeNum).filter(function (n) { return n != null; });
+    if (types.length && types.indexOf(2) < 0) return false;
+    var ids = (alert.routeIds || []).filter(Boolean);
+    var ags = (alert.agencies || []).map(function (a) { return String(a || '').toUpperCase(); }).filter(Boolean);
+    var mbta = (alert.agencyAllow || []).indexOf('mbta') >= 0 || ags.indexOf('MBTA') >= 0;
+    if (types.indexOf(2) < 0 && !ids.some(function (id) { return /^CR-/i.test(String(id)); })) {
+      if (/\b(red|orange|blue|green|mattapan|silver)\s+line\b/i.test(alert.text || '')) return false;
+    }
+    if (ids.some(isSubwayOrBusRouteId) && types.indexOf(2) < 0 && !ids.some(function (id) { return /^CR-/i.test(String(id)); })) return false;
+    if (mbta && ids.length && types.indexOf(2) < 0 && ids.every(isMbtaNonRailRouteId)) return false;
+    if (ags.length && ags.every(isNonRailAgency) && types.indexOf(2) < 0) return false;
+    if (ags.length && types.indexOf(2) < 0) {
+      var anyRail = ags.some(function (a) { return !!RAIL_AGENCIES[a] || a === 'MBTA'; });
+      if (!anyRail) return false;
+    }
+    return true;
+  }
+
+  function listVoices() {
+    try {
+      if (!window.speechSynthesis || !speechSynthesis.getVoices) return [];
+      return speechSynthesis.getVoices() || [];
+    } catch (e) { return []; }
+  }
+
+  function fillVoicePicker() {
+    var sel = $('voice');
+    if (!sel) return;
+    var voices = listVoices();
+    var saved = '';
+    try { saved = localStorage.getItem(VOICE_KEY) || ''; } catch (e) {}
+    var current = sel.value || saved;
+    sel.innerHTML = '';
+    var def = document.createElement('option');
+    def.value = '';
+    def.textContent = 'Default English voice';
+    sel.appendChild(def);
+    voices.forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v.voiceURI || v.name;
+      o.textContent = v.name + (v.lang ? ' (' + v.lang + ')' : '');
+      sel.appendChild(o);
+    });
+    if (current && [].some.call(sel.options, function (o) { return o.value === current; })) sel.value = current;
+    else sel.value = '';
+  }
+
+  function chosenVoiceUri() {
+    var sel = $('voice');
+    if (sel && sel.value) return sel.value;
+    return '';
+  }
+
+  function voiceForUtterance() {
+    var voices = listVoices();
+    var uri = chosenVoiceUri();
+    if (!uri) {
+      try { uri = localStorage.getItem(VOICE_KEY) || ''; } catch (e) {}
+    }
+    if (uri) {
+      for (var i = 0; i < voices.length; i++) {
+        if ((voices[i].voiceURI || voices[i].name) === uri) return voices[i];
+      }
+    }
+    var en = voices.filter(function (v) { return /^en/i.test(v.lang); });
+    var pref = null;
+    for (var j = 0; j < en.length; j++) if (/en-US/i.test(en[j].lang)) { pref = en[j]; break; }
+    if (!pref && en.length) pref = en[0];
+    return pref;
+  }
+
+  function applyVoice(u) {
+    u.lang = 'en-US';
+    u.rate = 1;
+    try {
+      var pref = voiceForUtterance();
+      if (!pref) return;
+      u.voice = pref;
+      if (chosenVoiceUri() && pref.lang) u.lang = pref.lang;
+    } catch (e) {}
+  }
+
   function speak(text) {
     logLine(text);
     if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
     try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
     var u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US';
-    u.rate = 1;
-    try {
-      var voices = speechSynthesis.getVoices() || [];
-      var en = voices.filter(function (v) { return /^en/i.test(v.lang); });
-      var pref = null;
-      for (var i = 0; i < en.length; i++) if (/en-US/i.test(en[i].lang)) { pref = en[i]; break; }
-      if (!pref && en.length) pref = en[0];
-      if (pref) u.voice = pref;
-    } catch (e) {}
+    applyVoice(u);
     try { speechSynthesis.cancel(); } catch (e) {}
     speechSynthesis.speak(u);
   }
@@ -984,6 +1113,7 @@
         agencyLabel: 'MBTA',
         routeId: routeId || '',
         routeName: (route && route.attributes && route.attributes.long_name) || 'MBTA',
+        routeType: route && route.attributes ? route.attributes.type : null,
         tripId: tripId,
         trainNum: num,
         destName: (trip && trip.attributes && trip.attributes.headsign) || '',
@@ -1029,6 +1159,7 @@
         agencyLabel: 'MBTA',
         routeId: routeId || '',
         routeName: (route && route.attributes && route.attributes.long_name) || 'MBTA',
+        routeType: route && route.attributes ? route.attributes.type : null,
         tripId: tripId || '',
         trainNum: num,
         destName: (trip && trip.attributes && trip.attributes.headsign) || '',
@@ -1063,7 +1194,9 @@
         text: text.slice(0, 400),
         stopIds: ents.map(function (e) { return e.stop; }).filter(Boolean),
         routeIds: ents.map(function (e) { return e.route; }).filter(Boolean),
+        routeTypes: ents.map(function (e) { return e.route_type; }).filter(function (t) { return t != null; }),
         tripIds: ents.map(function (e) { return e.trip; }).filter(Boolean),
+        agencies: ['MBTA'],
         agencyAllow: ['mbta']
       });
     });
@@ -1170,7 +1303,9 @@
         text: a.text,
         stopIds: a.stopIds,
         routeIds: a.routeIds,
+        routeTypes: a.routeTypes || [],
         tripIds: a.tripIds,
+        agencies: a.agencies || [],
         agencyAllow: allow
       };
     });
@@ -1311,7 +1446,7 @@
         }
         if (!parents.length && station.agency === 'mbta') parents = (station.stopIds || []).slice(0, 4);
         var predUrl = parents.length
-          ? (A.API + '/api/mbta/predictions?filter[stop]=' + encodeURIComponent(parents.slice(0, 4).join(',')) + '&include=trip,route,stop,schedule&page[limit]=50')
+          ? (A.API + '/api/mbta/predictions?filter[stop]=' + encodeURIComponent(parents.slice(0, 4).join(',')) + '&filter[route_type]=2&include=trip,route,stop,schedule&page[limit]=50')
           : '';
         var predP = predUrl ? fetchMbtaPages(predUrl, 3) : Promise.resolve({ data: [], included: [] });
         var vehP = fetchMbtaPages(A.API + '/api/mbta/vehicles?filter[route_type]=2&include=trip,route&page[limit]=200', 3);
@@ -1433,6 +1568,8 @@
 
     await Promise.all(jobs);
     if (!state.station || state.station.key !== station.key) return;
+    trains = trains.filter(isCommuterRailTrain);
+    alerts = alerts.filter(isRailAlert);
     state.trains = trains;
     state.holding = A.updateApproach(state.approachMem, trains, station);
     state.nextPick = pickNext(trains, station);
@@ -1524,7 +1661,7 @@
     try {
       if (window.speechSynthesis && window.SpeechSynthesisUtterance) {
         var prime = new SpeechSynthesisUtterance('Station audio on.');
-        prime.lang = 'en-US';
+        applyVoice(prime);
         speechSynthesis.cancel();
         speechSynthesis.speak(prime);
         logLine('Station audio on.');
@@ -1562,6 +1699,14 @@
     $('station').addEventListener('change', function () { onPick(); });
     $('start').addEventListener('click', start);
     $('stop').addEventListener('click', stop);
+    fillVoicePicker();
+    var voiceSel = $('voice');
+    if (voiceSel) voiceSel.addEventListener('change', function () {
+      try {
+        if (voiceSel.value) localStorage.setItem(VOICE_KEY, voiceSel.value);
+        else localStorage.removeItem(VOICE_KEY);
+      } catch (e) {}
+    });
     $('start').disabled = true;
     $('stop').disabled = true;
     paintCountdown();
@@ -1578,8 +1723,9 @@
       state.feedText = 'MBTA station list failed. Other railroads are still in the picker. ' + state.feedText;
       paintFeeds();
     });
-    if (window.speechSynthesis && speechSynthesis.onvoiceschanged !== undefined) {
-      speechSynthesis.onvoiceschanged = function () {};
+    if (window.speechSynthesis) {
+      speechSynthesis.onvoiceschanged = function () { fillVoicePicker(); };
+      try { speechSynthesis.getVoices(); } catch (e) {}
     }
   }
 
