@@ -13,8 +13,8 @@ jobs:
           set -euo pipefail
           python3 << 'PY'
           import base64, gzip, hashlib, pathlib, re
-          expected = "c38b9724b3a9b4ac8a20e16ca9f6fccb2129306058020aeb70fa2afe1c4c516d"
-          expected_raw = "11d42380523df2d254b4829a040cb9cd734e2c5d40d4ca0d6d920cb3917ba7fd"
+          expected = "25eeb9a1181515fb72f20d11a7b6abd671c0c55c3c6427c3081a6e55d0c276b0"
+          expected_raw = "663b18e16ac4444342da85d741846a3142ea65779ad5e755d23a9b074c5543b9"
           paths = sorted(pathlib.Path('scripts').glob('station-audio-dest.b64.part*'), key=lambda p: int(re.search(r'part(\d+)$', p.name).group(1)))
           if len(paths) != 155:
               raise SystemExit('expected 155 parts, got %d' % len(paths))
@@ -32,7 +32,7 @@ jobs:
           for banned in ('minutes late', 'minute late', 'back on time', 'is canceled', 'Service alert cleared', 'Up next', 'up next', 'The next train is'):
               if banned in text:
                   raise SystemExit('invented or up-next text still present: ' + banned)
-          for need in ('upcomingByDestination', 'alertMatchesAnnouncedLine', 'Train approaching, please stand back.', 'function peekDest'):
+          for need in ('upcomingByDestination', 'alertMatchesAnnouncedLine', 'Train approaching, please stand back.', 'function peekDest', '>= 15000', 'd <= 0.1', 'gaining'):
               if need not in text:
                   raise SystemExit('missing ' + need)
           pathlib.Path('stationaudio').mkdir(exist_ok=True)
