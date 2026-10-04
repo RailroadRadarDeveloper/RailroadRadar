@@ -13,11 +13,11 @@ jobs:
           set -euo pipefail
           python3 << 'PY'
           import base64, gzip, hashlib, pathlib, re
-          expected = "25eeb9a1181515fb72f20d11a7b6abd671c0c55c3c6427c3081a6e55d0c276b0"
-          expected_raw = "663b18e16ac4444342da85d741846a3142ea65779ad5e755d23a9b074c5543b9"
+          expected = "6bf5af9f3a7d6b2215b5c107fa181adf35020dc918dc3d8168de3b2e1f63882e"
+          expected_raw = "5af480379f23d9da61d0eda1d289e30f1cca45a117ab4fc63f9239fe5b0b1e6b"
           paths = sorted(pathlib.Path('scripts').glob('station-audio-dest.b64.part*'), key=lambda p: int(re.search(r'part(\d+)$', p.name).group(1)))
-          if len(paths) != 155:
-              raise SystemExit('expected 155 parts, got %d' % len(paths))
+          if len(paths) != 159:
+              raise SystemExit('expected 159 parts, got %d' % len(paths))
           blob = ''.join(p.read_text().strip() for p in paths)
           if any(len(p.read_text().strip()) > 400 for p in paths):
               raise SystemExit('a part is longer than 400 bytes')
@@ -32,7 +32,7 @@ jobs:
           for banned in ('minutes late', 'minute late', 'back on time', 'is canceled', 'Service alert cleared', 'Up next', 'up next', 'The next train is'):
               if banned in text:
                   raise SystemExit('invented or up-next text still present: ' + banned)
-          for need in ('upcomingByDestination', 'alertMatchesAnnouncedLine', 'Train approaching, please stand back.', 'function peekDest', '>= 15000', 'd <= 0.1', 'gaining'):
+          for need in ('upcomingByDestination', 'alertMatchesAnnouncedLine', 'Train approaching, please stand back.', 'function peekDest', '>= 15000', 'dFix <= 0.1', 'gaining', 'function estimatePos', 'function segmentHit'):
               if need not in text:
                   raise SystemExit('missing ' + need)
           pathlib.Path('stationaudio').mkdir(exist_ok=True)
