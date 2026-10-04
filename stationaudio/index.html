@@ -1898,7 +1898,13 @@
     alerts = alerts.filter(isRailAlert);
     state.trains = trains;
     var serving = trains.filter(function (t) { return trainServes(t, station); });
-    state.holding = A.updateApproach(state.approachMem, serving, station);
+    /* rr-station-audio-approach-any-2026-10-04
+       Approach is geographic: any commuter-rail train within 1.5 miles, including trains
+       that do not stop at the selected station (Amtrak passing an MBTA stop on the same line).
+       Next train, delays, cancels, and alerts stay on serving only (agency-matched stops).
+       Subway and bus stay out via isCommuterRailTrain. */
+    var approachTrains = trains.filter(isCommuterRailTrain);
+    state.holding = A.updateApproach(state.approachMem, approachTrains, station);
     state.destPicks = upcomingByDestination(serving, station);
     state.alerts = alerts;
     state.nextPick = peekDest(state.destPicks);
