@@ -8069,6 +8069,7 @@
         }
       } catch (err) {
         console.warn('[userSettings] load failed', err);
+        if (currentUserSettings) currentUserSettings.loadFailed = true;
       }
       return currentUserSettings;
     }
@@ -11087,7 +11088,7 @@
     let tripLogMiniMapIO = null;
     /* Trip map main-style tiles */
     // Trip mini-maps + detail map use main-map default style (northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7) via Worker /api/mapbox proxy.
-    const TRIP_MAP_EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const TRIP_MAP_EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
     function rrTripMapTileUrl() {
       const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
       return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
@@ -14851,7 +14852,7 @@ function closeTripDetailView(opts) {
 
     window.applyTripLogFromLive = async function(prefill) {
       if (!prefill) return;
-      if (!currentUser) {
+      if (!(typeof rrAuthUser === 'function' ? rrAuthUser() : currentUser)) {
         tripPendingLogTrip = prefill;
         try { sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill)); } catch (_) {}
         if (typeof showNotification === 'function') showNotification('Sign in to log this trip.', 'error');
@@ -15008,6 +15009,24 @@ function closeTripDetailView(opts) {
         if (typeof rrAuthResolved !== 'undefined' && !rrAuthResolved) return;
         if (sessionStorage.getItem('rrAuthRedirect') === '1') return;
       } catch (_) {}
+      // auth.currentUser is null until persistence restores. Do not paint Get Started
+      // for a signed-in user during that gap (authStateReady is the settled signal).
+      if (!rrAuthGateReady && typeof auth !== 'undefined' && auth && typeof auth.authStateReady === 'function') {
+        if (showMyTripsGuestHome._waiting) return;
+        showMyTripsGuestHome._waiting = true;
+        auth.authStateReady().then(function() {
+          showMyTripsGuestHome._waiting = false;
+          rrAuthGateReady = true;
+          try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+          if (currentUser || (auth && auth.currentUser)) { hideMyTripsGuestHome(); return; }
+          showMyTripsGuestHome();
+        }).catch(function() {
+          showMyTripsGuestHome._waiting = false;
+          rrAuthGateReady = true;
+          showMyTripsGuestHome();
+        });
+        return;
+      }
       const el = document.getElementById('mytrips-guest');
       if (el) el.hidden = false;
       try { document.documentElement.classList.add('rr-mytrips-guest'); } catch (_) {}
@@ -15538,13 +15557,14 @@ function closeTripDetailView(opts) {
     // Prior bug: eager showMyTripsGuestHome() before getRedirectResult/onAuthStateChanged left the
     // splash stuck after Google redirect (auth UI was only wired later inside wireAuthUI/map init).
     let rrAuthResolved = false;
+    let rrAuthGateReady = false;
     let rrEarlyAuthWired = false;
     function rrMarkAuthResolved(user) {
       rrAuthResolved = true;
       try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
       try {
         if (user) currentUser = user;
-        else if (user === null) currentUser = null;
+        else if (user === null && !(typeof auth !== 'undefined' && auth && auth.currentUser)) currentUser = null;
       } catch (_) {}
     }
     function rrSyncMyTripsAuthGate(user) {
@@ -15604,9 +15624,32 @@ function closeTripDetailView(opts) {
         } catch (e) { console.warn('[Auth] early redirect hook', e); }
         try {
           auth.onAuthStateChanged(function(user) {
-            rrMarkAuthResolved(user || null);
-            try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(user || null); } catch (_) {}
-            rrSyncMyTripsAuthGate(user || null);
+            if (!user && auth && auth.currentUser) user = auth.currentUser;
+            var applyEarly = function(u) {
+              if (u) rrAuthGateReady = true;
+              rrMarkAuthResolved(u || null);
+              try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(u || null); } catch (_) {}
+              if (u) {
+                try { if (typeof closeSignupPrompt === 'function') closeSignupPrompt(); } catch (_) {}
+                try {
+                  if (signupPromptTimer) { clearTimeout(signupPromptTimer); signupPromptTimer = null; }
+                } catch (_) {}
+              }
+              rrSyncMyTripsAuthGate(u || null);
+            };
+            // Ignore a null that arrives before persistence restore; that null was
+            // painting Sign up / Get Started for an already signed-in user.
+            if (!user && auth && typeof auth.authStateReady === 'function' && !rrAuthGateReady) {
+              auth.authStateReady().then(function() {
+                rrAuthGateReady = true;
+                applyEarly((auth && auth.currentUser) || null);
+              }).catch(function() {
+                rrAuthGateReady = true;
+                applyEarly(null);
+              });
+              return;
+            }
+            applyEarly(user || null);
           });
         } catch (e) { console.warn('[Auth] early auth listener', e); }
       };
@@ -15629,22 +15672,29 @@ function closeTripDetailView(opts) {
         rrWireEarlyAuth();
         // Failsafe: never leave "Signing in…" forever if redirect handoff stalls
         setTimeout(function() {
-          try {
-            if (sessionStorage.getItem('rrAuthRedirect') !== '1') return;
-            if (currentUser || (auth && auth.currentUser)) {
+          var giveUpRedirect = function() {
+            try {
+              if (sessionStorage.getItem('rrAuthRedirect') !== '1') return;
+              if (currentUser || (auth && auth.currentUser)) {
+                sessionStorage.removeItem('rrAuthRedirect');
+                rrSyncMyTripsAuthGate(currentUser || auth.currentUser);
+                return;
+              }
               sessionStorage.removeItem('rrAuthRedirect');
-              rrSyncMyTripsAuthGate(currentUser || auth.currentUser);
-              return;
-            }
-            sessionStorage.removeItem('rrAuthRedirect');
-            rrAuthResolved = true;
-            rrSyncMyTripsAuthGate(null);
+              rrAuthResolved = true;
+              rrAuthGateReady = true;
+              rrSyncMyTripsAuthGate(null);
             try {
               if (typeof showNotification === 'function') {
                 showNotification('Sign-in did not complete. On Safari, allow popups and try Get Started again.', 'error');
               }
             } catch (_) {}
-          } catch (_) {}
+            } catch (_) {}
+          };
+          try {
+            if (auth && typeof auth.authStateReady === 'function') auth.authStateReady().then(giveUpRedirect).catch(giveUpRedirect);
+            else giveUpRedirect();
+          } catch (_) { giveUpRedirect(); }
         }, 20000);
       } else if (auth) {
         // Still process redirect on non-mytrips pages ASAP
@@ -16056,6 +16106,19 @@ function closeTripDetailView(opts) {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
       if (currentUser || (auth && auth.currentUser)) return;
       if (!force && isSignupPromptDismissed()) return;
+      // Signed-in users look logged-out until authStateReady. Never show
+      // "Create an account" in that window, including forced opens.
+      if (!openSignupPrompt._bypassReady && !rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
+        var wantForce = !!force;
+        auth.authStateReady().then(function() {
+          rrAuthGateReady = true;
+          try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+          if (currentUser || (auth && auth.currentUser)) { closeSignupPrompt(); return; }
+          openSignupPrompt._bypassReady = true;
+          try { openSignupPrompt(wantForce); } finally { openSignupPrompt._bypassReady = false; }
+        }).catch(function() { rrAuthGateReady = true; });
+        return;
+      }
       const el = document.getElementById('signup-prompt-modal');
       if (!el) return;
       const err = document.getElementById('signup-legal-error');
@@ -16078,6 +16141,24 @@ function closeTripDetailView(opts) {
       signupPromptTimer = null;
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         closeSignupPrompt();
+        return;
+      }
+      // wireSignupPromptUI used to arm this 20s timer before persistence restored,
+      // so a signed-in user (currentUser still null) got the create-account modal.
+      if (!rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
+        if (!scheduleSignupPrompt._waiting) {
+          scheduleSignupPrompt._waiting = true;
+          auth.authStateReady().then(function() {
+            scheduleSignupPrompt._waiting = false;
+            rrAuthGateReady = true;
+            try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+            scheduleSignupPrompt();
+          }).catch(function() {
+            scheduleSignupPrompt._waiting = false;
+            rrAuthGateReady = true;
+            scheduleSignupPrompt();
+          });
+        }
         return;
       }
       if (currentUser || (auth && auth.currentUser) || isSignupPromptDismissed()) {
@@ -16107,6 +16188,23 @@ function closeTripDetailView(opts) {
       signInWithGoogle();
     }
     function requestGoogleSignIn() {
+      if (currentUser || (auth && auth.currentUser)) return;
+      if (!rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
+        if (requestGoogleSignIn._waiting) return;
+        requestGoogleSignIn._waiting = true;
+        auth.authStateReady().then(function() {
+          requestGoogleSignIn._waiting = false;
+          rrAuthGateReady = true;
+          try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+          if (currentUser || (auth && auth.currentUser)) return;
+          requestGoogleSignIn();
+        }).catch(function() {
+          requestGoogleSignIn._waiting = false;
+          rrAuthGateReady = true;
+          requestGoogleSignIn();
+        });
+        return;
+      }
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         signInWithGoogle();
         return;
@@ -16211,6 +16309,15 @@ function closeTripDetailView(opts) {
           }).catch(function(e) { console.warn('[Auth] redirect result', e); });
         } catch (e) { console.warn('[Auth] redirect hook', e); }
         auth.onAuthStateChanged(async function(user) {
+          if (!user && auth && auth.currentUser) user = auth.currentUser;
+          if (!user && auth && typeof auth.authStateReady === 'function' && !rrAuthGateReady) {
+            try {
+              await auth.authStateReady();
+              rrAuthGateReady = true;
+              if (auth.currentUser) user = auth.currentUser;
+            } catch (_) { rrAuthGateReady = true; }
+          }
+          if (user) rrAuthGateReady = true;
           currentUser = user;
           try { rrMarkAuthResolved(user || null); } catch (_) {}
           rrIdentifyBetterStack(user);
@@ -16263,7 +16370,9 @@ function closeTripDetailView(opts) {
               await persistLegalAcceptance(user);
             }
             await refreshAdminState(user);
-            if (!currentUserSettings.legalAccepted) {
+            if (currentUserSettings && currentUserSettings.loadFailed) {
+              console.warn('[auth] userSettings unread; not showing legal/interest gate');
+            } else if (!currentUserSettings.legalAccepted) {
               openLegalAcceptModal();
             } else if (!currentUserSettings.interestedRailroadsSet) {
               openInterestRailroadsModal();
@@ -16377,8 +16486,9 @@ function closeTripDetailView(opts) {
           return s;
         }
       }
-      // Transparent 1x1 PNG — avoids grey broken-image tiles on error
-      const EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      // Truly transparent 1x1 PNG. The previous tile was RGBA(0,255,0,127);
+      // Leaflet stretches errorTileUrl to the tile size, so pan/zoom tile errors painted the map green.
+      const EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
       function rrPopupOpts() {
         let w = 520;
         try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
