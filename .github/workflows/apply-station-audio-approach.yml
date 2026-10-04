@@ -1,0 +1,90 @@
+name: Apply station audio approach any train
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify hash, then publish station audio approach
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import base64, gzip, hashlib, pathlib, re
+          expected = "fdafe1881919555b1b8fe21403e594030a98ae4e0665a9e6afed6746de14e4b8"
+          expected_html = "6cb2df97fa2f66dc4fff77ead2a4cb4aedca627e7c062d7790a96414d917f84b"
+          paths = sorted(pathlib.Path("scripts").glob("station-audio-approach.b64.part*"), key=lambda p: int(re.search(r"part(\d+)$", p.name).group(1)))
+          if len(paths) != 2:
+              raise SystemExit("expected 2 parts, got %d" % len(paths))
+          pieces = [p.read_text().strip() for p in paths]
+          if any(len(piece) > 400 for piece in pieces):
+              raise SystemExit("a part is longer than 400 bytes")
+          blob = "".join(pieces)
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+              repaired = blob.translate(str.maketrans("o045", "0o54"))
+              hr = hashlib.sha256(repaired.encode()).hexdigest()
+              if hr != expected:
+                  raise SystemExit("b64 hash mismatch " + h + " repaired " + hr)
+              blob = repaired
+              h = hr
+              print("repaired o/0 and 4/5 swap")
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path("/tmp/station-audio-approach.patch").write_bytes(raw)
+          print("b64 hash ok", h, "patch bytes", len(raw))
+          PY
+          git apply --check /tmp/station-audio-approach.patch
+          git apply /tmp/station-audio-approach.patch
+          python3 << 'PY'
+          import hashlib
+          from pathlib import Path
+          html_path = Path("stationaudio/index.html")
+          raw = html_path.read_bytes()
+          h = hashlib.sha256(raw).hexdigest()
+          expected_html = "6cb2df97fa2f66dc4fff77ead2a4cb4aedca627e7c062d7790a96414d917f84b"
+          if h != expected_html:
+              raise SystemExit("stationaudio sha mismatch " + h)
+          text = raw.decode("utf-8")
+          for need in (
+              "rr-station-audio-approach-any-2026-10-04",
+              "var approachTrains = trains.filter(isCommuterRailTrain);",
+              "A.updateApproach(state.approachMem, approachTrains, station)",
+              "upcomingByDestination(serving, station)",
+              "trainServes(t, station)",
+              "Train approaching, please stand back.",
+              "APPROACH_MI = 1.5",
+              "dFix <= 0.1",
+              "gaining",
+              "function estimatePos",
+              "function segmentHit",
+              ">= 15000",
+              "id=\"voice-preview\"",
+              "VOICE_KEY = 'rr-station-audio-voice'",
+              "isCommuterRailTrain",
+              "stopServesStation",
+              "function pumpTts",
+              "Chrome/Safari often drop",
+          ):
+              if need not in text:
+                  raise SystemExit("missing " + need)
+          if "updateApproach(state.approachMem, serving, station)" in text:
+              raise SystemExit("approach still limited to stop-serving trains")
+          for banned in ("minutes late", "minute late", "back on time", "is canceled", "Service alert cleared", "Up next", "up next", "The next train is", "id=\"countdown\"", "Next announcement", "paintCountdown"):
+              if banned in text:
+                  raise SystemExit("banned text still present: " + banned)
+          root = Path("index.html").read_text(errors="replace")
+          if "rr-station-audio-approach-any-2026-10-04" in root:
+              raise SystemExit("root index.html was modified")
+          print("html hash ok", h, "bytes", len(raw))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add -- stationaudio/index.html
+          names=$(git diff --cached --name-only)
+          printf '%s\n' "$names"
+          test "$names" = "stationaudio/index.html"
+          git commit -m "Station audio: warn for any train within 1.5 miles, not only trains that stop"
+          git pull --rebase origin main
+          git push
