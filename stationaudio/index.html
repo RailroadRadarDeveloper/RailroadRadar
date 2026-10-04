@@ -220,7 +220,7 @@
   }
   function parseVehicle(bytes) {
     var fields = parseFields(bytes);
-    var v = { tripId: '', routeId: '', stopId: '', vehicleId: '', label: '', lat: null, lng: null, sched: null };
+    var v = { tripId: '', routeId: '', stopId: '', vehicleId: '', label: '', lat: null, lng: null, sched: null, speedMps: null, heading: null, posTime: null };
     fields.forEach(function (f) {
       if (f.fn === 1 && f.bytes) {
         var td = parseTripDesc(f.bytes);
@@ -231,7 +231,13 @@
           if (q.fn === 1 && q.f64 != null && isFinite(q.f64)) v.lat = q.f64;
           if (q.fn === 2 && q.f32 != null && isFinite(q.f32)) v.lng = q.f32;
           if (q.fn === 2 && q.f64 != null && isFinite(q.f64)) v.lng = q.f64;
+          if (q.fn === 3 && q.f32 != null && isFinite(q.f32)) v.heading = q.f32;
+          if (q.fn === 5 && q.f32 != null && isFinite(q.f32)) v.speedMps = q.f32;
         });
+      } else if (f.fn === 5 && f.vi != null) {
+        var ts = Number(f.vi);
+        if (ts > 1000000000000) ts = ts / 1000;
+        if (ts > 1000000000) v.posTime = ts * 1000;
       } else if (f.fn === 7 && f.bytes) v.stopId = dec(f.bytes);
       else if (f.fn === 8 && f.bytes) {
         var vd = parseFields(f.bytes);
@@ -430,6 +436,9 @@
         lat: lat,
         lng: lng,
         hasCoord: lat != null && lng != null,
+        speedMps: v && isFinite(v.speedMps) ? v.speedMps : null,
+        heading: v && isFinite(v.heading) ? v.heading : null,
+        posTime: v && v.posTime ? v.posTime : null,
         stops: stops,
         cancelled: cancelled,
         delayMin: null,
@@ -449,61 +458,119 @@
     return { trains: trains, alerts: alerts, hadCoords: trains.some(function (t) { return t.hasCoord; }) };
   }
 
+  function movePoint(lat, lng, bearingDeg, meters) {
+    var br = bearingDeg * Math.PI / 180;
+    var north = meters * Math.cos(br);
+    var east = meters * Math.sin(br);
+    var cos = Math.cos(lat * Math.PI / 180);
+    return { lat: lat + north / 111320, lng: lng + east / (111320 * (cos || 1)) };
+  }
+
+  function bearingDeg(lat1, lng1, lat2, lng2) {
+    var p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+    var dl = (lng2 - lng1) * Math.PI / 180;
+    var y = Math.sin(dl) * Math.cos(p2);
+    var x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function segmentHit(lat1, lng1, lat2, lng2, slat, slng) {
+    var cos = Math.cos(slat * Math.PI / 180);
+    function xy(lat, lng) {
+      return [(lng - slng) * 69.172 * cos, (lat - slat) * 69.0];
+    }
+    var a = xy(lat1, lng1), b = xy(lat2, lng2);
+    var abx = b[0] - a[0], aby = b[1] - a[1];
+    var len2 = abx * abx + aby * aby;
+    if (len2 < 1e-8) return { dist: miles(lat1, lng1, slat, slng), t: 0 };
+    var t = ((-a[0]) * abx + (-a[1]) * aby) / len2;
+    var tc = t < 0 ? 0 : (t > 1 ? 1 : t);
+    var cx = a[0] + abx * tc, cy = a[1] + aby * tc;
+    return { dist: Math.sqrt(cx * cx + cy * cy), t: t };
+  }
+
+  function estimatePos(st, t, now) {
+    var lat = t.lat, lng = t.lng;
+    var pingAt = st.fixAt || now;
+    var dt = (now - pingAt) / 1000;
+    if (!isFinite(dt) || dt < 0) dt = 0;
+    if (dt > 180) dt = 180;
+    var speed = t.speedMps, heading = t.heading;
+    if (speed != null && isFinite(speed) && speed >= 0.5 && speed <= 55 && heading != null && isFinite(heading)) {
+      return movePoint(lat, lng, heading, speed * dt);
+    }
+    if (st.prevFixLat != null && st.prevFixAt && st.fixAt && st.fixAt > st.prevFixAt) {
+      var elapsed = (st.fixAt - st.prevFixAt) / 1000;
+      var distMi = miles(st.prevFixLat, st.prevFixLng, lat, lng);
+      if (elapsed >= 2 && elapsed <= 600 && distMi > 0.02) {
+        var mps = distMi * 1609.344 / elapsed;
+        if (mps >= 0.5 && mps <= 55) return movePoint(lat, lng, bearingDeg(st.prevFixLat, st.prevFixLng, lat, lng), mps * dt);
+      }
+    }
+    return { lat: lat, lng: lng };
+  }
+
   function updateApproach(mem, trains, station) {
     var seen = {};
     var holding = [];
+    var now = Date.now();
     trains.forEach(function (t) {
       if (!t.hasCoord || t.lat == null || t.lng == null) return;
-      var d = miles(t.lat, t.lng, station.lat, station.lng);
       seen[t.id] = true;
       var st = mem[t.id];
-      if (!st) st = mem[t.id] = { phase: 'out', min: Infinity, prevD: null, prevLat: null, prevLng: null };
-      if (st.phase === 'passed') {
-        if (d > APPROACH_MI + 0.5) { st.phase = 'out'; st.min = Infinity; }
+      if (!st) st = mem[t.id] = { phase: 'out', min: Infinity, prevD: null, fixLat: null, fixLng: null, fixAt: 0, prevFixLat: null, prevFixLng: null, prevFixAt: 0, leaveNext: false };
+      var movedFromFix = st.fixLat != null ? miles(st.fixLat, st.fixLng, t.lat, t.lng) : null;
+      var newFix = movedFromFix == null || movedFromFix > 0.01;
+      var seg = null;
+      if (newFix && st.fixLat != null) {
+        seg = segmentHit(st.fixLat, st.fixLng, t.lat, t.lng, station.lat, station.lng);
+        st.prevFixLat = st.fixLat; st.prevFixLng = st.fixLng; st.prevFixAt = st.fixAt;
       }
-      if (st.phase !== 'passed') {
-        if (d > APPROACH_MI) {
-          if (st.phase === 'hold' || st.phase === 'inside') st.phase = 'passed';
-          else st.phase = 'out';
-          st.min = Infinity;
-        } else if (st.phase === 'out') {
-          if (st.prevD != null && st.prevD > APPROACH_MI) { st.phase = 'hold'; st.min = d; }
-          else { st.phase = 'inside'; st.min = d; }
-        } else if (st.phase === 'inside') {
-          if (st.prevD != null && d > st.min + 0.15 && d > st.prevD + 0.05) st.phase = 'passed';
-          else { st.phase = 'hold'; st.min = Math.min(st.min, d); }
-        } else if (st.phase === 'hold') {
-          if (d < st.min) st.min = d;
-          var moved = st.prevLat != null && miles(st.prevLat, st.prevLng, t.lat, t.lng) >= 0.05;
-          if (moved && d > st.min + 0.35) st.phase = 'passed';
-          else if (moved && st.prevLat != null && alongPassed(st, t, station)) st.phase = 'passed';
-        }
+      if (newFix) {
+        st.fixLat = t.lat; st.fixLng = t.lng;
+        var stamp = t.posTime;
+        st.fixAt = (stamp && stamp > now - 600000 && stamp <= now + 5000) ? stamp : now;
+      } else if (t.posTime && t.posTime > st.fixAt && t.posTime <= now + 5000) {
+        st.fixAt = t.posTime;
+      }
+      var est = estimatePos(st, t, now);
+      var dEst = miles(est.lat, est.lng, station.lat, station.lng);
+      var dFix = miles(t.lat, t.lng, station.lat, station.lng);
+      var d = Math.min(dEst, dFix);
+      var pathNear = seg && seg.dist <= APPROACH_MI;
+      var crossed = !!(pathNear && seg.t > 0 && seg.t < 1);
+      var inZone = d <= APPROACH_MI || pathNear;
+      var speed = t.speedMps;
+      var barelyMoved = movedFromFix != null && movedFromFix < 0.02;
+      var stopped = dFix <= 0.1 && ((speed != null && isFinite(speed) && speed < 0.5) || (barelyMoved && st.prevFixLat != null));
+      var gaining = st.min < Infinity && st.prevD != null && d > st.prevD + 0.03 && d > st.min + 0.02;
+      var alreadyPast = !!(seg && pathNear && seg.t >= 0.5 && dFix > seg.dist + 0.05 && dFix > 0.15);
+      if (st.leaveNext && (st.phase === 'hold' || st.phase === 'near')) {
+        st.phase = 'done';
+        st.leaveNext = false;
+      } else if (st.phase === 'done') {
+        if (dFix > APPROACH_MI + 0.5 && dEst > APPROACH_MI + 0.5) { st.phase = 'out'; st.min = Infinity; }
+      } else if (!inZone) {
+        if ((st.phase === 'hold' || st.phase === 'near') && (gaining || d > APPROACH_MI)) st.phase = 'done';
+        else if (st.phase !== 'hold' && st.phase !== 'near') st.phase = 'out';
+        if (st.phase !== 'hold') st.min = Infinity;
+      } else {
+        if (d < st.min) st.min = d;
+        if (stopped) st.phase = 'done';
+        else if (st.phase === 'out') {
+          if (dFix <= 0.1 && movedFromFix == null) st.phase = 'near';
+          else if (gaining && !crossed && !pathNear) st.phase = 'done';
+          else { st.phase = 'hold'; if (alreadyPast) st.leaveNext = true; }
+        } else if (gaining) st.phase = 'done';
+        else st.phase = 'hold';
       }
       st.prevD = d;
-      st.prevLat = t.lat;
-      st.prevLng = t.lng;
       if (st.phase === 'hold') holding.push(t);
     });
     Object.keys(mem).forEach(function (id) {
       if (!seen[id]) delete mem[id];
     });
     return holding;
-  }
-
-  function alongPassed(st, t, station) {
-    var lat0 = station.lat * Math.PI / 180;
-    var cos = Math.cos(lat0);
-    function xy(lat, lng) {
-      return [(lng - station.lng) * 69.172 * cos, (lat - station.lat) * 69.0];
-    }
-    var p = xy(st.prevLat, st.prevLng);
-    var c = xy(t.lat, t.lng);
-    var vx = c[0] - p[0], vy = c[1] - p[1];
-    var len2 = vx * vx + vy * vy;
-    if (len2 < 0.0025) return false;
-    var tproj = ((-p[0]) * vx + (-p[1]) * vy) / len2;
-    var dNow = miles(t.lat, t.lng, station.lat, station.lng);
-    return tproj < 0.25 && dNow > st.min + 0.1;
   }
 
   function parseNjtTime(s) {
@@ -631,9 +698,15 @@
     trains: [],
     holding: [],
     nextPick: null,
+    destPicks: [],
+    alerts: [],
     approachMem: {},
     updateQueue: [],
     spoken: {},
+    lastDestKey: '',
+    lastDestAt: 0,
+    lastApproachAt: 0,
+    heldOffDest: false,
     lastNextAt: 0,
     nextSlot: 0,
     feedText: 'Choose a station, then press Start. Audio does not play until you do.',
@@ -823,7 +896,8 @@
     }
     var wait = state.nextSlot - Date.now();
     var hold = state.holding && state.holding.length;
-    el.textContent = (hold ? 'Approaching — next announcement in ' : 'Next announcement in ') + fmtClock(wait);
+    if (hold) { el.textContent = 'Train approaching, please stand back.'; return; }
+    el.textContent = 'Next announcement in ' + fmtClock(wait);
   }
 
   function paintPreview() {
@@ -832,10 +906,8 @@
     if (!state.trains.length && !state.running) { el.textContent = 'Live data loads when you pick a station.'; return; }
     var line;
     if (state.holding && state.holding.length) line = A.approachLine(state.holding);
-    else if (!state.lastNextAt || (Date.now() - state.lastNextAt) >= 120000) line = A.nextTrainLine(state.nextPick, state.station.name);
-    else if (state.updateQueue.length) line = state.updateQueue[0].text;
-    else line = A.nextTrainLine(state.nextPick, state.station.name);
-    el.textContent = 'Up next: ' + line;
+    else line = A.nextTrainLine(peekDest(state.destPicks || []), state.station.name);
+    el.textContent = line;
   }
 
   function paintFeeds() {
@@ -1018,121 +1090,114 @@
     return open[0] || null;
   }
 
-  function pickNext(trains, station) {
+  function destKeyOf(name) {
+    return A.normName(name) || 'unknown destination';
+  }
+
+  function upcomingByDestination(trains, station) {
     var now = Date.now();
-    var best = null;
-    trains.forEach(function (t) {
-      if (t.cancelled) return;
+    var best = {};
+    (trains || []).forEach(function (t) {
+      if (!t || t.cancelled) return;
       (t.stops || []).forEach(function (s) {
         if (!stopServes(s, station, t.agency) || s.departed || s.skipped || s.cancelled) return;
         if (s.etaMs == null || s.etaMs < now - 45000) return;
         var mins = Math.round((s.etaMs - now) / 60000);
         if (mins < 0) mins = 0;
         if (mins > 360) return;
-        if (!best || s.etaMs < best.etaMs) {
-          best = {
+        var key = destKeyOf(t.destName);
+        var cur = best[key];
+        if (!cur || s.etaMs < cur.etaMs) {
+          best[key] = {
+            destKey: key,
             routeName: t.routeName,
+            routeId: t.routeId || '',
+            tripId: t.tripId || '',
+            trainId: t.id || '',
             trainNum: t.trainNum,
             destName: t.destName,
+            agency: t.agency,
             agencyLabel: t.agencyLabel,
             mins: mins,
-            track: s.track || '',
+            track: s.track || t.track || '',
             etaMs: s.etaMs
           };
         }
       });
     });
-    if (best) best.mins = Math.max(0, Math.round((best.etaMs - Date.now()) / 60000));
-    return best;
+    var list = Object.keys(best).map(function (k) { return best[k]; });
+    list.sort(function (a, b) {
+      if (a.etaMs !== b.etaMs) return a.etaMs - b.etaMs;
+      return a.destKey < b.destKey ? -1 : a.destKey > b.destKey ? 1 : 0;
+    });
+    list.forEach(function (row) {
+      row.mins = Math.max(0, Math.round((row.etaMs - Date.now()) / 60000));
+    });
+    return list;
   }
 
-  function enqueue(key, text) {
-    text = String(text || '').replace(/\s+/g, ' ').trim();
-    if (!text) return;
-    if (state.spoken[key] === text) return;
-    for (var i = 0; i < state.updateQueue.length; i++) {
-      if (state.updateQueue[i].key === key) { state.updateQueue[i].text = text; return; }
+  function peekDest(list) {
+    if (!list || !list.length) return null;
+    var pos = 0;
+    if (state.lastDestKey) {
+      var at = -1;
+      for (var i = 0; i < list.length; i++) if (list[i].destKey === state.lastDestKey) { at = i; break; }
+      if (at >= 0) pos = (at + 1) % list.length;
     }
-    state.updateQueue.push({ key: key, text: text });
-    if (state.updateQueue.length > 30) state.updateQueue.shift();
+    var row = list[pos];
+    if (row) row.mins = Math.max(0, Math.round((row.etaMs - Date.now()) / 60000));
+    return row;
   }
 
-  function alertAgencyOk(alert, station) {
-    if (!alert || !station) return false;
-    var allow = (alert.agencyAllow || []).slice();
-    (alert.agencies || []).forEach(function (ag) {
-      var m = mapAgency(ag);
-      if (m && allow.indexOf(m) < 0) allow.push(m);
-      var u = String(ag || '').toUpperCase();
-      if (u === 'AMTRAK' && allow.indexOf('amtrak') < 0) allow.push('amtrak');
-      if (u === 'MBTA' && allow.indexOf('mbta') < 0) allow.push('mbta');
-      if ((u === 'CTRAIL' || u === 'CTDOT') && allow.indexOf('ctrail') < 0) allow.push('ctrail');
+  function alertMatchesAnnouncedLine(alert, pick, trains) {
+    if (!pick || !alertAgencyOk(alert, state.station)) return false;
+    var routes = (alert.routeIds || []).map(function (id) { return String(id || ''); }).filter(Boolean);
+    var trips = (alert.tripIds || []).map(function (id) { return String(id || ''); }).filter(Boolean);
+    if (!routes.length && !trips.length) return false;
+    var route = String(pick.routeId || '');
+    if (routes.length && routes.indexOf(route) < 0) return false;
+    if (!trips.length) return true;
+    var ids = {};
+    function add(t) {
+      if (!t) return;
+      if (t.tripId) ids[String(t.tripId)] = 1;
+      if (t.trainNum) ids[String(t.trainNum)] = 1;
+      if (t.id) ids[String(t.id)] = 1;
+    }
+    add({ tripId: pick.tripId, trainNum: pick.trainNum, id: pick.trainId });
+    (trains || []).forEach(function (t) {
+      if (!t || !trainServes(t, state.station)) return;
+      if (route && String(t.routeId || '') !== route) return;
+      add(t);
     });
-    if (!allow.length) return false;
-    for (var i = 0; i < allow.length; i++) if (A.agenciesAlign(allow[i], station.agency)) return true;
-    return false;
+    return trips.some(function (id) { return !!ids[id]; });
   }
 
-  function alertStopHit(alert, station) {
-    var ids = station.stopIds || [];
-    var code = station.code ? String(station.code) : '';
-    return (alert.stopIds || []).some(function (id) {
-      var s = String(id || '');
-      if (!s) return false;
-      if (ids.indexOf(s) >= 0) return true;
-      if (station.agency === 'mbta') {
-        var parent = A.mbtaCanonicalStopId(s);
-        if (parent && (ids.indexOf(parent) >= 0 || code === parent)) return true;
-      }
-      if (code && s.toUpperCase() === code.toUpperCase()) return true;
-      return false;
+  function lineAlertNotes(pick) {
+    var notes = [];
+    var seen = {};
+    if (!pick) return notes;
+    (state.alerts || []).forEach(function (alert) {
+      if (!alertMatchesAnnouncedLine(alert, pick, state.trains)) return;
+      var text = String(alert.text || '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      var key = 'alert|' + (alert.id || text.slice(0, 40));
+      if (seen[key]) return;
+      seen[key] = 1;
+      var line = 'Service alert. ' + text;
+      if (state.spoken[key] === line) return;
+      notes.push({ key: key, text: line });
     });
+    return notes;
   }
 
-  function alertRelevant(alert, station, trains) {
-    if (!alertAgencyOk(alert, station)) return false;
-    var serving = trains.filter(function (t) { return trainServes(t, station); });
-    if (alertStopHit(alert, station)) return true;
-    if ((alert.tripIds || []).some(function (id) {
-      return serving.some(function (t) { return t.tripId === id || t.trainNum === id || t.id === id; });
-    })) return true;
-    if ((alert.routeIds || []).some(function (id) {
-      return serving.some(function (t) { return t.routeId === id; });
-    })) return true;
-    if (A.nameInText(station.name, alert.text)) return true;
-    return false;
-  }
-
-  function collectEvents(trains, alerts, station) {
-    var seenAlerts = {};
-    trains.forEach(function (t) {
-      if (!trainServes(t, station)) return;
-      var st = stationStop(t, station);
-      var label = A.trainLabel(t);
-      if (t.cancelled || (st && st.cancelled && !st.departed)) {
-        enqueue(t.id + '|cancel', label + ' is canceled.');
-        return;
-      }
-      if (!st || st.departed) return;
-      var delay = st.delayMin;
-      var key = t.id + '|delay';
-      if (delay != null && delay >= 5) {
-        enqueue(key, label + ' is ' + delay + (delay === 1 ? ' minute late.' : ' minutes late.'));
-      } else if (state.spoken[key] && /minute/.test(state.spoken[key]) && /late/.test(state.spoken[key])) {
-        enqueue(key, label + ' is back on time.');
-      }
-    });
-    alerts.forEach(function (alert) {
-      if (!alertRelevant(alert, station, trains)) return;
-      var key = 'alert|' + alert.id;
-      seenAlerts[key] = true;
-      enqueue(key, 'Service alert. ' + alert.text);
-    });
-    Object.keys(state.spoken).forEach(function (key) {
-      if (key.indexOf('alert|') !== 0) return;
-      if (seenAlerts[key]) return;
-      if (state.spoken[key] && state.spoken[key].indexOf('cleared') < 0) enqueue(key, 'Service alert cleared.');
-    });
+  function announcementText(pick) {
+    var name = state.station ? state.station.name : '';
+    var base = A.nextTrainLine(pick, name);
+    if (!pick) return { text: base, notes: [] };
+    var notes = lineAlertNotes(pick);
+    var extra = notes.map(function (n) { return n.text; }).join(' ');
+    return { text: extra ? (base + ' ' + extra) : base, notes: notes };
   }
 
   function findInc(inc, type, id) {
@@ -1244,6 +1309,9 @@
         lat: ok ? lat : null,
         lng: ok ? lng : null,
         hasCoord: !!ok,
+        speedMps: (function () { var sp = parseFloat(a.speed); return isFinite(sp) && sp >= 0 && sp <= 55 ? sp : null; })(),
+        heading: (function () { var h = parseFloat(a.bearing); return isFinite(h) ? h : null; })(),
+        posTime: a.updated_at ? Date.parse(a.updated_at) : null,
         stops: [],
         cancelled: false,
         track: '',
@@ -1350,6 +1418,14 @@
           lat: ok ? lat : null,
           lng: ok ? lng : null,
           hasCoord: ok,
+          speedMps: (function () {
+            var sp = parseFloat(t.speed != null ? t.speed : t.velocity);
+            if (!isFinite(sp) || sp < 0) return null;
+            if (t.speed == null && sp > 55) sp = sp / 2.23694;
+            return sp <= 55 ? sp : null;
+          })(),
+          heading: (function () { var h = parseFloat(t.heading != null ? t.heading : t.bearing); return isFinite(h) ? h : null; })(),
+          posTime: (function () { var u = Date.parse(t.lastVal || t.updated || t.updatedAt || ''); return isFinite(u) ? u : null; })(),
           stops: stops,
           cancelled: cancelled,
           track: '',
@@ -1411,6 +1487,9 @@
         lat: ok ? lat : null,
         lng: ok ? lng : null,
         hasCoord: ok,
+        speedMps: (function () { var sp = parseFloat(r.SPEED); return isFinite(sp) && sp >= 0 && sp <= 55 ? sp : null; })(),
+        heading: (function () { var h = parseFloat(r.HEADING != null ? r.HEADING : r.BEARING); return isFinite(h) ? h : null; })(),
+        posTime: null,
         stops: [],
         cancelled: /cancel/i.test(String(r.STOP_STATUS || r.STATUS || '')),
         track: '',
@@ -1480,7 +1559,6 @@
       if (!c || !c.stops) return;
       t.stops = c.stops.map(function (s) {
         var copy = Object.assign({}, s);
-        if (copy.delayMin == null && !copy.departed && t.delayHint != null && stopServes(copy, station, t.agency)) copy.delayMin = t.delayHint;
         return copy;
       });
       if (c.dest) t.destName = c.dest;
@@ -1530,7 +1608,7 @@
         pt.forEach(function (t) { if (t.tripId) byTrip[t.tripId] = t; });
         vt.forEach(function (v) {
           var p = v.tripId && byTrip[v.tripId];
-          if (p && v.hasCoord) { p.lat = v.lat; p.lng = v.lng; p.hasCoord = true; }
+          if (p && v.hasCoord) { p.lat = v.lat; p.lng = v.lng; p.hasCoord = true; p.speedMps = v.speedMps; p.heading = v.heading; p.posTime = v.posTime; }
           else if (v.hasCoord) trains.push(v);
         });
         pt.forEach(function (t) { trains.push(t); });
@@ -1645,8 +1723,9 @@
     state.trains = trains;
     var serving = trains.filter(function (t) { return trainServes(t, station); });
     state.holding = A.updateApproach(state.approachMem, serving, station);
-    state.nextPick = pickNext(serving, station);
-    collectEvents(serving, alerts, station);
+    state.destPicks = upcomingByDestination(serving, station);
+    state.alerts = alerts;
+    state.nextPick = peekDest(state.destPicks);
     notes.push('CTrail has no vehicle feed (Hartford Line uses Amtrak)');
     notes.push('NJT stations are not listed (no coordinates in the map data)');
     state.feedText = 'Feeds: ' + notes.join(' · ');
@@ -1656,41 +1735,52 @@
 
   function maybeSpeak() {
     if (!state.running || !state.station) return;
-    if (state.holding && state.holding.length) {
-      speak(A.approachLine(state.holding));
+    var hold = state.holding && state.holding.length;
+    if (hold) {
+      state.heldOffDest = true;
+      var now = Date.now();
+      if (!state.lastApproachAt || now - state.lastApproachAt >= 15000) {
+        state.lastApproachAt = now;
+        speak(A.approachLine(state.holding));
+      }
       return;
     }
-    var now = Date.now();
-    if (!state.lastNextAt || now - state.lastNextAt >= 120000) {
-      state.lastNextAt = now;
-      speak(A.nextTrainLine(state.nextPick, state.station.name));
+    if (state.heldOffDest) {
+      state.heldOffDest = false;
+      state.lastApproachAt = 0;
+      state.lastDestAt = Date.now();
       return;
     }
-    if (state.updateQueue.length) {
-      var item = state.updateQueue.shift();
-      state.spoken[item.key] = item.text;
-      speak(item.text);
-    }
+    var now2 = Date.now();
+    if (state.lastDestAt && now2 - state.lastDestAt < 60000) return;
+    var pick = peekDest(state.destPicks || []);
+    var built = announcementText(pick);
+    if (pick) state.lastDestKey = pick.destKey;
+    state.lastDestAt = now2;
+    state.nextPick = pick;
+    built.notes.forEach(function (n) { state.spoken[n.key] = n.text; });
+    speak(built.text);
   }
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
   async function loop(token) {
     while (state.running && state.token === token) {
-      var started = Date.now();
-      if (state.forceRefresh || !state.lastRefresh || (Date.now() - state.lastRefresh) > 20000) {
+      if (state.forceRefresh || !state.lastRefresh || (Date.now() - state.lastRefresh) > 10000) {
         state.forceRefresh = false;
         try { await refresh(); } catch (e) {}
       }
       if (!state.running || state.token !== token) return;
       maybeSpeak();
       paintPreview();
-      var wait = Math.max(5000, 60000 - (Date.now() - started));
-      state.nextSlot = Date.now() + wait;
+      var hold = state.holding && state.holding.length;
+      if (hold) state.nextSlot = (state.lastApproachAt || Date.now()) + 15000;
+      else state.nextSlot = (state.lastDestAt || Date.now()) + 60000;
       paintCountdown();
-      var left = wait;
+      var left = 3000;
       while (left > 0 && state.running && state.token === token) {
         if (state.forceRefresh) break;
+        if (state.holding && state.holding.length && (!state.lastApproachAt || Date.now() - state.lastApproachAt >= 15000)) break;
         var step = Math.min(250, left);
         await sleep(step);
         left -= step;
@@ -1704,6 +1794,12 @@
     state.updateQueue = [];
     state.spoken = {};
     state.lastNextAt = 0;
+    state.lastDestKey = '';
+    state.lastDestAt = 0;
+    state.lastApproachAt = 0;
+    state.heldOffDest = false;
+    state.destPicks = [];
+    state.alerts = [];
     state.holding = [];
     state.nextPick = null;
     state.trains = [];
@@ -1741,6 +1837,9 @@
       }
     } catch (e) {}
     state.lastNextAt = 0;
+    state.lastDestAt = 0;
+    state.lastApproachAt = 0;
+    state.heldOffDest = false;
     state.nextSlot = Date.now() + 60000;
     paintCountdown();
     loop(state.token);
