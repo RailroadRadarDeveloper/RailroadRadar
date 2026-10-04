@@ -1,0 +1,3 @@
+name: Apply station audio speak fix
+on:
+  workflow_dispatch:
