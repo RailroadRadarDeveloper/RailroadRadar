@@ -1084,25 +1084,163 @@
   }
 
   var VOICE_PREVIEW_LINE = 'Newburyport Line 142 to North Station, in 8 minutes, on track 2.';
+  var ttsQueue = [];
+  var ttsBusy = false;
+  var ttsTimer = 0;
+  var ttsGen = 0;
 
-  function speak(text) {
-    logLine(text);
-    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
-    state.speakLockUntil = Date.now() + 12000;
-    try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
+  function clearTtsTimer() {
+    if (ttsTimer) {
+      clearTimeout(ttsTimer);
+      ttsTimer = 0;
+    }
+  }
+
+  function resumeTts() {
+    try {
+      if (window.speechSynthesis && speechSynthesis.paused) speechSynthesis.resume();
+    } catch (e) {}
+  }
+
+  function makeUtterance(text) {
     var u = new SpeechSynthesisUtterance(text);
     applyVoice(u);
-    try { speechSynthesis.cancel(); } catch (e) {}
-    speechSynthesis.speak(u);
+    return u;
+  }
+
+  function pumpTts() {
+    if (ttsBusy || !ttsQueue.length) return;
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+      while (ttsQueue.length) logLine(ttsQueue.shift());
+      return;
+    }
+    ttsBusy = true;
+    var text = ttsQueue.shift();
+    state.speakLockUntil = Date.now() + 12000;
+    var gen = ttsGen;
+    var started = false;
+    var logged = false;
+    var retried = false;
+
+    function finish() {
+      if (gen !== ttsGen) return;
+      ttsBusy = false;
+      pumpTts();
+    }
+
+    function attach(u) {
+      u.onstart = function () {
+        started = true;
+        if (!logged) {
+          logLine(text);
+          logged = true;
+        }
+      };
+      u.onend = finish;
+      u.onerror = function () {
+        // Safari can error without starting; leave room for one deferred retry.
+        if (!started && !retried && gen === ttsGen) return;
+        finish();
+      };
+    }
+
+    function kick(isRetry) {
+      if (gen !== ttsGen) {
+        ttsBusy = false;
+        return;
+      }
+      resumeTts();
+      var u = makeUtterance(text);
+      attach(u);
+      try {
+        speechSynthesis.speak(u);
+      } catch (e) {
+        if (isRetry) {
+          finish();
+          return;
+        }
+      }
+      // Chrome/Safari often drop an utterance after cancel or while paused.
+      // Never cancel+speak in the same turn; if it never starts, retry once.
+      clearTtsTimer();
+      ttsTimer = setTimeout(function () {
+        ttsTimer = 0;
+        if (gen !== ttsGen) {
+          ttsBusy = false;
+          return;
+        }
+        if (started) return;
+        if (retried) {
+          finish();
+          return;
+        }
+        retried = true;
+        try { speechSynthesis.cancel(); } catch (e2) {}
+        ttsTimer = setTimeout(function () {
+          ttsTimer = 0;
+          kick(true);
+        }, 60);
+      }, 280);
+    }
+
+    clearTtsTimer();
+    // Interrupt may have just called cancel(); wait a turn before speak (Safari/Chrome).
+    ttsTimer = setTimeout(function () {
+      ttsTimer = 0;
+      kick(false);
+    }, 60);
+  }
+
+  function speak(text, interrupt) {
+    if (text == null || text === '') return;
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+      logLine(text);
+      return;
+    }
+    if (interrupt) {
+      ttsGen++;
+      ttsQueue = [];
+      ttsBusy = false;
+      clearTtsTimer();
+      try { speechSynthesis.cancel(); } catch (e) {}
+    }
+    ttsQueue.push(String(text));
+    pumpTts();
   }
 
   function previewVoice() {
     if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
-    try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
-    var u = new SpeechSynthesisUtterance(VOICE_PREVIEW_LINE);
-    applyVoice(u);
+    ttsGen++;
+    ttsQueue = [];
+    ttsBusy = false;
+    clearTtsTimer();
     try { speechSynthesis.cancel(); } catch (e) {}
-    speechSynthesis.speak(u);
+    var gen = ttsGen;
+    var started = false;
+    var retried = false;
+    function kick(isRetry) {
+      if (gen !== ttsGen) return;
+      resumeTts();
+      var u = makeUtterance(VOICE_PREVIEW_LINE);
+      u.onstart = function () { started = true; };
+      try { speechSynthesis.speak(u); } catch (e) {}
+      clearTtsTimer();
+      ttsTimer = setTimeout(function () {
+        ttsTimer = 0;
+        if (gen !== ttsGen || started) return;
+        if (retried) return;
+        retried = true;
+        try { speechSynthesis.cancel(); } catch (e2) {}
+        ttsTimer = setTimeout(function () {
+          ttsTimer = 0;
+          kick(true);
+        }, 60);
+      }, 280);
+    }
+    ttsTimer = setTimeout(function () {
+      ttsTimer = 0;
+      kick(false);
+    }, 60);
   }
 
   function stopServes(stop, station, agency) {
@@ -1857,7 +1995,7 @@
       var now = Date.now();
       if (!state.lastApproachAt || now - state.lastApproachAt >= 15000) {
         state.lastApproachAt = now;
-        speak(A.approachLine(state.holding));
+        speak(A.approachLine(state.holding), true);
       }
       return;
     }
@@ -1946,13 +2084,7 @@
     $('start').disabled = true;
     $('stop').disabled = false;
     try {
-      if (window.speechSynthesis && window.SpeechSynthesisUtterance) {
-        var prime = new SpeechSynthesisUtterance('Station audio on.');
-        applyVoice(prime);
-        speechSynthesis.cancel();
-        speechSynthesis.speak(prime);
-        logLine('Station audio on.');
-      }
+      speak('Station audio on.');
     } catch (e) {}
     state.lastNextAt = 0;
     state.lastDestAt = 0;
@@ -1969,6 +2101,10 @@
     state.token++;
     $('start').disabled = !state.station;
     $('stop').disabled = true;
+    ttsGen++;
+    ttsQueue = [];
+    ttsBusy = false;
+    clearTtsTimer();
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
     state.feedText = 'Stopped. ' + state.feedText;
     paintFeeds();
