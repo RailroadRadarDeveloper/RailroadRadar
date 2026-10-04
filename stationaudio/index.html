@@ -24,6 +24,9 @@
     #stop { background: transparent; color: #fff; }
     button:disabled { opacity: 0.45; cursor: default; }
     #countdown { font-weight: 700; }
+    .voice-row { margin-top: 0; }
+    .voice-row select { flex: 1; width: auto; min-width: 0; }
+    #voice-preview { flex: 0 0 auto; background: transparent; color: #fff; }
     #preview, #feeds, #selected { overflow-wrap: anywhere; }
     #feeds, #station-count { color: #d9dcf5; font-size: 0.9rem; }
     ol { margin: 0; padding-left: 1.2rem; }
@@ -44,7 +47,10 @@
     <p id="station-count"></p>
     <p id="selected">No station selected</p>
     <label for="voice">Voice</label>
-    <select id="voice" aria-label="Announcement voice"></select>
+    <div class="row voice-row">
+      <select id="voice" aria-label="Announcement voice"></select>
+      <button type="button" id="voice-preview">Preview</button>
+    </div>
     <div class="row">
       <button type="button" id="start">Start</button>
       <button type="button" id="stop" disabled>Stop</button>
@@ -709,6 +715,9 @@
     heldOffDest: false,
     lastNextAt: 0,
     nextSlot: 0,
+    seenMin: {},
+    spokenMin: {},
+    speakLockUntil: 0,
     feedText: 'Choose a station, then press Start. Audio does not play until you do.',
     njtCache: {}
   };
@@ -1000,10 +1009,45 @@
     } catch (e) { return []; }
   }
 
+  var BAD_VOICE_RE = /compact|novelty|bad news|bahh|bells|boing|bubbles|cellos|zarvox|whisper|trinoids|deranged|good news|pipe organ|albert|junior|kathy|ralph|princess|superstar/i;
+
+  function voiceBlob(v) {
+    return ((v && v.name) || '') + ' ' + ((v && v.voiceURI) || '');
+  }
+
+  function voiceScore(v) {
+    return /enhanced|premium|natural|neural/i.test(voiceBlob(v)) ? 0 : 1;
+  }
+
+  function stationVoices() {
+    return listVoices().filter(function (v) {
+      if (!v || !/^en/i.test(v.lang || '')) return false;
+      if (BAD_VOICE_RE.test(v.name || '')) return false;
+      return true;
+    }).sort(function (a, b) {
+      var d = voiceScore(a) - voiceScore(b);
+      if (d) return d;
+      var an = String(a.name || '').toLowerCase();
+      var bn = String(b.name || '').toLowerCase();
+      if (an < bn) return -1;
+      if (an > bn) return 1;
+      var al = String(a.lang || '').toLowerCase();
+      var bl = String(b.lang || '').toLowerCase();
+      if (al < bl) return -1;
+      if (al > bl) return 1;
+      return 0;
+    });
+  }
+
+  function voiceLabel(v) {
+    var name = v.name || 'English voice';
+    return v.lang ? (name + ' (' + v.lang + ')') : name;
+  }
+
   function fillVoicePicker() {
     var sel = $('voice');
     if (!sel) return;
-    var voices = listVoices();
+    var voices = stationVoices();
     var saved = '';
     try { saved = localStorage.getItem(VOICE_KEY) || ''; } catch (e) {}
     var current = sel.value || saved;
@@ -1015,7 +1059,7 @@
     voices.forEach(function (v) {
       var o = document.createElement('option');
       o.value = v.voiceURI || v.name;
-      o.textContent = v.name + (v.lang ? ' (' + v.lang + ')' : '');
+      o.textContent = voiceLabel(v);
       sel.appendChild(o);
     });
     if (current && [].some.call(sel.options, function (o) { return o.value === current; })) sel.value = current;
@@ -1029,7 +1073,7 @@
   }
 
   function voiceForUtterance() {
-    var voices = listVoices();
+    var voices = stationVoices();
     var uri = chosenVoiceUri();
     if (!uri) {
       try { uri = localStorage.getItem(VOICE_KEY) || ''; } catch (e) {}
@@ -1039,10 +1083,14 @@
         if ((voices[i].voiceURI || voices[i].name) === uri) return voices[i];
       }
     }
-    var en = voices.filter(function (v) { return /^en/i.test(v.lang); });
     var pref = null;
-    for (var j = 0; j < en.length; j++) if (/en-US/i.test(en[j].lang)) { pref = en[j]; break; }
-    if (!pref && en.length) pref = en[0];
+    for (var j = 0; j < voices.length; j++) {
+      if (voiceScore(voices[j]) === 0 && /en-US/i.test(voices[j].lang || '')) { pref = voices[j]; break; }
+    }
+    if (!pref) {
+      for (var k = 0; k < voices.length; k++) if (/en-US/i.test(voices[k].lang || '')) { pref = voices[k]; break; }
+    }
+    if (!pref && voices.length) pref = voices[0];
     return pref;
   }
 
@@ -1057,11 +1105,23 @@
     } catch (e) {}
   }
 
+  var VOICE_PREVIEW_LINE = 'Newburyport Line 142 to North Station, in 8 minutes, on track 2.';
+
   function speak(text) {
     logLine(text);
     if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+    state.speakLockUntil = Date.now() + 12000;
     try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
     var u = new SpeechSynthesisUtterance(text);
+    applyVoice(u);
+    try { speechSynthesis.cancel(); } catch (e) {}
+    speechSynthesis.speak(u);
+  }
+
+  function previewVoice() {
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+    try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
+    var u = new SpeechSynthesisUtterance(VOICE_PREVIEW_LINE);
     applyVoice(u);
     try { speechSynthesis.cancel(); } catch (e) {}
     speechSynthesis.speak(u);
@@ -1733,6 +1793,84 @@
     paintPreview();
   }
 
+  function trainVoiceKey(row) {
+    if (!row) return '';
+    var ag = row.agency || '';
+    if (row.tripId) return ag + '|trip|' + row.tripId;
+    if (row.trainId) return ag + '|id|' + row.trainId;
+    return ag + '|num|' + (row.routeId || '') + '|' + (row.trainNum || '') + '|' + (row.destKey || '');
+  }
+
+  function freshMins(row) {
+    if (!row) return null;
+    if (row.etaMs == null) return row.mins;
+    return Math.max(0, Math.round((row.etaMs - Date.now()) / 60000));
+  }
+
+  function syncSeenMins() {
+    var list = state.destPicks || [];
+    var nowKeys = {};
+    var drops = [];
+    for (var i = 0; i < list.length; i++) {
+      var row = list[i];
+      var mins = freshMins(row);
+      row.mins = mins;
+      var key = trainVoiceKey(row);
+      if (!key) continue;
+      nowKeys[key] = 1;
+      var seen = Object.prototype.hasOwnProperty.call(state.seenMin, key) ? state.seenMin[key] : null;
+      if (seen != null && mins < seen && state.spokenMin[key] !== mins) drops.push(row);
+      else state.seenMin[key] = mins;
+    }
+    Object.keys(state.seenMin).forEach(function (k) {
+      if (!nowKeys[k]) {
+        delete state.seenMin[k];
+        delete state.spokenMin[k];
+      }
+    });
+    drops.sort(function (a, b) {
+      if (a.mins !== b.mins) return a.mins - b.mins;
+      return (a.etaMs || 0) - (b.etaMs || 0);
+    });
+    return drops;
+  }
+
+  function markSpokenMin(row) {
+    var key = trainVoiceKey(row);
+    if (!key) return;
+    state.spokenMin[key] = row.mins;
+    state.seenMin[key] = row.mins;
+  }
+
+  function speakPick(pick, now) {
+    var built = announcementText(pick);
+    if (pick) {
+      state.lastDestKey = pick.destKey;
+      markSpokenMin(pick);
+    }
+    state.lastDestAt = now;
+    state.nextPick = pick;
+    built.notes.forEach(function (n) { state.spoken[n.key] = n.text; });
+    speak(built.text);
+  }
+
+  function slotPick() {
+    var list = state.destPicks || [];
+    if (!list.length) return null;
+    var start = 0;
+    if (state.lastDestKey) {
+      var at = -1;
+      for (var i = 0; i < list.length; i++) if (list[i].destKey === state.lastDestKey) { at = i; break; }
+      if (at >= 0) start = (at + 1) % list.length;
+    }
+    for (var n = 0; n < list.length; n++) {
+      var row = list[(start + n) % list.length];
+      row.mins = freshMins(row);
+      if (state.spokenMin[trainVoiceKey(row)] !== row.mins) return row;
+    }
+    return null;
+  }
+
   function maybeSpeak() {
     if (!state.running || !state.station) return;
     var hold = state.holding && state.holding.length;
@@ -1752,14 +1890,18 @@
       return;
     }
     var now2 = Date.now();
+    var drops = syncSeenMins();
+    if (drops.length) {
+      if (!state.speakLockUntil || now2 >= state.speakLockUntil) speakPick(drops[0], now2);
+      return;
+    }
     if (state.lastDestAt && now2 - state.lastDestAt < 60000) return;
-    var pick = peekDest(state.destPicks || []);
-    var built = announcementText(pick);
-    if (pick) state.lastDestKey = pick.destKey;
-    state.lastDestAt = now2;
-    state.nextPick = pick;
-    built.notes.forEach(function (n) { state.spoken[n.key] = n.text; });
-    speak(built.text);
+    var pick = slotPick();
+    if (!pick && (state.destPicks || []).length) {
+      state.lastDestAt = now2;
+      return;
+    }
+    speakPick(pick, now2);
   }
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -1798,6 +1940,9 @@
     state.lastDestAt = 0;
     state.lastApproachAt = 0;
     state.heldOffDest = false;
+    state.seenMin = {};
+    state.spokenMin = {};
+    state.speakLockUntil = 0;
     state.destPicks = [];
     state.alerts = [];
     state.holding = [];
@@ -1840,6 +1985,9 @@
     state.lastDestAt = 0;
     state.lastApproachAt = 0;
     state.heldOffDest = false;
+    state.seenMin = {};
+    state.spokenMin = {};
+    state.speakLockUntil = 0;
     state.nextSlot = Date.now() + 60000;
     paintCountdown();
     loop(state.token);
@@ -1879,6 +2027,8 @@
         else localStorage.removeItem(VOICE_KEY);
       } catch (e) {}
     });
+    var voicePreview = $('voice-preview');
+    if (voicePreview) voicePreview.addEventListener('click', previewVoice);
     $('start').disabled = true;
     $('stop').disabled = true;
     paintCountdown();
