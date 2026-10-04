@@ -23,7 +23,6 @@
     #start { background: #fff; color: #07093e; }
     #stop { background: transparent; color: #fff; }
     button:disabled { opacity: 0.45; cursor: default; }
-    #countdown { font-weight: 700; }
     .voice-row { margin-top: 0; }
     .voice-row select { flex: 1; width: auto; min-width: 0; }
     #voice-preview { flex: 0 0 auto; background: transparent; color: #fff; }
@@ -55,7 +54,6 @@
       <button type="button" id="start">Start</button>
       <button type="button" id="stop" disabled>Stop</button>
     </div>
-    <p id="countdown">Press Start. Announcements stay off until you do.</p>
     <p id="preview"></p>
     <p id="feeds"></p>
     <h2>Spoken log</h2>
@@ -714,7 +712,6 @@
     lastApproachAt: 0,
     heldOffDest: false,
     lastNextAt: 0,
-    nextSlot: 0,
     seenMin: {},
     spokenMin: {},
     speakLockUntil: 0,
@@ -888,25 +885,6 @@
   function paintSelected() {
     var st = state.station;
     $('selected').textContent = st ? (st.name + ' — ' + st.agencyLabel) : 'No station selected';
-  }
-
-  function fmtClock(ms) {
-    var s = Math.max(0, Math.ceil(ms / 1000));
-    var m = Math.floor(s / 60);
-    var r = s % 60;
-    return m + ':' + (r < 10 ? '0' : '') + r;
-  }
-
-  function paintCountdown() {
-    var el = $('countdown');
-    if (!state.running) {
-      el.textContent = 'Press Start. Announcements stay off until you do.';
-      return;
-    }
-    var wait = state.nextSlot - Date.now();
-    var hold = state.holding && state.holding.length;
-    if (hold) { el.textContent = 'Train approaching, please stand back.'; return; }
-    el.textContent = 'Next announcement in ' + fmtClock(wait);
   }
 
   function paintPreview() {
@@ -1915,10 +1893,6 @@
       if (!state.running || state.token !== token) return;
       maybeSpeak();
       paintPreview();
-      var hold = state.holding && state.holding.length;
-      if (hold) state.nextSlot = (state.lastApproachAt || Date.now()) + 15000;
-      else state.nextSlot = (state.lastDestAt || Date.now()) + 60000;
-      paintCountdown();
       var left = 3000;
       while (left > 0 && state.running && state.token === token) {
         if (state.forceRefresh) break;
@@ -1926,7 +1900,6 @@
         var step = Math.min(250, left);
         await sleep(step);
         left -= step;
-        paintCountdown();
       }
     }
   }
@@ -1988,8 +1961,6 @@
     state.seenMin = {};
     state.spokenMin = {};
     state.speakLockUntil = 0;
-    state.nextSlot = Date.now() + 60000;
-    paintCountdown();
     loop(state.token);
   }
 
@@ -2001,7 +1972,6 @@
     try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
     state.feedText = 'Stopped. ' + state.feedText;
     paintFeeds();
-    paintCountdown();
   }
 
   async function boot() {
@@ -2031,7 +2001,6 @@
     if (voicePreview) voicePreview.addEventListener('click', previewVoice);
     $('start').disabled = true;
     $('stop').disabled = true;
-    paintCountdown();
     paintFeeds();
     loadMbtaStations().then(function () {
       renderPicker();
