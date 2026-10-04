@@ -1,0 +1,80 @@
+name: Apply signup prompt and green tile fix
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode patch, apply, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64, gzip, hashlib, pathlib, glob
+          expected = "aa265cceaec0595a7ad390ca9097198372dfda684427422537ee049b14c71c4e"
+          part_paths = sorted(
+              [p for p in glob.glob('scripts/signup-green-tile.patch.gz.b64.part*')],
+              key=lambda p: int(''.join(c for c in p.rsplit('part',1)[-1] if c.isdigit()) or 0)
+          )
+          blob = None
+          if part_paths:
+            blob = ''.join(pathlib.Path(p).read_text().strip() for p in part_paths)
+            print('assembled parts', len(part_paths), 'len', len(blob), hashlib.sha256(blob.encode()).hexdigest())
+          single = pathlib.Path('scripts/signup-green-tile.patch.gz.b64')
+          if blob is None and single.exists():
+            blob = single.read_text().strip()
+            print('using single b64', len(blob))
+          if not blob:
+            raise SystemExit('no patch b64 found')
+          def swap_o0_45(s):
+            return s.translate(str.maketrans({'o':'0','0':'o','4':'5','5':'4'}))
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+            alt = swap_o0_45(blob)
+            ha = hashlib.sha256(alt.encode()).hexdigest()
+            print('raw mismatch', h, 'swapped', ha)
+            if ha == expected:
+              blob = alt
+              h = ha
+              print('repaired o/0 and 5/4 swap')
+            else:
+              raise SystemExit(f'full hash mismatch: {h}')
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path('/tmp/signup-green-tile.patch').write_bytes(raw)
+          print('patch bytes', len(raw), 'hash ok')
+          PY
+          git apply /tmp/signup-green-tile.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          raw = Path('index.html').read_bytes()
+          h = hashlib.sha256(raw).hexdigest()
+          expected_html = "6f84a54ed06f8e1e533edc681c8bf568e5dba8378624c21672b094f35974bc37"
+          if h != expected_html:
+            raise SystemExit('index.html sha mismatch ' + h)
+          mt = Path('mytrips/index.html').read_bytes()
+          if hashlib.sha256(mt).hexdigest() != expected_html:
+            raise SystemExit('mytrips sha mismatch')
+          t = raw.decode('utf-8', 'replace')
+          assert 'currentUserSettings.loadFailed = true' in t
+          assert 'not showing legal/interest gate' in t
+          assert 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=' in t
+          assert 'mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' not in t
+          assert 'auth.authStateReady' in t
+          assert 'closeSignupPrompt' in t
+          assert 'rr-admin-badge-same-size-2026-10-04' in t
+          print('ok', len(t), h)
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "Fix signup prompt while signed in, and green tiles when the map pans"
+            git pull --rebase origin main
+            git push
+          fi
