@@ -8,14 +8,15 @@
   <style>
     html, body { margin: 0; height: 100%; background: #07093e; color: #fff; font-family: sans-serif; }
     header { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #07093e; }
-    header a { color: #fff; font-weight: 800; text-decoration: none; }
+    header a { color: #fff; font-weight: 800; text-decoration: none; display: flex; align-items: center; }
+    header img { height: 40px; width: auto; display: block; }
     #map { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
     .train-popup { font-family: sans-serif; }
   </style>
 </head>
 <body>
   <header>
-    <a href="/">RailroadRadar</a>
+    <a href="/"><img src="/assets/logo.png" alt="RailroadRadar"></a>
     <span id="live-count">Live tracking</span>
   </header>
   <div id="map"></div>
@@ -32,7 +33,10 @@
       appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
     });
     var map = L.map('map').setView([42.36, -71.06], 8);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+    L.tileLayer('https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
+      attribution: '\u00a9 Mapbox \u00a9 OpenStreetMap contributors',
+      maxZoom: 20
+    }).addTo(map);
     var markers = {};
     function icon(heading) {
       var rot = isFinite(Number(heading)) ? Number(heading) : 0;
