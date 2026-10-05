@@ -11589,7 +11589,28 @@ function tripCardStationDotIcon() {
       });
     }
 
-        function paintTripLogMiniMap(el, data) {
+        
+    function rrLiveTripPoint(data) {
+      if (!data) return null;
+      if (data.liveLat != null && data.liveLon != null) return [Number(data.liveLat), Number(data.liveLon)];
+      const segs = Array.isArray(data.segments) ? data.segments : [];
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i] || {};
+        if (s.liveLat != null && s.liveLon != null) return [Number(s.liveLat), Number(s.liveLon)];
+      }
+      if (window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) return [Number(window.rrSpecialLastFix.lat), Number(window.rrSpecialLastFix.lon)];
+      return null;
+    }
+    function rrLiveTrainIcon(heading) {
+      const rot = isFinite(Number(heading)) ? Number(heading) : 90;
+      return L.divIcon({
+        className: 'rr-live-train-icon',
+        html: '<img src="/assets/hsp46.png" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
+        iconSize: [46, 20],
+        iconAnchor: [23, 10]
+      });
+    }
+    function paintTripLogMiniMap(el, data) {
       if (!el || typeof L === 'undefined' || !L.map) {
         if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
         return;
@@ -11604,12 +11625,13 @@ function tripCardStationDotIcon() {
       const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
       if (!hasAny) {
         el.classList.remove('is-loading');
-        if (data && data.specialMove && data.liveLat != null && data.liveLon != null) {
+        const livePt = rrLiveTripPoint(data);
+        if (data && data.specialMove && livePt) {
           try {
             const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
             rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
-            L.circleMarker([Number(data.liveLat), Number(data.liveLon)], { radius: 7, color: '#fff', weight: 2, fillColor: '#07093e', fillOpacity: 1 }).addTo(map);
-            map.setView([Number(data.liveLat), Number(data.liveLon)], 13);
+            L.marker(livePt, { icon: rrLiveTrainIcon(data.heading) }).addTo(map);
+            map.setView(livePt, 13);
             el.classList.remove('is-empty');
             return;
           } catch (_) {}

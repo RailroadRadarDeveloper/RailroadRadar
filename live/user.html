@@ -11,7 +11,7 @@
     header a { color: #fff; font-weight: 800; text-decoration: none; }
     #map { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
     #status { font-size: 14px; }
-  </style>
+  .rr-live-train{background:transparent!important;border:0!important}</style>
 </head>
 <body>
   <header>
@@ -37,7 +37,7 @@
     var marker = null;
     function icon(heading) {
       var rot = isFinite(Number(heading)) ? Number(heading) : 0;
-      return L.divIcon({ className: 'rr-live-train', html: '<img src="/assets/hsp46.png" alt="" style="width:42px;height:18px;object-fit:contain;transform:rotate(' + rot + 'deg);">', iconSize: [42, 18], iconAnchor: [21, 9] });
+      return L.divIcon({ className: 'rr-live-train', html: '<img src="/assets/hsp46.png" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">', iconSize: [42, 18], iconAnchor: [21, 9] });
     }
     if (!uid) {
       document.getElementById('status').textContent = 'No tracker selected';
