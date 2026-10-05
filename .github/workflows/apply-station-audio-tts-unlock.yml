@@ -1,0 +1,115 @@
+name: Apply station audio TTS unlock
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify hash, then publish station audio TTS unlock
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import base64, gzip, hashlib, pathlib, re
+          expected = "064225d49ebfdc00dc79efbef16aa5d20216a8697114bbb3b5658c89928726b4"
+          expected_html = "90df416c5c799ac9524c67a607c12e27a8abb9498cceee116d989bb1b6631c43"
+          paths = sorted(pathlib.Path("scripts").glob("station-audio-tts-unlock.b64.part*"), key=lambda p: int(re.search(r"part(\d+)$", p.name).group(1)))
+          if len(paths) != 16:
+              raise SystemExit("expected 16 parts, got %d" % len(paths))
+          pieces = [p.read_text().strip() for p in paths]
+          if any(len(piece) > 400 for piece in pieces):
+              raise SystemExit("a part is longer than 400 bytes")
+          blob = "".join(pieces)
+          DIGIT = {"ZERO":"0","ONE":"1","TWO":"2","THREE":"3","FOUR":"4","FIVE":"5","SIX":"6","SEVEN":"7","EIGHT":"8","NINE":"9"}
+          def word_num(token):
+              parts = token.split("_")
+              if parts[0] == "OFFSET":
+                  return int("".join(DIGIT[p] for p in parts[1:]))
+              if parts[0] == "CHAR":
+                  return DIGIT[parts[1]]
+              raise SystemExit("bad token " + token)
+          fix_rows = []
+          fix_path = pathlib.Path("scripts/station-audio-tts-unlock.fixes")
+          if fix_path.exists():
+              for line in fix_path.read_text().splitlines():
+                  line = line.strip()
+                  if not line or line.startswith("#"):
+                      continue
+                  a, b = line.split()
+                  fix_rows.append((word_num(a), word_num(b)))
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+              chars = list(blob)
+              for off, ch in fix_rows:
+                  if off < len(chars):
+                      chars[off] = ch
+              fixed = "".join(chars)
+              hf = hashlib.sha256(fixed.encode()).hexdigest()
+              if hf == expected:
+                  blob = fixed
+                  h = hf
+                  print("repaired MCP digit flips via fixes file", fix_rows)
+              else:
+                  repaired = blob.translate(str.maketrans("o045", "0o54"))
+                  hr = hashlib.sha256(repaired.encode()).hexdigest()
+                  if hr != expected:
+                      raise SystemExit("b64 hash mismatch " + h + " fixed " + hf + " repaired " + hr)
+                  blob = repaired
+                  h = hr
+                  print("repaired o/0 and 4/5 swap")
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path("/tmp/station-audio-tts-unlock.patch").write_bytes(raw)
+          print("b64 hash ok", h, "patch bytes", len(raw))
+          PY
+          git apply --check /tmp/station-audio-tts-unlock.patch
+          git apply /tmp/station-audio-tts-unlock.patch
+          python3 << 'PY'
+          import hashlib
+          from pathlib import Path
+          html_path = Path("stationaudio/index.html")
+          raw = html_path.read_bytes()
+          h = hashlib.sha256(raw).hexdigest()
+          expected_html = "90df416c5c799ac9524c67a607c12e27a8abb9498cceee116d989bb1b6631c43"
+          if h != expected_html:
+              raise SystemExit("stationaudio sha mismatch " + h)
+          text = raw.decode("utf-8")
+          for need in (
+              "rr-station-audio-tts-unlock-2026-10-05",
+              "rr-station-audio-terminal-dest-2026-10-05",
+              "rr-station-audio-approach-any-2026-10-04",
+              "function speakGesture",
+              'id="test-sound"',
+              "TTS_UNLOCK_LINE",
+              "ttsLive",
+              "c.terminates",
+              "arriving ",
+              "Train approaching, please stand back.",
+              "APPROACH_MI = 1.5",
+              "function pumpTts",
+              "var approachTrains = trains.filter(isCommuterRailTrain);",
+          ):
+              if need not in text:
+                  raise SystemExit("missing " + need)
+          if "updateApproach(state.approachMem, serving, station)" in text:
+              raise SystemExit("approach still limited to stop-serving trains")
+          if "speak('Station audio on.')" in text:
+              raise SystemExit("Start still uses deferred speak()")
+          for banned in ("minutes late", "minute late", "back on time", "is canceled", "Service alert cleared", "Up next", "up next", "The next train is", 'id="countdown"', "Next announcement", "paintCountdown"):
+              if banned in text:
+                  raise SystemExit("banned text still present: " + banned)
+          root = Path("index.html").read_text(errors="replace")
+          if "rr-station-audio-tts-unlock-2026-10-05" in root:
+              raise SystemExit("root index.html was modified")
+          print("html hash ok", h, "bytes", len(raw))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add -- stationaudio/index.html
+          names=$(git diff --cached --name-only)
+          printf '%s\n' "$names"
+          test "$names" = "stationaudio/index.html"
+          git commit -m "Station audio: unlock iOS TTS on Start; fix terminal destination"
+          git pull --rebase origin main
+          git push
