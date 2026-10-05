@@ -15259,8 +15259,8 @@ function closeTripDetailView(opts) {
 
     /* RR special-move location share 2026-10-05 */
     const RR_SPECIAL_SHARE_MAX_MS = 5 * 60 * 60 * 1000;
-    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 10000;
-    const RR_SPECIAL_SHARE_MOVE_M = 25;
+    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 1000;
+    const RR_SPECIAL_SHARE_MOVE_M = 8;
     // Keep markers through remote/dead zones; show "last ping X min ago" instead of dropping ASAP.
     const RR_SPECIAL_SHARE_STALE_MS = 30 * 60 * 1000;
     const RR_SPECIAL_SHARE_QUEUE_MAX = 12;
@@ -15594,15 +15594,12 @@ function rrSpecialSyncTitleWrap() {
           if (window.rrMainMap && typeof L !== 'undefined') {
             const uid = st.uid;
             let m = rrSpecialShareMarkers[uid];
-            const html = '<div class="rr-special-share-popup"><strong>' + String(doc.title || '').replace(/</g, '&lt;') + '</strong>' +
-              '<div class="rr-ss-meta">' + String(doc.displayName || 'You').replace(/</g, '&lt;') + '</div>' +
-              '<div class="rr-ss-meta">Last ping just now</div>' +
-              '<div class="rr-ss-meta">Special move</div></div>';
+            const html = rrSpecialPopupHtml(doc);
             if (m) {
               m.setLatLng([ping.lat, ping.lon]);
               try { m.setPopupContent(html); } catch (_) {}
             } else {
-              m = L.marker([ping.lat, ping.lon], { icon: rrSpecialCreateIcon(), zIndexOffset: 1800 });
+              m = L.marker([ping.lat, ping.lon], { icon: rrSpecialCreateIcon(d.heading), zIndexOffset: 1800 });
               m.bindPopup(html, { maxWidth: 240 });
               m.addTo(window.rrMainMap);
               rrSpecialShareMarkers[uid] = m;
@@ -15802,7 +15799,7 @@ async function rrSpecialStopSharing(opts) {
           rrSpecialDetailMarker.setLatLng([lat, lon]);
         } else {
           rrSpecialDetailMarker = L.marker([lat, lon], {
-            icon: rrSpecialCreateIcon(),
+            icon: rrSpecialCreateIcon(d.heading),
             zIndexOffset: 2000,
             keyboard: false
           }).addTo(tripDetailMap);
@@ -15986,14 +15983,28 @@ async function rrSpecialStopSharing(opts) {
       } catch (_) {}
     }
 
-    function rrSpecialCreateIcon() {
+    function rrSpecialCreateIcon(heading) {
+      const rot = (heading != null && isFinite(Number(heading))) ? Number(heading) : 0;
       return L.divIcon({
         className: 'rr-special-share-icon',
-        html: '<div class="rr-special-share-pin" title="Special move"></div>',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-        popupAnchor: [0, -18]
+        html: '<img src="/assets/hsp46.png" alt="" style="width:42px;height:18px;object-fit:contain;transform:rotate(' + rot + 'deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));">',
+        iconSize: [42, 18],
+        iconAnchor: [21, 9],
+        popupAnchor: [0, -12]
       });
+    }
+    function rrSpecialPopupHtml(d) {
+      const title = String((d && d.title) || 'Live trip').replace(/</g, '&lt;');
+      const who = String((d && d.displayName) || 'Rider').replace(/</g, '&lt;');
+      const updated = Number(d && d.updatedAt) || 0;
+      const ago = updated ? rrSpecialFmtAgo(Date.now() - updated) : 'just now';
+      return '<div class="train-popup">' +
+        '<div class="train-popup-header"><span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;">' + title + '</span></div>' +
+        '<div style="padding:8px 10px;font-size:13px;color:#07093e;">' +
+          '<div style="font-weight:700;">Live trip</div>' +
+          '<div>' + who + '</div>' +
+          '<div>Updated ' + ago + '</div>' +
+        '</div></div>';
     }
 
     function rrSpecialFmtAgo(ms) {
@@ -16038,10 +16049,7 @@ async function rrSpecialStopSharing(opts) {
         const who = String(d.displayName || 'Rider').replace(/</g, '&lt;');
         const ago = updated ? rrSpecialFmtAgo(age) : '';
         const pingLabel = ago ? ('Last ping ' + ago) : 'Last ping just now';
-        const html = '<div class="rr-special-share-popup"><strong>' + title + '</strong>' +
-          '<div class="rr-ss-meta">' + who + '</div>' +
-          '<div class="rr-ss-meta">' + pingLabel + '</div>' +
-          '<div class="rr-ss-meta">Special move</div></div>';
+        const html = rrSpecialPopupHtml(d);
         let m = rrSpecialShareMarkers[uid];
         if (m) {
           try {
@@ -16051,7 +16059,7 @@ async function rrSpecialStopSharing(opts) {
         } else {
           try {
             m = L.marker([lat, lon], {
-              icon: rrSpecialCreateIcon(),
+              icon: rrSpecialCreateIcon(d.heading),
               zIndexOffset: 1800,
               keyboard: true
             });
