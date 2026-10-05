@@ -6640,6 +6640,7 @@
     html.rr-mytrips-page #trip-log-live { display: inline-flex; align-items: center; min-height: 36px; }
     .trip-log-empty-live { margin-left: 8px; background: #fff !important; color: #07093e !important; border: 1px solid #07093e !important; }
 </style>
+<style id="rr-go-live-css">#trip-log-go-live{background:#b00020;color:#fff;border:0;font-weight:800;letter-spacing:.04em}#trip-log-go-live[hidden]{display:none!important}body.trip-form-special #trip-log-save{display:none!important}body.trip-form-special #trip-log-go-live{display:inline-flex!important}</style>
 </head>
 <body>
 <button type="button" id="rr-stop-share" hidden style="display:none;position:fixed;right:16px;bottom:24px;z-index:10040;background:#07093e;color:#fff;border:0;border-radius:999px;padding:12px 16px;font-weight:700;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;">Stop sharing</button>
@@ -7126,6 +7127,7 @@
             <div class="rr-modal-error" id="trip-log-error"></div>
             <div class="rr-lightbox-actions" style="margin-top:12px;">
               <button type="button" class="rr-btn" id="trip-log-save">Save trip</button>
+              <button type="button" class="rr-btn" id="trip-log-go-live" hidden>GO LIVE</button>
               <button type="button" class="rr-btn secondary" id="trip-log-goto-list">View MyTrips</button>
             </div>
           </div>
@@ -28775,5 +28777,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
 
 
 <script src="/assets/js/live-share-bar.js" defer></script>
+<script>
+    document.addEventListener('click', function(ev) {
+      var btn = ev.target && ev.target.closest && ev.target.closest('#trip-log-go-live');
+      if (!btn) return;
+      ev.preventDefault();
+      var cb = document.getElementById('trip-log-special-move');
+      if (cb) cb.checked = true;
+      Promise.resolve(typeof saveTripLog === 'function' ? saveTripLog() : null).then(function() {
+        var user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+        if (user && user.uid) location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid);
+      }).catch(function() {});
+    });
+</script>
 </body>
 </html>
