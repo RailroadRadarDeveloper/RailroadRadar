@@ -64,7 +64,7 @@ jobs:
           assert 'never prefill scheduled route' in text
           assert 'rrSpecialPaintDetailMarker' in text
           assert 'Requesting location permission' in text
-          assert 'Special move \u00b7 ' in text
+          assert "Special move" in text and "Sharing" in text
           assert 'specialMoveShares' in text
           assert 'trip-log-special-move' in text
           assert 'trip-detail-share-loc' in text
