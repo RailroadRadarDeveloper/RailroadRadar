@@ -7088,23 +7088,24 @@
                 <div class="trip-log-pane active" id="trip-pane-log" data-trip-pane="log">
           <div class="rr-lightbox-section" style="border:none; padding:0; margin:0;">
             <div class="trip-log-segments" id="trip-log-segments"></div>
-            <button type="button" class="rr-btn secondary" id="trip-log-add-segment">Add segment for this trip</button>
+            <button type="button" class="rr-btn secondary" id="trip-log-add-segment">Add another train</button>
             <div class="trip-special-block" id="trip-special-block">
               <label class="trip-special-toggle" for="trip-log-special-move">
                 <input type="checkbox" id="trip-log-special-move">
                 <span>Special move / extra</span>
               </label>
-              <p class="trip-special-hint" id="trip-special-hint">Excursion, rare, or extra — one map title below. Share location from the trip after saving.</p>
               <div id="trip-special-title-wrap" hidden>
                 <label for="trip-log-train-title">Map title</label>
-                <input type="text" id="trip-log-train-title" maxlength="80" placeholder='e.g. Berkshire Flyer special' autocomplete="off">
-                <p class="trip-seg-train-optional-note" id="trip-special-title-note">Shown on the live map. Segment train number becomes optional.</p>
+                <input type="text" id="trip-log-train-title" maxlength="80" placeholder="e.g. Berkshire Flyer special" autocomplete="off">
               </div>
             </div>
-            <label for="trip-log-rolling-stock">Rolling stock number (optional)</label>
-            <input type="text" id="trip-log-rolling-stock" maxlength="64" placeholder="e.g. loco/car number" autocomplete="off">
-            <label for="trip-log-notes">Notes (optional)</label>
-            <textarea id="trip-log-notes" maxlength="500" rows="3" placeholder="Optional notes"></textarea>
+            <details class="trip-form-more">
+              <summary>Optional details</summary>
+              <label for="trip-log-rolling-stock">Rolling stock</label>
+              <input type="text" id="trip-log-rolling-stock" maxlength="64" placeholder="Loco or car number" autocomplete="off">
+              <label for="trip-log-notes">Notes</label>
+              <textarea id="trip-log-notes" maxlength="500" rows="2" placeholder="Anything else"></textarea>
+            </details>
             <p class="rr-modal-hint" id="trip-log-miles-preview" style="margin-top:8px;">Estimated miles: —</p>
             <div class="rr-modal-error" id="trip-log-error"></div>
             <div class="rr-lightbox-actions" style="margin-top:12px;">
@@ -13806,7 +13807,7 @@ function closeTripDetailView(opts) {
                 (seg.trainExtraMode ? 'Using Extra' : 'Extra / not listed') +
               '</button>' +
             '</div>' +
-            '<p class="trip-seg-train-hint">Pick a scheduled train to autofill number, line, and stations when available. Metra/MARC stay free-text.</p>';
+            '<p class="trip-seg-train-hint">Choosing a train fills the number and times.</p>';
         }
         const trainLabel = specialMode ? 'Train number (optional)' : 'Train number';
         const trainPh = specialMode ? 'Optional if map title is set' : 'e.g. 2150';
@@ -13814,22 +13815,23 @@ function closeTripDetailView(opts) {
         return (
           '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + String(seg.railroad || '').toLowerCase() + '" style="--rr-trip-rail:' + segRailColor + '">' +
             '<div class="trip-segment-head">' +
-              '<div class="trip-segment-title">Segment ' + (idx + 1) +
-                '<span class="trip-segment-rail-chip">' + tripRailBadgeHtml(seg.railroad) + '</span></div>' +
+              '<div class="trip-segment-title">' + (tripLogSegmentsState.length > 1 ? ('Train ' + (idx + 1)) : 'Trip') + '</div>' +
               removeBtn +
             '</div>' +
-            '<label>Railroad</label>' +
-            '<select data-seg-field="railroad">' + railOpts + '</select>' +
-            '<label>Line</label>' +
-            '<select data-seg-field="line">' + lineOpts + '</select>' +
+            '<div class="trip-seg-grid">' +
+              '<div><label>Railroad</label><select data-seg-field="railroad">' + railOpts + '</select></div>' +
+              '<div><label>Line</label><select data-seg-field="line">' + lineOpts + '</select></div>' +
+            '</div>' +
             trainPickHtml +
-            '<label>Origin</label>' +
-            '<select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select>' +
-            '<label>Destination</label>' +
-            '<select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select>' +
-            '<label>' + trainLabel + '</label>' +
-            '<input type="text" data-seg-field="train" maxlength="32" placeholder="' + trainPh + '" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
-            (specialMode ? '<p class="trip-seg-train-optional-note">Map title is used on the live map; number only if you want it logged separately.</p>' : '') +
+            '<div class="trip-seg-grid">' +
+              '<div><label>From</label><select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select></div>' +
+              '<div><label>To</label><select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select></div>' +
+            '</div>' +
+            '<div class="trip-train-text"' + ((hasPicker && !seg.trainExtraMode) ? ' hidden' : '') + '>' +
+              '<label>' + trainLabel + '</label>' +
+              '<input type="text" data-seg-field="train" maxlength="32" placeholder="' + trainPh + '" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
+            '</div>' +
+            '' +
             '<div class="trip-segment-times">' +
               '<div><label>Depart</label>' +
               '<input type="datetime-local" data-seg-field="depart" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.departTime) || '') + '"></div>' +
