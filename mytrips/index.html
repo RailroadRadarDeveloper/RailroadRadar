@@ -11605,9 +11605,12 @@ function tripCardStationDotIcon() {
       }
 
       const bounds = [];
+      /* RR special-move no route line 2026-10-05 */
+      /* Special move / extra: OD dots only */
+      var odOnly = !!(data && (data.specialMove === true || data.specialMove === 'true'));
       /* Trip transfer dots */
       segs.forEach(function(g) {
-        if (g.line && g.line.length >= 2) {
+        if (!odOnly && g.line && g.line.length >= 2) {
           try {
             L.polyline(g.line, {
               color: g.color || '#07093e',
@@ -11618,7 +11621,7 @@ function tripCardStationDotIcon() {
             }).addTo(map);
             g.line.forEach(function(p) { bounds.push(p); });
           } catch (_) {}
-        } else if (g.origin && g.dest) {
+        } else if (!odOnly && g.origin && g.dest) {
           try {
             L.polyline([g.origin, g.dest], {
               color: g.color || '#07093e',
@@ -11812,9 +11815,12 @@ function tripCardStationDotIcon() {
       }
 
       const bounds = [];
+      /* RR special-move no route line 2026-10-05 */
+      /* Special move / extra: OD dots only */
+      var odOnly = !!(data && (data.specialMove === true || data.specialMove === 'true'));
       /* Trip transfer dots */
       segs.forEach(function(g) {
-        if (g.line && g.line.length >= 2) {
+        if (!odOnly && g.line && g.line.length >= 2) {
           try {
             L.polyline(g.line, {
               color: g.color || '#07093e',
@@ -11825,7 +11831,7 @@ function tripCardStationDotIcon() {
             }).addTo(map);
             g.line.forEach(function(p) { bounds.push(p); });
           } catch (_) {}
-        } else if (g.origin && g.dest) {
+        } else if (!odOnly && g.origin && g.dest) {
           try {
             L.polyline([g.origin, g.dest], {
               color: g.color || '#07093e',
@@ -15301,11 +15307,24 @@ function closeTripDetailView(opts) {
       try { el.classList.toggle('is-error', !!(isError && msg)); } catch (_) {}
     }
 
+
+    var rrSpecialSharePending = false;
+    function rrSpecialAbortPendingShare() {
+      rrSpecialSharePending = false;
+      try { rrSpecialClearWatch(); } catch (_) {}
+      try { rrSpecialClearDetailMarker(); } catch (_) {}
+      rrSpecialShareState = null;
+      rrSpecialShareQueue = [];
+      try { rrSpecialPersistLocal(null); } catch (_) {}
+      try { rrSpecialUpdateShareButtons(); } catch (_) {}
+    }
     function rrSpecialUpdateShareButtons() {
       const startBtn = document.getElementById('trip-detail-share-loc');
       const stopBtn = document.getElementById('trip-detail-stop-share');
       // Show Stop once we have state + (watch armed OR at least one successful write)
-      const sharing = !!(rrSpecialShareState && (rrSpecialShareWatchId != null || rrSpecialShareState.lastWriteAt));
+      /* RR special-move share permission 2026-10-05 */
+      /* Sharing is ON only after a successful geo fix */
+      const sharing = !!(rrSpecialShareState && rrSpecialShareState.lastWriteAt);
       const pending = !!(rrSpecialShareState && !sharing);
       if (startBtn) {
         startBtn.hidden = sharing;
@@ -15733,12 +15752,7 @@ function closeTripDetailView(opts) {
         console.warn('[special-share] geo error', err);
         if (err && err.code === 1) {
           rrSpecialSetShareStatus('Location permission denied. Allow location for RailroadRadar in browser/site settings, then tap Share again.', true);
-          rrSpecialClearWatch();
-          rrSpecialClearDetailMarker();
-          rrSpecialShareState = null;
-          rrSpecialShareQueue = [];
-          rrSpecialPersistLocal(null);
-          rrSpecialUpdateShareButtons();
+          if (typeof rrSpecialAbortPendingShare === 'function') rrSpecialAbortPendingShare();
           if (startBtn) startBtn.disabled = false;
           return;
         }
@@ -28477,6 +28491,9 @@ function closeTripDetailView(opts) {
             return;
           }
           if (!navigator.geolocation) return;
+          /* Never auto-request geolocation on /mytrips */
+          /* never auto-grant geo on /mytrips */
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
           if (rrNearbyAskedGeo) return;
           rrNearbyAskedGeo = true;
           navigator.geolocation.getCurrentPosition(
