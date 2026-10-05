@@ -1,6 +1,10 @@
 name: Apply Special Move share geo fix
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/special-move-share-geo-fix.meta'
+      - 'scripts/special-move-share-geo-fix.b64.part001'
 permissions:
   contents: write
 jobs:
