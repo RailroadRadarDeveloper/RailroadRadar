@@ -55,7 +55,7 @@
     function popup(d) {
       var title = String(d.title || 'Live trip').replace(/</g, '&lt;');
       var who = String(d.displayName || 'Rider').replace(/</g, '&lt;');
-      return '<div class="train-popup"><div style="background:#07093e;color:#fff;padding:8px 10px;font-weight:700;font-style:italic;">' + title + '</div><div style="padding:8px 10px;color:#07093e;"><div>Live trip</div><div>' + who + '</div></div></div>';
+      return '<div class="train-popup"><div style="background:#07093e;color:#fff;padding:8px 10px;font-weight:700;font-style:italic;">' + title + '</div><div style="padding:8px 10px;color:#07093e;"><div>Live trip</div><div>' + who + '</div><div><a href="/live/user.html?uid=' + encodeURIComponent(doc.id) + '">Open this tracker</a></div></div></div>';
     }
     db.collection('specialMoveShares').onSnapshot(function(snap) {
       var now = Date.now();
