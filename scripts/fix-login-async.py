@@ -3,16 +3,13 @@ from pathlib import Path
 def patch(path):
     p = Path(path)
     t = p.read_text(encoding='utf-8')
-    old = '    async \n    function rrShowStopShare(on) {'
-    new = '    function rrShowStopShare(on) {'
-    if old in t:
-        t = t.replace(old, new, 1)
-        print('stray async', path)
+    t2 = t.replace('async \n    function rrShowStopShare(on) {', 'function rrShowStopShare(on) {')
+    t2 = t2.replace('function rrSpecialStopSharing(opts) {', 'async function rrSpecialStopSharing(opts) {')
+    if t2 == t:
+        print('no change', path)
     else:
-        print('stray missing', path)
-    t = t.replace('function rrSpecialStopSharing(opts) {', 'async function rrSpecialStopSharing(opts) {', 1)
-    p.write_text(t, encoding='utf-8')
-    print('async restored', path)
+        p.write_text(t2, encoding='utf-8')
+        print('fixed', path)
 
 patch('index.html')
 patch('mytrips/index.html')
