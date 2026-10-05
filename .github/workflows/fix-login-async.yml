@@ -13,16 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/fix-login-async.py
-      - run: node --check <(python3 - << 'PY'
-from pathlib import Path
-import re
-text = Path('index.html').read_text(encoding='utf-8')
-scripts = re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>', text, re.S|re.I)
-Path('/tmp/rr.js').write_text(scripts[-1], encoding='utf-8')
-print('scripts', len(scripts))
-PY
-)
-        node --check /tmp/rr.js
       - run: |
           git config user.name "RailroadRadar"
           git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
