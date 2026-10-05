@@ -2,6 +2,7 @@
   if (window.__rrLiveBar) return;
   window.__rrLiveBar = true;
   var KEY = 'rrSpecialMoveShareV1';
+  var STOP = 'rrSpecialShareStopped';
   var CFG = {
     apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
     authDomain: 'railroadradar-accounts.firebaseapp.com',
@@ -10,7 +11,11 @@
     messagingSenderId: '896370923309',
     appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
   };
+  function stopped() {
+    try { return localStorage.getItem(STOP) === '1'; } catch (e) { return false; }
+  }
   function read() {
+    if (stopped()) return null;
     try {
       var raw = localStorage.getItem(KEY) || sessionStorage.getItem(KEY);
       if (!raw) return null;
@@ -23,7 +28,29 @@
     } catch (e) { return null; }
   }
   function write(o) {
+    if (stopped()) return;
     try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
+  }
+  function clearWatch() {
+    if (window.__rrLiveWatch && navigator.geolocation) {
+      try { navigator.geolocation.clearWatch(window.__rrLiveWatch); } catch (e) {}
+    }
+    window.__rrLiveWatch = 0;
+  }
+  function hide() {
+    var el = document.getElementById('rr-live-bar');
+    if (el) el.hidden = true;
+  }
+  function endShare() {
+    try {
+      localStorage.setItem(STOP, '1');
+      localStorage.removeItem(KEY);
+      sessionStorage.removeItem(KEY);
+    } catch (e) {}
+    clearWatch();
+    hide();
+    if (typeof rrSpecialStopSharing === 'function') rrSpecialStopSharing();
+    else stopRemote();
   }
   function leftLabel(o) {
     var left = Math.max(0, Number(o.expiresAt) - Date.now());
@@ -33,7 +60,8 @@
   }
   function ensureBar() {
     var el = document.getElementById('rr-live-bar');
-    if (el) return el;
+    if (el && el.querySelector('#rr-live-bar-resume')) return el;
+    if (el) el.remove();
     if (!document.getElementById('rr-live-bar-css')) {
       var css = document.createElement('style');
       css.id = 'rr-live-bar-css';
@@ -49,19 +77,15 @@
       var o = read();
       if (o) startWatch(o);
     });
-    el.querySelector('#rr-live-bar-stop').addEventListener('click', function () {
-      try { localStorage.removeItem(KEY); sessionStorage.removeItem(KEY); } catch (e) {}
-      if (window.__rrLiveWatch && navigator.geolocation) {
-        navigator.geolocation.clearWatch(window.__rrLiveWatch);
-        window.__rrLiveWatch = 0;
-      }
-      el.hidden = true;
-      if (typeof rrSpecialStopSharing === 'function') rrSpecialStopSharing();
-      else stopRemote();
+    el.querySelector('#rr-live-bar-stop').addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      endShare();
     });
     return el;
   }
   function show(o) {
+    if (stopped() || !o) { hide(); return; }
     var el = ensureBar();
     var resume = el.querySelector('#rr-live-bar-resume');
     var live = !!window.__rrLiveWatch;
@@ -87,11 +111,13 @@
       .then(function () { if (!firebase.apps.length) firebase.initializeApp(CFG); });
   }
   function publish(o, coords) {
+    if (stopped()) return;
     if (typeof rrSpecialWriteShare === 'function' && window.rrSpecialShareState) {
       rrSpecialWriteShare(coords, { force: false });
       return;
     }
     loadFirebase().then(function () {
+      if (stopped()) return;
       var user = firebase.auth().currentUser;
       if (!user || user.uid !== o.uid) return;
       firebase.firestore().collection('specialMoveShares').doc(user.uid).set({
@@ -108,8 +134,9 @@
     }).catch(function () {});
   }
   function startWatch(o) {
-    if (!navigator.geolocation || window.__rrLiveWatch) return;
+    if (stopped() || !navigator.geolocation || window.__rrLiveWatch) return;
     window.__rrLiveWatch = navigator.geolocation.watchPosition(function (pos) {
+      if (stopped()) { clearWatch(); return; }
       o.updatedAt = Date.now();
       write(o);
       show(o);
@@ -121,14 +148,31 @@
     show(o);
   }
   function boot() {
+    if (stopped()) { hide(); return; }
     var o = read();
     if (!o) return;
     show(o);
-    setInterval(function () { var cur = read(); if (cur) show(cur); }, 10000);
+    setInterval(function () {
+      if (stopped()) { hide(); return; }
+      var cur = read();
+      if (cur) show(cur); else hide();
+    }, 10000);
     if (!navigator.permissions) return;
     navigator.permissions.query({ name: 'geolocation' }).then(function (p) {
-      if (p.state === 'granted') startWatch(o);
+      if (!stopped() && p.state === 'granted') startWatch(read());
     }).catch(function () {});
   }
+  var oldPersist = window.rrSpecialPersistLocal;
+  window.rrSpecialPersistLocal = function (state) {
+    if (typeof oldPersist === 'function') { try { oldPersist(state); } catch (e) {} }
+    if (!state || stopped()) {
+      try { localStorage.removeItem(KEY); sessionStorage.removeItem(KEY); } catch (e) {}
+      hide();
+      return;
+    }
+    try { localStorage.removeItem(STOP); } catch (e) {}
+    write({ uid: state.uid, tripId: state.tripId, title: state.title, startedAt: state.startedAt, expiresAt: state.expiresAt, updatedAt: Date.now() });
+    show(read());
+  };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
 })();
