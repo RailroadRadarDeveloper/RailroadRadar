@@ -14992,6 +14992,14 @@ function closeTripDetailView(opts) {
         } catch (_) {}
         return;
       }
+      if (specialFields.specialMove) {
+        try {
+          window.rrSpecialLastFix = await rrSpecialRequireLocation();
+        } catch (locErr) {
+          setTripLogError((locErr && locErr.message) || 'Location is required before this trip can be created.');
+          return;
+        }
+      }
       let payload;
       try {
         payload = buildTripPayloadFromSegments(tripLogSegmentsState, notes, rollingStock, specialFields);
@@ -15288,6 +15296,32 @@ function closeTripDetailView(opts) {
           : 'Location unavailable. You can try again from the trip after saving.';
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
     }
+
+    function rrSpecialRequireLocation() {
+      return new Promise(function(resolve, reject) {
+        if (!navigator.geolocation) {
+          reject(new Error('Location is not supported in this browser.'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          const fix = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          window.rrSpecialLastFix = fix;
+          const el = document.getElementById('trip-special-loc');
+          if (el) el.textContent = 'Location allowed.';
+          const saveBtn = document.getElementById('trip-log-save');
+          if (saveBtn) saveBtn.disabled = false;
+          resolve(fix);
+        }, function(err) {
+          const saveBtn = document.getElementById('trip-log-save');
+          if (saveBtn) saveBtn.disabled = true;
+          const el = document.getElementById('trip-special-loc');
+          if (el) el.textContent = (err && err.code === 1)
+            ? 'Location is required. Allow location to create this trip.'
+            : 'Location is required and was not available.';
+          reject(new Error('Location is required before this trip can be created.'));
+        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+      });
+    }
 function rrSpecialSyncTitleWrap() {
       const cb = document.getElementById('trip-log-special-move');
       const wrap = document.getElementById('trip-special-title-wrap');
@@ -15298,9 +15332,13 @@ function rrSpecialSyncTitleWrap() {
       wrap.hidden = !on;
       if (block) block.classList.toggle('is-on', on);
       document.body.classList.toggle('trip-form-special', on);
-      if (on && !cb.dataset.locAsked) {
-        cb.dataset.locAsked = '1';
-        try { rrSpecialAskLocation(); } catch (_) {}
+      if (on) {
+        const saveBtn = document.getElementById('trip-log-save');
+        if (saveBtn && !(window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null)) saveBtn.disabled = true;
+        if (!cb.dataset.locAsked) {
+          cb.dataset.locAsked = '1';
+          try { rrSpecialRequireLocation().catch(function() {}); } catch (_) {}
+        }
       }
       if (hint) {
         hint.textContent = on
