@@ -329,5 +329,6 @@ document.getElementById('pfp').onclick=e=>{e.stopPropagation();const m=document.
 document.addEventListener('click',e=>{const m=document.getElementById('acct-menu');const b=document.getElementById('pfp');if(!m||!b)return;if(m.contains(e.target)||b.contains(e.target))return;m.classList.remove('open');b.setAttribute('aria-expanded','false');});
 auth.onAuthStateChanged(async u=>{user=u;header();try{if(typeof betterstack==='function'&&u)betterstack('user',{id:u.uid||'',email:u.email||'',username:u.displayName||u.email||''});}catch(e){}await refreshAdmin(u);await route();});
 </script>
+<script src="/assets/js/live-share-bar.js" defer></script>
 </body>
 </html>
