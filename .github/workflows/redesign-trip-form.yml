@@ -1,0 +1,20 @@
+name: Redesign trip form
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/redesign-trip-form.py
+      - .github/workflows/redesign-trip-form.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/redesign-trip-form.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Tighten trip form: one train control, paired fields, optional details collapsed" && git push; fi
