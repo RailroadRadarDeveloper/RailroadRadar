@@ -6642,6 +6642,8 @@
 </style>
 </head>
 <body>
+<button type="button" id="rr-stop-share" hidden style="display:none;position:fixed;right:16px;bottom:24px;z-index:10040;background:#07093e;color:#fff;border:0;border-radius:999px;padding:12px 16px;font-weight:700;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;">Stop sharing</button>
+
     <div id="rr-banned-screen" hidden style="display:none;position:fixed;top:60px;left:0;right:0;bottom:0;z-index:9000;background:#07093e;color:#fff;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
     <div style="max-width:420px;width:100%;text-align:center;">
       <h2 style="margin:0 0 10px;font-size:22px;">Account banned</h2>
@@ -15030,6 +15032,14 @@ function closeTripDetailView(opts) {
         });
         try { await logUserAction('trip_log_save', payload.railroad + ' ' + payload.trainNumber); } catch (_) {}
         if (typeof showNotification === 'function') showNotification(editingId ? 'Trip updated' : 'Trip saved');
+        if (payload && payload.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
+          try {
+            await rrSpecialPublishLiveTrip(tripRef.id, payload.trainTitle || payload.trainNumber || 'Live trip', window.rrSpecialLastFix);
+          } catch (shareErr) {
+            console.warn('[live-trip] map publish', shareErr);
+            setTripLogError('Trip saved, but it could not be placed on the map yet.');
+          }
+        }
         tripLogEditingId = null;
         const saveLbl = document.getElementById('trip-log-save');
         if (saveLbl) saveLbl.textContent = 'Save trip';
@@ -15693,13 +15703,66 @@ function rrSpecialSyncTitleWrap() {
           try { rrSpecialClearDetailMarker(); } catch (_) {}
     }
 
-    async function rrSpecialStopSharing(opts) {
+    async 
+    function rrShowStopShare(on) {
+      const btn = document.getElementById('rr-stop-share');
+      if (!btn) return;
+      btn.hidden = !on;
+      btn.style.display = on ? 'inline-flex' : 'none';
+    }
+    async function rrSpecialPublishLiveTrip(tripId, title, fix) {
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!user || !db || !fix || fix.lat == null) return;
+      const startedAt = Date.now();
+      const expiresAt = startedAt + (typeof RR_SPECIAL_SHARE_MAX_MS === 'number' ? RR_SPECIAL_SHARE_MAX_MS : 5 * 60 * 60 * 1000);
+      rrSpecialShareState = {
+        uid: user.uid,
+        tripId: tripId,
+        title: String(title || 'Live trip').slice(0, 80),
+        startedAt: startedAt,
+        expiresAt: expiresAt,
+        lastWriteAt: 0,
+        lastLat: Number(fix.lat),
+        lastLon: Number(fix.lon),
+        offline: false
+      };
+      try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+      await db.collection('specialMoveShares').doc(user.uid).set({
+        uid: user.uid,
+        tripId: tripId,
+        title: rrSpecialShareState.title,
+        active: true,
+        lat: Number(fix.lat),
+        lon: Number(fix.lon),
+        startedAt: startedAt,
+        expiresAt: expiresAt,
+        updatedAt: startedAt
+      }, { merge: true });
+      try {
+        if (typeof rrSpecialApplyDocs === 'function') {
+          rrSpecialApplyDocs([{ data: function() { return { active: true, lat: Number(fix.lat), lon: Number(fix.lon), title: rrSpecialShareState.title, expiresAt: expiresAt, updatedAt: startedAt, uid: user.uid }; } }]);
+        }
+      } catch (_) {}
+      try { if (typeof rrSpecialStartMapListener === 'function') rrSpecialStartMapListener(); } catch (_) {}
+      rrShowStopShare(true);
+      if (typeof showNotification === 'function') showNotification('Live trip is on the map');
+    }
+    document.addEventListener('click', function(ev) {
+      const btn = ev.target && ev.target.closest && ev.target.closest('#rr-stop-share, #trip-detail-stop-share');
+      if (!btn) return;
+      ev.preventDefault();
+      Promise.resolve(typeof rrSpecialStopSharing === 'function' ? rrSpecialStopSharing() : null).then(function() {
+        rrShowStopShare(false);
+      }).catch(function() { rrShowStopShare(false); });
+    });
+function rrSpecialStopSharing(opts) {
       opts = opts || {};
       rrSpecialClearWatch();
       const st = rrSpecialShareState;
       rrSpecialShareState = null;
       rrSpecialShareQueue = [];
       rrSpecialPersistLocal(null);
+      try { rrShowStopShare(false); } catch (_) {}
       if (st && db && st.uid) {
         try {
           await db.collection('specialMoveShares').doc(st.uid).delete();
