@@ -15703,7 +15703,6 @@ function rrSpecialSyncTitleWrap() {
           try { rrSpecialClearDetailMarker(); } catch (_) {}
     }
 
-    async 
     function rrShowStopShare(on) {
       const btn = document.getElementById('rr-stop-share');
       if (!btn) return;
@@ -15755,7 +15754,7 @@ function rrSpecialSyncTitleWrap() {
         rrShowStopShare(false);
       }).catch(function() { rrShowStopShare(false); });
     });
-function rrSpecialStopSharing(opts) {
+async function rrSpecialStopSharing(opts) {
       opts = opts || {};
       rrSpecialClearWatch();
       const st = rrSpecialShareState;
