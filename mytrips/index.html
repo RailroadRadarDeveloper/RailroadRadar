@@ -3699,6 +3699,7 @@
       font: inherit;
       border-radius: 0;
     }
+    .trip-detail-map.is-live-empty::after { content: 'Location shows here while sharing'; }
     .trip-detail-map.is-empty::after {
       content: 'Map unavailable';
       position: absolute;
@@ -10655,7 +10656,13 @@
     function paintTripDetailRelative(data) {
       const el = document.getElementById('trip-detail-relative');
       if (!el) return;
-      const textRel = formatTripRelativeDepart(data || tripDetailRelativeData);
+      const d0 = data || tripDetailRelativeData;
+      if (d0 && d0.specialMove) {
+        el.hidden = false;
+        el.textContent = 'Live trip';
+        return;
+      }
+      const textRel = formatTripRelativeDepart(d0);
       if (!textRel) {
         el.hidden = true;
         el.textContent = '';
@@ -11593,7 +11600,17 @@ function tripCardStationDotIcon() {
       const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
       if (!hasAny) {
         el.classList.remove('is-loading');
-        el.classList.add('is-empty');
+        if (data && data.specialMove && data.liveLat != null && data.liveLon != null) {
+          try {
+            const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
+            rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
+            L.circleMarker([Number(data.liveLat), Number(data.liveLon)], { radius: 7, color: '#fff', weight: 2, fillColor: '#07093e', fillOpacity: 1 }).addTo(map);
+            map.setView([Number(data.liveLat), Number(data.liveLon)], 13);
+            el.classList.remove('is-empty');
+            return;
+          } catch (_) {}
+        }
+        el.classList.add(data && data.specialMove ? 'is-live-empty' : 'is-empty');
         return;
       }
 
@@ -11999,7 +12016,12 @@ function tripCardStationDotIcon() {
 
       const od = tripDetailOriginDest(data);
       const routeEl = document.getElementById('trip-detail-route');
-      if (routeEl) routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
+      if (routeEl) {
+        const noStations = !od.origin || od.origin === '?' || !od.dest || od.dest === '?';
+        const title = data.specialMove ? String(data.trainTitle || '').trim() : '';
+        routeEl.textContent = (data.specialMove && noStations && title) ? title : '';
+        if (!(data.specialMove && noStations && title)) routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
+      }
 
       // Top badges: train chip only (no railroad/miles — those live in bottom facts)
       const badges = document.getElementById('trip-detail-badges');
@@ -14862,6 +14884,10 @@ function closeTripDetailView(opts) {
           arriveTime: arriveIso || departIso || nowIso,
           miles: Number(miles) || 0
         };
+        if (specialOpts && specialOpts.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
+          segOut.liveLat = Number(window.rrSpecialLastFix.lat);
+          segOut.liveLon = Number(window.rrSpecialLastFix.lon);
+        }
         const vid = String(seg.vehicleId || '').trim();
         if (vid) segOut.vehicleId = vid.slice(0, 64);
         segments.push(segOut);
@@ -15254,6 +15280,7 @@ function closeTripDetailView(opts) {
       }
       if (el) el.textContent = 'Requesting location permission…';
       navigator.geolocation.getCurrentPosition(function() {
+        window.rrSpecialLastFix = { lat: arguments[0] && arguments[0].coords && arguments[0].coords.latitude, lon: arguments[0] && arguments[0].coords && arguments[0].coords.longitude };
         if (el) el.textContent = 'Location allowed. You can share this move on the live map after saving.';
       }, function(err) {
         if (el) el.textContent = (err && err.code === 1)
