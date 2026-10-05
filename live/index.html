@@ -38,9 +38,10 @@
     var auth = firebase.auth();
     var db = firebase.firestore();
     var map = L.map('map').setView([42.36, -71.06], 8);
-    L.tileLayer('https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
-      attribution: '\u00a9 Mapbox \u00a9 OpenStreetMap contributors',
-      maxZoom: 20
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '\u00a9 OpenStreetMap',
+      maxZoom: 19,
+      subdomains: 'abc'
     }).addTo(map);
     var markers = {};
     function icon(heading) {

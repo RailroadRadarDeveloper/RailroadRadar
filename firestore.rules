@@ -190,6 +190,17 @@ service cloud.firestore {
       allow delete: if isBootstrapAdmin() || isAdmin();
     }
 
+
+    match /specialMoveShares/{uid} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.active == true
+        && request.resource.data.lat is number
+        && request.resource.data.lon is number;
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
     match /accounts/{uid} {
       // Admins list all; each user may read/write only their own mirror doc
       allow read: if isAdmin()
