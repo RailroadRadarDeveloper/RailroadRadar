@@ -1,0 +1,87 @@
+name: Apply Special Move form cleanup
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify hash, apply patch, publish mytrips
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import base64, gzip, hashlib, pathlib, re
+          expected = "626b42b8e173f7cbdeede3fcfc3aeed4ecf4a10532c92e2d247b8d2c4c68ad7e"
+          expected_html = "9799d45851c2450e5690d1ff8a51e03aef519b31f32f30215d8c8e24a26047f2"
+          blob = None
+          paths = sorted(pathlib.Path("scripts").glob("special-move-form-cleanup.b64.part*"), key=lambda p: int(re.search(r"part(\d+)$", p.name).group(1)))
+          if paths:
+              if len(paths) != 25:
+                  raise SystemExit("expected 25 parts, got %d" % len(paths))
+              pieces = [p.read_text().strip() for p in paths]
+              if any(len(piece) > 400 for piece in pieces):
+                  raise SystemExit("a part is longer than 400 bytes")
+              blob = "".join(pieces)
+              print("assembled parts", len(paths), "len", len(blob))
+          if blob is None:
+              chunks = [pathlib.Path("scripts/special-move-form-cleanup.patch.gz.b64.%d" % i) for i in (1,2,3)]
+              if all(p.exists() for p in chunks):
+                  blob = "".join(p.read_text().strip() for p in chunks)
+                  print("using chunked b64", len(blob))
+          if blob is None:
+              single = pathlib.Path("scripts/special-move-form-cleanup.patch.gz.b64")
+              if single.exists():
+                  blob = single.read_text().strip()
+                  print("using single b64", len(blob))
+          if not blob:
+              raise SystemExit("no patch b64 found")
+          h = hashlib.sha256(blob.encode()).hexdigest()
+          if h != expected:
+              raise SystemExit("b64 hash mismatch: %s" % h)
+          raw = gzip.decompress(base64.b64decode(blob))
+          pathlib.Path("/tmp/special-move-form-cleanup.patch").write_bytes(raw)
+          print("patch bytes", len(raw), "hash ok")
+          PY
+          git apply /tmp/special-move-form-cleanup.patch
+          mkdir -p mytrips
+          cp index.html mytrips/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          t = Path('index.html').read_bytes()
+          h = hashlib.sha256(t).hexdigest()
+          assert h == "9799d45851c2450e5690d1ff8a51e03aef519b31f32f30215d8c8e24a26047f2", h
+          text = t.decode('utf-8', errors='replace')
+          assert '/* RR special-move form cleanup 2026-10-05 */' in text
+          assert '/* RR special-move bugs 2026-10-05 */' in text
+          assert 'Special move / extra' in text
+          assert 'Map title' in text
+          assert 'rrSpecialIsFormOn' in text
+          assert 'trip-seg-special-mode' in text
+          assert 'Train number (optional)' in text
+          assert 'never prefill scheduled route' in text
+          assert 'rrSpecialPaintDetailMarker' in text
+          assert 'Requesting location permission' in text
+          assert 'Special move \u00b7 ' in text
+          assert 'specialMoveShares' in text
+          assert 'trip-log-special-move' in text
+          assert 'trip-detail-share-loc' in text
+          assert 'Share location' in text
+          assert 'Share my location on the live map' not in text
+          mt = Path('mytrips/index.html').read_text(errors='replace')
+          assert 'rrSpecialIsFormOn' in mt
+          assert 'rrSpecialPaintDetailMarker' in mt
+          assert 'Map title' in mt
+          print('ok', len(t))
+          PY
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing to commit
+          else
+            git commit -m "MyTrips: Special move bugs (geo/share, no route prefill, not scheduled) + form cleanup"
+            git pull --rebase origin main
+            git push
+          fi
