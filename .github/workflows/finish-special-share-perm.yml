@@ -1,0 +1,20 @@
+name: Finish special share perm
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/finish-special-share-perm.py
+      - .github/workflows/finish-special-share-perm.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/finish-special-share-perm.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "MyTrips: Share stays off until location is allowed; special moves show OD dots only" && git push; fi
