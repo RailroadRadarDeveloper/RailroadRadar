@@ -632,6 +632,9 @@
     'SB-0150-04': 'place-NEC-2139', 'SB-0150-06': 'place-NEC-2139'
   };
 
+  /* rr-station-audio-merge-places-2026-10-05
+     Picker merges same physical place across railroads. Stop matching stays agency-keyed:
+     never match a train to another agency's stop id/code (MNR/LIRR share numeric ids). */
   function agenciesAlign(trainAgency, stationAgency) {
     var a = String(trainAgency || '');
     var b = String(stationAgency || '');
@@ -639,6 +642,66 @@
     if (a === b) return true;
     if ((a === 'amtrak' && b === 'ctrail') || (a === 'ctrail' && b === 'amtrak')) return true;
     return false;
+  }
+
+  function stationAgencyList(station) {
+    if (!station) return [];
+    if (station.agencies && station.agencies.length) return station.agencies.slice();
+    return station.agency ? [String(station.agency)] : [];
+  }
+
+  function trainAgencyFitsStation(trainAgency, station) {
+    var ags = stationAgencyList(station);
+    for (var i = 0; i < ags.length; i++) {
+      if (agenciesAlign(trainAgency, ags[i])) return true;
+    }
+    return false;
+  }
+
+  function agencyStopIds(station, trainAgency) {
+    var out = [];
+    var seen = {};
+    function add(id) {
+      var s = id != null ? String(id) : '';
+      if (!s || seen[s]) return;
+      seen[s] = 1;
+      out.push(s);
+    }
+    var ags = stationAgencyList(station);
+    var want = [];
+    for (var i = 0; i < ags.length; i++) {
+      if (agenciesAlign(trainAgency, ags[i])) want.push(ags[i]);
+    }
+    if (station.stopIdsByAgency) {
+      for (var j = 0; j < want.length; j++) {
+        (station.stopIdsByAgency[want[j]] || []).forEach(add);
+      }
+    } else if (want.length) {
+      (station.stopIds || []).forEach(add);
+    }
+    return out;
+  }
+
+  function agencyCodes(station, trainAgency) {
+    var out = [];
+    var seen = {};
+    function add(code) {
+      var s = code != null ? String(code).toUpperCase() : '';
+      if (!s || seen[s]) return;
+      seen[s] = 1;
+      out.push(s);
+    }
+    var ags = stationAgencyList(station);
+    var want = [];
+    for (var i = 0; i < ags.length; i++) {
+      if (agenciesAlign(trainAgency, ags[i])) want.push(ags[i]);
+    }
+    if (station.codeByAgency) {
+      for (var j = 0; j < want.length; j++) add(station.codeByAgency[want[j]]);
+    } else if (want.length) {
+      add(station.code);
+    }
+    return out;
   }
 
   function mbtaCanonicalStopId(stopId) {
@@ -654,18 +717,19 @@
   function stopServesStation(stop, station, trainAgency) {
     if (!stop || !station) return false;
     var ag = trainAgency || stop.agency || '';
-    if (!agenciesAlign(ag, station.agency)) return false;
-    var ids = station.stopIds || [];
+    if (!trainAgencyFitsStation(ag, station)) return false;
+    var ids = agencyStopIds(station, ag);
     var stopId = stop.stopId != null ? String(stop.stopId) : '';
     if (stopId && ids.indexOf(stopId) >= 0) return true;
-    if (String(station.agency) === 'mbta' && stopId) {
+    var hasMbta = stationAgencyList(station).indexOf('mbta') >= 0;
+    if (hasMbta && agenciesAlign(ag, 'mbta') && stopId) {
       var parent = mbtaCanonicalStopId(stopId);
-      if (parent && (ids.indexOf(parent) >= 0 || String(station.code || '') === parent)) return true;
+      if (parent && (ids.indexOf(parent) >= 0 || agencyCodes(station, 'mbta').indexOf(String(parent).toUpperCase()) >= 0)) return true;
     }
-    var code = station.code ? String(station.code).toUpperCase() : '';
+    var codes = agencyCodes(station, ag);
     var stopCode = stop.code ? String(stop.code).toUpperCase() : '';
-    if (code && stopCode && stopCode === code) return true;
-    if (code && stopId && stopId.toUpperCase() === code) return true;
+    if (stopCode && codes.indexOf(stopCode) >= 0) return true;
+    if (stopId && codes.indexOf(stopId.toUpperCase()) >= 0) return true;
     return false;
   }
 
@@ -687,6 +751,10 @@
     stripText: stripText,
     alertActive: alertActive,
     agenciesAlign: agenciesAlign,
+    stationAgencyList: stationAgencyList,
+    trainAgencyFitsStation: trainAgencyFitsStation,
+    agencyStopIds: agencyStopIds,
+    agencyCodes: agencyCodes,
     mbtaCanonicalStopId: mbtaCanonicalStopId,
     stopServesStation: stopServesStation
   };
@@ -751,8 +819,24 @@
     return JSON.parse(text);
   }
 
+  var AGENCY_LABEL_ORDER = ['Metro-North', 'LIRR', 'MBTA', 'Metra', 'MARC', 'CTrail', 'NJ Transit', 'Amtrak'];
+  var MERGE_MI = 0.22;
+  var MERGE_NAME_MI = 0.35;
+
   function addStation(st) {
     if (st.lat == null || st.lng == null || !isFinite(st.lat) || !isFinite(st.lng)) return;
+    if (!st.agencies || !st.agencies.length) st.agencies = st.agency ? [String(st.agency)] : [];
+    if (!st.agency && st.agencies.length) st.agency = st.agencies[0];
+    if (!st.stopIdsByAgency) {
+      st.stopIdsByAgency = {};
+      if (st.agency && st.stopIds && st.stopIds.length) st.stopIdsByAgency[st.agency] = st.stopIds.slice();
+    }
+    if (!st.codeByAgency) {
+      st.codeByAgency = {};
+      if (st.agency && st.code) st.codeByAgency[st.agency] = String(st.code);
+    }
+    if (!st.agencyLabel && st.agencies.length) st.agencyLabel = st.agencies.join(' / ');
+    if (!st.searchText) st.searchText = stationSearchText(st);
     stations.push(st);
     var code = st.code ? String(st.code).toUpperCase() : '';
     if (code && !codeGeo[code]) codeGeo[code] = st;
@@ -762,18 +846,231 @@
     });
   }
 
+  function stationSearchText(st) {
+    var bits = [st.name, st.agencyLabel];
+    (st.aliases || []).forEach(function (a) { bits.push(a); });
+    (st.agencies || []).forEach(function (a) { bits.push(a); });
+    if (st.codeByAgency) Object.keys(st.codeByAgency).forEach(function (a) { bits.push(st.codeByAgency[a]); });
+    (st.stopIds || []).forEach(function (id) { bits.push(id); });
+    if (st.code) bits.push(st.code);
+    return bits.filter(Boolean).join(' ');
+  }
+
+  function cleanPlaceName(name) {
+    var s = String(name || '').replace(/\s+/g, ' ').trim();
+    s = s.replace(/^Ny Moynihan Train Hall At Penn Station$/i, 'Penn Station');
+    s = s.replace(/^UNION STATION Washington$/i, 'Washington Union Station');
+    s = s.replace(/\s+Amtrak Station$/i, '');
+    s = s.replace(/\s+Amtrak$/i, '');
+    s = s.replace(/\s+Marc$/i, '');
+    return s.replace(/\s+/g, ' ').trim();
+  }
+
+  function placeNameKey(name) {
+    return A.normName(cleanPlaceName(name));
+  }
+
+  function agencyLabelRank(label) {
+    var i = AGENCY_LABEL_ORDER.indexOf(label);
+    return i >= 0 ? i : 50;
+  }
+
+  function formatAgencyLabel(labels) {
+    var uniq = [];
+    var seen = {};
+    (labels || []).forEach(function (lab) {
+      var s = String(lab || '').trim();
+      if (!s || seen[s]) return;
+      seen[s] = 1;
+      uniq.push(s);
+    });
+    uniq.sort(function (a, b) {
+      var d = agencyLabelRank(a) - agencyLabelRank(b);
+      if (d) return d;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    return uniq.join(' / ');
+  }
+
+  function pickerLabel(st) {
+    return st.name + ' — ' + st.agencyLabel;
+  }
+
+  function chooseClusterName(members) {
+    var cleaned = members.map(function (m) { return cleanPlaceName(m.name); }).filter(Boolean);
+    if (!cleaned.length) return 'Station';
+    var norms = cleaned.map(function (n) { return A.normName(n); });
+    var allExact = norms.every(function (n) { return n === norms[0]; });
+    if (allExact) {
+      // Same place name: prefer the shortest clean label ("Stamford" over longer variants).
+      cleaned.sort(function (a, b) { return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0); });
+      return cleaned[0];
+    }
+    // Members disagree (Amtrak "New Haven" vs Metro-North "New Haven-State St"): prefer the
+    // more specific label so Union and State Street stay distinguishable in the picker.
+    cleaned.sort(function (a, b) { return b.length - a.length || (a < b ? -1 : a > b ? 1 : 0); });
+    return cleaned[0];
+  }
+
+  function mergeStationCluster(members) {
+    var agencies = [];
+    var labels = [];
+    var stopIdsByAgency = {};
+    var codeByAgency = {};
+    var stopIds = [];
+    var aliases = [];
+    var lat = 0, lng = 0, n = 0;
+    members.forEach(function (m) {
+      lat += Number(m.lat); lng += Number(m.lng); n += 1;
+      (m.agencies && m.agencies.length ? m.agencies : [m.agency]).forEach(function (a) {
+        if (a && agencies.indexOf(a) < 0) agencies.push(a);
+      });
+      if (m.agencyLabel) labels.push(m.agencyLabel);
+      aliases.push(m.name);
+      (m.aliases || []).forEach(function (a) { aliases.push(a); });
+      var by = m.stopIdsByAgency || {};
+      Object.keys(by).forEach(function (a) {
+        if (!stopIdsByAgency[a]) stopIdsByAgency[a] = [];
+        (by[a] || []).forEach(function (id) {
+          var s = String(id);
+          if (stopIdsByAgency[a].indexOf(s) < 0) stopIdsByAgency[a].push(s);
+          if (stopIds.indexOf(s) < 0) stopIds.push(s);
+        });
+      });
+      if (!Object.keys(by).length && m.agency) {
+        if (!stopIdsByAgency[m.agency]) stopIdsByAgency[m.agency] = [];
+        (m.stopIds || []).forEach(function (id) {
+          var s = String(id);
+          if (stopIdsByAgency[m.agency].indexOf(s) < 0) stopIdsByAgency[m.agency].push(s);
+          if (stopIds.indexOf(s) < 0) stopIds.push(s);
+        });
+      }
+      var cb = m.codeByAgency || {};
+      Object.keys(cb).forEach(function (a) {
+        if (cb[a] && !codeByAgency[a]) codeByAgency[a] = String(cb[a]);
+      });
+      if (!Object.keys(cb).length && m.agency && m.code && !codeByAgency[m.agency]) codeByAgency[m.agency] = String(m.code);
+    });
+    var agencyRank = { mnr: 0, lirr: 1, mbta: 2, metra: 3, marc: 4, ctrail: 5, njt: 6, amtrak: 7 };
+    agencies.sort(function (a, b) {
+      var ra = agencyRank[a] != null ? agencyRank[a] : 40;
+      var rb = agencyRank[b] != null ? agencyRank[b] : 40;
+      return ra - rb || (a < b ? -1 : a > b ? 1 : 0);
+    });
+    var name = chooseClusterName(members);
+    var agencyLabel = formatAgencyLabel(labels);
+    var primary = agencies[0] || members[0].agency;
+    var code = codeByAgency[primary] || members[0].code || '';
+    var key = 'place:' + placeNameKey(name) + ':' + agencies.join('+') + ':' + (n ? (lat / n).toFixed(4) + ',' + (lng / n).toFixed(4) : members[0].key);
+    var st = {
+      key: key,
+      agency: primary,
+      agencies: agencies,
+      agencyLabel: agencyLabel,
+      name: name,
+      aliases: aliases,
+      lat: n ? lat / n : members[0].lat,
+      lng: n ? lng / n : members[0].lng,
+      stopIds: stopIds,
+      stopIdsByAgency: stopIdsByAgency,
+      codeByAgency: codeByAgency,
+      code: code
+    };
+    st.searchText = stationSearchText(st);
+    return st;
+  }
+
+  function stationsShouldMerge(a, b) {
+    if (!a || !b) return false;
+    var d = A.miles(a.lat, a.lng, b.lat, b.lng);
+    if (d <= MERGE_MI) return true;
+    if (d <= MERGE_NAME_MI) {
+      var ka = placeNameKey(a.name), kb = placeNameKey(b.name);
+      if (ka && kb && (ka === kb || A.looseName(cleanPlaceName(a.name), cleanPlaceName(b.name)))) return true;
+    }
+    return false;
+  }
+
+  function mergeStationsByPlace() {
+    /* Cluster by shared coordinates (~0.22 mi) or same cleaned name within ~0.35 mi.
+       Do not merge by bare stop id (MNR/LIRR numeric collision). New Haven Union vs State St
+       stay apart (~0.57 mi) even though Amtrak labels both "New Haven". */
+    if (stations.length < 2) return;
+    var parent = [];
+    for (var i = 0; i < stations.length; i++) parent[i] = i;
+    function find(i) {
+      while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
+      return i;
+    }
+    function unite(i, j) {
+      var a = find(i), b = find(j);
+      if (a !== b) parent[a] = b;
+    }
+    for (var x = 0; x < stations.length; x++) {
+      for (var y = x + 1; y < stations.length; y++) {
+        if (stationsShouldMerge(stations[x], stations[y])) unite(x, y);
+      }
+    }
+    var groups = {};
+    for (var z = 0; z < stations.length; z++) {
+      var r = find(z);
+      if (!groups[r]) groups[r] = [];
+      groups[r].push(stations[z]);
+    }
+    var merged = [];
+    Object.keys(groups).forEach(function (k) {
+      var members = groups[k];
+      if (members.length === 1) {
+        var one = members[0];
+        if (!one.agencies || !one.agencies.length) one.agencies = one.agency ? [one.agency] : [];
+        if (!one.stopIdsByAgency) {
+          one.stopIdsByAgency = {};
+          if (one.agency) one.stopIdsByAgency[one.agency] = (one.stopIds || []).slice();
+        }
+        if (!one.codeByAgency) {
+          one.codeByAgency = {};
+          if (one.agency && one.code) one.codeByAgency[one.agency] = String(one.code);
+        }
+        one.searchText = stationSearchText(one);
+        merged.push(one);
+      } else {
+        merged.push(mergeStationCluster(members));
+      }
+    });
+    stations = merged;
+    codeGeo = {};
+    stations.forEach(function (st) {
+      var code = st.code ? String(st.code).toUpperCase() : '';
+      if (code && !codeGeo[code]) codeGeo[code] = st;
+      Object.keys(st.codeByAgency || {}).forEach(function (a) {
+        var c = String(st.codeByAgency[a] || '').toUpperCase();
+        if (c && !codeGeo[c]) codeGeo[c] = st;
+      });
+    });
+  }
+
   function loadStaticStations() {
     function addList(agency, label, list) {
       (list || []).forEach(function (s) {
+        var id = String(s.id);
+        var code = s.code || s.id || '';
+        var by = {};
+        by[agency] = [id];
+        var cb = {};
+        if (code) cb[agency] = String(code);
         addStation({
-          key: agency + ':' + s.id,
+          key: agency + ':' + id,
           agency: agency,
+          agencies: [agency],
           agencyLabel: label,
           name: s.name,
+          aliases: [s.name],
           lat: Number(s.lat),
           lng: Number(s.lng),
-          stopIds: [String(s.id)],
-          code: s.code || s.id || ''
+          stopIds: [id],
+          stopIdsByAgency: by,
+          codeByAgency: cb,
+          code: code
         });
       });
     }
@@ -841,15 +1138,24 @@
     Object.keys(groups).forEach(function (key) {
       var g = groups[key];
       if (!g.n) return;
+      var mbtaIds = g.stopIds.slice();
+      var mbtaCode = g.parent || '';
+      var mbtaBy = { mbta: mbtaIds.slice() };
+      var mbtaCb = {};
+      if (mbtaCode) mbtaCb.mbta = String(mbtaCode);
       addStation({
         key: 'mbta:' + key,
         agency: 'mbta',
+        agencies: ['mbta'],
         agencyLabel: 'MBTA',
         name: g.name,
+        aliases: [g.name],
         lat: g.lat / g.n,
         lng: g.lng / g.n,
-        stopIds: g.stopIds,
-        code: g.parent || ''
+        stopIds: mbtaIds,
+        stopIdsByAgency: mbtaBy,
+        codeByAgency: mbtaCb,
+        code: mbtaCode
       });
     });
   }
@@ -859,8 +1165,9 @@
     var q = ($('filter').value || '').trim().toLowerCase();
     var prev = state.station ? state.station.key : (sel.value || '');
     var list = stations.slice().sort(function (a, b) {
+      if (a.name !== b.name) return a.name < b.name ? -1 : 1;
       if (a.agencyLabel !== b.agencyLabel) return a.agencyLabel < b.agencyLabel ? -1 : 1;
-      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+      return 0;
     });
     sel.innerHTML = '';
     var opt0 = document.createElement('option');
@@ -869,8 +1176,9 @@
     sel.appendChild(opt0);
     var n = 0;
     list.forEach(function (st) {
-      var label = st.name + ' — ' + st.agencyLabel;
-      if (q && label.toLowerCase().indexOf(q) < 0 && String(st.code || '').toLowerCase().indexOf(q) < 0) return;
+      var label = pickerLabel(st);
+      var hay = (st.searchText || stationSearchText(st) || label).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
       var o = document.createElement('option');
       o.value = st.key;
       o.textContent = label;
@@ -889,7 +1197,7 @@
 
   function paintSelected() {
     var st = state.station;
-    $('selected').textContent = st ? (st.name + ' — ' + st.agencyLabel) : 'No station selected';
+    $('selected').textContent = st ? pickerLabel(st) : 'No station selected';
   }
 
   function paintPreview() {
@@ -1315,10 +1623,24 @@
 
   function trainServes(t, station) {
     if (!t || !station) return false;
-    if (!A.agenciesAlign(t.agency, station.agency)) return false;
+    if (!A.trainAgencyFitsStation(t.agency, station)) return false;
     var stops = t.stops || [];
     for (var i = 0; i < stops.length; i++) if (stopServes(stops[i], station, t.agency)) return true;
     return false;
+  }
+
+  function alertAgencyOk(alert, station) {
+    if (!alert || !station) return false;
+    var allow = (alert.agencyAllow || []).filter(Boolean);
+    if (!allow.length) return true;
+    for (var i = 0; i < allow.length; i++) {
+      if (A.trainAgencyFitsStation(allow[i], station)) return true;
+    }
+    return false;
+  }
+
+  function stationHasAgency(station, agency) {
+    return A.stationAgencyList(station).indexOf(String(agency || '')) >= 0;
   }
 
   function stationStop(t, station) {
@@ -1767,7 +2089,7 @@
       if (row.d < 35 && pick.length < 16) pick.push(row.t);
     });
     trains.forEach(function (t) {
-      if (station.agency !== 'njt') return;
+      if (!stationHasAgency(station, 'njt')) return;
       var nn = A.normName(t.nextStop), nd = A.normName(t.destName), ns = A.normName(station.name);
       if (ns && (nn === ns || nd === ns)) {
         if (pick.indexOf(t) < 0) pick.push(t);
@@ -1849,9 +2171,9 @@
     jobs.push((async function () {
       try {
         var parents = [];
-        if (station.agency === 'mbta') {
-          parents = (station.stopIds || []).filter(function (id) { return String(id).indexOf('place-') === 0; });
-          if (!parents.length) parents = (station.stopIds || []).slice(0, 8);
+        if (stationHasAgency(station, 'mbta')) {
+          parents = (station.stopIdsByAgency && station.stopIdsByAgency.mbta || station.stopIds || []).filter(function (id) { return String(id).indexOf('place-') === 0; });
+          if (!parents.length) parents = (station.stopIdsByAgency && station.stopIdsByAgency.mbta || station.stopIds || []).slice(0, 8);
         }
         var predUrl = parents.length
           ? (A.API + '/api/mbta/predictions?filter[stop]=' + encodeURIComponent(parents.slice(0, 4).join(',')) + '&filter[route_type]=2&include=trip,route,stop,schedule&page[limit]=50')
@@ -2206,6 +2528,7 @@
       return;
     }
     loadStaticStations();
+    mergeStationsByPlace();
     renderPicker();
     $('filter').addEventListener('input', renderPicker);
     $('station').addEventListener('change', function () { onPick(); });
@@ -2229,6 +2552,7 @@
     $('stop').disabled = true;
     paintFeeds();
     loadMbtaStations().then(function () {
+      mergeStationsByPlace();
       renderPicker();
       var saved = '';
       try { saved = localStorage.getItem('rr-station-audio') || ''; } catch (e) {}
