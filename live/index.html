@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live tracking · RailroadRadar</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { margin: 0; height: 100%; background: #07093e; color: #fff; font-family: sans-serif; }
+    header { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #07093e; }
+    header a { color: #fff; font-weight: 800; text-decoration: none; }
+    #map { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
+    .train-popup { font-family: sans-serif; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">RailroadRadar</a>
+    <span id="live-count">Live tracking</span>
+  </header>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
+      authDomain: 'railroadradar-accounts.firebaseapp.com',
+      projectId: 'railroadradar-accounts',
+      storageBucket: 'railroadradar-accounts.firebasestorage.app',
+      messagingSenderId: '896370923309',
+      appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
+    });
+    var map = L.map('map').setView([42.36, -71.06], 8);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+    var markers = {};
+    function icon(heading) {
+      var rot = isFinite(Number(heading)) ? Number(heading) : 0;
+      return L.divIcon({
+        className: 'rr-live-train',
+        html: '<img src="/assets/hsp46.png" alt="" style="width:42px;height:18px;object-fit:contain;transform:rotate(' + rot + 'deg);">',
+        iconSize: [42, 18], iconAnchor: [21, 9], popupAnchor: [0, -12]
+      });
+    }
+    function popup(d) {
+      var title = String(d.title || 'Live trip').replace(/</g, '&lt;');
+      var who = String(d.displayName || 'Rider').replace(/</g, '&lt;');
+      return '<div class="train-popup"><div style="background:#07093e;color:#fff;padding:8px 10px;font-weight:700;font-style:italic;">' + title + '</div><div style="padding:8px 10px;color:#07093e;"><div>Live trip</div><div>' + who + '</div></div></div>';
+    }
+    firebase.firestore().collection('specialMoveShares').onSnapshot(function(snap) {
+      var now = Date.now();
+      var seen = {};
+      var n = 0;
+      snap.forEach(function(doc) {
+        var d = doc.data() || {};
+        if (d.active !== true || !d.expiresAt || Number(d.expiresAt) <= now) return;
+        var lat = Number(d.lat), lon = Number(d.lon);
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        seen[doc.id] = true;
+        n++;
+        var m = markers[doc.id];
+        if (!m) {
+          m = L.marker([lat, lon], { icon: icon(d.heading) }).addTo(map);
+          m.bindPopup(popup(d));
+          markers[doc.id] = m;
+        } else {
+          m.setLatLng([lat, lon]);
+          m.setIcon(icon(d.heading));
+          m.setPopupContent(popup(d));
+        }
+      });
+      Object.keys(markers).forEach(function(id) {
+        if (!seen[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+      });
+      document.getElementById('live-count').textContent = n ? (n + ' live') : 'No live trips';
+    });
+  </script>
+  <script src="/assets/js/live-share-bar.js" defer></script>
+</body>
+</html>
