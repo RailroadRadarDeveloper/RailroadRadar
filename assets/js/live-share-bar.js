@@ -93,6 +93,7 @@
     var live = !!window.__rrLiveWatch;
     if (resume) resume.hidden = live;
     var ago = o.updatedAt ? Math.max(0, Math.round((Date.now() - Number(o.updatedAt)) / 1000)) : 0;
+    el.querySelector('#rr-live-bar-text').innerHTML = live ? '' : '';
     el.querySelector('#rr-live-bar-text').textContent = live
       ? ('Sharing location on the live map \u00b7 ' + (ago >= 10 ? ('updated ' + ago + 's ago') : 'live') + ' \u00b7 ' + leftLabel(o))
       : ('Sharing paused \u00b7 ' + leftLabel(o));

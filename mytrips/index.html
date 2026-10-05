@@ -16080,6 +16080,7 @@ async function rrSpecialStopSharing(opts) {
     }
 
     function rrSpecialStartMapListener() {
+      return;
       if (rrSpecialShareMapStarted) return;
       // /mytrips hides #map — still allow listener if rrMainMap exists (hidden), but
       // prefer skipping work on that page; live viewers use railroadradar.com index.
