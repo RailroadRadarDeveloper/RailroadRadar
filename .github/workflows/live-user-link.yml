@@ -1,0 +1,20 @@
+name: Live user link
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/live-user-link.py
+      - .github/workflows/live-user-link.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/live-user-link.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add live/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Link each live pin to that user's tracker page" && git push; fi
