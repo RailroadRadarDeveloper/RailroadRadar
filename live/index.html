@@ -7,9 +7,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     html, body { margin: 0; height: 100%; background: #07093e; color: #fff; font-family: sans-serif; }
-    header { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #07093e; }
+    header { height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; background: #07093e; }
     header a { color: #fff; font-weight: 800; text-decoration: none; display: flex; align-items: center; }
     header img { height: 40px; width: auto; display: block; }
+    #become-tracker { background: #fff; color: #07093e; border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 800; cursor: pointer; }
     #map { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
     .train-popup { font-family: sans-serif; }
   </style>
@@ -18,10 +19,12 @@
   <header>
     <a href="/"><img src="/assets/logo.png" alt="RailroadRadar"></a>
     <span id="live-count">Live tracking</span>
+    <button type="button" id="become-tracker">Become a tracker</button>
   </header>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script>
     firebase.initializeApp({
@@ -32,6 +35,8 @@
       messagingSenderId: '896370923309',
       appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
     });
+    var auth = firebase.auth();
+    var db = firebase.firestore();
     var map = L.map('map').setView([42.36, -71.06], 8);
     L.tileLayer('https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
       attribution: '\u00a9 Mapbox \u00a9 OpenStreetMap contributors',
@@ -51,7 +56,7 @@
       var who = String(d.displayName || 'Rider').replace(/</g, '&lt;');
       return '<div class="train-popup"><div style="background:#07093e;color:#fff;padding:8px 10px;font-weight:700;font-style:italic;">' + title + '</div><div style="padding:8px 10px;color:#07093e;"><div>Live trip</div><div>' + who + '</div></div></div>';
     }
-    firebase.firestore().collection('specialMoveShares').onSnapshot(function(snap) {
+    db.collection('specialMoveShares').onSnapshot(function(snap) {
       var now = Date.now();
       var seen = {};
       var n = 0;
@@ -77,6 +82,48 @@
         if (!seen[id]) { map.removeLayer(markers[id]); delete markers[id]; }
       });
       document.getElementById('live-count').textContent = n ? (n + ' live') : 'No live trips';
+    });
+    document.getElementById('become-tracker').addEventListener('click', function() {
+      var user = auth.currentUser;
+      if (!user) {
+        var provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).then(function() { document.getElementById('become-tracker').click(); }).catch(function(err) {
+          alert((err && err.message) || 'Sign in to become a tracker.');
+        });
+        return;
+      }
+      var title = window.prompt('Map title', 'Live trip');
+      if (!title) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var now = Date.now();
+        var share = {
+          uid: user.uid,
+          tripId: 'live-' + now,
+          title: String(title).slice(0, 80),
+          startedAt: now,
+          expiresAt: now + 5 * 60 * 60 * 1000,
+          updatedAt: now
+        };
+        try {
+          localStorage.removeItem('rrSpecialShareStopped');
+          localStorage.setItem('rrSpecialMoveShareV1', JSON.stringify(share));
+        } catch (e) {}
+        db.collection('specialMoveShares').doc(user.uid).set({
+          uid: user.uid,
+          displayName: (user.displayName || 'Rider').split(' ')[0],
+          tripId: share.tripId,
+          title: share.title,
+          active: true,
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          heading: pos.coords.heading,
+          startedAt: share.startedAt,
+          expiresAt: share.expiresAt,
+          updatedAt: now
+        }, { merge: true }).then(function() { location.reload(); });
+      }, function() {
+        alert('Location is required to become a tracker.');
+      }, { enableHighAccuracy: true, timeout: 20000 });
     });
   </script>
   <script src="/assets/js/live-share-bar.js" defer></script>
