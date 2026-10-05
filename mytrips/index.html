@@ -17508,7 +17508,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         btnIn.setAttribute('data-rr-auth-wired', '1');
         btnIn.addEventListener('click', function(e) {
           if (e) { e.preventDefault(); e.stopPropagation(); }
-          requestGoogleSignIn();
+          if (typeof signInWithGoogle === 'function') signInWithGoogle();
+          else requestGoogleSignIn();
         });
       }
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
@@ -28746,5 +28747,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Service workers unavailable (sandboxed iframe, private mode, etc.)
     }
   </script>
+
+<script id="rr-login-direct">
+(function() {
+  function go(e) {
+    var t = e.target && e.target.closest && e.target.closest('#btn-google-signin, #signup-prompt-signin, #btn-account-signin-panel, #mytrips-guest-signin');
+    if (!t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof signInWithGoogle === 'function') signInWithGoogle();
+    else if (typeof requestGoogleSignIn === 'function') requestGoogleSignIn();
+  }
+  document.addEventListener('click', go, true);
+})();
+</script>
+
 </body>
 </html>
