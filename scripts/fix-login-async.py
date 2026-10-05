@@ -4,8 +4,8 @@ import re
 def patch(path):
     p = Path(path)
     t = p.read_text(encoding='utf-8')
-    t2 = re.sub(r'async\s+function rrShowStopShare', 'function rrShowStopShare', t, count=1)
-    t2 = t2.replace('function rrSpecialStopSharing(opts)', 'async function rrSpecialStopSharing(opts)', 1)
+    t2 = re.sub(r'(?:async\s+)+function rrSpecialStopSharing', 'async function rrSpecialStopSharing', t)
+    t2 = re.sub(r'async\s+function rrShowStopShare', 'function rrShowStopShare', t2)
     if t2 == t:
         print('no change', path)
         return
