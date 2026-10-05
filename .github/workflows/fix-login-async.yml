@@ -1,0 +1,30 @@
+name: Fix login async
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/fix-login-async.py
+      - .github/workflows/fix-login-async.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-login-async.py
+      - run: node --check <(python3 - << 'PY'
+from pathlib import Path
+import re
+text = Path('index.html').read_text(encoding='utf-8')
+scripts = re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>', text, re.S|re.I)
+Path('/tmp/rr.js').write_text(scripts[-1], encoding='utf-8')
+print('scripts', len(scripts))
+PY
+)
+        node --check /tmp/rr.js
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html mytrips/index.html
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Fix script parse error that blocked login" && git push; fi
