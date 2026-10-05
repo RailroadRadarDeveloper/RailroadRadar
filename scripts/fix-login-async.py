@@ -3,10 +3,9 @@ from pathlib import Path
 def patch(path):
     p = Path(path)
     t = p.read_text(encoding='utf-8')
-    broken = 'async ' + chr(10) + '    function rrShowStopShare'
-    t2 = t.replace(broken, 'function rrShowStopShare')
-    t2 = t2.replace('function rrSpecialStopSharing(opts)', 'async function rrSpecialStopSharing(opts)')
-    print(path, 'show', broken in t, 'stop', 'function rrSpecialStopSharing(opts)' in t)
+    t2 = t.replace('async async function rrSpecialStopSharing', 'async function rrSpecialStopSharing')
+    t2 = t2.replace('async async async function rrSpecialStopSharing', 'async function rrSpecialStopSharing')
+    print(path, 'doubled', 'async async function rrSpecialStopSharing' in t)
     if t2 == t:
         print('no change', path)
         return
