@@ -4184,6 +4184,15 @@
       border: 1px solid #e0b87a;
       background: #fff;
     }
+    /* RR special-move form cleanup 2026-10-05 */
+    .trip-special-block.is-on .trip-special-hint { margin-bottom: 0; }
+    .trip-segment.trip-seg-special-mode .trip-seg-train-pick-row,
+    .trip-segment.trip-seg-special-mode .trip-seg-train-hint { display: none !important; }
+    .trip-segment.trip-seg-special-mode .trip-seg-train-optional-note {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: #8a5a28;
+    }
     .trip-special-badge {
       display: inline-block;
       margin-left: 6px;
@@ -7074,12 +7083,13 @@
             <div class="trip-special-block" id="trip-special-block">
               <label class="trip-special-toggle" for="trip-log-special-move">
                 <input type="checkbox" id="trip-log-special-move">
-                <span>Special move</span>
+                <span>Special move / extra</span>
               </label>
-              <p class="trip-special-hint" id="trip-special-hint">Excursion, rare, or extra train — you can share live location on the map (up to 5 hours).</p>
+              <p class="trip-special-hint" id="trip-special-hint">Excursion, rare, or extra — one map title below. Share location from the trip after saving.</p>
               <div id="trip-special-title-wrap" hidden>
-                <label for="trip-log-train-title">Train title</label>
-                <input type="text" id="trip-log-train-title" maxlength="80" placeholder='e.g. "Berkshire Flyer special" / "Heritage unit move"' autocomplete="off">
+                <label for="trip-log-train-title">Map title</label>
+                <input type="text" id="trip-log-train-title" maxlength="80" placeholder='e.g. Berkshire Flyer special' autocomplete="off">
+                <p class="trip-seg-train-optional-note" id="trip-special-title-note">Shown on the live map. Segment train number becomes optional.</p>
               </div>
             </div>
             <label for="trip-log-rolling-stock">Rolling stock number (optional)</label>
@@ -7137,9 +7147,9 @@
         <p class="trip-detail-when" id="trip-detail-when" hidden></p>
         <p class="trip-detail-actual" id="trip-detail-actual" hidden></p>
         <div class="trip-detail-special-share" id="trip-detail-special-share" hidden>
-          <p class="trip-detail-special-title" id="trip-detail-special-title"></p>
+          <p class="trip-detail-special-title" id="trip-detail-special-title">Share location on the live map</p>
           <div class="trip-detail-special-actions">
-            <button type="button" class="rr-btn" id="trip-detail-share-loc">Share my location on the live map</button>
+            <button type="button" class="rr-btn" id="trip-detail-share-loc">Share location</button>
             <button type="button" class="rr-btn secondary" id="trip-detail-stop-share" hidden>Stop sharing</button>
           </div>
           <p class="trip-detail-share-status" id="trip-detail-share-status" aria-live="polite"></p>
@@ -11405,26 +11415,32 @@
         if (isFinite(lat) && isFinite(lon)) dest = [lat, lon];
       }
       let line = null;
+      // Special move / extra: never prefill scheduled route geometry — OD dots (+ light dashed) only.
+      const isSpecial = !!(data && (data.specialMove === true || data.specialMove === 'true'));
       if (origin && dest) {
-        const polys = rrGetCachedTripPolylines(ids.railroad, ids.lineId);
-        if (polys && polys.length) {
-          const odMi = haversineMiles(origin[0], origin[1], dest[0], dest[1]);
-          let best = null, bestLen = Infinity;
-          polys.forEach(function(pl) {
-            const sliced = rrSlicePolylineBetween(pl, origin[0], origin[1], dest[0], dest[1]);
-            if (!sliced || sliced.length < 2) return;
-            let len = 0;
-            for (let i = 1; i < sliced.length; i++) len += haversineMiles(sliced[i - 1][0], sliced[i - 1][1], sliced[i][0], sliced[i][1]);
-            // Reject absurd detours (wrong shape variant / concatenated noise)
-            if (odMi > 0.5 && len > Math.max(odMi * 2.8, odMi + 25)) return;
-            if (len < bestLen) { bestLen = len; best = sliced; }
-          });
-          line = best;
+        if (isSpecial) {
+          line = null; // paintTrip* will draw dashed OD when line is absent
+        } else {
+          const polys = rrGetCachedTripPolylines(ids.railroad, ids.lineId);
+          if (polys && polys.length) {
+            const odMi = haversineMiles(origin[0], origin[1], dest[0], dest[1]);
+            let best = null, bestLen = Infinity;
+            polys.forEach(function(pl) {
+              const sliced = rrSlicePolylineBetween(pl, origin[0], origin[1], dest[0], dest[1]);
+              if (!sliced || sliced.length < 2) return;
+              let len = 0;
+              for (let i = 1; i < sliced.length; i++) len += haversineMiles(sliced[i - 1][0], sliced[i - 1][1], sliced[i][0], sliced[i][1]);
+              // Reject absurd detours (wrong shape variant / concatenated noise)
+              if (odMi > 0.5 && len > Math.max(odMi * 2.8, odMi + 25)) return;
+              if (len < bestLen) { bestLen = len; best = sliced; }
+            });
+            line = best;
+          }
+          if (!line && ids.lineId) {
+            line = rrTripStopChainLatLngs(ids.railroad, ids.lineId, ids.originId, ids.destId);
+          }
+          if (!line) line = [origin, dest];
         }
-        if (!line && ids.lineId) {
-          line = rrTripStopChainLatLngs(ids.railroad, ids.lineId, ids.originId, ids.destId);
-        }
-        if (!line) line = [origin, dest];
       }
       return {
         railroad: ids.railroad,
@@ -11434,7 +11450,8 @@
         color: color,
         origin: origin,
         dest: dest,
-        line: line
+        line: line,
+        specialMove: isSpecial
       };
     }
 
@@ -11453,6 +11470,10 @@
     }
 
     function rrEnsureTripGeomsShapes(data) {
+      // Special moves: no scheduled shapes
+      if (data && (data.specialMove === true || data.specialMove === 'true')) {
+        return Promise.resolve();
+      }
       const segs = rrTripSegmentsForMap(data);
       const promises = [];
       const seen = {};
@@ -11953,10 +11974,18 @@ function tripCardStationDotIcon() {
       // Top badges: train chip only (no railroad/miles — those live in bottom facts)
       const badges = document.getElementById('trip-detail-badges');
       if (badges) {
-        let badgeHtml = tripTrainChipHtml(data) || '';
-        if (data.specialMove) {
-          const st = String(data.trainTitle || 'Special move').replace(/</g, '&lt;');
-          badgeHtml += '<span class="trip-special-badge">' + st + '</span>';
+        let badgeHtml = '';
+        const specialTitle = data.specialMove ? String(data.trainTitle || '').trim() : '';
+        if (specialTitle) {
+          badgeHtml = '<span class="trip-special-badge">' + specialTitle.replace(/</g, '&lt;') + '</span>';
+          // Only add Train chip if number differs from the map title
+          const nums = tripDisplayTrainNumbers(data);
+          if (nums && nums.toLowerCase() !== specialTitle.toLowerCase()) {
+            badgeHtml = (tripTrainChipHtml(data) || '') + badgeHtml;
+          }
+        } else {
+          badgeHtml = tripTrainChipHtml(data) || '';
+          if (data.specialMove) badgeHtml += '<span class="trip-special-badge">Special</span>';
         }
         badges.innerHTML = badgeHtml;
         badges.hidden = !badges.innerHTML;
@@ -12237,6 +12266,8 @@ function tripCardStationDotIcon() {
     }
 
     function tripFindLiveRowForTrip(data) {
+      // Special move / extra is not a scheduled CR/Amtrak train — never match live feed rows.
+      if (data && (data.specialMove === true || data.specialMove === 'true')) return null;
       const seg = tripLivePickSegment(data);
       const agency = tripNormalizeAgency(seg.railroad || data.railroad);
       const trainNum = String(seg.trainNumber || data.trainNumber || '').split('/')[0].replace(/^#/, '').trim();
@@ -12413,6 +12444,15 @@ function tripCardStationDotIcon() {
         } catch (_) {}
         return;
       }
+      // Special move: no GTFS "Looking for your train" — location share is the live signal.
+      if (tripLiveData && (tripLiveData.specialMove === true || tripLiveData.specialMove === 'true')) {
+        const title = String(tripLiveData.trainTitle || 'Special move').trim();
+        const sharing = !!(rrSpecialShareState && rrSpecialShareState.tripId === tripLiveActiveId && rrSpecialShareWatchId != null);
+        tripLiveSetStatus(sharing ? ('Sharing · ' + title) : ('Special move · ' + title), sharing ? 'on-time' : 'miss');
+        tripLiveClearMarker();
+        tripLiveMisses = 0;
+        return;
+      }
       const row = tripFindLiveRowForTrip(tripLiveData);
       if (!row) {
         tripLiveMisses += 1;
@@ -12447,7 +12487,11 @@ function tripCardStationDotIcon() {
       stopTripLiveTracking();
       if (!tripId || !data || !tripIsInProgressLight(data)) {
         tripLiveSetStatus('', '');
-        try { if (tripId && data) tripTryEnrichActualTimes(tripId, data); } catch (_) {}
+        try {
+          if (tripId && data && !(data.specialMove === true || data.specialMove === 'true')) {
+            tripTryEnrichActualTimes(tripId, data);
+          }
+        } catch (_) {}
         return;
       }
       // Cap: only the open detail trip
@@ -12485,6 +12529,14 @@ function tripCardStationDotIcon() {
             tripLiveSetCardStatus(rowEl, '', '');
             tripLiveClearCardMarker(id);
           }
+          return;
+        }
+        // Special move cards: never look like a scheduled live train
+        if (data.specialMove === true || data.specialMove === 'true') {
+          const stitle = String(data.trainTitle || 'Special move').trim();
+          const sharing = !!(typeof rrSpecialShareState !== 'undefined' && rrSpecialShareState && rrSpecialShareState.tripId === id && rrSpecialShareWatchId != null);
+          tripLiveSetCardStatus(rowEl, sharing ? ('Sharing · ' + stitle) : ('Special move · ' + stitle), sharing ? 'on-time' : 'miss');
+          tripLiveClearCardMarker(id);
           return;
         }
         const liveRow = tripFindLiveRowForTrip(data);
@@ -13703,7 +13755,8 @@ function closeTripDetailView(opts) {
         const lineOpts = linePlaceholder + lines.map(function(l) {
           return '<option value="' + escapeTripOpt(l.id) + '"' + (String(l.id) === String(lineId) ? ' selected' : '') + '>' + escapeTripOpt(l.name) + '</option>';
         }).join('');
-        const hasPicker = tripHasSchedulePicker(seg.railroad);
+        const specialMode = (typeof rrSpecialIsFormOn === 'function') ? rrSpecialIsFormOn() : false;
+        const hasPicker = !specialMode && tripHasSchedulePicker(seg.railroad);
         const stPlaceholder = !lineId && !useSchedStops
           ? '<option value="">Select line first…</option>'
           : (stations.length
@@ -13740,8 +13793,11 @@ function closeTripDetailView(opts) {
             '</div>' +
             '<p class="trip-seg-train-hint">Pick a scheduled train to autofill number, line, and stations when available. Metra/MARC stay free-text.</p>';
         }
+        const trainLabel = specialMode ? 'Train number (optional)' : 'Train number';
+        const trainPh = specialMode ? 'Optional if map title is set' : 'e.g. 2150';
+        const specialCls = specialMode ? ' trip-seg-special-mode' : '';
         return (
-          '<div class="trip-segment" data-seg-index="' + idx + '" data-rail-accent="' + String(seg.railroad || '').toLowerCase() + '" style="--rr-trip-rail:' + segRailColor + '">' +
+          '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + String(seg.railroad || '').toLowerCase() + '" style="--rr-trip-rail:' + segRailColor + '">' +
             '<div class="trip-segment-head">' +
               '<div class="trip-segment-title">Segment ' + (idx + 1) +
                 '<span class="trip-segment-rail-chip">' + tripRailBadgeHtml(seg.railroad) + '</span></div>' +
@@ -13756,8 +13812,9 @@ function closeTripDetailView(opts) {
             '<select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select>' +
             '<label>Destination</label>' +
             '<select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select>' +
-            '<label>Train number</label>' +
-            '<input type="text" data-seg-field="train" maxlength="32" placeholder="e.g. 2150" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
+            '<label>' + trainLabel + '</label>' +
+            '<input type="text" data-seg-field="train" maxlength="32" placeholder="' + trainPh + '" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
+            (specialMode ? '<p class="trip-seg-train-optional-note">Map title is used on the live map; number only if you want it logged separately.</p>' : '') +
             '<div class="trip-segment-times">' +
               '<div><label>Depart</label>' +
               '<input type="datetime-local" data-seg-field="depart" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.departTime) || '') + '"></div>' +
@@ -14508,10 +14565,21 @@ function closeTripDetailView(opts) {
         tripApplyRailAccentVars(row, railIds, { primaryAttr: true });
         const badges = railIds.map(tripRailBadgeHtml).join('') ||
           '<span class="trip-rail-badge" style="background:#07093e">Trip</span>';
-        const trainHtml = tripTrainChipHtml(data);
-        const specialBadge = data.specialMove
-          ? '<span class="trip-special-badge" title="' + String(data.trainTitle || 'Special move').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">Special</span>'
-          : '';
+        const specialTitleList = data.specialMove ? String(data.trainTitle || '').trim() : '';
+        let trainHtml = '';
+        let specialBadge = '';
+        if (specialTitleList) {
+          specialBadge = '<span class="trip-special-badge">' + specialTitleList.replace(/</g, '&lt;') + '</span>';
+          const nums = tripDisplayTrainNumbers(data);
+          if (nums && nums.toLowerCase() !== specialTitleList.toLowerCase()) {
+            trainHtml = tripTrainChipHtml(data);
+          }
+        } else {
+          trainHtml = tripTrainChipHtml(data);
+          if (data.specialMove) {
+            specialBadge = '<span class="trip-special-badge">Special</span>';
+          }
+        }
         const segs = Array.isArray(data.segments) ? data.segments : null;
         let chipsHtml = '';
         if (segs && segs.length > 1) {
@@ -14702,7 +14770,15 @@ function closeTripDetailView(opts) {
         if (!lineId) throw new Error('Segment ' + (i + 1) + ': choose a line.');
         if (!originId || !destId) throw new Error('Segment ' + (i + 1) + ': choose origin and destination.');
         if (originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
-        if (!trainNumber) throw new Error('Segment ' + (i + 1) + ': enter a train number.');
+        if (!trainNumber) {
+          const isSpecial = !!(specialOpts && specialOpts.specialMove);
+          const titleFallback = isSpecial && specialOpts.trainTitle ? String(specialOpts.trainTitle).trim().slice(0, 32) : '';
+          if (titleFallback) {
+            // Special/extra: map title covers the identity — don't require a separate number
+          } else {
+            throw new Error('Segment ' + (i + 1) + ': enter a train number.');
+          }
+        }
         if (!tripStationAllowed(seg, originId) || !tripStationAllowed(seg, destId)) {
           throw new Error('Segment ' + (i + 1) + ': both stops must be on the selected line or this train stop list.');
         }
@@ -14731,7 +14807,7 @@ function closeTripDetailView(opts) {
           originName: String(origin.name || originCanon),
           destStationId: destCanon,
           destName: String(dest.name || destCanon),
-          trainNumber: trainNumber,
+          trainNumber: trainNumber || ((specialOpts && specialOpts.specialMove) ? 'Extra' : ''),
           departTime: departIso,
           arriveTime: arriveIso,
           miles: Number(miles) || 0
@@ -14831,7 +14907,7 @@ function closeTripDetailView(opts) {
       const rollingStock = String((document.getElementById('trip-log-rolling-stock') || {}).value || '').trim().slice(0, 64);
       const specialFields = (typeof rrSpecialReadFormFields === 'function') ? rrSpecialReadFormFields() : { specialMove: false, trainTitle: null };
       if (specialFields.specialMove && !specialFields.trainTitle) {
-        setTripLogError('Special move needs a train title (e.g. "Berkshire Flyer special").');
+        setTripLogError('Special move needs a map title (e.g. Berkshire Flyer special).');
         try {
           const tw = document.getElementById('trip-special-title-wrap');
           if (tw) tw.hidden = false;
@@ -15114,16 +15190,35 @@ function closeTripDetailView(opts) {
       return 'Rider';
     }
 
+    function rrSpecialIsFormOn() {
+      const cb = document.getElementById('trip-log-special-move');
+      return !!(cb && cb.checked);
+    }
+
     function rrSpecialSyncTitleWrap() {
       const cb = document.getElementById('trip-log-special-move');
       const wrap = document.getElementById('trip-special-title-wrap');
+      const block = document.getElementById('trip-special-block');
+      const hint = document.getElementById('trip-special-hint');
       if (!wrap) return;
       const on = !!(cb && cb.checked);
       wrap.hidden = !on;
-      if (!on) {
-        const titleEl = document.getElementById('trip-log-train-title');
-        // keep value so toggling back restores; do not clear
+      if (block) block.classList.toggle('is-on', on);
+      if (hint) {
+        hint.textContent = on
+          ? 'Add a map title. Share location from the trip after you save.'
+          : 'Excursion, rare, or extra — one map title below. Share location from the trip after saving.';
       }
+      // When Special is on, force free-text (Extra) mode so schedule picker + Extra button don't restate the same thing
+      try { if (typeof syncTripSegmentStateFromDom === 'function') syncTripSegmentStateFromDom(); } catch (_) {}
+      if (on && Array.isArray(tripLogSegmentsState)) {
+        tripLogSegmentsState.forEach(function(seg) {
+          if (!seg) return;
+          seg.trainExtraMode = true;
+          seg.useFullStationList = true;
+        });
+      }
+      try { renderTripSegmentsForm(); } catch (_) {}
     }
 
     function rrSpecialReadFormFields() {
@@ -15224,8 +15319,8 @@ function closeTripDetailView(opts) {
         rrSpecialUpdateShareButtons();
         return;
       }
-      const title = String(data.trainTitle || data.trainNumber || 'Special move').trim();
-      if (titleEl) titleEl.textContent = title;
+      // Title already shown in badges — keep a short prompt here, not a duplicate name
+      if (titleEl) titleEl.textContent = 'Share location on the live map';
       // If local share matches this trip, reflect button state
       if (rrSpecialShareState && rrSpecialShareState.tripId === tripId) {
         rrSpecialUpdateShareButtons();
@@ -15239,7 +15334,7 @@ function closeTripDetailView(opts) {
         }
       } else {
         rrSpecialUpdateShareButtons();
-        rrSpecialSetShareStatus('Works while this page is open · auto-stops after 5 hours.');
+        rrSpecialSetShareStatus('Up to 5 hours · works while this page is open.');
       }
     }
 
@@ -15328,6 +15423,27 @@ function closeTripDetailView(opts) {
         st.offline = false;
         rrSpecialShareQueue = [];
         rrSpecialStatusLine();
+        try { rrSpecialPaintDetailMarker(ping.lat, ping.lon); } catch (_) {}
+        // Optimistic main-map pin for self only (do not replace snapshot docs)
+        try {
+          if (window.rrMainMap && typeof L !== 'undefined') {
+            const uid = st.uid;
+            let m = rrSpecialShareMarkers[uid];
+            const html = '<div class="rr-special-share-popup"><strong>' + String(doc.title || '').replace(/</g, '&lt;') + '</strong>' +
+              '<div class="rr-ss-meta">' + String(doc.displayName || 'You').replace(/</g, '&lt;') + '</div>' +
+              '<div class="rr-ss-meta">Last ping just now</div>' +
+              '<div class="rr-ss-meta">Special move</div></div>';
+            if (m) {
+              m.setLatLng([ping.lat, ping.lon]);
+              try { m.setPopupContent(html); } catch (_) {}
+            } else {
+              m = L.marker([ping.lat, ping.lon], { icon: rrSpecialCreateIcon(), zIndexOffset: 1800 });
+              m.bindPopup(html, { maxWidth: 240 });
+              m.addTo(window.rrMainMap);
+              rrSpecialShareMarkers[uid] = m;
+            }
+          }
+        } catch (_) {}
         return true;
       } catch (e) {
         // Network/rules blip: keep watching + buffer. Never auto-stop here.
@@ -15411,6 +15527,7 @@ function closeTripDetailView(opts) {
         try { navigator.geolocation.clearWatch(rrSpecialShareWatchId); } catch (_) {}
       }
       rrSpecialShareWatchId = null;
+          try { rrSpecialClearDetailMarker(); } catch (_) {}
     }
 
     async function rrSpecialStopSharing(opts) {
@@ -15449,6 +15566,35 @@ function closeTripDetailView(opts) {
       }
     }
 
+    /* RR special-move bugs 2026-10-05 */
+    let rrSpecialDetailMarker = null;
+
+    function rrSpecialPaintDetailMarker(lat, lon) {
+      try {
+        if (!tripDetailMap || typeof L === 'undefined') return;
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        if (rrSpecialDetailMarker) {
+          rrSpecialDetailMarker.setLatLng([lat, lon]);
+        } else {
+          rrSpecialDetailMarker = L.marker([lat, lon], {
+            icon: rrSpecialCreateIcon(),
+            zIndexOffset: 2000,
+            keyboard: false
+          }).addTo(tripDetailMap);
+          try { rrSpecialDetailMarker.bindTooltip('You (sharing)', { direction: 'top', opacity: 0.9 }); } catch (_) {}
+        }
+      } catch (e) {
+        console.warn('[special-share] detail marker failed', e);
+      }
+    }
+
+    function rrSpecialClearDetailMarker() {
+      if (rrSpecialDetailMarker) {
+        try { rrSpecialDetailMarker.remove(); } catch (_) {}
+        rrSpecialDetailMarker = null;
+      }
+    }
+
     async function rrSpecialStartSharing(tripId, data) {
       const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
       if (!user) {
@@ -15464,8 +15610,8 @@ function closeTripDetailView(opts) {
         return;
       }
       const title = String(data.trainTitle || data.trainNumber || 'Special move').trim().slice(0, 80);
-      if (!title) {
-        rrSpecialSetShareStatus('Add a train title on the trip before sharing.');
+      if (!title || title === 'Extra') {
+        rrSpecialSetShareStatus('Add a map title on the trip before sharing.');
         return;
       }
       if (!navigator.geolocation) {
@@ -15489,41 +15635,71 @@ function closeTripDetailView(opts) {
         lastLon: null
       };
       rrSpecialPersistLocal(rrSpecialShareState);
-      rrSpecialSetShareStatus('Requesting location…');
+      rrSpecialSetShareStatus('Requesting location permission…');
       const startBtn = document.getElementById('trip-detail-share-loc');
       if (startBtn) startBtn.disabled = true;
 
-      rrSpecialShareWatchId = navigator.geolocation.watchPosition(
-        function(pos) {
-          if (!rrSpecialShareState) return;
-          if (Date.now() >= rrSpecialShareState.expiresAt) {
-            rrSpecialStopSharing({ reason: 'expired' });
-            return;
-          }
-          rrSpecialWriteShare(pos.coords, { force: !rrSpecialShareState.lastWriteAt });
+      function onGeoOk(pos) {
+        if (!rrSpecialShareState) return;
+        if (Date.now() >= rrSpecialShareState.expiresAt) {
+          rrSpecialStopSharing({ reason: 'expired' });
+          return;
+        }
+        try {
+          const c = pos && pos.coords;
+          if (c) rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude));
+        } catch (_) {}
+        rrSpecialWriteShare(pos.coords, { force: !rrSpecialShareState.lastWriteAt });
+        rrSpecialUpdateShareButtons();
+        rrSpecialStatusLine();
+        // Ensure main-map listener is running when available (markers for everyone)
+        try {
+          if (typeof window.rrSpecialStartMapListener === 'function') window.rrSpecialStartMapListener();
+        } catch (_) {}
+      }
+      function onGeoErr(err) {
+        console.warn('[special-share] geo error', err);
+        // Permission denied: cannot continue. Transient GPS loss (tunnel/remote): keep share alive.
+        if (err && err.code === 1) {
+          rrSpecialSetShareStatus('Location permission denied. Allow location for RailroadRadar, then try again.');
+          rrSpecialClearWatch();
+          rrSpecialClearDetailMarker();
+          rrSpecialShareState = null;
+          rrSpecialShareQueue = [];
+          rrSpecialPersistLocal(null);
           rrSpecialUpdateShareButtons();
-          rrSpecialStatusLine();
-        },
-        function(err) {
-          console.warn('[special-share] geo error', err);
-          // Permission denied: cannot continue. Transient GPS loss (tunnel/remote): keep share alive.
-          if (err && err.code === 1) {
-            rrSpecialSetShareStatus('Location permission denied. Allow location for RailroadRadar, then try again.');
-            rrSpecialClearWatch();
-            rrSpecialShareState = null;
-            rrSpecialShareQueue = [];
-            rrSpecialPersistLocal(null);
+          return;
+        }
+        let msg = 'GPS blip — still sharing, waiting for a fix…';
+        if (err && err.code === 2) msg = 'Location unavailable (remote area?) — still sharing, will retry…';
+        else if (err && err.code === 3) msg = 'Location timed out — still sharing, will retry…';
+        rrSpecialStatusLine(msg);
+        rrSpecialUpdateShareButtons();
+      }
+      const geoOpts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
+
+      // iOS/Safari: getCurrentPosition on the click gesture reliably surfaces the permission prompt.
+      try {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          onGeoOk(pos);
+          if (rrSpecialShareWatchId == null && rrSpecialShareState) {
+            rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
             rrSpecialUpdateShareButtons();
-            return;
           }
-          let msg = 'GPS blip — still sharing, waiting for a fix…';
-          if (err && err.code === 2) msg = 'Location unavailable (remote area?) — still sharing, will retry…';
-          else if (err && err.code === 3) msg = 'Location timed out — still sharing, will retry…';
-          rrSpecialStatusLine(msg);
-          rrSpecialUpdateShareButtons();
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
-      );
+        }, function(err) {
+          // Still start watch so transient errors can recover; denied handled in onGeoErr
+          onGeoErr(err);
+          if (err && err.code !== 1 && rrSpecialShareState && rrSpecialShareWatchId == null) {
+            rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
+            rrSpecialUpdateShareButtons();
+          }
+        }, geoOpts);
+      } catch (e) {
+        console.warn('[special-share] getCurrentPosition failed', e);
+      }
+      if (rrSpecialShareWatchId == null) {
+        rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
+      }
       try { rrSpecialBindOnlineFlush(); } catch (_) {}
       rrSpecialUpdateShareButtons();
       if (typeof showNotification === 'function') showNotification('Sharing location on the live map');
@@ -15627,7 +15803,15 @@ function closeTripDetailView(opts) {
       if (rrSpecialShareMapStarted) return;
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no main map on /mytrips
       if (!db || typeof firebase === 'undefined') return;
-      if (!window.rrMainMap) return;
+      if (!window.rrMainMap) {
+        // Map not ready yet — retry a few times so shares appear after load
+        if (!rrSpecialStartMapListener._retries) rrSpecialStartMapListener._retries = 0;
+        if (rrSpecialStartMapListener._retries < 12) {
+          rrSpecialStartMapListener._retries += 1;
+          setTimeout(function() { try { rrSpecialStartMapListener(); } catch (_) {} }, 1000);
+        }
+        return;
+      }
       rrSpecialShareMapStarted = true;
       try {
         rrSpecialShareUnsub = db.collection('specialMoveShares')
