@@ -25,7 +25,7 @@
     button:disabled { opacity: 0.45; cursor: default; }
     .voice-row { margin-top: 0; }
     .voice-row select { flex: 1; width: auto; min-width: 0; }
-    #voice-preview { flex: 0 0 auto; background: transparent; color: #fff; }
+    #voice-preview, #test-sound { flex: 0 0 auto; background: transparent; color: #fff; }
     #preview, #feeds, #selected { overflow-wrap: anywhere; }
     #feeds, #station-count { color: #d9dcf5; font-size: 0.9rem; }
     ol { margin: 0; padding-left: 1.2rem; }
@@ -49,7 +49,9 @@
     <div class="row voice-row">
       <select id="voice" aria-label="Announcement voice"></select>
       <button type="button" id="voice-preview">Preview</button>
+      <button type="button" id="test-sound">Test sound</button>
     </div>
+    <p id="tts-hint" style="color:#d9dcf5;font-size:0.9rem;margin:8px 0 0;">On iPhone, turn the Ring/Silent switch off (not silent) — Safari speech follows that switch. Press Start or Test sound once to unlock audio.</p>
     <div class="row">
       <button type="button" id="start">Start</button>
       <button type="button" id="stop" disabled>Stop</button>
@@ -92,10 +94,12 @@
     if (!c) return 'No upcoming train at ' + (stationName || 'this station') + '.';
     var s = c.routeName || c.agencyLabel || 'Train';
     if (c.trainNum) s += ' ' + c.trainNum;
-    if (c.destName) s += ' to ' + c.destName;
+    // Train ends at the selected station: say where it comes from, not "to <this station>".
+    if (c.terminates) { if (c.originName) s += ' from ' + c.originName; }
+    else if (c.destName) s += ' to ' + c.destName;
     var mins = c.mins;
     var when = (mins == null || mins <= 0) ? 'in less than a minute' : (mins === 1 ? 'in 1 minute' : 'in ' + mins + ' minutes');
-    s += ', ' + when;
+    s += c.terminates ? ', arriving ' + when : ', ' + when;
     var track = cleanTrack(c.track);
     if (track) s += ', on track ' + track;
     return s + '.';
@@ -104,7 +108,8 @@
   function trainLabel(c) {
     var s = c.routeName || c.agencyLabel || 'Train';
     if (c.trainNum) s += ' ' + c.trainNum;
-    if (c.destName) s += ' to ' + c.destName;
+    if (c.terminates) { if (c.originName) s += ' from ' + c.originName; }
+    else if (c.destName) s += ' to ' + c.destName;
     return s;
   }
 
@@ -1072,22 +1077,41 @@
     return pref;
   }
 
-  function applyVoice(u) {
+  var forceDefaultVoice = false;
+  var ttsGestureUnlocked = false;
+
+  function applyVoice(u, useDefault) {
     u.lang = 'en-US';
     u.rate = 1;
+    u.volume = 1;
+    u.pitch = 1;
+    if (useDefault || forceDefaultVoice) return;
     try {
       var pref = voiceForUtterance();
       if (!pref) return;
-      u.voice = pref;
-      if (chosenVoiceUri() && pref.lang) u.lang = pref.lang;
+      // Re-resolve against the current getVoices() list (iOS/Chrome replace Voice objects).
+      var uri = pref.voiceURI || pref.name;
+      var fresh = null;
+      var voices = listVoices();
+      for (var i = 0; i < voices.length; i++) {
+        if ((voices[i].voiceURI || voices[i].name) === uri) { fresh = voices[i]; break; }
+      }
+      if (!fresh) return;
+      u.voice = fresh;
+      if (fresh.lang && /^en/i.test(fresh.lang)) u.lang = String(fresh.lang).replace('_', '-');
     } catch (e) {}
   }
 
   var VOICE_PREVIEW_LINE = 'Newburyport Line 142 to North Station, in 8 minutes, on track 2.';
+  var TTS_TEST_LINE = 'RailroadRadar station audio test.';
+  var TTS_UNLOCK_LINE = 'Station audio on.';
+  var TTS_START_WAIT = 1500;
+  var TTS_MAX_MS = 25000;
   var ttsQueue = [];
   var ttsBusy = false;
   var ttsTimer = 0;
   var ttsGen = 0;
+  var ttsLive = null;
 
   function clearTtsTimer() {
     if (ttsTimer) {
@@ -1102,10 +1126,115 @@
     } catch (e) {}
   }
 
-  function makeUtterance(text) {
+  function ttsSpeaking() {
+    try { return !!(window.speechSynthesis && speechSynthesis.speaking && !speechSynthesis.paused); }
+    catch (e) { return false; }
+  }
+
+  function makeUtterance(text, useDefault) {
     var u = new SpeechSynthesisUtterance(text);
-    applyVoice(u);
+    applyVoice(u, !!useDefault);
     return u;
+  }
+
+  /* One utterance with iOS-safe recovery.
+     - inGesture: call speechSynthesis.speak() synchronously (Start / Test sound / Preview tap).
+       iOS Safari only unlocks speech on the tap's own call stack.
+     - Never cancel just because onstart is late: iOS often fires onstart 300-1000ms+ after speak().
+       Only after TTS_START_WAIT with nothing speaking do we retry once with the browser default voice. */
+  function runUtterance(text, inGesture) {
+    ttsBusy = true;
+    var gen = ttsGen;
+    var started = false;
+    var logged = false;
+    var done = false;
+    var usedDefault = forceDefaultVoice;
+    var fellBack = false;
+    state.speakLockUntil = Date.now() + 12000;
+
+    function log(suffix) {
+      if (logged) return;
+      logged = true;
+      logLine(suffix ? text + suffix : text);
+    }
+
+    function finish() {
+      if (done || gen !== ttsGen) return;
+      done = true;
+      clearTtsTimer();
+      ttsBusy = false;
+      pumpTts();
+    }
+
+    function speakNow(useDefault) {
+      if (gen !== ttsGen) return;
+      resumeTts();
+      var u = makeUtterance(text, useDefault);
+      ttsLive = u; // keep a strong ref: iOS/Chrome drop onstart/onend if the utterance is garbage-collected
+      u.onstart = function () {
+        if (gen !== ttsGen) return;
+        started = true;
+        ttsGestureUnlocked = true;
+        log('');
+      };
+      u.onend = function () { if (u._rrLive) finish(); };
+      u.onerror = function (ev) {
+        if (!u._rrLive) return;
+        var err = ev && ev.error;
+        if (err === 'interrupted' || err === 'canceled') return;
+        if (!started) return; // let the watchdog decide (retry with default voice)
+        finish();
+      };
+      u._rrLive = true;
+      try { speechSynthesis.speak(u); } catch (e) {}
+      return u;
+    }
+
+    var cur = speakNow(usedDefault);
+
+    function watchdog() {
+      clearTtsTimer();
+      ttsTimer = setTimeout(function () {
+        ttsTimer = 0;
+        if (gen !== ttsGen || done) return;
+        if (started || ttsSpeaking()) {
+          // Speaking (onstart may be late on iOS). Guard against a lost onend so the queue never wedges.
+          if (!started) { started = true; log(''); }
+          var since = Date.now(), idle = 0;
+          (function poll() {
+            ttsTimer = setTimeout(function () {
+              ttsTimer = 0;
+              if (gen !== ttsGen || done) return;
+              var busy = false;
+              try { busy = speechSynthesis.speaking || speechSynthesis.pending; } catch (e4) {}
+              idle = busy ? 0 : idle + 1;
+              if (idle >= 2 || Date.now() - since > TTS_MAX_MS) { if (cur) cur._rrLive = false; finish(); return; }
+              poll();
+            }, 1000);
+          })();
+          return;
+        }
+        if (!fellBack && !usedDefault) {
+          // Saved/auto voice produced nothing on this device; use the browser default for this session.
+          fellBack = true;
+          usedDefault = true;
+          forceDefaultVoice = true;
+          if (cur) cur._rrLive = false;
+          try { speechSynthesis.cancel(); } catch (e1) {}
+          ttsTimer = setTimeout(function () {
+            ttsTimer = 0;
+            if (gen !== ttsGen || done) return;
+            cur = speakNow(true);
+            watchdog();
+          }, 80);
+          return;
+        }
+        log(ttsGestureUnlocked ? ' (not spoken)' : ' (not spoken — tap Test sound)');
+        if (cur) cur._rrLive = false;
+        finish();
+      }, TTS_START_WAIT);
+    }
+    watchdog();
   }
 
   function pumpTts() {
@@ -1114,82 +1243,28 @@
       while (ttsQueue.length) logLine(ttsQueue.shift());
       return;
     }
-    ttsBusy = true;
     var text = ttsQueue.shift();
-    state.speakLockUntil = Date.now() + 12000;
+    ttsBusy = true;
     var gen = ttsGen;
-    var started = false;
-    var logged = false;
-    var retried = false;
-
-    function finish() {
-      if (gen !== ttsGen) return;
-      ttsBusy = false;
-      pumpTts();
-    }
-
-    function attach(u) {
-      u.onstart = function () {
-        started = true;
-        if (!logged) {
-          logLine(text);
-          logged = true;
-        }
-      };
-      u.onend = finish;
-      u.onerror = function () {
-        // Safari can error without starting; leave room for one deferred retry.
-        if (!started && !retried && gen === ttsGen) return;
-        finish();
-      };
-    }
-
-    function kick(isRetry) {
-      if (gen !== ttsGen) {
-        ttsBusy = false;
-        return;
-      }
-      resumeTts();
-      var u = makeUtterance(text);
-      attach(u);
-      try {
-        speechSynthesis.speak(u);
-      } catch (e) {
-        if (isRetry) {
-          finish();
-          return;
-        }
-      }
-      // Chrome/Safari often drop an utterance after cancel or while paused.
-      // Never cancel+speak in the same turn; if it never starts, retry once.
-      clearTtsTimer();
-      ttsTimer = setTimeout(function () {
-        ttsTimer = 0;
-        if (gen !== ttsGen) {
-          ttsBusy = false;
-          return;
-        }
-        if (started) return;
-        if (retried) {
-          finish();
-          return;
-        }
-        retried = true;
-        try { speechSynthesis.cancel(); } catch (e2) {}
-        ttsTimer = setTimeout(function () {
-          ttsTimer = 0;
-          kick(true);
-        }, 60);
-      }, 280);
-    }
-
     clearTtsTimer();
-    // Interrupt may have just called cancel(); wait a turn before speak (Safari/Chrome).
+    // After an interrupt cancel(), wait a turn before speak (Safari/Chrome drop same-turn speak).
+    resumeTts();
+    // Engine claims to be busy while our queue is idle: a lost onend wedged it. Clear it first.
+    var wedged = false;
+    try { wedged = speechSynthesis.speaking || speechSynthesis.pending; } catch (e) {}
+    if (wedged) { try { speechSynthesis.cancel(); } catch (e2) {} }
     ttsTimer = setTimeout(function () {
       ttsTimer = 0;
-      kick(false);
-    }, 60);
+      if (gen !== ttsGen) { ttsBusy = false; return; }
+      runUtterance(text, false);
+    }, wedged ? 120 : 60);
   }
+
+  // Keep the engine awake while running: iOS pauses speech when the tab blurs or the screen dims.
+  setInterval(function () { if (state.running) resumeTts(); }, 5000);
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') { resumeTts(); pumpTts(); }
+  });
 
   function speak(text, interrupt) {
     if (text == null || text === '') return;
@@ -1202,45 +1277,36 @@
       ttsQueue = [];
       ttsBusy = false;
       clearTtsTimer();
-      try { speechSynthesis.cancel(); } catch (e) {}
+      try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch (e) {}
     }
     ttsQueue.push(String(text));
     pumpTts();
   }
 
-  function previewVoice() {
-    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+  /* Synchronous speak inside a tap. No await/setTimeout before speechSynthesis.speak(). */
+  function speakGesture(text) {
+    if (text == null || text === '') return;
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+      logLine(text);
+      return;
+    }
     ttsGen++;
     ttsQueue = [];
     ttsBusy = false;
     clearTtsTimer();
-    try { speechSynthesis.cancel(); } catch (e) {}
-    var gen = ttsGen;
-    var started = false;
-    var retried = false;
-    function kick(isRetry) {
-      if (gen !== ttsGen) return;
-      resumeTts();
-      var u = makeUtterance(VOICE_PREVIEW_LINE);
-      u.onstart = function () { started = true; };
-      try { speechSynthesis.speak(u); } catch (e) {}
-      clearTtsTimer();
-      ttsTimer = setTimeout(function () {
-        ttsTimer = 0;
-        if (gen !== ttsGen || started) return;
-        if (retried) return;
-        retried = true;
-        try { speechSynthesis.cancel(); } catch (e2) {}
-        ttsTimer = setTimeout(function () {
-          ttsTimer = 0;
-          kick(true);
-        }, 60);
-      }, 280);
-    }
-    ttsTimer = setTimeout(function () {
-      ttsTimer = 0;
-      kick(false);
-    }, 60);
+    try { speechSynthesis.getVoices(); } catch (e0) {}
+    // Only cancel if something is actually queued; a bare cancel() right before speak() silences iOS.
+    try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch (e1) {}
+    runUtterance(String(text), true);
+  }
+
+  function previewVoice() {
+    forceDefaultVoice = false;
+    speakGesture(VOICE_PREVIEW_LINE);
+  }
+
+  function testSound() {
+    speakGesture(TTS_TEST_LINE);
   }
 
   function stopServes(stop, station, agency) {
@@ -1270,12 +1336,26 @@
     return A.normName(name) || 'unknown destination';
   }
 
+  /* rr-station-audio-terminal-dest-2026-10-05: a train whose last stop is the selected station
+     is announced "from <origin>, arriving ...", never "to <selected station>". */
+  function endsHere(t, stops, idx, station) {
+    if (t.destName && (A.looseName(t.destName, station.name) || A.normName(t.destName) === A.normName(station.name))) return true;
+    if (!stops.length || idx !== stops.length - 1) return false;
+    return !t.destName || A.normName(t.destName) === A.normName(stops[idx].name);
+  }
+  function originOf(t, stops, station) {
+    var o = t.originName || (stops[0] && stops[0].name) || '';
+    if (!o || A.normName(o) === A.normName(station.name)) return '';
+    return o;
+  }
+
   function upcomingByDestination(trains, station) {
     var now = Date.now();
     var best = {};
     (trains || []).forEach(function (t) {
       if (!t || t.cancelled) return;
-      (t.stops || []).forEach(function (s) {
+      var tStops = t.stops || [];
+      tStops.forEach(function (s, si) {
         if (!stopServes(s, station, t.agency) || s.departed || s.skipped || s.cancelled) return;
         if (s.etaMs == null || s.etaMs < now - 45000) return;
         var mins = Math.round((s.etaMs - now) / 60000);
@@ -1292,6 +1372,8 @@
             trainId: t.id || '',
             trainNum: t.trainNum,
             destName: t.destName,
+            terminates: endsHere(t, tStops, si, station),
+            originName: originOf(t, tStops, station),
             agency: t.agency,
             agencyLabel: t.agencyLabel,
             mins: mins,
@@ -2089,16 +2171,14 @@
     state.token++;
     $('start').disabled = true;
     $('stop').disabled = false;
-    try {
-      speak('Station audio on.');
-    } catch (e) {}
     state.lastNextAt = 0;
     state.lastDestAt = 0;
     state.lastApproachAt = 0;
     state.heldOffDest = false;
     state.seenMin = {};
     state.spokenMin = {};
-    state.speakLockUntil = 0;
+    // Unlock Web Speech inside this tap (sync speak). Do not await or setTimeout first.
+    try { speakGesture(TTS_UNLOCK_LINE); } catch (e) {}
     loop(state.token);
   }
 
@@ -2134,6 +2214,7 @@
     fillVoicePicker();
     var voiceSel = $('voice');
     if (voiceSel) voiceSel.addEventListener('change', function () {
+      forceDefaultVoice = false;
       try {
         if (voiceSel.value) localStorage.setItem(VOICE_KEY, voiceSel.value);
         else localStorage.removeItem(VOICE_KEY);
@@ -2141,6 +2222,9 @@
     });
     var voicePreview = $('voice-preview');
     if (voicePreview) voicePreview.addEventListener('click', previewVoice);
+    var testSoundBtn = $('test-sound');
+    if (testSoundBtn) testSoundBtn.addEventListener('click', testSound);
+    /* rr-station-audio-tts-unlock-2026-10-05 */
     $('start').disabled = true;
     $('stop').disabled = true;
     paintFeeds();
