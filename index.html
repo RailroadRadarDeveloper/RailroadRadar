@@ -6628,6 +6628,7 @@
     html.rr-banned .header > :not(.header-logo) { display:none !important; }
     html.rr-banned #rr-banned-screen { top:60px !important; z-index:9000 !important; }
   </style>
+<style id="rr-special-optional">.trip-route-optional { margin: 8px 0; } .trip-route-optional summary { cursor: pointer; font-weight: 700; color: #07093e; }</style>
 </head>
 <body>
     <div id="rr-banned-screen" hidden style="display:none;position:fixed;top:60px;left:0;right:0;bottom:0;z-index:9000;background:#07093e;color:#fff;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
@@ -13820,24 +13821,32 @@ function closeTripDetailView(opts) {
             '</div>' +
             '<div class="trip-seg-grid">' +
               '<div><label>Railroad</label><select data-seg-field="railroad">' + railOpts + '</select></div>' +
-              '<div><label>Line</label><select data-seg-field="line">' + lineOpts + '</select></div>' +
+              (specialMode ? '' : '<div><label>Line</label><select data-seg-field="line">' + lineOpts + '</select></div>') +
             '</div>' +
-            trainPickHtml +
-            '<div class="trip-seg-grid">' +
-              '<div><label>From</label><select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select></div>' +
-              '<div><label>To</label><select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select></div>' +
-            '</div>' +
+            (specialMode
+              ? '<details class="trip-route-optional"><summary>Stations and times (optional)</summary>' +
+                  '<label>Line</label><select data-seg-field="line">' + lineOpts + '</select>' +
+                  trainPickHtml +
+                  '<div class="trip-seg-grid">' +
+                    '<div><label>From</label><select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select></div>' +
+                    '<div><label>To</label><select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select></div>' +
+                  '</div>'
+              : trainPickHtml +
+                '<div class="trip-seg-grid">' +
+                  '<div><label>From</label><select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select></div>' +
+                  '<div><label>To</label><select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select></div>' +
+                '</div>') +
             '<div class="trip-train-text"' + ((hasPicker && !seg.trainExtraMode) ? ' hidden' : '') + '>' +
               '<label>' + trainLabel + '</label>' +
               '<input type="text" data-seg-field="train" maxlength="32" placeholder="' + trainPh + '" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
             '</div>' +
             '' +
-            '<div class="trip-segment-times">' +
+            (specialMode ? '' : '') + '<div class="trip-segment-times">' +
               '<div><label>Depart</label>' +
               '<input type="datetime-local" data-seg-field="depart" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.departTime) || '') + '"></div>' +
               '<div><label>Arrive</label>' +
               '<input type="datetime-local" data-seg-field="arrive" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.arriveTime) || '') + '"></div>' +
-            '</div>' +
+            '</div>' + (specialMode ? '</details>' : '') +
           '</div>'
         );
       }).join('');
@@ -14783,10 +14792,14 @@ function closeTripDetailView(opts) {
         const originId = String(seg.originId || '');
         const destId = String(seg.destId || '');
         const trainNumber = String(seg.trainNumber || '').trim();
+        const isSpecial = !!(specialOpts && specialOpts.specialMove);
         if (!rr) throw new Error('Segment ' + (i + 1) + ': choose a railroad.');
-        if (!lineId) throw new Error('Segment ' + (i + 1) + ': choose a line.');
-        if (!originId || !destId) throw new Error('Segment ' + (i + 1) + ': choose origin and destination.');
-        if (originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
+        const routeOptional = isSpecial && (!lineId || !originId || !destId);
+        if (!routeOptional) {
+          if (!lineId) throw new Error('Segment ' + (i + 1) + ': choose a line.');
+          if (!originId || !destId) throw new Error('Segment ' + (i + 1) + ': choose origin and destination.');
+          if (originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
+        }
         if (!trainNumber) {
           const isSpecial = !!(specialOpts && specialOpts.specialMove);
           const titleFallback = isSpecial && specialOpts.trainTitle ? String(specialOpts.trainTitle).trim().slice(0, 32) : '';
@@ -14796,37 +14809,42 @@ function closeTripDetailView(opts) {
             throw new Error('Segment ' + (i + 1) + ': enter a train number.');
           }
         }
-        if (!tripStationAllowed(seg, originId) || !tripStationAllowed(seg, destId)) {
+        if (!routeOptional && (!tripStationAllowed(seg, originId) || !tripStationAllowed(seg, destId))) {
           throw new Error('Segment ' + (i + 1) + ': both stops must be on the selected line or this train stop list.');
         }
-        if (!seg.departTime) throw new Error('Segment ' + (i + 1) + ': enter a depart time.');
-        if (!seg.arriveTime) throw new Error('Segment ' + (i + 1) + ': enter an arrive time.');
-        const departIso = localInputToIso(seg.departTime);
-        const arriveIso = localInputToIso(seg.arriveTime);
-        if (!departIso) throw new Error('Segment ' + (i + 1) + ': invalid depart time.');
-        if (!arriveIso) throw new Error('Segment ' + (i + 1) + ': invalid arrive time.');
-        if (Date.parse(arriveIso) < Date.parse(departIso)) {
+        if (!seg.departTime || !seg.arriveTime) {
+          if (!(specialOpts && specialOpts.specialMove)) {
+            if (!seg.departTime) throw new Error('Segment ' + (i + 1) + ': enter a depart time.');
+            if (!seg.arriveTime) throw new Error('Segment ' + (i + 1) + ': enter an arrive time.');
+          }
+        }
+        const departIso = seg.departTime ? localInputToIso(seg.departTime) : null;
+        const arriveIso = seg.arriveTime ? localInputToIso(seg.arriveTime) : null;
+        if (seg.departTime && !departIso) throw new Error('Segment ' + (i + 1) + ': invalid depart time.');
+        if (seg.arriveTime && !arriveIso) throw new Error('Segment ' + (i + 1) + ': invalid arrive time.');
+        if (departIso && arriveIso && Date.parse(arriveIso) < Date.parse(departIso)) {
           throw new Error('Segment ' + (i + 1) + ': arrive must be at or after depart.');
         }
-        const origin = findTripStation(rr, originId);
-        const dest = findTripStation(rr, destId);
-        if (!origin || !dest) throw new Error('Segment ' + (i + 1) + ': station not found for this railroad.');
-        const originCanon = String(origin.id || originId);
-        const destCanon = String(dest.id || destId);
-        let miles = estimateTripMiles(rr, originCanon, destCanon, lineId);
+        let origin = originId ? findTripStation(rr, originId) : null;
+        let dest = destId ? findTripStation(rr, destId) : null;
+        if (!routeOptional && (!origin || !dest)) throw new Error('Segment ' + (i + 1) + ': station not found for this railroad.');
+        const originCanon = origin ? String(origin.id || originId) : '';
+        const destCanon = dest ? String(dest.id || destId) : '';
+        let miles = (originCanon && destCanon) ? estimateTripMiles(rr, originCanon, destCanon, lineId) : 0;
         if (miles == null) miles = 0;
         totalMiles += Number(miles) || 0;
+        const nowIso = new Date().toISOString();
         const segOut = {
           railroad: rr,
           lineId: lineId,
-          lineName: lineNameFor(rr, lineId),
+          lineName: lineId ? lineNameFor(rr, lineId) : '',
           originStationId: originCanon,
-          originName: String(origin.name || originCanon),
+          originName: origin ? String(origin.name || originCanon) : '',
           destStationId: destCanon,
-          destName: String(dest.name || destCanon),
+          destName: dest ? String(dest.name || destCanon) : '',
           trainNumber: trainNumber || ((specialOpts && specialOpts.specialMove) ? 'Extra' : ''),
-          departTime: departIso,
-          arriveTime: arriveIso,
+          departTime: departIso || nowIso,
+          arriveTime: arriveIso || departIso || nowIso,
           miles: Number(miles) || 0
         };
         const vid = String(seg.vehicleId || '').trim();
