@@ -4233,6 +4233,15 @@
       color: #6a5538;
       min-height: 1.2em;
     }
+    /* RR special-move share geo fix 2026-10-05 */
+    .trip-detail-share-status.is-error {
+      color: #9b1c1c;
+      font-weight: 700;
+      background: #ffe8e8;
+      border: 1px solid #f0b4b4;
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
     .leaflet-marker-icon.rr-special-share-icon {
       background: transparent !important;
       border: none !important;
@@ -15285,18 +15294,24 @@ function closeTripDetailView(opts) {
       } catch (_) { return null; }
     }
 
-    function rrSpecialSetShareStatus(msg) {
+    function rrSpecialSetShareStatus(msg, isError) {
       const el = document.getElementById('trip-detail-share-status');
-      if (el) el.textContent = msg || '';
+      if (!el) return;
+      el.textContent = msg || '';
+      try { el.classList.toggle('is-error', !!(isError && msg)); } catch (_) {}
     }
 
     function rrSpecialUpdateShareButtons() {
       const startBtn = document.getElementById('trip-detail-share-loc');
       const stopBtn = document.getElementById('trip-detail-stop-share');
-      const sharing = !!(rrSpecialShareState && rrSpecialShareWatchId != null);
+      // Show Stop once we have state + (watch armed OR at least one successful write)
+      const sharing = !!(rrSpecialShareState && (rrSpecialShareWatchId != null || rrSpecialShareState.lastWriteAt));
+      const pending = !!(rrSpecialShareState && !sharing);
       if (startBtn) {
         startBtn.hidden = sharing;
-        startBtn.disabled = false;
+        startBtn.disabled = pending;
+        if (pending) startBtn.textContent = 'Waiting for location…';
+        else startBtn.textContent = 'Share location';
       }
       if (stopBtn) {
         stopBtn.hidden = !sharing;
@@ -15450,11 +15465,13 @@ function closeTripDetailView(opts) {
         console.warn('[special-share] write failed (will retry)', e);
         st.offline = true;
         rrSpecialEnqueuePing(ping);
-        const code = String((e && (e.code || e.message)) || '');
+        const code = String((e && (e.code || e.message)) || e || '');
         if (/permission-denied/i.test(code)) {
-          rrSpecialStatusLine('Could not sync (permissions). Still tracking locally');
-        } else {
+          rrSpecialSetShareStatus('Firestore write failed (permission-denied). Check specialMoveShares rules / sign-in.', true);
+        } else if (/unavailable|network|offline|Failed to get document/i.test(code)) {
           rrSpecialStatusLine('Connection lost — buffering locally');
+        } else {
+          rrSpecialSetShareStatus('Firestore write failed: ' + code.slice(0, 160) + ' — will retry', true);
         }
         return false;
       } finally {
@@ -15487,12 +15504,18 @@ function closeTripDetailView(opts) {
       // Update local last fix even when offline so throttle still works after reconnect.
       st.lastLat = lat;
       st.lastLon = lon;
-      if (!db || !rrSpecialIsOnline() || st.offline) {
+      if (!db) {
+        rrSpecialEnqueuePing(ping);
+        rrSpecialSetShareStatus('Firebase not ready — cannot publish location to the live map.', true);
+        return;
+      }
+      if (!rrSpecialIsOnline()) {
         st.offline = true;
         rrSpecialEnqueuePing(ping);
         rrSpecialStatusLine('Connection lost — buffering locally');
         return;
       }
+      // Online: always attempt commit (even after a prior blip marked offline).
       await rrSpecialCommitShare(ping, opts);
     }
 
@@ -15598,29 +15621,49 @@ function closeTripDetailView(opts) {
     async function rrSpecialStartSharing(tripId, data) {
       const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
       if (!user) {
-        rrSpecialSetShareStatus('Sign in to share location.');
+        rrSpecialSetShareStatus('Sign in to share location.', true);
         return;
       }
-      if (!data || !data.specialMove) {
-        rrSpecialSetShareStatus('Mark this trip as a Special move first.');
+      if (!data || !(data.specialMove === true || data.specialMove === 'true')) {
+        rrSpecialSetShareStatus('Mark this trip as a Special move first.', true);
         return;
       }
       if (typeof tripIsInProgressLight === 'function' && !tripIsInProgressLight(data)) {
-        rrSpecialSetShareStatus('Share is only available while the trip is in progress.');
+        rrSpecialSetShareStatus('Share is only available while the trip is in progress.', true);
         return;
       }
-      const title = String(data.trainTitle || data.trainNumber || 'Special move').trim().slice(0, 80);
-      if (!title || title === 'Extra') {
-        rrSpecialSetShareStatus('Add a map title on the trip before sharing.');
+      const title = String(data.trainTitle || '').trim().slice(0, 80);
+      if (!title) {
+        rrSpecialSetShareStatus('Add a map title on the trip before sharing.', true);
         return;
       }
       if (!navigator.geolocation) {
-        rrSpecialSetShareStatus('Location is not supported in this browser.');
+        rrSpecialSetShareStatus('Location is not supported in this browser.', true);
         return;
       }
-      // Stop any prior share
-      if (rrSpecialShareWatchId != null) {
-        await rrSpecialStopSharing({ silent: true });
+      if (!db) {
+        rrSpecialSetShareStatus('Firebase not ready — reload and try again.', true);
+        return;
+      }
+      // Clear prior watch/state SYNCHRONOUSLY so getCurrentPosition still runs in the user-gesture turn.
+      // (Awaiting Firestore delete here would break iOS/Safari permission prompts.)
+      if (rrSpecialShareWatchId != null || rrSpecialShareState) {
+        const prev = rrSpecialShareState;
+        rrSpecialClearWatch();
+        rrSpecialShareState = null;
+        rrSpecialShareQueue = [];
+        rrSpecialPersistLocal(null);
+        if (prev && db && prev.uid) {
+          try {
+            db.collection('specialMoveShares').doc(prev.uid).delete().catch(function() {
+              try {
+                db.collection('specialMoveShares').doc(prev.uid).set({
+                  active: false, updatedAt: Date.now(), uid: prev.uid
+                }, { merge: true });
+              } catch (_) {}
+            });
+          } catch (_) {}
+        }
       }
       const startedAt = Date.now();
       const expiresAt = startedAt + RR_SPECIAL_SHARE_MAX_MS;
@@ -15632,12 +15675,25 @@ function closeTripDetailView(opts) {
         expiresAt: expiresAt,
         lastWriteAt: 0,
         lastLat: null,
-        lastLon: null
+        lastLon: null,
+        offline: false
       };
       rrSpecialPersistLocal(rrSpecialShareState);
       rrSpecialSetShareStatus('Requesting location permission…');
       const startBtn = document.getElementById('trip-detail-share-loc');
       if (startBtn) startBtn.disabled = true;
+
+      const geoOpts = { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 };
+
+      function armWatch() {
+        if (!rrSpecialShareState || rrSpecialShareWatchId != null) return;
+        try {
+          rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
+        } catch (e) {
+          console.warn('[special-share] watchPosition failed', e);
+        }
+        rrSpecialUpdateShareButtons();
+      }
 
       function onGeoOk(pos) {
         if (!rrSpecialShareState) return;
@@ -15647,62 +15703,81 @@ function closeTripDetailView(opts) {
         }
         try {
           const c = pos && pos.coords;
-          if (c) rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude));
+          if (c) {
+            rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude));
+            // Detail map may still be initializing — retry pin shortly
+            if (!tripDetailMap) {
+              setTimeout(function() {
+                try {
+                  if (rrSpecialShareState && c) rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude));
+                } catch (_) {}
+              }, 800);
+            }
+          }
         } catch (_) {}
-        rrSpecialWriteShare(pos.coords, { force: !rrSpecialShareState.lastWriteAt });
+        const first = !rrSpecialShareState.lastWriteAt;
+        rrSpecialWriteShare(pos.coords, { force: first }).then(function() {
+          if (first && rrSpecialShareState && !rrSpecialShareState.offline && rrSpecialShareState.lastWriteAt) {
+            if (typeof showNotification === 'function') showNotification('Sharing location on the live map');
+          }
+        }).catch(function(e) {
+          console.warn('[special-share] writeShare', e);
+        });
         rrSpecialUpdateShareButtons();
-        rrSpecialStatusLine();
-        // Ensure main-map listener is running when available (markers for everyone)
+        if (!rrSpecialShareState.offline) rrSpecialStatusLine();
         try {
           if (typeof window.rrSpecialStartMapListener === 'function') window.rrSpecialStartMapListener();
         } catch (_) {}
       }
       function onGeoErr(err) {
         console.warn('[special-share] geo error', err);
-        // Permission denied: cannot continue. Transient GPS loss (tunnel/remote): keep share alive.
         if (err && err.code === 1) {
-          rrSpecialSetShareStatus('Location permission denied. Allow location for RailroadRadar, then try again.');
+          rrSpecialSetShareStatus('Location permission denied. Allow location for RailroadRadar in browser/site settings, then tap Share again.', true);
           rrSpecialClearWatch();
           rrSpecialClearDetailMarker();
           rrSpecialShareState = null;
           rrSpecialShareQueue = [];
           rrSpecialPersistLocal(null);
           rrSpecialUpdateShareButtons();
+          if (startBtn) startBtn.disabled = false;
           return;
         }
         let msg = 'GPS blip — still sharing, waiting for a fix…';
         if (err && err.code === 2) msg = 'Location unavailable (remote area?) — still sharing, will retry…';
         else if (err && err.code === 3) msg = 'Location timed out — still sharing, will retry…';
-        rrSpecialStatusLine(msg);
+        // Keep trying via watch if we already have permission / state
+        if (rrSpecialShareState) {
+          armWatch();
+          rrSpecialStatusLine(msg);
+        } else {
+          rrSpecialSetShareStatus(msg, true);
+          if (startBtn) startBtn.disabled = false;
+        }
         rrSpecialUpdateShareButtons();
       }
-      const geoOpts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
 
-      // iOS/Safari: getCurrentPosition on the click gesture reliably surfaces the permission prompt.
+      // CRITICAL: only getCurrentPosition here (still in the click call stack).
+      // Do NOT pre-start watchPosition — that claimed "Sharing" before any prompt
+      // and on iOS a prior no-gesture watch from /mytrips could poison permission.
       try {
         navigator.geolocation.getCurrentPosition(function(pos) {
           onGeoOk(pos);
-          if (rrSpecialShareWatchId == null && rrSpecialShareState) {
-            rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
-            rrSpecialUpdateShareButtons();
-          }
+          armWatch();
         }, function(err) {
-          // Still start watch so transient errors can recover; denied handled in onGeoErr
           onGeoErr(err);
-          if (err && err.code !== 1 && rrSpecialShareState && rrSpecialShareWatchId == null) {
-            rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
-            rrSpecialUpdateShareButtons();
-          }
+          // Transient errors: arm watch so we can recover without another tap
+          if (err && err.code !== 1 && rrSpecialShareState) armWatch();
         }, geoOpts);
       } catch (e) {
         console.warn('[special-share] getCurrentPosition failed', e);
-      }
-      if (rrSpecialShareWatchId == null) {
-        rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
+        rrSpecialSetShareStatus('Could not request location: ' + String((e && e.message) || e).slice(0, 120), true);
+        rrSpecialShareState = null;
+        rrSpecialPersistLocal(null);
+        if (startBtn) startBtn.disabled = false;
+        rrSpecialUpdateShareButtons();
+        return;
       }
       try { rrSpecialBindOnlineFlush(); } catch (_) {}
-      rrSpecialUpdateShareButtons();
-      if (typeof showNotification === 'function') showNotification('Sharing location on the live map');
 
       // Auto-stop timer
       try {
@@ -15801,12 +15876,14 @@ function closeTripDetailView(opts) {
 
     function rrSpecialStartMapListener() {
       if (rrSpecialShareMapStarted) return;
-      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no main map on /mytrips
+      // /mytrips hides #map — still allow listener if rrMainMap exists (hidden), but
+      // prefer skipping work on that page; live viewers use railroadradar.com index.
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no visible main map on /mytrips
       if (!db || typeof firebase === 'undefined') return;
       if (!window.rrMainMap) {
-        // Map not ready yet — retry a few times so shares appear after load
+        // Map not ready yet — retry so shares appear after load
         if (!rrSpecialStartMapListener._retries) rrSpecialStartMapListener._retries = 0;
-        if (rrSpecialStartMapListener._retries < 12) {
+        if (rrSpecialStartMapListener._retries < 40) {
           rrSpecialStartMapListener._retries += 1;
           setTimeout(function() { try { rrSpecialStartMapListener(); } catch (_) {} }, 1000);
         }
@@ -15822,6 +15899,10 @@ function closeTripDetailView(opts) {
             }
           }, function(err) {
             console.warn('[special-share] listen failed', err);
+            try {
+              rrSpecialShareMapStarted = false;
+              rrSpecialShareUnsub = null;
+            } catch (_) {}
           });
       } catch (e) {
         console.warn('[special-share] listener start failed', e);
@@ -15849,7 +15930,11 @@ function closeTripDetailView(opts) {
           try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
           const tripId = tripDetailOpenId;
           const data = tripId ? tripLogDataById[tripId] : null;
-          rrSpecialStartSharing(tripId, data);
+          // Fire immediately from the gesture; rrSpecialStartSharing requests geo sync before any await when possible.
+          try { rrSpecialStartSharing(tripId, data); } catch (e) {
+            console.warn('[special-share] start failed', e);
+            rrSpecialSetShareStatus('Share failed to start: ' + String((e && e.message) || e).slice(0, 120), true);
+          }
         });
       }
       const stopBtn = document.getElementById('trip-detail-stop-share');
@@ -15938,8 +16023,11 @@ function closeTripDetailView(opts) {
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
       await loadTripLogStatsFromServer();
+      // Do not auto-request geolocation here (no user gesture). Nearby can use
+      // an already-known fix; Share location is the gesture that prompts on /mytrips.
       try {
-        if (typeof window.rrStartMyTripsNearbyPrompt === 'function') {
+        if (typeof userLat === 'number' && typeof userLng === 'number' &&
+            typeof window.rrStartMyTripsNearbyPrompt === 'function') {
           window.rrStartMyTripsNearbyPrompt();
         }
       } catch (_) {}
@@ -28410,15 +28498,17 @@ function closeTripDetailView(opts) {
         }
       };
 
-      // Ask for location as soon as the map is ready; track movement continuously
-      startLocationWatch();
+      // Ask for location when the map is ready — but NEVER on /mytrips without a gesture.
+      // Safari/iOS denies no-gesture geolocation (code 1) and that can poison Special-move Share.
       try {
         if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-          setTimeout(function() {
-            if (typeof window.rrStartMyTripsNearbyPrompt === 'function') window.rrStartMyTripsNearbyPrompt();
-          }, 1200);
+          /* RR special-move share geo fix 2026-10-05: defer geo until Share / explicit action */
+        } else {
+          startLocationWatch();
         }
-      } catch (_) {}
+      } catch (_) {
+        try { startLocationWatch(); } catch (__) {}
+      }
     });
     // Legacy email/password/2FA/account-settings code removed — Google Sign up / Log in only.
 
