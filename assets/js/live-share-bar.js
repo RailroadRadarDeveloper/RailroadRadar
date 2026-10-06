@@ -125,7 +125,7 @@
       if (!user || user.uid !== o.uid) return;
       firebase.firestore().collection('specialMoveShares').doc(user.uid).set({
         uid: user.uid, tripId: o.tripId, title: o.title || 'Live trip', active: true,
-        lat: coords.latitude, lon: coords.longitude, heading: coords.heading, startedAt: o.startedAt, expiresAt: o.expiresAt, updatedAt: Date.now()
+        lat: coords.latitude, lon: coords.longitude, heading: coords.heading, speed: coords.speed, startedAt: o.startedAt, expiresAt: o.expiresAt, updatedAt: Date.now()
       }, { merge: true });
     }).catch(function () {});
   }
