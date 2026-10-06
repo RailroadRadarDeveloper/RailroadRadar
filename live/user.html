@@ -40,9 +40,9 @@
       maxZoom: 20
     }).addTo(map);
     var marker = null;
-    function icon(heading) {
+    function icon(heading, src) {
       var rot = isFinite(Number(heading)) ? Number(heading) : 90;
-      return L.divIcon({ className: 'rr-live-train', html: '<img src="/assets/hsp46.png" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">', iconSize: [46, 20], iconAnchor: [23, 10] });
+      return L.divIcon({ className: 'rr-live-train', html: '<img src="' + (src || '/assets/hsp46.png') + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">', iconSize: [46, 20], iconAnchor: [23, 10] });
     }
     if (!uid) {
       document.getElementById('status').textContent = 'No tracker selected';
@@ -59,7 +59,7 @@
         document.title = title + ' · RailroadRadar';
         document.getElementById('status').textContent = title;
         var ll = [Number(d.lat), Number(d.lon)];
-        if (!marker) marker = L.marker(ll, { icon: icon(d.heading) }).addTo(map);
+        if (!marker) marker = L.marker(ll, { icon: icon(d.heading, d.icon) }).addTo(map);
         else { marker.setLatLng(ll); marker.setIcon(icon(d.heading)); }
         if (!marker._rrFollowed) { map.setView(ll, 14); marker._rrFollowed = true; }
       }, function() {

@@ -7121,6 +7121,19 @@
                   <option value="marc">MARC</option>
                   <option value="other">Other</option>
                 </select>
+                
+                <label for="trip-log-live-icon">Icon</label>
+                <select id="trip-log-live-icon">
+                  <option value="/assets/hsp46.png">HSP46</option>
+                  <option value="/assets/f40ph.png">F40PH</option>
+                  <option value="/assets/gp40mc.png">GP40MC</option>
+                  <option value="/assets/amtrak-acs64.png">Amtrak ACS-64</option>
+                  <option value="/assets/amtrak-empire.png">Amtrak Empire</option>
+                  <option value="/assets/njt-alp.png">NJT ALP</option>
+                  <option value="/assets/mbta-1036.png">MBTA 1036</option>
+                  <option value="/assets/mbta-1072.png">MBTA 1072</option>
+                  <option value="/assets/mbta-1776.png">MBTA 1776</option>
+                </select>
                 <label for="trip-log-train-title">Service name</label>
                 <input type="text" id="trip-log-train-title" maxlength="80" placeholder="Service name" autocomplete="off">
                 <p class="trip-special-loc" id="trip-special-loc">Location is requested when you check Special move.</p>
@@ -11613,11 +11626,11 @@ function tripCardStationDotIcon() {
       if (window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) return [Number(window.rrSpecialLastFix.lat), Number(window.rrSpecialLastFix.lon)];
       return null;
     }
-    function rrLiveTrainIcon(heading) {
+    function rrLiveTrainIcon(heading, src) {
       const rot = isFinite(Number(heading)) ? Number(heading) : 90;
       return L.divIcon({
         className: 'rr-live-train-icon',
-        html: '<img src="/assets/hsp46.png" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
+        html: '<img src="' + (src || '/assets/hsp46.png') + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
         iconSize: [46, 20],
         iconAnchor: [23, 10]
       });
@@ -11642,7 +11655,7 @@ function tripCardStationDotIcon() {
           try {
             const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
             rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
-            L.marker(livePt, { icon: rrLiveTrainIcon(data.heading) }).addTo(map);
+            L.marker(livePt, { icon: rrLiveTrainIcon(data.heading, data.icon) }).addTo(map);
             map.setView(livePt, 13);
             el.classList.remove('is-empty');
             return;
@@ -28820,17 +28833,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       if (!user && window.firebase && firebase.auth) try { user = firebase.auth().currentUser; } catch (e) {}
       if (!user || !user.uid) { alert('Sign in before going live.'); return; }
       var title = ((document.getElementById('trip-log-train-title') || {}).value || 'Live trip').trim().slice(0, 80);
+      var icon = ((document.getElementById('trip-log-live-icon') || {}).value || '/assets/hsp46.png');
       var go = function() { location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid); };
       try { if (typeof saveTripLog === 'function') saveTripLog(); } catch (e) {}
       var finish = function(pos) {
         var now = Date.now();
-        var share = { uid: user.uid, tripId: 'live-' + now, title: title, startedAt: now, expiresAt: now + 5 * 60 * 60 * 1000, updatedAt: now };
+        var share = { uid: user.uid, tripId: 'live-' + now, title: title, icon: icon, startedAt: now, expiresAt: now + 5 * 60 * 60 * 1000, updatedAt: now };
         if (pos && pos.coords) { share.lastLat = pos.coords.latitude; share.lastLon = pos.coords.longitude; }
         try { localStorage.removeItem('rrSpecialShareStopped'); localStorage.setItem('rrSpecialMoveShareV1', JSON.stringify(share)); } catch (e) {}
         var db = window.db || (firebase.firestore && firebase.firestore());
         if (!db || !pos || !pos.coords) { go(); return; }
         db.collection('specialMoveShares').doc(user.uid).set({
-          uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, active: true,
+          uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, icon: icon, active: true,
           lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: now, expiresAt: share.expiresAt, updatedAt: now
         }, { merge: true }).then(go).catch(go);
       };
