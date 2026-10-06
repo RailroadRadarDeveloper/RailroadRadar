@@ -151,6 +151,11 @@
     show(o);
   }
   function boot() {
+    var existing = null;
+    try { existing = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+    if (existing && existing.expiresAt && Date.now() < Number(existing.expiresAt)) {
+      try { localStorage.removeItem(STOP); } catch (e) {}
+    }
     if (stopped()) { hide(); return; }
     var o = read();
     if (!o) return;

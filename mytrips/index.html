@@ -7109,8 +7109,20 @@
                 <span>Special move / extra</span>
               </label>
               <div id="trip-special-title-wrap" hidden>
-                <label for="trip-log-train-title">Map title</label>
-                <input type="text" id="trip-log-train-title" maxlength="80" placeholder="e.g. Berkshire Flyer special" autocomplete="off">
+                <label for="trip-log-live-railroad">Railroad (optional)</label>
+                <select id="trip-log-live-railroad">
+                  <option value="">Optional</option>
+                  <option value="mbta">MBTA</option>
+                  <option value="amtrak">Amtrak</option>
+                  <option value="mnr">Metro-North</option>
+                  <option value="lirr">Long Island Rail Road</option>
+                  <option value="njt">NJ Transit</option>
+                  <option value="ctrail">CTrail</option>
+                  <option value="marc">MARC</option>
+                  <option value="other">Other</option>
+                </select>
+                <label for="trip-log-train-title">Service name</label>
+                <input type="text" id="trip-log-train-title" maxlength="80" placeholder="Service name" autocomplete="off">
                 <p class="trip-special-loc" id="trip-special-loc">Location is requested when you check Special move.</p>
               </div>
             </div>
@@ -12044,9 +12056,9 @@ function tripCardStationDotIcon() {
       const routeEl = document.getElementById('trip-detail-route');
       if (routeEl) {
         const noStations = !od.origin || od.origin === '?' || !od.dest || od.dest === '?';
-        const title = data.specialMove ? String(data.trainTitle || '').trim() : '';
-        routeEl.textContent = (data.specialMove && noStations && title) ? title : '';
-        if (!(data.specialMove && noStations && title)) routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
+        const title = data.specialMove ? String(data.trainTitle || data.title || '').trim() : '';
+        if (data.specialMove && title) routeEl.textContent = title;
+        else routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
       }
 
       // Top badges: train chip only (no railroad/miles — those live in bottom facts)
@@ -14305,6 +14317,7 @@ function closeTripDetailView(opts) {
         const n = segs.length;
         return tripRouteOdText(o, d) + (n > 1 ? (' (' + n + ' trains)') : '');
       }
+      if (data && data.specialMove && String(data.trainTitle || data.title || '').trim()) return String(data.trainTitle || data.title).trim();
       return tripRouteOdText(data.originName, data.destName);
     }
     function tripDisplayRouteHtml(data) {
@@ -14856,13 +14869,8 @@ function closeTripDetailView(opts) {
         const destId = String(seg.destId || '');
         const trainNumber = String(seg.trainNumber || '').trim();
         const isSpecial = !!(specialOpts && specialOpts.specialMove);
-        if (!rr) throw new Error('Segment ' + (i + 1) + ': choose a railroad.');
-        const routeOptional = isSpecial && (!lineId || !originId || !destId);
-        if (!routeOptional) {
-          if (!lineId) throw new Error('Segment ' + (i + 1) + ': choose a line.');
-          if (!originId || !destId) throw new Error('Segment ' + (i + 1) + ': choose origin and destination.');
-          if (originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
-        }
+        if (originId && destId && originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
+        const routeOptional = !rr || !lineId || !originId || !destId;
         if (!trainNumber) {
           const isSpecial = !!(specialOpts && specialOpts.specialMove);
           const titleFallback = isSpecial && specialOpts.trainTitle ? String(specialOpts.trainTitle).trim().slice(0, 32) : '';
@@ -28806,12 +28814,29 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       ev.preventDefault();
       var cb = document.getElementById('trip-log-special-move');
       if (cb) cb.checked = true;
-      Promise.resolve(typeof saveTripLog === 'function' ? saveTripLog() : null).then(function() {
-        var user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
-        var liveUser = user || window.currentUser || (window.firebase && firebase.auth && firebase.auth().currentUser);
-        if (liveUser && liveUser.uid) location.href = '/live/user.html?uid=' + encodeURIComponent(liveUser.uid);
-        else alert('Sign in before going live.');
-      }).catch(function() {});
+      var user = null;
+      try { user = (typeof rrAuthUser === 'function') ? rrAuthUser() : null; } catch (e) {}
+      if (!user) try { user = window.currentUser; } catch (e) {}
+      if (!user && window.firebase && firebase.auth) try { user = firebase.auth().currentUser; } catch (e) {}
+      if (!user || !user.uid) { alert('Sign in before going live.'); return; }
+      var title = ((document.getElementById('trip-log-train-title') || {}).value || 'Live trip').trim().slice(0, 80);
+      var go = function() { location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid); };
+      try { if (typeof saveTripLog === 'function') saveTripLog(); } catch (e) {}
+      var finish = function(pos) {
+        var now = Date.now();
+        var share = { uid: user.uid, tripId: 'live-' + now, title: title, startedAt: now, expiresAt: now + 5 * 60 * 60 * 1000, updatedAt: now };
+        if (pos && pos.coords) { share.lastLat = pos.coords.latitude; share.lastLon = pos.coords.longitude; }
+        try { localStorage.removeItem('rrSpecialShareStopped'); localStorage.setItem('rrSpecialMoveShareV1', JSON.stringify(share)); } catch (e) {}
+        var db = window.db || (firebase.firestore && firebase.firestore());
+        if (!db || !pos || !pos.coords) { go(); return; }
+        db.collection('specialMoveShares').doc(user.uid).set({
+          uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, active: true,
+          lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: now, expiresAt: share.expiresAt, updatedAt: now
+        }, { merge: true }).then(go).catch(go);
+      };
+      if (!navigator.geolocation) finish(null);
+      else navigator.geolocation.getCurrentPosition(finish, function() { finish(null); }, { enableHighAccuracy: true, timeout: 8000 });
+    });
     });
 </script>
 </body>
