@@ -65,7 +65,7 @@
     if (!document.getElementById('rr-live-bar-css')) {
       var css = document.createElement('style');
       css.id = 'rr-live-bar-css';
-      css.textContent = '#rr-live-bar{position:fixed;top:60px;left:0;right:0;z-index:9000;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#b00020;color:#fff;padding:10px 16px;font:700 14px/1.3 sans-serif}#rr-live-bar[hidden]{display:none!important}#rr-live-bar .rr-live-actions{display:flex;gap:8px}#rr-live-bar button{background:#fff;color:#b00020;border:0;border-radius:999px;padding:6px 12px;font-weight:800;cursor:pointer}';
+      css.textContent = '#rr-live-bar{position:fixed;top:60px;left:0;right:0;z-index:10040;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#b00020;color:#fff;padding:10px 16px;font:700 14px/1.3 sans-serif}#rr-live-bar[hidden]{display:none!important}#rr-live-bar .rr-live-actions{display:flex;gap:8px}#rr-live-bar button{background:#fff;color:#b00020;border:0;border-radius:999px;padding:6px 12px;font-weight:800;cursor:pointer}';
       document.head.appendChild(css);
     }
     el = document.createElement('div');
