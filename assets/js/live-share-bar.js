@@ -178,4 +178,6 @@
     show(read());
   };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
+  setInterval(function(){ if (!stopped()) { var cur = read(); if (cur) show(cur); } }, 2000);
+  window.__rrBannerPoll = true;
 })();
