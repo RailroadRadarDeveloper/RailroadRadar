@@ -1,78 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Become a tracker · RailroadRadar</title>
-  <style>
-    html, body { margin: 0; min-height: 100%; background: #07093e; color: #fff; font-family: sans-serif; }
-    main { max-width: 420px; margin: 0 auto; padding: 72px 20px; }
-    h1 { font-size: 28px; margin: 0 0 8px; }
-    p { color: #d7dced; line-height: 1.45; }
-    button, a.btn { display: inline-block; background: #fff; color: #07093e; border: 0; border-radius: 999px; padding: 12px 16px; font-weight: 800; text-decoration: none; cursor: pointer; }
-    label { display: block; margin: 18px 0 6px; font-weight: 700; }
-    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 0; }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Become a tracker</h1>
-    <p>This starts your own live page. There is no shared tracker map.</p>
-    <label for="title">Map title</label>
-    <input id="title" maxlength="80" placeholder="Live trip">
-    <p><button type="button" id="start">Start tracking</button></p>
-    <p><a href="/">Back to the map</a></p>
-  </main>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script>
-    firebase.initializeApp({
-      apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
-      authDomain: 'railroadradar-accounts.firebaseapp.com',
-      projectId: 'railroadradar-accounts',
-      storageBucket: 'railroadradar-accounts.firebasestorage.app',
-      messagingSenderId: '896370923309',
-      appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
-    });
-    var auth = firebase.auth();
-    var db = firebase.firestore();
-    document.getElementById('start').addEventListener('click', function() {
-      var user = auth.currentUser;
-      if (!user) {
-        auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(err) {
-          alert((err && err.message) || 'Sign in to become a tracker.');
-        });
-        return;
-      }
-      var title = document.getElementById('title').value.trim() || 'Live trip';
-      navigator.geolocation.getCurrentPosition(function(pos) {
-        var now = Date.now();
-        var share = { uid: user.uid, tripId: 'live-' + now, title: title.slice(0, 80), startedAt: now, expiresAt: now + 5 * 60 * 60 * 1000, updatedAt: now };
-        try {
-          localStorage.removeItem('rrSpecialShareStopped');
-          localStorage.setItem('rrSpecialMoveShareV1', JSON.stringify(share));
-        } catch (e) {}
-        db.collection('specialMoveShares').doc(user.uid).set({
-          uid: user.uid,
-          displayName: (user.displayName || 'Rider').split(' ')[0],
-          tripId: share.tripId,
-          title: share.title,
-          active: true,
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          heading: pos.coords.heading,
-          startedAt: share.startedAt,
-          expiresAt: share.expiresAt,
-          updatedAt: now
-        }, { merge: true }).then(function() {
-          location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid);
-        });
-      }, function() {
-        alert('Location is required to become a tracker.');
-      }, { enableHighAccuracy: true, timeout: 20000 });
-    });
-  </script>
-  <script src="/assets/js/live-share-bar.js" defer></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/">
+<script>
+try {
+  var raw = localStorage.getItem('rrSpecialMoveShareV1');
+  var stopped = localStorage.getItem('rrSpecialShareStopped') === '1';
+  var o = raw ? JSON.parse(raw) : null;
+  if (!stopped && o && o.uid && Number(o.expiresAt) > Date.now()) location.replace('/live/user.html?uid=' + encodeURIComponent(o.uid));
+  else location.replace('/');
+} catch (e) { location.replace('/'); }
+</script></head><body></body></html>

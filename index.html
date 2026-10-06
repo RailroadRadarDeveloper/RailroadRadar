@@ -28808,7 +28808,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       if (cb) cb.checked = true;
       Promise.resolve(typeof saveTripLog === 'function' ? saveTripLog() : null).then(function() {
         var user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
-        if (user && user.uid) location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid);
+        var liveUser = user || window.currentUser || (window.firebase && firebase.auth && firebase.auth().currentUser);
+        if (liveUser && liveUser.uid) location.href = '/live/user.html?uid=' + encodeURIComponent(liveUser.uid);
+        else alert('Sign in before going live.');
       }).catch(function() {});
     });
 </script>
