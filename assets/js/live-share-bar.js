@@ -3,6 +3,8 @@
   window.__rrLiveBar = true;
   var KEY = 'rrSpecialMoveShareV1';
   var STOP = 'rrSpecialShareStopped';
+  // watchPosition can go quiet while the phone sits still, so ask for a fix if none came in this long.
+  var HEARTBEAT_MS = 15000;
   var CFG = {
     apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
     authDomain: 'railroadradar-accounts.firebaseapp.com',
@@ -93,7 +95,6 @@
     var live = !!window.__rrLiveWatch;
     if (resume) resume.hidden = live;
     var ago = o.updatedAt ? Math.max(0, Math.round((Date.now() - Number(o.updatedAt)) / 1000)) : 0;
-    el.querySelector('#rr-live-bar-text').innerHTML = live ? '' : '';
     el.querySelector('#rr-live-bar-text').textContent = live
       ? ('Sharing location on the live map \u00b7 ' + (ago >= 10 ? ('updated ' + ago + 's ago') : 'live') + ' \u00b7 ' + leftLabel(o))
       : ('Sharing paused \u00b7 ' + leftLabel(o));
@@ -108,9 +109,9 @@
         document.head.appendChild(s);
       });
     }
-    return add('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js')
-      .then(function () { return add('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js'); })
-      .then(function () { return add('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'); })
+    return add('https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js')
+      .then(function () { return add('https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js'); })
+      .then(function () { return add('https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js'); })
       .then(function () { if (!firebase.apps.length) firebase.initializeApp(CFG); });
   }
   function publish(o, coords) {
@@ -152,6 +153,25 @@
     }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
     show(o);
   }
+  var asking = false;
+  function heartbeat(o) {
+    if (asking) return;
+    asking = true;
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      asking = false;
+      if (stopped()) return;
+      o.updatedAt = Date.now();
+      write(o);
+      show(o);
+      publish(o, pos.coords);
+    }, function () { asking = false; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 8000 });
+  }
+  function tick() {
+    var cur = read();
+    if (!cur) { hide(); return; }
+    show(cur);
+    if (window.__rrLiveWatch && Date.now() - Number(cur.updatedAt || 0) >= HEARTBEAT_MS) heartbeat(cur);
+  }
   function boot() {
     var existing = null;
     try { existing = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
@@ -162,23 +182,7 @@
     var o = read();
     if (!o) return;
     show(o);
-    setInterval(function () {
-      if (stopped()) { hide(); return; }
-      var cur = read();
-      if (cur) show(cur); else hide();
-    }, 10000);
-    startWatch(read());
-    setInterval(function () {
-      var cur = read();
-      if (!cur || stopped() || !navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(function (pos) {
-        if (stopped()) return;
-        cur.updatedAt = Date.now();
-        write(cur);
-        show(cur);
-        publish(cur, pos.coords);
-      }, function () {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 8000 });
-    }, 5000);
+    startWatch(o);
   }
   var oldPersist = window.rrSpecialPersistLocal;
   window.rrSpecialPersistLocal = function (state) {
@@ -193,6 +197,5 @@
     show(read());
   };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
-  setInterval(function(){ if (!stopped()) { var cur = read(); if (cur) show(cur); } }, 2000);
-  window.__rrBannerPoll = true;
+  setInterval(tick, 2000);
 })();

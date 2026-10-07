@@ -26,8 +26,9 @@
   <div id="live-stats"><span id="live-speed">Speed --</span><span id="live-place">Location --</span></div>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <script>
     var uid = new URLSearchParams(location.search).get('uid') || '';
     firebase.initializeApp({
@@ -94,7 +95,7 @@
 
         var ll = [Number(d.lat), Number(d.lon)];
         if (!marker) marker = L.marker(ll, { icon: icon(d.heading, d.icon) }).addTo(map);
-        else { marker.setLatLng(ll); marker.setIcon(icon(d.heading)); }
+        else { marker.setLatLng(ll); marker.setIcon(icon(d.heading, d.icon)); }
         if (!marker._rrFollowed) { map.setView(ll, 14); marker._rrFollowed = true; }
       }, function() {
         document.getElementById('status').textContent = 'Could not load this tracker';
