@@ -28,6 +28,12 @@ service cloud.firestore {
         || (signedIn() && exists(adminDocPath()));
     }
 
+    // Train icons are drawn into the page, so only plain /assets/ image paths are allowed.
+    function iconIsAsset(data) {
+      return !('icon' in data)
+        || (data.icon is string && data.icon.matches('/assets/[A-Za-z0-9-]+[.]png'));
+    }
+
     function adminHasPerm(perm) {
       return isBootstrapAdmin()
         || (isAdmin()
@@ -165,10 +171,12 @@ service cloud.firestore {
             || request.resource.data.segments is list)
         && (!('endTime' in request.resource.data)
             || request.resource.data.endTime is string
-            || request.resource.data.endTime == null);
+            || request.resource.data.endTime == null)
+        && iconIsAsset(request.resource.data);
       allow update: if signedIn()
         && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && iconIsAsset(request.resource.data);
       allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
@@ -200,7 +208,8 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.lat is number
-        && request.resource.data.lon is number;
+        && request.resource.data.lon is number
+        && iconIsAsset(request.resource.data);
       allow delete: if signedIn() && request.auth.uid == uid;
     }
     match /accounts/{uid} {

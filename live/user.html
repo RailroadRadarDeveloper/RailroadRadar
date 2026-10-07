@@ -70,9 +70,11 @@
           document.getElementById('live-place').textContent = 'Location unavailable';
         });
     }
+    // The icon comes from the sharer's own record, so anything but a plain /assets/ image falls back to the default.
     function icon(heading, src) {
       var rot = isFinite(Number(heading)) ? Number(heading) : 90;
-      return L.divIcon({ className: 'rr-live-train', html: '<img src="' + (src || '/assets/hsp46.png') + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">', iconSize: [46, 20], iconAnchor: [23, 10] });
+      if (!/^\/assets\/[A-Za-z0-9-]+\.png$/.test(src || '')) src = '/assets/hsp46.png';
+      return L.divIcon({ className: 'rr-live-train', html: '<img src="' + src + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">', iconSize: [46, 20], iconAnchor: [23, 10] });
     }
     if (!uid) {
       document.getElementById('status').textContent = 'No tracker selected';
