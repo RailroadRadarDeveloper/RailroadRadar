@@ -5183,21 +5183,14 @@
       pointer-events: auto;
       z-index: 100081;
     }
-    .rr-legal-agree {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      margin: 12px 0 8px;
-      font-size: 13px;
+    .signup-prompt-legal {
+      margin: 10px 0 0;
+      font-size: 12px;
       line-height: 1.45;
-      color: #2c3340;
-      cursor: pointer;
+      color: #5a6577;
+      text-align: center;
     }
-    .rr-legal-agree input {
-      margin-top: 2px;
-      flex-shrink: 0;
-    }
-    .rr-legal-agree a {
+    .signup-prompt-legal a {
       color: #1a4a8a;
       text-decoration: underline;
     }
@@ -6683,20 +6676,16 @@
   <div class="rr-modal-backdrop signup-prompt-modal" id="signup-prompt-modal" aria-hidden="true">
     <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="signup-prompt-title">
       <div class="rr-modal-header">
-        <span id="signup-prompt-title">Create an account to start reporting consists!</span>
+        <span id="signup-prompt-title">Sign up or log in</span>
         <button type="button" class="rr-modal-close" id="signup-prompt-close" aria-label="Close">×</button>
       </div>
       <div class="rr-modal-body">
         <p class="signup-prompt-sub"><strong>Sign in with Google to pair locomotives to live trains and share what you see.</strong></p>
         <p class="signup-prompt-note">RailroadRadar is in beta, so you may run into a few bugs while we build a better experience. We collect your email so we can moderate reports and reach you about your account. We will never sell your information.</p>
-        <label class="rr-legal-agree" for="signup-legal-agree">
-          <input type="checkbox" id="signup-legal-agree" />
-          <span>I agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
-        </label>
-        <div class="rr-modal-error" id="signup-legal-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
-          <button type="button" class="rr-btn" id="signup-prompt-signin">Sign up / Log in</button>
+          <button type="button" class="rr-btn" id="signup-prompt-signin">Continue with Google</button>
         </div>
+        <p class="signup-prompt-legal">By continuing, you agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
       </div>
     </div>
   </div>
@@ -6724,11 +6713,7 @@
       </div>
       <div class="rr-modal-body">
         <p class="signup-prompt-sub"><strong>You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.</strong></p>
-        <p class="signup-prompt-note">Review our <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>, then check the box below to continue.</p>
-        <label class="rr-legal-agree" for="legal-accept-agree">
-          <input type="checkbox" id="legal-accept-agree" />
-          <span>I agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
-        </label>
+        <p class="signup-prompt-note">Review our <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
         <div class="rr-modal-error" id="legal-accept-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
           <button type="button" class="rr-btn" id="legal-accept-confirm">I agree</button>
@@ -12586,7 +12571,7 @@ function closeTripDetailView(opts) {
         if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
           try { showMyTripsGuestHome(); } catch (_) {}
         } else if (typeof openSignupPrompt === 'function') {
-          openSignupPrompt(true);
+          openSignupPrompt();
         }
         return;
       }
@@ -12795,7 +12780,7 @@ function closeTripDetailView(opts) {
         tripPendingLogTrip = prefill;
         try { sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill)); } catch (_) {}
         if (typeof showNotification === 'function') showNotification('Sign in to log this trip.', 'error');
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        if (typeof openSignupPrompt === 'function') openSignupPrompt();
         return;
       }
       applyTripLogPrefill(prefill);
@@ -13792,7 +13777,7 @@ async function rrSpecialStopSharing(opts) {
           return;
         }
         if (typeof showNotification === 'function') showNotification('Sign in to open Trip log.', 'error');
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        if (typeof openSignupPrompt === 'function') openSignupPrompt();
         return;
       }
       try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
@@ -14336,9 +14321,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(u || null); } catch (_) {}
               if (u) {
                 try { if (typeof closeSignupPrompt === 'function') closeSignupPrompt(); } catch (_) {}
-                try {
-                  if (signupPromptTimer) { clearTimeout(signupPromptTimer); signupPromptTimer = null; }
-                } catch (_) {}
               }
               rrSyncMyTripsAuthGate(u || null);
             };
@@ -14677,13 +14659,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
     }
 
-    let signupPromptTimer = null;
-    function isSignupPromptDismissed() {
-      try { return sessionStorage.getItem('rr_signup_prompt_dismissed') === '1'; } catch (e) { return false; }
-    }
-    function markSignupPromptDismissed() {
-      try { sessionStorage.setItem('rr_signup_prompt_dismissed', '1'); } catch (e) {}
-    }
     function isSessionLegalAgreed() {
       try { return sessionStorage.getItem('rr_legal_agreed') === '1'; } catch (e) { return false; }
     }
@@ -14736,9 +14711,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     function openLegalAcceptModal() {
       const modal = document.getElementById('legal-accept-modal');
       const err = document.getElementById('legal-accept-error');
-      const cb = document.getElementById('legal-accept-agree');
       if (!modal) return;
-      if (cb) cb.checked = false;
       if (err) { err.textContent = ''; err.classList.remove('visible'); }
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
@@ -14757,16 +14730,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     }
     async function confirmLegalAcceptFromModal() {
       const err = document.getElementById('legal-accept-error');
-      const cb = document.getElementById('legal-accept-agree');
       const setErr = function(msg) {
         if (!err) { showNotification(msg, 'error'); return; }
         err.textContent = msg;
         err.classList.add('visible');
       };
-      if (!cb || !cb.checked) {
-        setErr('Please check the box to agree to the Terms of Use and Privacy Policy.');
-        return;
-      }
       const user = currentUser || (auth && auth.currentUser);
       if (!user) { setErr('Sign in required.'); return; }
       const ok = await persistLegalAcceptance(user);
@@ -14798,89 +14766,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       el.classList.remove('open');
       el.setAttribute('aria-hidden', 'true');
     }
-    function openSignupPrompt(force) {
+    function openSignupPrompt() {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
       if (currentUser || (auth && auth.currentUser)) return;
-      if (!force && isSignupPromptDismissed()) return;
       // Signed-in users look logged-out until authStateReady. Never show
       // "Create an account" in that window, including forced opens.
       if (!openSignupPrompt._bypassReady && !rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
-        var wantForce = !!force;
         auth.authStateReady().then(function() {
           rrAuthGateReady = true;
           try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
           if (currentUser || (auth && auth.currentUser)) { closeSignupPrompt(); return; }
           openSignupPrompt._bypassReady = true;
-          try { openSignupPrompt(wantForce); } finally { openSignupPrompt._bypassReady = false; }
+          try { openSignupPrompt(); } finally { openSignupPrompt._bypassReady = false; }
         }).catch(function() { rrAuthGateReady = true; });
         return;
       }
       const el = document.getElementById('signup-prompt-modal');
       if (!el) return;
-      const err = document.getElementById('signup-legal-error');
-      if (err) { err.textContent = ''; err.classList.remove('visible'); }
-      const cb = document.getElementById('signup-legal-agree');
-      if (cb && isSessionLegalAgreed()) cb.checked = true;
       el.classList.add('open');
       el.setAttribute('aria-hidden', 'false');
     }
-    function dismissSignupPrompt() {
-      markSignupPromptDismissed();
-      closeSignupPrompt();
-      if (signupPromptTimer) {
-        clearTimeout(signupPromptTimer);
-        signupPromptTimer = null;
-      }
-    }
-    function scheduleSignupPrompt() {
-      if (signupPromptTimer) clearTimeout(signupPromptTimer);
-      signupPromptTimer = null;
-      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-        closeSignupPrompt();
-        return;
-      }
-      // wireSignupPromptUI used to arm this 20s timer before persistence restored,
-      // so a signed-in user (currentUser still null) got the create-account modal.
-      if (!rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
-        if (!scheduleSignupPrompt._waiting) {
-          scheduleSignupPrompt._waiting = true;
-          auth.authStateReady().then(function() {
-            scheduleSignupPrompt._waiting = false;
-            rrAuthGateReady = true;
-            try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
-            scheduleSignupPrompt();
-          }).catch(function() {
-            scheduleSignupPrompt._waiting = false;
-            rrAuthGateReady = true;
-            scheduleSignupPrompt();
-          });
-        }
-        return;
-      }
-      if (currentUser || (auth && auth.currentUser) || isSignupPromptDismissed()) {
-        closeSignupPrompt();
-        return;
-      }
-      signupPromptTimer = setTimeout(function() {
-        signupPromptTimer = null;
-        openSignupPrompt();
-      }, 20000);
-    }
+    // "Continue with Google" under the "By continuing, you agree" line counts as accepting the terms.
     function beginGoogleSignInWithLegal() {
-      const cb = document.getElementById('signup-legal-agree');
-      const err = document.getElementById('signup-legal-error');
-      if (!cb || !cb.checked) {
-        if (err) {
-          err.textContent = 'Please agree to the Terms of Use and Privacy Policy to continue.';
-          err.classList.add('visible');
-        } else {
-          showNotification('Please agree to the Terms of Use and Privacy Policy to continue.', 'error');
-        }
-        return;
-      }
-      if (err) { err.textContent = ''; err.classList.remove('visible'); }
       markSessionLegalAgreed();
-      dismissSignupPrompt();
+      closeSignupPrompt();
       signInWithGoogle();
     }
     function requestGoogleSignIn() {
@@ -14910,37 +14819,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         signInWithGoogle();
         return;
       }
-      openSignupPrompt(true);
+      openSignupPrompt();
     }
     function wireSignupPromptUI() {
       const closeBtn = document.getElementById('signup-prompt-close');
-      const laterBtn = document.getElementById('signup-prompt-later');
-      const signinBtn = document.getElementById('signup-prompt-signin');
       const backdrop = document.getElementById('signup-prompt-modal');
-      if (closeBtn) closeBtn.addEventListener('click', dismissSignupPrompt);
-      if (laterBtn) laterBtn.addEventListener('click', dismissSignupPrompt);
-      if (signinBtn) signinBtn.addEventListener('click', function() {
-        beginGoogleSignInWithLegal();
-      });
+      if (closeBtn) closeBtn.addEventListener('click', closeSignupPrompt);
       if (backdrop) backdrop.addEventListener('click', function(e) {
-        if (e.target === backdrop) dismissSignupPrompt();
+        if (e.target === backdrop) closeSignupPrompt();
       });
-      scheduleSignupPrompt();
     }
 
     function wireAuthUI() {
-      const btnIn = document.getElementById('btn-google-signin');
       const btnOut = document.getElementById('btn-google-signout');
       const btnDel = document.getElementById('btn-delete-account');
       const btnSettings = document.getElementById('btn-account-settings');
-      if (btnIn && btnIn.getAttribute('data-rr-auth-wired') !== '1') {
-        btnIn.setAttribute('data-rr-auth-wired', '1');
-        btnIn.addEventListener('click', function(e) {
-          if (e) { e.preventDefault(); e.stopPropagation(); }
-          if (typeof signInWithGoogle === 'function') signInWithGoogle();
-          else requestGoogleSignIn();
-        });
-      }
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
       if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
       if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
@@ -14965,11 +14858,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
         } catch (_) {}
         openAccountSettingsLightbox(e);
-      });
-      const panelSignin = document.getElementById('btn-account-signin-panel');
-      if (panelSignin) panelSignin.addEventListener('click', function(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        requestGoogleSignIn();
       });
       const avatarBtn = document.getElementById('header-user-avatar');
       if (avatarBtn) {
@@ -15039,10 +14927,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               openTripLogModal(null, { tab: 'list', forceModal: true });
             }
             closeSignupPrompt();
-            if (signupPromptTimer) {
-              clearTimeout(signupPromptTimer);
-              signupPromptTimer = null;
-            }
             try {
               if (typeof window.applyTripLogFromLive === 'function') {
                 let pending = tripPendingLogTrip;
@@ -15080,13 +14964,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
             closeInterestRailroadsModal(true);
-            scheduleSignupPrompt();
             try { rrSyncMyTripsAuthGate(null); } catch (_) {}
           }
         });
       } else {
         updateHeaderAuthUI(null);
-        scheduleSignupPrompt();
         try { rrAuthResolved = true; rrSyncMyTripsAuthGate(null); } catch (_) {}
       }
     }
@@ -15980,7 +15862,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           if (!auth || !auth.currentUser) {
             showNotification('Sign in to confirm this locomotive.', 'error');
-            if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+            if (typeof openSignupPrompt === 'function') openSignupPrompt();
             return;
           }
           const a = normalizeAgency(agency || 'mbta');
@@ -25413,8 +25295,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     if (!t) return;
     e.preventDefault();
     e.stopPropagation();
-    if (typeof signInWithGoogle === 'function') signInWithGoogle();
-    else if (typeof requestGoogleSignIn === 'function') requestGoogleSignIn();
+    // The sign-up / log-in buttons open the prompt; only its Continue button and the MyTrips
+    // splash go straight to Google, which keeps the popup inside the click.
+    if (t.id === 'signup-prompt-signin') beginGoogleSignInWithLegal();
+    else if (t.id === 'mytrips-guest-signin') signInWithGoogle();
+    else requestGoogleSignIn();
   }
   document.addEventListener('click', go, true);
 })();
