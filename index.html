@@ -17,7 +17,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png?v=2">
-  <!-- Microsoft Clarity — loaded only after cookie Accept (see #rr-cookie-bar) -->
+  <!-- Microsoft Clarity — loaded only after the visitor agrees in #rr-cookie-bar -->
   <script>
     window.__rrLoadClarity = function () {
       if (window.__rrClarityLoaded) return;
@@ -967,24 +967,21 @@
       gap: 8px;
       flex-shrink: 0;
     }
-    #rr-cookie-decline,
-    #rr-cookie-accept {
-      border: none;
+    .rr-cookie-btn {
+      border: 1px solid #fff;
       border-radius: 4px;
-      padding: 9px 12px;
+      padding: 9px 14px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
-    }
-    #rr-cookie-decline {
-      background: transparent;
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.35);
-    }
-    #rr-cookie-accept {
       background: #fff;
       color: #07093e;
+    }
+    .rr-cookie-btn.secondary {
+      background: transparent;
+      color: #fff;
+      border-color: rgba(255,255,255,0.45);
     }
     #rr-cookie-modal[hidden] { display: none !important; }
     #rr-cookie-modal {
@@ -1085,24 +1082,6 @@
       flex-wrap: wrap;
       gap: 8px;
       justify-content: flex-end;
-    }
-    #rr-cookie-reject-optional,
-    #rr-cookie-save {
-      border: none;
-      border-radius: 4px;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    #rr-cookie-reject-optional {
-      background: transparent;
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.35);
-    }
-    #rr-cookie-save {
-      background: #fff;
-      color: #07093e;
     }
     /* Pre-load railroad picker (above loading-screen z-index 100000) */
     #rr-rail-picker {
@@ -5320,6 +5299,18 @@
    .footer .copyright {
      color: #a8c0e0;
    }
+   .footer .footer-link {
+     background: none;
+     border: 0;
+     padding: 0;
+     font: inherit;
+     color: #a8c0e0;
+     cursor: pointer;
+   }
+   .footer .footer-link:hover {
+     color: #ffffff;
+     text-decoration: underline;
+   }
 
     /* Header right cluster: auth + menu */
     .header-right {
@@ -6747,26 +6738,28 @@
       <a href="/policies/terms-of-use/" target="_blank">Terms of Use</a>
       <a href="/press/">Press</a>
       <a href="/policies/privacy/" target="_blank">Privacy Policy</a>
+      <button type="button" class="footer-link" id="footer-cookie-settings">Cookie settings</button>
     </div>
     <div></div>
   </div>
   <div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
-    <p>We use cookies to run RailroadRadar and (if you allow) analytics.</p>
+    <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity. <a href="/policies/privacy/#cookies" target="_blank">Learn more</a></p>
     <div class="rr-cookie-actions">
-      <button type="button" id="rr-cookie-decline">Customize</button>
-      <button type="button" id="rr-cookie-accept">I'm OK with that</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
     </div>
   </div>
   <div id="rr-cookie-modal" hidden aria-hidden="true">
     <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
     <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
       <h3 id="rr-cookie-modal-title">Cookie preferences</h3>
-      <p class="rr-cookie-modal-lead">Choose what this site may use on your device. Essential cookies are required.</p>
+      <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the map.</p>
       <ul class="rr-cookie-list">
         <li class="rr-cookie-row">
           <div class="rr-cookie-row-text">
-            <strong>Essential — Account sign-in</strong>
-            <span>Firebase Auth keeps you signed in for reports and account features.</span>
+            <strong>Essential</strong>
+            <span>Keeps you signed in and remembers your map settings in this browser.</span>
           </div>
           <label class="rr-cookie-switch is-locked">
             <input type="checkbox" id="rr-cookie-essential" checked disabled>
@@ -6775,38 +6768,18 @@
         </li>
         <li class="rr-cookie-row">
           <div class="rr-cookie-row-text">
-            <strong>Analytics — Microsoft Clarity</strong>
-            <span>Helps us see how the map is used (Clarity cookies from clarity.ms).</span>
+            <strong>Analytics</strong>
+            <span>Microsoft Clarity shows us how people use the map, using cookies from clarity.ms.</span>
           </div>
           <label class="rr-cookie-switch">
             <input type="checkbox" id="rr-cookie-clarity">
             <span>Allow</span>
           </label>
         </li>
-        <li class="rr-cookie-row">
-          <div class="rr-cookie-row-text">
-            <strong>Preferences — Saved settings</strong>
-            <span>Remembers notification and display choices in this browser (localStorage).</span>
-          </div>
-          <label class="rr-cookie-switch">
-            <input type="checkbox" id="rr-cookie-preferences" checked>
-            <span>Allow</span>
-          </label>
-        </li>
-        <li class="rr-cookie-row">
-          <div class="rr-cookie-row-text">
-            <strong>Functional — Live map tiles</strong>
-            <span>Loads map imagery from Mapbox / OpenStreetMap / similar providers. Needed for the map.</span>
-          </div>
-          <label class="rr-cookie-switch is-locked">
-            <input type="checkbox" id="rr-cookie-maptiles" checked disabled>
-            <span>Always on</span>
-          </label>
-        </li>
       </ul>
       <div class="rr-cookie-modal-actions">
-        <button type="button" id="rr-cookie-reject-optional">Reject optional</button>
-        <button type="button" id="rr-cookie-save">Save choices</button>
+        <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+        <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
       </div>
     </div>
   </div>
@@ -6846,11 +6819,9 @@
       }
 
       function openModal() {
-        var prefs = readPrefs() || { clarity: false, preferences: true };
+        var prefs = readPrefs() || { clarity: false };
         var c = document.getElementById('rr-cookie-clarity');
-        var pr = document.getElementById('rr-cookie-preferences');
         if (c) c.checked = !!prefs.clarity;
-        if (pr) pr.checked = prefs.preferences !== false;
         modal.hidden = false;
         modal.setAttribute('aria-hidden', 'false');
       }
@@ -6860,11 +6831,11 @@
         modal.setAttribute('aria-hidden', 'true');
       }
 
-      function saveFromUi(clarity, preferences) {
+      function saveFromUi(clarity) {
         var prefs = {
           decided: true,
           clarity: !!clarity,
-          preferences: preferences !== false,
+          preferences: true,
           decidedAt: new Date().toISOString()
         };
         writePrefs(prefs);
@@ -6887,33 +6858,15 @@
         bar.hidden = false;
       }
 
-      var accept = document.getElementById('rr-cookie-accept');
-      var customize = document.getElementById('rr-cookie-decline');
-      var saveBtn = document.getElementById('rr-cookie-save');
-      var rejectOpt = document.getElementById('rr-cookie-reject-optional');
-      var backdrop = document.getElementById('rr-cookie-modal-backdrop');
-
-      if (accept) accept.addEventListener('click', function () {
-        saveFromUi(true, true);
+      document.getElementById('rr-cookie-accept').addEventListener('click', function () { saveFromUi(true); });
+      document.getElementById('rr-cookie-decline').addEventListener('click', function () { saveFromUi(false); });
+      document.getElementById('rr-cookie-customize').addEventListener('click', openModal);
+      document.getElementById('rr-cookie-save').addEventListener('click', function () {
+        saveFromUi(document.getElementById('rr-cookie-clarity').checked);
       });
-      if (customize) customize.addEventListener('click', function () {
-        openModal();
-      });
-      if (saveBtn) saveBtn.addEventListener('click', function () {
-        var c = document.getElementById('rr-cookie-clarity');
-        var pr = document.getElementById('rr-cookie-preferences');
-        saveFromUi(c && c.checked, !pr || pr.checked);
-      });
-      if (rejectOpt) rejectOpt.addEventListener('click', function () {
-        var c = document.getElementById('rr-cookie-clarity');
-        var pr = document.getElementById('rr-cookie-preferences');
-        if (c) c.checked = false;
-        if (pr) pr.checked = false;
-        saveFromUi(false, false);
-      });
-      if (backdrop) backdrop.addEventListener('click', function () {
-        closeModal();
-      });
+      document.getElementById('rr-cookie-cancel').addEventListener('click', closeModal);
+      document.getElementById('rr-cookie-modal-backdrop').addEventListener('click', closeModal);
+      document.getElementById('footer-cookie-settings').addEventListener('click', openModal);
 
       /* Trip mytrips clarity cookies */
       window.openRrCookieSettings = openModal;

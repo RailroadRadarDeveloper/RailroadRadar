@@ -100,6 +100,7 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 .rr-cookie.on{display:block}
 .rr-cookie a{color:#fff;font-weight:700}
 .rr-cookie .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.rr-cookie .row[hidden]{display:none}
 .rr-cookie label{display:flex;gap:6px;align-items:center;margin:0;font-size:13px;font-weight:600;color:#fff}
 
 </style>
@@ -121,11 +122,15 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 </div>
 <div class="wrap" id="app" tabindex="-1"></div>
 <div class="rr-cookie" id="rr-cookie" hidden>
-  <div>We use cookies to run RailroadRadar and, if you allow, Microsoft Clarity analytics.</div>
+  <div>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity. <a href="/policies/privacy/#cookies">Learn more</a></div>
   <div class="row">
-    <label><input type="checkbox" id="rr-cookie-clarity"> Analytics — Microsoft Clarity</label>
-    <button class="btn" id="rr-cookie-accept" type="button">Accept</button>
-    <button class="btn sec" id="rr-cookie-decline" type="button">Decline</button>
+    <button class="btn" id="rr-cookie-decline" type="button">Decline</button>
+    <button class="btn sec" id="rr-cookie-customize" type="button">Customize</button>
+    <button class="btn" id="rr-cookie-accept" type="button">Agree</button>
+  </div>
+  <div class="row" id="rr-cookie-custom" hidden>
+    <label><input type="checkbox" id="rr-cookie-clarity"> Allow analytics (Microsoft Clarity)</label>
+    <button class="btn" id="rr-cookie-save" type="button">Save</button>
   </div>
 </div>
 
@@ -300,12 +305,11 @@ function rrCookieBar(){
     return;
   }
   box.hidden=false;box.classList.add('on');
-  const ck=document.getElementById('rr-cookie-clarity');
-  if(ck)ck.checked=true;
-  const acc=document.getElementById('rr-cookie-accept');
-  const dec=document.getElementById('rr-cookie-decline');
-  if(acc)acc.onclick=()=>rrSaveCookies(!!(ck&&ck.checked));
-  if(dec)dec.onclick=()=>rrSaveCookies(false);
+  const done=on=>{rrSaveCookies(on);box.hidden=true;box.classList.remove('on');};
+  document.getElementById('rr-cookie-accept').onclick=()=>done(true);
+  document.getElementById('rr-cookie-decline').onclick=()=>done(false);
+  document.getElementById('rr-cookie-customize').onclick=()=>{document.getElementById('rr-cookie-custom').hidden=false;};
+  document.getElementById('rr-cookie-save').onclick=()=>done(document.getElementById('rr-cookie-clarity').checked);
 }
 rrCookieBar();
 document.getElementById('in').onclick=()=>auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
