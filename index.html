@@ -9673,9 +9673,11 @@ function tripCardStationDotIcon() {
     }
     function rrLiveTrainIcon(heading, src) {
       const rot = isFinite(Number(heading)) ? Number(heading) : 90;
+      // Saved trips store the icon as text, so only a plain /assets/ image path is used.
+      if (!/^\/assets\/[A-Za-z0-9-]+\.png$/.test(src || '')) src = '/assets/hsp46.png';
       return L.divIcon({
         className: 'rr-live-train-icon',
-        html: '<img src="' + (src || '/assets/hsp46.png') + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
+        html: '<img src="' + src + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
         iconSize: [46, 20],
         iconAnchor: [23, 10]
       });
