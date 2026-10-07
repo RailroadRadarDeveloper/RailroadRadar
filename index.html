@@ -15126,6 +15126,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       const map = L.map('map').setView([43.0, -71.5], 7);
       try { window.rrMainMap = map; } catch (_) {}
+      // Reopen where the map was left, unless the link points at a train.
+      try {
+        const q = new URLSearchParams(location.search);
+        const view = JSON.parse(localStorage.getItem('rr_mapView') || 'null');
+        if (view && !q.get('train') && !q.get('t') && !q.get('focus')) map.setView([view.lat, view.lng], view.zoom, { animate: false });
+      } catch (_) {}
+      map.on('moveend', function() {
+        if (rrIsShareDeepLink()) return;
+        const c = map.getCenter();
+        try { localStorage.setItem('rr_mapView', JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })); } catch (_) {}
+      });
       try { if (typeof window.rrSpecialStartMapListener === 'function') setTimeout(function(){ window.rrSpecialStartMapListener(); }, 800); } catch (_) {}
       map.on('popupopen', function(ev) {
         try {
@@ -22736,7 +22747,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const q = rrReadTrainQuery();
         if (q.page) {
-          hasCenteredOnUser = true;
           rrStartTrainPage(q.page);
         } else if (q.focus) {
           rrOpenSharedTrainOnFullMap(q.focus);
@@ -24157,8 +24167,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         cycleDict(lirrMarkers);
         cycleDict(metraMarkers);
       }
-      document.getElementById('show-stations').addEventListener('change', e => { showStations = e.target.checked; updateStationVisibility(); });
-      document.getElementById('show-routes').addEventListener('change', e => toggleRoutes(e.target.checked));
+      document.getElementById('show-stations').addEventListener('change', e => {
+        showStations = e.target.checked;
+        updateStationVisibility();
+        safeStorage.set('rr_showStations', e.target.checked);
+      });
+      document.getElementById('show-routes').addEventListener('change', e => {
+        toggleRoutes(e.target.checked);
+        safeStorage.set('rr_showRoutes', e.target.checked);
+      });
       // Safe localStorage wrapper (prevents crashes in sandboxed iframes / Google Sites)
       const safeStorage = {
         get(key) {
@@ -24325,11 +24342,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           const saved = getMapRailPrefs();
           const el = document.getElementById('rr-rail-picker');
-          if (!el) {
-            resolve((saved && RR_MAP_RAIL_IDS.some(function(id) { return !!saved[id]; })) ? saved : defaultMapRailPrefs());
+          if (saved || !el) {
+            resolve(saved || defaultMapRailPrefs());
             return;
           }
-          syncPickerDom((saved && typeof saved === 'object') ? saved : defaultMapRailPrefs());
+          syncPickerDom(defaultMapRailPrefs());
           showRailPickerUi();
           const list = document.getElementById('rr-rail-picker-list');
           const go = document.getElementById('rr-rail-picker-go');
@@ -24529,6 +24546,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       applySavedMapTheme();
 
       // Load persisted UI preferences (safe)
+      if (safeStorage.get('rr_showRoutes') === 'false') {
+        document.getElementById('show-routes').checked = false;
+        toggleRoutes(false);
+      }
+      if (safeStorage.get('rr_showStations') === 'false') {
+        document.getElementById('show-stations').checked = false;
+        showStations = false;
+        updateStationVisibility();
+      }
       // Train labels now default to ON
       const savedShowLabels = safeStorage.get('rr_showLabels');
       const savedShowSpecial = safeStorage.get('rr_showOnlySpecial') === 'true';
@@ -24755,7 +24781,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let userLat = null;
       let userLng = null;
       let locationWatchId = null;
-      let hasCenteredOnUser = false;
+      let centerOnNextFix = false;
       function createUserLocationIcon() {
         return L.divIcon({
           className: 'user-location-marker',
@@ -24827,9 +24853,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           userMarker.bindTooltip('You are here', { permanent: false, direction: 'top' });
           userMarker.addTo(map);
         }
-        // Only auto-center the map on the first successful fix
-        if (!hasCenteredOnUser) {
-          hasCenteredOnUser = true;
+        // Only move the map when someone pressed Show My Location.
+        if (centerOnNextFix) {
+          centerOnNextFix = false;
           map.setView([userLat, userLng], 13);
         }
         renderClosestTrains(userLat, userLng);
@@ -24882,7 +24908,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           navigator.geolocation.clearWatch(locationWatchId);
           locationWatchId = null;
         }
-        hasCenteredOnUser = false;
+        centerOnNextFix = true;
         startLocationWatch();
       };
       setInterval(updateLabels, 5000);
