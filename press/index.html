@@ -40,7 +40,7 @@ try {
 </script>
 
 <meta name="theme-color" content="#07093e"/>
-<link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3"/>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -107,7 +107,7 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 <body>
 <a class="skip" href="#app">Skip to content</a>
 <div class="header">
-  <a href="https://railroadradar.com/"><img class="wordmark" src="https://railroadradar.com/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
+  <a href="/"><img class="wordmark" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
   <div class="header-right">
     <button class="hb" id="in">Sign in</button>
     <div class="user" id="user">
@@ -132,8 +132,8 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 <script>
 const CFG={apiKey:"AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",authDomain:"railroadradar-accounts.firebaseapp.com",projectId:"railroadradar-accounts",storageBucket:"railroadradar-accounts.firebasestorage.app",messagingSenderId:"896370923309",appId:"1:896370923309:web:594b0a20d3b1c6822e65a4"};
 const BOOT=['turokerr@gmail.com','railroadradar@gmail.com'];
-const A11Y_ICON='https://railroadradar.com/assets/icons/accessibility.png';
-const SHARE_ICON='https://railroadradar.com/assets/icons/share.png';
+const A11Y_ICON='/assets/icons/accessibility.png';
+const SHARE_ICON='/assets/icons/share.png';
 let auth,db,storage,user=null,perms=null,speaking=false;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const email=e=>String(e||'').trim().toLowerCase();

@@ -6,8 +6,8 @@
   <title>MyTrips · RailroadRadar</title>
   <meta name="theme-color" content="#07093e">
   <meta name="robots" content="noindex,nofollow">
-  <link rel="icon" type="image/png" sizes="32x32" href="https://railroadradar.com/assets/icons/favicon-32.png?v=3">
-  <link rel="apple-touch-icon" href="https://railroadradar.com/apple-touch-icon.png?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
@@ -109,13 +109,13 @@
 <body>
   <!-- /* Public user profile page */ -->
   <div class="header">
-    <a class="brand" href="https://railroadradar.com/mytrips/">
+    <a class="brand" href="/mytrips/">
       <picture class="header-logo-picture">
-        <source media="(min-width: 768px)" srcset="https://railroadradar.com/assets/brand/mytrips-logo-wide.png">
-        <img class="wordmark" src="https://railroadradar.com/assets/brand/mytrips-logo.png" alt="MyTrips by RailroadRadar">
+        <source media="(min-width: 768px)" srcset="/assets/brand/mytrips-logo-wide.png">
+        <img class="wordmark" src="/assets/brand/mytrips-logo.png" alt="MyTrips by RailroadRadar">
       </picture>
     </a>
-    <a class="hb" href="https://railroadradar.com/">Live map</a>
+    <a class="hb" href="/">Live map</a>
   </div>
   <div class="wrap" id="app">
     <div class="state" id="state-loading">
@@ -174,7 +174,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
     function showState(title, body) {
       document.getElementById('app').innerHTML =
         '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(body) + '</p>' +
-        '<p><a class="hb" href="https://railroadradar.com/">Back to live map</a></p></div>';
+        '<p><a class="hb" href="/">Back to live map</a></p></div>';
     }
     function railLabel(rr) {
       const id = String(rr || '').toLowerCase();
@@ -619,7 +619,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
             if (polys.length) rrRegisterTripShapePolylines('mbta', lid, polys);
             return polys.length ? polys : null;
           }
-          const url = 'https://railroadradar.com/assets/shapes/' + ag + '.json';
+          const url = '/assets/shapes/' + ag + '.json';
           const res = await fetch(url);
           if (!res.ok) return null;
           const data = await res.json();
@@ -815,7 +815,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
         '<div class="handle">@' + esc(profile.username || '') + '</div>' +
         '<div class="brand-note">MyTrips</div>' +
         '</div></div>' + list +
-        '<p class="footer-note">Public trip log on <a href="https://railroadradar.com/mytrips/">MyTrips</a></p>';
+        '<p class="footer-note">Public trip log on <a href="/mytrips/">MyTrips</a></p>';
       const ordered = upcoming.concat(past);
       Array.prototype.forEach.call(document.querySelectorAll('[data-trip-map]'), function (el, i) {
         const trip = ordered[i];
