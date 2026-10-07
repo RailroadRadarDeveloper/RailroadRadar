@@ -5611,6 +5611,7 @@
     }
     #rr-marc-paused[hidden] { display: none; }
     #map .leaflet-top { top: var(--rr-marc-paused-h, 0px); }
+    #map .leaflet-bottom { bottom: var(--rr-footer-h, 0px); }
     #rr-marc-paused button {
       background: none;
       border: 0;
@@ -9216,7 +9217,7 @@
     }
 
 function tripCardStationDotIcon() {
-      // Same station dot as main-map createStationIcon (/assets/station.png).
+      // Same station dot look as the main map (/assets/station.png).
       if (tripCardStationDotIcon._cached) return tripCardStationDotIcon._cached;
       tripCardStationDotIcon._cached = L.icon({
         iconUrl: rrAssetUrl('/assets/station.png'),
@@ -15124,7 +15125,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           });
         } catch (_) {}
       }
-      const map = L.map('map').setView([43.0, -71.5], 7);
+      // Keep the Mapbox and OpenStreetMap credits above the footer, which covers the bottom of the map.
+      function rrSyncFooterHeight() {
+        const f = document.querySelector('.footer');
+        document.documentElement.style.setProperty('--rr-footer-h', (f && f.getClientRects().length ? f.offsetHeight : 0) + 'px');
+      }
+      rrSyncFooterHeight();
+      window.addEventListener('resize', rrSyncFooterHeight);
+      // Leaflet only draws lines a little past the screen edge and fills in the rest when a drag ends,
+      // so route lines cover a full screen past each edge to stay drawn while dragging.
+      const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
       try { window.rrMainMap = map; } catch (_) {}
       try { if (typeof window.rrSpecialStartMapListener === 'function') setTimeout(function(){ window.rrSpecialStartMapListener(); }, 800); } catch (_) {}
       map.on('popupopen', function(ev) {
@@ -17798,7 +17808,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const stationsByName = {};
       let schedules = {};
       let highlightedMarker = null;
-      let highlightedStation = null;
       let showStations = true;
       let showTrainLabels = true;   // Default ON
       let showClusters = false;     // Default OFF — always show HSP icons; toggle enables label declutter badge
@@ -17907,10 +17916,70 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       setInterval(function() {
         loadVerifiedReporters().catch(function() {});
       }, 7 * 60 * 1000);
-      function createStationIcon() {
-        if (createStationIcon._cached) return createStationIcon._cached;
-        createStationIcon._cached = L.icon({ iconUrl: rrAssetUrl('/assets/station.png'), iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9] });
-        return createStationIcon._cached;
+      // Hundreds of station dots as separate images made panning and zooming slow, so they are
+      // drawn on one canvas in their own pane, above route lines and below trains.
+      map.createPane('rrStations').style.zIndex = 450;
+      // The same white-edged, navy-ringed dot as /assets/station.png.
+      function drawStationDot(ctx, p) {
+        [[8, '#fff'], [7, '#07093e'], [6, '#f1f2f2']].forEach(function(ring) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, ring[0], 0, Math.PI * 2);
+          ctx.fillStyle = ring[1];
+          ctx.fill();
+        });
+      }
+      // Leaflet's zoom animation runs 0.25 s on cubic-bezier(0, 0, 0.25, 1); this is that curve.
+      function rrZoomEase(x) {
+        let lo = 0, hi = 1, t = x;
+        for (let i = 0; i < 20; i++) {
+          t = (lo + hi) / 2;
+          if (0.75 * t * t + 0.25 * t * t * t < x) lo = t; else hi = t;
+        }
+        return 3 * t * t - 2 * t * t * t;
+      }
+      // Leaflet stretches a canvas while zooming, which would grow or shrink the dots. This one
+      // redraws them at their moving positions instead, so they keep their size like train markers.
+      const StationCanvas = L.Canvas.extend({
+        _drawPoints: function(points) {
+          const b = this._bounds;
+          const ctx = this._ctx;
+          if (!b || !ctx) return;
+          ctx.clearRect(b.min.x, b.min.y, b.max.x - b.min.x, b.max.y - b.min.y);
+          points.forEach(function(p) { drawStationDot(ctx, p); });
+        },
+        _onZoom: function() {
+          const points = [];
+          for (const id in this._layers) points.push(map.latLngToLayerPoint(this._layers[id].getLatLng()));
+          this._drawPoints(points);
+        },
+        _onAnimZoom: function(ev) {
+          const self = this;
+          const moves = [];
+          for (const id in this._layers) {
+            const ll = this._layers[id].getLatLng();
+            const from = map.latLngToLayerPoint(ll);
+            moves.push([from, map._latLngToNewLayerPoint(ll, ev.zoom, ev.center).subtract(from)]);
+          }
+          const start = performance.now();
+          cancelAnimationFrame(this._rrFrame);
+          const step = function(now) {
+            const k = rrZoomEase(Math.min(1, (now - start) / 250));
+            self._drawPoints(moves.map(function(m) { return m[0].add(m[1].multiplyBy(k)); }));
+            if (k < 1 && map._animatingZoom) self._rrFrame = requestAnimationFrame(step);
+          };
+          this._rrFrame = requestAnimationFrame(step);
+        }
+      });
+      const stationRenderer = new StationCanvas({ pane: 'rrStations', padding: 0.5 });
+      const StationDot = L.CircleMarker.extend({
+        _updatePath: function() {
+          const r = this._renderer;
+          if (!r._drawing || this._empty()) return;
+          drawStationDot(r._ctx, this._point);
+        }
+      });
+      function createStationDot(lat, lng) {
+        return new StationDot([lat, lng], { renderer: stationRenderer, radius: 8 });
       }
       function agencyStationsVisible(agency) {
         if (!showStations) return false;
@@ -17936,9 +18005,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const esc = (typeof escapeHtml === 'function') ? escapeHtml(title) : title.replace(/</g, '&lt;');
         const labels = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
         const agencyLabel = labels[a] || a.toUpperCase();
-        const m = L.marker([latN, lngN], { icon: createStationIcon(), zIndexOffset: -1000 });
+        const m = createStationDot(latN, lngN);
         m._rrAgency = a;
-        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { if (a !== 'amtrak') { if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); } } }
+        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); }
         stationMarkers[key] = m;
         if (agencyStationsVisible(a)) m.addTo(map);
         return m;
@@ -18519,12 +18588,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           className: 'amtrak-nec-icon amtrak-default-icon'
         });
       }
+      // toLocaleTimeString builds a new formatter on every call, and these run for every stop of every
+      // train on each refresh, so they share one.
+      const RR_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
+      function rrClockTime(d) {
+        return isNaN(d) ? '' : RR_TIME_FORMAT.format(d);
+      }
       function formatAmtrakTime(iso) {
         if (!iso) return '';
         try {
           const d = new Date(iso);
           if (isNaN(d.getTime())) return '';
-          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return rrClockTime(d);
         } catch (_) { return ''; }
       }
       function parseAmtrakDelayMinutes(s) {
@@ -19155,7 +19230,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function mnrFormatTime(d) {
         if (!d) return null;
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return rrClockTime(d);
       }
       function mnrStopCoords(stopId) {
         if (!stopId) return null;
@@ -19289,7 +19364,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
         const track = info.track || null;
         const lastSeenTime = mnrLastSeen[vid]
-          ? new Date(mnrLastSeen[vid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          ? rrClockTime(new Date(mnrLastSeen[vid]))
           : '—';
         const mnrBadge = '<span class="cape-badge" style="background:#0039A6;">Metro-North</span>';
         const mnrSpecial = getSpecialForVehicle('mnr', null, num) || info.specialUnit || null;
@@ -19533,7 +19608,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function lirrFormatTime(d) {
         if (!d) return null;
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return rrClockTime(d);
       }
       function lirrStopCoords(stopId) {
         if (!stopId) return null;
@@ -19705,7 +19780,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
         const track = info.track || null;
         const lastSeenTime = lirrLastSeen[vid]
-          ? new Date(lirrLastSeen[vid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          ? rrClockTime(new Date(lirrLastSeen[vid]))
           : '—';
         const lirrBadge = '<span class="cape-badge" style="background:#0039A6;">LIRR</span>';
         const lirrSpecial = getSpecialForVehicle('lirr', null, num) || info.specialUnit || null;
@@ -19960,7 +20035,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function metraFormatTime(d) {
         if (!d) return null;
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return rrClockTime(d);
       }
       function metraStopCoords(stopId) {
         if (!stopId) return null;
@@ -20049,7 +20124,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const statusPillClass = info.statusPillClass || 'status-on-time';
         const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
         const lastSeenTime = metraLastSeen[vid]
-          ? new Date(metraLastSeen[vid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          ? rrClockTime(new Date(metraLastSeen[vid]))
           : '—';
         const metraBadge = '<span class="cape-badge" style="background:#0055A4;">Metra</span>';
         const metraSpecial = getSpecialForVehicle('metra', info.vehicleId || null, num) || info.specialUnit || null;
@@ -20483,7 +20558,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const status = info.statusText || 'Live';
         const statusPillClass = info.statusPillClass || 'status-scheduled';
         const lastSeenTime = njtLastSeen[vid]
-          ? new Date(njtLastSeen[vid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          ? rrClockTime(new Date(njtLastSeen[vid]))
           : '—';
         const njtBadge = '<span class="cape-badge" style="background:' + NJT_COLOR + ';">NJ Transit</span>';
         const njtSpecial = getSpecialForVehicle('njt', null, num) || info.specialUnit || null;
@@ -20706,7 +20781,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function marcFormatTime(d) {
         if (!d) return null;
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return rrClockTime(d);
       }
       function marcStopCoords(stopId) {
         const s = MARC_STATIC.stops[String(stopId || '')];
@@ -20767,7 +20842,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const status = info.statusText || 'On Time';
         const statusPillClass = info.statusPillClass || 'status-on-time';
         const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
-        const lastSeenTime = marcLastSeen[vid] ? new Date(marcLastSeen[vid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '\u2014';
+        const lastSeenTime = marcLastSeen[vid] ? rrClockTime(new Date(marcLastSeen[vid])) : '\u2014';
         const badge = '<span class="cape-badge" style="background:#FF8000;">MARC</span>';
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMarcTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('marc', vid, num) : '';
@@ -20976,7 +21051,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const g = stationsByName[skey];
             const n = g.stopIds.length;
             g.lat /= n; g.lng /= n;
-            const m = L.marker([g.lat, g.lng], { icon: createStationIcon(), zIndexOffset: -1000 });
+            const m = createStationDot(g.lat, g.lng);
             m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
             m.on('popupopen', async () => {
               const deps = await getStationDepartures(g.stopIds);
@@ -21972,7 +22047,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function resetAllMarkerHighlights() {
         if (highlightedMarker && map.hasLayer(highlightedMarker)) { highlightedMarker.getElement().classList.remove('highlighted-train'); highlightedMarker = null; }
-        if (highlightedStation && map.hasLayer(highlightedStation)) { highlightedStation.getElement().classList.remove('highlighted-station'); highlightedStation = null; }
         map.closePopup();
       }
       // Search Type Menu Logic
@@ -24120,7 +24194,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             '</div>';
           d.onclick = function() {
             map.setView([r.lat, r.lng], 15);
-            if (highlightedStation) highlightedStation.getElement()?.classList.remove('highlighted-station');
             var m = null;
             if (r.markerId && stationMarkers[r.markerId]) m = stationMarkers[r.markerId];
             if (!m && r.agency && r.id) {
@@ -24128,11 +24201,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (prefix === 'metro-north') prefix = 'mnr';
               m = stationMarkers[prefix + ':' + String(r.id).split('-').slice(1).join('-')] || null;
             }
-            if (m) {
-              m.openPopup();
-              if (m.getElement()) m.getElement().classList.add('highlighted-station');
-              highlightedStation = m;
-            }
+            if (m) m.openPopup();
             container.classList.remove('active');
             document.getElementById('control-panel').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
