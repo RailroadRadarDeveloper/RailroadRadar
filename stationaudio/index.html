@@ -2285,16 +2285,7 @@
       } catch (e) { notes.push('NJ Transit alerts unavailable'); }
     })());
 
-    jobs.push((async function () {
-      try {
-        var pos = await getBufFirst(['https://railroadradar.com/feeds/marc-vp.pb', 'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-vp.pb']);
-        var tu = await getBufFirst(['https://railroadradar.com/feeds/marc-tu.pb', 'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-tu.pb']);
-        var ents = A.decodeFeed(pos).concat(A.decodeFeed(tu));
-        var pack = A.gtfsTrains(ents, 'marc', 'MARC', TABLES.marc.routes, TABLES.marc.stops);
-        pack.trains.forEach(function (t) { trains.push(t); });
-        notes.push(pack.hadCoords ? 'MARC' : 'MARC (no coordinates, approaching skipped)');
-      } catch (e) { notes.push('MARC failed'); }
-    })());
+    notes.push('MARC paused');
 
     await Promise.all(jobs);
     if (!state.station || state.station.key !== station.key) return;
