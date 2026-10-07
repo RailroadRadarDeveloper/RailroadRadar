@@ -6,8 +6,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Every email-based check goes through here, so an unverified email never counts.
     function authEmailLower() {
       return signedIn() && request.auth.token.email is string
+          && request.auth.token.email_verified == true
         ? request.auth.token.email.lower()
         : '';
     }
@@ -172,11 +174,12 @@ service cloud.firestore {
 
 
     // Shared lean cache of observed/past stop departure times for live train popups.
-    // Public read+write: values are derived from public GTFS/realtime feeds (not PII).
+    // Public read, signed-in write: values are derived from public GTFS/realtime feeds (not PII).
     // Schema-validated; size-capped. Admins may delete stale docs.
     match /trainStopActuals/{id} {
       allow read: if true;
-      allow create, update: if request.resource.data.keys().hasAll([
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasAll([
           'agency', 'trainNumber', 'serviceDate', 'stops', 'updatedAt'
         ])
         && request.resource.data.agency is string
@@ -211,10 +214,7 @@ service cloud.firestore {
 
     match /pressReleases/{id} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null && (
-        request.auth.token.email in ['turokerr@gmail.com', 'railroadradar@gmail.com']
-        || exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
-      );
+      allow create, update, delete: if isAdmin();
     }
 
     match /pressReleases/{id}/comments/{cid} {
@@ -225,9 +225,7 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 2000;
       allow delete: if request.auth != null && (
-        request.auth.uid == resource.data.uid
-        || request.auth.token.email in ['turokerr@gmail.com', 'railroadradar@gmail.com']
-        || exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
+        request.auth.uid == resource.data.uid || isAdmin()
       );
     }
   }
