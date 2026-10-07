@@ -1,9 +1,0 @@
- routes.append({"id": rid, "name": name, "color": color, "polylines": polys})
-missing = [r["name"] for r in routes if not r["polylines"]]
-if missing:
-    raise SystemExit("missing geometry " + ",".join(missing))
-doc = {"agency": "amtrak", "routes": routes}
-OUT.parent.mkdir(parents=True, exist_ok=True)
-raw = json.dumps(doc, separators=(",", ":")).encode()
-OUT.write_bytes(raw)
-pr
