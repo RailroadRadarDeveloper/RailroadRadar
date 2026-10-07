@@ -20782,6 +20782,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     }
     function rrSaveStopActuals(agency, trainNumber, serviceDate, stops) {
       if (typeof db === 'undefined' || !db || !stops || !stops.length) return;
+      // Firestore only accepts stop actuals from signed-in users.
+      if (!auth || !auth.currentUser) return;
       const id = rrStopActualDocId(agency, trainNumber, serviceDate);
       const payloadStops = stops.map(function(s) {
         const actual = s.formattedActualTime || (s.isCompleted ? (s.formattedPredictedTime || s.formattedScheduledTime) : null);
