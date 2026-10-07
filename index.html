@@ -5196,7 +5196,20 @@
       display: block;
       object-fit: contain;
     }
-    #settings-account-section .rr-modal-hint { font-size: 13px; color: #555; }
+    #settings-account-section .rr-modal-hint { font-size: 13px; color: #555; margin: 0; }
+    /* .toggle-section div is a flex row; these blocks stack, and [hidden] has to win. */
+    #settings-account-section > div { display: block; }
+    #settings-account-section > div[hidden] { display: none; }
+    #settings-account-section .cabcar-report-btn { margin-top: 12px; }
+    .settings-account-name { margin: 0; font-weight: 700; }
+    .settings-account-email { margin: 2px 0 0; font-size: 13px; color: #555; overflow-wrap: anywhere; }
+    #settings-account-section .settings-account-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0 0;
+    }
+    #settings-account-section .settings-account-actions .cabcar-report-btn { margin-top: 0; }
     .rr-profile-name-row {
       display: flex;
       align-items: center;
@@ -5390,7 +5403,9 @@
       position: absolute;
       top: calc(100% + 8px);
       right: 0;
-      min-width: 200px;
+      min-width: 220px;
+      width: max-content;
+      max-width: min(340px, calc(100vw - 16px));
       background: #fff;
       color: #07093e;
       box-shadow: 0 8px 24px rgba(0,0,0,0.22);
@@ -5398,12 +5413,21 @@
       z-index: 10002;
       padding: 8px 0;
     }
+    /* Covers the gap above the menu so moving the pointer down to it keeps it open. */
+    .header-account-menu::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -10px;
+      height: 10px;
+    }
     .header-account-email {
       padding: 8px 12px 10px;
       font-size: 12px;
       color: #555;
       border-bottom: 1px solid #eee;
-      word-break: break-all;
+      overflow-wrap: anywhere;
     }
     .header-account-menu .header-auth-btn {
       display: block;
@@ -5417,13 +5441,6 @@
     }
     .header-account-menu a.header-auth-btn { text-decoration: none; box-sizing: border-box; }
     .header-account-menu .header-auth-btn:hover { background: #f1f2f6; }
-    .header-account-menu .header-auth-btn.delete-account {
-      color: #c0392b;
-    }
-    .header-account-menu .header-auth-btn.delete-account:hover {
-      background: #fdecea;
-      color: #c0392b;
-    }
     .header-user-avatar {
       cursor: pointer;
     }
@@ -6062,8 +6079,7 @@
             <a class="header-auth-btn" id="header-menu-mytrips" href="/mytrips/" role="menuitem">MyTrips</a>
             <button type="button" class="header-auth-btn" id="header-menu-account-settings" role="menuitem">Account settings</button>
             <button type="button" class="header-auth-btn" id="header-menu-cookie-settings" role="menuitem">Cookie settings</button>
-                        <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
-            <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" role="menuitem">Delete account</button>
+            <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
           </div>
         </div>
       </div>
@@ -6159,13 +6175,16 @@
       <div class="toggle-section" id="settings-account-section">
         <h3>Account</h3>
         <div id="settings-account-signed-out">
-          <p class="rr-modal-hint" style="margin-top:0;">Sign in to manage how your reports are shown and which railroads you follow.</p>
+          <p class="rr-modal-hint">Sign in to report locomotives, log your trips, and choose which railroads you follow.</p>
           <button type="button" id="btn-account-signin-panel" class="cabcar-report-btn">Sign up / Log in</button>
         </div>
         <div id="settings-account-signed-in" hidden>
-          <p id="settings-account-summary" style="margin:0 0 10px; font-weight:700;"></p>
-          <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
-          <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn" style="margin-top:8px;">Trip log</button>
+          <p class="settings-account-name" id="settings-account-name"></p>
+          <p class="settings-account-email" id="settings-account-email"></p>
+          <div class="settings-account-actions">
+            <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
+            <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn">Trip log</button>
+          </div>
         </div>
       </div>
       <div class="toggle-section" id="settings-notifications-section">
@@ -14448,10 +14467,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (_) {}
         const signedOut = document.getElementById('settings-account-signed-out');
         const signedIn = document.getElementById('settings-account-signed-in');
-        const summary = document.getElementById('settings-account-summary');
         if (signedOut) signedOut.hidden = true;
         if (signedIn) signedIn.hidden = false;
-        if (summary) summary.textContent = label + (user.email ? ' · ' + user.email : '');
+        document.getElementById('settings-account-name').textContent = label;
+        document.getElementById('settings-account-email').textContent = user.email || '';
         updateAdminChrome(user);
       } else {
         btnIn.style.display = '';
@@ -14467,10 +14486,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (avatar) { avatar.removeAttribute('src'); avatar.alt = 'Account'; }
         const signedOutOff = document.getElementById('settings-account-signed-out');
         const signedInOff = document.getElementById('settings-account-signed-in');
-        const summaryOff = document.getElementById('settings-account-summary');
         if (signedOutOff) signedOutOff.hidden = false;
         if (signedInOff) signedInOff.hidden = true;
-        if (summaryOff) summaryOff.textContent = '';
       }
     }
 
@@ -14785,10 +14802,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
 
     function wireAuthUI() {
       const btnOut = document.getElementById('btn-google-signout');
-      const btnDel = document.getElementById('btn-delete-account');
       const btnSettings = document.getElementById('btn-account-settings');
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
-      if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
       if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
       const menuSettings = document.getElementById('header-menu-account-settings');
       if (menuSettings) menuSettings.addEventListener('click', function(e) {
