@@ -28,8 +28,8 @@ h1{margin:0 0 8px}
 .back{color:#fff;font-weight:700;text-decoration:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:22px;margin-top:22px}
 .card{background:#0c1448;color:#fff;border:1px solid var(--line);padding:0;overflow:hidden;display:block;text-decoration:none}
-.card img,.hero img{width:100%;object-fit:cover;background:#132047;display:block}
-.card img{height:280px}.hero img{width:100%;height:52vh;min-height:320px;object-fit:cover}
+.card img:not(.verified-badge),.hero img:not(.verified-badge){width:100%;object-fit:cover;background:#132047;display:block}
+.card img:not(.verified-badge){height:280px}.hero img:not(.verified-badge){width:100%;height:52vh;min-height:320px;object-fit:cover}
 .card .body{padding:22px 24px}.card h2{font-size:28px}
 .wrap.location{max-width:none;padding:60px 0 48px}.hero{background:transparent;border:0;margin:0}.hero .copy{max-width:860px;margin:0 auto;padding:28px 20px 0}.hero .back{display:inline-block;margin:16px 20px 0}
 .card h2{margin:6px 0;font-size:20px}
@@ -141,7 +141,7 @@ function fields(d){
   return {photo:/^https:\/\//.test(d.photo||'')?d.photo:'',link:/^https:\/\//.test(d.link||'')?d.link:'',name:esc(d.name),kind:esc(d.kind||'Place'),bio:esc(d.bio),address:esc(d.address),verified:!!d.verified};
 }
 function nameHtml(name,verified){
-  return esc(name)+(verified?'<img class="verified-badge" src="/assets/admin-badge.png" alt="Verified location" title="Verified location" width="22" height="22">':'');
+  return esc(name)+(verified?'<img class="verified-badge" src="/assets/admin-badge.png" alt="Verified location" title="Verified location" width="22" height="22" style="width:22px;height:22px;max-width:22px;max-height:22px;display:inline-block;vertical-align:-3px;margin-left:6px;object-fit:contain">':'');
 }
 function card(id,d){
   var f=fields(d);
