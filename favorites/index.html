@@ -42,6 +42,13 @@ form{background:#0c1448;border:1px solid var(--line);padding:18px 20px;margin-to
 label{display:block;margin:12px 0 4px;font-weight:700}
 input,textarea,select{width:100%;border:0;padding:10px;font:inherit}
 button.hb.remove{background:transparent;color:#fff}
+.verified-badge{width:0.92em;height:0.92em;object-fit:contain;vertical-align:-0.08em;margin-left:0.22em}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none;align-items:flex-start;justify-content:center;padding:84px 16px 24px;overflow:auto}
+.modal.open{display:flex}
+.modal form{width:min(640px,100%);margin:0}
+.check{display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:700}
+.check input{width:auto}
+
 </style>
 </head>
 <body>
@@ -62,10 +69,13 @@ button.hb.remove{background:transparent;color:#fff}
   <div id="app">
     <h1>Trackside Favorites</h1>
     <p class="lede">Restaurants, stores, and other businesses that are easy to reach by public transit, train-themed, or welcoming to train fans.</p>
+    <button class="hb" id="add" type="button" hidden>Add a favorite</button>
     <div class="grid" id="list"></div>
     <p class="empty" id="empty">No favorites yet.</p>
   </div>
-  <form id="admin-form" hidden>
+</div>
+<div class="modal" id="modal" hidden>
+  <form id="admin-form">
     <h2 id="form-title">Add a favorite</h2>
     <label for="name">Location name</label>
     <input id="name" maxlength="80" required>
@@ -85,9 +95,10 @@ button.hb.remove{background:transparent;color:#fff}
     <textarea id="bio" rows="4" maxlength="600" required></textarea>
     <label for="link">Link</label>
     <input id="link" type="url" placeholder="https://">
+    <label class="check" for="verified"><input id="verified" type="checkbox"> Verified location</label>
     <div class="actions">
       <button class="hb" type="submit" id="save">Publish</button>
-      <button class="hb remove" type="button" id="cancel" hidden>Cancel</button>
+      <button class="hb remove" type="button" id="cancel">Cancel</button>
     </div>
   </form>
 </div>
@@ -118,31 +129,48 @@ function accessHtml(d){
   return (title?'<p class="access">'+esc(title)+'</p>':'')+(station?'<p class="access">Closest Station: '+esc(station)+'</p>':'');
 }
 function fields(d){
-  return {photo:/^https:\/\//.test(d.photo||'')?d.photo:'',link:/^https:\/\//.test(d.link||'')?d.link:'',name:esc(d.name),kind:esc(d.kind||'Place'),bio:esc(d.bio),address:esc(d.address)};
+  return {photo:/^https:\/\//.test(d.photo||'')?d.photo:'',link:/^https:\/\//.test(d.link||'')?d.link:'',name:esc(d.name),kind:esc(d.kind||'Place'),bio:esc(d.bio),address:esc(d.address),verified:!!d.verified};
+}
+function nameHtml(name,verified){
+  return esc(name)+(verified?'<img class="verified-badge" src="/assets/admin-badge.png" alt="Verified location" title="Verified location" width="18" height="18">':'');
 }
 function card(id,d){
   var f=fields(d);
-  return '<a class="card" href="'+esc(pageUrl(id))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+f.name+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
+  return '<a class="card" href="'+esc(pageUrl(id))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+nameHtml(d.name,f.verified)+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
 }
 function bindDetail(id){
   var edit=document.getElementById('edit');
-  if(edit) edit.onclick=function(){location.href='/favorites/?id='+encodeURIComponent(id)+'&edit=1';};
+  if(edit) edit.onclick=function(){openForm(window.currentFavorite||{});};
   var remove=document.getElementById('remove');
   if(remove) remove.onclick=function(){if(confirm('Remove this favorite?')) db.collection('tracksideFavorites').doc(id).delete().then(function(){location.href='/favorites/';});};
 }
 function showDetail(id,d){
   var f=fields(d);
   document.title=(d.name||'Favorite')+' · RailroadRadar';
-  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+f.name+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
+  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+nameHtml(d.name,f.verified)+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
   bindDetail(id);
 }
 function fillForm(d){
   ['name','kind','address','railroad','line','station','photo','bio','link'].forEach(function(key){document.getElementById(key).value=d[key]||'';});
   if(!d.kind) document.getElementById('kind').value='Restaurant';
+  document.getElementById('verified').checked=!!d.verified;
+}
+function openForm(d){
+  editing=d&&d.id?d.id:(idFromUrl()||null);
+  fillForm(d||{});
+  document.getElementById('form-title').textContent=editing?'Edit favorite':'Add a favorite';
+  document.getElementById('save').textContent=editing?'Save':'Publish';
+  var modal=document.getElementById('modal');
+  modal.hidden=false; modal.classList.add('open');
+}
+function closeForm(){
+  var modal=document.getElementById('modal');
+  modal.classList.remove('open'); modal.hidden=true;
+  if(!idFromUrl()) editing=null;
 }
 function payload(){
   var user=auth.currentUser;
-  return {name:document.getElementById('name').value.trim().slice(0,80),kind:document.getElementById('kind').value,address:document.getElementById('address').value.trim().slice(0,160),railroad:document.getElementById('railroad').value.trim().slice(0,80),line:document.getElementById('line').value.trim().slice(0,80),station:document.getElementById('station').value.trim().slice(0,80),photo:document.getElementById('photo').value.trim(),bio:document.getElementById('bio').value.trim().slice(0,600),link:document.getElementById('link').value.trim(),updatedAt:Date.now(),updatedBy:user?user.uid:''};
+  return {name:document.getElementById('name').value.trim().slice(0,80),kind:document.getElementById('kind').value,address:document.getElementById('address').value.trim().slice(0,160),railroad:document.getElementById('railroad').value.trim().slice(0,80),line:document.getElementById('line').value.trim().slice(0,80),station:document.getElementById('station').value.trim().slice(0,80),photo:document.getElementById('photo').value.trim(),bio:document.getElementById('bio').value.trim().slice(0,600),link:document.getElementById('link').value.trim(),verified:document.getElementById('verified').checked,updatedAt:Date.now(),updatedBy:user?user.uid:''};
 }
 function load(){
   var id=idFromUrl();
@@ -151,23 +179,19 @@ function load(){
     db.collection('tracksideFavorites').doc(id).onSnapshot(function(doc){
       if(!doc.exists){document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><p class="empty">This favorite could not be found.</p>'; form.hidden=true; return;}
       var data=doc.data()||{};
+      data.id=id;
+      window.currentFavorite=data;
       showDetail(id,data);
-      var wantsEdit=isAdmin && new URLSearchParams(location.search).get('edit')==='1';
-      editing=wantsEdit?id:null;
-      form.hidden=!wantsEdit;
-      document.getElementById('form-title').textContent=wantsEdit?'Edit favorite':'Add a favorite';
-      document.getElementById('save').textContent=wantsEdit?'Save':'Publish';
-      document.getElementById('cancel').hidden=!wantsEdit;
-      if(wantsEdit) fillForm(data);
+      form.hidden=true;
+      if(isAdmin && new URLSearchParams(location.search).get('edit')==='1') openForm(data);
     },function(err){document.getElementById('app').innerHTML='<p class="empty">Could not open this favorite ('+(err&&err.code||'unknown')+').</p>';});
     return;
   }
   editing=null;
   document.querySelector('.wrap').classList.remove('location');
-  form.hidden=!isAdmin;
-  document.getElementById('form-title').textContent='Add a favorite';
-  document.getElementById('save').textContent='Publish';
-  document.getElementById('cancel').hidden=true;
+  closeForm();
+  var add=document.getElementById('add');
+  if(add) add.hidden=!isAdmin;
   db.collection('tracksideFavorites').onSnapshot(function(snap){
     var rows=[]; snap.forEach(function(doc){rows.push({id:doc.id,data:doc.data()||{}});});
     rows.sort(function(a,b){return (b.data.createdAt||0)-(a.data.createdAt||0);});
@@ -182,7 +206,9 @@ function load(){
     empty.textContent=code==='permission-denied'?'Firebase is still blocking this list. Publish the tracksideFavorites rules.':'Favorites could not load ('+code+').';
   });
 }
-document.getElementById('cancel').onclick=function(){if(editing) location.href='/favorites/?id='+encodeURIComponent(editing);};
+document.getElementById('cancel').onclick=function(){closeForm();};
+document.getElementById('add').onclick=function(){editing=null; openForm({});};
+document.getElementById('modal').addEventListener('click',function(ev){if(ev.target.id==='modal') closeForm();});
 document.getElementById('admin-form').addEventListener('submit',function(ev){
   ev.preventDefault(); var user=auth.currentUser; if(!user)return;
   var data=payload();
