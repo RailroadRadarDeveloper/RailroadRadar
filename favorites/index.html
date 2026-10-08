@@ -14,7 +14,7 @@
 .header .wordmark{height:40px;width:auto;display:block}
 .header-right{display:flex;gap:8px;align-items:center}
 .hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
-.hb:focus{outline:2px solid #fff;outline-offset:2px}
+.hb:focus,.back:focus{outline:2px solid #fff;outline-offset:2px}
 .user{display:none;position:relative;align-items:center}
 .pfp-btn{width:34px;height:34px;padding:0;border:0;background:transparent;cursor:pointer}
 .pfp-btn img,.user-fallback{width:34px;height:34px;border-radius:50%;object-fit:cover;display:block}
@@ -24,19 +24,24 @@
 .acct-menu .hb{width:100%}
 .wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
 h1{margin:0 0 8px}
-.lede,.empty{color:var(--muted)}
+.lede,.empty,.url{color:var(--muted)}
+.back{color:#fff;font-weight:700;text-decoration:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:18px}
-.card{background:#0c1448;color:#fff;border:1px solid var(--line);padding:0;overflow:hidden}
-.card img{width:100%;height:170px;object-fit:cover;background:#132047;display:block}
-.card .body{padding:18px 20px}
-.card h2{margin:6px 0;font-size:20px}
+.card{background:#0c1448;color:#fff;border:1px solid var(--line);padding:0;overflow:hidden;display:block;text-decoration:none}
+.card img,.hero img{width:100%;height:170px;object-fit:cover;background:#132047;display:block}
+.hero img{height:280px}
+.card .body,.hero{padding:18px 20px}
+.hero{background:#0c1448;border:1px solid var(--line);margin-top:16px}
+.card h2,.hero h1{margin:6px 0;font-size:20px}
+.hero h1{font-size:32px}
 .kind{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase}
-.card p{line-height:1.45}
-.card a{color:#fff;font-weight:800}
+.card p,.hero p{line-height:1.45}
+.card a,.hero a{color:#fff;font-weight:800}
+.actions{display:flex;gap:8px;margin-top:14px}
 form{background:#0c1448;border:1px solid var(--line);padding:18px 20px;margin-top:22px}
 label{display:block;margin:12px 0 4px;font-weight:700}
 input,textarea,select{width:100%;border:0;padding:10px;font:inherit}
-button.hb.remove{background:transparent;color:#fff;padding:8px 0 0}
+button.hb.remove{background:transparent;color:#fff}
 </style>
 </head>
 <body>
@@ -53,13 +58,13 @@ button.hb.remove{background:transparent;color:#fff;padding:8px 0 0}
     </div>
   </div>
 </div>
-<div class="wrap">
+<div class="wrap" id="app">
   <h1>Trackside Favorites</h1>
   <p class="lede">Restaurants, stores, and other businesses that are easy to reach by public transit, train-themed, or welcoming to train fans.</p>
   <div class="grid" id="list"></div>
   <p class="empty" id="empty">No favorites yet.</p>
   <form id="admin-form" hidden>
-    <h2>Add a favorite</h2>
+    <h2 id="form-title">Add a favorite</h2>
     <label for="name">Location name</label>
     <input id="name" maxlength="80" required>
     <label for="kind">Type</label>
@@ -70,7 +75,10 @@ button.hb.remove{background:transparent;color:#fff;padding:8px 0 0}
     <textarea id="bio" rows="4" maxlength="600" required></textarea>
     <label for="link">Link</label>
     <input id="link" type="url" placeholder="https://">
-    <button class="hb" type="submit">Publish</button>
+    <div class="actions">
+      <button class="hb" type="submit" id="save">Publish</button>
+      <button class="hb remove" type="button" id="cancel" hidden>Cancel</button>
+    </div>
   </form>
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
@@ -78,36 +86,76 @@ button.hb.remove{background:transparent;color:#fff;padding:8px 0 0}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script>
 firebase.initializeApp({apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDomain:'railroadradar-accounts.firebaseapp.com',projectId:'railroadradar-accounts',storageBucket:'railroadradar-accounts.firebasestorage.app',messagingSenderId:'896370923309',appId:'1:896370923309:web:594b0a20d3b1c6822e65a4'});
-var auth=firebase.auth(), db=firebase.firestore(), isAdmin=false;
+var auth=firebase.auth(), db=firebase.firestore(), isAdmin=false, editing=null;
 function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
-function card(id,d){
+function idFromUrl(){return new URLSearchParams(location.search).get('id')||'';}
+function pageUrl(id){return location.origin+'/favorites/?id='+encodeURIComponent(id);}
+function fields(d){
   var photo=/^https:\/\//.test(d.photo||'')?d.photo:'';
   var link=/^https:\/\//.test(d.link||'')?d.link:'';
-  return '<article class="card">'+(photo?'<img src="'+esc(photo)+'" alt="">':'')+'<div class="body"><div class="kind">'+esc(d.kind||'Place')+'</div><h2>'+esc(d.name)+'</h2><p>'+esc(d.bio)+'</p>'+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">Visit</a>':'')+(isAdmin?'<button class="hb remove" type="button" data-id="'+esc(id)+'">Remove</button>':'')+'</div></article>';
+  return {photo:photo,link:link,name:esc(d.name),kind:esc(d.kind||'Place'),bio:esc(d.bio)};
+}
+function card(id,d){
+  var f=fields(d);
+  return '<a class="card" href="'+esc(pageUrl(id))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+f.name+'</h2><p>'+f.bio+'</p></div></a>';
+}
+function showDetail(id,d){
+  var f=fields(d);
+  document.title=(d.name||'Favorite')+' · RailroadRadar';
+  document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h1>'+f.name+'</h1><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</article>';
+  var edit=document.getElementById('edit');
+  if(edit) edit.onclick=function(){location.href='/favorites/?id='+encodeURIComponent(id)+'&edit=1';};
+  var remove=document.getElementById('remove');
+  if(remove) remove.onclick=function(){if(confirm('Remove this favorite?')) db.collection('tracksideFavorites').doc(id).delete().then(function(){location.href='/favorites/';});};
+}
+function fillForm(d){
+  document.getElementById('name').value=d.name||'';
+  document.getElementById('kind').value=d.kind||'Restaurant';
+  document.getElementById('photo').value=d.photo||'';
+  document.getElementById('bio').value=d.bio||'';
+  document.getElementById('link').value=d.link||'';
+}
+function payload(){
+  var user=auth.currentUser;
+  return {name:document.getElementById('name').value.trim().slice(0,80),kind:document.getElementById('kind').value,photo:document.getElementById('photo').value.trim(),bio:document.getElementById('bio').value.trim().slice(0,600),link:document.getElementById('link').value.trim(),updatedAt:Date.now(),updatedBy:user?user.uid:''};
 }
 function load(){
+  var id=idFromUrl();
+  if(id){
+    db.collection('tracksideFavorites').doc(id).onSnapshot(function(doc){
+      if(!doc.exists){document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><p class="empty">This favorite could not be found.</p>';return;}
+      if(isAdmin && new URLSearchParams(location.search).get('edit')==='1'){
+        editing=id;
+        document.getElementById('form-title').textContent='Edit favorite';
+        document.getElementById('save').textContent='Save';
+        document.getElementById('cancel').hidden=false;
+        document.getElementById('admin-form').hidden=false;
+        fillForm(doc.data()||{});
+        showDetail(id,doc.data()||{});
+        document.getElementById('app').appendChild(document.getElementById('admin-form'));
+      } else showDetail(id,doc.data()||{});
+    },function(err){document.getElementById('app').innerHTML='<p class="empty">Could not open this favorite ('+(err&&err.code||'unknown')+').</p>';});
+    return;
+  }
   db.collection('tracksideFavorites').onSnapshot(function(snap){
     var rows=[]; snap.forEach(function(doc){rows.push({id:doc.id,data:doc.data()||{}});});
     rows.sort(function(a,b){return (b.data.createdAt||0)-(a.data.createdAt||0);});
     var html=''; rows.forEach(function(row){html+=card(row.id,row.data);});
     document.getElementById('list').innerHTML=html;
     document.getElementById('empty').hidden=!!html;
-    document.getElementById('empty').textContent='No favorites yet.';
+    document.getElementById('admin-form').hidden=!isAdmin;
   },function(err){
     var code=err&&err.code?err.code:'unknown';
     document.getElementById('empty').hidden=false;
-    document.getElementById('empty').textContent=code==='permission-denied'
-      ? 'Firebase is still blocking this list. In Rules, confirm the tracksideFavorites block is inside the database match, then click Publish.'
-      : 'Favorites could not load ('+code+').';
+    document.getElementById('empty').textContent=code==='permission-denied'?'Firebase is still blocking this list. Publish the tracksideFavorites rules.':'Favorites could not load ('+code+').';
   });
 }
-document.getElementById('list').addEventListener('click',function(ev){
-  var btn=ev.target.closest('[data-id]'); if(!btn||!isAdmin)return;
-  db.collection('tracksideFavorites').doc(btn.getAttribute('data-id')).delete();
-});
+document.getElementById('cancel').onclick=function(){if(editing) location.href='/favorites/?id='+encodeURIComponent(editing);};
 document.getElementById('admin-form').addEventListener('submit',function(ev){
   ev.preventDefault(); var user=auth.currentUser; if(!user)return;
-  db.collection('tracksideFavorites').add({name:document.getElementById('name').value.trim().slice(0,80),kind:document.getElementById('kind').value,photo:document.getElementById('photo').value.trim(),bio:document.getElementById('bio').value.trim().slice(0,600),link:document.getElementById('link').value.trim(),createdAt:Date.now(),createdBy:user.uid}).then(function(){ev.target.reset();}).catch(function(err){alert(err&&err.message?err.message:'Could not publish');});
+  var data=payload();
+  var write=editing?db.collection('tracksideFavorites').doc(editing).set(data,{merge:true}):db.collection('tracksideFavorites').add(Object.assign(data,{createdAt:Date.now(),createdBy:user.uid}));
+  write.then(function(ref){location.href='/favorites/?id='+encodeURIComponent(editing||ref.id);}).catch(function(err){alert(err&&err.message?err.message:'Could not save');});
 });
 document.getElementById('in').onclick=function(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());};
 document.getElementById('out').onclick=function(){auth.signOut();};
@@ -122,7 +170,7 @@ auth.onAuthStateChanged(function(user){
   }
   var email=user&&user.email?user.email.toLowerCase():'';
   var check=!user?Promise.resolve(false):db.collection('admins').doc(email).get().then(function(doc){return doc.exists;}).catch(function(){return false;});
-  check.then(function(ok){isAdmin=!!ok; document.getElementById('admin-form').hidden=!isAdmin; load();});
+  check.then(function(ok){isAdmin=!!ok; load();});
 });
 load();
 </script>
