@@ -73,11 +73,11 @@ button.hb.remove{background:transparent;color:#fff}
     <select id="kind"><option>Restaurant</option><option>Store</option><option>Other business</option></select>
     <label for="address">Address</label>
     <input id="address" maxlength="160" required>
-    <label for="railroad">Accessible by railroad</label>
+    <label for="railroad">Railroad</label>
     <input id="railroad" maxlength="80" required placeholder="MBTA">
     <label for="line">Line</label>
     <input id="line" maxlength="80" required placeholder="Fitchburg Line">
-    <label for="station">Station</label>
+    <label for="station">Closest station</label>
     <input id="station" maxlength="80" required placeholder="Porter">
     <label for="photo">Photo link</label>
     <input id="photo" type="url" placeholder="https://">
@@ -100,16 +100,17 @@ var auth=firebase.auth(), db=firebase.firestore(), isAdmin=false, editing=null;
 function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
 function idFromUrl(){return new URLSearchParams(location.search).get('id')||'';}
 function pageUrl(id){return location.origin+'/favorites/?id='+encodeURIComponent(id);}
-function accessLine(d){
-  var parts=[d.railroad,d.line,d.station].map(function(v){return String(v||'').trim();}).filter(Boolean);
-  return parts.length?'Accessible by '+parts.join(' · '):'';
+function accessHtml(d){
+  var railroad=String(d.railroad||'').trim(), line=String(d.line||'').trim(), station=String(d.station||'').trim();
+  var title=railroad&&line?railroad+"'s "+line:(railroad||line);
+  return (title?'<p class="access">'+esc(title)+'</p>':'')+(station?'<p class="access">Closest Station: '+esc(station)+'</p>':'');
 }
 function fields(d){
-  return {photo:/^https:\/\//.test(d.photo||'')?d.photo:'',link:/^https:\/\//.test(d.link||'')?d.link:'',name:esc(d.name),kind:esc(d.kind||'Place'),bio:esc(d.bio),address:esc(d.address),access:esc(accessLine(d))};
+  return {photo:/^https:\/\//.test(d.photo||'')?d.photo:'',link:/^https:\/\//.test(d.link||'')?d.link:'',name:esc(d.name),kind:esc(d.kind||'Place'),bio:esc(d.bio),address:esc(d.address)};
 }
 function card(id,d){
   var f=fields(d);
-  return '<a class="card" href="'+esc(pageUrl(id))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+f.name+'</h2><p class="access">'+f.access+'</p><p>'+f.address+'</p></div></a>';
+  return '<a class="card" href="'+esc(pageUrl(id))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+f.name+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
 }
 function bindDetail(id){
   var edit=document.getElementById('edit');
@@ -120,7 +121,7 @@ function bindDetail(id){
 function showDetail(id,d){
   var f=fields(d);
   document.title=(d.name||'Favorite')+' · RailroadRadar';
-  document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h1>'+f.name+'</h1><p class="access">'+f.access+'</p><p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</article>';
+  document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h1>'+f.name+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</article>';
   bindDetail(id);
 }
 function fillForm(d){
