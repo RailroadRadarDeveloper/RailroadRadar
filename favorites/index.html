@@ -41,10 +41,6 @@ h1{margin:0 0 8px}
 form{background:#0c1448;border:1px solid var(--line);padding:18px 20px;margin-top:22px}
 label{display:block;margin:12px 0 4px;font-weight:700}
 input,textarea,select{width:100%;border:0;padding:10px;font:inherit}
-.sentence{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px;font-weight:700}
-.sentence input{width:auto;flex:1 1 140px;min-width:120px}
-.station-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;font-weight:700}
-.station-line input{flex:1 1 180px}
 button.hb.remove{background:transparent;color:#fff}
 </style>
 </head>
@@ -77,15 +73,12 @@ button.hb.remove{background:transparent;color:#fff}
     <select id="kind"><option>Restaurant</option><option>Store</option><option>Other business</option></select>
     <label for="address">Address</label>
     <input id="address" maxlength="160" required>
-    <div class="sentence">
-      <input id="railroad" maxlength="80" required placeholder="Railroad" aria-label="Railroad">
-      <span>'s</span>
-      <input id="line" maxlength="80" required placeholder="Line" aria-label="Line">
-    </div>
-    <div class="station-line">
-      <span>Closest Station:</span>
-      <input id="station" maxlength="80" required placeholder="Station" aria-label="Closest station">
-    </div>
+    <label for="railroad">Railroad</label>
+    <input id="railroad" maxlength="80" required placeholder="MBTA">
+    <label for="line">Line</label>
+    <input id="line" maxlength="80" required placeholder="Fitchburg Line">
+    <label for="station">Closest station</label>
+    <input id="station" maxlength="80" required placeholder="Porter">
     <label for="photo">Photo link</label>
     <input id="photo" type="url" placeholder="https://">
     <label for="bio">Bio</label>
