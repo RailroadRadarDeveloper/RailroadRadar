@@ -99,7 +99,19 @@ firebase.initializeApp({apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDom
 var auth=firebase.auth(), db=firebase.firestore(), isAdmin=false, editing=null;
 function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
 function idFromUrl(){return new URLSearchParams(location.search).get('id')||'';}
+function slugify(name){
+  var slug=String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
+  return slug||'favorite';
+}
 function pageUrl(id){return location.origin+'/favorites/?id='+encodeURIComponent(id);}
+function freeSlug(base,skip){
+  function tryN(n){
+    var id=n===1?base:base+'-'+n;
+    if(id===skip) return Promise.resolve(id);
+    return db.collection('tracksideFavorites').doc(id).get().then(function(doc){return doc.exists?tryN(n+1):id;});
+  }
+  return tryN(1);
+}
 function accessHtml(d){
   var railroad=String(d.railroad||'').trim(), line=String(d.line||'').trim(), station=String(d.station||'').trim();
   var title=railroad&&line?railroad+"'s "+line:(railroad||line);
@@ -173,8 +185,13 @@ document.getElementById('cancel').onclick=function(){if(editing) location.href='
 document.getElementById('admin-form').addEventListener('submit',function(ev){
   ev.preventDefault(); var user=auth.currentUser; if(!user)return;
   var data=payload();
-  var write=editing?db.collection('tracksideFavorites').doc(editing).set(data,{merge:true}):db.collection('tracksideFavorites').add(Object.assign(data,{createdAt:Date.now(),createdBy:user.uid}));
-  write.then(function(ref){location.href='/favorites/?id='+encodeURIComponent(editing||ref.id);}).catch(function(err){alert(err&&err.message?err.message:'Could not save');});
+  freeSlug(slugify(data.name),editing).then(function(id){
+    data.slug=id;
+    var write=db.collection('tracksideFavorites').doc(id).set(Object.assign({},data,editing?{}:{createdAt:Date.now(),createdBy:user.uid}),{merge:true});
+    return write.then(function(){
+      if(editing&&editing!==id) return db.collection('tracksideFavorites').doc(editing).delete();
+    }).then(function(){location.href='/favorites/?id='+encodeURIComponent(id);});
+  }).catch(function(err){alert(err&&err.message?err.message:'Could not save');});
 });
 document.getElementById('in').onclick=function(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());};
 document.getElementById('out').onclick=function(){auth.signOut();};
