@@ -212,6 +212,11 @@ service cloud.firestore {
         && iconIsAsset(request.resource.data);
       allow delete: if signedIn() && request.auth.uid == uid;
     }
+
+    match /tracksideFavorites/{id} {
+      allow read: if true;
+      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+    }
     match /accounts/{uid} {
       // Admins list all; each user may read/write only their own mirror doc
       allow read: if isAdmin()
