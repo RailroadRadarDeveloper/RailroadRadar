@@ -78,7 +78,7 @@ button.hb.remove{background:transparent;color:#fff;padding:8px 0 0}
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script>
 firebase.initializeApp({apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDomain:'railroadradar-accounts.firebaseapp.com',projectId:'railroadradar-accounts',storageBucket:'railroadradar-accounts.firebasestorage.app',messagingSenderId:'896370923309',appId:'1:896370923309:web:594b0a20d3b1c6822e65a4'});
-var auth=firebase.auth(), db=firebase.firestore(), admins=['turokerr@gmail.com','railroadradar@gmail.com'], isAdmin=false;
+var auth=firebase.auth(), db=firebase.firestore(), isAdmin=false;
 function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
 function card(id,d){
   var photo=/^https:\/\//.test(d.photo||'')?d.photo:'';
@@ -121,8 +121,7 @@ auth.onAuthStateChanged(function(user){
     else{av.style.display='none'; fb.style.display='flex'; fb.textContent=(user.displayName||user.email||'A').slice(0,1).toUpperCase();}
   }
   var email=user&&user.email?user.email.toLowerCase():'';
-  var known=admins.indexOf(email)>=0;
-  var check=known||!user?Promise.resolve(known):db.collection('admins').doc(email).get().then(function(doc){return doc.exists;}).catch(function(){return false;});
+  var check=!user?Promise.resolve(false):db.collection('admins').doc(email).get().then(function(doc){return doc.exists;}).catch(function(){return false;});
   check.then(function(ok){isAdmin=!!ok; document.getElementById('admin-form').hidden=!isAdmin; load();});
 });
 load();
