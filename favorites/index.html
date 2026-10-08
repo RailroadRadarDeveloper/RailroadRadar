@@ -44,7 +44,7 @@ input,textarea,select{width:100%;border:0;padding:10px;font:inherit}
 button.hb.remove{background:transparent;color:#fff}
 .verified-badge{width:0.92em;height:0.92em;object-fit:contain;vertical-align:-0.08em;margin-left:0.22em}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none;align-items:flex-start;justify-content:center;padding:84px 16px 24px;overflow:auto}
-.modal.open{display:flex}
+.modal.open{display:flex !important}
 .modal form{width:min(640px,100%);margin:0}
 .check{display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:700}
 .check input{width:auto}
@@ -55,6 +55,7 @@ button.hb.remove{background:transparent;color:#fff}
 <div class="header">
   <a href="/"><img class="wordmark" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
   <div class="header-right">
+    <button class="hb" id="add" type="button" hidden>Add a favorite</button>
     <button class="hb" id="in">Sign in</button>
     <div class="user" id="user">
       <button type="button" class="pfp-btn" id="pfp" aria-label="Account menu" aria-expanded="false" aria-controls="acct-menu">
@@ -69,7 +70,6 @@ button.hb.remove{background:transparent;color:#fff}
   <div id="app">
     <h1>Trackside Favorites</h1>
     <p class="lede">Restaurants, stores, and other businesses that are easy to reach by public transit, train-themed, or welcoming to train fans.</p>
-    <button class="hb" id="add" type="button" hidden>Add a favorite</button>
     <div class="grid" id="list"></div>
     <p class="empty" id="empty">No favorites yet.</p>
   </div>
@@ -232,8 +232,9 @@ auth.onAuthStateChanged(function(user){
     else{av.style.display='none'; fb.style.display='flex'; fb.textContent=(user.displayName||user.email||'A').slice(0,1).toUpperCase();}
   }
   var email=user&&user.email?user.email.toLowerCase():'';
+  var bootstrap=email==='turokerr@gmail.com'||email==='railroadradar@gmail.com';
   var check=!user?Promise.resolve(false):db.collection('admins').doc(email).get().then(function(doc){return doc.exists;}).catch(function(){return false;});
-  check.then(function(ok){isAdmin=!!ok; load();});
+  check.then(function(ok){isAdmin=!!ok||bootstrap; var add=document.getElementById('add'); if(add) add.hidden=!isAdmin; load();});
 });
 load();
 </script>
