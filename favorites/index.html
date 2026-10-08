@@ -109,12 +109,21 @@ button.hb.remove{background:transparent;color:#fff}
 firebase.initializeApp({apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDomain:'railroadradar-accounts.firebaseapp.com',projectId:'railroadradar-accounts',storageBucket:'railroadradar-accounts.firebasestorage.app',messagingSenderId:'896370923309',appId:'1:896370923309:web:594b0a20d3b1c6822e65a4'});
 var auth=firebase.auth(), db=firebase.firestore(), isAdmin=false, editing=null;
 function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
-function idFromUrl(){return new URLSearchParams(location.search).get('id')||'';}
+function idFromUrl(){
+  var q=new URLSearchParams(location.search).get('id')||'';
+  if(q) return q;
+  var m=location.pathname.match(/^\/favorites\/([^\/]+)\/?$/);
+  return m&&m[1]!=='index.html'?decodeURIComponent(m[1]):'';
+}
 function slugify(name){
   var slug=String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
   return slug||'favorite';
 }
-function pageUrl(id){return location.origin+'/favorites/?id='+encodeURIComponent(id);}
+function favoriteSlug(d){return (d&&d.slug)||slugify(d&&d.name||'');}
+function pageUrl(d){
+  var id=typeof d==='string'?d:favoriteSlug(d);
+  return location.origin+'/favorites/'+encodeURIComponent(id);
+}
 function freeSlug(base,skip){
   function tryN(n){
     var id=n===1?base:base+'-'+n;
@@ -136,7 +145,7 @@ function nameHtml(name,verified){
 }
 function card(id,d){
   var f=fields(d);
-  return '<a class="card" href="'+esc(pageUrl(id))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+nameHtml(d.name,f.verified)+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
+  return '<a class="card" href="'+esc(pageUrl(d))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+nameHtml(d.name,f.verified)+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
 }
 function bindDetail(id){
   var edit=document.getElementById('edit');
@@ -147,7 +156,7 @@ function bindDetail(id){
 function showDetail(id,d){
   var f=fields(d);
   document.title=(d.name||'Favorite')+' · RailroadRadar';
-  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+nameHtml(d.name,f.verified)+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit" onclick="window.rrOpenFavoriteForm(window.currentFavorite||{})">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
+  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+nameHtml(d.name,f.verified)+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(d))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit" onclick="window.rrOpenFavoriteForm(window.currentFavorite||{})">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
   bindDetail(id);
 }
 function fillForm(d){
@@ -177,15 +186,24 @@ function load(){
   var id=idFromUrl();
   var form=document.getElementById('admin-form');
   if(id){
-    db.collection('tracksideFavorites').doc(id).onSnapshot(function(doc){
-      if(!doc.exists){document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><p class="empty">This favorite could not be found.</p>'; form.hidden=true; return;}
+    function showDoc(doc){
+      if(!doc||!doc.exists){document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><p class="empty">This favorite could not be found.</p>'; form.hidden=true; return;}
       var data=doc.data()||{};
-      data.id=id;
+      data.id=doc.id;
       window.currentFavorite=data;
       showDetail(id,data);
       form.hidden=true;
       if(isAdmin && new URLSearchParams(location.search).get('edit')==='1') openForm(data);
-    },function(err){document.getElementById('app').innerHTML='<p class="empty">Could not open this favorite ('+(err&&err.code||'unknown')+').</p>';});
+    }
+    db.collection('tracksideFavorites').doc(id).get().then(function(doc){
+      if(doc.exists){showDoc(doc); db.collection('tracksideFavorites').doc(doc.id).onSnapshot(showDoc); return;}
+      return db.collection('tracksideFavorites').get().then(function(snap){
+        var found=null;
+        snap.forEach(function(item){var data=item.data()||{}; if(!found && (data.slug===id || slugify(data.name)===id)) found=item;});
+        showDoc(found);
+        if(found) db.collection('tracksideFavorites').doc(found.id).onSnapshot(showDoc);
+      });
+    }).catch(function(err){document.getElementById('app').innerHTML='<p class="empty">Could not open this favorite ('+(err&&err.code||'unknown')+').</p>';});
     return;
   }
   editing=null;
