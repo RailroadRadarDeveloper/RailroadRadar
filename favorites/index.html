@@ -167,6 +167,8 @@ function fillForm(d){
 function openForm(d){
   window.rrOpenFavoriteForm=openForm;
   editing=d&&d.id?d.id:(idFromUrl()||null);
+  var form=document.getElementById('admin-form');
+  if(form) form.hidden=false;
   fillForm(d||{});
   document.getElementById('form-title').textContent=editing?'Edit favorite':'Add a favorite';
   document.getElementById('save').textContent=editing?'Save':'Publish';
@@ -192,7 +194,7 @@ function load(){
       data.id=doc.id;
       window.currentFavorite=data;
       showDetail(id,data);
-      form.hidden=true;
+      var add=document.getElementById('add'); if(add) add.hidden=!isAdmin;
       if(isAdmin && new URLSearchParams(location.search).get('edit')==='1') openForm(data);
     }
     db.collection('tracksideFavorites').doc(id).get().then(function(doc){
