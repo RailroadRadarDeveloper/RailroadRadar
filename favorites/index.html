@@ -146,7 +146,7 @@ function nameHtml(name,verified,size){
 }
 function card(id,d){
   var f=fields(d);
-  return '<a class="card" href="'+esc(pageUrl(d))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+nameHtml(d.name,f.verified)+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
+  return '<a class="card" href="'+esc(pageUrl(d))+'"><div class="body">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h2>'+nameHtml(d.name,f.verified,16)+'</h2>'+accessHtml(d)+'<p>'+f.address+'</p></div></a>';
 }
 function bindDetail(id){
   var edit=document.getElementById('edit');
