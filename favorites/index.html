@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trackside Favorites · RailroadRadar</title>
+<meta name="description" content="Restaurants, stores, and businesses that are easy to reach by train, train-themed, or welcoming to railfans.">
+<meta name="theme-color" content="#07093e">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
+<style>
+:root{--navy:#07093e;--page:#07093e;--muted:#a8c0e0;--line:#1a3a5f}
+*{box-sizing:border-box}html,body{margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--page);color:#fff}
+.header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20}
+.header .wordmark{height:40px;width:auto;display:block}
+.header-right{display:flex;gap:8px;align-items:center}
+.hb{background:#fff;color:var(--navy);border:0;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+.hb:focus{outline:2px solid #fff;outline-offset:2px}
+.user{display:none;position:relative;align-items:center}
+.pfp-btn{width:34px;height:34px;padding:0;border:0;background:transparent;cursor:pointer}
+.pfp-btn img,.user-fallback{width:34px;height:34px;border-radius:50%;object-fit:cover;display:block}
+.user-fallback{background:#fff;color:var(--navy);font:800 14px inherit;align-items:center;justify-content:center}
+.acct-menu{display:none;position:absolute;right:0;top:42px;background:#0c1448;border:1px solid #1a3a5f;padding:8px;z-index:30;min-width:110px}
+.acct-menu.open{display:block}
+.acct-menu .hb{width:100%}
+.wrap{max-width:860px;margin:0 auto;padding:84px 16px 48px}
+h1{margin:0 0 8px}
+.lede,.empty{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:18px}
+.card{background:#0c1448;color:#fff;border:1px solid var(--line);padding:0;overflow:hidden}
+.card img{width:100%;height:170px;object-fit:cover;background:#132047;display:block}
+.card .body{padding:18px 20px}
+.card h2{margin:6px 0;font-size:20px}
+.kind{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase}
+.card p{line-height:1.45}
+.card a{color:#fff;font-weight:800}
+form{background:#0c1448;border:1px solid var(--line);padding:18px 20px;margin-top:22px}
+label{display:block;margin:12px 0 4px;font-weight:700}
+input,textarea,select{width:100%;border:0;padding:10px;font:inherit}
+button.hb.remove{background:transparent;color:#fff;padding:8px 0 0}
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="/"><img class="wordmark" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
+  <div class="header-right">
+    <button class="hb" id="in">Sign in</button>
+    <div class="user" id="user">
+      <button type="button" class="pfp-btn" id="pfp" aria-label="Account menu" aria-expanded="false" aria-controls="acct-menu">
+        <img id="av" alt="">
+        <span class="user-fallback" id="avfb" style="display:none"></span>
+      </button>
+      <div class="acct-menu" id="acct-menu"><button class="hb" id="out">Sign out</button></div>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+  <h1>Trackside Favorites</h1>
+  <p class="lede">Restaurants, stores, and other businesses that are easy to reach by public transit, train-themed, or welcoming to train fans.</p>
+  <div class="grid" id="list"></div>
+  <p class="empty" id="empty">No favorites yet.</p>
+  <form id="admin-form" hidden>
+    <h2>Add a favorite</h2>
+    <label for="name">Location name</label>
+    <input id="name" maxlength="80" required>
+    <label for="kind">Type</label>
+    <select id="kind"><option>Restaurant</option><option>Store</option><option>Other business</option></select>
+    <label for="photo">Photo link</label>
+    <input id="photo" type="url" placeholder="https://">
+    <label for="bio">Bio</label>
+    <textarea id="bio" rows="4" maxlength="600" required></textarea>
+    <label for="link">Link</label>
+    <input id="link" type="url" placeholder="https://">
+    <button class="hb" type="submit">Publish</button>
+  </form>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDomain:'railroadradar-accounts.firebaseapp.com',projectId:'railroadradar-accounts',storageBucket:'railroadradar-accounts.firebasestorage.app',messagingSenderId:'896370923309',appId:'1:896370923309:web:594b0a20d3b1c6822e65a4'});
+var auth=firebase.auth(), db=firebase.firestore(), admins=['turokerr@gmail.com','railroadradar@gmail.com'], isAdmin=false;
+function esc(s){return String(s||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
+function card(id,d){
+  var photo=/^https:\/\//.test(d.photo||'')?d.photo:'';
+  var link=/^https:\/\//.test(d.link||'')?d.link:'';
+  return '<article class="card">'+(photo?'<img src="'+esc(photo)+'" alt="">':'')+'<div class="body"><div class="kind">'+esc(d.kind||'Place')+'</div><h2>'+esc(d.name)+'</h2><p>'+esc(d.bio)+'</p>'+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">Visit</a>':'')+(isAdmin?'<button class="hb remove" type="button" data-id="'+esc(id)+'">Remove</button>':'')+'</div></article>';
+}
+function load(){
+  db.collection('tracksideFavorites').onSnapshot(function(snap){
+    var rows=[]; snap.forEach(function(doc){rows.push({id:doc.id,data:doc.data()||{}});});
+    rows.sort(function(a,b){return (b.data.createdAt||0)-(a.data.createdAt||0);});
+    var html=''; rows.forEach(function(row){html+=card(row.id,row.data);});
+    document.getElementById('list').innerHTML=html;
+    document.getElementById('empty').hidden=!!html;
+    document.getElementById('empty').textContent='No favorites yet.';
+  },function(err){
+    var code=err&&err.code?err.code:'unknown';
+    document.getElementById('empty').hidden=false;
+    document.getElementById('empty').textContent=code==='permission-denied'
+      ? 'Firebase is still blocking this list. In Rules, confirm the tracksideFavorites block is inside the database match, then click Publish.'
+      : 'Favorites could not load ('+code+').';
+  });
+}
+document.getElementById('list').addEventListener('click',function(ev){
+  var btn=ev.target.closest('[data-id]'); if(!btn||!isAdmin)return;
+  db.collection('tracksideFavorites').doc(btn.getAttribute('data-id')).delete();
+});
+document.getElementById('admin-form').addEventListener('submit',function(ev){
+  ev.preventDefault(); var user=auth.currentUser; if(!user)return;
+  db.collection('tracksideFavorites').add({name:document.getElementById('name').value.trim().slice(0,80),kind:document.getElementById('kind').value,photo:document.getElementById('photo').value.trim(),bio:document.getElementById('bio').value.trim().slice(0,600),link:document.getElementById('link').value.trim(),createdAt:Date.now(),createdBy:user.uid}).then(function(){ev.target.reset();}).catch(function(err){alert(err&&err.message?err.message:'Could not publish');});
+});
+document.getElementById('in').onclick=function(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());};
+document.getElementById('out').onclick=function(){auth.signOut();};
+document.getElementById('pfp').onclick=function(){var m=document.getElementById('acct-menu'); m.classList.toggle('open'); this.setAttribute('aria-expanded', m.classList.contains('open'));};
+auth.onAuthStateChanged(function(user){
+  document.getElementById('in').style.display=user?'none':'inline-block';
+  document.getElementById('user').style.display=user?'flex':'none';
+  if(user){
+    var av=document.getElementById('av'), fb=document.getElementById('avfb');
+    if(user.photoURL){av.src=user.photoURL; av.style.display='block'; fb.style.display='none';}
+    else{av.style.display='none'; fb.style.display='flex'; fb.textContent=(user.displayName||user.email||'A').slice(0,1).toUpperCase();}
+  }
+  var email=user&&user.email?user.email.toLowerCase():'';
+  var known=admins.indexOf(email)>=0;
+  var check=known||!user?Promise.resolve(known):db.collection('admins').doc(email).get().then(function(doc){return doc.exists;}).catch(function(){return false;});
+  check.then(function(ok){isAdmin=!!ok; document.getElementById('admin-form').hidden=!isAdmin; load();});
+});
+load();
+</script>
+</body>
+</html>
