@@ -43,7 +43,7 @@ label{display:block;margin:12px 0 4px;font-weight:700}
 input,textarea,select{width:100%;border:0;padding:10px;font:inherit}
 button.hb.remove{background:transparent;color:#fff}
 .verified-badge{width:0.92em;height:0.92em;object-fit:contain;vertical-align:-0.08em;margin-left:0.22em}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none;align-items:flex-start;justify-content:center;padding:84px 16px 24px;overflow:auto}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10050;display:none;align-items:flex-start;justify-content:center;padding:84px 16px 24px;overflow:auto}
 .modal.open{display:flex !important}
 .modal form{width:min(640px,100%);margin:0}
 .check{display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:700}
@@ -55,7 +55,7 @@ button.hb.remove{background:transparent;color:#fff}
 <div class="header">
   <a href="/"><img class="wordmark" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
   <div class="header-right">
-    <button class="hb" id="add" type="button" hidden>Add a favorite</button>
+    <button class="hb" id="add" type="button" hidden onclick="window.rrOpenFavoriteForm&&window.rrOpenFavoriteForm({})">Add a favorite</button>
     <button class="hb" id="in">Sign in</button>
     <div class="user" id="user">
       <button type="button" class="pfp-btn" id="pfp" aria-label="Account menu" aria-expanded="false" aria-controls="acct-menu">
@@ -140,14 +140,14 @@ function card(id,d){
 }
 function bindDetail(id){
   var edit=document.getElementById('edit');
-  if(edit) edit.onclick=function(){openForm(window.currentFavorite||{});};
+  if(edit) edit.onclick=function(ev){ev.preventDefault(); window.rrOpenFavoriteForm(window.currentFavorite||{});};
   var remove=document.getElementById('remove');
   if(remove) remove.onclick=function(){if(confirm('Remove this favorite?')) db.collection('tracksideFavorites').doc(id).delete().then(function(){location.href='/favorites/';});};
 }
 function showDetail(id,d){
   var f=fields(d);
   document.title=(d.name||'Favorite')+' · RailroadRadar';
-  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+nameHtml(d.name,f.verified)+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
+  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+nameHtml(d.name,f.verified)+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit" onclick="window.rrOpenFavoriteForm(window.currentFavorite||{})">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
   bindDetail(id);
 }
 function fillForm(d){
@@ -156,6 +156,7 @@ function fillForm(d){
   document.getElementById('verified').checked=!!d.verified;
 }
 function openForm(d){
+  window.rrOpenFavoriteForm=openForm;
   editing=d&&d.id?d.id:(idFromUrl()||null);
   fillForm(d||{});
   document.getElementById('form-title').textContent=editing?'Edit favorite':'Add a favorite';
@@ -189,7 +190,6 @@ function load(){
   }
   editing=null;
   document.querySelector('.wrap').classList.remove('location');
-  closeForm();
   var add=document.getElementById('add');
   if(add) add.hidden=!isAdmin;
   db.collection('tracksideFavorites').onSnapshot(function(snap){
@@ -207,7 +207,8 @@ function load(){
   });
 }
 document.getElementById('cancel').onclick=function(){closeForm();};
-document.getElementById('add').onclick=function(){editing=null; openForm({});};
+window.rrOpenFavoriteForm=openForm;
+document.getElementById('add').onclick=function(ev){ev.preventDefault(); editing=null; openForm({});};
 document.getElementById('modal').addEventListener('click',function(ev){if(ev.target.id==='modal') closeForm();});
 document.getElementById('admin-form').addEventListener('submit',function(ev){
   ev.preventDefault(); var user=auth.currentUser; if(!user)return;
