@@ -1,0 +1,20 @@
+name: Favorites rules
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/favorites-rules.py
+      - .github/workflows/favorites-rules.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/favorites-rules.py
+      - run: |
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add firestore.rules
+          if git diff --cached --quiet; then echo nothing; else git commit -m "Allow admins to publish Trackside Favorites" && git push; fi

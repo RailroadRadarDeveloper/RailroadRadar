@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trackside Favorites · RailroadRadar</title>
+  <meta name="description" content="Restaurants, stores, and businesses that are easy to reach by train, train-themed, or welcoming to railfans.">
+  <meta name="theme-color" content="#07093e">
+  <link rel="icon" href="/favicon.ico">
+  <style>
+    html, body { margin: 0; background: #07093e; color: #fff; font-family: sans-serif; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; }
+    header a { color: #fff; font-weight: 800; text-decoration: none; }
+    main { max-width: 980px; margin: 0 auto; padding: 8px 18px 48px; }
+    h1 { margin: 12px 0 6px; font-size: 32px; }
+    .lead { color: #d7dced; max-width: 640px; line-height: 1.45; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 22px; }
+    .card { background: #fff; color: #07093e; border-radius: 16px; overflow: hidden; }
+    .card img { width: 100%; height: 170px; object-fit: cover; background: #e8ebf2; display: block; }
+    .card div { padding: 14px; }
+    .card h2 { margin: 0 0 6px; font-size: 20px; }
+    .kind { color: #5a6270; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+    .card p { line-height: 1.4; }
+    .card a { color: #07093e; font-weight: 800; }
+    form, .empty { background: #10144f; border-radius: 16px; padding: 16px; margin-top: 28px; }
+    label { display: block; margin: 12px 0 4px; font-weight: 700; }
+    input, textarea, select { width: 100%; box-sizing: border-box; border: 0; border-radius: 10px; padding: 10px; }
+    button { margin-top: 14px; background: #fff; color: #07093e; border: 0; border-radius: 999px; padding: 10px 14px; font-weight: 800; cursor: pointer; }
+    .remove { background: transparent; color: #fff; padding: 0; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">RailroadRadar</a>
+    <button type="button" id="admin-signin" hidden>Admin sign in</button>
+  </header>
+  <main>
+    <h1>Trackside Favorites</h1>
+    <p class="lead">Restaurants, stores, and other businesses that are easy to reach by public transit, train-themed, or welcoming to train fans.</p>
+    <div class="grid" id="list"></div>
+    <p class="empty" id="empty">No favorites yet.</p>
+    <form id="admin-form" hidden>
+      <h2>Add a favorite</h2>
+      <label for="name">Location name</label>
+      <input id="name" maxlength="80" required>
+      <label for="kind">Type</label>
+      <select id="kind">
+        <option>Restaurant</option>
+        <option>Store</option>
+        <option>Other business</option>
+      </select>
+      <label for="photo">Photo link</label>
+      <input id="photo" type="url" placeholder="https://">
+      <label for="bio">Bio</label>
+      <textarea id="bio" rows="4" maxlength="600" required></textarea>
+      <label for="link">Link</label>
+      <input id="link" type="url" placeholder="https://">
+      <button type="submit">Publish</button>
+    </form>
+  </main>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
+      authDomain: 'railroadradar-accounts.firebaseapp.com',
+      projectId: 'railroadradar-accounts',
+      storageBucket: 'railroadradar-accounts.firebasestorage.app',
+      messagingSenderId: '896370923309',
+      appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
+    });
+    var auth = firebase.auth();
+    var db = firebase.firestore();
+    var admins = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+    function esc(s) { return String(s || '').replace(/[&<>"]/g, function(c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+    function card(id, d, isAdmin) {
+      var photo = /^https:\/\//.test(d.photo || '') ? d.photo : '';
+      var link = /^https:\/\//.test(d.link || '') ? d.link : '';
+      return '<article class="card">' +
+        (photo ? '<img src="' + esc(photo) + '" alt="">' : '') +
+        '<div><div class="kind">' + esc(d.kind || 'Place') + '</div><h2>' + esc(d.name) + '</h2><p>' + esc(d.bio) + '</p>' +
+        (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener">Visit</a>' : '') +
+        (isAdmin ? '<button class="remove" type="button" data-id="' + esc(id) + '">Remove</button>' : '') +
+        '</div></article>';
+    }
+    var isAdmin = false;
+    function load() {
+      db.collection('tracksideFavorites').orderBy('createdAt', 'desc').onSnapshot(function(snap) {
+        var html = '';
+        snap.forEach(function(doc) { html += card(doc.id, doc.data() || {}, isAdmin); });
+        document.getElementById('list').innerHTML = html;
+        document.getElementById('empty').hidden = !!html;
+      }, function() {
+        document.getElementById('empty').textContent = 'Favorites could not load yet. Publish the tracksideFavorites rules in Firebase.';
+      });
+    }
+    document.getElementById('list').addEventListener('click', function(ev) {
+      var btn = ev.target.closest('[data-id]');
+      if (!btn || !isAdmin) return;
+      db.collection('tracksideFavorites').doc(btn.getAttribute('data-id')).delete();
+    });
+    document.getElementById('admin-form').addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      var user = auth.currentUser;
+      if (!user) return;
+      db.collection('tracksideFavorites').add({
+        name: document.getElementById('name').value.trim().slice(0, 80),
+        kind: document.getElementById('kind').value,
+        photo: document.getElementById('photo').value.trim(),
+        bio: document.getElementById('bio').value.trim().slice(0, 600),
+        link: document.getElementById('link').value.trim(),
+        createdAt: Date.now(),
+        createdBy: user.uid
+      }).then(function() { ev.target.reset(); });
+    });
+    document.getElementById('admin-signin').addEventListener('click', function() {
+      auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    });
+    auth.onAuthStateChanged(function(user) {
+      var email = user && user.email ? user.email.toLowerCase() : '';
+      var known = admins.indexOf(email) >= 0;
+      var check = known || !user ? Promise.resolve(known) : db.collection('admins').doc(email).get().then(function(doc) { return doc.exists; }).catch(function() { return false; });
+      check.then(function(ok) {
+        isAdmin = !!ok;
+        document.getElementById('admin-form').hidden = !isAdmin;
+        document.getElementById('admin-signin').hidden = !!user;
+        load();
+      });
+    });
+    load();
+  </script>
+</body>
+</html>
