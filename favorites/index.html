@@ -26,12 +26,12 @@
 h1{margin:0 0 8px}
 .lede,.empty,.url,.access{color:var(--muted)}
 .back{color:#fff;font-weight:700;text-decoration:none}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:22px;margin-top:22px}
 .card{background:#0c1448;color:#fff;border:1px solid var(--line);padding:0;overflow:hidden;display:block;text-decoration:none}
 .card img,.hero img{width:100%;object-fit:cover;background:#132047;display:block}
-.card img{height:170px}.hero img{height:280px}
-.card .body{padding:18px 20px}
-.hero{background:#0c1448;border:1px solid var(--line);margin-top:16px}
+.card img{height:280px}.hero img{width:100%;height:52vh;min-height:320px;object-fit:cover}
+.card .body{padding:22px 24px}.card h2{font-size:28px}
+.wrap.location{max-width:none;padding:60px 0 48px}.hero{background:transparent;border:0;margin:0}.hero .copy{max-width:860px;margin:0 auto;padding:28px 20px 0}.hero .back{display:inline-block;margin:16px 20px 0}
 .card h2{margin:6px 0;font-size:20px}
 .hero h1{margin:6px 0;font-size:32px}
 .kind{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase}
@@ -133,7 +133,7 @@ function bindDetail(id){
 function showDetail(id,d){
   var f=fields(d);
   document.title=(d.name||'Favorite')+' · RailroadRadar';
-  document.getElementById('app').innerHTML='<a class="back" href="/favorites/">All favorites</a><article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<div class="kind">'+f.kind+'</div><h1>'+f.name+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</article>';
+  document.querySelector('.wrap').classList.add('location'); document.getElementById('app').innerHTML='<article class="hero">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':'')+'<a class="back" href="/favorites/">All favorites</a><div class="copy"><div class="kind">'+f.kind+'</div><h1>'+f.name+'</h1>'+accessHtml(d)+'<p>'+f.address+'</p><p>'+f.bio+'</p>'+(f.link?'<p><a href="'+esc(f.link)+'" target="_blank" rel="noopener">Visit</a></p>':'')+'<p class="url">'+esc(pageUrl(id))+'</p>'+(isAdmin?'<div class="actions"><button class="hb" type="button" id="edit">Edit</button><button class="hb remove" type="button" id="remove">Remove</button></div>':'')+'</div></article>';
   bindDetail(id);
 }
 function fillForm(d){
@@ -163,6 +163,7 @@ function load(){
     return;
   }
   editing=null;
+  document.querySelector('.wrap').classList.remove('location');
   form.hidden=!isAdmin;
   document.getElementById('form-title').textContent='Add a favorite';
   document.getElementById('save').textContent='Publish';
