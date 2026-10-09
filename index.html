@@ -146,12 +146,14 @@
 
     .header-center {
       position: absolute;
-      left: 46%;
-      transform: translateX(-50%);
+      left: auto;
+      right: 196px;
+      transform: none;
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 10px;
-      max-width: calc(100vw - 300px);
+      max-width: calc(100vw - 460px);
       z-index: 10000;
     }
     .header-search-container {
@@ -5469,10 +5471,13 @@
       .header-center {
         position: static;
         left: auto;
+        right: auto;
         transform: none;
         flex: 1 1 auto;
         min-width: 0;
         max-width: none;
+        margin-left: auto;
+        justify-content: flex-end;
         z-index: 1;
       }
       .header-search-container {
