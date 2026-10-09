@@ -18339,6 +18339,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return limited;
         } catch (e) { return []; }
       }
+
+      function rrMinutesLate(schedText, actualText) {
+        function mins(s) {
+          const m = String(s || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+          if (!m) return null;
+          let h = Number(m[1]);
+          const min = Number(m[2]);
+          const ap = (m[3] || '').toUpperCase();
+          if (ap === 'PM' && h < 12) h += 12;
+          if (ap === 'AM' && h === 12) h = 0;
+          return h * 60 + min;
+        }
+        const a = mins(schedText), b = mins(actualText);
+        if (a == null || b == null) return null;
+        let d = b - a;
+        if (d > 720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+      }
       function buildStopsHtml(stops, currentLat = null, currentLng = null) {
         if (!stops?.length) return '<div class="no-departures">No stops found</div>';
         return `<div class="upcoming-stops"><h4>Stops</h4><ul class="stops-list">${ 
@@ -18386,7 +18405,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const schedTime = stop.formattedScheduledTime || '';
             const actualTime = stop.isCompleted ? (stop.formattedActualTime || stop.formattedPredictedTime || '') : '';
             const leftTime = schedTime || stop.formattedPredictedTime || actualTime || '';
-            if (stop.isCompleted && actualTime) statusHtml = `<span class="stop-status status-on-time">${actualTime}</span>`;
+            if (stop.isCompleted && actualTime) {
+              const late = rrMinutesLate(schedTime, actualTime);
+              const box = late == null ? 'status-on-time' : late > 15 ? 'status-very-delayed' : late > 5 ? 'status-delayed' : 'status-on-time';
+              statusHtml = `<span class="stop-status ${box}">${actualTime}</span>`;
+            }
             return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
           }).join('')
         }</ul></div>`;
