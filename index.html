@@ -1419,16 +1419,17 @@
       padding: 14px 16px 12px;
     }
     html.rr-train-page #rr-train-page-card .train-popup-header > div {
-      flex-wrap: wrap !important;
-      white-space: normal;
-      overflow: visible;
-      font-size: 22px !important;
+      flex-wrap: nowrap !important;
+      white-space: nowrap;
+      overflow: hidden;
+      font-size: 22px;
       line-height: 1.2 !important;
+      width: 100%;
     }
     html.rr-train-page #rr-train-page-card .train-popup-header span {
-      font-size: 22px !important;
+      font-size: inherit !important;
       line-height: 1.2 !important;
-      white-space: normal;
+      white-space: nowrap;
     }
     html.rr-train-page #rr-train-page-card .cape-badge {
       font-size: 11px !important;
@@ -22583,6 +22584,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           String(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
           String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
       }
+
+      function rrFitTrainPageTitle() {
+        const title = document.querySelector('#rr-train-page-card .train-popup-header > div');
+        if (!title) return;
+        const max = title.clientWidth || title.parentElement.clientWidth;
+        if (!max) return;
+        let size = 22;
+        title.style.fontSize = size + 'px';
+        while (size > 12 && title.scrollWidth > max) {
+          size -= 0.5;
+          title.style.fontSize = size + 'px';
+        }
+      }
       function rrRenderScheduledTrainPage() {
         const page = rrScheduledPage;
         if (!page) return false;
@@ -22598,6 +22612,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const keepScroll = window.scrollY || document.documentElement.scrollTop || 0;
         if (card) card.innerHTML = rrScheduledPopupHtml(page);
         if (keepScroll) requestAnimationFrame(function() { window.scrollTo(0, keepScroll); });
+        requestAnimationFrame(function() { rrFitTrainPageTitle(); });
         const grid = card && card.querySelector('.info-grid');
         const body = card && card.querySelector('.train-popup-body');
         if (slot) {
