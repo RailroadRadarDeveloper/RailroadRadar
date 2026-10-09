@@ -1277,10 +1277,20 @@
     }
     html.rr-train-page #rr-train-page-card .train-popup-footer {
       display: flex;
-      position: relative;
-      z-index: 3;
-      margin: 0 16px 16px;
-      clear: both;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      margin: 0;
+      gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: #07093e;
+      border-top: 1px solid rgba(255,255,255,.16);
+      box-sizing: border-box;
+    }
+    html.rr-train-page #rr-train-page {
+      padding-bottom: calc(84px + env(safe-area-inset-bottom));
     }
     html.rr-train-page #rr-train-page-map-slot {
       display: block;
