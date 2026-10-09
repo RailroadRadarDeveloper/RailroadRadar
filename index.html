@@ -5898,7 +5898,8 @@
     .departure-destination, .departure-status {
       font-size: 11px !important;
     }
-    .stop-time { min-width: 58px !important; font-size: 10.5px !important; }
+    .stop-time { min-width: 52px !important; font-size: 10.5px !important; }
+    .stop-time-actual { color: #0ac700 !important; min-width: 52px !important; }
     .stop-status { font-size: 10px !important; padding: 1px 4px !important; }
     .stop-mileage { font-size: 9.5px !important; }
     .checkmark { width: 10px !important; height: 10px !important; }
@@ -18383,11 +18384,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
             }
             const extraHtml = mileageInfo ? `<br><small class="stop-mileage" style="font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
-            // Past stops: actual / last live prediction. Upcoming: schedule.
-            const leftTime = stop.isCompleted
-              ? (stop.formattedActualTime || stop.formattedPredictedTime || stop.formattedScheduledTime)
-              : (stop.formattedScheduledTime || stop.formattedPredictedTime || '');
-            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
+            const schedTime = stop.formattedScheduledTime || '';
+            const actualTime = stop.isCompleted ? (stop.formattedActualTime || stop.formattedPredictedTime || '') : '';
+            const showActual = actualTime && actualTime !== schedTime;
+            const leftTime = schedTime || actualTime || stop.formattedPredictedTime || '';
+            const actualHtml = showActual ? `<span class="stop-time stop-time-actual">${actualTime}</span>` : '';
+            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span>${actualHtml}<span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
           }).join('')
         }</ul></div>`;
       }
