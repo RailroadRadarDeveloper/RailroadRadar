@@ -22512,7 +22512,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
         if (isFinite(lat) && isFinite(lng) && !rrTrainPageCentered) {
-          map.setView([lat, lng], 14, { animate: false });
+          map.setView([lat, lng], 11, { animate: false });
           rrTrainPageCentered = true;
         } else if (isFinite(lat) && isFinite(lng)) {
           try { map.panTo([lat, lng], { animate: true }); } catch (_) {}
@@ -22542,7 +22542,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (mins || !parts.length) parts.push(mins + ' minute' + (mins === 1 ? '' : 's'));
         return 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
       }
-      async function rrDrawScheduledRoute(stops, tripId) {
+      async function rrDrawScheduledRoute(stops, tripId, routeId) {
         rrClearScheduledLine();
         if (!map || typeof L === 'undefined') return;
         let pts = null;
@@ -22569,9 +22569,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!pts || pts.length < 2) {
           pts = (stops || []).filter(s => s && s.lat != null && s.lng != null).map(s => [Number(s.lat), Number(s.lng)]).filter(p => isFinite(p[0]) && isFinite(p[1]));
         }
+        if ((!pts || pts.length < 2) && routeId && routeLines && routeLines[routeId]) {
+          try { pts = routeLines[routeId].getLatLngs(); } catch (e) {}
+        }
         if (!pts || pts.length < 2) return;
         rrScheduledLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
-        try { map.fitBounds(rrScheduledLine.getBounds(), { padding: [36, 36], maxZoom: 13 }); } catch (e) {}
+        try { rrScheduledLine.bringToFront(); } catch (e) {}
+        const fit = function() {
+          try { map.invalidateSize(); } catch (e) {}
+          try { map.fitBounds(rrScheduledLine.getBounds(), { padding: [28, 28], maxZoom: 9, animate: false }); } catch (e) {}
+        };
+        fit();
+        setTimeout(fit, 250);
       }
       function rrScheduledPopupHtml(page) {
         const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid, page.date || '') : '';
@@ -22649,7 +22658,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           if (typeof rrApplyOnlyThisTrain === 'function') rrApplyOnlyThisTrain({ id: '__scheduled__', markerMap: {} });
         } catch (e) {}
-        rrDrawScheduledRoute(page.stops, page.tid);
+        rrDrawScheduledRoute(page.stops, page.tid, page.routeId);
         return true;
       }
       async function rrLoadScheduledSharePage(spec) {
@@ -22669,8 +22678,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const td = await tr.json();
             const route = (td.included || []).find(function(x) { return x && x.type === 'route'; });
             if (route && route.attributes) lineName = route.attributes.long_name || route.attributes.short_name || '';
+            if (route && route.id) rrScheduledPageRouteId = route.id;
           } catch (e) {}
           rrScheduledPage = {
+            routeId: (typeof rrScheduledPageRouteId !== 'undefined' && rrScheduledPageRouteId) || '',
             tid: tripId,
             date: spec.date || '',
             rname: lineName,
