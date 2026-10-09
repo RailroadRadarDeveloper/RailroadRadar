@@ -1275,13 +1275,52 @@
     html.rr-train-page body {
       overflow-x: hidden;
     }
+    html.rr-train-page,
+    html.rr-train-page body {
+      height: 100dvh;
+      overflow: hidden;
+    }
+    html.rr-train-page #rr-train-page {
+      margin-top: 60px;
+      height: calc(100dvh - 60px);
+      min-height: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    html.rr-train-page #rr-train-page-card {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup,
+    html.rr-train-page #rr-train-page-card .train-popup-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-height: none;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup-header {
+      flex: 0 0 auto;
+      padding: 8px 12px 6px;
+    }
+    html.rr-train-page #rr-train-page-card .quick-status,
+    html.rr-train-page #rr-train-page-card .info-grid {
+      flex: 0 0 auto;
+      margin-bottom: 6px;
+    }
     html.rr-train-page #rr-train-page-card .train-popup-footer {
       display: flex;
       position: fixed;
       left: 0;
       right: 0;
       bottom: 0;
-      z-index: 40;
+      z-index: 80;
       margin: 0;
       gap: 8px;
       padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -1289,16 +1328,14 @@
       border-top: 1px solid rgba(255,255,255,.16);
       box-sizing: border-box;
     }
-    html.rr-train-page #rr-train-page {
-      padding-bottom: calc(84px + env(safe-area-inset-bottom));
-    }
     html.rr-train-page #rr-train-page-map-slot {
       display: block;
       position: relative;
-      height: 230px;
-      min-height: 230px;
-      max-height: 230px;
-      margin: 12px 16px;
+      flex: 0 0 148px;
+      height: 148px;
+      min-height: 148px;
+      max-height: 148px;
+      margin: 6px 12px;
       overflow: hidden;
       z-index: 1;
     }
@@ -1309,16 +1346,23 @@
       right: 0 !important;
       bottom: 0 !important;
       width: 100% !important;
-      height: 230px !important;
+      height: 148px !important;
     }
     html.rr-train-page #rr-train-page-card .stops-wrapper,
     html.rr-train-page #rr-train-page-card .upcoming-stops {
       display: block;
       position: relative;
       z-index: 2;
-      margin: 4px 16px 16px;
+      flex: 1 1 auto;
+      min-height: 0;
+      margin: 0 12px 8px;
       max-height: none;
-      overflow: visible;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    html.rr-train-page .rr-train-page-toolbar {
+      flex: 0 0 auto;
+      margin: 0 12px calc(72px + env(safe-area-inset-bottom));
     }
     html.rr-train-page #rr-train-page-card .train-popup-body {
       max-height: none;
@@ -22528,6 +22572,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
         setTimeout(function() { try { map.invalidateSize(); } catch (e) {} }, 50);
+        const foot = card && card.querySelector('.train-popup-footer');
+        if (foot && foot.parentNode !== document.body) document.body.appendChild(foot);
         try {
           if (typeof rrApplyOnlyThisTrain === 'function') rrApplyOnlyThisTrain({ id: '__scheduled__', markerMap: {} });
         } catch (e) {}
