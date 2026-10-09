@@ -22726,7 +22726,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         document.documentElement.classList.remove('rr-train-page-waiting');
         rrScheduledPage = null;
-        rrClearScheduledLine();
         if (status) {
           status.textContent = (row.agency || '') + ' ' + (row.trainNum || '') + (row.dest ? (' to ' + row.dest) : '');
         }
