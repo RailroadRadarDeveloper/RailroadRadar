@@ -18387,7 +18387,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             } else {
               cls = 'status-on-time';
-              disp = 'On time';
+              disp = pred || 'On time';
               statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             }
             const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
