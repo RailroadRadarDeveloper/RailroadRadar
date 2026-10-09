@@ -161,8 +161,9 @@
     }
     .header-search-container {
       position: relative;
-      width: 280px;
-      max-width: 36vw;
+      width: 210px;
+      max-width: 22vw;
+      flex: 0 1 210px;
       display: flex;
       align-items: center;
       flex-shrink: 1;
@@ -5334,6 +5335,7 @@
       position: relative;
       z-index: 10001;
     }
+    .header-right .header-auth { flex-shrink: 0; margin-left: 8px; }
     .header-auth {
       display: flex;
       align-items: center;
@@ -6063,8 +6065,9 @@
       <a href="/favorites/" data-nav="favorites">Favorites</a>
       <a href="/press/" data-nav="press">Press</a>
     </nav>
-    <div class="header-center">
-      <div class="header-search-container">
+    <div class="header-center"></div>
+    <div class="header-right">
+<div class="header-search-container">
         <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains, stations, or ask…" aria-label="Search for trains or stations">
         <!-- Search Type Menu -->
         <div class="search-type-menu" id="search-type-menu">All ▼</div>
@@ -6086,8 +6089,6 @@
           </button>
         </div>
       </div>
-    </div>
-    <div class="header-right">
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign up / Log in</button>
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
