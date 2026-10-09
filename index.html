@@ -1276,7 +1276,39 @@
       overflow-x: hidden;
     }
     html.rr-train-page #rr-train-page-card .train-popup-footer {
-      display: none;
+      display: flex;
+      position: relative;
+      z-index: 3;
+      margin: 0 16px 16px;
+      clear: both;
+    }
+    html.rr-train-page #rr-train-page-map-slot {
+      display: block;
+      position: relative;
+      height: 230px;
+      min-height: 230px;
+      max-height: 230px;
+      margin: 12px 16px;
+      overflow: hidden;
+      z-index: 1;
+    }
+    html.rr-train-page #rr-train-page-map-slot > #map {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      height: 230px !important;
+    }
+    html.rr-train-page #rr-train-page-card .stops-wrapper,
+    html.rr-train-page #rr-train-page-card .upcoming-stops {
+      display: block;
+      position: relative;
+      z-index: 2;
+      margin: 4px 16px 16px;
+      max-height: none;
+      overflow: visible;
     }
     html.rr-train-page #rr-train-page-card .train-popup-body {
       max-height: none;
@@ -22478,11 +22510,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const grid = card && card.querySelector('.info-grid');
         const body = card && card.querySelector('.train-popup-body');
         if (slot) {
-          if (grid && grid.parentNode) grid.parentNode.insertBefore(slot, grid.nextSibling);
-          else if (body) body.insertBefore(slot, body.firstChild);
+          const stopsWrap = card && card.querySelector('.stops-wrapper');
+          if (stopsWrap && stopsWrap.parentNode) stopsWrap.parentNode.insertBefore(slot, stopsWrap);
+          else if (grid && grid.parentNode) grid.parentNode.insertBefore(slot, grid.nextSibling);
+          else if (body) body.appendChild(slot);
           else if (card) card.appendChild(slot);
         }
         if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
+        setTimeout(function() { try { map.invalidateSize(); } catch (e) {} }, 50);
         try {
           if (typeof rrApplyOnlyThisTrain === 'function') rrApplyOnlyThisTrain({ id: '__scheduled__', markerMap: {} });
         } catch (e) {}
