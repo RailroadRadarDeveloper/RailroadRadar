@@ -20619,7 +20619,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (njtStopsCache[info.trainNum].dest) info.destName = njtStopsCache[info.trainNum].dest;
             }
             njtTrainInfo[vid] = info;
-            njtLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
+            njtLastSeen[vid] = rrSeenMs(raw.timestamp || raw.updatedAt || raw.updated || raw.lastUpdated, now);
             const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
             const icon = createNjtIcon(njtLocoType);
             const labelInfo = buildCyclingTrainInfo({
