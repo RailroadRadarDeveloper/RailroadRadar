@@ -1277,33 +1277,26 @@
     }
     html.rr-train-page,
     html.rr-train-page body {
-      height: 100dvh;
-      overflow: hidden;
+      height: auto;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     html.rr-train-page #rr-train-page {
       margin-top: 60px;
-      height: calc(100dvh - 60px);
-      min-height: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      height: auto;
+      min-height: calc(100dvh - 60px);
+      padding: 0 0 calc(88px + env(safe-area-inset-bottom));
+      display: block;
+      overflow: visible;
     }
-    html.rr-train-page #rr-train-page-card {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    html.rr-train-page #rr-train-page-card,
     html.rr-train-page #rr-train-page-card .train-popup,
     html.rr-train-page #rr-train-page-card .train-popup-body {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      display: block;
+      height: auto;
       max-height: none;
+      overflow: visible;
     }
     html.rr-train-page #rr-train-page-card .train-popup-header {
       flex: 0 0 auto;
@@ -1353,9 +1346,6 @@
     html.rr-train-page #rr-train-page-card .stops-list {
       display: block;
       position: relative;
-      z-index: 2;
-      flex: 1 1 auto;
-      min-height: 0;
       width: 100%;
       margin: 0;
       padding-left: 0;
@@ -1364,19 +1354,19 @@
       border-right: none;
       border-radius: 0;
       box-sizing: border-box;
-      max-height: none;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
+      max-height: none !important;
+      min-height: 0 !important;
+      height: auto !important;
+      overflow: visible !important;
     }
 
     html.rr-train-page #rr-train-page-card .stops-wrapper,
     html.rr-train-page #rr-train-page-card .upcoming-stops,
     html.rr-train-page #rr-train-page-card .stops-list {
       max-height: none !important;
-      min-height: calc(100dvh - 330px) !important;
+      min-height: 0 !important;
       height: auto !important;
-      overflow-x: hidden !important;
-      overflow-y: auto !important;
+      overflow: visible !important;
     }
     html.rr-train-page #rr-train-page-card .train-popup,
     html.rr-train-page #rr-train-page-card .train-popup-body {
@@ -22605,7 +22595,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const pageEl = document.getElementById('rr-train-page');
         if (pageEl) pageEl.hidden = false;
         if (status) status.textContent = (page.rname ? page.rname + ' ' : '') + (page.tid || '') + (page.dest ? (' to ' + page.dest) : '');
+        const keepScroll = window.scrollY || document.documentElement.scrollTop || 0;
         if (card) card.innerHTML = rrScheduledPopupHtml(page);
+        if (keepScroll) requestAnimationFrame(function() { window.scrollTo(0, keepScroll); });
         const grid = card && card.querySelector('.info-grid');
         const body = card && card.querySelector('.train-popup-body');
         if (slot) {
