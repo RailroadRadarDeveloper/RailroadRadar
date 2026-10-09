@@ -21494,8 +21494,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               departsMsg = 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
             }
           }
-          const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, tid) : '';
-        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', tid, tid) : '';
+          const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, (typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid, serviceDate) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', tid, (typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid) : '';
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
@@ -22071,17 +22071,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const slug = String(trainNum || '').trim() || rrNormShareId(vid) || String(vid || '').trim();
         return a + ':' + slug;
       }
-      function rrTrainShareUrl(agency, vid, trainNum) {
+      function rrTrainShareUrl(agency, vid, trainNum, serviceDate) {
         const origin = (location.origin && location.origin !== 'null') ? location.origin : 'https://railroadradar.com';
-        let path = location.pathname || '/';
-        if (/index\.html$/i.test(path)) path = path.replace(/index\.html$/i, '');
-        if (!path) path = '/';
-        return origin + path + '?train=' + encodeURIComponent(rrTrainShareKey(agency, vid, trainNum));
+        const key = rrTrainShareKey(agency, vid, trainNum);
+        const parts = key.split(':');
+        const slug = encodeURIComponent(parts.slice(1).join(':') || parts[0]);
+        let url = origin + '/?train=' + encodeURIComponent(parts[0] || 'mbta') + ':' + slug;
+        const date = String(serviceDate || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) url += '&date=' + date;
+        if (vid && String(vid) !== String(trainNum || '')) url += '&trip=' + encodeURIComponent(vid);
+        return url;
       }
-      function rrShareTrainBtnHtml(agency, vid, trainNum) {
+      function rrShareTrainBtnHtml(agency, vid, trainNum, serviceDate) {
         const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
         return '<button type="button" class="popup-action-btn share-btn" onclick="shareTrainLink(\'' +
-          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Share</button>';
+          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\',\'' + esc(serviceDate || '') + '\')">Share</button>';
       }
       /* Trip log from live */
       function rrLogTripBtnHtml(agency, vid, trainNum) {
@@ -22198,8 +22202,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rrReadTrainQuery() {
         try {
           const q = new URLSearchParams(location.search);
+          const page = rrParseShareSpec(q.get('train') || q.get('t'));
+          if (page) {
+            page.date = q.get('date') || '';
+            page.trip = q.get('trip') || '';
+          }
           return {
-            page: rrParseShareSpec(q.get('train') || q.get('t')),
+            page: page,
             focus: rrParseShareSpec(q.get('focus'))
           };
         } catch (_) {
@@ -22230,8 +22239,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       try { window.rrCollectLiveTrainRows = collectLiveTrainRows; } catch (_) {}
       try { window.rrFindSharedTrain = rrFindSharedTrain; } catch (_) {}
-      window.shareTrainLink = async function(agency, vid, trainNum) {
-        const url = rrTrainShareUrl(agency, vid, trainNum);
+      window.shareTrainLink = async function(agency, vid, trainNum, serviceDate) {
+        const url = rrTrainShareUrl(agency, vid, trainNum, serviceDate);
         try {
           if (navigator.share) {
             try {
@@ -22442,8 +22451,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { map.fitBounds(rrScheduledLine.getBounds(), { padding: [36, 36], maxZoom: 13 }); } catch (e) {}
       }
       function rrScheduledPopupHtml(page) {
-        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, page.tid) : '';
-        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, page.tid) : '';
+        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid, page.date || '') : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid) : '';
         const stopsHtml = (typeof buildStopsHtml === 'function') ? buildStopsHtml(page.stops || []) : '';
         return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px;line-height:1.3;color:#ffffff;font-style:italic;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
@@ -22487,7 +22496,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         rrLoadScheduledSharePage._busy = true;
         try {
           if (typeof getTripStops !== 'function') return false;
-          const stops = await getTripStops(spec.id);
+          const tripId = spec.trip || spec.id;
+          const stops = await getTripStops(tripId, spec.date || '');
           if (!stops || !stops.length) return false;
           const when = stops.map(s => s.predictedTime || s.scheduledTime).find(Boolean);
           let lineName = '';
@@ -22498,7 +22508,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (route && route.attributes) lineName = route.attributes.long_name || route.attributes.short_name || '';
           } catch (e) {}
           rrScheduledPage = {
-            tid: spec.id,
+            tid: tripId,
+            date: spec.date || '',
             rname: lineName,
             origin: (stops[0] && stops[0].name) || '',
             dest: (stops[stops.length - 1] && stops[stops.length - 1].name) || '',
