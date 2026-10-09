@@ -18780,10 +18780,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="meta-row">
                 ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
-              ${amtrakPairingBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
+              ${amtrakPairingBlock}
             </div>
             <div class="train-popup-footer">
               ${logTripBtn}${shareBtn}${refreshBtn}
@@ -19368,10 +19368,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="meta-row">
                 ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
-              ${mnrPairingBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
+              ${mnrPairingBlock}
             </div>
             <div class="train-popup-footer">
               ${logTripBtn}${shareBtn}${refreshBtn}
@@ -19784,10 +19784,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="meta-row">
                 ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
-              ${lirrPairingBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
+              ${lirrPairingBlock}
             </div>
             <div class="train-popup-footer">
               ${logTripBtn}${shareBtn}${refreshBtn}
@@ -20558,13 +20558,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${dirHtml}
               </div>
               ${al}
-              ${njtPairingBlock}
               <div class="meta-row">
                 Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
+              ${njtPairingBlock}
             </div>
             <div class="train-popup-footer">
               ${logTripBtn}${shareBtn}${refreshBtn}
@@ -20812,7 +20812,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + route + '</span></div>' +
           '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>' + speedHtml + '</div>' +
           al + '<div class="meta-row">' + origin + ' \u2192 ' + dest + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
-          '<div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
+          '<div class="stops-wrapper">' + stopsHtml + '</div>' + ((typeof buildLocoReportPairingBlockHtml==='function') ? buildLocoReportPairingBlockHtml('mbta', { trainNumber: (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid }) : '') + '</div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
       }
       window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
       function updateMarcVisibility() {
@@ -21531,10 +21531,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="meta-row">
                 Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
-              ${mbtaPairingBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
+              ${mbtaPairingBlock}
             </div>
             <div class="train-popup-footer">
               ${logTripBtn}${shareBtn}${refreshBtn}
