@@ -18095,15 +18095,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (s && s.stopId) byId[String(s.stopId)] = s;
         if (s && s.name) byName[String(s.name).toLowerCase()] = s;
       });
-      stops.forEach(function(s) {
-        const c = byId[String(s.id || s.stopId || '')] || byName[String(s.name || '').toLowerCase()];
-        if (!c) return;
-        if (c.actual) {
+      let laterPassed = false;
+      for (let i = stops.length - 1; i >= 0; i--) {
+        const s = stops[i];
+        const c = byId[String(s.id || s.stopId || '')] || byName[String(s.name || '').toLowerCase()] || cached.stops[i] || null;
+        if (c && ((c.actual && c.actual !== (c.scheduled || s.formattedScheduledTime)) || c.completed)) laterPassed = true;
+        if (!c && !laterPassed) continue;
+        if (c && c.actual && c.actual !== (c.scheduled || s.formattedScheduledTime)) {
           s.formattedActualTime = c.actual;
-          if (s.isCompleted && !s.formattedPredictedTime) s.formattedPredictedTime = c.actual;
+          if (!s.formattedPredictedTime) s.formattedPredictedTime = c.actual;
         }
-        if (c.completed || c.actual) s.isCompleted = true;
-      });
+        if (laterPassed || (c && (c.completed || c.actual))) s.isCompleted = true;
+      }
       return stops;
     }
     function rrSaveStopActuals(agency, trainNumber, serviceDate, stops) {
@@ -18112,7 +18115,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       if (!auth || !auth.currentUser) return;
       const id = rrStopActualDocId(agency, trainNumber, serviceDate);
       const payloadStops = stops.map(function(s) {
-        const actual = s.formattedActualTime || (s.isCompleted ? (s.formattedPredictedTime || s.formattedScheduledTime) : null);
+        const actual = (s.formattedActualTime && s.formattedActualTime !== s.formattedScheduledTime)
+          ? s.formattedActualTime
+          : (s.isCompleted && s.formattedPredictedTime && s.formattedPredictedTime !== s.formattedScheduledTime ? s.formattedPredictedTime : null);
         return {
           name: s.name || '',
           stopId: String(s.id || s.stopId || ''),
@@ -18198,8 +18203,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 trackNumber: track,
                 formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
                 formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
-                formattedActualTime: isCompleted
-                  ? ((predTime || schedTime) ? (predTime || schedTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null)
+                formattedActualTime: isCompleted && predTime
+                  ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
                   : null,
                 isCompleted,
                 lat: stopInfo?.attributes?.latitude || null,
@@ -18403,7 +18408,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
             const extraHtml = mileageInfo ? `<br><small class="stop-mileage" style="font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
             const schedTime = stop.formattedScheduledTime || '';
-            const actualTime = stop.isCompleted ? (stop.formattedActualTime || stop.formattedPredictedTime || '') : '';
+            let actualTime = stop.isCompleted ? (stop.formattedActualTime || stop.formattedPredictedTime || '') : '';
+            if (actualTime && schedTime && actualTime === schedTime) actualTime = '';
             const leftTime = schedTime || stop.formattedPredictedTime || actualTime || '';
             if (stop.isCompleted && actualTime) {
               const late = rrMinutesLate(schedTime, actualTime);
