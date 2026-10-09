@@ -5336,6 +5336,13 @@
       z-index: 10001;
     }
     .header-right .header-auth { flex-shrink: 0; margin-left: 8px; }
+    .rr-mobile-nav{display:none;flex-direction:column;gap:4px}
+    @media (max-width: 980px){
+      .rr-site-nav,#btn-report-train-header{display:none !important}
+      .rr-mobile-nav{display:flex}
+      .header-right{margin-right:8px}
+    }
+    
     .header-auth {
       display: flex;
       align-items: center;
@@ -5485,7 +5492,7 @@
         justify-content: flex-end;
         z-index: 1;
       }
-      .header-search-container {
+      .rr-site-nav, #btn-report-train-header, .header-search-container {
         display: none !important;
       }
       .header-search-results,
@@ -6082,6 +6089,13 @@
       <div class="header-tools">
         <button type="button" class="header-auth-btn" id="btn-header-tools" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
         <div class="header-tools-panel" id="header-tools-panel" hidden>
+          <div class="rr-mobile-nav">
+            <a class="header-auth-btn" href="/">Live map</a>
+            <a class="header-auth-btn" href="/mytrips/">MyTrips</a>
+            <a class="header-auth-btn" href="/favorites/">Favorites</a>
+            <a class="header-auth-btn" href="/press/">Press</a>
+            <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
+          </div>
           <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
           <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
             <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
