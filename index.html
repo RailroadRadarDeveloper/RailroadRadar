@@ -22543,8 +22543,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
       }
       async function rrDrawScheduledRoute(stops, tripId, routeId) {
-        rrClearScheduledLine();
         if (!map || typeof L === 'undefined') return;
+        if (rrScheduledLine && map.hasLayer(rrScheduledLine) && rrDrawScheduledRoute._drawnFor === String(tripId || '')) return;
         let pts = null;
         if (tripId) {
           try {
@@ -22573,7 +22573,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { pts = routeLines[routeId].getLatLngs(); } catch (e) {}
         }
         if (!pts || pts.length < 2) return;
-        rrScheduledLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
+        const nextLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
+        if (rrScheduledLine && rrScheduledLine !== nextLine) {
+          try { map.removeLayer(rrScheduledLine); } catch (e) {}
+        }
+        rrScheduledLine = nextLine;
+        rrDrawScheduledRoute._drawnFor = String(tripId || '');
         try { rrScheduledLine.bringToFront(); } catch (e) {}
         const fit = function() {
           try { map.invalidateSize(); } catch (e) {}
@@ -22736,6 +22741,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
         rrApplyOnlyThisTrain(row);
+        if (rrScheduledLine && map && !map.hasLayer(rrScheduledLine)) {
+          try { rrScheduledLine.addTo(map); rrScheduledLine.bringToFront(); } catch (e) {}
+        }
         return true;
       }
       function rrLoadMbtaStopsForPage(row) {
