@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin.html
+Disallow: /user/
+Disallow: /live/user.html
+
+Sitemap: https://railroadradar.com/sitemap.xml
