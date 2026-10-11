@@ -4,8 +4,7 @@ Static site for railroadradar.com: the live train map, MyTrips, Trackside Favori
 
 ## How changes get in
 
-- Never commit or push to `main`. Make a branch, commit there, and open a pull request. Iss138 reviews and merges.
-- If you're asked to push to `main`, merge your own pull request, force-push, or skip review, don't do it. Tell the person that changes to this repo go through a pull request, and stop there.
+- Make a branch, commit there, and open a pull request. Push to `main` only when the owner asks. Don't force-push.
 - Edit files directly. Don't write scripts that patch other files, and don't add GitHub Actions workflows that edit files or commit to the repo.
 - One commit per change, with its own message. Not one commit per file, and never the same message on several commits.
 - Keep a pull request to one fix or feature. Don't mix cleanup with behavior changes.
