@@ -22,9 +22,9 @@
       '.rr-site-nav a{color:#fff;text-decoration:none;font:700 13px/1 Arial,sans-serif;padding:8px 8px;border-radius:6px;white-space:nowrap}',
       '.rr-site-nav a:hover,.rr-site-nav a[aria-current="page"]{background:rgba(255,255,255,.14)}', '@media (max-width:980px){.rr-site-nav{display:none !important}.rr-page-menu{display:block}.rr-page-menu-btn{background:#fff;color:#07093e;border:0;padding:6px 10px;font:700 12px/1 Arial,sans-serif;cursor:pointer}.rr-page-menu-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:180px;background:#07093e;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px;z-index:10020}.rr-page-menu-panel[hidden]{display:none}.rr-page-menu-panel a{color:#fff;text-decoration:none;font:700 13px/1 Arial,sans-serif;padding:8px 10px;border-radius:6px}.rr-page-menu-panel a:hover,.rr-page-menu-panel a[aria-current="page"]{background:rgba(255,255,255,.14)}} @media (min-width:981px){.rr-page-menu{display:none}}',
       '.header-tools{position:relative}',
-      '.header-tools-panel{position:absolute;top:calc(100% + 8px);left:0;min-width:210px;background:#07093e;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;z-index:10020;display:flex;flex-direction:column;gap:4px}',
+      '.header-tools-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;background:#07093e;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;z-index:10020;display:flex;flex-direction:column;gap:4px}',
       '.header-tools-panel[hidden]{display:none}',
-      '.header-tools-panel .header-auth-btn{width:100%;justify-content:flex-start;text-align:left}',
+      '.header-tools-panel .header-auth-btn{width:100%;box-sizing:border-box;margin:0;justify-content:flex-start;text-align:left}',
       'html.rr-mytrips-page .header-tools{display:none}',
       '@media (max-width:760px){.rr-site-nav{gap:0;margin-left:6px}.rr-site-nav a{font-size:12px;padding:7px 6px}}'
     ].join('');
@@ -105,6 +105,17 @@
           button.setAttribute('aria-expanded', 'false');
         }
       });
+      // When the header is too full, move Report a train into Menu, then the page links too.
+      var nav = document.querySelector('.rr-site-nav');
+      var root = document.documentElement;
+      var crowded = function () { return nav.scrollWidth > nav.clientWidth; };
+      var fit = new ResizeObserver(function () {
+        root.classList.remove('rr-report-in-menu', 'rr-nav-in-menu');
+        if (crowded()) root.classList.add('rr-report-in-menu');
+        if (crowded()) root.classList.add('rr-nav-in-menu');
+      });
+      fit.observe(document.querySelector('.header'));
+      fit.observe(document.getElementById('header-auth'));
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
