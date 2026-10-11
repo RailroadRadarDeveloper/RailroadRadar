@@ -2012,6 +2012,14 @@
      object-fit: contain !important;
      filter: drop-shadow(0 1px 2px rgba(0,0,0,.55));
    }
+   /* The main map shadows its marker layer as a whole. A shadow on each of its hundreds of
+      train icons made panning and zooming slow. */
+   #map .leaflet-marker-pane {
+     filter: drop-shadow(0 1px 2px rgba(0,0,0,.55));
+   }
+   #map .leaflet-marker-icon {
+     filter: none;
+   }
    .live-train-icon {
      width: 16px !important;
      height: 16px !important;
@@ -15118,6 +15126,61 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // so route lines cover a full screen past each edge to stay drawn while dragging.
       const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
       try { window.rrMainMap = map; } catch (_) {}
+      // Leaflet moves every marker on every frame of a pinch zoom, including the hundreds far off
+      // screen (all of Metra when looking at New York), which made zooming stutter on phones.
+      // Markers more than half a screen outside the view are hidden and left where they are.
+      const rrMarkerSetPos = L.Marker.prototype._setPos;
+      const rrOffscreenMarkers = new Set();
+      function rrMarkerRange() {
+        const size = map.getSize();
+        const topLeft = map.containerPointToLayerPoint([0, 0]);
+        return L.bounds(topLeft.subtract(size.divideBy(2)), topLeft.add(size.multiplyBy(1.5)));
+      }
+      L.Marker.include({
+        _setPos: function(pos) {
+          if (this._map !== map) return rrMarkerSetPos.call(this, pos);
+          if (!rrMarkerRange().contains(pos)) {
+            if (this._icon.style.display !== 'none') this._icon.style.display = 'none';
+            rrOffscreenMarkers.add(this);
+            return;
+          }
+          rrOffscreenMarkers.delete(this);
+          if (this._icon.style.display === 'none') this._icon.style.display = '';
+          rrMarkerSetPos.call(this, pos);
+        }
+      });
+      // Dragging doesn't move markers, so bring back the ones the view has come near.
+      map.on('move', function() {
+        const range = rrMarkerRange();
+        rrOffscreenMarkers.forEach(function(m) {
+          if (!m._map) rrOffscreenMarkers.delete(m);
+          else if (range.contains(map.latLngToLayerPoint(m.getLatLng()))) m.update();
+        });
+      });
+      // Leaflet measures a train label each time it places one, on every frame of a zoom and for
+      // every label when they refresh, and each measurement makes the browser lay out the page
+      // again. A label's width only changes with its text, so changed labels are measured together
+      // once the current script finishes. Train labels are the only tooltips placed below.
+      const rrTooltipSetPosition = L.Tooltip.prototype._setPosition;
+      const rrLabelsToMeasure = new Set();
+      function rrMeasureLabels() {
+        const labels = Array.from(rrLabelsToMeasure);
+        rrLabelsToMeasure.clear();
+        labels.forEach(function(t) { if (t._map) t._rrWidth = t._container.offsetWidth; });
+        labels.forEach(function(t) { if (t._map) t._updatePosition(); });
+      }
+      L.Tooltip.include({
+        _updateLayout: function() {
+          if (this.options.direction !== 'bottom') return;
+          if (!rrLabelsToMeasure.size) queueMicrotask(rrMeasureLabels);
+          rrLabelsToMeasure.add(this);
+        },
+        _setPosition: function(pos) {
+          if (this.options.direction !== 'bottom') return rrTooltipSetPosition.call(this, pos);
+          L.DomUtil.addClass(this._container, 'leaflet-tooltip-bottom');
+          L.DomUtil.setPosition(this._container, pos.subtract(L.point((this._rrWidth || 0) / 2, 0, true)).add(this.options.offset).add(this._getAnchor()));
+        }
+      });
       // Reopen where the map was left, unless the link points at a train.
       try {
         const q = new URLSearchParams(location.search);
