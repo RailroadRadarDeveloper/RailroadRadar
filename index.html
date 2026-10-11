@@ -7584,6 +7584,15 @@
       } catch (err) {
         console.warn('[bannedUsers] check failed', err);
       }
+      try {
+        const email = String(user.email || '').trim().toLowerCase();
+        if (email && user.emailVerified) {
+          const byEmail = await db.collection('bannedEmails').doc(email).get();
+          if (byEmail.exists) return Object.assign({ id: byEmail.id, email: email }, byEmail.data() || {});
+        }
+      } catch (err) {
+        console.warn('[bannedEmails] check failed', err);
+      }
       return null;
     }
     function escapeHtmlLite(s) {
@@ -18242,6 +18251,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         trainNumber: String(trainNumber || ''),
         serviceDate: String(serviceDate || rrStopServiceDate()),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedByUid: (auth && auth.currentUser && auth.currentUser.uid) || '',
         expiresAt: firebase.firestore.Timestamp.fromMillis(expires),
         stops: payloadStops
       };
