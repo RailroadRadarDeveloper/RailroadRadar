@@ -40,10 +40,27 @@ service cloud.firestore {
             && get(adminDocPath()).data.perms[perm] == true);
     }
 
+    function verifiedEmail() {
+      return authEmailLower() != '';
+    }
+
+    function isBanned() {
+      return signedIn() && (
+        exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        || (verifiedEmail() && exists(/databases/$(database)/documents/bannedEmails/$(authEmailLower())))
+      );
+    }
+
     match /pairings/{leadCar} {
       allow read: if true;
       allow create, update: if signedIn()
+        && verifiedEmail()
+        && !isBanned()
         && request.resource.data.leadCar == leadCar
+        && request.resource.data.leadCar is string
+        && request.resource.data.leadCar.size() <= 64
+        && request.resource.data.engine is string
+        && request.resource.data.engine.size() <= 64
         && request.resource.data.keys().hasAll(['leadCar', 'engine', 'reportedByUid', 'updatedAt'])
         && request.resource.data.reportedByUid == request.auth.uid;
       allow delete: if signedIn()
@@ -53,7 +70,7 @@ service cloud.firestore {
     match /trainReports/{id} {
       allow read: if true;
       allow create, update: if signedIn()
-        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        && !isBanned() && verifiedEmail()
         && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
       allow delete: if isBootstrapAdmin()
         || adminHasPerm('deleteReports')
@@ -65,7 +82,7 @@ service cloud.firestore {
         || (signedIn() && resource.data.reportedByUid == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.reportedByUid == request.auth.uid
-        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid));
+        && !isBanned() && verifiedEmail();
       allow update, delete: if isAdmin();
     }
 
@@ -78,7 +95,7 @@ service cloud.firestore {
     match /reportAudit/{id} {
       allow read: if isAdmin();
       allow create, update: if signedIn()
-        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        && !isBanned() && verifiedEmail()
         && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
       allow delete: if isBootstrapAdmin()
         || adminHasPerm('deleteReports')
@@ -102,6 +119,12 @@ service cloud.firestore {
       // Admins list/read all; self may read own ban doc by uid
       allow read: if isAdmin()
         || (signedIn() && request.auth.uid == id);
+      allow create, update, delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
+    }
+
+    match /bannedEmails/{email} {
+      allow read: if isAdmin()
+        || (signedIn() && authEmailLower() == email);
       allow create, update, delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
     }
 
@@ -158,7 +181,7 @@ service cloud.firestore {
         || (signedIn() && resource.data.userId == request.auth.uid)
         || exists(/databases/$(database)/documents/publicProfiles/$(resource.data.userId));
       allow create: if signedIn()
-        && !exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
+        && !isBanned() && verifiedEmail()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.keys().hasAll([
           'userId', 'railroad', 'originStationId', 'originName',
@@ -187,14 +210,17 @@ service cloud.firestore {
     match /trainStopActuals/{id} {
       allow read: if true;
       allow create, update: if signedIn()
+        && verifiedEmail()
+        && !isBanned()
         && request.resource.data.keys().hasAll([
-          'agency', 'trainNumber', 'serviceDate', 'stops', 'updatedAt'
+          'agency', 'trainNumber', 'serviceDate', 'stops', 'updatedAt', 'updatedByUid'
         ])
+        && request.resource.data.updatedByUid == request.auth.uid
         && request.resource.data.agency is string
         && request.resource.data.trainNumber is string
         && request.resource.data.serviceDate is string
         && request.resource.data.stops is list
-        && request.resource.data.stops.size() <= 250
+        && request.resource.data.stops.size() <= 80
         && request.resource.data.agency.size() <= 32
         && request.resource.data.trainNumber.size() <= 64
         && request.resource.data.serviceDate.size() <= 16;
@@ -234,6 +260,8 @@ service cloud.firestore {
     match /pressReleases/{id}/comments/{cid} {
       allow read: if true;
       allow create: if request.auth != null
+        && verifiedEmail()
+        && !isBanned()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
