@@ -1006,6 +1006,15 @@
       } catch (err) {
         console.warn('[bannedUsers] check failed', err);
       }
+      try {
+        const email = String(user.email || '').trim().toLowerCase();
+        if (email && user.emailVerified) {
+          const byEmail = await db.collection('bannedEmails').doc(email).get();
+          if (byEmail.exists) return Object.assign({ id: byEmail.id, email: email }, byEmail.data() || {});
+        }
+      } catch (err) {
+        console.warn('[bannedEmails] check failed', err);
+      }
       return null;
     }
     function escapeHtmlLite(s) {
@@ -1354,6 +1363,15 @@
           bannedByEmail: normalizeEmail(user.email) || user.email || null,
           bannedByUid: user.uid
         }, { merge: true });
+        if (email) {
+          await db.collection('bannedEmails').doc(email).set({
+            email: email,
+            uid: uid,
+            reason: reason || null,
+            bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            bannedByUid: user.uid
+          }, { merge: true });
+        }
         showNotification('User banned');
         try { await logUserAction('admin_ban', 'Banned ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-ban-email');
@@ -1377,7 +1395,10 @@
       }
       if (!window.confirm('Unban user "' + docId + '"?')) return;
       try {
+        const banned = await db.collection('bannedUsers').doc(docId).get();
+        const bannedEmail = banned.exists ? String((banned.data() || {}).email || '').trim().toLowerCase() : '';
         await db.collection('bannedUsers').doc(docId).delete();
+        if (bannedEmail) await db.collection('bannedEmails').doc(bannedEmail).delete();
         showNotification('User unbanned');
         try { await logUserAction('admin_unban', 'Unbanned ' + docId); } catch (_) {}
         await loadAdminBans();
