@@ -1101,14 +1101,6 @@
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return new Uint8Array(await res.arrayBuffer());
   }
-  async function getBufFirst(urls) {
-    var last = null;
-    for (var i = 0; i < urls.length; i++) {
-      try { return await getBuf(urls[i]); }
-      catch (e) { last = e; }
-    }
-    throw last || new Error('unavailable');
-  }
 
   async function loadMbtaStations() {
     var url = A.API + '/api/mbta/stops?filter[route_type]=2&page[limit]=200';
@@ -2285,7 +2277,16 @@
       } catch (e) { notes.push('NJ Transit alerts unavailable'); }
     })());
 
-    notes.push('MARC paused');
+    jobs.push((async function () {
+      try {
+        var pos = await getBuf(A.API + '/api/marc/positions');
+        var tu = await getBuf(A.API + '/api/marc/tripupdates');
+        var ents = A.decodeFeed(pos).concat(A.decodeFeed(tu));
+        var pack = A.gtfsTrains(ents, 'marc', 'MARC', TABLES.marc.routes, TABLES.marc.stops);
+        pack.trains.forEach(function (t) { trains.push(t); });
+        notes.push(pack.hadCoords ? 'MARC' : 'MARC (no coordinates, approaching skipped)');
+      } catch (e) { notes.push('MARC failed'); }
+    })());
 
     await Promise.all(jobs);
     if (!state.station || state.station.key !== station.key) return;
