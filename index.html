@@ -17,7 +17,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png?v=2">
-  <!-- Microsoft Clarity — loaded only after cookie Accept (see #rr-cookie-bar) -->
+  <!-- Microsoft Clarity — loaded only after the visitor agrees in #rr-cookie-bar -->
   <script>
     window.__rrLoadClarity = function () {
       if (window.__rrClarityLoaded) return;
@@ -145,19 +145,25 @@
     }
 
     .header-center {
-      position: absolute;
-      left: 46%;
-      transform: translateX(-50%);
+      position: static;
+      left: auto;
+      right: auto;
+      transform: none;
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 10px;
-      max-width: calc(100vw - 300px);
+      margin-left: auto;
+      margin-right: 14px;
+      min-width: 0;
+      max-width: none;
       z-index: 10000;
     }
     .header-search-container {
       position: relative;
-      width: 280px;
-      max-width: 36vw;
+      width: 210px;
+      max-width: 22vw;
+      flex: 0 1 210px;
       display: flex;
       align-items: center;
       flex-shrink: 1;
@@ -967,24 +973,21 @@
       gap: 8px;
       flex-shrink: 0;
     }
-    #rr-cookie-decline,
-    #rr-cookie-accept {
-      border: none;
+    .rr-cookie-btn {
+      border: 1px solid #fff;
       border-radius: 4px;
-      padding: 9px 12px;
+      padding: 9px 14px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
-    }
-    #rr-cookie-decline {
-      background: transparent;
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.35);
-    }
-    #rr-cookie-accept {
       background: #fff;
       color: #07093e;
+    }
+    .rr-cookie-btn.secondary {
+      background: transparent;
+      color: #fff;
+      border-color: rgba(255,255,255,0.45);
     }
     #rr-cookie-modal[hidden] { display: none !important; }
     #rr-cookie-modal {
@@ -1085,24 +1088,6 @@
       flex-wrap: wrap;
       gap: 8px;
       justify-content: flex-end;
-    }
-    #rr-cookie-reject-optional,
-    #rr-cookie-save {
-      border: none;
-      border-radius: 4px;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    #rr-cookie-reject-optional {
-      background: transparent;
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.35);
-    }
-    #rr-cookie-save {
-      background: #fff;
-      color: #07093e;
     }
     /* Pre-load railroad picker (above loading-screen z-index 100000) */
     #rr-rail-picker {
@@ -1290,9 +1275,101 @@
     html.rr-train-page body {
       overflow-x: hidden;
     }
-    html.rr-train-page #rr-train-page-card .train-popup-footer {
-      display: none;
+    html.rr-train-page,
+    html.rr-train-page body {
+      height: auto;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
+    html.rr-train-page #rr-train-page {
+      margin-top: 60px;
+      height: auto;
+      min-height: calc(100dvh - 60px);
+      padding: 0 0 calc(88px + env(safe-area-inset-bottom));
+      display: block;
+      overflow: visible;
+    }
+    html.rr-train-page #rr-train-page-card,
+    html.rr-train-page #rr-train-page-card .train-popup,
+    html.rr-train-page #rr-train-page-card .train-popup-body {
+      display: block;
+      height: auto;
+      max-height: none;
+      overflow: visible;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup-header {
+      flex: 0 0 auto;
+      padding: 8px 12px 6px;
+    }
+    html.rr-train-page #rr-train-page-card .quick-status,
+    html.rr-train-page #rr-train-page-card .info-grid {
+      flex: 0 0 auto;
+      margin-bottom: 6px;
+    }
+    html.rr-train-page #rr-train-page-map-slot {
+      display: block;
+      position: relative;
+      flex: 0 0 148px;
+      height: 148px;
+      min-height: 148px;
+      max-height: 148px;
+      margin: 6px 12px;
+      overflow: hidden;
+      z-index: 1;
+    }
+    html.rr-train-page #rr-train-page-map-slot > #map {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      height: 148px !important;
+    }
+    html.rr-train-page #rr-train-page-card .stops-wrapper,
+    html.rr-train-page #rr-train-page-card .upcoming-stops,
+    html.rr-train-page #rr-train-page-card .stops-list {
+      display: block;
+      position: relative;
+      width: 100%;
+      margin: 0;
+      padding-left: 0;
+      padding-right: 0;
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+      box-sizing: border-box;
+      max-height: none !important;
+      min-height: 0 !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup,
+    html.rr-train-page #rr-train-page-card .train-popup-body {
+      max-height: none !important;
+    }
+    html.rr-train-page #rr-train-page-actions {
+      display: flex !important;
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      z-index: 10020 !important;
+      gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: #07093e;
+      border-top: 1px solid rgba(255,255,255,.16);
+      box-sizing: border-box;
+    }
+    html.rr-train-page #rr-train-page-actions .train-popup-footer,
+    html.rr-train-page #rr-train-page-actions .popup-action-btn {
+      position: static !important;
+      display: flex !important;
+      flex: 1;
+      margin: 0 !important;
+    }
+    html.rr-train-page #rr-train-page-card .train-popup-footer { display: none !important; }
     html.rr-train-page #rr-train-page-card .train-popup-body {
       max-height: none;
       overflow: visible;
@@ -1317,11 +1394,12 @@
       flex-wrap: nowrap !important;
       white-space: nowrap;
       overflow: hidden;
-      font-size: 22px !important;
+      font-size: 22px;
       line-height: 1.2 !important;
+      width: 100%;
     }
     html.rr-train-page #rr-train-page-card .train-popup-header span {
-      font-size: 22px !important;
+      font-size: inherit !important;
       line-height: 1.2 !important;
       white-space: nowrap;
     }
@@ -1351,8 +1429,9 @@
     }
     html.rr-train-page #rr-train-page-card .info-label,
     html.rr-train-page #rr-train-page-card .meta-row,
+    html.rr-train-page #rr-train-page-card .meta-row strong,
     html.rr-train-page #rr-train-page-card .stops-loading {
-      color: #c5c9d8;
+      color: #ffffff !important;
     }
     html.rr-train-page #rr-train-page-card .quick-status,
     html.rr-train-page #rr-train-page-card .info-item {
@@ -1990,35 +2069,10 @@
    .alert-signup-section button:hover {
      background: #07093e;
    }
-   /* Report a train + Specials: header on desktop, panel button on mobile */
+   /* On mobile, Report a train, Specials, and Leaderboard also live in the settings panel */
    @media (max-width: 767px) {
-     #btn-report-train-header, #btn-specials-header { display: none !important; }
+     #btn-report-train-header { display: none !important; }
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }
-     #btn-leaderboard-header {
-       display: inline-flex !important;
-       align-items: center;
-       justify-content: center;
-       background: transparent !important;
-       border: none !important;
-       box-shadow: none !important;
-       padding: 4px !important;
-       margin: 0 4px 0 0 !important;
-       min-width: 36px;
-       min-height: 36px;
-       gap: 0;
-     }
-     #btn-leaderboard-header:hover { background: rgba(255,255,255,0.12) !important; }
-     #btn-leaderboard-header .header-leaderboard-label { display: none !important; }
-     #btn-leaderboard-header .header-leaderboard-icon {
-       width: 24px;
-       height: 24px;
-     }
-     #btn-leaderboard-header .header-leaderboard-icon img {
-       width: 24px !important;
-       height: 24px !important;
-       display: block !important;
-       object-fit: contain;
-     }
    }
    @media (min-width: 768px) {
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: none !important; }
@@ -2123,7 +2177,6 @@
       text-decoration: underline;
     }
     @media (max-width: 640px) {
-      .header-leaderboard-label { display: none; }
       .rr-lb-winner-text { font-size: 13px; }
     }
    /* Vehicle Alerts card (mobile-friendly) */
@@ -5183,21 +5236,14 @@
       pointer-events: auto;
       z-index: 100081;
     }
-    .rr-legal-agree {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      margin: 12px 0 8px;
-      font-size: 13px;
+    .signup-prompt-legal {
+      margin: 10px 0 0;
+      font-size: 12px;
       line-height: 1.45;
-      color: #2c3340;
-      cursor: pointer;
+      color: #5a6577;
+      text-align: center;
     }
-    .rr-legal-agree input {
-      margin-top: 2px;
-      flex-shrink: 0;
-    }
-    .rr-legal-agree a {
+    .signup-prompt-legal a {
       color: #1a4a8a;
       text-decoration: underline;
     }
@@ -5224,7 +5270,20 @@
       display: block;
       object-fit: contain;
     }
-    #settings-account-section .rr-modal-hint { font-size: 13px; color: #555; }
+    #settings-account-section .rr-modal-hint { font-size: 13px; color: #555; margin: 0; }
+    /* .toggle-section div is a flex row; these blocks stack, and [hidden] has to win. */
+    #settings-account-section > div { display: block; }
+    #settings-account-section > div[hidden] { display: none; }
+    #settings-account-section .cabcar-report-btn { margin-top: 12px; }
+    .settings-account-name { margin: 0; font-weight: 700; }
+    .settings-account-email { margin: 2px 0 0; font-size: 13px; color: #555; overflow-wrap: anywhere; }
+    #settings-account-section .settings-account-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0 0;
+    }
+    #settings-account-section .settings-account-actions .cabcar-report-btn { margin-top: 0; }
     .rr-profile-name-row {
       display: flex;
       align-items: center;
@@ -5320,6 +5379,18 @@
    .footer .copyright {
      color: #a8c0e0;
    }
+   .footer .footer-link {
+     background: none;
+     border: 0;
+     padding: 0;
+     font: inherit;
+     color: #a8c0e0;
+     cursor: pointer;
+   }
+   .footer .footer-link:hover {
+     color: #ffffff;
+     text-decoration: underline;
+   }
 
     /* Header right cluster: auth + menu */
     .header-right {
@@ -5332,6 +5403,21 @@
       position: relative;
       z-index: 10001;
     }
+    .header-right .header-auth { flex-shrink: 0; margin-left: 8px; }
+    .rr-mobile-nav{display:none;flex-direction:column;gap:4px}
+    .rr-mobile-nav a{text-decoration:none}
+    #btn-report-train-menu{display:none}
+    @media (max-width: 980px){
+      .rr-site-nav,#btn-report-train-header{display:none !important}
+      .rr-mobile-nav{display:flex}
+      #btn-report-train-menu{display:block}
+      .header-right{margin-right:8px}
+    }
+    html.rr-report-in-menu #btn-report-train-header{display:none !important}
+    html.rr-report-in-menu #btn-report-train-menu{display:block}
+    html.rr-nav-in-menu .rr-site-nav{display:none !important}
+    html.rr-nav-in-menu .rr-mobile-nav{display:flex}
+    
     .header-auth {
       display: flex;
       align-items: center;
@@ -5383,7 +5469,6 @@
       flex-shrink: 0;
     }
     #btn-report-train-header:hover { background: #e8eaf0; }
-    #btn-specials-header { margin-left: 6px; }
     .header-user-avatar {
       width: 34px;
       height: 34px;
@@ -5406,7 +5491,9 @@
       position: absolute;
       top: calc(100% + 8px);
       right: 0;
-      min-width: 200px;
+      min-width: 220px;
+      width: max-content;
+      max-width: min(340px, calc(100vw - 16px));
       background: #fff;
       color: #07093e;
       box-shadow: 0 8px 24px rgba(0,0,0,0.22);
@@ -5414,12 +5501,21 @@
       z-index: 10002;
       padding: 8px 0;
     }
+    /* Covers the gap above the menu so moving the pointer down to it keeps it open. */
+    .header-account-menu::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -10px;
+      height: 10px;
+    }
     .header-account-email {
       padding: 8px 12px 10px;
       font-size: 12px;
       color: #555;
       border-bottom: 1px solid #eee;
-      word-break: break-all;
+      overflow-wrap: anywhere;
     }
     .header-account-menu .header-auth-btn {
       display: block;
@@ -5433,13 +5529,6 @@
     }
     .header-account-menu a.header-auth-btn { text-decoration: none; box-sizing: border-box; }
     .header-account-menu .header-auth-btn:hover { background: #f1f2f6; }
-    .header-account-menu .header-auth-btn.delete-account {
-      color: #c0392b;
-    }
-    .header-account-menu .header-auth-btn.delete-account:hover {
-      background: #fdecea;
-      color: #c0392b;
-    }
     .header-user-avatar {
       cursor: pointer;
     }
@@ -5468,13 +5557,16 @@
       .header-center {
         position: static;
         left: auto;
+        right: auto;
         transform: none;
         flex: 1 1 auto;
         min-width: 0;
         max-width: none;
+        margin-left: auto;
+        justify-content: flex-end;
         z-index: 1;
       }
-      .header-search-container {
+      .rr-site-nav, #btn-report-train-header, .header-search-container {
         display: none !important;
       }
       .header-search-results,
@@ -5514,7 +5606,7 @@
         font-size: 11px;
         font-weight: 700;
       }
-      #btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { font-size: 11px; padding: 6px 8px; }
+      #btn-report-train-header { font-size: 11px; padding: 6px 8px; }
       .header-user-avatar {
         width: 32px;
         height: 32px;
@@ -5856,10 +5948,22 @@
         overflow-y: auto !important;
         overflow-x: hidden !important;
       }
-      .loco-report-block,
       .alert-banner {
         max-height: 72px !important;
         overflow: hidden !important;
+      }
+      .loco-report-block {
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      .loco-report-actions {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .loco-report-actions .update-pairing-btn {
+        flex: 1 1 120px;
+        min-height: 36px;
       }
       .stops-wrapper,
       .upcoming-stops {
@@ -6048,9 +6152,16 @@
     </div>
   </div>
         <div class="header">
-    <img src="/assets/logo.png" alt="Stay Off The Tracks Logo" class="header-logo">
-    <div class="header-center">
-      <div class="header-search-container">
+    <img src="/assets/logo-halloween.png" alt="RailroadRadar" class="header-logo" data-rr-main-logo="1">
+    <nav class="rr-site-nav" aria-label="RailroadRadar">
+      <a href="/" data-nav="map">Live map</a>
+      <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
+      <a href="/favorites/" data-nav="favorites">Favorites</a>
+      <a href="/press/" data-nav="press">Press</a>
+    </nav>
+    <div class="header-center"></div>
+    <div class="header-right">
+<div class="header-search-container">
         <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains, stations, or ask…" aria-label="Search for trains or stations">
         <!-- Search Type Menu -->
         <div class="search-type-menu" id="search-type-menu">All ▼</div>
@@ -6062,13 +6173,23 @@
         <div id="header-search-results" class="header-search-results"></div>
       </div>
       <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
-      <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
-      <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
-        <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
-        <span class="header-leaderboard-label">Weekly Leaderboard</span>
-      </button>
-    </div>
-    <div class="header-right">
+      <div class="header-tools">
+        <button type="button" class="header-auth-btn" id="btn-header-tools" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
+        <div class="header-tools-panel" id="header-tools-panel" hidden>
+          <div class="rr-mobile-nav">
+            <a class="header-auth-btn" href="/">Live map</a>
+            <a class="header-auth-btn" href="/mytrips/">MyTrips</a>
+            <a class="header-auth-btn" href="/favorites/">Favorites</a>
+            <a class="header-auth-btn" href="/press/">Press</a>
+          </div>
+          <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
+          <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
+          <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
+            <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
+            <span class="header-leaderboard-label">Weekly Leaderboard</span>
+          </button>
+        </div>
+      </div>
       <div class="header-auth" id="header-auth">
         <button type="button" class="header-auth-btn" id="btn-google-signin">Sign up / Log in</button>
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
@@ -6079,8 +6200,7 @@
             <a class="header-auth-btn" id="header-menu-mytrips" href="/mytrips/" role="menuitem">MyTrips</a>
             <button type="button" class="header-auth-btn" id="header-menu-account-settings" role="menuitem">Account settings</button>
             <button type="button" class="header-auth-btn" id="header-menu-cookie-settings" role="menuitem">Cookie settings</button>
-                        <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
-            <button type="button" class="header-auth-btn delete-account" id="btn-delete-account" role="menuitem">Delete account</button>
+            <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
           </div>
         </div>
       </div>
@@ -6112,9 +6232,19 @@
       <button type="button" id="rr-train-page-fullmap">Open full map</button>
     </div>
   </div>
+  <div id="rr-train-page-actions" hidden></div>
   <!-- Loading Screen -->
   <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #07093e; display: flex; align-items: center; justify-content: center; z-index: 100000; flex-direction: column; color: white; font-family: 'Segoe UI', sans-serif; transition: opacity 0.4s ease;">
-    <img src="/assets/logo.png" alt="RailroadRadar" style="height: 80px; margin-bottom: 30px; filter: brightness(1.1);">
+    <img src="/assets/logo-halloween.png" alt="RailroadRadar" data-rr-main-logo="1" style="height: 80px; margin-bottom: 30px; filter: brightness(1.1);">
+    <script>
+      (function() {
+        var end = new Date('2026-11-01T00:00:00-04:00');
+        if (Date.now() < end.getTime()) return;
+        document.querySelectorAll('[data-rr-main-logo]').forEach(function(img) {
+          img.src = '/assets/logo.png';
+        });
+      })();
+    </script>
     <div style="width: 280px; height: 8px; background: rgba(255,255,255,0.18); border-radius: 4px; overflow: hidden; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.22);">
       <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.35s ease;"></div>
     </div>
@@ -6176,13 +6306,16 @@
       <div class="toggle-section" id="settings-account-section">
         <h3>Account</h3>
         <div id="settings-account-signed-out">
-          <p class="rr-modal-hint" style="margin-top:0;">Sign in to manage how your reports are shown and which railroads you follow.</p>
+          <p class="rr-modal-hint">Sign in to report locomotives, log your trips, and choose which railroads you follow.</p>
           <button type="button" id="btn-account-signin-panel" class="cabcar-report-btn">Sign up / Log in</button>
         </div>
         <div id="settings-account-signed-in" hidden>
-          <p id="settings-account-summary" style="margin:0 0 10px; font-weight:700;"></p>
-          <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
-          <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn" style="margin-top:8px;">Trip log</button>
+          <p class="settings-account-name" id="settings-account-name"></p>
+          <p class="settings-account-email" id="settings-account-email"></p>
+          <div class="settings-account-actions">
+            <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
+            <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn">Trip log</button>
+          </div>
         </div>
       </div>
       <div class="toggle-section" id="settings-notifications-section">
@@ -6684,20 +6817,16 @@
   <div class="rr-modal-backdrop signup-prompt-modal" id="signup-prompt-modal" aria-hidden="true">
     <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="signup-prompt-title">
       <div class="rr-modal-header">
-        <span id="signup-prompt-title">Create an account to start reporting consists!</span>
+        <span id="signup-prompt-title">Sign up or log in</span>
         <button type="button" class="rr-modal-close" id="signup-prompt-close" aria-label="Close">×</button>
       </div>
       <div class="rr-modal-body">
         <p class="signup-prompt-sub"><strong>Sign in with Google to pair locomotives to live trains and share what you see.</strong></p>
         <p class="signup-prompt-note">RailroadRadar is in beta, so you may run into a few bugs while we build a better experience. We collect your email so we can moderate reports and reach you about your account. We will never sell your information.</p>
-        <label class="rr-legal-agree" for="signup-legal-agree">
-          <input type="checkbox" id="signup-legal-agree" />
-          <span>I agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
-        </label>
-        <div class="rr-modal-error" id="signup-legal-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
-          <button type="button" class="rr-btn" id="signup-prompt-signin">Sign up / Log in</button>
+          <button type="button" class="rr-btn" id="signup-prompt-signin">Continue with Google</button>
         </div>
+        <p class="signup-prompt-legal">By continuing, you agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
       </div>
     </div>
   </div>
@@ -6725,11 +6854,7 @@
       </div>
       <div class="rr-modal-body">
         <p class="signup-prompt-sub"><strong>You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.</strong></p>
-        <p class="signup-prompt-note">Review our <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>, then check the box below to continue.</p>
-        <label class="rr-legal-agree" for="legal-accept-agree">
-          <input type="checkbox" id="legal-accept-agree" />
-          <span>I agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
-        </label>
+        <p class="signup-prompt-note">Review our <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
         <div class="rr-modal-error" id="legal-accept-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
           <button type="button" class="rr-btn" id="legal-accept-confirm">I agree</button>
@@ -6748,26 +6873,28 @@
       <a href="/policies/terms-of-use/" target="_blank">Terms of Use</a>
       <a href="/press/">Press</a>
       <a href="/policies/privacy/" target="_blank">Privacy Policy</a>
+      <button type="button" class="footer-link" id="footer-cookie-settings">Cookie settings</button>
     </div>
     <div></div>
   </div>
   <div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
-    <p>We use cookies to run RailroadRadar and (if you allow) analytics.</p>
+    <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity. <a href="/policies/privacy/#cookies" target="_blank">Learn more</a></p>
     <div class="rr-cookie-actions">
-      <button type="button" id="rr-cookie-decline">Customize</button>
-      <button type="button" id="rr-cookie-accept">I'm OK with that</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
     </div>
   </div>
   <div id="rr-cookie-modal" hidden aria-hidden="true">
     <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
     <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
       <h3 id="rr-cookie-modal-title">Cookie preferences</h3>
-      <p class="rr-cookie-modal-lead">Choose what this site may use on your device. Essential cookies are required.</p>
+      <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the map.</p>
       <ul class="rr-cookie-list">
         <li class="rr-cookie-row">
           <div class="rr-cookie-row-text">
-            <strong>Essential — Account sign-in</strong>
-            <span>Firebase Auth keeps you signed in for reports and account features.</span>
+            <strong>Essential</strong>
+            <span>Keeps you signed in and remembers your map settings in this browser.</span>
           </div>
           <label class="rr-cookie-switch is-locked">
             <input type="checkbox" id="rr-cookie-essential" checked disabled>
@@ -6776,38 +6903,18 @@
         </li>
         <li class="rr-cookie-row">
           <div class="rr-cookie-row-text">
-            <strong>Analytics — Microsoft Clarity</strong>
-            <span>Helps us see how the map is used (Clarity cookies from clarity.ms).</span>
+            <strong>Analytics</strong>
+            <span>Microsoft Clarity shows us how people use the map, using cookies from clarity.ms.</span>
           </div>
           <label class="rr-cookie-switch">
             <input type="checkbox" id="rr-cookie-clarity">
             <span>Allow</span>
           </label>
         </li>
-        <li class="rr-cookie-row">
-          <div class="rr-cookie-row-text">
-            <strong>Preferences — Saved settings</strong>
-            <span>Remembers notification and display choices in this browser (localStorage).</span>
-          </div>
-          <label class="rr-cookie-switch">
-            <input type="checkbox" id="rr-cookie-preferences" checked>
-            <span>Allow</span>
-          </label>
-        </li>
-        <li class="rr-cookie-row">
-          <div class="rr-cookie-row-text">
-            <strong>Functional — Live map tiles</strong>
-            <span>Loads map imagery from Mapbox / OpenStreetMap / similar providers. Needed for the map.</span>
-          </div>
-          <label class="rr-cookie-switch is-locked">
-            <input type="checkbox" id="rr-cookie-maptiles" checked disabled>
-            <span>Always on</span>
-          </label>
-        </li>
       </ul>
       <div class="rr-cookie-modal-actions">
-        <button type="button" id="rr-cookie-reject-optional">Reject optional</button>
-        <button type="button" id="rr-cookie-save">Save choices</button>
+        <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+        <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
       </div>
     </div>
   </div>
@@ -6847,11 +6954,9 @@
       }
 
       function openModal() {
-        var prefs = readPrefs() || { clarity: false, preferences: true };
+        var prefs = readPrefs() || { clarity: false };
         var c = document.getElementById('rr-cookie-clarity');
-        var pr = document.getElementById('rr-cookie-preferences');
         if (c) c.checked = !!prefs.clarity;
-        if (pr) pr.checked = prefs.preferences !== false;
         modal.hidden = false;
         modal.setAttribute('aria-hidden', 'false');
       }
@@ -6861,11 +6966,11 @@
         modal.setAttribute('aria-hidden', 'true');
       }
 
-      function saveFromUi(clarity, preferences) {
+      function saveFromUi(clarity) {
         var prefs = {
           decided: true,
           clarity: !!clarity,
-          preferences: preferences !== false,
+          preferences: true,
           decidedAt: new Date().toISOString()
         };
         writePrefs(prefs);
@@ -6888,33 +6993,15 @@
         bar.hidden = false;
       }
 
-      var accept = document.getElementById('rr-cookie-accept');
-      var customize = document.getElementById('rr-cookie-decline');
-      var saveBtn = document.getElementById('rr-cookie-save');
-      var rejectOpt = document.getElementById('rr-cookie-reject-optional');
-      var backdrop = document.getElementById('rr-cookie-modal-backdrop');
-
-      if (accept) accept.addEventListener('click', function () {
-        saveFromUi(true, true);
+      document.getElementById('rr-cookie-accept').addEventListener('click', function () { saveFromUi(true); });
+      document.getElementById('rr-cookie-decline').addEventListener('click', function () { saveFromUi(false); });
+      document.getElementById('rr-cookie-customize').addEventListener('click', openModal);
+      document.getElementById('rr-cookie-save').addEventListener('click', function () {
+        saveFromUi(document.getElementById('rr-cookie-clarity').checked);
       });
-      if (customize) customize.addEventListener('click', function () {
-        openModal();
-      });
-      if (saveBtn) saveBtn.addEventListener('click', function () {
-        var c = document.getElementById('rr-cookie-clarity');
-        var pr = document.getElementById('rr-cookie-preferences');
-        saveFromUi(c && c.checked, !pr || pr.checked);
-      });
-      if (rejectOpt) rejectOpt.addEventListener('click', function () {
-        var c = document.getElementById('rr-cookie-clarity');
-        var pr = document.getElementById('rr-cookie-preferences');
-        if (c) c.checked = false;
-        if (pr) pr.checked = false;
-        saveFromUi(false, false);
-      });
-      if (backdrop) backdrop.addEventListener('click', function () {
-        closeModal();
-      });
+      document.getElementById('rr-cookie-cancel').addEventListener('click', closeModal);
+      document.getElementById('rr-cookie-modal-backdrop').addEventListener('click', closeModal);
+      document.getElementById('footer-cookie-settings').addEventListener('click', openModal);
 
       /* Trip mytrips clarity cookies */
       window.openRrCookieSettings = openModal;
@@ -9276,9 +9363,11 @@ function tripCardStationDotIcon() {
     }
     function rrLiveTrainIcon(heading, src) {
       const rot = isFinite(Number(heading)) ? Number(heading) : 90;
+      // Saved trips store the icon as text, so only a plain /assets/ image path is used.
+      if (!/^\/assets\/[A-Za-z0-9-]+\.png$/.test(src || '')) src = '/assets/hsp46.png';
       return L.divIcon({
         className: 'rr-live-train-icon',
-        html: '<img src="' + (src || '/assets/hsp46.png') + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
+        html: '<img src="' + src + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
         iconSize: [46, 20],
         iconAnchor: [23, 10]
       });
@@ -12585,7 +12674,7 @@ function closeTripDetailView(opts) {
         if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
           try { showMyTripsGuestHome(); } catch (_) {}
         } else if (typeof openSignupPrompt === 'function') {
-          openSignupPrompt(true);
+          openSignupPrompt();
         }
         return;
       }
@@ -12794,7 +12883,7 @@ function closeTripDetailView(opts) {
         tripPendingLogTrip = prefill;
         try { sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill)); } catch (_) {}
         if (typeof showNotification === 'function') showNotification('Sign in to log this trip.', 'error');
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        if (typeof openSignupPrompt === 'function') openSignupPrompt();
         return;
       }
       applyTripLogPrefill(prefill);
@@ -13791,7 +13880,7 @@ async function rrSpecialStopSharing(opts) {
           return;
         }
         if (typeof showNotification === 'function') showNotification('Sign in to open Trip log.', 'error');
-        if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+        if (typeof openSignupPrompt === 'function') openSignupPrompt();
         return;
       }
       try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
@@ -14335,9 +14424,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(u || null); } catch (_) {}
               if (u) {
                 try { if (typeof closeSignupPrompt === 'function') closeSignupPrompt(); } catch (_) {}
-                try {
-                  if (signupPromptTimer) { clearTimeout(signupPromptTimer); signupPromptTimer = null; }
-                } catch (_) {}
               }
               rrSyncMyTripsAuthGate(u || null);
             };
@@ -14512,10 +14598,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (_) {}
         const signedOut = document.getElementById('settings-account-signed-out');
         const signedIn = document.getElementById('settings-account-signed-in');
-        const summary = document.getElementById('settings-account-summary');
         if (signedOut) signedOut.hidden = true;
         if (signedIn) signedIn.hidden = false;
-        if (summary) summary.textContent = label + (user.email ? ' · ' + user.email : '');
+        document.getElementById('settings-account-name').textContent = label;
+        document.getElementById('settings-account-email').textContent = user.email || '';
         updateAdminChrome(user);
       } else {
         btnIn.style.display = '';
@@ -14531,10 +14617,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (avatar) { avatar.removeAttribute('src'); avatar.alt = 'Account'; }
         const signedOutOff = document.getElementById('settings-account-signed-out');
         const signedInOff = document.getElementById('settings-account-signed-in');
-        const summaryOff = document.getElementById('settings-account-summary');
         if (signedOutOff) signedOutOff.hidden = false;
         if (signedInOff) signedInOff.hidden = true;
-        if (summaryOff) summaryOff.textContent = '';
       }
     }
 
@@ -14676,13 +14760,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
     }
 
-    let signupPromptTimer = null;
-    function isSignupPromptDismissed() {
-      try { return sessionStorage.getItem('rr_signup_prompt_dismissed') === '1'; } catch (e) { return false; }
-    }
-    function markSignupPromptDismissed() {
-      try { sessionStorage.setItem('rr_signup_prompt_dismissed', '1'); } catch (e) {}
-    }
     function isSessionLegalAgreed() {
       try { return sessionStorage.getItem('rr_legal_agreed') === '1'; } catch (e) { return false; }
     }
@@ -14735,9 +14812,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     function openLegalAcceptModal() {
       const modal = document.getElementById('legal-accept-modal');
       const err = document.getElementById('legal-accept-error');
-      const cb = document.getElementById('legal-accept-agree');
       if (!modal) return;
-      if (cb) cb.checked = false;
       if (err) { err.textContent = ''; err.classList.remove('visible'); }
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
@@ -14756,16 +14831,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     }
     async function confirmLegalAcceptFromModal() {
       const err = document.getElementById('legal-accept-error');
-      const cb = document.getElementById('legal-accept-agree');
       const setErr = function(msg) {
         if (!err) { showNotification(msg, 'error'); return; }
         err.textContent = msg;
         err.classList.add('visible');
       };
-      if (!cb || !cb.checked) {
-        setErr('Please check the box to agree to the Terms of Use and Privacy Policy.');
-        return;
-      }
       const user = currentUser || (auth && auth.currentUser);
       if (!user) { setErr('Sign in required.'); return; }
       const ok = await persistLegalAcceptance(user);
@@ -14797,89 +14867,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       el.classList.remove('open');
       el.setAttribute('aria-hidden', 'true');
     }
-    function openSignupPrompt(force) {
+    function openSignupPrompt() {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
       if (currentUser || (auth && auth.currentUser)) return;
-      if (!force && isSignupPromptDismissed()) return;
       // Signed-in users look logged-out until authStateReady. Never show
       // "Create an account" in that window, including forced opens.
       if (!openSignupPrompt._bypassReady && !rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
-        var wantForce = !!force;
         auth.authStateReady().then(function() {
           rrAuthGateReady = true;
           try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
           if (currentUser || (auth && auth.currentUser)) { closeSignupPrompt(); return; }
           openSignupPrompt._bypassReady = true;
-          try { openSignupPrompt(wantForce); } finally { openSignupPrompt._bypassReady = false; }
+          try { openSignupPrompt(); } finally { openSignupPrompt._bypassReady = false; }
         }).catch(function() { rrAuthGateReady = true; });
         return;
       }
       const el = document.getElementById('signup-prompt-modal');
       if (!el) return;
-      const err = document.getElementById('signup-legal-error');
-      if (err) { err.textContent = ''; err.classList.remove('visible'); }
-      const cb = document.getElementById('signup-legal-agree');
-      if (cb && isSessionLegalAgreed()) cb.checked = true;
       el.classList.add('open');
       el.setAttribute('aria-hidden', 'false');
     }
-    function dismissSignupPrompt() {
-      markSignupPromptDismissed();
-      closeSignupPrompt();
-      if (signupPromptTimer) {
-        clearTimeout(signupPromptTimer);
-        signupPromptTimer = null;
-      }
-    }
-    function scheduleSignupPrompt() {
-      if (signupPromptTimer) clearTimeout(signupPromptTimer);
-      signupPromptTimer = null;
-      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-        closeSignupPrompt();
-        return;
-      }
-      // wireSignupPromptUI used to arm this 20s timer before persistence restored,
-      // so a signed-in user (currentUser still null) got the create-account modal.
-      if (!rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
-        if (!scheduleSignupPrompt._waiting) {
-          scheduleSignupPrompt._waiting = true;
-          auth.authStateReady().then(function() {
-            scheduleSignupPrompt._waiting = false;
-            rrAuthGateReady = true;
-            try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
-            scheduleSignupPrompt();
-          }).catch(function() {
-            scheduleSignupPrompt._waiting = false;
-            rrAuthGateReady = true;
-            scheduleSignupPrompt();
-          });
-        }
-        return;
-      }
-      if (currentUser || (auth && auth.currentUser) || isSignupPromptDismissed()) {
-        closeSignupPrompt();
-        return;
-      }
-      signupPromptTimer = setTimeout(function() {
-        signupPromptTimer = null;
-        openSignupPrompt();
-      }, 20000);
-    }
+    // "Continue with Google" under the "By continuing, you agree" line counts as accepting the terms.
     function beginGoogleSignInWithLegal() {
-      const cb = document.getElementById('signup-legal-agree');
-      const err = document.getElementById('signup-legal-error');
-      if (!cb || !cb.checked) {
-        if (err) {
-          err.textContent = 'Please agree to the Terms of Use and Privacy Policy to continue.';
-          err.classList.add('visible');
-        } else {
-          showNotification('Please agree to the Terms of Use and Privacy Policy to continue.', 'error');
-        }
-        return;
-      }
-      if (err) { err.textContent = ''; err.classList.remove('visible'); }
       markSessionLegalAgreed();
-      dismissSignupPrompt();
+      closeSignupPrompt();
       signInWithGoogle();
     }
     function requestGoogleSignIn() {
@@ -14909,39 +14920,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         signInWithGoogle();
         return;
       }
-      openSignupPrompt(true);
+      openSignupPrompt();
     }
     function wireSignupPromptUI() {
       const closeBtn = document.getElementById('signup-prompt-close');
-      const laterBtn = document.getElementById('signup-prompt-later');
-      const signinBtn = document.getElementById('signup-prompt-signin');
       const backdrop = document.getElementById('signup-prompt-modal');
-      if (closeBtn) closeBtn.addEventListener('click', dismissSignupPrompt);
-      if (laterBtn) laterBtn.addEventListener('click', dismissSignupPrompt);
-      if (signinBtn) signinBtn.addEventListener('click', function() {
-        beginGoogleSignInWithLegal();
-      });
+      if (closeBtn) closeBtn.addEventListener('click', closeSignupPrompt);
       if (backdrop) backdrop.addEventListener('click', function(e) {
-        if (e.target === backdrop) dismissSignupPrompt();
+        if (e.target === backdrop) closeSignupPrompt();
       });
-      scheduleSignupPrompt();
     }
 
     function wireAuthUI() {
-      const btnIn = document.getElementById('btn-google-signin');
       const btnOut = document.getElementById('btn-google-signout');
-      const btnDel = document.getElementById('btn-delete-account');
       const btnSettings = document.getElementById('btn-account-settings');
-      if (btnIn && btnIn.getAttribute('data-rr-auth-wired') !== '1') {
-        btnIn.setAttribute('data-rr-auth-wired', '1');
-        btnIn.addEventListener('click', function(e) {
-          if (e) { e.preventDefault(); e.stopPropagation(); }
-          if (typeof signInWithGoogle === 'function') signInWithGoogle();
-          else requestGoogleSignIn();
-        });
-      }
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
-      if (btnDel) btnDel.addEventListener('click', function() { closeAccountMenu(); deleteAccount(); });
       if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
       const menuSettings = document.getElementById('header-menu-account-settings');
       if (menuSettings) menuSettings.addEventListener('click', function(e) {
@@ -14964,11 +14957,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
         } catch (_) {}
         openAccountSettingsLightbox(e);
-      });
-      const panelSignin = document.getElementById('btn-account-signin-panel');
-      if (panelSignin) panelSignin.addEventListener('click', function(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        requestGoogleSignIn();
       });
       const avatarBtn = document.getElementById('header-user-avatar');
       if (avatarBtn) {
@@ -15038,10 +15026,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               openTripLogModal(null, { tab: 'list', forceModal: true });
             }
             closeSignupPrompt();
-            if (signupPromptTimer) {
-              clearTimeout(signupPromptTimer);
-              signupPromptTimer = null;
-            }
             try {
               if (typeof window.applyTripLogFromLive === 'function') {
                 let pending = tripPendingLogTrip;
@@ -15079,13 +15063,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
             closeInterestRailroadsModal(true);
-            scheduleSignupPrompt();
             try { rrSyncMyTripsAuthGate(null); } catch (_) {}
           }
         });
       } else {
         updateHeaderAuthUI(null);
-        scheduleSignupPrompt();
         try { rrAuthResolved = true; rrSyncMyTripsAuthGate(null); } catch (_) {}
       }
     }
@@ -15136,6 +15118,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // so route lines cover a full screen past each edge to stay drawn while dragging.
       const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
       try { window.rrMainMap = map; } catch (_) {}
+      // Reopen where the map was left, unless the link points at a train.
+      try {
+        const q = new URLSearchParams(location.search);
+        const view = JSON.parse(localStorage.getItem('rr_mapView') || 'null');
+        if (view && !q.get('train') && !q.get('t') && !q.get('focus')) map.setView([view.lat, view.lng], view.zoom, { animate: false });
+      } catch (_) {}
+      map.on('moveend', function() {
+        if (rrIsShareDeepLink()) return;
+        const c = map.getCenter();
+        try { localStorage.setItem('rr_mapView', JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })); } catch (_) {}
+      });
       try { if (typeof window.rrSpecialStartMapListener === 'function') setTimeout(function(){ window.rrSpecialStartMapListener(); }, 800); } catch (_) {}
       map.on('popupopen', function(ev) {
         try {
@@ -15988,7 +15981,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           if (!auth || !auth.currentUser) {
             showNotification('Sign in to confirm this locomotive.', 'error');
-            if (typeof openSignupPrompt === 'function') openSignupPrompt(true);
+            if (typeof openSignupPrompt === 'function') openSignupPrompt();
             return;
           }
           const a = normalizeAgency(agency || 'mbta');
@@ -18144,15 +18137,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (s && s.stopId) byId[String(s.stopId)] = s;
         if (s && s.name) byName[String(s.name).toLowerCase()] = s;
       });
-      stops.forEach(function(s) {
-        const c = byId[String(s.id || s.stopId || '')] || byName[String(s.name || '').toLowerCase()];
-        if (!c) return;
-        if (c.actual) {
+      let laterPassed = false;
+      for (let i = stops.length - 1; i >= 0; i--) {
+        const s = stops[i];
+        const c = byId[String(s.id || s.stopId || '')] || byName[String(s.name || '').toLowerCase()] || cached.stops[i] || null;
+        if (c && ((c.actual && c.actual !== (c.scheduled || s.formattedScheduledTime)) || c.completed)) laterPassed = true;
+        if (!c && !laterPassed) continue;
+        if (c && c.actual && c.actual !== (c.scheduled || s.formattedScheduledTime)) {
           s.formattedActualTime = c.actual;
-          if (s.isCompleted && !s.formattedPredictedTime) s.formattedPredictedTime = c.actual;
+          if (!s.formattedPredictedTime) s.formattedPredictedTime = c.actual;
         }
-        if (c.completed || c.actual) s.isCompleted = true;
-      });
+        if (laterPassed || (c && (c.completed || c.actual))) s.isCompleted = true;
+      }
       return stops;
     }
     function rrSaveStopActuals(agency, trainNumber, serviceDate, stops) {
@@ -18161,7 +18157,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       if (!auth || !auth.currentUser) return;
       const id = rrStopActualDocId(agency, trainNumber, serviceDate);
       const payloadStops = stops.map(function(s) {
-        const actual = s.formattedActualTime || (s.isCompleted ? (s.formattedPredictedTime || s.formattedScheduledTime) : null);
+        const actual = (s.formattedActualTime && s.formattedActualTime !== s.formattedScheduledTime)
+          ? s.formattedActualTime
+          : (s.isCompleted && s.formattedPredictedTime && s.formattedPredictedTime !== s.formattedScheduledTime ? s.formattedPredictedTime : null);
         return {
           name: s.name || '',
           stopId: String(s.id || s.stopId || ''),
@@ -18247,8 +18245,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 trackNumber: track,
                 formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
                 formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
-                formattedActualTime: isCompleted
-                  ? ((predTime || schedTime) ? (predTime || schedTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null)
+                formattedActualTime: isCompleted && predTime
+                  ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
                   : null,
                 isCompleted,
                 lat: stopInfo?.attributes?.latitude || null,
@@ -18388,6 +18386,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return limited;
         } catch (e) { return []; }
       }
+
+      function rrMinutesLate(schedText, actualText) {
+        function mins(s) {
+          const m = String(s || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+          if (!m) return null;
+          let h = Number(m[1]);
+          const min = Number(m[2]);
+          const ap = (m[3] || '').toUpperCase();
+          if (ap === 'PM' && h < 12) h += 12;
+          if (ap === 'AM' && h === 12) h = 0;
+          return h * 60 + min;
+        }
+        const a = mins(schedText), b = mins(actualText);
+        if (a == null || b == null) return null;
+        let d = b - a;
+        if (d > 720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+      }
       function buildStopsHtml(stops, currentLat = null, currentLng = null) {
         if (!stops?.length) return '<div class="no-departures">No stops found</div>';
         return `<div class="upcoming-stops"><h4>Stops</h4><ul class="stops-list">${ 
@@ -18417,7 +18434,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             } else {
               cls = 'status-on-time';
-              disp = 'On time';
+              disp = pred || 'On time';
               statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             }
             const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
@@ -18432,10 +18449,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
             }
             const extraHtml = mileageInfo ? `<br><small class="stop-mileage" style="font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
-            // Past stops: actual / last live prediction. Upcoming: schedule.
-            const leftTime = stop.isCompleted
-              ? (stop.formattedActualTime || stop.formattedPredictedTime || stop.formattedScheduledTime)
-              : (stop.formattedScheduledTime || stop.formattedPredictedTime || '');
+            const schedTime = stop.formattedScheduledTime || '';
+            let actualTime = stop.isCompleted ? (stop.formattedActualTime || stop.formattedPredictedTime || '') : '';
+            if (actualTime && schedTime && actualTime === schedTime) actualTime = '';
+            const leftTime = schedTime || stop.formattedPredictedTime || actualTime || '';
+            if (stop.isCompleted && actualTime) {
+              const late = rrMinutesLate(schedTime, actualTime);
+              const box = late == null ? 'status-on-time' : late > 15 ? 'status-very-delayed' : late > 5 ? 'status-delayed' : 'status-on-time';
+              statusHtml = `<span class="stop-status ${box}">${actualTime}</span>`;
+            }
             return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
           }).join('')
         }</ul></div>`;
@@ -18946,7 +18968,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 if (showAmtrak && (!showOnlySpecial || _as)) m.addTo(map);
                 created++;
               }
-              amtrakLastSeen[vid] = now;
+              amtrakLastSeen[vid] = rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, now);
             });
           });
           // Drop markers no longer present / filtered out
@@ -19539,7 +19561,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const vid = info.id;
             seen.add(vid);
             mnrTrainInfo[vid] = info;
-            mnrLastSeen[vid] = now;
+            mnrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
             const icon = createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId);
             const mnrLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'Metro-North',
@@ -19964,7 +19986,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const vid = info.id;
             seen.add(vid);
             lirrTrainInfo[vid] = info;
-            lirrLastSeen[vid] = now;
+            lirrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
             const icon = createLirrIcon();
             const lirrLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'LIRR',
@@ -20333,7 +20355,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const vid = info.id;
             seen.add(vid);
             metraTrainInfo[vid] = info;
-            metraLastSeen[vid] = now;
+            metraLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
             const icon = createMetraIcon();
             const metraLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'Metra',
@@ -20613,10 +20635,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${dirHtml}
               </div>
               ${al}
-              ${njtPairingBlock}
               <div class="meta-row">
                 Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
+              ${njtPairingBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
@@ -20674,7 +20696,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (njtStopsCache[info.trainNum].dest) info.destName = njtStopsCache[info.trainNum].dest;
             }
             njtTrainInfo[vid] = info;
-            njtLastSeen[vid] = now;
+            njtLastSeen[vid] = rrSeenMs(raw.timestamp || raw.updatedAt || raw.updated || raw.lastUpdated, now);
             const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
             const icon = createNjtIcon(njtLocoType);
             const labelInfo = buildCyclingTrainInfo({
@@ -20867,7 +20889,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + route + '</span></div>' +
           '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>' + speedHtml + '</div>' +
           al + '<div class="meta-row">' + origin + ' \u2192 ' + dest + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
-          '<div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
+          ((typeof buildLocoReportPairingBlockHtml==='function') ? buildLocoReportPairingBlockHtml('mbta', { trainNumber: (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid }) : '') + '<div class="stops-wrapper">' + stopsHtml + '</div>' + '</div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
       }
       window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
       function updateMarcVisibility() {
@@ -20975,7 +20997,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const vid = info.id;
             seen.add(vid);
             marcTrainInfo[vid] = info;
-            marcLastSeen[vid] = now;
+            marcLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
             const icon = createMarcIcon();
             const labelInfo = (typeof buildCyclingTrainInfo === 'function') ? buildCyclingTrainInfo({
               agency: 'MARC', routeName: info.routeName, trainNum: info.trainNum, dest: info.destName,
@@ -21398,7 +21420,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               m.addTo(map);
               created++;
             }
-            trainLastSeen[vid] = now;
+            trainLastSeen[vid] = rrSeenMs(v.attributes && v.attributes.updated_at, now);
           });
           if (_ftStat) FetchStats.end(_ftStat, { created: created, updated: updated, skipped: skipped, vehicles: data.data.length, markers: Object.keys(markers).length });
           else console.log('%c[MBTA fetchTrains] created:' + created + ' updated:' + updated + ' skipped:' + skipped + ' vehicles:' + data.data.length + ' markers:' + Object.keys(markers).length, 'color:#3498db');
@@ -21672,8 +21694,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               departsMsg = 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
             }
           }
-          const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, tid) : '';
-        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', tid, tid) : '';
+          const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, (typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid, serviceDate) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', tid, (typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid) : '';
           L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
             <div class="train-popup">
               <div class="train-popup-header">
@@ -22248,17 +22270,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const slug = String(trainNum || '').trim() || rrNormShareId(vid) || String(vid || '').trim();
         return a + ':' + slug;
       }
-      function rrTrainShareUrl(agency, vid, trainNum) {
+      function rrTrainShareUrl(agency, vid, trainNum, serviceDate) {
         const origin = (location.origin && location.origin !== 'null') ? location.origin : 'https://railroadradar.com';
-        let path = location.pathname || '/';
-        if (/index\.html$/i.test(path)) path = path.replace(/index\.html$/i, '');
-        if (!path) path = '/';
-        return origin + path + '?train=' + encodeURIComponent(rrTrainShareKey(agency, vid, trainNum));
+        const key = rrTrainShareKey(agency, vid, trainNum);
+        const parts = key.split(':');
+        const slug = encodeURIComponent(parts.slice(1).join(':') || parts[0]);
+        let url = origin + '/?train=' + encodeURIComponent(parts[0] || 'mbta') + ':' + slug;
+        const date = String(serviceDate || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) url += '&date=' + date;
+        if (vid && String(vid) !== String(trainNum || '')) url += '&trip=' + encodeURIComponent(vid);
+        return url;
       }
-      function rrShareTrainBtnHtml(agency, vid, trainNum) {
+      function rrShareTrainBtnHtml(agency, vid, trainNum, serviceDate) {
         const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
         return '<button type="button" class="popup-action-btn share-btn" onclick="shareTrainLink(\'' +
-          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Share</button>';
+          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\',\'' + esc(serviceDate || '') + '\')">Share</button>';
       }
       /* Trip log from live */
       function rrLogTripBtnHtml(agency, vid, trainNum) {
@@ -22375,8 +22401,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rrReadTrainQuery() {
         try {
           const q = new URLSearchParams(location.search);
+          const page = rrParseShareSpec(q.get('train') || q.get('t'));
+          if (page) {
+            page.date = q.get('date') || '';
+            page.trip = q.get('trip') || '';
+          }
           return {
-            page: rrParseShareSpec(q.get('train') || q.get('t')),
+            page: page,
             focus: rrParseShareSpec(q.get('focus'))
           };
         } catch (_) {
@@ -22407,8 +22438,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       try { window.rrCollectLiveTrainRows = collectLiveTrainRows; } catch (_) {}
       try { window.rrFindSharedTrain = rrFindSharedTrain; } catch (_) {}
-      window.shareTrainLink = async function(agency, vid, trainNum) {
-        const url = rrTrainShareUrl(agency, vid, trainNum);
+      window.shareTrainLink = async function(agency, vid, trainNum, serviceDate) {
+        const url = rrTrainShareUrl(agency, vid, trainNum, serviceDate);
         try {
           if (navigator.share) {
             try {
@@ -22557,7 +22588,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
         if (isFinite(lat) && isFinite(lng) && !rrTrainPageCentered) {
-          map.setView([lat, lng], 14, { animate: false });
+          map.setView([lat, lng], 11, { animate: false });
           rrTrainPageCentered = true;
         } else if (isFinite(lat) && isFinite(lng)) {
           try { map.panTo([lat, lng], { animate: true }); } catch (_) {}
@@ -22587,9 +22618,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (mins || !parts.length) parts.push(mins + ' minute' + (mins === 1 ? '' : 's'));
         return 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
       }
-      async function rrDrawScheduledRoute(stops, tripId) {
-        rrClearScheduledLine();
+      async function rrDrawScheduledRoute(stops, tripId, routeId) {
         if (!map || typeof L === 'undefined') return;
+        if (rrScheduledLine && map.hasLayer(rrScheduledLine) && rrDrawScheduledRoute._drawnFor === String(tripId || '')) return;
         let pts = null;
         if (tripId) {
           try {
@@ -22614,21 +22645,76 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!pts || pts.length < 2) {
           pts = (stops || []).filter(s => s && s.lat != null && s.lng != null).map(s => [Number(s.lat), Number(s.lng)]).filter(p => isFinite(p[0]) && isFinite(p[1]));
         }
+        if ((!pts || pts.length < 2) && routeId && routeLines && routeLines[routeId]) {
+          try { pts = routeLines[routeId].getLatLngs(); } catch (e) {}
+        }
         if (!pts || pts.length < 2) return;
-        rrScheduledLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
-        try { map.fitBounds(rrScheduledLine.getBounds(), { padding: [36, 36], maxZoom: 13 }); } catch (e) {}
+        const nextLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
+        if (rrScheduledLine && rrScheduledLine !== nextLine) {
+          try { map.removeLayer(rrScheduledLine); } catch (e) {}
+        }
+        rrScheduledLine = nextLine;
+        rrDrawScheduledRoute._drawnFor = String(tripId || '');
+        try { rrScheduledLine.bringToFront(); } catch (e) {}
+        const fit = function() {
+          try { map.invalidateSize(); } catch (e) {}
+          try { map.fitBounds(rrScheduledLine.getBounds(), { padding: [28, 28], maxZoom: 9, animate: false }); } catch (e) {}
+        };
+        fit();
+        setTimeout(fit, 250);
       }
       function rrScheduledPopupHtml(page) {
-        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, page.tid) : '';
-        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, page.tid) : '';
+        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid, page.date || '') : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid) : '';
         const stopsHtml = (typeof buildStopsHtml === 'function') ? buildStopsHtml(page.stops || []) : '';
-        return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px;line-height:1.3;color:#ffffff;font-style:italic;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+        return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:14.5px;line-height:1.25;color:#ffffff;font-style:italic;letter-spacing:0;word-spacing:-0.06em;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
-          String((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;"> to </span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          String((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;margin:0 2px;">to</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
           String(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
           String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Line</span><span class="info-value">' +
           String(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
           String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
+      }
+
+
+      function rrSeenMs(raw, fallback) {
+        if (raw == null || raw === '') return fallback;
+        const s = String(raw);
+        if (/^[0-9]+$/.test(s)) {
+          const n = Number(s);
+          if (n > 1e12) return n;
+          if (n > 1e9) return n * 1000;
+        }
+        const parsed = Date.parse(s);
+        return isNaN(parsed) ? fallback : parsed;
+      }
+
+      function rrPlaceReportBoxBelowStops(root) {
+        if (!root) return;
+        const box = root.querySelector('.loco-report-block');
+        const stops = root.querySelector('.stops-wrapper');
+        if (!box || !stops || !stops.parentNode) return;
+        stops.parentNode.insertBefore(box, stops.nextSibling);
+      }
+      function rrFitTrainPageTitle() {
+        const title = document.querySelector('#rr-train-page-card .train-popup-header > div');
+        if (!title) return;
+        const max = title.clientWidth || title.parentElement.clientWidth;
+        if (!max) return;
+        let size = 22;
+        title.style.fontSize = size + 'px';
+        while (size > 12 && title.scrollWidth > max) {
+          size -= 0.5;
+          title.style.fontSize = size + 'px';
+        }
+      }
+      // The card is rebuilt on every refresh, so its buttons replace the ones already in the bar.
+      function rrMoveTrainPageActions(card) {
+        const foot = card && card.querySelector('.train-popup-footer');
+        const bar = document.getElementById('rr-train-page-actions');
+        if (!foot || !bar) return;
+        bar.replaceChildren(foot);
+        bar.hidden = false;
       }
       function rrRenderScheduledTrainPage() {
         const page = rrScheduledPage;
@@ -22642,19 +22728,27 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const pageEl = document.getElementById('rr-train-page');
         if (pageEl) pageEl.hidden = false;
         if (status) status.textContent = (page.rname ? page.rname + ' ' : '') + (page.tid || '') + (page.dest ? (' to ' + page.dest) : '');
+        const keepScroll = window.scrollY || document.documentElement.scrollTop || 0;
         if (card) card.innerHTML = rrScheduledPopupHtml(page);
+        rrPlaceReportBoxBelowStops(card);
+        if (keepScroll) requestAnimationFrame(function() { window.scrollTo(0, keepScroll); });
+        requestAnimationFrame(function() { rrFitTrainPageTitle(); });
         const grid = card && card.querySelector('.info-grid');
         const body = card && card.querySelector('.train-popup-body');
         if (slot) {
-          if (grid && grid.parentNode) grid.parentNode.insertBefore(slot, grid.nextSibling);
-          else if (body) body.insertBefore(slot, body.firstChild);
+          const stopsWrap = card && card.querySelector('.stops-wrapper');
+          if (stopsWrap && stopsWrap.parentNode) stopsWrap.parentNode.insertBefore(slot, stopsWrap);
+          else if (grid && grid.parentNode) grid.parentNode.insertBefore(slot, grid.nextSibling);
+          else if (body) body.appendChild(slot);
           else if (card) card.appendChild(slot);
         }
         if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
+        setTimeout(function() { try { map.invalidateSize(); } catch (e) {} }, 50);
+        rrMoveTrainPageActions(card);
         try {
           if (typeof rrApplyOnlyThisTrain === 'function') rrApplyOnlyThisTrain({ id: '__scheduled__', markerMap: {} });
         } catch (e) {}
-        rrDrawScheduledRoute(page.stops, page.tid);
+        rrDrawScheduledRoute(page.stops, page.tid, page.routeId);
         return true;
       }
       async function rrLoadScheduledSharePage(spec) {
@@ -22664,7 +22758,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         rrLoadScheduledSharePage._busy = true;
         try {
           if (typeof getTripStops !== 'function') return false;
-          const stops = await getTripStops(spec.id);
+          const tripId = spec.trip || spec.id;
+          const stops = await getTripStops(tripId, spec.date || '');
           if (!stops || !stops.length) return false;
           const when = stops.map(s => s.predictedTime || s.scheduledTime).find(Boolean);
           let lineName = '';
@@ -22673,9 +22768,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const td = await tr.json();
             const route = (td.included || []).find(function(x) { return x && x.type === 'route'; });
             if (route && route.attributes) lineName = route.attributes.long_name || route.attributes.short_name || '';
+            if (route && route.id) rrScheduledPageRouteId = route.id;
           } catch (e) {}
           rrScheduledPage = {
-            tid: spec.id,
+            routeId: (typeof rrScheduledPageRouteId !== 'undefined' && rrScheduledPageRouteId) || '',
+            tid: tripId,
+            date: spec.date || '',
             rname: lineName,
             origin: (stops[0] && stops[0].name) || '',
             dest: (stops[stops.length - 1] && stops[stops.length - 1].name) || '',
@@ -22713,12 +22811,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         document.documentElement.classList.remove('rr-train-page-waiting');
         rrScheduledPage = null;
-        rrClearScheduledLine();
         if (status) {
           status.textContent = (row.agency || '') + ' ' + (row.trainNum || '') + (row.dest ? (' to ' + row.dest) : '');
         }
         if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
         card.innerHTML = rrPopupHtmlForRow(row) || '<p class="rr-modal-hint">Loading train details…</p>';
+        rrPlaceReportBoxBelowStops(card);
+        rrMoveTrainPageActions(card);
         const grid = card.querySelector('.info-grid');
         const body = card.querySelector('.train-popup-body');
         if (slot) {
@@ -22728,6 +22827,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
         rrApplyOnlyThisTrain(row);
+        if (rrScheduledLine && map && !map.hasLayer(rrScheduledLine)) {
+          try { rrScheduledLine.addTo(map); rrScheduledLine.bringToFront(); } catch (e) {}
+        }
         return true;
       }
       function rrLoadMbtaStopsForPage(row) {
@@ -22810,7 +22912,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const q = rrReadTrainQuery();
         if (q.page) {
-          hasCenteredOnUser = true;
           rrStartTrainPage(q.page);
         } else if (q.focus) {
           rrOpenSharedTrainOnFullMap(q.focus);
@@ -24226,8 +24327,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         cycleDict(lirrMarkers);
         cycleDict(metraMarkers);
       }
-      document.getElementById('show-stations').addEventListener('change', e => { showStations = e.target.checked; updateStationVisibility(); });
-      document.getElementById('show-routes').addEventListener('change', e => toggleRoutes(e.target.checked));
+      document.getElementById('show-stations').addEventListener('change', e => {
+        showStations = e.target.checked;
+        updateStationVisibility();
+        safeStorage.set('rr_showStations', e.target.checked);
+      });
+      document.getElementById('show-routes').addEventListener('change', e => {
+        toggleRoutes(e.target.checked);
+        safeStorage.set('rr_showRoutes', e.target.checked);
+      });
       // Safe localStorage wrapper (prevents crashes in sandboxed iframes / Google Sites)
       const safeStorage = {
         get(key) {
@@ -24394,11 +24502,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           const saved = getMapRailPrefs();
           const el = document.getElementById('rr-rail-picker');
-          if (!el) {
-            resolve((saved && RR_MAP_RAIL_IDS.some(function(id) { return !!saved[id]; })) ? saved : defaultMapRailPrefs());
+          if (saved || !el) {
+            resolve(saved || defaultMapRailPrefs());
             return;
           }
-          syncPickerDom((saved && typeof saved === 'object') ? saved : defaultMapRailPrefs());
+          syncPickerDom(defaultMapRailPrefs());
           showRailPickerUi();
           const list = document.getElementById('rr-rail-picker-list');
           const go = document.getElementById('rr-rail-picker-go');
@@ -24598,6 +24706,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       applySavedMapTheme();
 
       // Load persisted UI preferences (safe)
+      if (safeStorage.get('rr_showRoutes') === 'false') {
+        document.getElementById('show-routes').checked = false;
+        toggleRoutes(false);
+      }
+      if (safeStorage.get('rr_showStations') === 'false') {
+        document.getElementById('show-stations').checked = false;
+        showStations = false;
+        updateStationVisibility();
+      }
       // Train labels now default to ON
       const savedShowLabels = safeStorage.get('rr_showLabels');
       const savedShowSpecial = safeStorage.get('rr_showOnlySpecial') === 'true';
@@ -24824,7 +24941,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let userLat = null;
       let userLng = null;
       let locationWatchId = null;
-      let hasCenteredOnUser = false;
+      let centerOnNextFix = false;
       function createUserLocationIcon() {
         return L.divIcon({
           className: 'user-location-marker',
@@ -24896,9 +25013,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           userMarker.bindTooltip('You are here', { permanent: false, direction: 'top' });
           userMarker.addTo(map);
         }
-        // Only auto-center the map on the first successful fix
-        if (!hasCenteredOnUser) {
-          hasCenteredOnUser = true;
+        // Only move the map when someone pressed Show My Location.
+        if (centerOnNextFix) {
+          centerOnNextFix = false;
           map.setView([userLat, userLng], 13);
         }
         renderClosestTrains(userLat, userLng);
@@ -24951,7 +25068,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           navigator.geolocation.clearWatch(locationWatchId);
           locationWatchId = null;
         }
-        hasCenteredOnUser = false;
+        centerOnNextFix = true;
         startLocationWatch();
       };
       setInterval(updateLabels, 5000);
@@ -25422,9 +25539,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             return;
           }
           if (!navigator.geolocation) return;
-          /* Never auto-request geolocation on /mytrips */
-          /* never auto-grant geo on /mytrips */
+          /* Never auto-request geolocation on /mytrips or a shared train page */
           if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
+          if (document.documentElement.classList.contains('rr-train-page')) return;
+          try {
+            const q = new URLSearchParams(location.search);
+            if (q.get('train') || q.get('t')) return;
+          } catch (_) {}
           if (rrNearbyAskedGeo) return;
           rrNearbyAskedGeo = true;
           navigator.geolocation.getCurrentPosition(
@@ -25480,8 +25601,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     if (!t) return;
     e.preventDefault();
     e.stopPropagation();
-    if (typeof signInWithGoogle === 'function') signInWithGoogle();
-    else if (typeof requestGoogleSignIn === 'function') requestGoogleSignIn();
+    // The sign-up / log-in buttons open the prompt; only its Continue button and the MyTrips
+    // splash go straight to Google, which keeps the popup inside the click.
+    if (t.id === 'signup-prompt-signin') beginGoogleSignInWithLegal();
+    else if (t.id === 'mytrips-guest-signin') signInWithGoogle();
+    else requestGoogleSignIn();
   }
   document.addEventListener('click', go, true);
 })();
@@ -25523,5 +25647,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       else navigator.geolocation.getCurrentPosition(finish, function() { finish(null); }, { enableHighAccuracy: true, timeout: 8000 });
     });
 </script>
+<script src="/assets/js/site-nav.js" defer></script>
 </body>
 </html>
