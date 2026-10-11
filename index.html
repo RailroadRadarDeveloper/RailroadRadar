@@ -1393,11 +1393,6 @@
       margin: 0 !important;
     }
     html.rr-train-page #rr-train-page-card .train-popup-footer { display: none !important; }
-    html.rr-train-page .rr-train-page-toolbar { display: none !important; }
-    html.rr-train-page .rr-train-page-toolbar {
-      flex: 0 0 auto;
-      margin: 0 12px calc(72px + env(safe-area-inset-bottom));
-    }
     html.rr-train-page #rr-train-page-card .train-popup-body {
       max-height: none;
       overflow: visible;
@@ -22683,6 +22678,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           title.style.fontSize = size + 'px';
         }
       }
+      // The card is rebuilt on every refresh, so its buttons replace the ones already in the bar.
+      function rrMoveTrainPageActions(card) {
+        const foot = card && card.querySelector('.train-popup-footer');
+        const bar = document.getElementById('rr-train-page-actions');
+        if (!foot || !bar) return;
+        bar.replaceChildren(foot);
+        bar.hidden = false;
+      }
       function rrRenderScheduledTrainPage() {
         const page = rrScheduledPage;
         if (!page) return false;
@@ -22711,15 +22714,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
         setTimeout(function() { try { map.invalidateSize(); } catch (e) {} }, 50);
-        const foot = card && card.querySelector('.train-popup-footer');
-        let bar = document.getElementById('rr-train-page-actions');
-        if (!bar) {
-          bar = document.createElement('div');
-          bar.id = 'rr-train-page-actions';
-          document.body.appendChild(bar);
-        }
-        if (foot) bar.appendChild(foot);
-        bar.hidden = false;
+        rrMoveTrainPageActions(card);
         try {
           if (typeof rrApplyOnlyThisTrain === 'function') rrApplyOnlyThisTrain({ id: '__scheduled__', markerMap: {} });
         } catch (e) {}
@@ -22792,6 +22787,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
         card.innerHTML = rrPopupHtmlForRow(row) || '<p class="rr-modal-hint">Loading train details…</p>';
         rrPlaceReportBoxBelowStops(card);
+        rrMoveTrainPageActions(card);
         const grid = card.querySelector('.info-grid');
         const body = card.querySelector('.train-popup-body');
         if (slot) {
