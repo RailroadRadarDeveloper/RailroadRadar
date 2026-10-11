@@ -1,5 +1,5 @@
 // Paste into railroadradar-proxy (same worker as Metra/NJT).
-// After deploy, you can put these URLs first in MARC_POSITIONS_URLS / MARC_TRIPUPDATES_URLS.
+// After deploy, index.html reads MARC from /api/marc/positions and /api/marc/tripupdates.
 // Official MDOT S3 has no CORS, so the browser cannot fetch these directly.
 
 const MARC_VP = 'https://mdotmta-gtfs-rt.s3.amazonaws.com/MARC+RT/marc-vp.pb';
