@@ -27,7 +27,7 @@ h1{margin:0 0 8px}
 .lede,.empty,.access{color:var(--muted)}
 .directions{display:inline-block;margin-top:4px;padding:8px 12px;border-radius:6px;background:#0ac700;color:#07093e;font-weight:700;text-decoration:none}
 .back{color:#fff;font-weight:700;text-decoration:none}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:22px;margin-top:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:22px;margin-top:22px}
 .card{background:#0c1448;color:#fff;border:1px solid var(--line);padding:0;overflow:hidden;display:block;text-decoration:none}
 .card img:not(.verified-badge),.hero img:not(.verified-badge){width:100%;object-fit:cover;background:#132047;display:block}
 .card img:not(.verified-badge){height:280px}.hero img:not(.verified-badge){width:100%;height:52vh;min-height:320px;object-fit:cover}
@@ -173,7 +173,7 @@ function fillForm(d){
 }
 function openForm(d){
   window.rrOpenFavoriteForm=openForm;
-  editing=d&&d.id?d.id:(idFromUrl()||null);
+  editing=d&&d.id?d.id:null;
   var form=document.getElementById('admin-form');
   if(form) form.hidden=false;
   fillForm(d||{});
@@ -185,7 +185,7 @@ function openForm(d){
 function closeForm(){
   var modal=document.getElementById('modal');
   modal.classList.remove('open'); modal.hidden=true;
-  if(!idFromUrl()) editing=null;
+  editing=null;
 }
 function payload(){
   var user=auth.currentUser;
