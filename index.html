@@ -2097,35 +2097,10 @@
    .alert-signup-section button:hover {
      background: #07093e;
    }
-   /* Report a train + Specials: header on desktop, panel button on mobile */
+   /* On mobile, Report a train, Specials, and Leaderboard also live in the settings panel */
    @media (max-width: 767px) {
-     #btn-report-train-header, #btn-specials-header { display: none !important; }
+     #btn-report-train-header { display: none !important; }
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }
-     #btn-leaderboard-header {
-       display: inline-flex !important;
-       align-items: center;
-       justify-content: center;
-       background: transparent !important;
-       border: none !important;
-       box-shadow: none !important;
-       padding: 4px !important;
-       margin: 0 4px 0 0 !important;
-       min-width: 36px;
-       min-height: 36px;
-       gap: 0;
-     }
-     #btn-leaderboard-header:hover { background: rgba(255,255,255,0.12) !important; }
-     #btn-leaderboard-header .header-leaderboard-label { display: none !important; }
-     #btn-leaderboard-header .header-leaderboard-icon {
-       width: 24px;
-       height: 24px;
-     }
-     #btn-leaderboard-header .header-leaderboard-icon img {
-       width: 24px !important;
-       height: 24px !important;
-       display: block !important;
-       object-fit: contain;
-     }
    }
    @media (min-width: 768px) {
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: none !important; }
@@ -2230,7 +2205,6 @@
       text-decoration: underline;
     }
     @media (max-width: 640px) {
-      .header-leaderboard-label { display: none; }
       .rr-lb-winner-text { font-size: 13px; }
     }
    /* Vehicle Alerts card (mobile-friendly) */
@@ -5459,11 +5433,18 @@
     }
     .header-right .header-auth { flex-shrink: 0; margin-left: 8px; }
     .rr-mobile-nav{display:none;flex-direction:column;gap:4px}
+    .rr-mobile-nav a{text-decoration:none}
+    #btn-report-train-menu{display:none}
     @media (max-width: 980px){
       .rr-site-nav,#btn-report-train-header{display:none !important}
       .rr-mobile-nav{display:flex}
+      #btn-report-train-menu{display:block}
       .header-right{margin-right:8px}
     }
+    html.rr-report-in-menu #btn-report-train-header{display:none !important}
+    html.rr-report-in-menu #btn-report-train-menu{display:block}
+    html.rr-nav-in-menu .rr-site-nav{display:none !important}
+    html.rr-nav-in-menu .rr-mobile-nav{display:flex}
     
     .header-auth {
       display: flex;
@@ -5516,7 +5497,6 @@
       flex-shrink: 0;
     }
     #btn-report-train-header:hover { background: #e8eaf0; }
-    #btn-specials-header { margin-left: 6px; }
     .header-user-avatar {
       width: 34px;
       height: 34px;
@@ -5654,7 +5634,7 @@
         font-size: 11px;
         font-weight: 700;
       }
-      #btn-report-train-header, #btn-specials-header, #btn-leaderboard-header { font-size: 11px; padding: 6px 8px; }
+      #btn-report-train-header { font-size: 11px; padding: 6px 8px; }
       .header-user-avatar {
         width: 32px;
         height: 32px;
@@ -6238,8 +6218,8 @@
             <a class="header-auth-btn" href="/mytrips/">MyTrips</a>
             <a class="header-auth-btn" href="/favorites/">Favorites</a>
             <a class="header-auth-btn" href="/press/">Press</a>
-            <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
           </div>
+          <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
           <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
           <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
             <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
