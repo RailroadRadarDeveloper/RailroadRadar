@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MyTrips · RailroadRadar</title>
+  <title>MyTrips | RailroadRadar</title>
   <meta name="theme-color" content="#07093e">
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
@@ -797,7 +797,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
     }
     function renderProfile(profile, trips) {
       const name = profile.displayName || profile.username || 'Railfan';
-      document.title = name + ' · MyTrips';
+      document.title = name + ' | MyTrips';
       window.__rrProfileShare = location.href.split('#')[0];
       trips = (trips || []).filter(function (t) { return !t.hiddenPublic; });
       const upcoming = trips.filter(function (t) { return tripStartMs(t) >= Date.now(); }).sort(function (a, b) { return tripStartMs(a) - tripStartMs(b); });
