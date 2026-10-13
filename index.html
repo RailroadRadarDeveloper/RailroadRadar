@@ -16137,7 +16137,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let stale = false;
         if (hasUnit && !trainReportsLoadFailed) {
           const when = parseReportTimestamp(rep.updatedAt || rep.createdAt);
-          stale = !when || ((Date.now() - when.getTime()) > 24 * 60 * 60 * 1000);
+          stale = !when || ((Date.now() - when.getTime()) > 7 * 24 * 60 * 60 * 1000);
         }
         let body;
         if (trainReportsLoadFailed) {
@@ -16165,7 +16165,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             ? ("confirmStaleTrainReport('mbta','" + vid.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "','')")
             : ("confirmStaleTrainReport('" + a + "','','" + trainNumber.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "')");
           actionsHtml =
-            '<div class="loco-report-stale-ask">Older than 24 hours. Still this unit?</div>' +
+            '<div class="loco-report-stale-ask">Older than a week. Still this unit?</div>' +
             '<div class="loco-report-actions">' +
               '<button type="button" class="popup-action-btn update-pairing-btn confirm-pairing-btn" onclick="' + confirmClick + '">Yes</button>' +
               '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + onclick + '">Change</button>' +
