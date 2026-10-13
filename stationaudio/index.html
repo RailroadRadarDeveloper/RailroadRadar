@@ -1,6 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script id="rr-boot-failsafe">
+  /* Critical-error failsafe: only sends visitors to /unavailable.html when the app never
+     finished booting AND (an error happened before boot, or a core script failed to load).
+     Errors after window.__rrBootReady is set are ignored entirely. */
+  (function () {
+    if (window.__rrBootFailsafe) return;
+    window.__rrBootFailsafe = true;
+    window.__rrBootReady = false;
+    var CORE = { src: [], globals: [] };
+    var bootError = null;
+    var done = false;
+    var started = Date.now();
+    function isCoreSrc(src) {
+      src = String(src || '');
+      for (var i = 0; i < CORE.src.length; i++) if (src.indexOf(CORE.src[i]) !== -1) return true;
+      return false;
+    }
+    function coreMissing() {
+      for (var i = 0; i < CORE.globals.length; i++) if (typeof window[CORE.globals[i]] === 'undefined') return true;
+      return false;
+    }
+    window.__rrMarkBootReady = function () { window.__rrBootReady = true; };
+    window.addEventListener('error', function (e) {
+      if (window.__rrBootReady || done) return;
+      var t = e && e.target;
+      if (t && t !== window && t.tagName === 'SCRIPT') {
+        if (isCoreSrc(t.src)) bootError = bootError || ('core script failed: ' + t.src);
+        return;
+      }
+      if (!e || !e.filename) return; /* cross-origin "Script error." / extensions */
+      var f = String(e.filename);
+      if (f.indexOf(location.origin) !== 0) return; /* third-party scripts */
+      if (/\/assets\/js\/(live-share-bar|site-nav)\.js/.test(f)) return;
+      bootError = bootError || String(e.message || 'error');
+    }, true);
+    function check(final) {
+      if (window.__rrBootReady || done) return;
+      if (bootError || (final && coreMissing())) {
+        done = true;
+        try { console.error('[RR boot failsafe]', bootError || 'core scripts missing'); } catch (_) {}
+        try { sessionStorage.setItem('rr-unavailable-from', location.pathname + location.search + location.hash); } catch (_) {}
+        location.replace('/unavailable.html');
+      }
+    }
+    function afterLoad() { setTimeout(function () { check(false); }, 3000); }
+    if (document.readyState === 'complete') afterLoad(); else window.addEventListener('load', afterLoad);
+    setTimeout(function () { check(true); }, 25000);
+  })();
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07093e">
@@ -2564,8 +2613,9 @@
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  function rrBootAndMark() { boot(); try { window.__rrMarkBootReady && window.__rrMarkBootReady(); } catch (_) {} }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rrBootAndMark);
+  else rrBootAndMark();
 })();
 
   </script>

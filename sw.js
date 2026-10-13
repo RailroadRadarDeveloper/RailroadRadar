@@ -1,9 +1,53 @@
 /* RailroadRadar service worker — home-screen notifications */
+/* Failsafe: cached "currently unavailable" page for failed / 5xx navigations. */
+var RR_SW_VERSION = 'rr-sw-v2';
+var RR_FAILSAFE_CACHE = 'rr-failsafe-v2';
+var RR_UNAVAILABLE_URL = '/unavailable.html';
+
 self.addEventListener('install', function (e) {
   self.skipWaiting();
+  e.waitUntil(
+    caches.open(RR_FAILSAFE_CACHE).then(function (cache) {
+      return cache.add(new Request(RR_UNAVAILABLE_URL, { cache: 'reload' }));
+    }).catch(function () {})
+  );
 });
 self.addEventListener('activate', function (e) {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.map(function (k) {
+        if (k.indexOf('rr-failsafe-') === 0 && k !== RR_FAILSAFE_CACHE) return caches.delete(k);
+      }));
+    }).catch(function () {}).then(function () { return self.clients.claim(); })
+  );
+});
+
+function rrUnavailableResponse(fallback) {
+  return caches.open(RR_FAILSAFE_CACHE).then(function (cache) {
+    return cache.match(RR_UNAVAILABLE_URL);
+  }).then(function (cached) {
+    if (cached) return cached;
+    if (fallback) return fallback;
+    return new Response('<!DOCTYPE html><meta charset="utf-8"><title>RailroadRadar</title><body style="background:#07093e;color:#fff;font-family:sans-serif;text-align:center;padding-top:30vh"><p>RailroadRadar is currently unavailable. Please try again shortly.</p></body>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  }).catch(function () {
+    return fallback || Response.error();
+  });
+}
+
+self.addEventListener('fetch', function (event) {
+  var req = event.request;
+  if (req.mode !== 'navigate' || req.method !== 'GET') return;
+  var url;
+  try { url = new URL(req.url); } catch (_) { return; }
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    fetch(req).then(function (res) {
+      if (res && res.status >= 500 && res.status <= 599) return rrUnavailableResponse(res);
+      return res;
+    }, function () {
+      return rrUnavailableResponse(null);
+    })
+  );
 });
 
 function rrPushPayload(event) {

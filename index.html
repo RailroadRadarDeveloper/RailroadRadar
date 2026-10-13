@@ -2,6 +2,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script id="rr-boot-failsafe">
+  /* Critical-error failsafe: only sends visitors to /unavailable.html when the app never
+     finished booting AND (an error happened before boot, or a core script failed to load).
+     Errors after window.__rrBootReady is set are ignored entirely. */
+  (function () {
+    if (window.__rrBootFailsafe) return;
+    window.__rrBootFailsafe = true;
+    window.__rrBootReady = false;
+    var CORE = { src: ["leaflet@1.9.4/dist/leaflet.js", "/assets/leaflet.rotatedMarker.js", "firebase-app-compat.js"], globals: ["L", "firebase"] };
+    var bootError = null;
+    var done = false;
+    var started = Date.now();
+    function isCoreSrc(src) {
+      src = String(src || '');
+      for (var i = 0; i < CORE.src.length; i++) if (src.indexOf(CORE.src[i]) !== -1) return true;
+      return false;
+    }
+    function coreMissing() {
+      for (var i = 0; i < CORE.globals.length; i++) if (typeof window[CORE.globals[i]] === 'undefined') return true;
+      return false;
+    }
+    window.__rrMarkBootReady = function () { window.__rrBootReady = true; };
+    window.addEventListener('error', function (e) {
+      if (window.__rrBootReady || done) return;
+      var t = e && e.target;
+      if (t && t !== window && t.tagName === 'SCRIPT') {
+        if (isCoreSrc(t.src)) bootError = bootError || ('core script failed: ' + t.src);
+        return;
+      }
+      if (!e || !e.filename) return; /* cross-origin "Script error." / extensions */
+      var f = String(e.filename);
+      if (f.indexOf(location.origin) !== 0) return; /* third-party scripts */
+      if (/\/assets\/js\/(live-share-bar|site-nav)\.js/.test(f)) return;
+      bootError = bootError || String(e.message || 'error');
+    }, true);
+    function check(final) {
+      if (window.__rrBootReady || done) return;
+      if (bootError || (final && coreMissing())) {
+        done = true;
+        try { console.error('[RR boot failsafe]', bootError || 'core scripts missing'); } catch (_) {}
+        try { sessionStorage.setItem('rr-unavailable-from', location.pathname + location.search + location.hash); } catch (_) {}
+        location.replace('/unavailable.html');
+      }
+    }
+    function afterLoad() { setTimeout(function () { check(false); }, 3000); }
+    if (document.readyState === 'complete') afterLoad(); else window.addEventListener('load', afterLoad);
+    setTimeout(function () { check(true); }, 25000);
+  })();
+  </script>
   <title>RailroadRadar</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15673,6 +15722,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // so route lines cover a full screen past each edge to stay drawn while dragging.
       const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
       try { window.rrMainMap = map; } catch (_) {}
+      try { window.__rrMarkBootReady && window.__rrMarkBootReady(); } catch (_) {}
       // Leaflet moves every marker on every frame of a pinch zoom, including the hundreds far off
       // screen (all of Metra when looking at New York), which made zooming stutter on phones.
       // Markers more than half a screen outside the view are hidden and left where they are.
