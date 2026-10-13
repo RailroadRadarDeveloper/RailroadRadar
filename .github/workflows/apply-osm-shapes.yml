@@ -1,0 +1,37 @@
+name: Apply OSM rail shapes
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-osm-shapes.yml'
+permissions:
+  contents: write
+concurrency:
+  group: apply-osm-shapes
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Rejoin, verify, apply, clean up
+        run: |
+          set -eu
+          if [ ! -f scripts/osm-shapes.b64.part00 ]; then echo already applied; exit 0; fi
+          echo "6ad367fe7d749ff79e1f508b967a7ccbe4c31a82f4407aaccedcdcaba7442892  assets/shapes/via.json" | sha256sum -c -
+          echo "2b503e126ca9f50e3ffacc99e428076b3a37cc68f061f813d6c58bafdf56c295  assets/shapes/amtrak.json" | sha256sum -c -
+          cat scripts/osm-shapes.b64.part00 scripts/osm-shapes.b64.part01 scripts/osm-shapes.b64.part02 scripts/osm-shapes.b64.part03 scripts/osm-shapes.b64.part04 scripts/osm-shapes.b64.part05 scripts/osm-shapes.b64.part06 scripts/osm-shapes.b64.part07 scripts/osm-shapes.b64.part08 scripts/osm-shapes.b64.part09 scripts/osm-shapes.b64.part10  | tr -d ' \n\r' > /tmp/s.b64
+          echo "10b711be2dc0ea1fed7f99f4400df0ee1947191fe6ee3e2ae11d80695969b083  /tmp/s.b64" | sha256sum -c -
+          mkdir -p /tmp/x && base64 -d /tmp/s.b64 | gunzip | tar -xf - -C /tmp/x
+          echo "35047a1aa2975eb1091cbe21f7a3a4c58bbfacc35a7bae879f8b7702c70341a3  /tmp/x/via.json" | sha256sum -c -
+          echo "08bdeab57399e75c5f3b435e5612fce7924fd73f4cf41c3852ed9e72d321e2c6  /tmp/x/amtrak.json" | sha256sum -c -
+          cp /tmp/x/via.json assets/shapes/via.json
+          cp /tmp/x/amtrak.json assets/shapes/amtrak.json
+          git rm -q scripts/osm-shapes.b64.part00 scripts/osm-shapes.b64.part01 scripts/osm-shapes.b64.part02 scripts/osm-shapes.b64.part03 scripts/osm-shapes.b64.part04 scripts/osm-shapes.b64.part05 scripts/osm-shapes.b64.part06 scripts/osm-shapes.b64.part07 scripts/osm-shapes.b64.part08 scripts/osm-shapes.b64.part09 scripts/osm-shapes.b64.part10  .github/workflows/apply-osm-shapes.yml
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/shapes/via.json assets/shapes/amtrak.json
+          git commit -m "Amtrak + VIA lines follow real track (OpenStreetMap route=train relations, 40 m simplification)"
+          git push origin HEAD:main
