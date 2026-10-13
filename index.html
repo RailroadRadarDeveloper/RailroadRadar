@@ -667,6 +667,28 @@
       border: 1px solid #e6e9ef;
       border-radius: 4px;
     }
+    .loco-report-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #5c6480;
+      margin-bottom: 2px;
+    }
+    .loco-report-unit {
+      font-size: 15px;
+      font-weight: 700;
+      color: #07093e;
+      line-height: 1.3;
+    }
+    .loco-report-unit.is-empty { color: #6b7288; font-weight: 600; }
+    .loco-report-meta {
+      margin-top: 3px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #4b5568;
+      line-height: 1.35;
+    }
     .loco-report-text {
       font-size: 12.5px;
       color: #07093e;
@@ -16081,18 +16103,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return null;
       }
       function buildLocoReportPairingBlockHtml(agency, opts) {
-
         opts = opts || {};
         const a = normalizeAgency(agency || 'mbta');
         const vid = String(opts.vehicleId || '').trim();
         const trainNumber = String(opts.trainNumber || '').trim();
-        let line = '';
+        const escFn = (typeof escapeHtml === 'function') ? escapeHtml : function(s) { return String(s).replace(/</g, '<'); };
         let rep = null;
-        if (trainReportsLoadFailed) {
-          line = 'Report data unavailable';
-        } else {
+        if (!trainReportsLoadFailed) {
           if (a === 'mbta') {
             rep = (vid && activeTrainNumberReports.mbta && activeTrainNumberReports.mbta[vid]) || null;
+            if (!rep && trainNumber && activeTrainNumberReports.mbta) {
+              const tnAlt = trainNumber.replace(/^0+/, '') || trainNumber;
+              rep = activeTrainNumberReports.mbta['tn:' + trainNumber] || activeTrainNumberReports.mbta['tn:' + tnAlt] || null;
+            }
           } else if (opts.report) {
             rep = opts.report;
           } else if (opts.special && opts.special.fromReport && opts.special.report) {
@@ -16101,32 +16124,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const tnAlt = trainNumber.replace(/^0+/, '') || trainNumber;
             rep = activeTrainNumberReports[a][trainNumber] || activeTrainNumberReports[a][tnAlt] || null;
           }
-          if (rep && (rep.unitName || rep.locomotiveId || rep.locoType || rep.vehicleId || rep.locomotiveId2 || rep.unitName2 || (Array.isArray(rep.locomotives) && rep.locomotives.length))) {
-            const label = formatTrainReportLocoLabel(rep);
-            const whenTs = rep.updatedAt || rep.createdAt;
-            const day = formatReportDayNy(whenTs);
-            const time = formatReportTimeNy(whenTs);
-            const byHtml = formatReportByAttribution(rep);
-            const escFn = (typeof escapeHtml === 'function') ? escapeHtml : function(s) { return String(s).replace(/</g, '&lt;'); };
-            let parts = 'Last reported: ' + escFn(label);
-            if (day) {
-              parts += ' on ' + escFn(day);
-              if (time) parts += ' at ' + escFn(time);
-            }
-            if (byHtml) parts += ' by ' + byHtml;
-            line = parts;
-            const comment = String(rep.comment || '').trim();
-            if (comment) {
-              line += '<div class="loco-report-comment">“' + escFn(comment) + '”</div>';
-            }
-          } else {
-            line = 'No locomotive reported yet';
-          }
         }
-        const escPlain = (typeof escapeHtml === 'function') ? escapeHtml(line) : String(line).replace(/</g, '&lt;');
-        const lineHtml = (trainReportsLoadFailed || line === 'No locomotive reported yet')
-          ? escPlain
-          : ('<em class="loco-report-last">' + line + '</em>');
+        const hasUnit = !!(rep && (rep.unitName || rep.locomotiveId || rep.locoType || rep.vehicleId || (Array.isArray(rep.locomotives) && rep.locomotives.length)));
         let onclick;
         if (a === 'mbta') {
           const safeVid = vid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -16136,9 +16135,29 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           onclick = "openReportTrainModal({agency:'" + a + "',trainNumber:'" + safeTn + "'})";
         }
         let stale = false;
-        if (rep && !trainReportsLoadFailed) {
+        if (hasUnit && !trainReportsLoadFailed) {
           const when = parseReportTimestamp(rep.updatedAt || rep.createdAt);
           stale = !when || ((Date.now() - when.getTime()) > 24 * 60 * 60 * 1000);
+        }
+        let body;
+        if (trainReportsLoadFailed) {
+          body = '<div class="loco-report-label">Report</div><div class="loco-report-unit">Unavailable</div>';
+        } else if (!hasUnit) {
+          body = '<div class="loco-report-label">Reported unit</div><div class="loco-report-unit is-empty">None yet</div>';
+        } else {
+          const unit = formatTrainReportLocoLabel(rep);
+          const whenTs = rep.updatedAt || rep.createdAt;
+          const day = formatReportDayNy(whenTs);
+          const time = formatReportTimeNy(whenTs);
+          const byHtml = formatReportByAttribution(rep);
+          const when = [day, time].filter(Boolean).join(', ');
+          let meta = when ? escFn(when) : '';
+          if (byHtml) meta = meta ? (meta + ' · ' + byHtml) : byHtml;
+          const comment = String(rep.comment || '').trim();
+          body = '<div class="loco-report-label">Reported unit</div>' +
+            '<div class="loco-report-unit">' + escFn(unit) + '</div>' +
+            (meta ? ('<div class="loco-report-meta">' + meta + '</div>') : '') +
+            (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '');
         }
         let actionsHtml;
         if (stale) {
@@ -16146,18 +16165,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             ? ("confirmStaleTrainReport('mbta','" + vid.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "','')")
             : ("confirmStaleTrainReport('" + a + "','','" + trainNumber.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "')");
           actionsHtml =
-            '<div class="loco-report-stale-ask">This locomotive was reported over 24 hours ago. Confirm it is still correct, or change it.</div>' +
+            '<div class="loco-report-stale-ask">Older than 24 hours. Still this unit?</div>' +
             '<div class="loco-report-actions">' +
-              '<button type="button" class="popup-action-btn update-pairing-btn confirm-pairing-btn" onclick="' + confirmClick + '">Confirm</button>' +
+              '<button type="button" class="popup-action-btn update-pairing-btn confirm-pairing-btn" onclick="' + confirmClick + '">Yes</button>' +
               '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + onclick + '">Change</button>' +
             '</div>';
         } else {
-          const iconUrl = currentMapIconUrl(a, vid, trainNumber) || latestReportIconUrl(a, { vehicleId: vid, trainNumber: trainNumber, report: rep });
-          const iconHtml = iconUrl ? '<img class="popup-report-icon" src="' + String(iconUrl).replace(/"/g, '') + '" alt="">' : '';
-          actionsHtml = '<div class="popup-report-wrap">' + iconHtml + '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">Report</button></div>';
+          const label = hasUnit ? 'Update' : 'Report unit';
+          actionsHtml = '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">' + label + '</button>';
         }
         return '<div class="loco-report-block' + (stale ? ' is-stale' : '') + '">' +
-          '<div class="loco-report-text">' + lineHtml + '</div>' +
+          '<div class="loco-report-text">' + body + '</div>' +
           actionsHtml +
           '</div>';
       }
