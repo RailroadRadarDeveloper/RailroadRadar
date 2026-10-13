@@ -15606,25 +15606,41 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!id) return null;
         return SPECIAL_UNITS_ROSTER.find(u => u.agency === a && String(u.id) === id) || null;
       }
+      function reportTimeMs(rep) {
+        if (!rep) return 0;
+        const c = (rep.contributors && rep.contributors[0] && rep.contributors[0].at) || 0;
+        const u = (typeof parseReportTimestamp === 'function') ? parseReportTimestamp(rep.updatedAt) : null;
+        const cr = (typeof parseReportTimestamp === 'function') ? parseReportTimestamp(rep.createdAt) : null;
+        return Math.max(Number(c) || 0, u ? u.getTime() : 0, cr ? cr.getTime() : 0);
+      }
+      function keepNewerReport(slot, rep) {
+        if (!slot) return rep;
+        return reportTimeMs(rep) >= reportTimeMs(slot) ? rep : slot;
+      }
       function rebuildTrainReportIndexes() {
         trainReportsById = {};
         activeReportVehicleIds = new Set();
-        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} };
+        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {}, metra: {} };
         const today = nyServiceDateToday();
         (trainReports || []).forEach(function(rep) {
           if (!rep || !rep.id) return;
           trainReportsById[rep.id] = rep;
           const agency = normalizeAgency(rep.agency);
           const vid = String(rep.vehicleId || '').trim();
+          const tn = String(rep.trainNumber || '').trim();
+          const tnAlt = tn.replace(/^0+/, '') || tn;
           if (vid) activeReportVehicleIds.add(vid);
           if (agency === 'mbta') {
-            if (vid) activeTrainNumberReports.mbta[vid] = rep;
-          } else if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt' || agency === 'ctrail' || agency === 'marc') {
+            if (vid) activeTrainNumberReports.mbta[vid] = keepNewerReport(activeTrainNumberReports.mbta[vid], rep);
+            if (tn) {
+              activeTrainNumberReports.mbta['tn:' + tn] = keepNewerReport(activeTrainNumberReports.mbta['tn:' + tn], rep);
+              if (tnAlt !== tn) activeTrainNumberReports.mbta['tn:' + tnAlt] = keepNewerReport(activeTrainNumberReports.mbta['tn:' + tnAlt], rep);
+            }
+          } else if (activeTrainNumberReports[agency]) {
             const sd = rep.serviceDate || '';
-            const tn = String(rep.trainNumber || '').trim();
             if (tn && (!sd || sd === today)) {
-              activeTrainNumberReports[agency][tn] = rep;
-              activeTrainNumberReports[agency][tn.replace(/^0+/, '') || tn] = rep;
+              activeTrainNumberReports[agency][tn] = keepNewerReport(activeTrainNumberReports[agency][tn], rep);
+              if (tnAlt !== tn) activeTrainNumberReports[agency][tnAlt] = keepNewerReport(activeTrainNumberReports[agency][tnAlt], rep);
             }
           }
         });
@@ -15643,8 +15659,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const tn = String(trainNumber || '').trim();
         const tnAlt = tn.replace(/^0+/, '') || tn;
         if (a === 'mbta') {
-          if (vid && activeTrainNumberReports.mbta && activeTrainNumberReports.mbta[vid]) {
-            const rep = activeTrainNumberReports.mbta[vid];
+          let mbtaRep = (vid && activeTrainNumberReports.mbta && activeTrainNumberReports.mbta[vid]) || null;
+          if (!mbtaRep && tn && activeTrainNumberReports.mbta) {
+            mbtaRep = activeTrainNumberReports.mbta['tn:' + tn] || activeTrainNumberReports.mbta['tn:' + tnAlt] || null;
+          }
+          if (mbtaRep) {
+            const rep = mbtaRep;
             const locos = normalizeReportLocomotives(rep);
             const first = locos[0] || null;
             const locoId = String((first && first.locomotiveId) || rep.locomotiveId || '').trim();
@@ -15723,6 +15743,46 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return null;
         }
         return null;
+      }
+      function rrReapplyReportIcons() {
+        function each(dict, fn) {
+          if (!dict) return;
+          Object.keys(dict).forEach(function(id) {
+            const m = dict[id];
+            if (!m || typeof m.setIcon !== 'function') return;
+            try { fn(id, m); } catch (_) {}
+          });
+        }
+        each(typeof markers !== 'undefined' ? markers : null, function(vid) {
+          const info = (typeof trainInfo !== 'undefined' && trainInfo[vid]) || {};
+          markers[vid].setIcon(createTrainIcon(info.delayMinutes, vid));
+        });
+        each(typeof amtrakMarkers !== 'undefined' ? amtrakMarkers : null, function(vid) {
+          const info = (typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) || {};
+          amtrakMarkers[vid].setIcon(createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
+        });
+        each(typeof mnrMarkers !== 'undefined' ? mnrMarkers : null, function(vid) {
+          const info = (typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) || {};
+          mnrMarkers[vid].setIcon(createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
+        });
+        each(typeof lirrMarkers !== 'undefined' ? lirrMarkers : null, function(vid) {
+          const info = (typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) || {};
+          lirrMarkers[vid].setIcon(createLirrIcon(info.trainNum));
+        });
+        each(typeof njtMarkers !== 'undefined' ? njtMarkers : null, function(vid) {
+          const info = (typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) || {};
+          const special = getSpecialForVehicle('njt', null, info.trainNum);
+          const locoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
+          njtMarkers[vid].setIcon(createNjtIcon(locoType, info.trainNum));
+        });
+        each(typeof metraMarkers !== 'undefined' ? metraMarkers : null, function(vid) {
+          const info = (typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) || {};
+          metraMarkers[vid].setIcon(createMetraIcon(info.trainNum));
+        });
+        each(typeof marcMarkers !== 'undefined' ? marcMarkers : null, function(vid) {
+          const info = (typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) || {};
+          marcMarkers[vid].setIcon(createMarcIcon(info.trainNum));
+        });
       }
       function rrReportIconUrl(agency, vehicleId, trainNumber) {
         try {
@@ -16174,6 +16234,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           window.__rrTrainReportsLoadedAt = Date.now();
           window.__rrTrainReportsLoadMeta = { fromServer: true, live: false, count: allTrainReports.length };
           try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
+          try { if (typeof rrReapplyReportIcons === 'function') rrReapplyReportIcons(); } catch (_) {}
           try { if (typeof renderUpcomingBoard === 'function') renderUpcomingBoard(); } catch (_) {}
           console.log('%c[trainReports] Loaded ' + allTrainReports.length + ' total (' + trainReports.length + ' map-active)', 'color:#27ae60');
         } catch (e) {
@@ -17832,7 +17893,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return mbtaIcon(CAPE_FLYER_ICONS[delayKey] || hspDefault);
         }
         try {
-          const specialRep = getSpecialForVehicle('mbta', vehicleId, null);
+          const mbtaTn = (trainInfo[vehicleId] && typeof extractTrainNumber === 'function')
+            ? extractTrainNumber(trainInfo[vehicleId].tripId)
+            : null;
+          const specialRep = getSpecialForVehicle('mbta', vehicleId, mbtaTn);
           if (specialRep && specialRep.fromReport) {
             const rep = specialRep.report || {};
             const locoId = String(specialRep.locomotiveId || rep.locomotiveId || '').trim();
