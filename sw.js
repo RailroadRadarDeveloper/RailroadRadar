@@ -1,7 +1,7 @@
 /* RailroadRadar service worker — home-screen notifications */
 /* Failsafe: cached "currently unavailable" page for failed / 5xx navigations. */
 var RR_SW_VERSION = 'rr-sw-v2';
-var RR_FAILSAFE_CACHE = 'rr-failsafe-v11';
+var RR_FAILSAFE_CACHE = 'rr-failsafe-v12';
 var RR_UNAVAILABLE_URL = '/unavailable.html';
 
 self.addEventListener('install', function (e) {
@@ -43,6 +43,14 @@ self.addEventListener('fetch', function (event) {
   event.respondWith(
     fetch(req).then(function (res) {
       if (res && res.status >= 500 && res.status <= 599) return rrUnavailableResponse(res);
+      if (res && res.status === 404) {
+        /* Our own 404 page mentions RailroadRadar; GitHub's generic "site not found" page does not,
+           which means the whole site is missing, so show the unavailable page instead. */
+        return res.clone().text().then(function (body) {
+          if (body && body.indexOf('RailroadRadar') !== -1) return res;
+          return rrUnavailableResponse(res);
+        }, function () { return res; });
+      }
       return res;
     }, function () {
       return rrUnavailableResponse(null);
