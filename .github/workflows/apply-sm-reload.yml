@@ -1,0 +1,35 @@
+name: Apply special move reload fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/sm-reload.patch.gz.b64.part*'
+      - '.github/workflows/apply-sm-reload.yml'
+permissions:
+  contents: write
+concurrency:
+  group: apply-sm-reload
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Rejoin, verify, apply, clean up
+        run: |
+          set -eu
+          if [ ! -f scripts/sm-reload.patch.gz.b64.part1 ]; then echo already applied; exit 0; fi
+          echo "bc57a3387a95a4337e87f426eb69d40b73074aca814f657f90b8a30cb21675ac  index.html" | sha256sum -c -
+          cat scripts/sm-reload.patch.gz.b64.part1 scripts/sm-reload.patch.gz.b64.part2 | tr -d ' \n\r' > /tmp/p.b64
+          echo "11a7729ae56fba6bdd17fb129b8a9fcae2e6bd4a23518f31d2ff19df9690f826  /tmp/p.b64" | sha256sum -c -
+          base64 -d /tmp/p.b64 | gunzip > /tmp/p.patch
+          patch --no-backup-if-mismatch index.html /tmp/p.patch
+          echo "9f619b265d111f08b31e88dd1d01b4ec6256b12f509f8df3c59015affddf9b3d  index.html" | sha256sum -c -
+          git rm -q scripts/sm-reload.patch.gz.b64.part1 scripts/sm-reload.patch.gz.b64.part2 .github/workflows/apply-sm-reload.yml
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html
+          git commit -m "Special moves: keep sharing after reload, keep trip live, keep From/To station names"
+          git push origin HEAD:main
