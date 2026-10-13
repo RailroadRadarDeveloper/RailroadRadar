@@ -19010,7 +19010,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ? '<span class="cape-badge" style="background:#EA0D2A;">CTrail Hartford Line</span>'
           : '';
         const amtrakSpecial = getSpecialForVehicle('amtrak', (t.specialUnit && t.specialUnit.vehicleId) || null, num) || t.specialUnit || null;
-        const amtrakSpecialBadge = specialUnitBadgeHtml(amtrakSpecial);
         const amtrakPairingBlock = buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial });
         const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshAmtrakTrain('${vid}')">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('amtrak', vid, num);
@@ -19027,7 +19026,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${amtrakSpecialBadge}
                 ${ctrailBadge}
                 ${amtrakBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
@@ -19599,7 +19597,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '—';
         const mnrBadge = '<span class="cape-badge" style="background:#0039A6;">Metro-North</span>';
         const mnrSpecial = getSpecialForVehicle('mnr', null, num) || info.specialUnit || null;
-        const mnrSpecialBadge = specialUnitBadgeHtml(mnrSpecial);
         const mnrPairingBlock = buildLocoReportPairingBlockHtml('mnr', { trainNumber: num, special: mnrSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMnrTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('mnr', vid, num);
@@ -19624,7 +19621,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${mnrSpecialBadge}
                 ${mnrBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
@@ -20017,7 +20013,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '—';
         const lirrBadge = '<span class="cape-badge" style="background:#0039A6;">LIRR</span>';
         const lirrSpecial = getSpecialForVehicle('lirr', null, num) || info.specialUnit || null;
-        const lirrSpecialBadge = specialUnitBadgeHtml(lirrSpecial);
         const lirrPairingBlock = buildLocoReportPairingBlockHtml('lirr', { trainNumber: num, special: lirrSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshLirrTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('lirr', vid, num);
@@ -20042,7 +20037,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${lirrSpecialBadge}
                 ${lirrBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
@@ -20363,7 +20357,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '—';
         const metraBadge = '<span class="cape-badge" style="background:#0055A4;">Metra</span>';
         const metraSpecial = getSpecialForVehicle('metra', info.vehicleId || null, num) || info.specialUnit || null;
-        const metraSpecialBadge = specialUnitBadgeHtml(metraSpecial);
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMetraTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('metra', vid, num);
         const logTripBtn = rrLogTripBtnHtml('metra', vid, num);
@@ -20384,7 +20377,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${metraSpecialBadge}
                 ${metraBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
@@ -20798,7 +20790,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '—';
         const njtBadge = '<span class="cape-badge" style="background:' + NJT_COLOR + ';">NJ Transit</span>';
         const njtSpecial = getSpecialForVehicle('njt', null, num) || info.specialUnit || null;
-        const njtSpecialBadge = specialUnitBadgeHtml(njtSpecial);
         const njtPairingBlock = buildLocoReportPairingBlockHtml('njt', { trainNumber: num, special: njtSpecial });
         const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshNjtTrain(\'' + vid + '\')">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('njt', vid, num);
@@ -20819,7 +20810,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${njtSpecialBadge}
                 ${njtBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
@@ -21767,7 +21757,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ? `<span class="cape-badge">CapeFLYER</span>` 
           : '';
         const mbtaSpecial = getSpecialForVehicle('mbta', vid, extractTrainNumber(tid) || null);
-        const mbtaSpecialBadge = specialUnitBadgeHtml(mbtaSpecial);
         const mbtaPairingBlock = buildLocoReportPairingBlockHtml('mbta', { vehicleId: vid });
         const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshTrainStops('${tid}', '${vid}')">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
@@ -21776,7 +21765,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${mbtaSpecialBadge}
                 ${capeBadge}
                 <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rname}</span>
