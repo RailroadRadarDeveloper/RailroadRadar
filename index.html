@@ -18393,6 +18393,98 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         console.warn('[stopActuals] save failed', e && e.message);
       });
     }
+
+    async function rrRecordMbtaMapActuals(vehicles) {
+      if (!auth || !auth.currentUser || !db || !vehicles || !vehicles.length) return;
+      if (typeof apiUrl !== 'function') return;
+      let pred;
+      try {
+        const res = await fetch(apiUrl('/api/mbta/predictions?filter[route_type]=2&include=stop&page[limit]=1000'));
+        if (!res.ok) return;
+        pred = await res.json();
+      } catch (_) { return; }
+      const names = {};
+      (pred.included || []).forEach(function(inc) {
+        if (inc && inc.type === 'stop') names[inc.id] = (inc.attributes && inc.attributes.name) || '';
+      });
+      const byTrip = {};
+      const now = Date.now();
+      (pred.data || []).forEach(function(row) {
+        const tripId = row && row.relationships && row.relationships.trip && row.relationships.trip.data && row.relationships.trip.data.id;
+        const stopId = row && row.relationships && row.relationships.stop && row.relationships.stop.data && row.relationships.stop.data.id;
+        const iso = row && row.attributes && (row.attributes.departure_time || row.attributes.arrival_time);
+        if (!tripId || !stopId || !iso) return;
+        const when = new Date(iso);
+        if (isNaN(when.getTime()) || when.getTime() > now) return;
+        (byTrip[tripId] = byTrip[tripId] || []).push({
+          stopId: String(stopId),
+          name: names[stopId] || '',
+          actual: when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      });
+      const svc = rrStopServiceDate();
+      const seen = {};
+      for (let i = 0; i < vehicles.length; i++) {
+        const v = vehicles[i];
+        const tripId = v && v.relationships && v.relationships.trip && v.relationships.trip.data && v.relationships.trip.data.id;
+        if (!tripId || seen[tripId] || !byTrip[tripId]) continue;
+        seen[tripId] = true;
+        const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId);
+        const cached = await rrLoadStopActuals('mbta', tnum, svc);
+        const merged = ((cached && cached.stops) || []).map(function(s) { return Object.assign({}, s); });
+        let changed = !cached;
+        byTrip[tripId].forEach(function(p) {
+          let row = null;
+          for (let n = 0; n < merged.length; n++) {
+            const s = merged[n];
+            if (String(s.stopId || '') === p.stopId || (p.name && String(s.name || '').toLowerCase() === p.name.toLowerCase())) { row = s; break; }
+          }
+          if (!row) {
+            merged.push({ name: p.name, stopId: p.stopId, scheduled: null, predicted: p.actual, actual: p.actual, completed: true, delayMinutes: 0 });
+            changed = true;
+          } else if (!row.actual) {
+            row.actual = p.actual;
+            row.completed = true;
+            row.predicted = row.predicted || p.actual;
+            changed = true;
+          }
+        });
+        if (!changed) continue;
+        rrSaveStopActuals('mbta', tnum, svc, merged.map(function(s) {
+          return {
+            name: s.name || '',
+            id: s.stopId || '',
+            formattedScheduledTime: s.scheduled || null,
+            formattedPredictedTime: s.predicted || s.actual || null,
+            formattedActualTime: s.actual || null,
+            isCompleted: !!(s.completed || s.actual),
+            delayMinutes: Number(s.delayMinutes) || 0
+          };
+        }));
+      }
+    }
+    async function rrRecordAmtrakMapActuals(trains) {
+      if (!auth || !auth.currentUser || !db || !trains) return;
+      const svc = rrStopServiceDate();
+      const list = Array.isArray(trains) ? trains : Object.keys(trains).map(function(k) { return trains[k]; });
+      for (let i = 0; i < list.length; i++) {
+        const tr = list[i];
+        if (!tr || !tr.stations) continue;
+        const num = tr.trainNum || tr.trainNumRaw;
+        if (!num) continue;
+        let stops = amtrakStationsToStops(tr.stations);
+        const cached = await rrLoadStopActuals('amtrak', num, svc);
+        if (cached) rrApplyStopActuals(stops, cached);
+        const had = (cached && cached.stops) || [];
+        const newlyPassed = stops.some(function(s) {
+          if (!s.isCompleted) return false;
+          const name = String(s.name || '').toLowerCase();
+          const old = had.find(function(c) { return String(c.name || '').toLowerCase() === name; });
+          return !old || !old.actual;
+        });
+        if (newlyPassed || !cached) rrSaveStopActuals('amtrak', num, svc, stops);
+      }
+    }
     async function getTripStops(tripId, serviceDate) {
         const cacheKey = String(tripId) + '|' + String(serviceDate || '');
         if (tripStopsCache[cacheKey] && (Date.now() - tripStopsCache[cacheKey].timestamp) < 300000) {
@@ -19191,6 +19283,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             (amtrakAllTrains || []).forEach(function(tr) { harvestAmtrakStationDots(tr); });
             if (typeof updateStationVisibility === 'function') updateStationVisibility();
           } catch (_) {}
+          try { rrRecordAmtrakMapActuals(data); } catch (_) {}
           FetchStats.end(stat, {
             received: Object.keys(data).length,
             created: created,
@@ -21627,6 +21720,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
             trainLastSeen[vid] = rrSeenMs(v.attributes && v.attributes.updated_at, now);
           });
+          try { rrRecordMbtaMapActuals(data.data); } catch (_) {}
           if (_ftStat) FetchStats.end(_ftStat, { created: created, updated: updated, skipped: skipped, vehicles: data.data.length, markers: Object.keys(markers).length });
           else console.log('%c[MBTA fetchTrains] created:' + created + ' updated:' + updated + ' skipped:' + skipped + ' vehicles:' + data.data.length + ' markers:' + Object.keys(markers).length, 'color:#3498db');
           // 12-minute timeout for better CapeFLYER / special service support
