@@ -6893,7 +6893,7 @@
         <span id="legal-accept-title">Please agree to continue</span>
       </div>
       <div class="rr-modal-body">
-        <p class="signup-prompt-sub"><strong>You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.</strong></p>
+        <p class="signup-prompt-sub"><strong id="legal-accept-sub">You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.</strong></p>
         <p class="signup-prompt-note">Review our <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
         <div class="rr-modal-error" id="legal-accept-error"></div>
         <div class="rr-lightbox-actions signup-prompt-actions">
@@ -7105,8 +7105,25 @@
     let db = null;
 
     let currentUser = null;
-    const RR_LEGAL_VERSION = '2026-09-14';
-    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null, publicProfile: false, username: '' };
+    // Effective dates of /policies/terms-of-use/ and /policies/privacy/. Raising either one
+    // asks every signed-in user to agree again.
+    const RR_TERMS_VERSION = '2026-10-13';
+    const RR_PRIVACY_VERSION = '2026-10-13';
+    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null, publicProfile: false, username: '' };
+    function rrLegalIsCurrent(s) {
+      return !!(s && s.legalAccepted
+        && String(s.termsVersion || '') >= RR_TERMS_VERSION
+        && String(s.privacyVersion || '') >= RR_PRIVACY_VERSION);
+    }
+    // Accounts that agreed before versions were split stored one legalVersion for both pages.
+    function rrReadLegalFields(d) {
+      return {
+        legalAccepted: d.legalAccepted === true,
+        legalAcceptedAt: d.legalAcceptedAt ? String(d.legalAcceptedAt) : null,
+        termsVersion: String(d.termsVersion || d.legalVersion || '') || null,
+        privacyVersion: String(d.privacyVersion || d.legalVersion || '') || null
+      };
+    }
     const INTEREST_RAILROADS = [
       { id: 'mbta', label: 'MBTA Commuter Rail' },
       { id: 'amtrak', label: 'Amtrak' },
@@ -7310,7 +7327,8 @@
         if (currentUserSettings && currentUserSettings.legalAccepted) {
           payload.legalAccepted = true;
           if (currentUserSettings.legalAcceptedAt) payload.legalAcceptedAt = currentUserSettings.legalAcceptedAt;
-          if (currentUserSettings.legalVersion) payload.legalVersion = currentUserSettings.legalVersion;
+          if (currentUserSettings.termsVersion) payload.termsVersion = currentUserSettings.termsVersion;
+          if (currentUserSettings.privacyVersion) payload.privacyVersion = currentUserSettings.privacyVersion;
         }
         if (currentUserSettings && currentUserSettings.cookieConsent) {
           payload.cookieConsent = currentUserSettings.cookieConsent;
@@ -7424,7 +7442,7 @@
       return promise;
     }
     async function readUserSettings(uid) {
-      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null, publicProfile: false, username: '' };
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, termsVersion: null, privacyVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null, publicProfile: false, username: '' };
       let settings = Object.assign({}, defaults);
       if (!db || !uid) return settings;
       try {
@@ -7440,9 +7458,6 @@
             interestedRailroads: interests,
             interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads),
             reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null,
-            legalAccepted: d.legalAccepted === true,
-            legalAcceptedAt: d.legalAcceptedAt ? String(d.legalAcceptedAt) : null,
-            legalVersion: d.legalVersion ? String(d.legalVersion) : null,
             cookieConsent: d.cookieConsent ? String(d.cookieConsent) : null,
             cookieClarity: d.cookieClarity === true,
             cookiePreferences: d.cookiePreferences !== false,
@@ -7450,16 +7465,13 @@
             publicProfile: d.publicProfile === true,
             username: d.username ? String(d.username) : ''
           };
+          Object.assign(settings, rrReadLegalFields(d));
         }
-        if (!settings.legalAccepted) {
+        if (!rrLegalIsCurrent(settings)) {
           // Older and seeded accounts recorded agreement only on the accounts mirror.
           const acct = await db.collection('accounts').doc(uid).get();
-          const a = acct.exists ? (acct.data() || {}) : {};
-          if (a.legalAccepted === true) {
-            settings.legalAccepted = true;
-            settings.legalAcceptedAt = a.legalAcceptedAt ? String(a.legalAcceptedAt) : null;
-            settings.legalVersion = a.legalVersion ? String(a.legalVersion) : null;
-          }
+          const a = acct.exists ? rrReadLegalFields(acct.data() || {}) : null;
+          if (a && a.legalAccepted && (rrLegalIsCurrent(a) || !settings.legalAccepted)) Object.assign(settings, a);
         }
       } catch (err) {
         console.warn('[userSettings] load failed', err);
@@ -8179,7 +8191,9 @@
           interestedRailroadsSet: true,
           reportStats: (currentUserSettings && currentUserSettings.reportStats) || null,
           legalAccepted: !!(currentUserSettings && currentUserSettings.legalAccepted),
-          legalVersion: (currentUserSettings && currentUserSettings.legalVersion) || null,
+          legalAcceptedAt: (currentUserSettings && currentUserSettings.legalAcceptedAt) || null,
+          termsVersion: (currentUserSettings && currentUserSettings.termsVersion) || null,
+          privacyVersion: (currentUserSettings && currentUserSettings.privacyVersion) || null,
           publicProfile: wantPublic,
           username: usernameRaw || ''
         };
@@ -15312,7 +15326,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         await db.collection('userSettings').doc(u.uid).set({
           legalAccepted: true,
           legalAcceptedAt: acceptedAt,
-          legalVersion: RR_LEGAL_VERSION,
+          termsVersion: RR_TERMS_VERSION,
+          privacyVersion: RR_PRIVACY_VERSION,
           email: normalizeEmail(u.email) || (u.email || null),
           displayName: (u.displayName && String(u.displayName).trim()) || null,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -15321,7 +15336,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           await db.collection('accounts').doc(u.uid).set({
             legalAccepted: true,
             legalAcceptedAt: acceptedAt,
-            legalVersion: RR_LEGAL_VERSION
+            termsVersion: RR_TERMS_VERSION,
+            privacyVersion: RR_PRIVACY_VERSION
           }, { merge: true });
         } catch (acctErr) {
           console.warn('[legal] accounts mirror failed', acctErr);
@@ -15329,7 +15345,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         currentUserSettings = currentUserSettings || {};
         currentUserSettings.legalAccepted = true;
         currentUserSettings.legalAcceptedAt = acceptedAt;
-        currentUserSettings.legalVersion = RR_LEGAL_VERSION;
+        currentUserSettings.termsVersion = RR_TERMS_VERSION;
+        currentUserSettings.privacyVersion = RR_PRIVACY_VERSION;
         clearLegalPending();
         try { sessionStorage.setItem('rr_legal_agreed', '1'); } catch (e) {}
         return true;
@@ -15343,12 +15360,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const err = document.getElementById('legal-accept-error');
       if (!modal) return;
       if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      const updated = !!(currentUserSettings && currentUserSettings.legalAccepted);
+      const title = document.getElementById('legal-accept-title');
+      const sub = document.getElementById('legal-accept-sub');
+      if (title) title.textContent = updated ? 'We updated our Terms and Privacy Policy' : 'Please agree to continue';
+      if (sub) sub.textContent = updated
+        ? 'The Terms of Use and Privacy Policy were updated. Please review the changes and agree to keep using RailroadRadar.'
+        : 'You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.';
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('rr-legal-locked');
     }
     function closeLegalAcceptModal(force) {
-      if (!force && currentUser && currentUserSettings && !currentUserSettings.legalAccepted) {
+      if (!force && currentUser && !rrLegalIsCurrent(currentUserSettings)) {
         openLegalAcceptModal();
         return;
       }
@@ -15575,7 +15599,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const cookiePrefs = window.__rrCookiePrefsPending || readLocalCookiePrefs();
               if (cookiePrefs && cookiePrefs.decided) await persistCookieConsentToAccount(cookiePrefs, user);
             } catch (_) {}
-            if (isLegalPending() && !currentUserSettings.legalAccepted) {
+            if (isLegalPending() && !rrLegalIsCurrent(currentUserSettings)) {
               await persistLegalAcceptance(user);
             }
             await refreshAdminState(user);
@@ -15583,13 +15607,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (currentUser !== user) return;
             if (currentUserSettings && currentUserSettings.loadFailed) {
               console.warn('[auth] userSettings unread; not showing legal/interest gate');
-            } else if (!currentUserSettings.legalAccepted) {
+            } else if (!rrLegalIsCurrent(currentUserSettings)) {
               openLegalAcceptModal();
             } else if (!currentUserSettings.interestedRailroadsSet) {
               openInterestRailroadsModal();
             }
           } else {
-            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalVersion: null };
+            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
             currentAdminPerms = null;
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
