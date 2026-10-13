@@ -1,0 +1,19435 @@
+
+    // Global error handler
+    window.addEventListener('error', function(e) {
+      console.error('%c[Global Error]', 'color:#e74c3c', e.message);
+    });
+
+    // ==================== Firebase config ====================
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
+      authDomain: "railroadradar-accounts.firebaseapp.com",
+      projectId: "railroadradar-accounts",
+      storageBucket: "railroadradar-accounts.firebasestorage.app",
+      messagingSenderId: "896370923309",
+      appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
+    };
+
+    function rrAssetPath(url) {
+      const u = String(url == null ? '' : url).trim();
+      if (!u) return '';
+      if (/^data:/i.test(u)) return u;
+      try {
+        if (/^https?:\/\//i.test(u)) {
+          const parsed = new URL(u);
+          if (/(^|\.)railroadradar\.com$/i.test(parsed.hostname)) return parsed.pathname;
+        }
+      } catch (_) {}
+      if (u.charAt(0) === '/') return u;
+      if (/^assets\//i.test(u)) return '/' + u.replace(/^\/+/, '');
+      return u;
+    }
+    function rrAssetUrl(url) {
+      const u = String(url == null ? '' : url).trim();
+      if (!u || /^data:/i.test(u) || /^https?:\/\//i.test(u)) return u;
+      const path = rrAssetPath(u);
+      return path.charAt(0) === '/' ? path : '/' + path.replace(/^\/+/, '');
+    }
+
+    let firebaseApp = null;
+    let auth = null;
+    let db = null;
+
+    let currentUser = null;
+    // Effective dates of /policies/terms-of-use/ and /policies/privacy/. Raising either one
+    // asks every signed-in user to agree again.
+    const RR_TERMS_VERSION = '2026-10-13';
+    const RR_PRIVACY_VERSION = '2026-10-13';
+    let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null, publicProfile: false, username: '' };
+    function rrLegalIsCurrent(s) {
+      return !!(s && s.legalAccepted
+        && String(s.termsVersion || '') >= RR_TERMS_VERSION
+        && String(s.privacyVersion || '') >= RR_PRIVACY_VERSION);
+    }
+    // Accounts that agreed before versions were split stored one legalVersion for both pages.
+    function rrReadLegalFields(d) {
+      return {
+        legalAccepted: d.legalAccepted === true,
+        legalAcceptedAt: d.legalAcceptedAt ? String(d.legalAcceptedAt) : null,
+        termsVersion: String(d.termsVersion || d.legalVersion || '') || null,
+        privacyVersion: String(d.privacyVersion || d.legalVersion || '') || null
+      };
+    }
+    const INTEREST_RAILROADS = [
+      { id: 'mbta', label: 'MBTA Commuter Rail' },
+      { id: 'amtrak', label: 'Amtrak' },
+      { id: 'mnr', label: 'Metro-North' },
+      { id: 'lirr', label: 'Long Island Rail Road' },
+      { id: 'metra', label: 'Metra' },
+      { id: 'njt', label: 'NJ Transit' },
+      { id: 'ctrail', label: 'CTrail' },
+        { id: 'exploring', label: "I'm just exploring" }
+    ];
+    function interestRailroadLabel(id) {
+      const row = INTEREST_RAILROADS.find(function(r) { return r.id === id; });
+      return row ? row.label : String(id || '');
+    }
+    function formatInterestRailroads(ids) {
+      const list = (ids || []).map(interestRailroadLabel).filter(Boolean);
+      return list.length ? list.join(', ') : '—';
+    }
+    function normalizeInterestIds(ids) {
+      const allow = {};
+      INTEREST_RAILROADS.forEach(function(r) { allow[r.id] = true; });
+      const out = [];
+      const seen = {};
+      (ids || []).forEach(function(id) {
+        const k = String(id || '').trim().toLowerCase();
+        if (!allow[k] || seen[k]) return;
+        seen[k] = true;
+        out.push(k);
+      });
+      return out;
+    }
+    function interestCheckboxHtml() {
+      return INTEREST_RAILROADS.map(function(r) {
+        return '<label><input type="checkbox" name="interested-railroad" value="' + r.id + '"> ' + r.label + '</label>';
+      }).join('');
+    }
+    function readInterestCheckboxes(root) {
+      if (!root) return [];
+      return Array.prototype.map.call(root.querySelectorAll('input[name="interested-railroad"]:checked'), function(el) {
+        return el.value;
+      });
+    }
+    function paintInterestCheckboxes(root, selected) {
+      if (!root) return;
+      const set = {};
+      (selected || []).forEach(function(id) { set[id] = true; });
+      root.querySelectorAll('input[name="interested-railroad"]').forEach(function(el) {
+        el.checked = !!set[el.value];
+      });
+    }
+    function updateInterestSummary(ids) {
+      const sum = document.getElementById('account-interest-summary');
+      const tog = document.getElementById('account-interest-toggle');
+      const labels = formatInterestRailroads(ids);
+      if (sum) sum.textContent = (ids && ids.length) ? ('Selected: ' + labels) : 'None selected';
+      if (tog) tog.textContent = (ids && ids.length) ? labels : 'Choose railroads';
+    }
+    let currentAdminPerms = null;
+
+    const BOOTSTRAP_ADMIN_EMAILS = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+    const ALL_ADMIN_PERMS = { viewReports: true, banUsers: true, manageAdmins: true, deleteReports: true };
+
+    function normalizeEmail(email) {
+      return String(email || '').trim().toLowerCase();
+    }
+    function isBootstrapAdmin(email) {
+      const e = normalizeEmail(email);
+      return !!e && BOOTSTRAP_ADMIN_EMAILS.indexOf(e) !== -1;
+    }
+    async function loadAdminRecord(email) {
+      const e = normalizeEmail(email);
+      if (!db || !e) return null;
+      try {
+        const snap = await db.collection('admins').doc(e).get();
+        if (!snap.exists) return null;
+        return Object.assign({ email: e, id: snap.id }, snap.data() || {});
+      } catch (err) {
+        console.warn('[admins] load failed', err);
+        return null;
+      }
+    }
+    async function getAdminPerms(user) {
+      if (!user) return null;
+      const email = normalizeEmail(user.email);
+      if (isBootstrapAdmin(email)) {
+        return Object.assign({}, ALL_ADMIN_PERMS, { _bootstrap: true, email: email });
+      }
+      const rec = await loadAdminRecord(email);
+      if (!rec) return null;
+      const p = rec.perms || {};
+      return {
+        viewReports: !!p.viewReports,
+        banUsers: !!p.banUsers,
+        manageAdmins: !!p.manageAdmins,
+        deleteReports: !!p.deleteReports,
+        _bootstrap: false,
+        email: email
+      };
+    }
+    function isAdminUser(user) {
+      if (!user) return false;
+      if (isBootstrapAdmin(user.email)) return true;
+      return !!(currentAdminPerms && (
+        currentAdminPerms.viewReports ||
+        currentAdminPerms.banUsers ||
+        currentAdminPerms.manageAdmins ||
+        currentAdminPerms.deleteReports
+      ));
+    }
+    async function ensureBootstrapAdminDoc(user) {
+      if (!db || !user || !isBootstrapAdmin(user.email)) return;
+      const e = normalizeEmail(user.email);
+      try {
+        const ref = db.collection('admins').doc(e);
+        const snap = await ref.get();
+        if (snap.exists) return;
+        await ref.set({
+          email: e,
+          addedBy: 'bootstrap',
+          addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          perms: Object.assign({}, ALL_ADMIN_PERMS)
+        }, { merge: true });
+      } catch (err) {
+        console.warn('[admins] bootstrap upsert skipped', err && err.message ? err.message : err);
+      }
+    }
+
+    function cookieConsentStatusFromPrefs(prefs) {
+      if (!prefs || !prefs.decided) return null;
+      const clarity = !!prefs.clarity;
+      const preferences = prefs.preferences !== false;
+      if (clarity && preferences) return 'accepted_all';
+      if (!clarity && !preferences) return 'rejected_all';
+      return 'custom';
+    }
+    function readLocalCookiePrefs() {
+      try {
+        const raw = localStorage.getItem('rr_cookie_prefs');
+        if (raw) {
+          const o = JSON.parse(raw);
+          if (o && typeof o === 'object') return o;
+        }
+      } catch (_) {}
+      try {
+        const leg = localStorage.getItem('rr_cookie_consent');
+        if (leg === 'accepted') return { decided: true, clarity: true, preferences: true };
+        if (leg === 'declined') return { decided: true, clarity: false, preferences: true };
+      } catch (_) {}
+      return null;
+    }
+    async function persistCookieConsentToAccount(prefs, user) {
+      const u = user || currentUser || (auth && auth.currentUser);
+      if (!prefs || !prefs.decided) return false;
+      if (!u || !u.uid || !db) {
+        window.__rrCookiePrefsPending = prefs;
+        return false;
+      }
+      const status = cookieConsentStatusFromPrefs(prefs);
+      const decidedAt = prefs.decidedAt || new Date().toISOString();
+      const payload = {
+        cookieConsent: status,
+        cookieClarity: !!prefs.clarity,
+        cookiePreferences: prefs.preferences !== false,
+        cookieDecidedAt: decidedAt
+      };
+      try {
+        await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
+      } catch (err) {
+        console.warn('[cookies] accounts persist failed', err);
+      }
+      try {
+        await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
+      } catch (err) {
+        console.warn('[cookies] userSettings persist failed', err);
+      }
+      currentUserSettings = currentUserSettings || {};
+      currentUserSettings.cookieConsent = status;
+      currentUserSettings.cookieClarity = !!prefs.clarity;
+      currentUserSettings.cookiePreferences = prefs.preferences !== false;
+      currentUserSettings.cookieDecidedAt = decidedAt;
+      window.__rrCookiePrefsPending = null;
+      return true;
+    }
+    window.persistCookieConsentToAccount = persistCookieConsentToAccount;
+    async function upsertAccountMirror(user) {
+      if (!db || !user || !user.uid) return;
+      const uid = String(user.uid);
+      const email = normalizeEmail(user.email) || null;
+      const displayName = (user.displayName && String(user.displayName).trim()) || null;
+      const photoURL = user.photoURL || null;
+      const ts = firebase.firestore.FieldValue.serverTimestamp();
+      try {
+        const ref = db.collection('accounts').doc(uid);
+        const payload = {
+          uid: uid,
+          email: email,
+          displayName: displayName,
+          photoURL: photoURL,
+          lastLoginAt: ts
+        };
+        if (currentUserSettings && currentUserSettings.legalAccepted) {
+          payload.legalAccepted = true;
+          if (currentUserSettings.legalAcceptedAt) payload.legalAcceptedAt = currentUserSettings.legalAcceptedAt;
+          if (currentUserSettings.termsVersion) payload.termsVersion = currentUserSettings.termsVersion;
+          if (currentUserSettings.privacyVersion) payload.privacyVersion = currentUserSettings.privacyVersion;
+        }
+        if (currentUserSettings && currentUserSettings.cookieConsent) {
+          payload.cookieConsent = currentUserSettings.cookieConsent;
+          payload.cookieClarity = !!currentUserSettings.cookieClarity;
+          payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
+          if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
+        }
+        let exists = false;
+        try {
+          const snap = await ref.get();
+          exists = !!(snap && snap.exists);
+        } catch (readErr) {
+          exists = false;
+        }
+        if (!exists) payload.createdAt = ts;
+        await ref.set(payload, { merge: true });
+      } catch (err) {
+        console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
+      }
+    }
+
+    async function refreshAdminState(user) {
+      currentAdminPerms = null;
+      if (!user) return;
+      try {
+        await ensureBootstrapAdminDoc(user);
+        currentAdminPerms = await getAdminPerms(user);
+      } catch (err) {
+        console.warn('[admins] refresh failed', err);
+        currentAdminPerms = isBootstrapAdmin(user.email)
+          ? Object.assign({}, ALL_ADMIN_PERMS, { _bootstrap: true, email: normalizeEmail(user.email) })
+          : null;
+      }
+      updateAdminChrome(user);
+      if (currentAdminPerms) {
+        scheduleAuditLogMidnightPurge();
+        purgeExpiredAuditLog(false);
+      }
+    }
+    function updateAdminChrome(user) {
+      const admin = !!(user && isAdminUser(user));
+      const verified = !!(user && typeof isVerifiedReporterUid === 'function' && isVerifiedReporterUid(user.uid));
+      const showBadge = admin || verified;
+      const badgeTitle = admin ? 'Admin' : (verified ? 'Verified reporter' : '');
+      const adminBtn = document.getElementById('btn-admin-header');
+      if (adminBtn) {
+        if (admin) adminBtn.classList.add('is-visible');
+        else adminBtn.classList.remove('is-visible');
+        adminBtn.setAttribute('aria-hidden', admin ? 'false' : 'true');
+        adminBtn.tabIndex = admin ? 0 : -1;
+      }
+      ['header-admin-badge', 'account-profile-admin-badge'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (showBadge) el.classList.add('is-visible');
+        else el.classList.remove('is-visible');
+        if (verified && !admin) el.classList.add('verified-badge-icon');
+        else el.classList.remove('verified-badge-icon');
+        el.alt = badgeTitle;
+        el.title = badgeTitle;
+      });
+      const acctBtn = document.getElementById('btn-account-settings');
+      if (acctBtn) {
+        if (admin) acctBtn.classList.add('is-admin');
+        else acctBtn.classList.remove('is-admin');
+        if (verified) acctBtn.classList.add('is-verified');
+        else acctBtn.classList.remove('is-verified');
+      }
+    }
+    function firstInitialLabel(displayName, email) {
+      const raw = String(displayName || '').trim();
+      if (raw) {
+        const parts = raw.split(/\s+/).filter(Boolean);
+        if (parts.length === 1) return parts[0];
+        const first = parts[0];
+        const last = parts[parts.length - 1];
+        return first + ' ' + last.charAt(0).toUpperCase() + '.';
+      }
+      const local = String(email || '').split('@')[0] || '';
+      return local || 'Anonymous';
+    }
+    function computeReporterLabel(settings, displayName, email) {
+      const s = settings || {};
+      const mode = s.reportDisplayMode || 'first_initial';
+      if (mode === 'anonymous') return 'Anonymous';
+      if (mode === 'full_name') {
+        const n = String(displayName || '').trim();
+        if (n) return n;
+        return firstInitialLabel('', email);
+      }
+      if (mode === 'custom') {
+        const custom = String(s.reportCustomLabel || '').trim();
+        if (custom) return custom;
+        return firstInitialLabel(displayName, email);
+      }
+      return firstInitialLabel(displayName, email);
+    }
+    // Concurrent loads (Safari fires onAuthStateChanged more than once, and Account Settings
+    // reloads too) share one read. Settings are assigned only when the read finishes, so a
+    // gate check never sees reset defaults and shows Terms or onboarding to a finished user.
+    let rrUserSettingsLoad = null;
+    function loadUserSettings(uid) {
+      if (rrUserSettingsLoad && rrUserSettingsLoad.uid === uid) return rrUserSettingsLoad.promise;
+      const promise = readUserSettings(uid).then(function(settings) {
+        currentUserSettings = settings;
+        return settings;
+      }).finally(function() {
+        if (rrUserSettingsLoad && rrUserSettingsLoad.promise === promise) rrUserSettingsLoad = null;
+      });
+      rrUserSettingsLoad = { uid: uid, promise: promise };
+      return promise;
+    }
+    async function readUserSettings(uid) {
+      const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, termsVersion: null, privacyVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null, publicProfile: false, username: '' };
+      let settings = Object.assign({}, defaults);
+      if (!db || !uid) return settings;
+      try {
+        const snap = await db.collection('userSettings').doc(uid).get();
+        if (snap.exists) {
+          const d = snap.data() || {};
+          const mode = String(d.reportDisplayMode || 'first_initial');
+          const allowed = ['first_initial', 'full_name', 'anonymous', 'custom'];
+          const interests = normalizeInterestIds(d.interestedRailroads);
+          settings = {
+            reportDisplayMode: allowed.indexOf(mode) !== -1 ? mode : 'first_initial',
+            reportCustomLabel: String(d.reportCustomLabel || ''),
+            interestedRailroads: interests,
+            interestedRailroadsSet: d.interestedRailroadsSet === true || Array.isArray(d.interestedRailroads),
+            reportStats: (d.reportStats && typeof d.reportStats === 'object') ? d.reportStats : null,
+            cookieConsent: d.cookieConsent ? String(d.cookieConsent) : null,
+            cookieClarity: d.cookieClarity === true,
+            cookiePreferences: d.cookiePreferences !== false,
+            cookieDecidedAt: d.cookieDecidedAt ? String(d.cookieDecidedAt) : null,
+            publicProfile: d.publicProfile === true,
+            username: d.username ? String(d.username) : ''
+          };
+          Object.assign(settings, rrReadLegalFields(d));
+        }
+        if (!rrLegalIsCurrent(settings)) {
+          // Older and seeded accounts recorded agreement only on the accounts mirror.
+          const acct = await db.collection('accounts').doc(uid).get();
+          const a = acct.exists ? rrReadLegalFields(acct.data() || {}) : null;
+          if (a && a.legalAccepted && (rrLegalIsCurrent(a) || !settings.legalAccepted)) Object.assign(settings, a);
+        }
+      } catch (err) {
+        console.warn('[userSettings] load failed', err);
+        settings.loadFailed = true;
+      }
+      return settings;
+    }
+    let rrLiveTrainReports = [];
+    function onTrainReportsUpdated(rows) {
+      rrLiveTrainReports = Array.isArray(rows) ? rows : [];
+      try { if (typeof window.rrCheckSpecialNotifications === 'function') window.rrCheckSpecialNotifications(); } catch (_) {}
+    }
+    function reportLocoIdsFromRow(r) {
+      const ids = [];
+      function add(v) {
+        const id = String(v == null ? '' : v).trim();
+        if (!id) return;
+        if (ids.indexOf(id) === -1) ids.push(id);
+      }
+      if (r && Array.isArray(r.locomotives)) {
+        r.locomotives.forEach(function(L) {
+          if (!L) return;
+          add(L.locomotiveId || L.unitName);
+        });
+      }
+      if (r) {
+        add(r.locomotiveId);
+        if (!ids.length) add(r.unitName);
+      }
+      return ids;
+    }
+    function userTouchedReport(r, uid) {
+      if (!r || !uid) return false;
+      if (r.reportedByUid === uid || r.firstReportedByUid === uid) return true;
+      if (Array.isArray(r.contributors) && r.contributors.some(function(c) { return c && c.uid === uid; })) return true;
+      return false;
+    }
+    function emptyReportStats() {
+      return { trainIds: {}, locoCounts: {}, reportCount: 0, seeded: false };
+    }
+    function normalizeReportStats(raw) {
+      const s = emptyReportStats();
+      if (!raw || typeof raw !== 'object') return s;
+      s.trainIds = (raw.trainIds && typeof raw.trainIds === 'object') ? Object.assign({}, raw.trainIds) : {};
+      s.locoCounts = (raw.locoCounts && typeof raw.locoCounts === 'object') ? Object.assign({}, raw.locoCounts) : {};
+      s.reportCount = Number(raw.reportCount) || 0;
+      s.seeded = raw.seeded === true;
+      return s;
+    }
+    function topReportedLoco(counts) {
+      let best = '', n = 0;
+      Object.keys(counts || {}).forEach(function(k) {
+        const c = Number(counts[k]) || 0;
+        if (c > n) { n = c; best = k; }
+      });
+      return best ? { id: best, n: n } : null;
+    }
+    var RR_POINTS_PER_REPORT = 5;
+    function reportPointsFromStats(stats) {
+      const s = normalizeReportStats(stats);
+      const n = Math.max(
+        Number(s.reportCount) || 0,
+        Object.keys(s.trainIds || {}).length || 0
+      );
+      return n * RR_POINTS_PER_REPORT;
+    }
+    function paintHeaderReportPoints(stats) {
+      const el = document.getElementById('header-report-points');
+      if (!el) return;
+      const pts = reportPointsFromStats(stats);
+      el.textContent = String(pts);
+      el.title = pts + ' report points (' + RR_POINTS_PER_REPORT + ' per report)';
+      if (pts > 0) el.hidden = false;
+      else el.hidden = true;
+    }
+    function paintAccountReportStats(stats) {
+      const trainsEl = document.getElementById('account-stat-trains');
+      const locoEl = document.getElementById('account-stat-loco');
+      const s = normalizeReportStats(stats);
+      const n = Object.keys(s.trainIds).length || s.reportCount || 0;
+      if (trainsEl) trainsEl.textContent = String(n);
+      const top = topReportedLoco(s.locoCounts);
+      if (locoEl) {
+        if (!top) locoEl.textContent = '—';
+        else locoEl.textContent = top.n > 1 ? (top.id + ' · ' + top.n + '×') : top.id;
+      }
+      paintHeaderReportPoints(s);
+    }
+    function computeReportStatsFromRows(uid, rows) {
+      const s = emptyReportStats();
+      (rows || []).forEach(function(r) {
+        if (!userTouchedReport(r, uid)) return;
+        if (r.id) s.trainIds[r.id] = true;
+        reportLocoIdsFromRow(r).forEach(function(id) {
+          s.locoCounts[id] = (s.locoCounts[id] || 0) + 1;
+        });
+      });
+      s.reportCount = Object.keys(s.trainIds).length;
+      s.seeded = true;
+      return s;
+    }
+    function mergeReportStats(a, b) {
+      const out = normalizeReportStats(a);
+      const extra = normalizeReportStats(b);
+      Object.keys(extra.trainIds).forEach(function(k) { out.trainIds[k] = true; });
+      Object.keys(extra.locoCounts).forEach(function(k) {
+        out.locoCounts[k] = Math.max(out.locoCounts[k] || 0, extra.locoCounts[k] || 0);
+      });
+      out.reportCount = Math.max(out.reportCount || 0, extra.reportCount || 0, Object.keys(out.trainIds).length);
+      out.seeded = !!(out.seeded || extra.seeded);
+      return out;
+    }
+    async function persistReportStats(uid, stats) {
+      if (!db || !uid) return;
+      try {
+        await db.collection('userSettings').doc(uid).set({ reportStats: stats }, { merge: true });
+      } catch (e) {
+        console.warn('[userSettings] reportStats save failed', e);
+      }
+    }
+    async function ensureUserReportStats(uid) {
+      let stats = normalizeReportStats(currentUserSettings && currentUserSettings.reportStats);
+      if (!stats.seeded) {
+        stats = mergeReportStats(stats, computeReportStatsFromRows(uid, rrLiveTrainReports));
+        stats.seeded = true;
+        if (currentUserSettings) currentUserSettings.reportStats = stats;
+        await persistReportStats(uid, stats);
+      }
+      paintAccountReportStats(stats);
+      return stats;
+    }
+    async function bumpUserReportStats(uid, docId, locoIds) {
+      if (!uid) return;
+      const stats = normalizeReportStats(currentUserSettings && currentUserSettings.reportStats);
+      if (docId) stats.trainIds[String(docId)] = true;
+      stats.reportCount = (stats.reportCount || 0) + 1;
+      (locoIds || []).forEach(function(id) {
+        const k = String(id || '').trim();
+        if (!k) return;
+        stats.locoCounts[k] = (stats.locoCounts[k] || 0) + 1;
+      });
+      stats.seeded = true;
+      if (currentUserSettings) currentUserSettings.reportStats = stats;
+      await persistReportStats(uid, stats);
+      paintAccountReportStats(stats);
+    }
+
+    function showBannedScreen(reason) {
+      const msg = reason
+        ? ('This account is banned. Reason: ' + reason)
+        : 'This account is banned and cannot use the map.';
+      try { localStorage.setItem('rrBannedLock', msg); } catch (_) {}
+      document.documentElement.classList.add('rr-banned');
+      const mapEl = document.getElementById('map');
+      if (mapEl) mapEl.style.display = 'none';
+      const loading = document.getElementById('loading-screen');
+      if (loading) loading.style.display = 'none';
+      const wrap = document.getElementById('rr-banned-screen');
+      const text = document.getElementById('rr-banned-reason');
+      if (text) text.textContent = msg;
+      if (wrap) {
+        wrap.hidden = false;
+        wrap.style.display = 'flex';
+      }
+    }
+    (function restoreBannedLock() {
+      try {
+        const msg = localStorage.getItem('rrBannedLock');
+        if (msg) showBannedScreen(msg.replace(/^This account is banned\. Reason: /, '') === msg ? '' : msg.replace(/^This account is banned\. Reason: /, ''));
+      } catch (_) {}
+    })();
+    async function checkUserBanned(user) {
+      // After rules: non-admins may only read bannedUsers/{ownUid}. Do not query by email.
+      if (!db || !user) return null;
+      const uid = user.uid;
+      try {
+        const byUid = await db.collection('bannedUsers').doc(uid).get();
+        if (byUid.exists) return Object.assign({ id: byUid.id }, byUid.data() || {});
+      } catch (err) {
+        console.warn('[bannedUsers] check failed', err);
+      }
+      try {
+        const email = String(user.email || '').trim().toLowerCase();
+        if (email && user.emailVerified) {
+          const byEmail = await db.collection('bannedEmails').doc(email).get();
+          if (byEmail.exists) return Object.assign({ id: byEmail.id, email: email }, byEmail.data() || {});
+        }
+      } catch (err) {
+        console.warn('[bannedEmails] check failed', err);
+      }
+      return null;
+    }
+    function escapeHtmlLite(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    let verifiedReporterUids = new Set();
+    async function loadVerifiedReporters() {
+      if (!db) return;
+      try {
+        const snap = await db.collection('verifiedReporters').get();
+        const next = new Set();
+        snap.forEach(function(doc) {
+          const data = doc.data() || {};
+          const uid = String(doc.id || data.uid || '').trim();
+          if (uid) next.add(uid);
+        });
+        verifiedReporterUids = next;
+        console.log('%c[verifiedReporters] Loaded ' + next.size + ' verified reporter(s)', 'color:#27ae60');
+        const user = currentUser || (auth && auth.currentUser);
+        if (user) updateAdminChrome(user);
+      } catch (err) {
+        console.warn('[verifiedReporters] load failed', err);
+      }
+    }
+    function isVerifiedReporterUid(uid) {
+      if (!uid) return false;
+      return verifiedReporterUids.has(String(uid));
+    }
+    function reporterShowsVerifiedBadge(opts) {
+      opts = opts || {};
+      if (opts.verified) return true;
+      if (opts.uid && isVerifiedReporterUid(opts.uid)) return true;
+      if (opts.email && isBootstrapAdmin(opts.email)) return true;
+      return false;
+    }
+    function reporterNameWithBadgeHtml(name, opts) {
+      opts = opts || {};
+      const escaped = escapeHtmlLite(name || '');
+      if (!escaped) return '';
+      if (!reporterShowsVerifiedBadge(opts)) return escaped;
+      const isAdmin = !!opts.isAdmin;
+      const title = isAdmin ? 'Admin' : 'Verified reporter';
+      const cls = isAdmin ? 'admin-badge-icon is-visible' : 'admin-badge-icon verified-badge-icon is-visible';
+      const size = isAdmin ? '11' : '11';
+      return escaped + '<img class="' + cls + '" src="/assets/admin-badge.png" alt="' +
+        escapeHtmlLite(title) + '" title="' + escapeHtmlLite(title) + '" width="' + size + '" height="' + size + '">';
+    }
+
+    function updateAccountPreview() {
+      const modeEl = document.querySelector('input[name="report-display-mode"]:checked');
+      const mode = modeEl ? modeEl.value : 'first_initial';
+      const custom = ((document.getElementById('account-custom-label') || {}).value || '');
+      const user = currentUser || (auth && auth.currentUser) || null;
+      const label = computeReporterLabel(
+        { reportDisplayMode: mode, reportCustomLabel: custom },
+        user && user.displayName,
+        user && user.email
+      );
+      const preview = document.getElementById('account-report-preview');
+      if (preview) preview.textContent = 'by ' + label;
+      const customInput = document.getElementById('account-custom-label');
+      if (customInput) customInput.disabled = mode !== 'custom';
+    }
+    function fillAccountSettingsForm(user, settings) {
+      const nameEl = document.getElementById('account-profile-name');
+      const emailEl = document.getElementById('account-profile-email');
+      const av = document.getElementById('account-profile-avatar');
+      if (nameEl) nameEl.textContent = (user && user.displayName) || '—';
+      if (emailEl) emailEl.textContent = (user && user.email) || '—';
+      updateAdminChrome(user);
+      if (av) {
+        if (user && user.photoURL) {
+          av.src = user.photoURL;
+        } else {
+          const initial = String((user && (user.displayName || user.email)) || '?').trim().charAt(0).toUpperCase() || '?';
+          av.src = 'data:image/svg+xml,' + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#2c3e6b"/><text x="32" y="40" text-anchor="middle" fill="#fff" font-size="26" font-family="Segoe UI,sans-serif" font-weight="700">' + initial + '</text></svg>'
+          );
+        }
+        av.alt = (user && (user.displayName || user.email)) || 'Avatar';
+      }
+      const mode = (settings && settings.reportDisplayMode) || 'first_initial';
+      const radios = document.querySelectorAll('input[name="report-display-mode"]');
+      radios.forEach(function(r) { r.checked = r.value === mode; });
+      const customEl = document.getElementById('account-custom-label');
+      if (customEl) customEl.value = (settings && settings.reportCustomLabel) || '';
+      const menu = document.getElementById('account-interest-menu');
+      if (menu && !menu.getAttribute('data-ready')) {
+        menu.innerHTML = interestCheckboxHtml();
+        menu.setAttribute('data-ready', '1');
+      }
+      paintInterestCheckboxes(menu, settings && settings.interestedRailroads);
+      updateInterestSummary((settings && settings.interestedRailroads) || []);
+      const err = document.getElementById('account-settings-error');
+      if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      updateAdminChrome(user);
+      const pubToggle = document.getElementById('account-public-profile-toggle');
+      if (pubToggle) pubToggle.checked = !!(settings && settings.publicProfile);
+      const unameEl = document.getElementById('account-username');
+      if (unameEl) unameEl.value = (settings && settings.username) || '';
+      updateAccountPublicProfileUi();
+      updateAccountPreview();
+      paintAccountReportStats(settings && settings.reportStats);
+    }
+    function openInterestRailroadsModal() {
+      const modal = document.getElementById('interest-railroads-modal');
+      const list = document.getElementById('interest-railroads-list');
+      const err = document.getElementById('interest-railroads-error');
+      if (!modal) return;
+      if (list && !list.getAttribute('data-ready')) {
+        list.innerHTML = interestCheckboxHtml();
+        list.setAttribute('data-ready', '1');
+      }
+      paintInterestCheckboxes(list, currentUserSettings && currentUserSettings.interestedRailroads);
+      if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('rr-interest-locked');
+    }
+    function closeInterestRailroadsModal(force) {
+      if (!force && currentUser && currentUserSettings && !currentUserSettings.interestedRailroadsSet) {
+        openInterestRailroadsModal();
+        return;
+      }
+      const modal = document.getElementById('interest-railroads-modal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('rr-interest-locked');
+    }
+    async function saveInterestRailroadsFromModal() {
+      const user = currentUser || (auth && auth.currentUser);
+      const err = document.getElementById('interest-railroads-error');
+      const setErr = function(msg) {
+        if (!err) { showNotification(msg, 'error'); return; }
+        err.textContent = msg;
+        err.classList.add('visible');
+      };
+      if (!user || !db) { setErr('Sign in required.'); return; }
+      const ids = normalizeInterestIds(readInterestCheckboxes(document.getElementById('interest-railroads-list')));
+      if (!ids.length) {
+        setErr('Select at least one railroad.');
+        return;
+      }
+      try {
+        await db.collection('userSettings').doc(user.uid).set({
+          interestedRailroads: ids,
+          interestedRailroadsSet: true,
+          email: normalizeEmail(user.email) || (user.email || null),
+          displayName: (user.displayName && String(user.displayName).trim()) || null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        try {
+          await db.collection('accounts').doc(user.uid).set({
+            uid: user.uid,
+            email: normalizeEmail(user.email) || (user.email || null),
+            interestedRailroads: ids,
+            interestedRailroadsSet: true
+          }, { merge: true });
+        } catch (_) {}
+        currentUserSettings = currentUserSettings || {};
+        currentUserSettings.interestedRailroads = ids;
+        currentUserSettings.interestedRailroadsSet = true;
+        updateInterestSummary(ids);
+        paintInterestCheckboxes(document.getElementById('account-interest-menu'), ids);
+        closeInterestRailroadsModal(true);
+        showNotification('Thanks — you can change this in Account Settings');
+      } catch (e) {
+        setErr('Could not save: ' + (e && e.message ? e.message : e));
+      }
+    }
+    function wireInterestRailroadUI() {
+      const saveBtn = document.getElementById('interest-railroads-save');
+      if (saveBtn) saveBtn.addEventListener('click', saveInterestRailroadsFromModal);
+      const toggle = document.getElementById('account-interest-toggle');
+      const menu = document.getElementById('account-interest-menu');
+      if (toggle && menu) {
+        toggle.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!menu.getAttribute('data-ready')) {
+            menu.innerHTML = interestCheckboxHtml();
+            menu.setAttribute('data-ready', '1');
+            paintInterestCheckboxes(menu, currentUserSettings && currentUserSettings.interestedRailroads);
+          }
+          if (menu.hasAttribute('hidden')) menu.removeAttribute('hidden');
+          else menu.setAttribute('hidden', '');
+        });
+        document.addEventListener('click', function(e) {
+          const wrap = document.getElementById('account-interest-dropdown');
+          if (!wrap || !menu) return;
+          if (!wrap.contains(e.target)) menu.setAttribute('hidden', '');
+        });
+        menu.addEventListener('change', function() {
+          updateInterestSummary(normalizeInterestIds(readInterestCheckboxes(menu)));
+        });
+      }
+    }
+    async function openAccountSettingsLightbox(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      closeAccountMenu();
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user) {
+        showNotification('Sign in to open Account Settings.', 'error');
+        return;
+      }
+      await loadUserSettings(user.uid);
+      await refreshAdminState(user);
+      fillAccountSettingsForm(user, currentUserSettings);
+      try { await ensureUserReportStats(user.uid); } catch (_) {}
+      const modal = document.getElementById('account-settings-modal');
+      if (modal) {
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+    }
+    function closeAccountSettingsLightbox() {
+      const modal = document.getElementById('account-settings-modal');
+      if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    /* Public profile + stats correctness — MyTrips header panel */
+    function tripPublicProfileUsername() {
+      const fromSettings = rrNormalizeUsername(currentUserSettings && currentUserSettings.username);
+      if (fromSettings) return fromSettings;
+      const fromAccount = rrNormalizeUsername((document.getElementById('account-username') || {}).value);
+      return fromAccount;
+    }
+    function syncTripPublicProfileUi() {
+      const toggle = document.getElementById('trip-public-make-toggle');
+      const hint = document.getElementById('trip-public-hint');
+      const linkRow = document.getElementById('trip-public-link-row');
+      const link = document.getElementById('trip-public-link');
+      const status = document.getElementById('trip-public-status');
+      const uname = tripPublicProfileUsername();
+      const isPublic = !!(currentUserSettings && currentUserSettings.publicProfile);
+      if (toggle) toggle.checked = isPublic;
+      if (hint) {
+        if (!uname) hint.textContent = 'Pick a username in Account settings, then make your page public.';
+        else if (isPublic) hint.textContent = 'Your MyTrips page is public at /user/' + uname + '.';
+        else hint.textContent = 'Ready when you are — turn on Make public to share /user/' + uname + '.';
+      }
+      if (linkRow && link) {
+        if (isPublic && uname) {
+          const url = rrPublicProfileUrl(uname);
+          link.href = url;
+          link.textContent = 'Open /user/' + uname;
+          linkRow.hidden = false;
+        } else {
+          linkRow.hidden = true;
+        }
+      }
+      if (status && !status.dataset.keep) status.textContent = '';
+    }
+    function setTripPublicPanelOpen(open) {
+      const panel = document.getElementById('trip-public-panel');
+      const btn = document.getElementById('trip-log-public-profile');
+      if (!panel || !btn) return;
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) syncTripPublicProfileUi();
+    }
+    async function tripSetPublicProfile(wantPublic) {
+      const status = document.getElementById('trip-public-status');
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!user || !db) {
+        if (status) status.textContent = 'Sign in to manage your public page.';
+        return false;
+      }
+      const uname = tripPublicProfileUsername();
+      if (wantPublic && !uname) {
+        if (status) status.textContent = 'Add a username in Account settings first.';
+        const toggle = document.getElementById('trip-public-make-toggle');
+        if (toggle) toggle.checked = false;
+        if (typeof openAccountSettings === 'function') {
+          try { openAccountSettings(); } catch (_) {}
+        }
+        return false;
+      }
+      if (status) { status.textContent = wantPublic ? 'Publishing…' : 'Updating…'; status.dataset.keep = '1'; }
+      try {
+        await rrSavePublicProfileSettings(user, {
+          publicProfile: !!wantPublic,
+          username: uname,
+          prevUsername: (currentUserSettings && currentUserSettings.username) || ''
+        });
+        currentUserSettings = Object.assign({}, currentUserSettings || {}, {
+          publicProfile: !!wantPublic,
+          username: uname || ''
+        });
+        if (status) status.textContent = wantPublic ? 'Public page is live.' : 'Page is private again.';
+        syncTripPublicProfileUi();
+        if (typeof showNotification === 'function') {
+          showNotification(wantPublic ? 'Public profile on' : 'Public profile off');
+        }
+        try { await logUserAction('public_profile_toggle', wantPublic ? 'on' : 'off'); } catch (_) {}
+        return true;
+      } catch (e) {
+        console.warn('[publicProfile] trip toggle failed', e);
+        if (status) status.textContent = 'Could not update: ' + ((e && e.message) || e);
+        const toggle = document.getElementById('trip-public-make-toggle');
+        if (toggle) toggle.checked = !!(currentUserSettings && currentUserSettings.publicProfile);
+        return false;
+      } finally {
+        if (status) delete status.dataset.keep;
+      }
+    }
+    function bindTripPublicProfileUi() {
+      const btn = document.getElementById('trip-log-public-profile');
+      const toggle = document.getElementById('trip-public-make-toggle');
+      const copy = document.getElementById('trip-public-copy');
+      if (btn && !btn.dataset.bound) {
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const panel = document.getElementById('trip-public-panel');
+          setTripPublicPanelOpen(panel && panel.hidden);
+        });
+      }
+      if (toggle && !toggle.dataset.bound) {
+        toggle.dataset.bound = '1';
+        toggle.addEventListener('change', function() {
+          tripSetPublicProfile(!!toggle.checked);
+        });
+      }
+      if (copy && !copy.dataset.bound) {
+        copy.dataset.bound = '1';
+        copy.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const uname = tripPublicProfileUsername();
+          const url = rrPublicProfileUrl(uname);
+          if (!url) return;
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
+          if (typeof showNotification === 'function') showNotification('Link copied');
+          const status = document.getElementById('trip-public-status');
+          if (status) status.textContent = 'Link copied.';
+        });
+      }
+      document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('trip-public-wrap');
+        const panel = document.getElementById('trip-public-panel');
+        if (!wrap || !panel || panel.hidden) return;
+        if (wrap.contains(e.target)) return;
+        setTripPublicPanelOpen(false);
+      });
+    }
+
+    /* Public profile settings */
+    const RR_RESERVED_USERNAMES = ['admin','api','assets','mytrips','press','policies','user','users','www','index','login','auth','null','undefined'];
+    function rrNormalizeUsername(raw) {
+      return String(raw == null ? '' : raw).trim();
+    }
+    function rrUsernameLower(raw) {
+      return rrNormalizeUsername(raw).toLowerCase();
+    }
+    function rrValidateUsername(raw) {
+      const u = rrNormalizeUsername(raw);
+      if (!u) return { ok: false, error: 'Enter a username.' };
+      if (u.length < 3 || u.length > 24) return { ok: false, error: 'Username must be 3–24 characters.' };
+      if (!/^[a-zA-Z0-9_]+$/.test(u)) return { ok: false, error: 'Username may only use letters, numbers, and underscore.' };
+      if (RR_RESERVED_USERNAMES.indexOf(u.toLowerCase()) !== -1) return { ok: false, error: 'That username is reserved.' };
+      return { ok: true, username: u, lower: u.toLowerCase() };
+    }
+    function rrPublicProfileUrl(username) {
+      const u = rrNormalizeUsername(username);
+      if (!u) return '';
+      return 'https://railroadradar.com/user/' + encodeURIComponent(u);
+    }
+    function updateAccountPublicProfileUi() {
+      const toggle = document.getElementById('account-public-profile-toggle');
+      const userEl = document.getElementById('account-username');
+      const row = document.getElementById('account-public-link-row');
+      const link = document.getElementById('account-public-link');
+      const hint = document.getElementById('account-username-hint');
+      const uname = rrNormalizeUsername(userEl && userEl.value);
+      const on = !!(toggle && toggle.checked);
+      if (hint) {
+        hint.textContent = uname
+          ? ('railroadradar.com/user/' + uname + ' · 3–24 chars, letters, numbers, underscore')
+          : 'railroadradar.com/user/yourname · 3–24 chars, letters, numbers, underscore';
+      }
+      if (row && link) {
+        if (on && uname) {
+          const url = rrPublicProfileUrl(uname);
+          link.value = url;
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      }
+    }
+    async function rrSavePublicProfileSettings(user, opts) {
+      opts = opts || {};
+      const wantPublic = !!opts.publicProfile;
+      const nextUsername = rrNormalizeUsername(opts.username);
+      const prevUsername = rrNormalizeUsername(opts.prevUsername);
+      const displayName = (user.displayName && String(user.displayName).trim()) || null;
+      const photoURL = (user.photoURL && String(user.photoURL).trim()) || null;
+      const settingsRef = db.collection('userSettings').doc(user.uid);
+      const profileRef = db.collection('publicProfiles').doc(user.uid);
+      const batch = db.batch();
+      const settingsPayload = {
+        publicProfile: wantPublic,
+        username: nextUsername || '',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      batch.set(settingsRef, settingsPayload, { merge: true });
+      if (wantPublic) {
+        const v = rrValidateUsername(nextUsername);
+        if (!v.ok) throw new Error(v.error);
+        const newNameRef = db.collection('usernames').doc(v.lower);
+        if (prevUsername && rrUsernameLower(prevUsername) !== v.lower) {
+          batch.delete(db.collection('usernames').doc(rrUsernameLower(prevUsername)));
+        }
+        batch.set(newNameRef, {
+          uid: user.uid,
+          username: v.username,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.set(profileRef, {
+          uid: user.uid,
+          username: v.username,
+          displayName: displayName,
+          photoURL: photoURL,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } else {
+        batch.delete(profileRef);
+        // Keep username claim reserved so they can re-enable; still allow changing/clearing claim when provided
+        if (nextUsername) {
+          const v = rrValidateUsername(nextUsername);
+          if (!v.ok) throw new Error(v.error);
+          if (prevUsername && rrUsernameLower(prevUsername) !== v.lower) {
+            batch.delete(db.collection('usernames').doc(rrUsernameLower(prevUsername)));
+          }
+          batch.set(db.collection('usernames').doc(v.lower), {
+            uid: user.uid,
+            username: v.username,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+      await batch.commit();
+      return { username: nextUsername, publicProfile: wantPublic };
+    }
+
+    async function saveAccountSettings() {
+      const user = currentUser || (auth && auth.currentUser);
+      const err = document.getElementById('account-settings-error');
+      const setErr = function(msg) {
+        if (!err) { showNotification(msg, 'error'); return; }
+        err.textContent = msg;
+        err.classList.add('visible');
+      };
+      if (!user || !db) { setErr('Sign in required to save settings.'); return; }
+      const modeEl = document.querySelector('input[name="report-display-mode"]:checked');
+      const mode = modeEl ? modeEl.value : 'first_initial';
+      const custom = String(((document.getElementById('account-custom-label') || {}).value || '')).trim();
+      if (mode === 'custom' && !custom) {
+        setErr('Enter a custom label, or choose another display mode.');
+        return;
+      }
+      try {
+        const interests = normalizeInterestIds(readInterestCheckboxes(document.getElementById('account-interest-menu')));
+        if (!interests.length) {
+          setErr('Select at least one railroad you use RailroadRadar for.');
+          return;
+        }
+        const pubToggle = document.getElementById('account-public-profile-toggle');
+        const wantPublic = !!(pubToggle && pubToggle.checked);
+        const usernameRaw = rrNormalizeUsername((document.getElementById('account-username') || {}).value);
+        if (wantPublic || usernameRaw) {
+          const v = rrValidateUsername(usernameRaw);
+          if (!v.ok) { setErr(v.error); return; }
+        }
+        if (wantPublic && !usernameRaw) {
+          setErr('Choose a username to make your profile public.');
+          return;
+        }
+        const prevUsername = (currentUserSettings && currentUserSettings.username) || '';
+        try {
+          await rrSavePublicProfileSettings(user, {
+            publicProfile: wantPublic,
+            username: usernameRaw,
+            prevUsername: prevUsername
+          });
+        } catch (pubErr) {
+          console.error('[publicProfile] save failed', pubErr);
+          const msg = (pubErr && pubErr.code === 'permission-denied')
+            ? 'Could not claim username (taken or rules not published yet).'
+            : ('Could not save public profile: ' + ((pubErr && pubErr.message) || pubErr));
+          setErr(msg);
+          return;
+        }
+        await db.collection('userSettings').doc(user.uid).set({
+          reportDisplayMode: mode,
+          reportCustomLabel: custom,
+          interestedRailroads: interests,
+          interestedRailroadsSet: true,
+          email: normalizeEmail(user.email) || (user.email || null),
+          displayName: (user.displayName && String(user.displayName).trim()) || null,
+          publicProfile: wantPublic,
+          username: usernameRaw || '',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        try {
+          await db.collection('accounts').doc(user.uid).set({
+            uid: user.uid,
+            email: normalizeEmail(user.email) || (user.email || null),
+            interestedRailroads: interests,
+            interestedRailroadsSet: true
+          }, { merge: true });
+        } catch (_) {}
+        currentUserSettings = {
+          reportDisplayMode: mode,
+          reportCustomLabel: custom,
+          interestedRailroads: interests,
+          interestedRailroadsSet: true,
+          reportStats: (currentUserSettings && currentUserSettings.reportStats) || null,
+          legalAccepted: !!(currentUserSettings && currentUserSettings.legalAccepted),
+          legalAcceptedAt: (currentUserSettings && currentUserSettings.legalAcceptedAt) || null,
+          termsVersion: (currentUserSettings && currentUserSettings.termsVersion) || null,
+          privacyVersion: (currentUserSettings && currentUserSettings.privacyVersion) || null,
+          publicProfile: wantPublic,
+          username: usernameRaw || ''
+        };
+        updateAccountPublicProfileUi();
+        updateInterestSummary(interests);
+        if (err) { err.textContent = ''; err.classList.remove('visible'); }
+        showNotification('Account settings saved');
+        try { await logUserAction('save_settings', 'Updated account settings'); } catch (_) {}
+        updateAccountPreview();
+      } catch (e) {
+        console.error('[userSettings] save failed', e);
+        setErr('Could not save settings: ' + ((e && e.message) || e));
+      }
+    }
+
+
+    const AUDIT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+    const AUDIT_LOG_TZ = 'America/New_York';
+    function auditLogCutoffDate() {
+      return new Date(Date.now() - AUDIT_LOG_RETENTION_MS);
+    }
+    function rrEasternDateKey() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: AUDIT_LOG_TZ,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(new Date());
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return parts[i].value;
+          return '';
+        };
+        return get('year') + '-' + get('month') + '-' + get('day');
+      } catch (e) {
+        return new Date().toISOString().slice(0, 10);
+      }
+    }
+    function rrMsUntilEasternMidnight() {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: AUDIT_LOG_TZ,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23'
+        }).formatToParts(new Date());
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return Number(parts[i].value);
+          return 0;
+        };
+        const elapsed = ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000;
+        const dayMs = 24 * 60 * 60 * 1000;
+        const wait = dayMs - elapsed;
+        return wait < 5000 ? wait + dayMs : wait;
+      } catch (e) {
+        return 60 * 60 * 1000;
+      }
+    }
+    async function purgeExpiredAuditLog(force) {
+      if (!db) return { deleted: 0 };
+      const today = rrEasternDateKey();
+      try {
+        if (!force && localStorage.getItem('rr_audit_purged_on') === today) return { deleted: 0, skipped: true };
+      } catch (_) {}
+      const cutoff = auditLogCutoffDate();
+      let deleted = 0;
+      try {
+        for (let i = 0; i < 6; i++) {
+          const snap = await db.collection('actionLog').where('at', '<', cutoff).orderBy('at', 'asc').limit(250).get();
+          if (!snap || snap.empty) break;
+          const batch = db.batch();
+          snap.forEach(function(doc) { batch.delete(doc.ref); });
+          await batch.commit();
+          deleted += snap.size;
+          if (snap.size < 250) break;
+        }
+        try { localStorage.setItem('rr_audit_purged_on', today); } catch (_) {}
+        if (deleted) console.info('[actionLog] purged ' + deleted + ' entries older than 7 days');
+      } catch (err) {
+        console.warn('[actionLog] purge failed', err);
+      }
+      return { deleted: deleted };
+    }
+    function scheduleAuditLogMidnightPurge() {
+      if (window._rrAuditPurgeTimer) clearTimeout(window._rrAuditPurgeTimer);
+      const wait = Math.min(rrMsUntilEasternMidnight(), 2147483647);
+      window._rrAuditPurgeTimer = setTimeout(function() {
+        purgeExpiredAuditLog(true).finally(scheduleAuditLogMidnightPurge);
+      }, wait);
+    }
+    /* ===== Trip Log (slice 1: form + list + stats) ===== */
+    const TRIP_LOG_PAGE_SIZE = 20;
+    const TRIP_LOG_RAIL_LABELS = {
+      mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
+      metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC'
+    };
+    /* MyTrips railroad badge colors (user-specified + existing app brand accents) */
+    const TRIP_LOG_RAIL_COLORS = {
+      mbta: '#9d1c80',
+      amtrak: '#003b5c',
+      mnr: '#ee0034',
+      lirr: '#0039A6',
+      njt: '#FF671F',
+      metra: '#0055A4',
+      marc: '#FF8000',
+      ctrail: '#003865'
+    };
+    function tripRailColor(rr) {
+      const id = String(rr || '').toLowerCase();
+      return TRIP_LOG_RAIL_COLORS[id] || '#07093e';
+    }
+    function tripRailBadgeHtml(rr) {
+      const id = String(rr || '').toLowerCase();
+      if (!id) return '';
+      const label = TRIP_LOG_RAIL_LABELS[id] || id.toUpperCase();
+      const color = tripRailColor(id);
+      return '<span class="trip-rail-badge" data-railroad="' + id + '" style="--rr-trip-rail:' + color + ';background:' + color + '">' +
+        label.replace(/</g, '&lt;') + '</span>';
+    }
+    function tripRailIdsFromData(data) {
+      const segs = Array.isArray(data && data.segments) ? data.segments : null;
+      const ids = [];
+      const seen = {};
+      if (segs && segs.length) {
+        segs.forEach(function(s) {
+          const rr = String(s.railroad || '').toLowerCase();
+          if (!rr || seen[rr]) return;
+          seen[rr] = true;
+          ids.push(rr);
+        });
+      }
+      if (!ids.length && data && data.railroad) {
+        ids.push(String(data.railroad).toLowerCase());
+      }
+      return ids;
+    }
+    /* Trip dual-rail diagonal */
+    function tripApplyRailAccentVars(el, railIds, opts) {
+      opts = opts || {};
+      if (!el) return { accent: '#07093e', dual: false, color2: '' };
+      const ids = Array.isArray(railIds) ? railIds : [];
+      const c1 = ids.length ? tripRailColor(ids[0]) : '#07093e';
+      const dual = ids.length >= 2;
+      const c2 = dual ? tripRailColor(ids[1]) : '';
+      try { el.style.setProperty('--rr-trip-rail', c1); } catch (_) {}
+      if (dual) {
+        try { el.style.setProperty('--rr-trip-rail-2', c2); } catch (_) {}
+        el.setAttribute('data-rail-dual', '1');
+      } else {
+        try { el.style.removeProperty('--rr-trip-rail-2'); } catch (_) {}
+        el.removeAttribute('data-rail-dual');
+      }
+      if (opts.primaryAttr) {
+        if (ids[0]) el.setAttribute('data-rail-accent', ids[0]);
+        else el.removeAttribute('data-rail-accent');
+      }
+      return { accent: c1, dual: dual, color2: c2 };
+    }
+    function tripClearRailAccentVars(el) {
+      if (!el) return;
+      try { el.style.removeProperty('--rr-trip-rail'); } catch (_) {}
+      try { el.style.removeProperty('--rr-trip-rail-2'); } catch (_) {}
+      el.removeAttribute('data-rail-accent');
+      el.removeAttribute('data-rail-dual');
+    }
+    const TRIP_LOG_RAIL_OPTIONS = [
+      { id: 'mbta', name: 'MBTA' },
+      { id: 'amtrak', name: 'Amtrak' },
+      { id: 'mnr', name: 'Metro-North' },
+      { id: 'lirr', name: 'LIRR' },
+      { id: 'metra', name: 'Metra' },
+      { id: 'njt', name: 'NJ Transit' },
+      { id: 'ctrail', name: 'CTrail' },
+      { id: 'marc', name: 'MARC' }
+    ];
+    const CTRAIL_TRIP_STATIONS = [
+      { id: 'NHV', name: 'New Haven', lat: 41.2976, lon: -72.9267 },
+      { id: 'STS', name: 'New Haven State St', lat: 41.3050, lon: -72.9217 },
+      { id: 'WFD', name: 'Wallingford', lat: 41.4570, lon: -72.8250 },
+      { id: 'MDN', name: 'Meriden', lat: 41.5390, lon: -72.8010 },
+      { id: 'BER', name: 'Berlin', lat: 41.6360, lon: -72.7660 },
+      { id: 'HFD', name: 'Hartford', lat: 41.7690, lon: -72.6810 },
+      { id: 'WND', name: 'Windsor', lat: 41.8520, lon: -72.6420 },
+      { id: 'WNL', name: 'Windsor Locks', lat: 41.9140, lon: -72.6270 },
+      { id: 'SPG', name: 'Springfield', lat: 42.1061, lon: -72.5930 }
+    ];
+    let tripLogStatsCache = null;
+    let tripLogLastDoc = null;
+    let tripLogHasMore = false;
+    let tripLogLoading = false;
+    let tripLogSegmentsState = [];
+    let tripLogEditingId = null; // trip id being edited; null = new trip
+    /* Trip max 3 segments */
+    const TRIP_LOG_MAX_SEGMENTS = 3; // max 3 segments per trip
+    let tripScheduleCache = {};
+    let tripScheduleFetchTokens = {};
+    let tripPendingLogTrip = null;
+
+    function haversineMiles(lat1, lon1, lat2, lon2) {
+      const toRad = function(d) { return d * Math.PI / 180; };
+      const R = 3958.7613;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function tripLogEmptyStats() {
+      return { tripCount: 0, totalMiles: 0, byRailroad: {}, lastTripAt: null };
+    }
+
+    function normalizeTripLogStats(raw) {
+      const base = tripLogEmptyStats();
+      if (!raw || typeof raw !== 'object') return base;
+      base.tripCount = Number(raw.tripCount) || 0;
+      base.totalMiles = Number(raw.totalMiles) || 0;
+      base.byRailroad = (raw.byRailroad && typeof raw.byRailroad === 'object') ? raw.byRailroad : {};
+      base.lastTripAt = raw.lastTripAt || null;
+      return base;
+    }
+
+    function tripDurationLabel(data) {
+      if (!data) return '';
+      const segs = Array.isArray(data.segments) ? data.segments : [];
+      const dep = (segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime;
+      const arr = (segs.length && (segs[segs.length - 1].arriveTime || segs[segs.length - 1].endTime)) || data.endTime;
+      if (!dep || !arr) return '';
+      const a = (tripAsDate(dep) || new Date(dep)).getTime();
+      const b = (tripAsDate(arr) || new Date(arr)).getTime();
+      if (!isFinite(a) || !isFinite(b) || b <= a) return '';
+      const mins = Math.round((b - a) / 60000);
+      if (mins < 60) return mins + ' min';
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m ? (h + ' hr ' + m + ' min') : (h + ' hr');
+    }
+    function tripMilesValue(data) {
+      if (!data) return 0;
+      let n = Number(data.miles);
+      if (isFinite(n) && n > 0) return n;
+      if (Array.isArray(data.segments)) {
+        n = data.segments.reduce(function(sum, s) { return sum + (Number(s.miles) || 0); }, 0);
+      }
+      return isFinite(n) ? n : 0;
+    }
+    function formatTripMiles(n) {
+      if (n == null || !isFinite(Number(n)) || Number(n) <= 0) return '—';
+      const v = Number(n);
+      if (v >= 100) return Math.round(v).toLocaleString() + ' mi';
+      return (Math.round(v * 10) / 10).toLocaleString() + ' mi';
+    }
+
+    function formatTripWhen(isoOrMs) {
+      try {
+        const d = tripAsDate(isoOrMs);
+        if (!d || isNaN(d.getTime())) return '—';
+        return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      } catch (_) { return '—'; }
+    }
+
+    function tripAsDate(raw) {
+      if (raw == null || raw === '') return null;
+      try {
+        if (typeof raw.toDate === 'function') {
+          const d = raw.toDate();
+          return (d && !isNaN(d.getTime())) ? d : null;
+        }
+        if (typeof raw === 'object' && raw.seconds != null) {
+          const d = new Date(Number(raw.seconds) * 1000 + Math.floor(Number(raw.nanoseconds || 0) / 1e6));
+          return isNaN(d.getTime()) ? null : d;
+        }
+        if (typeof raw === 'number') {
+          const d = new Date(raw);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const d = new Date(String(raw));
+        return isNaN(d.getTime()) ? null : d;
+      } catch (_) { return null; }
+    }
+    function tripDepartInstant(data) {
+      if (!data) return null;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const raw = (segs && segs.length && (segs[0].departTime || segs[0].startTime)) || data.startTime || data.departTime || data.startTimeMs || null;
+      const d = tripAsDate(raw);
+      if (!d) return null;
+      try {
+        if (isNaN(d.getTime())) return null;
+        return d;
+      } catch (_) { return null; }
+    }
+
+    function formatTripRelativeDepart(data, nowMs) {
+      const d = tripDepartInstant(data);
+      if (!d) return '';
+      const now = (nowMs != null) ? Number(nowMs) : Date.now();
+      const diffMs = d.getTime() - now;
+      const past = diffMs < 0;
+      let absMs = Math.abs(diffMs);
+      // Round up partial minutes so "just left" shows at least 1 min soon
+      const totalMins = Math.floor(absMs / 60000);
+      const days = Math.floor(totalMins / (60 * 24));
+      const hours = Math.floor((totalMins % (60 * 24)) / 60);
+      const mins = totalMins % 60;
+      const parts = [];
+      if (days > 0) parts.push(days + (days === 1 ? ' day' : ' days'));
+      if (hours > 0) parts.push(hours + (hours === 1 ? ' hour' : ' hours'));
+      if (mins > 0 || !parts.length) parts.push(mins + (mins === 1 ? ' min' : ' mins'));
+      const joined = parts.join(', ');
+      if (past) return 'Departed ' + joined + ' ago';
+      return 'Departs in ' + joined;
+    }
+
+    let tripDetailRelativeTimer = null;
+    let tripDetailRelativeData = null;
+
+    function stopTripDetailRelativeTimer() {
+      if (tripDetailRelativeTimer) {
+        try { clearInterval(tripDetailRelativeTimer); } catch (_) {}
+        tripDetailRelativeTimer = null;
+      }
+      tripDetailRelativeData = null;
+    }
+
+    function paintTripDetailRelative(data) {
+      const el = document.getElementById('trip-detail-relative');
+      if (!el) return;
+      const d0 = data || tripDetailRelativeData;
+      if (d0 && d0.specialMove) {
+        el.hidden = false;
+        el.textContent = 'Live trip';
+        return;
+      }
+      const textRel = formatTripRelativeDepart(d0);
+      if (!textRel) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+      }
+      el.hidden = false;
+      el.textContent = textRel;
+    }
+
+    function startTripDetailRelativeTimer(data) {
+      stopTripDetailRelativeTimer();
+      tripDetailRelativeData = data || null;
+      paintTripDetailRelative(data);
+      if (!formatTripRelativeDepart(data)) return;
+      tripDetailRelativeTimer = setInterval(function() {
+        paintTripDetailRelative(tripDetailRelativeData);
+      }, 30000);
+    }
+
+    function getTripLogStations(railroad) {
+      const rr = String(railroad || '').toLowerCase();
+      let list = [];
+      // Prefer embedded MBTA parent stations so Line membership (place-* ids) matches
+      // even when live map station/route data is missing or still loading.
+      // Amtrak: embedded GTFS catalog (codes match TRIP_LINE_STOPS); live markers are often empty on /mytrips.
+      // MNR: embedded catalog so /mytrips minimaps work before map-init assigns rrCollectTripStations.
+      if (rr === 'mbta' && typeof MBTA_TRIP_STATIONS !== 'undefined' && MBTA_TRIP_STATIONS.length) {
+        list = MBTA_TRIP_STATIONS.slice();
+      } else if (rr === 'mnr' && typeof MNR_TRIP_STATIONS !== 'undefined' && MNR_TRIP_STATIONS.length) {
+        list = MNR_TRIP_STATIONS.slice();
+      } else if (rr === 'amtrak' && typeof AMTRAK_TRIP_STATIONS !== 'undefined' && AMTRAK_TRIP_STATIONS.length) {
+        list = AMTRAK_TRIP_STATIONS.slice();
+      } else {
+        try {
+          if (typeof window.rrCollectTripStations === 'function') {
+            list = window.rrCollectTripStations(rr) || [];
+          }
+        } catch (_) { list = []; }
+      }
+      if ((!list || !list.length) && rr === 'ctrail') {
+        list = CTRAIL_TRIP_STATIONS.slice();
+      }
+      if ((!list || !list.length) && rr === 'amtrak' && typeof AMTRAK_TRIP_STATIONS !== 'undefined') {
+        list = AMTRAK_TRIP_STATIONS.slice();
+      }
+      if ((!list || !list.length) && rr === 'mbta' && typeof MBTA_TRIP_STATIONS !== 'undefined') {
+        list = MBTA_TRIP_STATIONS.slice();
+      }
+      if ((!list || !list.length) && rr === 'mnr' && typeof MNR_TRIP_STATIONS !== 'undefined') {
+        list = MNR_TRIP_STATIONS.slice();
+      }
+      const byId = {};
+      (list || []).forEach(function(s) {
+        if (!s || !s.id) return;
+        if (!byId[s.id]) byId[s.id] = s;
+      });
+      return Object.keys(byId).map(function(k) { return byId[k]; })
+        .sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+    }
+
+    function getTripLogLines(railroad) {
+      const rr = String(railroad || '').toLowerCase();
+      const out = [];
+      const seen = {};
+      function add(id, name) {
+        const lid = String(id || '');
+        if (!lid || seen[lid]) return;
+        seen[lid] = true;
+        out.push({ id: lid, name: String(name || lid) });
+      }
+      // Embedded line→stop map first (MBTA included). Live map routes are a supplement only.
+      const pack = TRIP_LINE_STOPS[rr];
+      if (pack) {
+        Object.keys(pack).forEach(function(lid) {
+          add(lid, (pack[lid] && pack[lid].n) || lid);
+        });
+      }
+      if (rr === 'mbta') {
+        try {
+          if (typeof window.rrCollectTripLines === 'function') {
+            (window.rrCollectTripLines(rr) || []).forEach(function(l) {
+              if (l && l.id) add(l.id, l.name || l.id);
+            });
+          }
+        } catch (_) {}
+      }
+      out.sort(function(a, b) { return a.name.localeCompare(b.name); });
+      if (!out.length) add('ALL', 'All / Main');
+      return out;
+    }
+
+    function getLineStopIdSet(railroad, lineId) {
+      const rr = String(railroad || '').toLowerCase();
+      const lid = String(lineId || '');
+      const set = {};
+      if (!lid) return set;
+      const pack = TRIP_LINE_STOPS[rr];
+      if (pack && pack[lid] && Array.isArray(pack[lid].s)) {
+        pack[lid].s.forEach(function(sid) { set[String(sid)] = true; });
+        return set;
+      }
+      if (rr === 'mbta') {
+        try {
+          if (typeof window.rrStationsOnLine === 'function') {
+            (window.rrStationsOnLine(rr, lid) || []).forEach(function(s) {
+              if (s && s.id) set[String(s.id)] = true;
+            });
+            if (Object.keys(set).length) return set;
+          }
+        } catch (_) {}
+      }
+      if (lid === 'ALL') {
+        getTripLogStations(rr).forEach(function(s) { set[String(s.id)] = true; });
+      }
+      return set;
+    }
+
+    function getTripLogStationsForLine(railroad, lineId) {
+      const rr = String(railroad || '').toLowerCase();
+      const lid = String(lineId || '');
+      if (!lid) return [];
+      const all = getTripLogStations(railroad);
+      const set = getLineStopIdSet(railroad, lid);
+      if (Object.keys(set).length) {
+        return all.filter(function(s) { return set[String(s.id)]; });
+      }
+      if (rr === 'mbta' && typeof window.rrStationsOnLine === 'function') {
+        try {
+          const list = window.rrStationsOnLine(rr, lid) || [];
+          if (list.length) return list;
+        } catch (_) {}
+      }
+      return lid === 'ALL' ? all : [];
+    }
+
+    /* Trip mbta stations + save editingId fix */
+    const MBTA_TRIP_CHILD_TO_PLACE = {
+      'BNT-0000': 'place-north',
+      'NEC-2287': 'place-sstat',
+      'NEC-2276-01': 'place-bbsta', 'NEC-2276-02': 'place-bbsta', 'NEC-2276-03': 'place-bbsta',
+      'NEC-2265-01': 'place-rugg', 'NEC-2265-02': 'place-rugg', 'NEC-2265-03': 'place-rugg',
+      'NEC-2237-03': 'place-forhl', 'NEC-2237-05': 'place-forhl',
+      'WML-0012-05': 'place-bbsta', 'WML-0012-07': 'place-bbsta',
+      'FB-0095-04': 'place-DB-0095', 'FB-0095-05': 'place-DB-0095',
+      'NEC-2192-02': 'place-DB-0095', 'NEC-2192-03': 'place-DB-0095',
+      'MM-0023-S': 'place-jfk', 'MM-0079-S': 'place-qnctr', 'MM-0109-S': 'place-brntn',
+      'ER-0042-01': 'place-chels', 'ER-0042-02': 'place-chels',
+      'FR-0034-01': 'place-portr', 'FR-0034-02': 'place-portr',
+      'WR-0045-S': 'place-mlmnl', 'WR-0053-S': 'place-ogmnl',
+      'SB-0150-04': 'place-NEC-2139', 'SB-0150-06': 'place-NEC-2139'
+    };
+
+    function tripMbtaCanonicalStationId(stationId) {
+      const sid = String(stationId || '').trim();
+      if (!sid) return '';
+      if (sid.indexOf('place-') === 0) return sid;
+      if (MBTA_TRIP_CHILD_TO_PLACE[sid]) return MBTA_TRIP_CHILD_TO_PLACE[sid];
+      let core = sid.replace(/-[0-9]{2}$/, '').replace(/-[A-Z]{1,3}$/, '');
+      if (core && core !== sid) {
+        const cand = 'place-' + core;
+        try {
+          if (typeof MBTA_TRIP_STATIONS !== 'undefined' && MBTA_TRIP_STATIONS.some(function(s) {
+            return s && String(s.id) === cand;
+          })) return cand;
+        } catch (_) {}
+      }
+      const direct = 'place-' + sid;
+      try {
+        if (typeof MBTA_TRIP_STATIONS !== 'undefined' && MBTA_TRIP_STATIONS.some(function(s) {
+          return s && String(s.id) === direct;
+        })) return direct;
+      } catch (_) {}
+      return sid;
+    }
+
+    function findTripStation(railroad, stationId) {
+      const rr = String(railroad || '').toLowerCase();
+      let sid = String(stationId || '');
+      if (rr === 'mbta') sid = tripMbtaCanonicalStationId(sid) || sid;
+      const list = getTripLogStations(railroad);
+      for (let i = 0; i < list.length; i++) {
+        if (String(list[i].id) === String(sid)) return list[i];
+      }
+      return null;
+    }
+
+    function stationOnLine(railroad, lineId, stationId) {
+      if (!stationId || !lineId) return false;
+      const rr = String(railroad || '').toLowerCase();
+      const set = getLineStopIdSet(railroad, lineId);
+      if (Object.keys(set).length) return !!set[String(stationId)];
+      if (rr === 'mbta' && typeof window.rrLineHasStation === 'function') {
+        try { return !!window.rrLineHasStation(rr, lineId, stationId); } catch (_) {}
+      }
+      return String(lineId) === 'ALL';
+    }
+
+    // ---- Trip miles: polyline → stop-chain → haversine ----
+    // window.RR_TRIP_SHAPES[agency][lineId] = array of polylines, each [[lat,lon], ...]
+    window.RR_TRIP_SHAPES = window.RR_TRIP_SHAPES || {};
+    window.RR_TRIP_SHAPES_PROMISES = window.RR_TRIP_SHAPES_PROMISES || {};
+
+    function rrDecodeGooglePolyline(encoded) {
+      const points = [];
+      if (!encoded) return points;
+      let index = 0, lat = 0, lng = 0;
+      const s = String(encoded);
+      while (index < s.length) {
+        let b, shift = 0, result = 0;
+        do { b = s.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lat += ((result & 1) ? ~(result >> 1) : (result >> 1));
+        shift = 0; result = 0;
+        do { b = s.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lng += ((result & 1) ? ~(result >> 1) : (result >> 1));
+        points.push([lat / 1e5, lng / 1e5]);
+      }
+      return points;
+    }
+    window.rrDecodeGooglePolyline = rrDecodeGooglePolyline;
+
+    const RR_TRIP_SNAP_MAX_MI = 1.5;
+
+    function rrNormalizePolyLatLngs(pl) {
+      if (!pl || !pl.length) return null;
+      const out = [];
+      for (let i = 0; i < pl.length; i++) {
+        const p = pl[i];
+        let lat, lon;
+        if (Array.isArray(p)) {
+          lat = Number(p[0]);
+          lon = Number(p[1]);
+        } else if (p && typeof p === 'object') {
+          lat = Number(p.lat != null ? p.lat : p.latitude);
+          lon = Number(p.lng != null ? p.lng : (p.lon != null ? p.lon : p.longitude));
+        } else {
+          continue;
+        }
+        if (!isFinite(lat) || !isFinite(lon)) continue;
+        out.push([lat, lon]);
+      }
+      return out.length >= 2 ? out : null;
+    }
+
+    function rrRegisterTripShapes(agency, routes) {
+      const ag = String(agency || '').toLowerCase();
+      if (!ag || !routes) return;
+      if (!window.RR_TRIP_SHAPES[ag]) window.RR_TRIP_SHAPES[ag] = {};
+      const pack = window.RR_TRIP_SHAPES[ag];
+      (Array.isArray(routes) ? routes : []).forEach(function(rt) {
+        if (!rt || rt.id == null) return;
+        const polys = [];
+        (rt.polylines || []).forEach(function(pl) {
+          const n = rrNormalizePolyLatLngs(pl);
+          if (n) polys.push(n);
+        });
+        if (polys.length) pack[String(rt.id)] = polys;
+      });
+    }
+    window.rrRegisterTripShapes = rrRegisterTripShapes;
+
+    function rrRegisterTripShapePolylines(agency, lineId, polylines) {
+      const ag = String(agency || '').toLowerCase();
+      const lid = String(lineId || '');
+      if (!ag || !lid) return;
+      if (!window.RR_TRIP_SHAPES[ag]) window.RR_TRIP_SHAPES[ag] = {};
+      const polys = [];
+      (polylines || []).forEach(function(pl) {
+        const n = rrNormalizePolyLatLngs(pl);
+        if (n) polys.push(n);
+      });
+      if (polys.length) window.RR_TRIP_SHAPES[ag][lid] = polys;
+    }
+    window.rrRegisterTripShapePolylines = rrRegisterTripShapePolylines;
+
+    function rrGetCachedTripPolylines(agency, lineId) {
+      const ag = String(agency || '').toLowerCase();
+      const lid = String(lineId || '');
+      const pack = window.RR_TRIP_SHAPES && window.RR_TRIP_SHAPES[ag];
+      if (!pack || !lid) return null;
+      const polys = pack[lid];
+      return (polys && polys.length) ? polys : null;
+    }
+
+    function rrProjectToSegmentMiles(lat, lon, lat1, lon1, lat2, lon2) {
+      const x = lon, y = lat, x1 = lon1, y1 = lat1, x2 = lon2, y2 = lat2;
+      const dx = x2 - x1, dy = y2 - y1;
+      if (dx === 0 && dy === 0) {
+        return { dist: haversineMiles(lat, lon, lat1, lon1), along: 0, t: 0 };
+      }
+      let t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
+      t = Math.max(0, Math.min(1, t));
+      const plat = y1 + t * dy;
+      const plon = x1 + t * dx;
+      const segLen = haversineMiles(lat1, lon1, lat2, lon2);
+      return {
+        dist: haversineMiles(lat, lon, plat, plon),
+        along: t * segLen,
+        t: t
+      };
+    }
+
+    function rrSnapToPolyline(lat, lon, poly) {
+      let bestDist = Infinity, bestAlong = 0, cum = 0;
+      for (let i = 0; i < poly.length - 1; i++) {
+        const a = poly[i], b = poly[i + 1];
+        const proj = rrProjectToSegmentMiles(lat, lon, a[0], a[1], b[0], b[1]);
+        if (proj.dist < bestDist) {
+          bestDist = proj.dist;
+          bestAlong = cum + proj.along;
+        }
+        cum += haversineMiles(a[0], a[1], b[0], b[1]);
+      }
+      return { dist: bestDist, along: bestAlong, total: cum };
+    }
+
+    function rrAlongTrackMilesOnPolyline(poly, oLat, oLon, dLat, dLon, maxSnapMi) {
+      if (!poly || poly.length < 2) return null;
+      const o = rrSnapToPolyline(oLat, oLon, poly);
+      const d = rrSnapToPolyline(dLat, dLon, poly);
+      if (!(o.dist <= maxSnapMi && d.dist <= maxSnapMi)) return null;
+      const mi = Math.abs(o.along - d.along);
+      if (!(mi > 0) || !isFinite(mi)) return null;
+      return mi;
+    }
+
+    function estimateTripMilesAlongPolylines(polylines, oLat, oLon, dLat, dLon) {
+      let best = null;
+      (polylines || []).forEach(function(pl) {
+        const mi = rrAlongTrackMilesOnPolyline(pl, oLat, oLon, dLat, dLon, RR_TRIP_SNAP_MAX_MI);
+        if (mi == null) return;
+        if (best == null || mi < best) best = mi;
+      });
+      return best;
+    }
+
+    function estimateTripMilesHaversine(railroad, originId, destId) {
+      const o = findTripStation(railroad, originId);
+      const d = findTripStation(railroad, destId);
+      if (!o || !d) return null;
+      const lat1 = Number(o.lat), lon1 = Number(o.lon);
+      const lat2 = Number(d.lat), lon2 = Number(d.lon);
+      if (![lat1, lon1, lat2, lon2].every(function(n) { return isFinite(n); })) return null;
+      if (lat1 === lat2 && lon1 === lon2) return 0;
+      const mi = haversineMiles(lat1, lon1, lat2, lon2);
+      return isFinite(mi) ? Math.round(mi * 10) / 10 : null;
+    }
+
+    function estimateTripMilesAlongStopChain(railroad, lineId, originId, destId) {
+      const o = findTripStation(railroad, originId);
+      const d = findTripStation(railroad, destId);
+      if (!o || !d || !lineId) return null;
+      const oLat = Number(o.lat), oLon = Number(o.lon);
+      const dLat = Number(d.lat), dLon = Number(d.lon);
+      if (![oLat, oLon, dLat, dLon].every(function(n) { return isFinite(n); })) return null;
+      if (oLat === dLat && oLon === dLon) return 0;
+      const od = haversineMiles(oLat, oLon, dLat, dLon);
+      if (!(od > 0) || !isFinite(od)) return null;
+
+      function sumConsecutive(pts) {
+        if (!pts || pts.length < 2) return null;
+        let sum = 0;
+        for (let i = 1; i < pts.length; i++) {
+          sum += haversineMiles(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+        }
+        return (isFinite(sum) && sum > 0) ? sum : null;
+      }
+
+      function dedupePts(pts) {
+        const out = [];
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          if (!out.length) { out.push(p); continue; }
+          const last = out[out.length - 1];
+          if (haversineMiles(last[0], last[1], p[0], p[1]) < 0.05) continue;
+          out.push(p);
+        }
+        return out;
+      }
+
+      // Corridor-sorted chain from stations on the line
+      let corridorSum = null;
+      const stations = getTripLogStationsForLine(railroad, lineId) || [];
+      const corridor = [];
+      corridor.push({ lat: oLat, lon: oLon, dO: 0 });
+      corridor.push({ lat: dLat, lon: dLon, dO: od });
+      stations.forEach(function(s) {
+        if (!s) return;
+        const lat = Number(s.lat), lon = Number(s.lon);
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        const dO = haversineMiles(oLat, oLon, lat, lon);
+        const dD = haversineMiles(lat, lon, dLat, dLon);
+        if (!isFinite(dO) || !isFinite(dD)) return;
+        if (dO + dD > od * 1.5 + 0.75) return; // off corridor
+        if (dO > od + 0.75 || dD > od + 0.75) return; // clearly beyond an end
+        corridor.push({ lat: lat, lon: lon, dO: dO });
+      });
+      corridor.sort(function(a, b) { return a.dO - b.dO; });
+      corridorSum = sumConsecutive(dedupePts(corridor.map(function(p) { return [p.lat, p.lon]; })));
+
+      // Ordered index-slice from TRIP_LINE_STOPS when both ids appear
+      let indexSum = null;
+      const rr = String(railroad || '').toLowerCase();
+      const pack = (typeof TRIP_LINE_STOPS !== 'undefined') ? TRIP_LINE_STOPS[rr] : null;
+      const lid = String(lineId || '');
+      if (pack && pack[lid] && Array.isArray(pack[lid].s)) {
+        const ids = pack[lid].s;
+        let oi = -1, di = -1;
+        for (let i = 0; i < ids.length; i++) {
+          if (String(ids[i]) === String(originId)) oi = i;
+          if (String(ids[i]) === String(destId)) di = i;
+        }
+        if (oi >= 0 && di >= 0 && oi !== di) {
+          const lo = Math.min(oi, di), hi = Math.max(oi, di);
+          const slicePts = [];
+          for (let i = lo; i <= hi; i++) {
+            const st = findTripStation(railroad, ids[i]);
+            if (!st) continue;
+            const lat = Number(st.lat), lon = Number(st.lon);
+            if (!isFinite(lat) || !isFinite(lon)) continue;
+            slicePts.push([lat, lon]);
+          }
+          indexSum = sumConsecutive(dedupePts(slicePts));
+        }
+      }
+
+      // Reject index sums that look like out-of-order TRIP_LINE_STOPS jumps
+      // (e.g. MBTA Fitchburg North→Lincoln via Wachusett). Prefer corridor then shorter.
+      if (indexSum != null && corridorSum != null && indexSum > Math.max(corridorSum * 1.35, od * 1.6 + 8)) {
+        indexSum = null;
+      } else if (indexSum != null && indexSum > od * 2.8 + 20) {
+        indexSum = null;
+      }
+      const full = [];
+      if (corridorSum != null && corridorSum >= od) full.push(corridorSum);
+      if (indexSum != null && indexSum >= od) full.push(indexSum);
+      let chosen = null;
+      if (full.length >= 2) {
+        // Prefer shorter of two valid chains (longer often means zigzag mis-order)
+        chosen = Math.min(full[0], full[1]);
+      } else if (full.length === 1) {
+        chosen = full[0];
+      } else {
+        const soft = [];
+        if (corridorSum != null) soft.push(corridorSum);
+        if (indexSum != null) soft.push(indexSum);
+        if (soft.length === 1 && soft[0] >= od * 0.98) chosen = soft[0];
+        else if (soft.length === 2) {
+          const best = Math.min(soft[0], soft[1]);
+          if (best >= od * 0.98) chosen = best;
+          else if (best < od * 0.95) chosen = null;
+        }
+      }
+      if (chosen == null || !isFinite(chosen)) return null;
+      return Math.round(chosen * 10) / 10;
+    }
+
+    function rrTripShapesAssetUrl(agency) {
+      const ag = String(agency || '').toLowerCase();
+      if (['mnr', 'lirr', 'amtrak', 'ctrail', 'njt', 'marc'].indexOf(ag) < 0) return null;
+      return '/assets/shapes/' + ag + '.json';
+    }
+
+    function rrTripMbtaShapesUrl(lineId) {
+      const lid = encodeURIComponent(String(lineId || ''));
+      const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
+      return base.replace(/\/+$/, '') + '/api/mbta/shapes?filter[route]=' + lid + '&page[limit]=1000';
+    }
+
+    function ensureTripShapesForMiles(railroad, lineId) {
+      const ag = String(railroad || '').toLowerCase();
+      const lid = String(lineId || '');
+      if (!ag || ag === 'metra') return Promise.resolve(null);
+      if (lid && rrGetCachedTripPolylines(ag, lid)) {
+        return Promise.resolve(rrGetCachedTripPolylines(ag, lid));
+      }
+      // Static agency already fully registered but line missing → no fetch storm
+      if (ag !== 'mbta' && window.RR_TRIP_SHAPES[ag] && Object.keys(window.RR_TRIP_SHAPES[ag]).length) {
+        return Promise.resolve(null);
+      }
+      const key = ag === 'mbta' ? ('mbta:' + lid) : ag;
+      if (window.RR_TRIP_SHAPES_PROMISES[key]) return window.RR_TRIP_SHAPES_PROMISES[key];
+
+      const p = (async function() {
+        try {
+          if (ag === 'mbta') {
+            if (!lid) return null;
+            // Prefer static pack (same as main map) so trip maps avoid slow proxy shapes.
+            try {
+              if (!(window.RR_TRIP_SHAPES.mbta && Object.keys(window.RR_TRIP_SHAPES.mbta).length)) {
+                const assetUrl = rrTripShapesAssetUrl('mbta');
+                const res = await fetch(assetUrl);
+                if (res.ok) {
+                  const data = await res.json();
+                  rrRegisterTripShapes('mbta', (data && data.routes) || []);
+                }
+              }
+              const cached = rrGetCachedTripPolylines('mbta', lid);
+              if (cached && cached.length) return cached;
+            } catch (_) {}
+            let url = rrTripMbtaShapesUrl(lid);
+            const polys = [];
+            while (url) {
+              const sr = await fetch(url);
+              if (!sr.ok) break;
+              const sd = await sr.json();
+              (sd.data || []).forEach(function(s) {
+                const enc = s.attributes && s.attributes.polyline;
+                if (!enc) return;
+                try {
+                  let pts = null;
+                  if (typeof rrDecodeGooglePolyline === 'function') {
+                    pts = rrDecodeGooglePolyline(enc);
+                  } else if (typeof L !== 'undefined' && L.Polyline && typeof L.Polyline.fromEncoded === 'function') {
+                    pts = L.Polyline.fromEncoded(enc).getLatLngs();
+                  }
+                  const n = rrNormalizePolyLatLngs(pts);
+                  if (n) polys.push(n);
+                } catch (_) {}
+              });
+              const next = sd.links && sd.links.next;
+              if (!next) { url = null; break; }
+              const ns = String(next);
+              const idx = ns.indexOf('/api/mbta');
+              const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
+              url = idx >= 0 ? (base.replace(/\/+$/, '') + ns.slice(idx)) : null;
+            }
+            if (polys.length) rrRegisterTripShapePolylines('mbta', lid, polys);
+            return polys.length ? polys : null;
+          }
+
+          const assetUrl = rrTripShapesAssetUrl(ag);
+          if (!assetUrl) return null;
+          const res = await fetch(assetUrl);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          rrRegisterTripShapes(ag, (data && data.routes) || []);
+          return rrGetCachedTripPolylines(ag, lid);
+        } catch (e) {
+          console.warn('[TripMiles] shape load failed', ag, lid, e && e.message ? e.message : e);
+          return null;
+        }
+      })().then(function(result) {
+        try {
+          if (typeof updateTripMilesPreview === 'function') updateTripMilesPreview();
+        } catch (_) {}
+        return result;
+      });
+
+      window.RR_TRIP_SHAPES_PROMISES[key] = p;
+      return p;
+    }
+    window.ensureTripShapesForMiles = ensureTripShapesForMiles;
+
+    function estimateTripMiles(railroad, originId, destId, lineId) {
+      const o = findTripStation(railroad, originId);
+      const d = findTripStation(railroad, destId);
+      if (!o || !d) return null;
+      const lat1 = Number(o.lat), lon1 = Number(o.lon);
+      const lat2 = Number(d.lat), lon2 = Number(d.lon);
+      if (![lat1, lon1, lat2, lon2].every(function(n) { return isFinite(n); })) return null;
+      if (lat1 === lat2 && lon1 === lon2) return 0;
+      const polys = rrGetCachedTripPolylines(railroad, lineId);
+      if (polys && polys.length) {
+        const along = estimateTripMilesAlongPolylines(polys, lat1, lon1, lat2, lon2);
+        if (along != null) return Math.round(along * 10) / 10;
+      } else if (lineId) {
+        // Async fill for preview; Save keeps stop-chain/haversine if still missing
+        try { ensureTripShapesForMiles(railroad, lineId); } catch (_) {}
+      }
+      if (lineId) {
+        const chain = estimateTripMilesAlongStopChain(railroad, lineId, originId, destId);
+        if (chain != null) return chain;
+      }
+      const mi = haversineMiles(lat1, lon1, lat2, lon2);
+      return isFinite(mi) ? Math.round(mi * 10) / 10 : null;
+    }
+
+    // ---- Trip list mini-maps (Leaflet under each MyTrips card) ----
+    const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
+    let tripLogMiniMapIO = null;
+    /* Trip map main-style tiles */
+    // Trip mini-maps + detail map use main-map default style (northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7) via Worker /api/mapbox proxy.
+    const TRIP_MAP_EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
+    function rrTripMapTileUrl() {
+      const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
+      return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
+    }
+    function rrTripMapTileLayer(opts) {
+      const o = opts || {};
+      return L.tileLayer(rrTripMapTileUrl(), {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: false,
+        maxZoom: o.maxZoom != null ? o.maxZoom : 20,
+        opacity: o.opacity != null ? o.opacity : 1,
+        errorTileUrl: TRIP_MAP_EMPTY_TILE
+      });
+    }
+    const tripLogDataById = Object.create(null); // tripId -> trip data (for detail view)
+    let tripDetailMap = null;
+    let tripDetailFocusEl = null;
+    let tripDetailOpenId = null;
+
+    function rrSnapToPolylineDetailed(lat, lon, poly) {
+      let bestDist = Infinity, bestAlong = 0, bestI = 0, bestT = 0, cum = 0;
+      for (let i = 0; i < poly.length - 1; i++) {
+        const a = poly[i], b = poly[i + 1];
+        const proj = rrProjectToSegmentMiles(lat, lon, a[0], a[1], b[0], b[1]);
+        if (proj.dist < bestDist) {
+          bestDist = proj.dist;
+          bestAlong = cum + proj.along;
+          bestI = i;
+          bestT = proj.t;
+        }
+        cum += haversineMiles(a[0], a[1], b[0], b[1]);
+      }
+      return { dist: bestDist, along: bestAlong, total: cum, i: bestI, t: bestT };
+    }
+
+    function rrDedupeLatLngs(pts) {
+      const out = [];
+      for (let i = 0; i < (pts || []).length; i++) {
+        const p = pts[i];
+        if (!p || !isFinite(p[0]) || !isFinite(p[1])) continue;
+        if (!out.length) { out.push([p[0], p[1]]); continue; }
+        const last = out[out.length - 1];
+        if (haversineMiles(last[0], last[1], p[0], p[1]) < 0.02) continue;
+        out.push([p[0], p[1]]);
+      }
+      return out;
+    }
+
+    function rrSlicePolylineBetween(poly, oLat, oLon, dLat, dLon, maxSnapMi) {
+      if (!poly || poly.length < 2) return null;
+      const maxSnap = maxSnapMi == null ? RR_TRIP_SNAP_MAX_MI : maxSnapMi;
+      const o = rrSnapToPolylineDetailed(oLat, oLon, poly);
+      const d = rrSnapToPolylineDetailed(dLat, dLon, poly);
+      if (!(o.dist <= maxSnap && d.dist <= maxSnap)) return null;
+      function pointAt(snap) {
+        const a = poly[snap.i], b = poly[snap.i + 1] || a;
+        return [a[0] + snap.t * (b[0] - a[0]), a[1] + snap.t * (b[1] - a[1])];
+      }
+      const forward = o.along <= d.along;
+      const start = forward ? o : d;
+      const end = forward ? d : o;
+      const pts = [pointAt(start)];
+      for (let i = start.i + 1; i <= end.i; i++) pts.push(poly[i]);
+      pts.push(pointAt(end));
+      const deduped = rrDedupeLatLngs(pts);
+      if (deduped.length < 2) return null;
+      if (!forward) deduped.reverse();
+      return deduped;
+    }
+
+    function rrTripStopChainLatLngs(railroad, lineId, originId, destId) {
+      const o = findTripStation(railroad, originId);
+      const d = findTripStation(railroad, destId);
+      if (!o || !d || !lineId) return null;
+      const oLat = Number(o.lat), oLon = Number(o.lon);
+      const dLat = Number(d.lat), dLon = Number(d.lon);
+      if (![oLat, oLon, dLat, dLon].every(function(n) { return isFinite(n); })) return null;
+      if (oLat === dLat && oLon === dLon) return [[oLat, oLon]];
+      const od = haversineMiles(oLat, oLon, dLat, dLon);
+      if (!(od > 0) || !isFinite(od)) return null;
+
+      let corridorPts = null;
+      const stations = getTripLogStationsForLine(railroad, lineId) || [];
+      const corridor = [];
+      corridor.push({ lat: oLat, lon: oLon, dO: 0 });
+      corridor.push({ lat: dLat, lon: dLon, dO: od });
+      stations.forEach(function(s) {
+        if (!s) return;
+        const lat = Number(s.lat), lon = Number(s.lon);
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        const dO = haversineMiles(oLat, oLon, lat, lon);
+        const dD = haversineMiles(lat, lon, dLat, dLon);
+        if (!isFinite(dO) || !isFinite(dD)) return;
+        if (dO + dD > od * 1.5 + 0.75) return;
+        if (dO > od + 0.75 || dD > od + 0.75) return;
+        corridor.push({ lat: lat, lon: lon, dO: dO });
+      });
+      corridor.sort(function(a, b) { return a.dO - b.dO; });
+      corridorPts = rrDedupeLatLngs(corridor.map(function(p) { return [p.lat, p.lon]; }));
+
+      let indexPts = null;
+      const rr = String(railroad || '').toLowerCase();
+      const pack = (typeof TRIP_LINE_STOPS !== 'undefined') ? TRIP_LINE_STOPS[rr] : null;
+      const lid = String(lineId || '');
+      if (pack && pack[lid] && Array.isArray(pack[lid].s)) {
+        const ids = pack[lid].s;
+        let oi = -1, di = -1;
+        for (let i = 0; i < ids.length; i++) {
+          if (String(ids[i]) === String(originId)) oi = i;
+          if (String(ids[i]) === String(destId)) di = i;
+        }
+        if (oi >= 0 && di >= 0 && oi !== di) {
+          const lo = Math.min(oi, di), hi = Math.max(oi, di);
+          const slicePts = [];
+          for (let i = lo; i <= hi; i++) {
+            const st = findTripStation(railroad, ids[i]);
+            if (!st) continue;
+            const lat = Number(st.lat), lon = Number(st.lon);
+            if (!isFinite(lat) || !isFinite(lon)) continue;
+            slicePts.push([lat, lon]);
+          }
+          indexPts = rrDedupeLatLngs(slicePts);
+          if (oi > di && indexPts) indexPts.reverse();
+        }
+      }
+
+      function pathLen(pts) {
+        if (!pts || pts.length < 2) return 0;
+        let sum = 0;
+        for (let i = 1; i < pts.length; i++) sum += haversineMiles(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+        return sum;
+      }
+      function pathHasJump(pts, maxJumpMi) {
+        if (!pts || pts.length < 2) return false;
+        const lim = maxJumpMi == null ? 10 : maxJumpMi;
+        for (let i = 1; i < pts.length; i++) {
+          if (haversineMiles(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]) > lim) return true;
+        }
+        return false;
+      }
+      // MBTA TRIP_LINE_STOPS mixes platform ids + place-* out of geographic order;
+      // index slices can jump (e.g. North Station → Wachusett). Prefer corridor / catalog shapes.
+      const indexOk = indexPts && indexPts.length >= 2 && !pathHasJump(indexPts, 10);
+      const corridorOk = corridorPts && corridorPts.length >= 2 && !pathHasJump(corridorPts, 12);
+      const cLen = pathLen(corridorPts);
+      const iLen = pathLen(indexPts);
+      let chosen = null;
+      if (indexOk && corridorOk) {
+        // Prefer shorter sane path (not the longer jumpy one).
+        chosen = (iLen <= cLen * 1.08) ? indexPts : corridorPts;
+      } else if (corridorOk) {
+        chosen = corridorPts;
+      } else if (indexOk) {
+        chosen = indexPts;
+      } else if (corridorPts && corridorPts.length >= 2) {
+        chosen = corridorPts;
+      } else if (indexPts && indexPts.length >= 2) {
+        chosen = indexPts;
+      }
+      return chosen;
+    }
+
+    function rrTripSegIds(seg, data) {
+      const rr = String((seg && seg.railroad) || (data && data.railroad) || '').toLowerCase();
+      const lineId = String((seg && (seg.lineId || seg.line_id)) || (data && data.lineId) || '');
+      const originId = String((seg && (seg.originStationId || seg.originId)) || (data && data.originStationId) || '');
+      const destId = String((seg && (seg.destStationId || seg.destId)) || (data && data.destStationId) || '');
+      return { railroad: rr, lineId: lineId, originId: originId, destId: destId };
+    }
+
+    function rrResolveTripSegmentGeom(seg, data) {
+      const ids = rrTripSegIds(seg, data);
+      const color = tripRailColor(ids.railroad);
+      const o = findTripStation(ids.railroad, ids.originId);
+      const d = findTripStation(ids.railroad, ids.destId);
+      let origin = null, dest = null;
+      if (o) {
+        const lat = Number(o.lat), lon = Number(o.lon);
+        if (isFinite(lat) && isFinite(lon)) origin = [lat, lon];
+      }
+      if (d) {
+        const lat = Number(d.lat), lon = Number(d.lon);
+        if (isFinite(lat) && isFinite(lon)) dest = [lat, lon];
+      }
+      let line = null;
+      // Special move / extra: never prefill scheduled route geometry — OD dots only (no route/dashed line).
+      /* RR special-move no route line 2026-10-05 */
+      const isSpecial = (typeof rrTripIsSpecialMove === 'function')
+        ? rrTripIsSpecialMove(data)
+        : !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      if (origin && dest) {
+        if (isSpecial) {
+          line = null; // paintTrip* skips all polylines for special; OD dots only
+        } else {
+          const polys = rrGetCachedTripPolylines(ids.railroad, ids.lineId);
+          if (polys && polys.length) {
+            const odMi = haversineMiles(origin[0], origin[1], dest[0], dest[1]);
+            let best = null, bestLen = Infinity;
+            polys.forEach(function(pl) {
+              const sliced = rrSlicePolylineBetween(pl, origin[0], origin[1], dest[0], dest[1]);
+              if (!sliced || sliced.length < 2) return;
+              let len = 0;
+              for (let i = 1; i < sliced.length; i++) len += haversineMiles(sliced[i - 1][0], sliced[i - 1][1], sliced[i][0], sliced[i][1]);
+              // Reject absurd detours (wrong shape variant / concatenated noise)
+              if (odMi > 0.5 && len > Math.max(odMi * 2.8, odMi + 25)) return;
+              if (len < bestLen) { bestLen = len; best = sliced; }
+            });
+            line = best;
+          }
+          if (!line && ids.lineId) {
+            line = rrTripStopChainLatLngs(ids.railroad, ids.lineId, ids.originId, ids.destId);
+          }
+          if (!line) line = [origin, dest];
+        }
+      }
+      return {
+        railroad: ids.railroad,
+        lineId: ids.lineId,
+        originId: ids.originId,
+        destId: ids.destId,
+        color: color,
+        origin: origin,
+        dest: dest,
+        line: line,
+        specialMove: isSpecial
+      };
+    }
+
+    function rrTripSegmentsForMap(data) {
+      const segs = Array.isArray(data && data.segments) ? data.segments : null;
+      if (segs && segs.length) return segs;
+      if (!data) return [];
+      return [{
+        railroad: data.railroad,
+        lineId: data.lineId || '',
+        originStationId: data.originStationId,
+        destStationId: data.destStationId,
+        originName: data.originName,
+        destName: data.destName
+      }];
+    }
+
+    function rrEnsureTripGeomsShapes(data) {
+      // Special moves: no scheduled shapes
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data && (data.specialMove === true || data.specialMove === 'true'))) {
+        return Promise.resolve();
+      }
+      const segs = rrTripSegmentsForMap(data);
+      const promises = [];
+      const seen = {};
+      segs.forEach(function(seg) {
+        const ids = rrTripSegIds(seg, data);
+        if (!ids.railroad || !ids.lineId) return;
+        const key = ids.railroad + ':' + ids.lineId;
+        if (seen[key]) return;
+        seen[key] = true;
+        if (rrGetCachedTripPolylines(ids.railroad, ids.lineId)) return;
+        try {
+          promises.push(ensureTripShapesForMiles(ids.railroad, ids.lineId));
+        } catch (_) {}
+      });
+      return Promise.all(promises).then(function() { return true; });
+    }
+
+    function destroyTripLogMiniMap(tripId) {
+      const entry = tripLogMiniMaps[tripId];
+      if (!entry) return;
+      try { if (entry.io && entry.el) entry.io.unobserve(entry.el); } catch (_) {}
+      try { if (entry.map) entry.map.remove(); } catch (_) {}
+      delete tripLogMiniMaps[tripId];
+    }
+
+    function destroyAllTripLogMiniMaps() {
+      Object.keys(tripLogMiniMaps).forEach(destroyTripLogMiniMap);
+      if (tripLogMiniMapIO) {
+        try { tripLogMiniMapIO.disconnect(); } catch (_) {}
+        tripLogMiniMapIO = null;
+      }
+    }
+
+function tripCardStationDotIcon() {
+      // Same station dot look as the main map (/assets/station.png).
+      if (tripCardStationDotIcon._cached) return tripCardStationDotIcon._cached;
+      tripCardStationDotIcon._cached = L.icon({
+        iconUrl: rrAssetUrl('/assets/station.png'),
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+        popupAnchor: [0, -9]
+      });
+      return tripCardStationDotIcon._cached;
+    }
+
+    function tripCardIconFromMainMarker(row) {
+      // Reuse the live main-map marker icon (same URL / divIcon html / class). Scale 44px assets to 28px for the 148px card.
+      let src = null;
+      try {
+        const mm = row && row.markerMap;
+        const id = row && row.id;
+        const mk = (mm && id != null) ? mm[id] : null;
+        if (mk && typeof mk.getIcon === 'function') src = mk.getIcon();
+      } catch (_) {}
+      if (!src || !src.options) return null;
+      const o = src.options;
+      if (o.html) {
+        return L.divIcon({
+          className: o.className || '',
+          html: o.html,
+          iconSize: o.iconSize,
+          iconAnchor: o.iconAnchor,
+          popupAnchor: o.popupAnchor
+        });
+      }
+      if (!o.iconUrl) return src;
+      const base = (o.iconSize && o.iconSize[0]) || 44;
+      const nw = base > 24 ? 28 : base;
+      const nh = base > 24 ? 28 : ((o.iconSize && o.iconSize[1]) || base);
+      return L.icon({
+        iconUrl: o.iconUrl,
+        iconRetinaUrl: o.iconRetinaUrl,
+        iconSize: [nw, nh],
+        iconAnchor: [Math.round(nw / 2), Math.round(nh / 2)],
+        popupAnchor: [0, -Math.round(nh / 2)],
+        className: o.className || 'train-icon'
+      });
+    }
+
+        
+    function rrLiveTripPoint(data) {
+      if (!data) return null;
+      if (data.liveLat != null && data.liveLon != null) return [Number(data.liveLat), Number(data.liveLon)];
+      const segs = Array.isArray(data.segments) ? data.segments : [];
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i] || {};
+        if (s.liveLat != null && s.liveLon != null) return [Number(s.liveLat), Number(s.liveLon)];
+      }
+      if (window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) return [Number(window.rrSpecialLastFix.lat), Number(window.rrSpecialLastFix.lon)];
+      return null;
+    }
+    function rrLiveTrainIcon(heading, src) {
+      const rot = isFinite(Number(heading)) ? Number(heading) : 90;
+      // Saved trips store the icon as text, so only a plain /assets/ image path is used.
+      if (!/^\/assets\/[A-Za-z0-9-]+\.png$/.test(src || '')) src = '/assets/hsp46.png';
+      return L.divIcon({
+        className: 'rr-live-train-icon',
+        html: '<img src="' + src + '" alt="" style="width:46px;height:20px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;">',
+        iconSize: [46, 20],
+        iconAnchor: [23, 10]
+      });
+    }
+    function paintTripLogMiniMap(el, data) {
+      if (!el || typeof L === 'undefined' || !L.map) {
+        if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
+        return;
+      }
+      const tripId = el.getAttribute('data-trip-map') || '';
+      destroyTripLogMiniMap(tripId);
+      el.classList.remove('is-empty');
+      el.classList.add('is-loading');
+      el.innerHTML = '';
+
+      const segs = rrTripSegmentsForMap(data).map(function(s) { return rrResolveTripSegmentGeom(s, data); });
+      const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
+      if (!hasAny) {
+        el.classList.remove('is-loading');
+        const livePt = rrLiveTripPoint(data);
+        if (data && data.specialMove && livePt) {
+          try {
+            const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
+            rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
+            L.marker(livePt, { icon: rrLiveTrainIcon(data.heading, data.icon) }).addTo(map);
+            map.setView(livePt, 13);
+            el.classList.remove('is-empty');
+            return;
+          } catch (_) {}
+        }
+        el.classList.add(data && data.specialMove ? 'is-live-empty' : 'is-empty');
+        return;
+      }
+
+      let map;
+      try {
+        map = L.map(el, {
+          zoomControl: false,
+          attributionControl: false,
+          dragging: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          tap: false,
+          touchZoom: false,
+          closePopupOnClick: false
+        });
+        rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
+      } catch (e) {
+        console.warn('[trip-map] init failed', e);
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      const bounds = [];
+      /* Special move / extra: OD dots only */
+      var odOnly = (typeof rrTripIsSpecialMove === 'function') ? rrTripIsSpecialMove(data) : !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      /* Trip transfer dots */
+      segs.forEach(function(g) {
+        if (!odOnly && g.line && g.line.length >= 2) {
+          try {
+            L.polyline(g.line, {
+              color: g.color || '#07093e',
+              weight: 5,
+              opacity: 1,
+              lineJoin: 'round',
+              lineCap: 'round'
+            }).addTo(map);
+            g.line.forEach(function(p) { bounds.push(p); });
+          } catch (_) {}
+        } else if (!odOnly && g.origin && g.dest) {
+          try {
+            L.polyline([g.origin, g.dest], {
+              color: g.color || '#07093e',
+              weight: 3,
+              opacity: 0.75,
+              dashArray: '6 6'
+            }).addTo(map);
+            bounds.push(g.origin, g.dest);
+          } catch (_) {}
+        }
+      });
+      (function paintTripEndpointMarkers() {
+        function llKey(ll) {
+          if (!ll) return '';
+          const lat = Array.isArray(ll) ? Number(ll[0]) : Number(ll.lat);
+          const lng = Array.isArray(ll) ? Number(ll[1]) : Number(ll.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return '';
+          return lat.toFixed(5) + ',' + lng.toFixed(5);
+        }
+        function addOdMarker(ll, isOrigin) {
+          if (!ll) return;
+          try {
+            L.marker(ll, {
+              icon: tripCardStationDotIcon(),
+              interactive: false,
+              keyboard: false,
+              zIndexOffset: -1000
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        function addTransferMarker(ll) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 3.5,
+              color: '#07093e',
+              weight: 2,
+              fillColor: '#fff',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        if (!segs.length) return;
+        if (segs.length === 1) {
+          addOdMarker(segs[0].origin, true);
+          addOdMarker(segs[0].dest, false);
+          return;
+        }
+        addOdMarker(segs[0].origin, true);
+        const endKeys = Object.create(null);
+        const ok = llKey(segs[0].origin); if (ok) endKeys[ok] = 1;
+        const dk = llKey(segs[segs.length - 1].dest); if (dk) endKeys[dk] = 1;
+        const seen = Object.create(null);
+        for (let i = 0; i < segs.length - 1; i++) {
+          const ll = segs[i].dest || (segs[i + 1] && segs[i + 1].origin);
+          const k = llKey(ll);
+          if (!k || endKeys[k] || seen[k]) continue;
+          seen[k] = 1;
+          addTransferMarker(ll);
+        }
+        addOdMarker(segs[segs.length - 1].dest, false);
+      })();
+
+      try {
+        if (bounds.length >= 2) {
+          map.fitBounds(bounds, { padding: [18, 18], maxZoom: 13 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 11);
+        } else {
+          map.setView([42.3, -71.1], 7);
+        }
+      } catch (_) {
+        try { map.setView([42.3, -71.1], 7); } catch (__) {}
+      }
+
+      el.classList.remove('is-loading');
+      tripLogMiniMaps[tripId] = { map: map, el: el, io: tripLogMiniMapIO };
+
+      // Leaflet needs a tick after layout
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 50);
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 250);
+    }
+
+    function ensureTripLogMiniMapIO() {
+      if (tripLogMiniMapIO) return tripLogMiniMapIO;
+      if (typeof IntersectionObserver === 'undefined') {
+        return null;
+      }
+      tripLogMiniMapIO = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          if (!el || el.getAttribute('data-trip-map-ready') === '1') return;
+          el.setAttribute('data-trip-map-ready', '1');
+          try { tripLogMiniMapIO.unobserve(el); } catch (_) {}
+          const data = el._tripMapData;
+          if (!data) {
+            el.classList.add('is-empty');
+            return;
+          }
+          rrEnsureTripGeomsShapes(data).then(function() {
+            if (!el.isConnected) return;
+            paintTripLogMiniMap(el, data);
+          }).catch(function() {
+            if (!el.isConnected) return;
+            paintTripLogMiniMap(el, data);
+          });
+        });
+      }, { root: null, rootMargin: '120px 0px', threshold: 0.05 });
+      return tripLogMiniMapIO;
+    }
+
+    function scheduleTripLogMiniMap(el, data) {
+      if (!el) return;
+      el._tripMapData = data || null;
+      el.classList.add('is-loading');
+      el.classList.remove('is-empty');
+      const io = ensureTripLogMiniMapIO();
+      if (!io) {
+        // No IntersectionObserver — init immediately
+        el.setAttribute('data-trip-map-ready', '1');
+        rrEnsureTripGeomsShapes(data).then(function() {
+          paintTripLogMiniMap(el, data);
+        }).catch(function() {
+          paintTripLogMiniMap(el, data);
+        });
+        return;
+      }
+      try { io.observe(el); } catch (_) {
+        el.setAttribute('data-trip-map-ready', '1');
+        paintTripLogMiniMap(el, data);
+      }
+    }
+
+    function destroyTripDetailMap() {
+      try { tripLiveClearMarker(); } catch (_) {}
+      if (tripDetailMap) {
+        try { tripDetailMap.remove(); } catch (_) {}
+        tripDetailMap = null;
+      }
+      const el = document.getElementById('trip-detail-map');
+      if (el) {
+        el.classList.remove('is-empty');
+        el.classList.add('is-loading');
+        el.innerHTML = '';
+      }
+    }
+
+    function paintTripDetailMap(el, data) {
+      if (!el || typeof L === 'undefined' || !L.map) {
+        if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
+        return;
+      }
+      destroyTripDetailMap();
+      el.classList.remove('is-empty');
+      el.classList.add('is-loading');
+      el.innerHTML = '';
+
+      const segs = rrTripSegmentsForMap(data).map(function(s) { return rrResolveTripSegmentGeom(s, data); });
+      const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
+      if (!hasAny) {
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      let map;
+      try {
+        map = L.map(el, {
+          zoomControl: true,
+          attributionControl: false,
+          dragging: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          touchZoom: true
+        });
+        rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
+      } catch (e) {
+        console.warn('[trip-detail] map init failed', e);
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
+
+      const bounds = [];
+      /* Special move / extra: OD dots only */
+      var odOnly = (typeof rrTripIsSpecialMove === 'function') ? rrTripIsSpecialMove(data) : !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      /* Trip transfer dots */
+      segs.forEach(function(g) {
+        if (!odOnly && g.line && g.line.length >= 2) {
+          try {
+            L.polyline(g.line, {
+              color: g.color || '#07093e',
+              weight: 7,
+              opacity: 1,
+              lineJoin: 'round',
+              lineCap: 'round'
+            }).addTo(map);
+            g.line.forEach(function(p) { bounds.push(p); });
+          } catch (_) {}
+        } else if (!odOnly && g.origin && g.dest) {
+          try {
+            L.polyline([g.origin, g.dest], {
+              color: g.color || '#07093e',
+              weight: 5,
+              opacity: 0.85,
+              dashArray: '8 8'
+            }).addTo(map);
+            bounds.push(g.origin, g.dest);
+          } catch (_) {}
+        }
+      });
+      (function paintTripEndpointMarkers() {
+        function llKey(ll) {
+          if (!ll) return '';
+          const lat = Array.isArray(ll) ? Number(ll[0]) : Number(ll.lat);
+          const lng = Array.isArray(ll) ? Number(ll[1]) : Number(ll.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return '';
+          return lat.toFixed(5) + ',' + lng.toFixed(5);
+        }
+        function addOdMarker(ll, isOrigin) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 9,
+              color: '#1a2030',
+              weight: 3,
+              fillColor: isOrigin ? '#1a7f37' : '#b00020',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        function addTransferMarker(ll) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 6,
+              color: '#07093e',
+              weight: 2,
+              fillColor: '#fff',
+              fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        if (!segs.length) return;
+        if (segs.length === 1) {
+          addOdMarker(segs[0].origin, true);
+          addOdMarker(segs[0].dest, false);
+          return;
+        }
+        addOdMarker(segs[0].origin, true);
+        const endKeys = Object.create(null);
+        const ok = llKey(segs[0].origin); if (ok) endKeys[ok] = 1;
+        const dk = llKey(segs[segs.length - 1].dest); if (dk) endKeys[dk] = 1;
+        const seen = Object.create(null);
+        for (let i = 0; i < segs.length - 1; i++) {
+          const ll = segs[i].dest || (segs[i + 1] && segs[i + 1].origin);
+          const k = llKey(ll);
+          if (!k || endKeys[k] || seen[k]) continue;
+          seen[k] = 1;
+          addTransferMarker(ll);
+        }
+        addOdMarker(segs[segs.length - 1].dest, false);
+      })();
+
+      try {
+        map._rrTripBounds = bounds.slice();
+        if (bounds.length >= 2) {
+          map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12, animate: false });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 11);
+        } else {
+          map.setView([42.3, -71.1], 7);
+        }
+      } catch (_) {
+        try { map.setView([42.3, -71.1], 7); } catch (__) {}
+      }
+
+      el.classList.remove('is-loading');
+      tripDetailMap = map;
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 60);
+      setTimeout(function() {
+        try { if (map) map.invalidateSize(false); } catch (_) {}
+      }, 280);
+    }
+
+    function tripDetailLineLabel(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const names = [];
+        const seen = {};
+        segs.forEach(function(s) {
+          const n = String(s.lineName || '').trim();
+          if (!n || seen[n]) return;
+          seen[n] = true;
+          names.push(n);
+        });
+        if (names.length) return names.join(' · ');
+      }
+      if (data.lineName) return String(data.lineName);
+      if (data.lineId) return lineNameFor(data.railroad, data.lineId) || String(data.lineId);
+      return '';
+    }
+
+    function tripDetailOriginDest(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        return {
+          origin: rrTripOdName(data, 'origin'),
+          dest: rrTripOdName(data, 'dest')
+        };
+      }
+      return { origin: rrTripOdName(data, 'origin'), dest: rrTripOdName(data, 'dest') };
+    }
+
+    function fillTripDetailPanel(data) {
+      const railIds = tripRailIdsFromData(data);
+      const accentEl = document.getElementById('trip-detail-accent');
+      const overlay = document.getElementById('trip-detail-overlay');
+      const panel = document.querySelector('#trip-detail-overlay .trip-detail-panel');
+      const applied = tripApplyRailAccentVars(panel, railIds, { primaryAttr: true });
+      tripApplyRailAccentVars(overlay, railIds, { primaryAttr: true });
+      if (overlay) {
+        const segN = Array.isArray(data.segments) ? data.segments.length : (data.originName || data.destName ? 1 : 0);
+        if (segN > 0) overlay.setAttribute('data-seg-count', String(Math.min(segN, 6)));
+        else overlay.removeAttribute('data-seg-count');
+      }
+      try {
+        document.documentElement.style.setProperty('--rr-trip-rail', applied.accent);
+        if (applied.dual) {
+          document.documentElement.style.setProperty('--rr-trip-rail-2', applied.color2);
+          document.documentElement.setAttribute('data-rail-dual', '1');
+        } else {
+          document.documentElement.style.removeProperty('--rr-trip-rail-2');
+          document.documentElement.removeAttribute('data-rail-dual');
+        }
+      } catch (_) {}
+      if (accentEl) {
+        if (applied.dual) {
+          accentEl.style.background = 'linear-gradient(90deg,' + applied.accent + ' 0 50%,' + applied.color2 + ' 50% 100%)';
+        } else {
+          accentEl.style.background = applied.accent;
+        }
+      }
+      const accent = applied.accent;
+
+      const od = tripDetailOriginDest(data);
+      const routeEl = document.getElementById('trip-detail-route');
+      if (routeEl) {
+        const noStations = !od.origin || od.origin === '?' || !od.dest || od.dest === '?';
+        const title = data.specialMove ? String(data.trainTitle || data.title || '').trim() : '';
+        if (data.specialMove && title) routeEl.textContent = title;
+        else routeEl.innerHTML = tripRouteOdHtml(od.origin, od.dest);
+      }
+
+      // Top badges: train chip only (no railroad/miles — those live in bottom facts)
+      const badges = document.getElementById('trip-detail-badges');
+      if (badges) {
+        let badgeHtml = '';
+        const specialTitle = data.specialMove ? String(data.trainTitle || '').trim() : '';
+        if (specialTitle) {
+          badgeHtml = '<span class="trip-special-badge">' + specialTitle.replace(/</g, '&lt;') + '</span>';
+          // Only add Train chip if number differs from the map title
+          const nums = tripDisplayTrainNumbers(data);
+          if (nums && nums.toLowerCase() !== specialTitle.toLowerCase()) {
+            badgeHtml = (tripTrainChipHtml(data) || '') + badgeHtml;
+          }
+        } else {
+          badgeHtml = tripTrainChipHtml(data) || '';
+          if (data.specialMove) badgeHtml += '<span class="trip-special-badge">Special</span>';
+        }
+        badges.innerHTML = badgeHtml;
+        badges.hidden = !badges.innerHTML;
+      }
+
+      const lineEl = document.getElementById('trip-detail-line');
+      if (lineEl) {
+        const line = tripDetailLineLabel(data);
+        lineEl.textContent = line || '';
+        lineEl.hidden = !line;
+      }
+
+      try { startTripDetailRelativeTimer(data); } catch (_) { paintTripDetailRelative(data); }
+      try { tripPaintDetailActual(data); } catch (_) {}
+
+      const whenEl = document.getElementById('trip-detail-when');
+      if (whenEl) {
+        const when = tripDisplayWhen(data);
+        if (when) {
+          whenEl.hidden = false;
+          whenEl.textContent = when;
+        } else {
+          whenEl.hidden = true;
+          whenEl.textContent = '';
+        }
+      }
+
+      // Bottom facts: one pill per distinct railroad, one total-miles, optional stock.
+      // Always clear first so re-opens never accumulate.
+      const meta = document.getElementById('trip-detail-meta');
+      if (meta) {
+        meta.innerHTML = '';
+        const labels = [];
+        const seenLbl = {};
+        railIds.forEach(function(id) {
+          const lbl = TRIP_LOG_RAIL_LABELS[id] || String(id || '').toUpperCase();
+          if (!lbl || seenLbl[lbl]) return;
+          seenLbl[lbl] = true;
+          labels.push(lbl);
+        });
+        if (!labels.length) {
+          const fallback = tripDisplayRail(data);
+          if (fallback) {
+            String(fallback).split(/\s*\+\s*/).forEach(function(part) {
+              const p = String(part || '').trim();
+              if (p && !seenLbl[p]) { seenLbl[p] = true; labels.push(p); }
+            });
+          }
+        }
+        labels.forEach(function(val) {
+          const pill = document.createElement('span');
+          pill.className = 'trip-detail-fact';
+          pill.textContent = val;
+          meta.appendChild(pill);
+        });
+        const durTxt = tripDurationLabel(data);
+        if (durTxt) {
+          const dp = document.createElement('span');
+          dp.className = 'trip-detail-fact';
+          dp.textContent = durTxt;
+          meta.appendChild(dp);
+        }
+        const milesTxt = formatTripMiles(tripMilesValue(data));
+        if (milesTxt) {
+          const pill = document.createElement('span');
+          pill.className = 'trip-detail-fact';
+          pill.textContent = milesTxt;
+          meta.appendChild(pill);
+        }
+        const stock = String(data.rollingStock || '').trim();
+        if (stock) {
+          const pill = document.createElement('span');
+          pill.className = 'trip-detail-fact';
+          pill.textContent = stock;
+          meta.appendChild(pill);
+        }
+        meta.hidden = meta.childNodes.length === 0;
+      }
+
+      // Stock is shown as a bottom fact pill; keep legacy node empty/hidden
+      const stockDetail = document.getElementById('trip-detail-stock');
+      if (stockDetail) {
+        stockDetail.hidden = true;
+        stockDetail.textContent = '';
+      }
+
+      const notesEl = document.getElementById('trip-detail-notes');
+      if (notesEl) {
+        const notes = String(data.notes || '').trim();
+        if (notes) {
+          notesEl.hidden = false;
+          notesEl.textContent = notes;
+        } else {
+          notesEl.hidden = true;
+          notesEl.textContent = '';
+        }
+      }
+      try { rrSpecialPaintDetailShare(tripDetailOpenId, data); } catch (_) {}
+
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const heading = document.getElementById('trip-detail-seg-heading');
+      const segsEl = document.getElementById('trip-detail-segs');
+      if (segsEl) segsEl.innerHTML = '';
+      if (segs && segs.length > 1 && segsEl) {
+        if (heading) { heading.hidden = false; heading.textContent = segs.length + ' segments'; }
+        segs.forEach(function(s, i) {
+          const rr = String(s.railroad || '').toLowerCase();
+          const color = tripRailColor(rr);
+          const card = document.createElement('div');
+          card.className = 'trip-detail-seg';
+          card.style.setProperty('--rr-trip-rail', color);
+          const top = document.createElement('div');
+          top.className = 'trip-detail-seg-top';
+          top.innerHTML = tripRailBadgeHtml(rr) +
+            tripTrainChipHtml(s.trainNumber, true) +
+            '<span class="trip-rail-badge-train">Leg ' + (i + 1) + '</span>';
+          const odEl = document.createElement('div');
+          odEl.className = 'trip-detail-seg-od';
+          odEl.innerHTML = tripRouteOdHtml(rrTripSegOdName(s, data, 'origin') || '?', rrTripSegOdName(s, data, 'dest') || '?');
+          const sub = document.createElement('div');
+          sub.className = 'trip-detail-seg-sub';
+          const bits = [];
+          if (s.lineName) bits.push(String(s.lineName));
+          if (s.departTime || s.arriveTime) {
+            bits.push(
+              (s.departTime ? formatTripWhen(s.departTime) : '?') +
+              ' → ' +
+              (s.arriveTime ? formatTripWhen(s.arriveTime) : '?')
+            );
+          }
+          if (s.miles != null && Number(s.miles) > 0) bits.push(formatTripMiles(s.miles));
+          sub.textContent = bits.join(' · ');
+          card.appendChild(top);
+          card.appendChild(odEl);
+          if (bits.length) card.appendChild(sub);
+          segsEl.appendChild(card);
+        });
+      } else if (heading) {
+        heading.hidden = true;
+      }
+    }
+
+    let tripDetailHistoryOpen = false;
+
+
+    /* Trip live in-progress light */
+    // Lean "in progress": wall-clock between depart and arrive (no Firestore status field).
+    // Poll detail while open + slow list poll for in-progress cards; pause when tab hidden;
+    // reuse map live rows; ZERO Firestore writes on poll. Post-trip enrich writes actuals only.
+    /* Trip live progress cards + post-trip enrich */
+    const TRIP_LIVE_POLL_MS = 50000;
+    const TRIP_LIVE_LIST_POLL_MS = 55000;
+    const TRIP_LIVE_MAX_MISSES = 3;
+    const TRIP_LIVE_PRE_DEPART_MS = 15 * 60 * 1000;
+    const TRIP_ENRICH_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+    let tripLiveTimer = null;
+    let tripLiveMisses = 0;
+    let tripLiveMarker = null;
+    let tripLiveActiveId = null;
+    let tripLiveData = null;
+    let tripLiveVisBound = false;
+    let tripListLiveTimer = null;
+    let tripListLiveVisBound = false;
+    const tripCardLiveMarkers = Object.create(null); // tripId -> L.marker (main-map train icon)
+    const tripEnrichInFlight = Object.create(null);
+
+    function tripIsInProgressLight(data) {
+      if (!data) return false;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const startIso = (segs && segs[0] && segs[0].departTime) || data.startTime;
+      const endIso = (segs && segs.length && segs[segs.length - 1].arriveTime) || data.endTime;
+      const start = startIso ? Date.parse(startIso) : NaN;
+      if (!isFinite(start)) return false;
+      const now = Date.now();
+      if (now < start - TRIP_LIVE_PRE_DEPART_MS) return false;
+      let end = endIso ? Date.parse(endIso) : NaN;
+      // RR special-move reload fix: special moves saved without an arrive time used to store
+      // arriveTime = departTime, so the trip looked finished the moment it began (and on reload).
+      // Treat those as open-ended (5h share window), and keep any trip with an active share live.
+      if (typeof rrTripIsSpecialMove === 'function' && rrTripIsSpecialMove(data)) {
+        const lastSeg = segs && segs.length ? segs[segs.length - 1] : null;
+        const openEnded = data.openEnded === true || !!(lastSeg && lastSeg.openEnded === true);
+        if (openEnded || !isFinite(end) || (end - start) < 60 * 1000) {
+          try { if (typeof rrSpecialShareIsForTrip === 'function' && rrSpecialShareIsForTrip(data)) return true; } catch (_) {}
+          end = Math.max(isFinite(end) ? end : 0, start + 5 * 60 * 60 * 1000);
+        }
+      }
+      // Finished past trips: hide live chip / "Looking for…" once arrive time has passed.
+      // Keep live only while the ride is in progress (or within pre-depart window).
+      if (isFinite(end)) {
+        if (now > end) return false;
+      } else {
+        // No arrive time stored — stop polling after 3h from depart (same heuristic as card live).
+        if (now > start + 3 * 60 * 60 * 1000) return false;
+      }
+      return true;
+    }
+
+    function tripHasEndedForEnrich(data) {
+      if (!data) return false;
+      if (tripIsInProgressLight(data)) return false;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const endIso = (segs && segs.length && segs[segs.length - 1].arriveTime) || data.endTime || data.startTime;
+      const end = endIso ? Date.parse(endIso) : NaN;
+      if (!isFinite(end)) return false;
+      const now = Date.now();
+      if (now < end) return false;
+      if (now - end > TRIP_ENRICH_LOOKBACK_MS) return false;
+      return true;
+    }
+
+    function tripLiveClearMarker() {
+      if (tripLiveMarker) {
+        try { tripLiveMarker.remove(); } catch (_) {}
+        tripLiveMarker = null;
+      }
+    }
+
+    function tripLiveClearCardMarker(tripId) {
+      const m = tripCardLiveMarkers[tripId];
+      if (m) {
+        try { m.remove(); } catch (_) {}
+        delete tripCardLiveMarkers[tripId];
+      }
+    }
+
+    function tripLiveSetStatus(text, state) {
+      const el = document.getElementById('trip-detail-live');
+      if (!el) return;
+      if (!text) {
+        el.hidden = true;
+        el.textContent = '';
+        el.removeAttribute('data-live-state');
+        return;
+      }
+      el.hidden = false;
+      el.textContent = text;
+      if (state) el.setAttribute('data-live-state', state);
+      else el.removeAttribute('data-live-state');
+    }
+
+    function tripLiveSetCardStatus(rowEl, text, state, parts) {
+      if (!rowEl) return;
+      const el = rowEl.querySelector('.trip-log-row-live');
+      if (!el) return;
+      const lateLine = parts && parts.lateLine ? String(parts.lateLine) : '';
+      const placeLine = parts && parts.placeLine ? String(parts.placeLine) : '';
+      if (!text && !lateLine && !placeLine) {
+        el.hidden = true;
+        el.textContent = '';
+        el.removeAttribute('data-live-state');
+        return;
+      }
+      el.hidden = false;
+      if (state) el.setAttribute('data-live-state', state);
+      else el.removeAttribute('data-live-state');
+      // Looking / done / single string: quiet line, no lateness bar markup.
+      if (state === 'miss' || state === 'done' || (!lateLine && !placeLine)) {
+        el.textContent = text;
+        return;
+      }
+      const esc = function(s) {
+        return String(s).replace(/[&<>"]/g, function(c) {
+          return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+        });
+      };
+      let html = '';
+      if (lateLine) html += '<span class="trip-log-row-live-late">' + esc(lateLine) + '</span>';
+      if (placeLine) html += '<span class="trip-log-row-live-place">' + esc(placeLine) + '</span>';
+      el.innerHTML = html;
+    }
+
+    function tripLivePickSegment(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const now = Date.now();
+        for (let i = 0; i < segs.length; i++) {
+          const a = segs[i].arriveTime ? Date.parse(segs[i].arriveTime) : NaN;
+          if (!isFinite(a) || now <= a + 5 * 60 * 1000) return segs[i];
+        }
+        return segs[segs.length - 1];
+      }
+      return {
+        railroad: data.railroad,
+        trainNumber: data.trainNumber,
+        vehicleId: data.vehicleId
+      };
+    }
+
+    function tripFindLiveRowForTrip(data) {
+      // Special move / extra is not a scheduled CR/Amtrak train — never match live feed rows.
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data && (data.specialMove === true || data.specialMove === 'true'))) return null;
+      const seg = tripLivePickSegment(data);
+      const agency = tripNormalizeAgency(seg.railroad || data.railroad);
+      const trainNum = String(seg.trainNumber || data.trainNumber || '').split('/')[0].replace(/^#/, '').trim();
+      const vid = String(seg.vehicleId || data.vehicleId || '').trim();
+      try {
+        if (typeof window.rrFindSharedTrain === 'function') {
+          if (vid) {
+            const byVid = window.rrFindSharedTrain({ agency: agency, id: vid });
+            if (byVid) return byVid;
+          }
+          if (trainNum) {
+            const byNum = window.rrFindSharedTrain({ agency: agency, id: trainNum });
+            if (byNum) return byNum;
+          }
+        }
+      } catch (_) {}
+      try {
+        if (typeof window.rrCollectLiveTrainRows === 'function') {
+          const rows = window.rrCollectLiveTrainRows() || [];
+          const wantA = agency;
+          const wantNum = trainNum.replace(/^0+/, '') || trainNum;
+          const wantVid = vid.replace(/^0+/, '') || vid;
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const a = tripNormalizeAgency(r.agency);
+            if (wantA && a && a !== wantA && !(wantA === 'ctrail' && a === 'amtrak')) continue;
+            const ids = [r.id, r.trainNum, r.vehicleLabel].map(function(x) {
+              return String(x || '').trim();
+            });
+            if (wantVid && ids.some(function(x) {
+              return x === vid || (x.replace(/^0+/, '') || x) === wantVid;
+            })) return r;
+            if (wantNum && ids.some(function(x) {
+              const bare = x.replace(/^0+/, '') || x;
+              return x === trainNum || bare === wantNum;
+            })) return r;
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function tripLiveParseDelayMin(row) {
+      if (!row) return null;
+      if (row.delayMinutes != null && isFinite(Number(row.delayMinutes))) {
+        return Math.round(Number(row.delayMinutes));
+      }
+      const raw = String(row.statusText || '');
+      const m = raw.match(/(\d+)\s*min/i);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (/early/i.test(raw)) return -n;
+        return n;
+      }
+      return null;
+    }
+
+    // Warm short copy for cards + detail: "Next: Providence · 8 min late"
+    function tripLiveWarmCopy(row, data) {
+      if (!row) return { text: '', state: '' };
+      const endIso = (data && data.segments && data.segments.length && data.segments[data.segments.length - 1].arriveTime) || (data && data.endTime);
+      const end = endIso ? Date.parse(endIso) : NaN;
+      if (isFinite(end) && Date.now() > end) {
+        return { text: 'Trip complete', state: 'done' };
+      }
+      const raw = String(row.statusText || '').trim();
+      const cls = String(row.statusClass || '');
+      if (/complet|arrived|done/i.test(raw) && !/arriv/i.test(String(row.stopLabel || ''))) {
+        return { text: 'Trip complete', state: 'done' };
+      }
+      const stop = String(row.stopName || '').trim();
+      const label = String(row.stopLabel || 'Next').trim();
+      const delayMin = tripLiveParseDelayMin(row);
+      let state = 'on-time';
+      let delayBit = '';
+      if (cls.indexOf('very-delay') >= 0 || (delayMin != null && delayMin > 15) || /hours?/i.test(raw)) {
+        delayBit = (delayMin != null && delayMin > 0) ? (delayMin + ' min late') : 'Running late';
+        state = 'very-late';
+      } else if (cls.indexOf('delay') >= 0 || (delayMin != null && delayMin > 5) || /late|delay/i.test(raw)) {
+        delayBit = (delayMin != null && delayMin > 0) ? (delayMin + ' min late') : 'Late';
+        state = 'late';
+      } else if (/on.?time/i.test(raw) || cls.indexOf('on-time') >= 0 || (delayMin != null && Math.abs(delayMin) <= 5)) {
+        delayBit = 'On time';
+        state = 'on-time';
+      } else if (raw && !/scheduled|predeparture|unknown|^live$/i.test(raw)) {
+        delayBit = raw.replace(/^Delayed\s+/i, '').replace(/\bDelayed\b/i, 'late');
+        if (/^\d+\s*min$/i.test(delayBit)) delayBit = delayBit + ' late';
+      } else {
+        delayBit = 'On time';
+      }
+      let stopBit = '';
+      let placeLine = '';
+      if (stop && stop !== '—' && stop !== '-') {
+        if (/^At$/i.test(label) || /STOPPED_AT/i.test(String(row.stopLabel || ''))) {
+          stopBit = 'At ' + stop;
+          placeLine = 'Stopped at ' + stop;
+        } else if (/arriv/i.test(label) || /INCOMING/i.test(String(row.stopLabel || ''))) {
+          stopBit = 'Arriving ' + stop;
+          placeLine = 'On the way to ' + stop;
+        } else {
+          stopBit = 'Next: ' + stop;
+          placeLine = 'On the way to ' + stop;
+        }
+      }
+      const lateLine = delayBit || '';
+      if (stopBit && delayBit) return { text: stopBit + ' · ' + delayBit, state: state, lateLine: lateLine, placeLine: placeLine };
+      if (stopBit) return { text: stopBit, state: state, lateLine: lateLine, placeLine: placeLine };
+      if (delayBit) return { text: delayBit, state: state, lateLine: lateLine, placeLine: placeLine };
+      return { text: 'Live', state: 'on-time', lateLine: 'Live', placeLine: '' };
+    }
+
+
+    function tripLivePaintMarker(row) {
+      tripLiveClearMarker();
+      if (!tripDetailMap || !row) return;
+      const lat = Number(row.lat);
+      const lng = Number(row.lng != null ? row.lng : row.lon);
+      if (!isFinite(lat) || !isFinite(lng)) return;
+      try {
+        tripLiveMarker = L.circleMarker([lat, lng], {
+          radius: 8,
+          color: '#1a2030',
+          weight: 2.5,
+          fillColor: '#2563eb',
+          fillOpacity: 1,
+          className: 'trip-live-train-marker'
+        }).addTo(tripDetailMap);
+        tripLiveMarker.bindTooltip('Live train', { direction: 'top', opacity: 0.9 });
+      } catch (_) {}
+    }
+
+    function tripLivePaintCardMarker(tripId, row) {
+      tripLiveClearCardMarker(tripId);
+      if (!tripId || !row) return;
+      const entry = tripLogMiniMaps[tripId];
+      if (!entry || !entry.map) return;
+      const lat = Number(row.lat);
+      const lng = Number(row.lng != null ? row.lng : row.lon);
+      if (!isFinite(lat) || !isFinite(lng)) return;
+      try {
+        const icon = tripCardIconFromMainMarker(row);
+        if (!icon) return;
+        const m = L.marker([lat, lng], {
+          icon: icon,
+          interactive: false,
+          keyboard: false,
+          zIndexOffset: 600
+        }).addTo(entry.map);
+        tripCardLiveMarkers[tripId] = m;
+      } catch (_) {}
+    }
+
+    function tripLiveTick() {
+      if (!tripLiveActiveId || !tripLiveData) return;
+      if (document.visibilityState === 'hidden') return;
+      try { if (typeof window.rrEnsureMyTripsLiveFeeds === 'function') window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
+      const overlay = document.getElementById('trip-detail-overlay');
+      if (!overlay || !overlay.classList.contains('open')) {
+        stopTripLiveTracking();
+        return;
+      }
+      if (!tripIsInProgressLight(tripLiveData)) {
+        tripLiveSetStatus('Trip complete', 'done');
+        tripLiveClearMarker();
+        stopTripLiveTracking(true);
+        try { tripTryEnrichActualTimes(tripLiveActiveId, tripLiveData); } catch (_) {}
+        try {
+          if (rrSpecialShareState && rrSpecialShareState.tripId === tripLiveActiveId) {
+            rrSpecialStopSharing({ reason: 'trip-ended' });
+          }
+        } catch (_) {}
+        return;
+      }
+      // Special move: no GTFS "Looking for your train" — location share is the live signal.
+      if (tripLiveData && (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(tripLiveData) : (tripLiveData.specialMove === true || tripLiveData.specialMove === 'true'))) {
+        const title = String(tripLiveData.trainTitle || 'Special move').trim();
+        const sharing = !!(rrSpecialShareState && rrSpecialShareState.tripId === tripLiveActiveId && rrSpecialShareState.lastWriteAt);
+        tripLiveSetStatus(sharing ? ('Sharing · ' + title) : ('Special move · ' + title), sharing ? 'on-time' : 'miss');
+        tripLiveClearMarker();
+        tripLiveMisses = 0;
+        return;
+      }
+      const row = tripFindLiveRowForTrip(tripLiveData);
+      if (!row) {
+        tripLiveMisses += 1;
+        if (tripLiveMisses >= TRIP_LIVE_MAX_MISSES) {
+          tripLiveSetStatus('Live position unavailable', 'miss');
+          stopTripLiveTracking(true);
+        } else {
+          tripLiveSetStatus('Looking for your train…', 'miss');
+        }
+        return;
+      }
+      tripLiveMisses = 0;
+      const st = tripLiveWarmCopy(row, tripLiveData);
+      tripLiveSetStatus(st.text, st.state);
+      tripLivePaintMarker(row);
+      // Display-only: do NOT write live position or ETA back to Firestore.
+    }
+
+    function stopTripLiveTracking(keepStatus) {
+      if (tripLiveTimer) {
+        try { clearInterval(tripLiveTimer); } catch (_) {}
+        tripLiveTimer = null;
+      }
+      tripLiveActiveId = null;
+      tripLiveData = null;
+      tripLiveMisses = 0;
+      tripLiveClearMarker();
+      if (!keepStatus) tripLiveSetStatus('', '');
+    }
+
+    function startTripLiveTracking(tripId, data) {
+      stopTripLiveTracking();
+      if (!tripId || !data || !tripIsInProgressLight(data)) {
+        tripLiveSetStatus('', '');
+        try {
+          if (tripId && data && !(typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true'))) {
+            tripTryEnrichActualTimes(tripId, data);
+          }
+        } catch (_) {}
+        return;
+      }
+      // Cap: only the open detail trip
+      tripLiveActiveId = tripId;
+      tripLiveData = data;
+      tripLiveMisses = 0;
+      if (!tripLiveVisBound) {
+        tripLiveVisBound = true;
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible' && tripLiveActiveId) {
+            tripLiveTick();
+          }
+        });
+      }
+      // Special moves: never pretend we are GTFS-tracking a scheduled train
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data && (data.specialMove === true || data.specialMove === 'true'))) {
+        const stitle = String((data && data.trainTitle) || 'Special move').trim();
+        tripLiveSetStatus('Special move · ' + stitle, 'miss');
+        tripLiveClearMarker();
+      } else {
+        tripLiveSetStatus('Tracking live…', 'on-time');
+      }
+      // Slight delay so detail map exists
+      setTimeout(function() { tripLiveTick(); }, 400);
+      tripLiveTimer = setInterval(tripLiveTick, TRIP_LIVE_POLL_MS);
+    }
+
+    function tripListLiveTick() {
+      if (document.visibilityState === 'hidden') return;
+      try { if (typeof window.rrEnsureMyTripsLiveFeeds === 'function') window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
+      const list = document.getElementById('trip-log-list');
+      if (!list) return;
+      const rows = list.querySelectorAll('.trip-log-row[data-trip-id]');
+      rows.forEach(function(rowEl) {
+        const id = rowEl.getAttribute('data-trip-id');
+        const data = tripLogDataById[id];
+        if (!data) return;
+        if (!tripIsInProgressLight(data)) {
+          const liveEl = rowEl.querySelector('.trip-log-row-live');
+          const st = liveEl && liveEl.getAttribute('data-live-state');
+          if (st && st !== 'done') {
+            tripLiveSetCardStatus(rowEl, '', '');
+            tripLiveClearCardMarker(id);
+          }
+          return;
+        }
+        // Special move cards: never look like a scheduled live train
+        if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true')) {
+          const stitle = String(data.trainTitle || 'Special move').trim();
+          const sharing = !!(typeof rrSpecialShareState !== 'undefined' && rrSpecialShareState && rrSpecialShareState.tripId === id && rrSpecialShareState.lastWriteAt);
+          tripLiveSetCardStatus(rowEl, sharing ? ('Sharing · ' + stitle) : ('Special move · ' + stitle), sharing ? 'on-time' : 'miss');
+          tripLiveClearCardMarker(id);
+          return;
+        }
+        const liveRow = tripFindLiveRowForTrip(data);
+        if (!liveRow) {
+          tripLiveSetCardStatus(rowEl, 'Looking for your train…', 'miss');
+          return;
+        }
+        const warm = tripLiveWarmCopy(liveRow, data);
+        tripLiveSetCardStatus(rowEl, warm.text, warm.state, warm);
+        tripLivePaintCardMarker(id, liveRow);
+      });
+    }
+
+
+    function startTripListLivePoll() {
+      if (!document.getElementById('trip-log-list')) return;
+      if (!tripListLiveVisBound) {
+        tripListLiveVisBound = true;
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible') tripListLiveTick();
+        });
+      }
+      if (!tripListLiveTimer) {
+        tripListLiveTimer = setInterval(tripListLiveTick, TRIP_LIVE_LIST_POLL_MS);
+      }
+      setTimeout(function() { tripListLiveTick(); }, 600);
+    }
+
+    function tripActualDisplayText(data) {
+      if (!data) return '';
+      const dep = data.actualDepartTime || null;
+      const arr = data.actualArriveTime || null;
+      if (!dep && !arr) {
+        const segs = Array.isArray(data.segments) ? data.segments : null;
+        if (segs && segs.length) {
+          const d0 = segs[0].actualDepartTime;
+          const aN = segs[segs.length - 1].actualArriveTime;
+          if (d0 || aN) {
+            if (d0 && aN) return 'Actual ' + formatTripWhen(d0) + ' → ' + formatTripWhen(aN);
+            if (d0) return 'Actual dep ' + formatTripWhen(d0);
+            return 'Actual arr ' + formatTripWhen(aN);
+          }
+        }
+        return '';
+      }
+      if (dep && arr) return 'Actual ' + formatTripWhen(dep) + ' → ' + formatTripWhen(arr);
+      if (dep) return 'Actual dep ' + formatTripWhen(dep);
+      return 'Actual arr ' + formatTripWhen(arr);
+    }
+
+    function tripPaintCardActual(rowEl, data) {
+      if (!rowEl) return;
+      const el = rowEl.querySelector('.trip-log-row-actual');
+      if (!el) return;
+      const txt = tripActualDisplayText(data);
+      if (txt) {
+        el.hidden = false;
+        el.textContent = txt;
+      } else {
+        el.hidden = true;
+        el.textContent = '';
+      }
+    }
+
+    function tripPaintDetailActual(data) {
+      const el = document.getElementById('trip-detail-actual');
+      if (!el) return;
+      const txt = tripActualDisplayText(data);
+      if (txt) {
+        el.hidden = false;
+        el.textContent = txt;
+      } else {
+        el.hidden = true;
+        el.textContent = '';
+      }
+    }
+
+    function tripNormStopKey(s) {
+      return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    function tripMatchActualStop(stops, stationId, stationName) {
+      if (!stops || !stops.length) return null;
+      const wantId = String(stationId || '').trim();
+      const wantName = tripNormStopKey(stationName);
+      let byId = null;
+      let byName = null;
+      for (let i = 0; i < stops.length; i++) {
+        const s = stops[i];
+        if (!s) continue;
+        const sid = String(s.stopId || s.id || '').trim();
+        const sname = tripNormStopKey(s.name);
+        if (wantId && sid && (sid === wantId || sid.replace(/^place-/, '') === wantId.replace(/^place-/, ''))) {
+          byId = s;
+          break;
+        }
+        if (wantName && sname && (sname === wantName || sname.indexOf(wantName) >= 0 || wantName.indexOf(sname) >= 0)) {
+          if (!byName) byName = s;
+        }
+      }
+      return byId || byName || null;
+    }
+
+    function tripParseClockOnServiceDate(serviceDate, clockStr) {
+      if (!serviceDate || !clockStr) return null;
+      const raw = String(clockStr).trim();
+      // Already ISO-ish
+      if (/^\d{4}-\d{2}-\d{2}T/.test(raw) || /Z$|[+-]\d{2}:\d{2}$/.test(raw)) {
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : d.toISOString();
+      }
+      let m = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (!m) m = raw.match(/^(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)?$/i);
+      if (!m) return null;
+      let hh = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      const ap = (m[3] || '').toUpperCase();
+      if (ap === 'PM' && hh < 12) hh += 12;
+      if (ap === 'AM' && hh === 12) hh = 0;
+      const parts = String(serviceDate).split('-');
+      if (parts.length < 3) return null;
+      const y = parseInt(parts[0], 10);
+      const mo = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(y, mo, day, hh, mm, 0, 0);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString();
+    }
+
+    function tripActualIsoFromStopEntry(entry, serviceDate, preferDep) {
+      if (!entry) return null;
+      // Prefer ISO-like fields if present
+      const isoCand = preferDep
+        ? (entry.depIso || entry.departureIso || entry.dep || entry.departure || entry.actual)
+        : (entry.arrIso || entry.arrivalIso || entry.arr || entry.arrival || entry.actual);
+      if (isoCand && /^\d{4}-\d{2}-\d{2}T/.test(String(isoCand))) {
+        const d = new Date(isoCand);
+        if (!isNaN(d.getTime())) return d.toISOString();
+      }
+      const clock = entry.actual || entry.predicted || entry.scheduled || isoCand;
+      return tripParseClockOnServiceDate(serviceDate, clock);
+    }
+
+    async function tripLoadActualStopsForSeg(seg) {
+      const agency = tripNormalizeAgency(seg.railroad);
+      const trainNum = String(seg.trainNumber || '').split('/')[0].replace(/^#/, '').trim();
+      if (!agency || !trainNum) return null;
+      const sd = (typeof tripServiceDateFromDepartLocal === 'function'
+        ? tripServiceDateFromDepartLocal(seg.departTime)
+        : null) || (typeof tripServiceDateToday === 'function' ? tripServiceDateToday() : null);
+      // 1) Amtrak live stations (ISO dep/arr) when still in memory
+      try {
+        if (agency === 'amtrak' && typeof amtrakAllTrains !== 'undefined' && Array.isArray(amtrakAllTrains)) {
+          const train = amtrakAllTrains.find(function(tr) {
+            return tripTrainNumMatch(tr.number || tr.trainNum || tr.trainNumber || '', trainNum);
+          });
+          if (train && Array.isArray(train.stations) && train.stations.length) {
+            const stops = train.stations.map(function(s) {
+              const st = String(s.status || '').toLowerCase();
+              const completed = st === 'departed' || st === 'arrived';
+              return {
+                name: s.name || s.code || '',
+                stopId: s.code || s.stationCode || '',
+                actual: (completed ? (s.dep || s.arr) : null) || null,
+                dep: s.dep || null,
+                arr: s.arr || null,
+                completed: completed,
+                scheduled: s.schDep || s.schArr || null
+              };
+            });
+            return { agency: agency, trainNumber: trainNum, serviceDate: sd, stops: stops, source: 'amtrak-live' };
+          }
+        }
+      } catch (_) {}
+      // 2) Shared trainStopActuals cache (same source as main-map popups)
+      try {
+        if (typeof rrLoadStopActuals === 'function') {
+          const cached = await rrLoadStopActuals(agency, trainNum, sd);
+          if (cached && Array.isArray(cached.stops) && cached.stops.length) {
+            return Object.assign({ source: 'trainStopActuals' }, cached);
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function tripBuildActualPatch(data) {
+      const segs = Array.isArray(data.segments) && data.segments.length
+        ? data.segments.map(function(s) { return Object.assign({}, s); })
+        : [{
+            railroad: data.railroad,
+            trainNumber: data.trainNumber,
+            originStationId: data.originStationId,
+            originName: data.originName,
+            destStationId: data.destStationId,
+            destName: data.destName,
+            departTime: data.startTime,
+            arriveTime: data.endTime
+          }];
+      let any = false;
+      let firstDep = null;
+      let lastArr = null;
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        // Never overwrite existing actuals with guesses
+        if (seg.actualDepartTime && seg.actualArriveTime) {
+          if (!firstDep) firstDep = seg.actualDepartTime;
+          lastArr = seg.actualArriveTime;
+          continue;
+        }
+        const bag = await tripLoadActualStopsForSeg(seg);
+        if (!bag || !bag.stops) continue;
+        const sd = bag.serviceDate || (typeof tripServiceDateFromDepartLocal === 'function'
+          ? tripServiceDateFromDepartLocal(seg.departTime) : null);
+        const origin = tripMatchActualStop(bag.stops, seg.originStationId, seg.originName);
+        const dest = tripMatchActualStop(bag.stops, seg.destStationId, seg.destName);
+        let depIso = seg.actualDepartTime || null;
+        let arrIso = seg.actualArriveTime || null;
+        if (!depIso && origin && (origin.actual || origin.dep || origin.completed)) {
+          depIso = tripActualIsoFromStopEntry(origin, sd, true);
+        }
+        if (!arrIso && dest && (dest.actual || dest.arr || dest.completed)) {
+          arrIso = tripActualIsoFromStopEntry(dest, sd, false);
+        }
+        // Only accept if we got a real parseable instant
+        if (depIso && !seg.actualDepartTime) {
+          seg.actualDepartTime = depIso;
+          any = true;
+        }
+        if (arrIso && !seg.actualArriveTime) {
+          seg.actualArriveTime = arrIso;
+          any = true;
+        }
+        if (seg.actualDepartTime && !firstDep) firstDep = seg.actualDepartTime;
+        if (seg.actualArriveTime) lastArr = seg.actualArriveTime;
+      }
+      if (!any && data.actualDepartTime && data.actualArriveTime) return null;
+      if (!any && !firstDep && !lastArr) return null;
+      // If only summary lacked actuals but segments already had them from prior enrich
+      if (!any && (data.actualDepartTime || data.actualArriveTime)) return null;
+      if (!any) return null;
+      const patch = {
+        actualTimesEnrichedAt: new Date().toISOString(),
+        actualTimesSource: 'live-stop-actuals'
+      };
+      if (firstDep && !data.actualDepartTime) patch.actualDepartTime = firstDep;
+      if (lastArr && !data.actualArriveTime) patch.actualArriveTime = lastArr;
+      if (Array.isArray(data.segments) && data.segments.length) {
+        patch.segments = segs;
+      }
+      return patch;
+    }
+
+    async function tripTryEnrichActualTimes(tripId, data) {
+      if (!tripId || !data || !db) return false;
+      // Special moves have no GTFS trip to enrich from
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true')) return false;
+      if (data.actualTimesEnrichedAt && data.actualDepartTime && data.actualArriveTime) return false;
+      if (!tripHasEndedForEnrich(data) && tripIsInProgressLight(data)) return false;
+      // Allow enrich when ended OR when open detail of a trip past its arrive window
+      if (tripIsInProgressLight(data)) return false;
+      if (!tripHasEndedForEnrich(data)) {
+        // Also allow if end is missing but start was recent and not upcoming
+        const start = tripStartMs(data);
+        if (!start || Date.now() - start > TRIP_ENRICH_LOOKBACK_MS || tripIsUpcoming(data)) return false;
+      }
+      if (tripEnrichInFlight[tripId]) return false;
+      tripEnrichInFlight[tripId] = true;
+      try {
+        const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (!user) return false;
+        const patch = await tripBuildActualPatch(data);
+        if (!patch) return false;
+        // Only persist real actuals — never overwrite user-entered scheduled times
+        await db.collection('tripLogs').doc(tripId).set(patch, { merge: true });
+        const merged = Object.assign({}, data, patch);
+        tripLogDataById[tripId] = merged;
+        const rowEl = document.querySelector('.trip-log-row[data-trip-id="' + tripId + '"]');
+        if (rowEl) tripPaintCardActual(rowEl, merged);
+        if (tripDetailOpenId === tripId) tripPaintDetailActual(merged);
+        return true;
+      } catch (e) {
+        console.warn('[trip-enrich] actual times failed', e && e.message);
+        return false;
+      } finally {
+        delete tripEnrichInFlight[tripId];
+      }
+    }
+
+    function tripEnrichRecentCompletedTrips() {
+      const ids = Object.keys(tripLogDataById || {});
+      let n = 0;
+      ids.forEach(function(id) {
+        if (n >= 6) return;
+        const data = tripLogDataById[id];
+        if (!data) return;
+        if (data.actualTimesEnrichedAt && data.actualDepartTime) return;
+        if (!tripHasEndedForEnrich(data)) return;
+        n += 1;
+        tripTryEnrichActualTimes(id, data);
+      });
+    }
+
+    
+    /* Trip detail share png */
+    let tripHtmlToImageLoading = null;
+    /* Trip share header logo */
+    // Prefer the live header wordmark (.header-logo); fall back to /assets/logo.png.
+    function tripShareLogoSrc() {
+      try {
+        const headerLogo = document.querySelector('img.header-logo');
+        const src = headerLogo && (headerLogo.currentSrc || headerLogo.src);
+        if (src) return src;
+      } catch (_) {}
+      return '/assets/logo.png';
+    }
+
+    function tripShareSlugPart(s) {
+      return String(s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 28) || 'trip';
+    }
+
+    function tripShareFilename(data) {
+      const od = (typeof tripDetailOriginDest === 'function') ? tripDetailOriginDest(data || {}) : { origin: 'trip', dest: '' };
+      const train = String((data && data.trainNumber) || '').split('/')[0].trim().replace(/[^a-zA-Z0-9]+/g, '') || '';
+      const bits = ['railroadradar-trip'];
+      if (train) bits.push(train.slice(0, 12));
+      bits.push(tripShareSlugPart(od.origin));
+      bits.push(tripShareSlugPart(od.dest));
+      return bits.filter(Boolean).join('-').slice(0, 80) + '.png';
+    }
+
+    function tripEnsureHtmlToImage() {
+      if (window.htmlToImage && typeof window.htmlToImage.toPng === 'function') {
+        return Promise.resolve(window.htmlToImage);
+      }
+      if (tripHtmlToImageLoading) return tripHtmlToImageLoading;
+      tripHtmlToImageLoading = new Promise(function(resolve, reject) {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js';
+        s.async = true;
+        s.onload = function() {
+          if (window.htmlToImage && typeof window.htmlToImage.toPng === 'function') resolve(window.htmlToImage);
+          else reject(new Error('Share library failed to load'));
+        };
+        s.onerror = function() { reject(new Error('Could not load share library')); };
+        document.head.appendChild(s);
+      });
+      return tripHtmlToImageLoading;
+    }
+
+    function tripLoadImage(src) {
+      return new Promise(function(resolve, reject) {
+        const img = new Image();
+        const s = String(src || '');
+        if (s && !s.startsWith('data:') && !s.startsWith('blob:') && s.indexOf('railroadradar.com') < 0 && s.charAt(0) !== '/') {
+          img.crossOrigin = 'anonymous';
+        }
+        img.onload = function() { resolve(img); };
+        img.onerror = function() { reject(new Error('image load failed')); };
+        img.src = s;
+      });
+    }
+
+    function tripShowSaveLink(blob, filename) {
+      const name = filename || 'railroadradar-trip.png';
+      const url = URL.createObjectURL(blob);
+      let bar = document.getElementById('trip-detail-save-bar');
+      if (!bar) {
+        const overlay = document.getElementById('trip-detail-overlay');
+        bar = document.createElement('div');
+        bar.id = 'trip-detail-save-bar';
+        bar.style.cssText = 'position:absolute;left:12px;right:12px;bottom:12px;z-index:20;display:flex;gap:8px;justify-content:center;';
+        if (overlay) overlay.appendChild(bar);
+      }
+      bar.innerHTML = '';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.rel = 'noopener';
+      a.textContent = 'Save image';
+      a.style.cssText = 'background:#fff;color:#07093e;font-weight:800;font-size:14px;padding:12px 18px;text-decoration:none;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);';
+      bar.appendChild(a);
+      bar.hidden = false;
+      return url;
+    }
+    function tripDownloadPngBlob(blob, filename) {
+      const name = filename || 'railroadradar-trip.png';
+      const url = tripShowSaveLink(blob, name);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { try { a.remove(); } catch (_) {} }, 2000);
+      } catch (_) {}
+    }
+
+    async function tripSharePngBlob(blob, filename) {
+      const file = new File([blob], filename || 'railroadradar-trip.png', { type: 'image/png' });
+      try {
+        tripDownloadPngBlob(blob, filename);
+        if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'RailroadRadar trip',
+              text: 'My trip on RailroadRadar'
+            });
+            return 'shared';
+          } catch (e) {
+            if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return 'downloaded';
+          }
+        }
+      } catch (e) {
+        tripDownloadPngBlob(blob, filename);
+      }
+      return 'downloaded';
+    }
+
+    async function tripDetailCapturePngBlob() {
+      const overlay = document.getElementById('trip-detail-overlay');
+      const panel = overlay && overlay.querySelector('.trip-detail-panel');
+      if (!overlay || !panel) throw new Error('Trip detail not open');
+      const lib = await tripEnsureHtmlToImage();
+      overlay.classList.add('trip-detail-capturing');
+      try {
+        const domLogo = document.getElementById('trip-detail-share-logo');
+        const src = tripShareLogoSrc();
+        if (domLogo && src) domLogo.src = src;
+      } catch (_) {}
+      // Let logo paint + Leaflet settle
+      function rrRefitTripShot() {
+        if (!tripDetailMap) return;
+        try { tripDetailMap.invalidateSize(false); } catch (_) {}
+        try {
+          const b = tripDetailMap._rrTripBounds;
+          if (b && b.length >= 2) {
+            tripDetailMap.fitBounds(b, { padding: [32, 32], maxZoom: 11, animate: false });
+          }
+        } catch (_) {}
+      }
+      rrRefitTripShot();
+      await new Promise(function(r) { setTimeout(r, 180); });
+      rrRefitTripShot();
+      await new Promise(function(r) { setTimeout(r, 160); });
+      let dataUrl;
+      try {
+        // Prefer full overlay (map + panel). Same-origin /api/mapbox tiles avoid canvas taint.
+        dataUrl = await lib.toPng(overlay, {
+          pixelRatio: Math.min(2, window.devicePixelRatio || 2),
+          cacheBust: true,
+          skipFonts: false,
+          filter: function(node) {
+            if (!node || !node.classList) return true;
+            // Hide leaflet controls in export
+            if (node.classList.contains('leaflet-control-container')) return false;
+            return true;
+          }
+        });
+      } catch (err) {
+        // Fallback: panel only (no map) if tiles taint canvas
+        console.warn('[trip-share] full capture failed, trying panel', err);
+        dataUrl = await lib.toPng(panel, {
+          pixelRatio: Math.min(2, window.devicePixelRatio || 2),
+          cacheBust: true
+        });
+      } finally {
+        overlay.classList.remove('trip-detail-capturing');
+      }
+      // Draw logo bottom-right onto canvas (ensures logo even if DOM logo missed)
+      const img = await tripLoadImage(dataUrl);
+      const srcW = img.naturalWidth || img.width || 1;
+      const srcH = img.naturalHeight || img.height || 1;
+      const targetW = 1080;
+      const targetH = 1920; // 9:16
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#07093e';
+      ctx.fillRect(0, 0, targetW, targetH);
+      let dw, dh, dx, dy;
+      ctx.drawImage(img, 0, 0, srcW, srcH, 0, 0, targetW, targetH);
+      try {
+        const logoSrc = tripShareLogoSrc();
+        const logo = await tripLoadImage(logoSrc);
+        const natW = logo.naturalWidth || logo.width || 1;
+        const natH = logo.naturalHeight || logo.height || 1;
+        const aspect = natW / Math.max(1, natH);
+        let logoW = Math.round(targetW * 0.42);
+        let logoH = Math.round(logoW / aspect);
+        const maxH = Math.round(targetH * 0.08);
+        if (logoH > maxH) {
+          logoH = maxH;
+          logoW = Math.round(logoH * aspect);
+        }
+        const padX = Math.round(targetW * 0.045);
+        const padY = Math.round(targetH * 0.03);
+        ctx.drawImage(logo, targetW - logoW - padX, targetH - logoH - padY, logoW, logoH);
+      } catch (logoErr) {
+        console.warn('[trip-share] logo overlay skipped', logoErr);
+      }
+      return await new Promise(function(resolve, reject) {
+        canvas.toBlob(function(blob) {
+          if (blob) resolve(blob);
+          else reject(new Error('Could not create PNG'));
+        }, 'image/png');
+      });
+    }
+
+    async function tripDetailSharePng() {
+      const btn = document.getElementById('trip-detail-share');
+      const data = tripDetailOpenId ? tripLogDataById[tripDetailOpenId] : null;
+      if (btn) btn.disabled = true;
+      try {
+        const blob = await tripDetailCapturePngBlob();
+        const filename = tripShareFilename(data || {});
+        await tripSharePngBlob(blob, filename);
+      } catch (e) {
+        console.warn('[trip-share] failed', e);
+        try {
+          alert('Could not create trip image. Try again.');
+        } catch (_) {}
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+function closeTripDetailView(opts) {
+      const fromPop = opts && opts.fromPopstate;
+      const overlay = document.getElementById('trip-detail-overlay');
+      if (!overlay || overlay.getAttribute('aria-hidden') === 'true') {
+        if (fromPop) tripDetailHistoryOpen = false;
+        return;
+      }
+      try { stopTripDetailRelativeTimer(); } catch (_) {}
+      try { stopTripLiveTracking(); } catch (_) {}
+      destroyTripDetailMap();
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.hidden = true;
+      tripClearRailAccentVars(overlay);
+      try { overlay.removeAttribute('data-seg-count'); } catch (_) {}
+      const panel = overlay.querySelector('.trip-detail-panel');
+      tripClearRailAccentVars(panel);
+      tripDetailOpenId = null;
+      try {
+        document.documentElement.classList.remove('rr-trip-detail-open');
+        document.documentElement.style.removeProperty('--rr-trip-rail');
+        document.documentElement.style.removeProperty('--rr-trip-rail-2');
+        document.documentElement.removeAttribute('data-rail-dual');
+      } catch (_) {}
+      const focusEl = tripDetailFocusEl;
+      tripDetailFocusEl = null;
+      if (focusEl && typeof focusEl.focus === 'function') {
+        try { focusEl.focus({ preventScroll: false }); } catch (_) {
+          try { focusEl.focus(); } catch (__) {}
+        }
+      }
+      // Sync browser/PWA back stack (Escape / programmatic close)
+      if (!fromPop && tripDetailHistoryOpen) {
+        tripDetailHistoryOpen = false;
+        try { history.back(); } catch (_) {}
+      } else if (fromPop) {
+        tripDetailHistoryOpen = false;
+      }
+    }
+
+    function openTripDetailView(tripId, data, fromEl) {
+      if (!data) data = tripLogDataById[tripId];
+      if (!data) return;
+      const overlay = document.getElementById('trip-detail-overlay');
+      const mapEl = document.getElementById('trip-detail-map');
+      if (!overlay || !mapEl) return;
+      tripDetailFocusEl = fromEl || document.activeElement;
+      tripDetailOpenId = tripId || null;
+      fillTripDetailPanel(data);
+      overlay.hidden = false;
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+      try { document.documentElement.classList.add('rr-trip-detail-open'); } catch (_) {}
+
+      // Phone/browser back gesture closes detail (no visible Back button)
+      try {
+        if (!tripDetailHistoryOpen) {
+          history.pushState({ rrTripDetail: 1, tripId: tripId || null }, '');
+          tripDetailHistoryOpen = true;
+        } else {
+          history.replaceState({ rrTripDetail: 1, tripId: tripId || null }, '');
+        }
+      } catch (_) {}
+
+      const routeEl = document.getElementById('trip-detail-route');
+      if (routeEl) {
+        try { routeEl.focus({ preventScroll: true }); } catch (_) {
+          try { routeEl.focus(); } catch (__) {}
+        }
+      }
+
+      rrEnsureTripGeomsShapes(data).then(function() {
+        if (tripDetailOpenId !== tripId) return;
+        paintTripDetailMap(mapEl, data);
+        try { startTripLiveTracking(tripId, data); } catch (_) {}
+      }).catch(function() {
+        if (tripDetailOpenId !== tripId) return;
+        paintTripDetailMap(mapEl, data);
+        try { startTripLiveTracking(tripId, data); } catch (_) {}
+      });
+    }
+
+    // Console self-check: CT rail NHV→HFD polyline miles should exceed great-circle;
+    // also logs stop-chain (CT + Metra BNSF) when shapes are unavailable.
+    // Usage: rrTripMilesSelfCheck()
+    window.rrTripMilesSelfCheck = function() {
+      const gc = estimateTripMilesHaversine('ctrail', 'NHV', 'HFD');
+      const stopCt = estimateTripMilesAlongStopChain('ctrail', 'HART', 'NHV', 'HFD');
+      const gcMetra = estimateTripMilesHaversine('metra', 'CUS', 'NAPERVILLE');
+      const stopMetra = estimateTripMilesAlongStopChain('metra', 'BNSF', 'CUS', 'NAPERVILLE');
+      return ensureTripShapesForMiles('ctrail', 'HART').then(function() {
+        const along = estimateTripMiles('ctrail', 'NHV', 'HFD', 'HART');
+        const ok = along != null && gc != null && along > gc;
+        console.log('[TripMiles self-check] NHV→HFD great-circle=', gc, 'polyline=', along, 'stop-chain=', stopCt, ok ? 'OK' : 'CHECK');
+        console.log('[TripMiles self-check] Metra CUS→NAPERVILLE gc=', gcMetra, 'stop-chain=', stopMetra);
+        return { greatCircle: gc, polyline: along, stopChain: stopCt, metraGc: gcMetra, metraStopChain: stopMetra, ok: ok };
+      });
+    };
+
+    function lineNameFor(railroad, lineId) {
+      const lines = getTripLogLines(railroad);
+      for (let i = 0; i < lines.length; i++) {
+        if (String(lines[i].id) === String(lineId)) return lines[i].name;
+      }
+      return String(lineId || '');
+    }
+
+    function escapeTripOpt(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+    }
+
+    function defaultTripStartLocalValue() {
+      const d = new Date();
+      d.setSeconds(0, 0);
+      const pad = function(n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    /* Trip datetime save fix */
+    // datetime-local wants "YYYY-MM-DDTHH:mm" in the user's local zone.
+    // Never feed Date.parse / new Date('YYYY-MM-DD') (UTC midnight → day shift in US).
+    function isoToLocalInput(isoOrVal) {
+      if (isoOrVal == null || isoOrVal === '') return '';
+      const s = String(isoOrVal).trim();
+      // Already a local datetime-local value (optionally with seconds)
+      const localMatch = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+      if (localMatch && s.indexOf('Z') < 0 && !/[+-]\d{2}:\d{2}$/.test(s)) {
+        return localMatch[1];
+      }
+      const d = typeof isoOrVal === 'number' ? new Date(isoOrVal) : new Date(s);
+      if (isNaN(d.getTime())) return '';
+      const pad = function(n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    function localInputToIso(val) {
+      if (!val) return null;
+      const s = String(val).trim();
+      // Parse datetime-local as LOCAL components (avoids Safari/UTC quirks)
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/);
+      if (m) {
+        const d = new Date(
+          Number(m[1]),
+          Number(m[2]) - 1,
+          Number(m[3]),
+          Number(m[4]),
+          Number(m[5]),
+          Number(m[6] || 0),
+          0
+        );
+        if (isNaN(d.getTime())) return null;
+        return d.toISOString();
+      }
+      // Already an absolute ISO / offset string
+      const d2 = new Date(s);
+      if (isNaN(d2.getTime())) return null;
+      return d2.toISOString();
+    }
+
+    function ensureTripSegmentsState() {
+      if (!tripLogSegmentsState.length) {
+        tripLogSegmentsState = [emptyTripSegment({ railroad: 'mbta' })];
+      } else {
+        tripLogSegmentsState = tripLogSegmentsState.map(function(seg) {
+          return emptyTripSegment(seg);
+        });
+      }
+    }
+
+    function syncTripSegmentStateFromDom() {
+      const root = document.getElementById('trip-log-segments');
+      if (!root) return;
+      const next = [];
+      root.querySelectorAll('.trip-segment').forEach(function(card, i) {
+        const prev = tripLogSegmentsState[i] || {};
+        const trainInput = card.querySelector('[data-seg-field="train"]');
+        const trainPick = card.querySelector('[data-seg-field="trainPick"]');
+        let trainNumber = String((trainInput && trainInput.value) || '').trim();
+        if (!trainNumber && trainPick && trainPick.value) trainNumber = String(trainPick.value).trim();
+        next.push(emptyTripSegment({
+          railroad: (card.querySelector('[data-seg-field="railroad"]') || {}).value || 'mbta',
+          lineId: (card.querySelector('[data-seg-field="line"]') || {}).value || '',
+          originId: (card.querySelector('[data-seg-field="origin"]') || {}).value || '',
+          destId: (card.querySelector('[data-seg-field="dest"]') || {}).value || '',
+          trainNumber: trainNumber,
+          departTime: (card.querySelector('[data-seg-field="depart"]') || {}).value || '',
+          arriveTime: (card.querySelector('[data-seg-field="arrive"]') || {}).value || '',
+          vehicleId: prev.vehicleId || '',
+          trainExtraMode: !!prev.trainExtraMode,
+          scheduleStops: prev.scheduleStops || null,
+          useFullStationList: !!prev.useFullStationList,
+          scheduleRowName: prev.scheduleRowName || '',
+          scheduleRowDest: prev.scheduleRowDest || ''
+        }));
+      });
+      if (next.length) tripLogSegmentsState = next;
+    }
+
+
+    /* Trip schedule train pick */
+    const TRIP_SCHEDULE_AGENCIES = { amtrak: 1, mnr: 1, lirr: 1, njt: 1, ctrail: 1, mbta: 1 };
+
+    function tripServiceDateToday() {
+      try {
+        return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      } catch (_) {
+        const d = new Date();
+        const pad = function(n) { return String(n).padStart(2, '0'); };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      }
+    }
+
+    function tripNormalizeAgency(agency) {
+      const a = String(agency || '').toLowerCase().trim();
+      if (a === 'metro-north' || a === 'metronorth' || a === 'metro_north') return 'mnr';
+      if (a === 'long island' || a === 'long-island') return 'lirr';
+      if (a === 'nj transit' || a === 'njtransit' || a === 'nj-transit' || a === 'njt rail') return 'njt';
+      if (a === 'marc train' || a === 'marc trains' || a === 'maryland transit' || a === 'mta maryland') return 'marc';
+      return a;
+    }
+
+    function tripHasSchedulePicker(railroad) {
+      return !!TRIP_SCHEDULE_AGENCIES[tripNormalizeAgency(railroad)];
+    }
+
+    function tripScheduleApiBase() {
+      return String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev').replace(/\/+$/, '');
+    }
+
+
+    function tripNormLabel(s) {
+      return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    async function tripFetchScheduleTrains(agency, serviceDate) {
+      const a = tripNormalizeAgency(agency);
+      const sd = String(serviceDate || '').trim() || tripServiceDateToday();
+      const key = a + '|' + sd;
+      if (tripScheduleCache[key]) return tripScheduleCache[key];
+      const url = tripScheduleApiBase() + '/api/schedules?agency=' + encodeURIComponent(a) + '&date=' + encodeURIComponent(sd);
+      const res = await fetch(url);
+      if (!res.ok) {
+        let detail = '';
+        try {
+          const j = await res.json();
+          detail = (j && (j.detail || j.error)) ? String(j.detail || j.error) : '';
+        } catch (_) {}
+        throw new Error(detail || ('HTTP ' + res.status));
+      }
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data.filter(function(r) { return r && r.trainNumber; }) : [];
+      tripScheduleCache[key] = rows;
+      return rows;
+    }
+
+    function tripServiceDateFromDepartLocal(departLocal) {
+      const s = isoToLocalInput(departLocal) || String(departLocal || '').trim();
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : tripServiceDateToday();
+    }
+
+    function tripMatchLineId(railroad, routeName) {
+      const want = tripNormLabel(routeName);
+      if (!want) return '';
+      const lines = getTripLogLines(railroad);
+      let hit = lines.find(function(l) { return tripNormLabel(l.name) === want || tripNormLabel(l.id) === want; });
+      if (hit) return hit.id;
+      hit = lines.find(function(l) {
+        const n = tripNormLabel(l.name);
+        return n && (n.indexOf(want) >= 0 || want.indexOf(n) >= 0);
+      });
+      return hit ? hit.id : '';
+    }
+
+    function tripMatchStationId(stations, nameOrCode) {
+      const raw = String(nameOrCode || '').trim();
+      if (!raw) return '';
+      const want = tripNormLabel(raw);
+      const wantCode = raw.toUpperCase();
+      let hit = (stations || []).find(function(s) {
+        return String(s.id).toUpperCase() === wantCode || tripNormLabel(s.id) === want;
+      });
+      if (hit) return hit.id;
+      hit = (stations || []).find(function(s) { return tripNormLabel(s.name) === want; });
+      if (hit) return hit.id;
+      hit = (stations || []).find(function(s) {
+        const n = tripNormLabel(s.name);
+        return n && (n.indexOf(want) >= 0 || want.indexOf(n) >= 0);
+      });
+      return hit ? hit.id : '';
+    }
+
+    /* Trip schedule stations */
+    function tripNormalizeStopList(rawList, railroad) {
+      const rr = tripNormalizeAgency(railroad);
+      const out = [];
+      const seen = {};
+      (rawList || []).forEach(function(s) {
+        if (!s) return;
+        let id = String(s.id || s.code || s.stationCode || s.stopId || s.stop_id || '').trim();
+        let name = String(s.name || s.stopName || s.stationName || s.code || s.stationCode || id).trim();
+        if (!id && name) {
+          // Try resolve against known stations by name
+          const all = getTripLogStations(rr);
+          id = tripMatchStationId(all, name) || tripMatchStationId(all, s.code || s.stationCode);
+        }
+        if (!id) return;
+        // MBTA schedule APIs return child/platform stop ids; map to parent place-* + name
+        if (rr === 'mbta') {
+          const parentFromApi = String(s.parent_station || s.parentStation || s.parent || '').trim();
+          if (parentFromApi) id = parentFromApi;
+          else id = tripMbtaCanonicalStationId(id) || id;
+        }
+        if (seen[id]) return;
+        seen[id] = true;
+        // Prefer canonical name from trip station table when available
+        try {
+          const found = findTripStation(rr, id);
+          if (found) {
+            if (found.id) id = String(found.id);
+            if (found.name) name = found.name;
+          }
+        } catch (_) {}
+        // Name still looks like a raw stop id — try match by name against catalog
+        if (rr === 'mbta' && (name === id || /^[A-Z0-9]+-[A-Z0-9-]+$/i.test(name))) {
+          try {
+            const all = getTripLogStations(rr);
+            const mid = tripMatchStationId(all, name);
+            if (mid) {
+              id = mid;
+              const found2 = findTripStation(rr, id);
+              if (found2 && found2.name) name = found2.name;
+            }
+          } catch (_) {}
+        }
+        out.push({
+          id: id,
+          name: name || id,
+          arrival: s.arrival || s.arrivalTime || s.arr || s.schArr || s.arrive || null,
+          departure: s.departure || s.departureTime || s.dep || s.schDep || s.depart || null
+        });
+      });
+      return out;
+    }
+
+
+    function tripApplyStopTimesToSegment(seg) {
+      if (!seg || !Array.isArray(seg.scheduleStops) || !seg.scheduleStops.length) return false;
+      function matchStop(id) {
+        const want = String(id || '');
+        if (!want) return null;
+        const wantCore = want.replace(/^place-/, '');
+        return seg.scheduleStops.find(function(s) {
+          const sid = String(s.id || '');
+          return sid === want || sid.replace(/^place-/, '') === wantCore;
+        }) || null;
+      }
+      const o = matchStop(seg.originId);
+      const d = matchStop(seg.destId);
+      let changed = false;
+      if (o) {
+        const local = isoToLocalInput(o.departure || o.arrival || '');
+        if (local && local !== seg.departTime) { seg.departTime = local; changed = true; }
+      }
+      if (d) {
+        const local = isoToLocalInput(d.arrival || d.departure || '');
+        if (local && local !== seg.arriveTime) { seg.arriveTime = local; changed = true; }
+      }
+      return changed;
+    }
+    function tripTrainNumMatch(hay, num) {
+      const n = String(num || '').trim();
+      const h = String(hay || '');
+      if (!n || !h) return false;
+      if (h === n) return true;
+      if (h.length >= n.length && h.slice(-n.length) === n) {
+        const prev = h.charAt(h.length - n.length - 1);
+        if (!prev || ' -_#/'.indexOf(prev) >= 0) return true;
+      }
+      return h.indexOf(n) >= 0;
+    }
+    async function tripEnrichMbtaStopTimes(seg) {
+      const lineId = String(seg.lineId || '');
+      const num = String(seg.trainNumber || '').trim();
+      if (!lineId || !num) return false;
+      const sd = tripServiceDateFromDepartLocal(seg.departTime) || tripServiceDateToday();
+      const url = tripScheduleApiBase() + '/api/mbta/schedules?filter[route]=' + encodeURIComponent(lineId) +
+        '&filter[date]=' + encodeURIComponent(sd) + '&include=trip,stop';
+      const res = await fetch(url);
+      if (!res.ok) return false;
+      const json = await res.json();
+      const trips = {};
+      const stopsMeta = {};
+      (json.included || []).forEach(function(inc) {
+        if (!inc) return;
+        if (inc.type === 'trip') trips[inc.id] = inc.attributes || {};
+        if (inc.type === 'stop') {
+          const sa = inc.attributes || {};
+          stopsMeta[inc.id] = {
+            name: sa.name || '',
+            parent: sa.parent_station || null
+          };
+        }
+      });
+      const byTrip = {};
+      (json.data || []).forEach(function(row) {
+        const rel = row.relationships || {};
+        const tid = rel.trip && rel.trip.data && rel.trip.data.id;
+        const sid = rel.stop && rel.stop.data && rel.stop.data.id;
+        if (!tid || !sid) return;
+        const a = row.attributes || {};
+        const meta = stopsMeta[sid] || {};
+        const parentId = meta.parent || tripMbtaCanonicalStationId(sid) || sid;
+        if (!byTrip[tid]) byTrip[tid] = [];
+        byTrip[tid].push({
+          id: parentId,
+          name: meta.name || parentId,
+          parent_station: meta.parent || null,
+          arrival: a.arrival_time || null,
+          departure: a.departure_time || null,
+          seq: Number(a.stop_sequence) || 0
+        });
+      });
+      let picked = null;
+      Object.keys(byTrip).forEach(function(tid) {
+        if (picked) return;
+        const attrs = trips[tid] || {};
+        if (tripTrainNumMatch(tid, num) || tripTrainNumMatch(attrs.name, num) || tripTrainNumMatch(attrs.headsign, num)) {
+          picked = byTrip[tid];
+        }
+      });
+      if (!picked) return false;
+      picked.sort(function(a, b) { return a.seq - b.seq; });
+      seg.scheduleStops = tripNormalizeStopList(picked, seg.railroad);
+      return tripApplyStopTimesToSegment(seg);
+    }
+    async function tripEnrichAmtrakStopTimes(seg) {
+      const num = String(seg.trainNumber || '').trim();
+      if (!num || typeof amtrakAllTrains === 'undefined' || !Array.isArray(amtrakAllTrains)) return false;
+      const train = amtrakAllTrains.find(function(tr) {
+        return tripTrainNumMatch(tr.number || tr.trainNum || tr.trainNumber || '', num);
+      });
+      if (!train || !Array.isArray(train.stations) || !train.stations.length) return false;
+      const stops = train.stations.map(function(s) {
+        return {
+          id: s.code || s.stationCode || s.id || '',
+          name: s.name || s.stationName || s.code || '',
+          arrival: s.schArr || s.arr || s.arrival || null,
+          departure: s.schDep || s.dep || s.departure || null
+        };
+      });
+      seg.scheduleStops = tripNormalizeStopList(stops, 'amtrak');
+      return tripApplyStopTimesToSegment(seg);
+    }
+    async function tripEnrichSegmentSchedule(seg) {
+      if (!seg) return false;
+      if (tripApplyStopTimesToSegment(seg)) return true;
+      const rr = tripNormalizeAgency(seg.railroad);
+      try {
+        if (rr === 'mbta') return await tripEnrichMbtaStopTimes(seg);
+        if (rr === 'amtrak') return await tripEnrichAmtrakStopTimes(seg);
+      } catch (e) {
+        console.warn('[trip-log] schedule times enrich failed', e);
+      }
+      return false;
+    }
+    function tripStationsForSegment(seg) {
+      const rr = String(seg.railroad || '').toLowerCase();
+      const lineId = String(seg.lineId || '');
+      const sched = Array.isArray(seg.scheduleStops) ? seg.scheduleStops : null;
+      if (sched && sched.length && !seg.useFullStationList) {
+        return sched.slice();
+      }
+      return lineId ? getTripLogStationsForLine(rr, lineId) : [];
+    }
+
+    function tripDestStationsForSegment(seg, originId) {
+      const stations = tripStationsForSegment(seg);
+      if (!originId || !Array.isArray(seg.scheduleStops) || !seg.scheduleStops.length || seg.useFullStationList) {
+        return stations;
+      }
+      const idx = stations.findIndex(function(s) { return String(s.id) === String(originId); });
+      if (idx < 0) return stations;
+      const downstream = stations.slice(idx + 1);
+      return downstream.length ? downstream : stations.filter(function(s) { return String(s.id) !== String(originId); });
+    }
+
+    function tripStationAllowed(seg, stationId) {
+      const sid = String(stationId || '');
+      if (!sid) return false;
+      if (stationOnLine(seg.railroad, seg.lineId, sid)) return true;
+      if (Array.isArray(seg.scheduleStops) && seg.scheduleStops.some(function(s) { return String(s.id) === sid; })) return true;
+      return false;
+    }
+
+    function emptyTripSegment(partial) {
+      return Object.assign({
+        railroad: 'mbta',
+        lineId: '',
+        originId: '',
+        destId: '',
+        trainNumber: '',
+        vehicleId: '',
+        departTime: defaultTripStartLocalValue(),
+        arriveTime: defaultTripStartLocalValue(),
+        trainExtraMode: false,
+        scheduleStops: null,
+        useFullStationList: false,
+        scheduleRowName: '',
+        scheduleRowDest: ''
+      }, partial || {});
+    }
+
+    function applyScheduleRowToSegment(seg, row) {
+      if (!seg || !row) return;
+      const num = String(row.trainNumber || '').trim();
+      if (num) seg.trainNumber = num;
+      seg.scheduleRowName = String(row.name || '').trim();
+      seg.scheduleRowDest = String(row.dest || '').trim();
+      seg.trainExtraMode = false;
+      // Line / route from schedule name when present
+      if (seg.scheduleRowName) {
+        const lid = tripMatchLineId(seg.railroad, seg.scheduleRowName);
+        if (lid) seg.lineId = lid;
+      }
+      // Ordered stops when payload includes them (future-proof)
+      const stopRaw = row.stops || row.stations || row.stopList || row.tripStops || null;
+      if (Array.isArray(stopRaw) && stopRaw.length) {
+        seg.scheduleStops = tripNormalizeStopList(stopRaw, seg.railroad);
+        seg.useFullStationList = false;
+      }
+      const stations = tripStationsForSegment(seg);
+      if (seg.scheduleRowDest) {
+        const did = tripMatchStationId(stations, seg.scheduleRowDest);
+        if (did) seg.destId = did;
+      }
+      if (row.origin || row.orig || row.from) {
+        const oid = tripMatchStationId(stations, row.origin || row.orig || row.from);
+        if (oid) seg.originId = oid;
+      } else if (seg.scheduleStops && seg.scheduleStops.length && !seg.originId) {
+        seg.originId = seg.scheduleStops[0].id;
+      }
+      // Times: schedule list has none today — keep user's date; set depart to that date @ now if empty
+      if (!seg.departTime) seg.departTime = defaultTripStartLocalValue();
+      const depTime = row.depart || row.departure || row.depTime || row.scheduledDeparture || row.departTime;
+      const arrTime = row.arrive || row.arrival || row.arrTime || row.scheduledArrival || row.arriveTime;
+      if (depTime) {
+        const local = isoToLocalInput(depTime);
+        if (local) seg.departTime = local;
+      }
+      if (arrTime) {
+        const local = isoToLocalInput(arrTime);
+        if (local) seg.arriveTime = local;
+      }
+      if (seg.originId && seg.destId && seg.originId === seg.destId) seg.destId = '';
+    }
+
+    async function refreshTripSegmentTrainSelect(idx, preferNumber) {
+      const root = document.getElementById('trip-log-segments');
+      if (!root) return;
+      const card = root.querySelector('.trip-segment[data-seg-index="' + idx + '"]');
+      if (!card) return;
+      const sel = card.querySelector('[data-seg-field="trainPick"]');
+      if (!sel) return;
+      const seg = tripLogSegmentsState[idx];
+      if (!seg || !tripHasSchedulePicker(seg.railroad) || seg.trainExtraMode) {
+        return;
+      }
+      if (!seg.lineId) {
+        sel.disabled = false;
+        sel.innerHTML = '<option value="">Select a line first…</option>';
+        return;
+      }
+      const agency = tripNormalizeAgency(seg.railroad);
+      const serviceDate = tripServiceDateFromDepartLocal(seg.departTime);
+      const token = (tripScheduleFetchTokens[idx] = (tripScheduleFetchTokens[idx] || 0) + 1);
+      const myToken = token;
+      sel.disabled = true;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Loading trains…</option>';
+      try {
+        const allRows = await tripFetchScheduleTrains(agency, serviceDate);
+        if (myToken !== tripScheduleFetchTokens[idx]) return;
+        const lineId = String(seg.lineId || '');
+        const rows = (allRows || []).filter(function(r) {
+          const rid = String(r.lineId || r.routeId || r.route || r.line || '').trim();
+          if (rid && rid === lineId) return true;
+          const matched = tripMatchLineId(seg.railroad, r.name || r.routeName || r.lineName || '');
+          return matched && String(matched) === lineId;
+        });
+        let html = '<option value="">Select a train…</option>';
+        rows.forEach(function(r) {
+          const num = String(r.trainNumber).trim();
+          const dest = String(r.dest || '').trim();
+          const label = dest ? (num + ' · to ' + dest) : num;
+          html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label.replace(/</g, '&lt;').replace(/"/g, '&quot;') + '</option>';
+        });
+        if (!rows.length) html = '<option value="">No scheduled trains on this line</option>';
+        sel.innerHTML = html;
+        const prefer = String(preferNumber != null ? preferNumber : (seg.trainNumber || prev || '')).trim();
+        if (prefer) {
+          const opts = Array.prototype.slice.call(sel.options || []);
+          const hit = opts.find(function(o) { return o.value === prefer; });
+          if (hit) sel.value = prefer;
+        }
+      } catch (e) {
+        if (myToken !== tripScheduleFetchTokens[idx]) return;
+        console.warn('[trip-log] schedule fetch failed', e);
+        sel.innerHTML = '<option value="">Could not load schedule — use Extra</option>';
+      } finally {
+        if (myToken === tripScheduleFetchTokens[idx]) sel.disabled = !!seg.trainExtraMode;
+      }
+    }
+
+    function refreshAllTripScheduleSelects() {
+      ensureTripSegmentsState();
+      tripLogSegmentsState.forEach(function(seg, idx) {
+        if (tripHasSchedulePicker(seg.railroad) && !seg.trainExtraMode) {
+          refreshTripSegmentTrainSelect(idx, seg.trainNumber);
+        }
+      });
+    }
+
+
+    function renderTripSegmentsForm() {
+      const root = document.getElementById('trip-log-segments');
+      if (!root) return;
+      ensureTripSegmentsState();
+      root.innerHTML = tripLogSegmentsState.map(function(seg, idx) {
+        const lines = getTripLogLines(seg.railroad);
+        let lineId = seg.lineId;
+        if (lineId && !lines.some(function(l) { return String(l.id) === String(lineId); })) lineId = '';
+        if (!lineId && lines.length === 1) lineId = lines[0].id;
+        const useSchedStops = Array.isArray(seg.scheduleStops) && seg.scheduleStops.length && !seg.useFullStationList;
+        let stations = tripStationsForSegment(Object.assign({}, seg, { lineId: lineId }));
+        let originId = seg.originId, destId = seg.destId;
+        if (originId && !stations.some(function(s) { return String(s.id) === String(originId); })) originId = '';
+        const destStations = tripDestStationsForSegment(Object.assign({}, seg, { lineId: lineId, originId: originId }), originId);
+        if (destId && !destStations.some(function(s) { return String(s.id) === String(destId); }) &&
+            !stations.some(function(s) { return String(s.id) === String(destId); })) destId = '';
+        if (originId && destId && originId === destId) destId = '';
+        tripLogSegmentsState[idx].lineId = lineId;
+        tripLogSegmentsState[idx].originId = originId;
+        tripLogSegmentsState[idx].destId = destId;
+
+        const railOpts = TRIP_LOG_RAIL_OPTIONS.map(function(r) {
+          return '<option value="' + r.id + '"' + (r.id === seg.railroad ? ' selected' : '') + '>' + escapeTripOpt(r.name) + '</option>';
+        }).join('');
+        const linePlaceholder = lines.length
+          ? '<option value="">Select line…</option>'
+          : '<option value="">No lines available</option>';
+        const lineOpts = linePlaceholder + lines.map(function(l) {
+          return '<option value="' + escapeTripOpt(l.id) + '"' + (String(l.id) === String(lineId) ? ' selected' : '') + '>' + escapeTripOpt(l.name) + '</option>';
+        }).join('');
+        const specialMode = (typeof rrSpecialIsFormOn === 'function') ? rrSpecialIsFormOn() : false;
+        const hasPicker = !specialMode && tripHasSchedulePicker(seg.railroad);
+        const stPlaceholder = !lineId && !useSchedStops
+          ? '<option value="">Select line first…</option>'
+          : (stations.length
+            ? '<option value="">Select station…</option>'
+            : '<option value="">No stations — try Extra / Other or open the map for this railroad</option>');
+        function stOpts(selected, list, includeOther) {
+          const base = stPlaceholder + (list || []).map(function(s) {
+            return '<option value="' + escapeTripOpt(s.id) + '"' + (String(s.id) === String(selected) ? ' selected' : '') + '>' + escapeTripOpt(s.name) + '</option>';
+          }).join('');
+          if (includeOther && useSchedStops) {
+            return base + '<option value="__other__">Other / not listed…</option>';
+          }
+          return base;
+        }
+        const removeBtn = idx === 0 ? '' :
+          '<button type="button" class="trip-segment-remove" data-seg-remove="' + idx + '">Remove segment</button>';
+        const segRailColor = tripRailColor(seg.railroad);
+        let trainPickHtml = '';
+        if (hasPicker) {
+          const extraActive = seg.trainExtraMode ? ' active' : '';
+          const pickDisabled = seg.trainExtraMode ? ' disabled' : '';
+          trainPickHtml =
+            '<div class="trip-seg-train-pick-row">' +
+              '<div><label>Train number</label>' +
+              '<select data-seg-field="trainPick"' + pickDisabled + '>' +
+                '<option value="">' + (seg.trainExtraMode ? 'Using Extra / free text' : (lineId ? 'Select a train…' : 'Select a line first…')) + '</option>' +
+                (seg.trainNumber && !seg.trainExtraMode
+                  ? '<option value="' + escapeTripOpt(seg.trainNumber) + '" selected>' + escapeTripOpt(seg.trainNumber) + '</option>'
+                  : '') +
+              '</select></div>' +
+              '<button type="button" class="trip-seg-extra-btn' + extraActive + '" data-seg-extra="' + idx + '">' +
+                (seg.trainExtraMode ? 'Using Extra' : 'Extra / not listed') +
+              '</button>' +
+            '</div>' +
+            '<p class="trip-seg-train-hint">Choosing a train fills the number and times.</p>';
+        }
+        const trainLabel = specialMode ? 'Train number (optional)' : 'Train number';
+        const trainPh = specialMode ? 'Optional if map title is set' : 'e.g. 2150';
+        const specialCls = specialMode ? ' trip-seg-special-mode' : '';
+        return (
+          '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + String(seg.railroad || '').toLowerCase() + '" style="--rr-trip-rail:' + segRailColor + '">' +
+            '<div class="trip-segment-head">' +
+              '<div class="trip-segment-title">' + (tripLogSegmentsState.length > 1 ? ('Train ' + (idx + 1)) : 'Trip') + '</div>' +
+              removeBtn +
+            '</div>' +
+            '<div class="trip-seg-grid">' +
+              '<div><label>Railroad</label><select data-seg-field="railroad">' + railOpts + '</select></div>' +
+              (specialMode ? '' : '<div><label>Line</label><select data-seg-field="line">' + lineOpts + '</select></div>') +
+            '</div>' +
+            (specialMode
+              ? '<details class="trip-route-optional"><summary>Stations and times (optional)</summary>' +
+                  '<label>Line</label><select data-seg-field="line">' + lineOpts + '</select>' +
+                  trainPickHtml +
+                  '<div class="trip-seg-grid">' +
+                    '<div><label>From</label><select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select></div>' +
+                    '<div><label>To</label><select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select></div>' +
+                  '</div>'
+              : trainPickHtml +
+                '<div class="trip-seg-grid">' +
+                  '<div><label>From</label><select data-seg-field="origin">' + stOpts(originId, stations, true) + '</select></div>' +
+                  '<div><label>To</label><select data-seg-field="dest">' + stOpts(destId, destStations.length ? destStations : stations, true) + '</select></div>' +
+                '</div>') +
+            '<div class="trip-train-text"' + ((hasPicker && !seg.trainExtraMode) ? ' hidden' : '') + '>' +
+              '<label>' + trainLabel + '</label>' +
+              '<input type="text" data-seg-field="train" maxlength="32" placeholder="' + trainPh + '" autocomplete="off" value="' + escapeTripOpt(seg.trainNumber || '') + '">' +
+            '</div>' +
+            '' +
+            (specialMode ? '' : '') + '<div class="trip-segment-times">' +
+              '<div><label>Depart</label>' +
+              '<input type="datetime-local" data-seg-field="depart" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.departTime) || '') + '"></div>' +
+              '<div><label>Arrive</label>' +
+              '<input type="datetime-local" data-seg-field="arrive" step="60" value="' + escapeTripOpt(isoToLocalInput(seg.arriveTime) || '') + '"></div>' +
+            '</div>' + (specialMode ? '</details>' : '') +
+          '</div>'
+        );
+      }).join('');
+      updateTripMilesPreview();
+      try { updateTripAddSegmentButton(); } catch (_) {}
+      // Populate schedule dropdowns without a second full re-render
+      setTimeout(function() { refreshAllTripScheduleSelects(); }, 0);
+    }
+
+    function onTripSegmentFieldChange(e) {
+      const t = e.target;
+      if (!t || !t.getAttribute) return;
+      const field = t.getAttribute('data-seg-field');
+      if (!field) return;
+      const card = t.closest('.trip-segment');
+      if (!card) return;
+      const idx = Number(card.getAttribute('data-seg-index'));
+      if (!isFinite(idx) || idx < 0 || idx >= tripLogSegmentsState.length) return;
+      syncTripSegmentStateFromDom();
+      try { tripSaveDraft(); } catch (_) {}
+      // datetime-local / text: sync only — never rebuild the form (iOS native picker
+      // is destroyed by innerHTML re-render and the picked value is lost).
+      if (field === 'depart' || field === 'arrive' || field === 'train') {
+        const seg = tripLogSegmentsState[idx];
+        if (field === 'depart') seg.departTime = isoToLocalInput(seg.departTime) || seg.departTime || '';
+        if (field === 'arrive') seg.arriveTime = isoToLocalInput(seg.arriveTime) || seg.arriveTime || '';
+        if (t && (field === 'depart' || field === 'arrive') && seg[field === 'depart' ? 'departTime' : 'arriveTime']) {
+          const norm = field === 'depart' ? seg.departTime : seg.arriveTime;
+          if (t.value !== norm) t.value = norm;
+        }
+        // Depart date drives schedule list — refresh picker in place (no form rebuild)
+        if (field === 'depart' && tripHasSchedulePicker(seg.railroad) && !seg.trainExtraMode) {
+          refreshTripSegmentTrainSelect(idx, seg.trainNumber);
+        }
+        return;
+      }
+      if (field === 'trainPick') {
+        const seg = tripLogSegmentsState[idx];
+        const num = String(t.value || '').trim();
+        if (!num) return;
+        const agency = tripNormalizeAgency(seg.railroad);
+        const sd = tripServiceDateFromDepartLocal(seg.departTime);
+        const key = agency + '|' + sd;
+        const rows = tripScheduleCache[key] || [];
+        const row = rows.find(function(r) { return String(r.trainNumber).trim() === num; });
+        if (row) applyScheduleRowToSegment(seg, row);
+        else {
+          seg.trainNumber = num;
+          seg.trainExtraMode = false;
+        }
+        tripEnrichSegmentSchedule(seg).then(function() {
+          renderTripSegmentsForm();
+        });
+        return;
+      }
+      const seg = tripLogSegmentsState[idx];
+      if (field === 'railroad') {
+        seg.lineId = '';
+        seg.originId = '';
+        seg.destId = '';
+        seg.trainNumber = '';
+        seg.trainExtraMode = false;
+        seg.scheduleStops = null;
+        seg.useFullStationList = false;
+        seg.scheduleRowName = '';
+        seg.scheduleRowDest = '';
+        const lines = getTripLogLines(seg.railroad);
+        if (lines.length === 1) seg.lineId = lines[0].id;
+      } else if (field === 'line') {
+        seg.originId = '';
+        seg.destId = '';
+        seg.trainNumber = '';
+        // Manual line change: keep schedule stops only if still relevant; allow full line list
+        if (seg.scheduleStops && seg.scheduleStops.length) {
+          seg.useFullStationList = false;
+        }
+      } else if (field === 'origin' || field === 'dest') {
+        if (t.value === '__other__') {
+          seg.useFullStationList = true;
+          if (field === 'origin') seg.originId = '';
+          else seg.destId = '';
+          renderTripSegmentsForm();
+          return;
+        }
+        if (seg.originId && seg.destId && seg.originId === seg.destId) {
+          if (field === 'origin') seg.destId = '';
+          else seg.originId = '';
+        }
+        tripApplyStopTimesToSegment(seg);
+      }
+      renderTripSegmentsForm();
+    }
+
+    function addTripSegment() {
+      syncTripSegmentStateFromDom();
+      // max 3 segments
+      if (tripLogSegmentsState.length >= TRIP_LOG_MAX_SEGMENTS) {
+        updateTripAddSegmentButton();
+        return;
+      }
+      const prev = tripLogSegmentsState[tripLogSegmentsState.length - 1] || {};
+      // Default next depart to previous arrive when available
+      let nextDepart = '';
+      if (prev.arriveTime) nextDepart = prev.arriveTime;
+      tripLogSegmentsState.push(emptyTripSegment({
+        railroad: prev.railroad || 'mbta',
+        departTime: nextDepart || defaultTripStartLocalValue()
+      }));
+      renderTripSegmentsForm();
+    }
+
+    function updateTripAddSegmentButton() {
+      const btn = document.getElementById('trip-log-add-segment');
+      if (!btn) return;
+      const n = tripLogSegmentsState.length;
+      const atMax = n >= TRIP_LOG_MAX_SEGMENTS;
+      btn.disabled = atMax;
+      btn.setAttribute('aria-disabled', atMax ? 'true' : 'false');
+      if (atMax) {
+        btn.textContent = 'Max 3 segments';
+        btn.title = 'Trips can have at most 3 segments';
+      } else {
+        btn.textContent = 'Add segment for this trip';
+        btn.title = '';
+      }
+    }
+
+    function removeTripSegment(idx) {
+      syncTripSegmentStateFromDom();
+      if (idx <= 0 || idx >= tripLogSegmentsState.length) return;
+      tripLogSegmentsState.splice(idx, 1);
+      renderTripSegmentsForm();
+    }
+
+    function updateTripMilesPreview() {
+      const el = document.getElementById('trip-log-miles-preview');
+      if (!el) return;
+      syncTripSegmentStateFromDom();
+      const segs = tripLogSegmentsState;
+      let total = 0, any = false;
+      segs.forEach(function(seg) {
+        if (!seg.railroad || !seg.lineId || !seg.originId || !seg.destId) return;
+        if (!stationOnLine(seg.railroad, seg.lineId, seg.originId) ||
+            !stationOnLine(seg.railroad, seg.lineId, seg.destId)) return;
+        try { ensureTripShapesForMiles(seg.railroad, seg.lineId); } catch (_) {}
+        const mi = estimateTripMiles(seg.railroad, seg.originId, seg.destId, seg.lineId);
+        if (mi == null) return;
+        total += mi;
+        any = true;
+      });
+      if (!any) { el.textContent = 'Estimated miles: —'; return; }
+      const rounded = Math.round(total * 10) / 10;
+      el.textContent = 'Estimated miles: ' + formatTripMiles(rounded) +
+        (segs.length > 1 ? (' across ' + segs.length + ' segments') : '') +
+        ' (approx.)';
+    }
+
+    function tripLogStatsTopRailroad(stats) {
+      const by = (stats && stats.byRailroad) || {};
+      let topId = '', topCount = -1, topMiles = -1;
+      Object.keys(by).forEach(function(k) {
+        const row = by[k] || {};
+        const count = Number(row.count) || 0;
+        const miles = Number(row.miles) || 0;
+        if (count <= 0 && miles <= 0) return;
+        // Prefer trip count (fixes Amtrak-as-top when only MBTA trips remain with stale miles)
+        if (count > topCount || (count === topCount && miles > topMiles)) {
+          topCount = count;
+          topMiles = miles;
+          topId = k;
+        }
+      });
+      return topId;
+    }
+
+    function paintTripLogStats(stats) {
+      tripLogStatsCache = normalizeTripLogStats(stats);
+      const c = document.getElementById('trip-log-stat-count');
+      const m = document.getElementById('trip-log-stat-miles');
+      const t = document.getElementById('trip-log-stat-top');
+      const rails = document.getElementById('trip-log-stat-rails');
+      if (c) c.textContent = String(tripLogStatsCache.tripCount || 0);
+      if (m) m.textContent = formatTripMiles(tripLogStatsCache.totalMiles);
+      const topId = tripLogStatsCache.tripCount ? tripLogStatsTopRailroad(tripLogStatsCache) : '';
+      if (t) {
+        if (!topId) {
+          t.textContent = '—';
+          t.style.color = '';
+        } else {
+          t.textContent = TRIP_LOG_RAIL_LABELS[topId] || topId.toUpperCase();
+          t.style.color = tripRailColor(topId);
+        }
+      }
+      if (rails) {
+        const by = tripLogStatsCache.byRailroad || {};
+        const keys = Object.keys(by).filter(function(k) {
+          const row = by[k] || {};
+          return (Number(row.count) || 0) > 0 || (Number(row.miles) || 0) > 0;
+        }).sort(function(a, b) {
+          const ca = Number((by[a] || {}).count) || 0;
+          const cb = Number((by[b] || {}).count) || 0;
+          if (cb !== ca) return cb - ca;
+          return (Number((by[b] || {}).miles) || 0) - (Number((by[a] || {}).miles) || 0);
+        });
+        if (!keys.length) {
+          rails.innerHTML = '';
+          rails.hidden = true;
+        } else {
+          rails.hidden = false;
+          rails.innerHTML = keys.map(function(k) {
+            const row = by[k] || {};
+            const label = TRIP_LOG_RAIL_LABELS[k] || k.toUpperCase();
+            const count = Number(row.count) || 0;
+            const miles = Number(row.miles) || 0;
+            const color = tripRailColor(k);
+            return '<span class="trip-log-rail-chip">' +
+              '<span class="trip-log-rail-chip-dot" style="background:' + color + '"></span>' +
+              '<span>' + label + '</span>' +
+              '<span class="trip-log-rail-chip-meta">' + count + (miles > 0 ? (' · ' + formatTripMiles(miles)) : '') + '</span>' +
+              '</span>';
+          }).join('');
+        }
+      }
+    }
+
+    function tripPayloadForStats(trip) {
+      const data = trip || {};
+      return {
+        railroad: data.railroad,
+        miles: Number(data.miles) || 0,
+        startTime: data.startTime || null,
+        segments: Array.isArray(data.segments) && data.segments.length
+          ? data.segments
+          : [{ railroad: data.railroad, miles: Number(data.miles) || 0 }]
+      };
+    }
+
+    function computeTripLogStatsFromTrips(trips) {
+      let stats = tripLogEmptyStats();
+      let lastAt = null;
+      (trips || []).forEach(function(trip) {
+        const payload = tripPayloadForStats(trip);
+        stats = applyTripMilesToStats(stats, payload, 1);
+        const st = payload.startTime || null;
+        if (st && (!lastAt || String(st) > String(lastAt))) lastAt = st;
+      });
+      stats.lastTripAt = lastAt;
+      return normalizeTripLogStats(stats);
+    }
+
+    function tripLogStatsLookStale(cached, rebuilt) {
+      const a = normalizeTripLogStats(cached);
+      const b = normalizeTripLogStats(rebuilt);
+      if ((Number(a.tripCount) || 0) !== (Number(b.tripCount) || 0)) return true;
+      if (Math.abs((Number(a.totalMiles) || 0) - (Number(b.totalMiles) || 0)) > 0.2) return true;
+      const ak = Object.keys(a.byRailroad || {}).sort().join(',');
+      const bk = Object.keys(b.byRailroad || {}).sort().join(',');
+      if (ak !== bk) return true;
+      for (const k of Object.keys(b.byRailroad || {})) {
+        const ar = a.byRailroad[k] || {};
+        const br = b.byRailroad[k] || {};
+        if ((Number(ar.count) || 0) !== (Number(br.count) || 0)) return true;
+        if (Math.abs((Number(ar.miles) || 0) - (Number(br.miles) || 0)) > 0.2) return true;
+      }
+      return false;
+    }
+
+    async function fetchAllUserTripLogs(uid) {
+      const out = [];
+      let last = null;
+      for (let page = 0; page < 40; page++) {
+        let q = db.collection('tripLogs')
+          .where('userId', '==', uid)
+          .orderBy('startTime', 'desc')
+          .limit(100);
+        if (last) q = q.startAfter(last);
+        let snap;
+        try {
+          snap = await q.get();
+        } catch (e) {
+          // Fallback without order if composite index missing
+          snap = await db.collection('tripLogs').where('userId', '==', uid).limit(500).get();
+          snap.docs.forEach(function(doc) {
+            out.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          });
+          return out;
+        }
+        const docs = snap.docs || [];
+        docs.forEach(function(doc) {
+          out.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+        if (docs.length < 100) break;
+        last = docs[docs.length - 1];
+      }
+      return out;
+    }
+
+    async function rebuildTripLogStatsFromTrips(uid, opts) {
+      opts = opts || {};
+      const trips = await fetchAllUserTripLogs(uid);
+      const next = computeTripLogStatsFromTrips(trips);
+      if (opts.persist !== false) {
+        await db.collection('userSettings').doc(uid).set({
+          tripLogStats: next,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+      paintTripLogStats(next);
+      return next;
+    }
+
+    async function ensureTripLogStats(opts) {
+      opts = opts || {};
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!db || !user) {
+        paintTripLogStats(tripLogEmptyStats());
+        return tripLogEmptyStats();
+      }
+      try {
+        if (opts.force) {
+          return await rebuildTripLogStatsFromTrips(user.uid);
+        }
+        const snap = await db.collection('userSettings').doc(user.uid).get();
+        const data = snap.exists ? (snap.data() || {}) : {};
+        const cached = normalizeTripLogStats(data.tripLogStats);
+        // Always reconcile against tripLogs so delete/save drift cannot leave Amtrak-as-top etc.
+        const trips = await fetchAllUserTripLogs(user.uid);
+        const rebuilt = computeTripLogStatsFromTrips(trips);
+        if (tripLogStatsLookStale(cached, rebuilt)) {
+          await db.collection('userSettings').doc(user.uid).set({
+            tripLogStats: rebuilt,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          paintTripLogStats(rebuilt);
+          return rebuilt;
+        }
+        paintTripLogStats(cached);
+        return cached;
+      } catch (e) {
+        console.warn('[trip-log] ensureTripLogStats failed', e);
+        try {
+          return await rebuildTripLogStatsFromTrips(user.uid);
+        } catch (e2) {
+          console.warn('[trip-log] rebuild failed', e2);
+          paintTripLogStats(tripLogEmptyStats());
+          return tripLogEmptyStats();
+        }
+      }
+    }
+
+    async function loadTripLogStatsFromServer() {
+      return ensureTripLogStats({});
+    }
+
+    function switchTripLogTab(tab) {
+      const name = tab === 'list' ? 'list' : 'log';
+      document.querySelectorAll('.trip-log-tab').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-trip-tab') === name);
+      });
+      document.querySelectorAll('.trip-log-pane').forEach(function(pane) {
+        pane.classList.toggle('active', pane.getAttribute('data-trip-pane') === name);
+      });
+      try {
+        const primary = document.getElementById('trip-log-primary-log');
+        const pubWrap = document.getElementById('trip-public-wrap');
+        const onPage = typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage();
+        const show = !!(onPage && name === 'list');
+        if (primary) primary.hidden = !show;
+        const liveBtn = document.getElementById('trip-log-live');
+        if (liveBtn) liveBtn.hidden = !show;
+        if (pubWrap) pubWrap.hidden = !show;
+        if (show && typeof syncTripPublicProfileUi === 'function') syncTripPublicProfileUi();
+      } catch (_) {}
+      if (name === 'list') loadTripLogList(true);
+    }
+
+    function rrTripStationNameFor(rr, id) {
+      if (!id) return '';
+      try {
+        const st = findTripStation(rr, id);
+        if (st && st.name) return String(st.name);
+      } catch (_) {}
+      return '';
+    }
+
+    function rrTripSegStationFallback(seg, id) {
+      const sid = String(id || '');
+      if (!seg || !sid) return null;
+      const lists = [];
+      try { lists.push(tripStationsForSegment(seg) || []); } catch (_) {}
+      if (Array.isArray(seg.scheduleStops)) lists.push(seg.scheduleStops);
+      try { if (seg.lineId) lists.push(getTripLogStationsForLine(String(seg.railroad || '').toLowerCase(), seg.lineId) || []); } catch (_) {}
+      for (let a = 0; a < lists.length; a++) {
+        const l = lists[a];
+        for (let b = 0; b < l.length; b++) {
+          if (l[b] && String(l[b].id) === sid) return { id: sid, name: String(l[b].name || sid) };
+        }
+      }
+      return { id: sid, name: '' };
+    }
+
+    function rrTripSegOdName(seg, data, which) {
+      const isO = which === 'origin';
+      const nm = seg && (isO ? seg.originName : seg.destName);
+      if (nm) return String(nm);
+      const rr = (seg && seg.railroad) || (data && data.railroad);
+      const id = seg && (isO ? seg.originStationId : seg.destStationId);
+      return rrTripStationNameFor(rr, id);
+    }
+
+    function rrTripOdName(data, which) {
+      if (!data) return '?';
+      const isO = which === 'origin';
+      const segs = Array.isArray(data.segments) && data.segments.length ? data.segments : null;
+      const seg = segs ? (isO ? segs[0] : segs[segs.length - 1]) : null;
+      return rrTripSegOdName(seg, data, which) ||
+        (isO ? data.originName : data.destName) ||
+        rrTripStationNameFor(data.railroad, isO ? data.originStationId : data.destStationId) ||
+        (isO ? data.originStationId : data.destStationId) || '?';
+    }
+
+    // Repair trips saved with station ids but no names (merge-only; never removes fields).
+    function rrTripRepairStationNames(tripId, data) {
+      if (!data || !tripId) return false;
+      const patch = {};
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        let segChanged = false;
+        const next = segs.map(function(sg) {
+          if (!sg || typeof sg !== 'object') return sg;
+          const out = Object.assign({}, sg);
+          const rr = out.railroad || data.railroad;
+          if (!out.originName && out.originStationId) {
+            const n = rrTripStationNameFor(rr, out.originStationId);
+            if (n) { out.originName = n; segChanged = true; }
+          }
+          if (!out.destName && out.destStationId) {
+            const n2 = rrTripStationNameFor(rr, out.destStationId);
+            if (n2) { out.destName = n2; segChanged = true; }
+          }
+          return out;
+        });
+        if (segChanged) { patch.segments = next; data.segments = next; }
+      }
+      const s0 = data.segments && data.segments.length ? data.segments[0] : null;
+      const sN = data.segments && data.segments.length ? data.segments[data.segments.length - 1] : null;
+      if (!data.originName) {
+        const n = (s0 && s0.originName) || rrTripStationNameFor(data.railroad, data.originStationId || (s0 && s0.originStationId));
+        if (n) { patch.originName = n; data.originName = n; }
+      }
+      if (!data.destName) {
+        const n = (sN && sN.destName) || rrTripStationNameFor((sN && sN.railroad) || data.railroad, data.destStationId || (sN && sN.destStationId));
+        if (n) { patch.destName = n; data.destName = n; }
+      }
+      if (!data.originStationId && s0 && s0.originStationId) { patch.originStationId = s0.originStationId; data.originStationId = s0.originStationId; }
+      if (!data.destStationId && sN && sN.destStationId) { patch.destStationId = sN.destStationId; data.destStationId = sN.destStationId; }
+      if (!Object.keys(patch).length) return false;
+      try {
+        const u = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (db && u && data.userId === u.uid) {
+          patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+          db.collection('tripLogs').doc(tripId).set(patch, { merge: true }).catch(function(e) {
+            console.warn('[trip-log] station name repair failed', e);
+          });
+        }
+      } catch (_) {}
+      return true;
+    }
+
+    function tripRouteOdHtml(origin, dest) {
+      const o = String(origin == null || origin === '' ? '?' : origin).replace(/</g, '&lt;');
+      const d = String(dest == null || dest === '' ? '?' : dest).replace(/</g, '&lt;');
+      return '<span class="trip-route-station">' + o + '</span>' +
+        ' <span class="trip-route-to">to</span> ' +
+        '<span class="trip-route-station">' + d + '</span>';
+    }
+
+    function tripDisplayRouteHtml(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const o = rrTripOdName(data, 'origin');
+        const d = rrTripOdName(data, 'dest');
+        const n = segs.length;
+        return tripRouteOdHtml(o, d) + (n > 1 ? (' <span class="trip-route-extra">(' + n + ' trains)</span>') : '');
+      }
+      return tripRouteOdHtml(rrTripOdName(data, 'origin'), rrTripOdName(data, 'dest'));
+    }
+
+    function tripDisplayRail(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const rails = [];
+        const seen = {};
+        segs.forEach(function(s) {
+          const rr = String(s.railroad || '');
+          if (!rr || seen[rr]) return;
+          seen[rr] = true;
+          rails.push(TRIP_LOG_RAIL_LABELS[rr] || rr.toUpperCase());
+        });
+        return rails.join(' + ') || (TRIP_LOG_RAIL_LABELS[data.railroad] || String(data.railroad || '').toUpperCase());
+      }
+      return TRIP_LOG_RAIL_LABELS[data.railroad] || String(data.railroad || '').toUpperCase();
+    }
+
+
+    /** Numbers only (no #) for Train chip label, e.g. "173" or "173 / 86". */
+    function tripDisplayTrainNumbers(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        return segs.map(function(s) { return s.trainNumber ? String(s.trainNumber) : ''; }).filter(Boolean).join(' / ');
+      }
+      return data.trainNumber ? String(data.trainNumber) : '';
+    }
+
+    /** Prominent "Train N" chip HTML; omit entirely if no number. compact=true for segment cards. */
+    function tripTrainChipHtml(dataOrNumber, compact) {
+      let nums = '';
+      if (dataOrNumber != null && typeof dataOrNumber === 'object') {
+        nums = tripDisplayTrainNumbers(dataOrNumber);
+      } else if (dataOrNumber != null && String(dataOrNumber).trim()) {
+        nums = String(dataOrNumber).replace(/^#/, '').trim();
+      }
+      if (!nums) return '';
+      const cls = compact ? 'trip-train-chip compact' : 'trip-train-chip';
+      return '<span class="' + cls + '">Train ' + nums.replace(/</g, '&lt;') + '</span>';
+    }
+
+    function tripDisplayWhen(data) {
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        const dep = segs[0].departTime || data.startTime;
+        const arr = segs[segs.length - 1].arriveTime || data.endTime || null;
+        if (dep && arr) return formatTripWhen(dep) + ' → ' + formatTripWhen(arr);
+        return formatTripWhen(dep);
+      }
+      if (data.startTime && data.endTime) return formatTripWhen(data.startTime) + ' → ' + formatTripWhen(data.endTime);
+      return formatTripWhen(data.startTime);
+    }
+
+
+    function setTripLogSkeletons(on) {
+      const sk = document.getElementById('trip-log-skeletons');
+      if (!sk) return;
+      sk.hidden = !on;
+      sk.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+
+    function setTripLogEmptyVisible(on) {
+      const empty = document.getElementById('trip-log-empty');
+      if (!empty) return;
+      empty.hidden = !on;
+    }
+
+
+    function tripStartMs(data) {
+      if (!data) return 0;
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      const raw = (segs && segs[0] && (segs[0].departTime || segs[0].startTime)) || data.startTime || data.startTimeMs || data.departTime;
+      const d = tripAsDate(raw);
+      return (d && !isNaN(d.getTime())) ? d.getTime() : 0;
+    }
+    function tripIsUpcoming(data) {
+      return tripStartMs(data) >= Date.now();
+    }
+    function ensureTripLogSections(list) {
+      if (!list) return {};
+      function makeSection(id, title, rowsId) {
+        let el = document.getElementById(id);
+        if (!el) {
+          el = document.createElement('section');
+          el.id = id;
+          el.className = 'trip-log-section';
+          el.innerHTML = '<h3 class="trip-log-section-title">' + title + '</h3><div class="trip-log-section-rows" id="' + rowsId + '"></div>';
+        }
+        return el;
+      }
+      const inprogress = makeSection('trip-log-inprogress', 'In Progress', 'trip-log-inprogress-rows');
+      const upcoming = makeSection('trip-log-upcoming', 'Upcoming trips', 'trip-log-upcoming-rows');
+      const past = makeSection('trip-log-past', 'Past trips', 'trip-log-past-rows');
+      list.appendChild(inprogress);
+      list.appendChild(upcoming);
+      list.appendChild(past);
+      return {
+        inprogress: inprogress,
+        upcoming: upcoming,
+        past: past,
+        inprogressRows: document.getElementById('trip-log-inprogress-rows'),
+        upcomingRows: document.getElementById('trip-log-upcoming-rows'),
+        pastRows: document.getElementById('trip-log-past-rows')
+      };
+    }
+
+    function tripWeekStartMs() {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = (day + 6) % 7;
+      d.setHours(0,0,0,0);
+      d.setDate(d.getDate() - diff);
+      return d.getTime();
+    }
+    function tripEnhanceDashboard() {
+      const all = Object.keys(tripLogDataById || {}).map(function(id) {
+        return Object.assign({ id: id }, tripLogDataById[id] || {});
+      });
+      const week = tripWeekStartMs();
+      let weekMiles = 0;
+      let allMiles = 0;
+      const days = {};
+      all.forEach(function(t) {
+        const ms = tripStartMs(t);
+        const mv = tripMilesValue(t);
+        allMiles += mv;
+        weekMiles += (ms >= week) ? mv : 0;
+        if (ms) {
+          const key = new Date(ms).toISOString().slice(0,10);
+          days[key] = true;
+        }
+      });
+      let streak = 0;
+      const cur = new Date(); cur.setHours(0,0,0,0);
+      for (let i = 0; i < 30; i++) {
+        const key = cur.toISOString().slice(0,10);
+        if (days[key]) { streak++; cur.setDate(cur.getDate() - 1); }
+        else if (i === 0) { cur.setDate(cur.getDate() - 1); }
+        else break;
+      }
+      let bar = document.getElementById('trip-dash-bar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'trip-dash-bar';
+        bar.className = 'trip-dash-bar';
+        const list = document.getElementById('trip-log-list');
+        if (list && list.parentNode) list.parentNode.insertBefore(bar, list);
+      }
+      const rails = {};
+      all.forEach(function(t) {
+        (typeof tripRailIdsFromData === 'function' ? tripRailIdsFromData(t) : [t.railroad]).forEach(function(r) {
+          if (r) rails[String(r).toLowerCase()] = true;
+        });
+      });
+      const opts = ['<option value="">All railroads</option>'].concat(Object.keys(rails).sort().map(function(r) {
+        return '<option value="' + r + '">' + r.toUpperCase() + '</option>';
+      }));
+      bar.innerHTML =
+        '<span class="trip-dash-stat">' + (Math.round(allMiles * 10) / 10) + ' mi total</span>' +
+        '<span class="trip-dash-stat">' + (Math.round(weekMiles * 10) / 10) + ' mi this week</span>' +
+        '<span class="trip-dash-stat">' + (streak ? (streak + '-day streak') : 'No streak yet') + '</span>' +
+        '<span class="trip-dash-stat">' + all.length + ' trips</span>' +
+        '<select class="trip-dash-filter" id="trip-dash-filter">' + opts.join('') + '</select>';
+      const filter = document.getElementById('trip-dash-filter');
+      if (filter && filter.getAttribute('data-wired') !== '1') {
+        filter.setAttribute('data-wired', '1');
+        filter.addEventListener('change', function() {
+          const want = String(filter.value || '').toLowerCase();
+          document.querySelectorAll('.trip-log-row').forEach(function(row) {
+            const id = row.getAttribute('data-trip-id');
+            const data = tripLogDataById[id] || {};
+            const ids = (typeof tripRailIdsFromData === 'function' ? tripRailIdsFromData(data) : [data.railroad]).map(function(x) { return String(x || '').toLowerCase(); });
+            row.style.display = (!want || ids.indexOf(want) >= 0) ? '' : 'none';
+          });
+        });
+      }
+      const upcomingRows = document.getElementById('trip-log-upcoming-rows');
+      if (upcomingRows && !upcomingRows.querySelector('.trip-log-row')) {
+        let empty = document.getElementById('trip-upcoming-empty');
+        if (!empty) {
+          empty = document.createElement('p');
+          empty.id = 'trip-upcoming-empty';
+          empty.className = 'trip-log-upcoming-empty';
+          empty.innerHTML = 'Nothing coming up. <button type="button" class="trip-log-empty-cta" id="trip-upcoming-log">Log a trip</button>';
+          upcomingRows.appendChild(empty);
+          const btn = document.getElementById('trip-upcoming-log');
+          if (btn) btn.addEventListener('click', function() {
+            if (typeof openTripLogModal === 'function') openTripLogModal(null, { tab: 'log', forceModal: true });
+          });
+        }
+      } else {
+        const empty = document.getElementById('trip-upcoming-empty');
+        if (empty) empty.remove();
+      }
+      document.querySelectorAll('.trip-log-row').forEach(function(row) {
+        const id = row.getAttribute('data-trip-id');
+        const data = tripLogDataById[id] || {};
+        if (row.querySelector('.trip-soon-chip') || row.querySelector('.trip-copy-btn')) return;
+        const ms = tripStartMs(data);
+        const soon = ms && ms >= Date.now() && (ms - Date.now()) <= 2 * 3600 * 1000;
+        const live = ms && ms <= Date.now() && ((data.endTime ? Date.parse(data.endTime) : ms + 3 * 3600 * 1000) >= Date.now());
+        const actions = row.querySelector('.trip-log-row-actions');
+        if (actions) {
+          const copy = document.createElement('button');
+          copy.type = 'button';
+          copy.className = 'trip-copy-btn';
+          copy.textContent = 'Copy link';
+          copy.addEventListener('click', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            const url = location.origin + '/user/?u=' + encodeURIComponent((window.currentUserProfile && (currentUserProfile.username || currentUserProfile.uid)) || (currentUser && currentUser.uid) || '') + '#trip-' + id;
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
+            if (typeof showNotification === 'function') showNotification('Link copied');
+          });
+          actions.insertBefore(copy, actions.firstChild);
+          const hide = document.createElement('button');
+          hide.type = 'button';
+          hide.className = 'trip-hide-btn';
+          hide.textContent = data.hiddenPublic ? 'Hidden' : 'Hide';
+          hide.addEventListener('click', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            tripToggleHiddenPublic(id, !data.hiddenPublic);
+          });
+          actions.insertBefore(hide, actions.firstChild);
+        }
+        const meta = row.querySelector('.trip-log-row-relative') || row;
+        if (soon) {
+          const chip = document.createElement('span');
+          chip.className = 'trip-soon-chip';
+          chip.textContent = 'Leaving soon';
+          meta.parentNode && meta.parentNode.insertBefore(chip, meta.nextSibling);
+        }
+        if (live || soon) {
+          const segs = data.segments || [];
+          const rr = (segs[0] && segs[0].railroad) || data.railroad || 'mbta';
+          const num = (segs[0] && segs[0].trainNumber) || data.trainNumber || '';
+          if (num) {
+            const track = document.createElement('a');
+            track.className = 'trip-track-btn';
+            track.textContent = 'Track this train';
+            track.href = '/?t=' + encodeURIComponent(String(rr).toLowerCase() + ':' + num);
+            track.addEventListener('click', function(e) { e.stopPropagation(); });
+            if (actions) actions.insertBefore(track, actions.firstChild);
+          }
+        }
+      });
+    }
+    async function tripToggleHiddenPublic(id, hidden) {
+      try {
+        if (!db || !currentUser) return;
+        await db.collection('tripLogs').doc(id).update({ hiddenPublic: !!hidden, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (tripLogDataById[id]) tripLogDataById[id].hiddenPublic = !!hidden;
+        if (typeof showNotification === 'function') showNotification(hidden ? 'Hidden from public page' : 'Visible on public page');
+        tripEnhanceDashboard();
+      } catch (e) {
+        console.warn('[trip-log] hide failed', e);
+      }
+    }
+    function tripSaveDraft() {
+      try {
+        if (typeof syncTripSegmentStateFromDom === 'function') syncTripSegmentStateFromDom();
+        const draft = { segments: tripLogSegmentsState || [], at: Date.now() };
+        localStorage.setItem('rrTripDraft', JSON.stringify(draft));
+      } catch (_) {}
+    }
+    function renderTripLogRows(docs, append) {
+      const list = document.getElementById('trip-log-list');
+      const empty = document.getElementById('trip-log-empty');
+      if (!list) return;
+      if (!append) {
+        try { destroyAllTripLogMiniMaps(); } catch (_) {}
+        try { Object.keys(tripLogDataById).forEach(function(k) { delete tripLogDataById[k]; }); } catch (_) {}
+        list.innerHTML = '';
+      }
+      const sections = ensureTripLogSections(list);
+      const inprogressRows = sections.inprogressRows || list;
+      const upcomingRows = sections.upcomingRows || list;
+      const pastRows = sections.pastRows || list;
+      if (!docs.length && !append) {
+        if (sections.inprogress) sections.inprogress.hidden = true;
+        if (sections.upcoming) sections.upcoming.hidden = true;
+        if (sections.past) sections.past.hidden = true;
+        setTripLogEmptyVisible(true);
+        return;
+      }
+      setTripLogEmptyVisible(false);
+      let inprogressCount = inprogressRows ? inprogressRows.querySelectorAll('.trip-log-row').length : 0;
+      let upcomingCount = upcomingRows ? upcomingRows.querySelectorAll('.trip-log-row').length : 0;
+      let pastCount = pastRows ? pastRows.querySelectorAll('.trip-log-row').length : 0;
+      docs.forEach(function(doc) {
+        const data = doc.data() || {};
+        // Normalize special-move flag so live matching never treats these as scheduled trains
+        try {
+          if (typeof rrTripIsSpecialMove === 'function' && rrTripIsSpecialMove(data)) {
+            data.specialMove = true;
+            if (!data.kind) data.kind = 'specialMove';
+          } else {
+            data.specialMove = false;
+          }
+        } catch (_) {}
+        const row = document.createElement('div');
+        row.className = 'trip-log-row';
+        row.setAttribute('data-trip-id', doc.id);
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        try { rrTripRepairStationNames(doc.id, data); } catch (_) {}
+        tripLogDataById[doc.id] = data;
+        const railIds = tripRailIdsFromData(data);
+        const route = tripDisplayRouteHtml(data);
+        row.setAttribute('aria-label', 'View trip: ' + route);
+        const miles = formatTripMiles(data.miles);
+        const when = tripDisplayWhen(data);
+        tripApplyRailAccentVars(row, railIds, { primaryAttr: true });
+        const badges = railIds.map(tripRailBadgeHtml).join('') ||
+          '<span class="trip-rail-badge" style="background:#07093e">Trip</span>';
+        const specialTitleList = data.specialMove ? String(data.trainTitle || '').trim() : '';
+        let trainHtml = '';
+        let specialBadge = '';
+        if (specialTitleList) {
+          specialBadge = '<span class="trip-special-badge">' + specialTitleList.replace(/</g, '&lt;') + '</span>';
+          const nums = tripDisplayTrainNumbers(data);
+          if (nums && nums.toLowerCase() !== specialTitleList.toLowerCase()) {
+            trainHtml = tripTrainChipHtml(data);
+          }
+        } else {
+          trainHtml = tripTrainChipHtml(data);
+          if (data.specialMove) {
+            specialBadge = '<span class="trip-special-badge">Special</span>';
+          }
+        }
+        const segs = Array.isArray(data.segments) ? data.segments : null;
+        let chipsHtml = '';
+        if (segs && segs.length > 1) {
+          chipsHtml = '<div class="trip-log-seg-chips">' + segs.map(function(s, i) {
+            const rr = String(s.railroad || '').toLowerCase();
+            const line = s.lineName ? String(s.lineName) : '';
+            const tn = s.trainNumber ? ('Train ' + s.trainNumber) : '';
+            const odHtml = tripRouteOdHtml(rrTripSegOdName(s, data, 'origin') || '?', rrTripSegOdName(s, data, 'dest') || '?');
+            const bits = [];
+            if (line) bits.push(String(line).replace(/</g, '&lt;'));
+            if (tn) bits.push(String(tn).replace(/</g, '&lt;'));
+            bits.push(odHtml);
+            return '<span class="trip-seg-chip" style="--rr-trip-rail:' + tripRailColor(rr) + '">' +
+              tripRailBadgeHtml(rr) +
+              '<span>' + String(i + 1) + '. ' + bits.join(' · ') + '</span></span>';
+          }).join('') + '</div>';
+        }
+        row.innerHTML =
+          '<div class="trip-log-row-actions">' +
+                        '<button type="button" class="trip-edit-btn" data-trip-edit="' + doc.id + '" aria-label="Edit trip" title="Edit">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>' +
+            '</button>' +
+            '<button type="button" class="danger" data-trip-delete="' + doc.id + '" aria-label="Delete trip" title="Delete">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
+            '</button>' +
+          '</div>' +
+          '<div class="trip-log-row-top">' +
+            '<div class="trip-log-row-rail">' + badges + trainHtml + specialBadge + '</div>' +
+            '<div class="trip-log-row-relative" hidden></div>' +
+          '</div>' +
+          '<div class="trip-log-row-route"></div>' +
+          '<div class="trip-log-row-meta"></div>' +
+          '<div class="trip-log-row-facts">' +
+            '<span class="trip-log-row-miles"></span>' +
+            '<span class="trip-log-row-stock" hidden></span>' +
+          '</div>' +
+          '<div class="trip-log-row-live" hidden></div>' +
+          '<div class="trip-log-row-actual" hidden></div>' +
+          chipsHtml +
+          '<div class="trip-log-row-map is-loading" data-trip-map="' + doc.id + '" aria-label="Trip map preview"></div>';
+        row.querySelector('.trip-log-row-route').innerHTML = route;
+        row.querySelector('.trip-log-row-meta').textContent = when;
+        const dur = tripDurationLabel(data);
+        const milesVal = formatTripMiles(tripMilesValue(data));
+        row.querySelector('.trip-log-row-miles').textContent = [milesVal !== '—' ? milesVal : '', dur].filter(Boolean).join(' · ') || milesVal;
+        const stockRow = row.querySelector('.trip-log-row-stock');
+        const stockVal = String(data.rollingStock || '').trim();
+        if (stockRow) {
+          if (stockVal) {
+            stockRow.hidden = false;
+            stockRow.textContent = 'Stock #' + stockVal;
+          } else {
+            stockRow.hidden = true;
+            stockRow.textContent = '';
+          }
+        }
+        const relText = formatTripRelativeDepart(data);
+        const relEl = row.querySelector('.trip-log-row-relative');
+        if (relEl) {
+          if (relText) {
+            relEl.hidden = false;
+            relEl.textContent = relText;
+          } else if (!tripIsUpcoming(data) && tripDisplayWhen(data)) {
+            relEl.hidden = false;
+            relEl.textContent = 'Completed';
+          } else {
+            relEl.hidden = true;
+            relEl.textContent = '';
+          }
+        }
+        try { tripPaintCardActual(row, data); } catch (_) {}
+        if (tripIsInProgressLight(data)) { inprogressRows.appendChild(row); inprogressCount++; } else if (tripIsUpcoming(data)) { upcomingRows.appendChild(row); upcomingCount++; } else { pastRows.appendChild(row); pastCount++; };
+        try {
+          const mapEl = row.querySelector('.trip-log-row-map');
+          if (mapEl) scheduleTripLogMiniMap(mapEl, data);
+        } catch (mapErr) {
+          console.warn('[trip-map] schedule failed', mapErr);
+        }
+      });
+      if (inprogressRows) {
+        const rows = Array.prototype.slice.call(inprogressRows.querySelectorAll('.trip-log-row'));
+        rows.sort(function(a, b) {
+          const da = tripLogDataById[a.getAttribute('data-trip-id')] || {};
+          const db = tripLogDataById[b.getAttribute('data-trip-id')] || {};
+          return tripStartMs(da) - tripStartMs(db);
+        });
+        rows.forEach(function(row) { inprogressRows.appendChild(row); });
+      }
+      if (upcomingRows) {
+        const rows = Array.prototype.slice.call(upcomingRows.querySelectorAll('.trip-log-row'));
+        rows.sort(function(a, b) {
+          const da = tripLogDataById[a.getAttribute('data-trip-id')] || {};
+          const db = tripLogDataById[b.getAttribute('data-trip-id')] || {};
+          return tripStartMs(da) - tripStartMs(db);
+        });
+        rows.forEach(function(row) { upcomingRows.appendChild(row); });
+      }
+      if (sections && sections.inprogress) sections.inprogress.hidden = !(inprogressRows && inprogressRows.querySelector('.trip-log-row'));
+      if (sections && sections.upcoming) sections.upcoming.hidden = !(upcomingRows && upcomingRows.querySelector('.trip-log-row'));
+      if (sections && sections.past) sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'));
+      try { startTripListLivePoll(); } catch (_) {}
+      try { tripEnrichRecentCompletedTrips(); } catch (_) {}
+    }
+
+    async function loadTripLogList(reset) {
+      const status = document.getElementById('trip-log-list-status');
+      const moreBtn = document.getElementById('trip-log-load-more');
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!db || !user) {
+        if (status) status.textContent = 'Sign in to view trips.';
+        return;
+      }
+      if (tripLogLoading) return;
+      tripLogLoading = true;
+      if (status) status.textContent = '';
+      try {
+        if (reset) {
+          tripLogLastDoc = null;
+          tripLogHasMore = false;
+          try { destroyAllTripLogMiniMaps(); } catch (_) {}
+          try { closeTripDetailView(); } catch (_) {}
+          const list = document.getElementById('trip-log-list');
+          if (list) list.innerHTML = '';
+          setTripLogEmptyVisible(false);
+          setTripLogSkeletons(true);
+        }
+        let q = db.collection('tripLogs')
+          .where('userId', '==', user.uid)
+          .orderBy('startTime', 'desc')
+          .limit(TRIP_LOG_PAGE_SIZE);
+        if (!reset && tripLogLastDoc) q = q.startAfter(tripLogLastDoc);
+        const snap = await q.get();
+        const docs = snap.docs || [];
+        renderTripLogRows(docs, !reset);
+        tripLogLastDoc = docs.length ? docs[docs.length - 1] : tripLogLastDoc;
+        tripLogHasMore = docs.length >= TRIP_LOG_PAGE_SIZE;
+        if (moreBtn) moreBtn.hidden = !tripLogHasMore;
+        if (status) {
+          status.textContent = docs.length || !reset
+            ? (tripLogHasMore ? 'Showing latest trips. Load more for older entries.' : '')
+            : '';
+        }
+        const list = document.getElementById('trip-log-list');
+        if (list && !list.children.length) setTripLogEmptyVisible(true);
+      } catch (e) {
+        console.warn('[trip-log] list failed', e);
+        if (status) {
+          const msg = String((e && e.message) || e);
+          if (/index/i.test(msg)) {
+            status.textContent = 'Firestore needs a composite index on tripLogs (userId + startTime). Check the browser console for the create-index link.';
+          } else {
+            status.textContent = 'Could not load trips. ' + msg;
+          }
+        }
+      } finally {
+        setTripLogSkeletons(false);
+        tripLogLoading = false;
+      }
+    }
+
+    function setTripLogError(msg) {
+      const el = document.getElementById('trip-log-error');
+      if (!el) return;
+      if (msg) {
+        el.textContent = msg;
+        el.classList.add('visible');
+      } else {
+        el.textContent = '';
+        el.classList.remove('visible');
+      }
+    }
+
+    function buildTripPayloadFromSegments(segs, notes, rollingStock, specialOpts) {
+      // max 3 segments — reject extras on save
+      if (Array.isArray(segs) && segs.length > TRIP_LOG_MAX_SEGMENTS) {
+        throw new Error('Trips can have at most 3 segments.');
+      }
+      const segments = [];
+      let totalMiles = 0;
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        const rr = String(seg.railroad || '').toLowerCase();
+        const lineId = String(seg.lineId || '');
+        const originId = String(seg.originId || '');
+        const destId = String(seg.destId || '');
+        const trainNumber = String(seg.trainNumber || '').trim();
+        const isSpecial = !!(specialOpts && specialOpts.specialMove);
+        if (originId && destId && originId === destId) throw new Error('Segment ' + (i + 1) + ': origin and destination must differ.');
+        const routeOptional = !rr || !lineId || !originId || !destId;
+        if (!trainNumber) {
+          const isSpecial = !!(specialOpts && specialOpts.specialMove);
+          const titleFallback = isSpecial && specialOpts.trainTitle ? String(specialOpts.trainTitle).trim().slice(0, 32) : '';
+          if (titleFallback) {
+            // Special/extra: map title covers the identity — don't require a separate number
+          } else {
+            throw new Error('Segment ' + (i + 1) + ': enter a train number.');
+          }
+        }
+        if (!routeOptional && (!tripStationAllowed(seg, originId) || !tripStationAllowed(seg, destId))) {
+          throw new Error('Segment ' + (i + 1) + ': both stops must be on the selected line or this train stop list.');
+        }
+        if (!seg.departTime || !seg.arriveTime) {
+          if (!(specialOpts && specialOpts.specialMove)) {
+            if (!seg.departTime) throw new Error('Segment ' + (i + 1) + ': enter a depart time.');
+            if (!seg.arriveTime) throw new Error('Segment ' + (i + 1) + ': enter an arrive time.');
+          }
+        }
+        const departIso = seg.departTime ? localInputToIso(seg.departTime) : null;
+        const arriveIso = seg.arriveTime ? localInputToIso(seg.arriveTime) : null;
+        if (seg.departTime && !departIso) throw new Error('Segment ' + (i + 1) + ': invalid depart time.');
+        if (seg.arriveTime && !arriveIso) throw new Error('Segment ' + (i + 1) + ': invalid arrive time.');
+        if (departIso && arriveIso && Date.parse(arriveIso) < Date.parse(departIso)) {
+          throw new Error('Segment ' + (i + 1) + ': arrive must be at or after depart.');
+        }
+        if (isSpecial && (!originId || !destId)) {
+          let segStations = [];
+          try { segStations = tripStationsForSegment(seg) || []; } catch (_) {}
+          if (segStations.length) throw new Error('Segment ' + (i + 1) + ': pick the From and To stations.');
+        }
+        // Special/Extra legs often use schedule-stop or full-list ids that the railroad index
+        // does not know; fall back to the segment's own lists and never drop the id or name.
+        let origin = originId ? (findTripStation(rr, originId) || rrTripSegStationFallback(seg, originId)) : null;
+        let dest = destId ? (findTripStation(rr, destId) || rrTripSegStationFallback(seg, destId)) : null;
+        if (!routeOptional && (!origin || !dest)) throw new Error('Segment ' + (i + 1) + ': station not found for this railroad.');
+        const originCanon = origin ? String(origin.id || originId) : '';
+        const destCanon = dest ? String(dest.id || destId) : '';
+        let miles = (originCanon && destCanon) ? estimateTripMiles(rr, originCanon, destCanon, lineId) : 0;
+        if (miles == null) miles = 0;
+        totalMiles += Number(miles) || 0;
+        const nowIso = new Date().toISOString();
+        const isSpecialSeg = !!(specialOpts && specialOpts.specialMove);
+        const segOut = {
+          railroad: rr,
+          lineId: lineId,
+          lineName: lineId ? lineNameFor(rr, lineId) : '',
+          originStationId: originCanon,
+          originName: origin ? String(origin.name || originCanon) : '',
+          destStationId: destCanon,
+          destName: dest ? String(dest.name || destCanon) : '',
+          // Special: never keep a live/scheduled train number that would re-bind GTFS matching
+          trainNumber: isSpecialSeg ? 'Extra' : trainNumber,
+          departTime: departIso || nowIso,
+          arriveTime: arriveIso || departIso || nowIso,
+          miles: Number(miles) || 0
+        };
+        if (isSpecialSeg && !arriveIso) segOut.openEnded = true;
+        if (specialOpts && specialOpts.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
+          segOut.liveLat = Number(window.rrSpecialLastFix.lat);
+          segOut.liveLon = Number(window.rrSpecialLastFix.lon);
+        }
+        if (isSpecialSeg) {
+          segOut.specialMove = true;
+          // Strip live vehicle id — otherwise list/detail can re-attach to the scheduled train
+        } else {
+          const vid = String(seg.vehicleId || '').trim();
+          if (vid) segOut.vehicleId = vid.slice(0, 64);
+        }
+        segments.push(segOut);
+      }
+      const first = segments[0];
+      const last = segments[segments.length - 1];
+      const startIso = first.departTime;
+      const startMs = Date.parse(startIso);
+      const endIso = last.arriveTime || null;
+      const isSpecialTrip = !!(specialOpts && specialOpts.specialMove);
+      const trainJoined = isSpecialTrip
+        ? 'Extra'
+        : segments.map(function(s) { return s.trainNumber; }).join(' / ');
+      const railroads = [];
+      const seenRr = {};
+      segments.forEach(function(s) {
+        if (!seenRr[s.railroad]) { seenRr[s.railroad] = true; railroads.push(s.railroad); }
+      });
+      return {
+        railroad: first.railroad,
+        railroads: railroads,
+        originStationId: first.originStationId,
+        originName: first.originName,
+        destStationId: last.destStationId,
+        destName: last.destName,
+        trainNumber: trainJoined.slice(0, 64),
+        startTime: startIso,
+        startTimeMs: startMs,
+        endTime: endIso,
+        hiddenPublic: false,
+        notes: notes || null,
+        rollingStock: rollingStock || null,
+        miles: Math.round(totalMiles * 10) / 10,
+        segmentCount: segments.length,
+        segments: segments,
+        specialMove: !!(specialOpts && specialOpts.specialMove),
+        openEnded: !!(isSpecialTrip && segments.some(function(s) { return s.openEnded === true; })),
+        kind: (specialOpts && specialOpts.specialMove) ? 'specialMove' : null,
+        trainTitle: (specialOpts && specialOpts.trainTitle) ? String(specialOpts.trainTitle).slice(0, 80) : null
+      };
+    }
+
+    function applyTripMilesToStats(stats, payload, sign) {
+      const next = normalizeTripLogStats(stats);
+      const by = Object.assign({}, next.byRailroad || {});
+      const dir = sign >= 0 ? 1 : -1;
+      const milesByRr = {};
+      (payload.segments || []).forEach(function(s) {
+        const rr = String(s.railroad || '');
+        if (!rr) return;
+        milesByRr[rr] = (milesByRr[rr] || 0) + (Number(s.miles) || 0);
+      });
+      if (!Object.keys(milesByRr).length && payload.railroad) {
+        milesByRr[payload.railroad] = Number(payload.miles) || 0;
+      }
+      Object.keys(milesByRr).forEach(function(rr) {
+        const railRow = Object.assign({ count: 0, miles: 0 }, by[rr] || {});
+        railRow.count = Math.max(0, (Number(railRow.count) || 0) + dir);
+        railRow.miles = Math.max(0, Math.round(((Number(railRow.miles) || 0) + dir * (milesByRr[rr] || 0)) * 10) / 10);
+        if (railRow.count === 0 && railRow.miles === 0) delete by[rr];
+        else by[rr] = railRow;
+      });
+      next.tripCount = Math.max(0, (Number(next.tripCount) || 0) + dir);
+      next.totalMiles = Math.max(0, Math.round(((Number(next.totalMiles) || 0) + dir * (Number(payload.miles) || 0)) * 10) / 10);
+      next.byRailroad = by;
+      if (dir > 0 && payload.startTime) next.lastTripAt = payload.startTime;
+      return next;
+    }
+
+    async function saveTripLog() {
+      setTripLogError('');
+      if (!auth || !db) {
+        setTripLogError('Firebase is not available.');
+        return;
+      }
+      const saveUser = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (saveUser && typeof checkUserBanned === 'function') {
+        try {
+          const ban = await checkUserBanned(saveUser);
+          if (ban) {
+            setTripLogError('This account is banned' + (ban.reason ? (': ' + ban.reason) : '.'));
+            if (typeof showBannedScreen === 'function') showBannedScreen(ban.reason || '');
+            return;
+          }
+        } catch (_) {}
+      }
+      if (!saveUser) {
+        setTripLogError('Sign in to log a trip.');
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+          try { showMyTripsGuestHome(); } catch (_) {}
+        } else if (typeof openSignupPrompt === 'function') {
+          openSignupPrompt();
+        }
+        return;
+      }
+      syncTripSegmentStateFromDom();
+      const notes = String((document.getElementById('trip-log-notes') || {}).value || '').trim().slice(0, 500);
+      const rollingStock = String((document.getElementById('trip-log-rolling-stock') || {}).value || '').trim().slice(0, 64);
+      const specialFields = (typeof rrSpecialReadFormFields === 'function') ? rrSpecialReadFormFields() : { specialMove: false, trainTitle: null };
+      if (specialFields.specialMove && !specialFields.trainTitle) {
+        setTripLogError('Special move needs a map title (e.g. Berkshire Flyer special).');
+        try {
+          const tw = document.getElementById('trip-special-title-wrap');
+          if (tw) tw.hidden = false;
+          const te = document.getElementById('trip-log-train-title');
+          if (te) te.focus();
+        } catch (_) {}
+        return;
+      }
+      if (specialFields.specialMove) {
+        try {
+          window.rrSpecialLastFix = await rrSpecialRequireLocation();
+        } catch (locErr) {
+          setTripLogError((locErr && locErr.message) || 'Location is required before this trip can be created.');
+          return;
+        }
+      }
+      let payload;
+      try {
+        payload = buildTripPayloadFromSegments(tripLogSegmentsState, notes, rollingStock, specialFields);
+      } catch (ve) {
+        setTripLogError(String((ve && ve.message) || ve));
+        return;
+      }
+      const saveBtn = document.getElementById('trip-log-save');
+      if (saveBtn) saveBtn.disabled = true;
+      try {
+        const uid = saveUser.uid;
+        const editingId = tripLogEditingId;
+        const oldData = editingId ? (tripLogDataById[editingId] || {}) : null;
+        const tripRef = editingId ? db.collection('tripLogs').doc(editingId) : db.collection('tripLogs').doc();
+        const settingsRef = db.collection('userSettings').doc(uid);
+        await db.runTransaction(async function(tx) {
+          const settingsSnap = await tx.get(settingsRef);
+          const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
+          const stats = normalizeTripLogStats(settingsData.tripLogStats);
+          let next = stats;
+          if (oldData) next = applyTripMilesToStats(next, oldData, -1);
+          next = applyTripMilesToStats(next, payload, 1);
+          const write = Object.assign({ userId: uid }, payload);
+          if (editingId) write.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+          else write.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          tx.set(tripRef, write, { merge: !!editingId });
+          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+        try { await logUserAction('trip_log_save', payload.railroad + ' ' + payload.trainNumber); } catch (_) {}
+        if (typeof showNotification === 'function') showNotification(editingId ? 'Trip updated' : 'Trip saved');
+        if (payload && payload.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
+          try {
+            await rrSpecialPublishLiveTrip(tripRef.id, payload.trainTitle || payload.trainNumber || 'Live trip', window.rrSpecialLastFix);
+          } catch (shareErr) {
+            console.warn('[live-trip] map publish', shareErr);
+            setTripLogError('Trip saved, but it could not be placed on the map yet.');
+          }
+        }
+        tripLogEditingId = null;
+        const saveLbl = document.getElementById('trip-log-save');
+        if (saveLbl) saveLbl.textContent = 'Save trip';
+        const notesEl = document.getElementById('trip-log-notes');
+        if (notesEl) notesEl.value = '';
+        const stockEl = document.getElementById('trip-log-rolling-stock');
+        if (stockEl) stockEl.value = '';
+        try { rrSpecialClearFormFields(); } catch (_) {}
+        tripLogSegmentsState = [emptyTripSegment({
+          railroad: payload.railroad || 'mbta',
+          departTime: defaultTripStartLocalValue()
+        })];
+        renderTripSegmentsForm();
+        try { await ensureTripLogStats({ force: true }); }
+        catch (_) { await loadTripLogStatsFromServer(); }
+        switchTripLogTab('list');
+        return tripRef.id;
+      } catch (e) {
+        console.warn('[trip-log] save failed', e);
+        setTripLogError('Could not save trip. ' + String((e && e.message) || e));
+        return null;
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    }
+
+    async function deleteTripLog(tripId) {
+      if (!db || !currentUser || !tripId) return;
+      if (!window.confirm('Delete this trip? This cannot be undone.')) return;
+      try {
+        const uid = currentUser.uid;
+        const tripRef = db.collection('tripLogs').doc(tripId);
+        const settingsRef = db.collection('userSettings').doc(uid);
+        await db.runTransaction(async function(tx) {
+          const tripSnap = await tx.get(tripRef);
+          if (!tripSnap.exists) throw new Error('Trip not found');
+          const trip = tripSnap.data() || {};
+          if (trip.userId !== uid) throw new Error('Not your trip');
+          const settingsSnap = await tx.get(settingsRef);
+          const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
+          const stats = normalizeTripLogStats(settingsData.tripLogStats);
+          const payload = {
+            railroad: trip.railroad,
+            miles: Number(trip.miles) || 0,
+            startTime: trip.startTime || null,
+            segments: Array.isArray(trip.segments) && trip.segments.length
+              ? trip.segments
+              : [{ railroad: trip.railroad, miles: Number(trip.miles) || 0 }]
+          };
+          const next = applyTripMilesToStats(stats, payload, -1);
+          next.lastTripAt = stats.lastTripAt || null;
+          tx.delete(tripRef);
+          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+        if (typeof showNotification === 'function') showNotification('Trip deleted');
+        // Rebuild from tripLogs so public profile + stats stay correct after delete
+        try {
+          const u = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+          if (u) await ensureTripLogStats({ force: true });
+          else await loadTripLogStatsFromServer();
+        } catch (_) { await loadTripLogStatsFromServer(); }
+        await loadTripLogList(true);
+      } catch (e) {
+        console.warn('[trip-log] delete failed', e);
+        if (typeof showNotification === 'function') showNotification('Could not delete trip', 'error');
+      }
+    }
+
+    function rrGoHomeFromMyTrips() {
+      try { location.href = '/mytrips/'; } catch (_) { location.href = '/mytrips/index.html'; }
+    }
+
+
+    /* Trip log from live */
+    function tripConsumePendingLogTrip() {
+      let pending = tripPendingLogTrip;
+      tripPendingLogTrip = null;
+      if (!pending) {
+        try {
+          const raw = sessionStorage.getItem('rrPendingLogTrip');
+          if (raw) pending = JSON.parse(raw);
+          sessionStorage.removeItem('rrPendingLogTrip');
+        } catch (_) { pending = null; }
+      }
+      return pending;
+    }
+
+    function tripPrefillFromQuery() {
+      try {
+        const q = new URLSearchParams(location.search);
+        const raw = q.get('logtrip') || q.get('logTrip');
+        if (!raw) return null;
+        const parts = String(raw).split(/[:|/]/);
+        if (parts.length < 2) return null;
+        return {
+          railroad: tripNormalizeAgency(parts[0]),
+          trainNumber: parts.slice(1).join(':'),
+          lineName: '',
+          originName: '',
+          destName: '',
+          departTime: defaultTripStartLocalValue(),
+          arriveTime: '',
+          scheduleStops: null
+        };
+      } catch (_) { return null; }
+    }
+
+    function applyTripLogPrefill(prefill) {
+      if (!prefill) return;
+      const rr = tripNormalizeAgency(prefill.railroad || prefill.agency || 'mbta');
+      const seg = emptyTripSegment({
+        railroad: rr,
+        trainNumber: String(prefill.trainNumber || '').trim(),
+        vehicleId: String(prefill.vehicleId || '').trim(),
+        departTime: isoToLocalInput(prefill.departTime) || defaultTripStartLocalValue(),
+        arriveTime: isoToLocalInput(prefill.arriveTime) || '',
+        trainExtraMode: !tripHasSchedulePicker(rr),
+        scheduleStops: Array.isArray(prefill.scheduleStops) ? tripNormalizeStopList(prefill.scheduleStops, rr) : null,
+        useFullStationList: !(prefill.scheduleStops && prefill.scheduleStops.length)
+      });
+      if (prefill.lineId) seg.lineId = String(prefill.lineId);
+      else if (prefill.lineName || prefill.routeName) {
+        seg.lineId = tripMatchLineId(rr, prefill.lineName || prefill.routeName);
+      }
+      const stations = tripStationsForSegment(seg);
+      if (prefill.originId) seg.originId = String(prefill.originId);
+      else if (prefill.originName || prefill.origin) {
+        seg.originId = tripMatchStationId(stations, prefill.originName || prefill.origin);
+      } else if (seg.scheduleStops && seg.scheduleStops.length) {
+        seg.originId = seg.scheduleStops[0].id;
+      }
+      if (prefill.destId) seg.destId = String(prefill.destId);
+      else if (prefill.destName || prefill.dest) {
+        seg.destId = tripMatchStationId(stations, prefill.destName || prefill.dest);
+      } else if (seg.scheduleStops && seg.scheduleStops.length > 1) {
+        seg.destId = seg.scheduleStops[seg.scheduleStops.length - 1].id;
+      }
+      if (seg.originId && seg.destId && seg.originId === seg.destId) seg.destId = '';
+      tripLogSegmentsState = [seg];
+    }
+
+    window.applyTripLogFromLive = async function(prefill) {
+      if (!prefill) return;
+      if (!(typeof rrAuthUser === 'function' ? rrAuthUser() : currentUser)) {
+        tripPendingLogTrip = prefill;
+        try { sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill)); } catch (_) {}
+        if (typeof showNotification === 'function') showNotification('Sign in to log this trip.', 'error');
+        if (typeof openSignupPrompt === 'function') openSignupPrompt();
+        return;
+      }
+      applyTripLogPrefill(prefill);
+      // Prefer /mytrips/ for a clean form; keep modal on that page
+      if (!rrIsMyTripsPage()) {
+        try {
+          sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill));
+        } catch (_) {}
+        const q = '?logtrip=' + encodeURIComponent(tripNormalizeAgency(prefill.railroad || prefill.agency) + ':' + String(prefill.trainNumber || ''));
+        location.href = '/mytrips/' + q;
+        return;
+      }
+      await openTripLogModal(null, { tab: 'log', forceModal: true });
+      renderTripSegmentsForm();
+      if (typeof showNotification === 'function') showNotification('Trip form prefilled from live train');
+    };
+
+    async function editTripLog(tripId) {
+      const id = String(tripId || '').trim();
+      if (!id) return;
+      const data = tripLogDataById[id];
+      if (!data) {
+        if (typeof showNotification === 'function') showNotification('Trip not found.', 'error');
+        return;
+      }
+      tripLogEditingId = id;
+      const rawSegs = (Array.isArray(data.segments) && data.segments.length)
+        ? data.segments
+        : [{
+            railroad: data.railroad,
+            lineId: data.lineId || '',
+            originStationId: data.originStationId,
+            destStationId: data.destStationId,
+            trainNumber: data.trainNumber,
+            departTime: data.startTime || data.departTime,
+            arriveTime: data.endTime || data.arriveTime,
+            vehicleId: data.vehicleId || ''
+          }];
+      tripLogSegmentsState = rawSegs.map(function(s) {
+        const rr = tripNormalizeAgency(s.railroad || data.railroad || 'mbta');
+        let oid = String(s.originStationId || s.originId || '');
+        let did = String(s.destStationId || s.destId || '');
+        if (rr === 'mbta') {
+          oid = tripMbtaCanonicalStationId(oid) || oid;
+          did = tripMbtaCanonicalStationId(did) || did;
+        }
+        return emptyTripSegment({
+          railroad: rr,
+          lineId: String(s.lineId || ''),
+          originId: oid,
+          destId: did,
+          trainNumber: String(s.trainNumber || '').trim(),
+          vehicleId: String(s.vehicleId || '').trim(),
+          departTime: isoToLocalInput(s.departTime) || '',
+          arriveTime: isoToLocalInput(s.arriveTime) || '',
+          trainExtraMode: true,
+          useFullStationList: true
+        });
+      });
+      const notesEl = document.getElementById('trip-log-notes');
+      if (notesEl) notesEl.value = data.notes || '';
+      const stockEl = document.getElementById('trip-log-rolling-stock');
+      if (stockEl) stockEl.value = data.rollingStock || '';
+      try { rrSpecialFillFormFields(data); } catch (_) {}
+      const saveLbl = document.getElementById('trip-log-save');
+      if (saveLbl) saveLbl.textContent = 'Update trip';
+      await openTripLogModal(null, { tab: 'log', forceModal: true });
+      renderTripSegmentsForm();
+    }
+
+
+    const RR_SPECIAL_SHARE_MAX_MS = 5 * 60 * 60 * 1000;
+    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 5000; // every write is a read for each viewer
+    const RR_SPECIAL_SHARE_MOVE_M = 20;
+    // Keep markers through remote/dead zones; show "last ping X min ago" instead of dropping ASAP.
+    const RR_SPECIAL_SHARE_STALE_MS = 30 * 60 * 1000;
+    const RR_SPECIAL_SHARE_QUEUE_MAX = 12;
+    const RR_SPECIAL_SHARE_LS_KEY = 'rrSpecialMoveShareV1';
+
+    let rrSpecialShareWatchId = null;
+    let rrSpecialShareState = null; // { uid, tripId, title, startedAt, expiresAt, lastWriteAt, lastLat, lastLon, offline }
+    let rrSpecialShareWriting = false;
+    let rrSpecialShareQueue = []; // buffered pings while offline: {lat,lon,heading,speed,at}
+    let rrSpecialShareUnsub = null;
+    let rrSpecialShareOnlineBound = false;
+    const rrSpecialShareMarkers = Object.create(null); // uid -> L.marker
+    let rrSpecialShareMapStarted = false;
+    let rrSpecialShareLastDocs = null;
+
+    /* RR special-move never-live 2026-10-05 */
+    function rrTripIsSpecialMove(data) {
+      if (!data) return false;
+      const v = data.specialMove;
+      if (v === true || v === 1) return true;
+      if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        if (s === 'true' || s === '1' || s === 'yes' || s === 'special') return true;
+      }
+      // Redundant stamp from save (survives partial writes / older clients)
+      if (data.kind === 'specialMove' || data.tripKind === 'specialMove') return true;
+      const title = String(data.trainTitle || '').trim();
+      if (title && (data.isSpecialMove === true || data.isSpecial === true)) return true;
+      return false;
+    }
+    window.rrTripIsSpecialMove = rrTripIsSpecialMove;
+
+    function rrSpecialFirstName(user) {
+      try {
+        const n = String((user && user.displayName) || '').trim();
+        if (n) return n.split(/\s+/)[0].slice(0, 24);
+      } catch (_) {}
+      return 'Rider';
+    }
+
+    function rrSpecialIsFormOn() {
+      const cb = document.getElementById('trip-log-special-move');
+      return !!(cb && cb.checked);
+    }
+
+    
+
+    function rrSpecialRequireLocation() {
+      return new Promise(function(resolve, reject) {
+        if (!navigator.geolocation) {
+          reject(new Error('Location is not supported in this browser.'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          const fix = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          window.rrSpecialLastFix = fix;
+          const el = document.getElementById('trip-special-loc');
+          if (el) el.textContent = 'Location allowed.';
+          const saveBtn = document.getElementById('trip-log-save');
+          if (saveBtn) saveBtn.disabled = false;
+          resolve(fix);
+        }, function(err) {
+          const saveBtn = document.getElementById('trip-log-save');
+          if (saveBtn) saveBtn.disabled = true;
+          const el = document.getElementById('trip-special-loc');
+          if (el) el.textContent = (err && err.code === 1)
+            ? 'Location is required. Allow location to create this trip.'
+            : 'Location is required and was not available.';
+          reject(new Error('Location is required before this trip can be created.'));
+        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+      });
+    }
+function rrSpecialSyncTitleWrap() {
+      const cb = document.getElementById('trip-log-special-move');
+      const wrap = document.getElementById('trip-special-title-wrap');
+      const block = document.getElementById('trip-special-block');
+      const hint = document.getElementById('trip-special-hint');
+      if (!wrap) return;
+      const on = !!(cb && cb.checked);
+      wrap.hidden = !on;
+      if (block) block.classList.toggle('is-on', on);
+      document.body.classList.toggle('trip-form-special', on);
+      if (on) {
+        const saveBtn = document.getElementById('trip-log-save');
+        if (saveBtn && !(window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null)) saveBtn.disabled = true;
+        if (!cb.dataset.locAsked) {
+          cb.dataset.locAsked = '1';
+          try { rrSpecialRequireLocation().catch(function() {}); } catch (_) {}
+        }
+      }
+      if (hint) {
+        hint.textContent = on
+          ? 'Add a map title. Share location from the trip after you save.'
+          : 'Excursion, rare, or extra — one map title below. Share location from the trip after saving.';
+      }
+      // When Special is on, force free-text (Extra) mode so schedule picker + Extra button don't restate the same thing
+      try { if (typeof syncTripSegmentStateFromDom === 'function') syncTripSegmentStateFromDom(); } catch (_) {}
+      if (on && Array.isArray(tripLogSegmentsState)) {
+        tripLogSegmentsState.forEach(function(seg) {
+          if (!seg) return;
+          seg.trainExtraMode = true;
+          // Keep schedule stops when From/To were already picked from them, otherwise the
+          // re-render drops those ids and the trip saves as "? to ?".
+          const keepSched = Array.isArray(seg.scheduleStops) && seg.scheduleStops.length && (seg.originId || seg.destId) && !seg.useFullStationList;
+          if (!keepSched) seg.useFullStationList = true;
+          // Do not carry a live-train vehicleId into a Special move log
+          seg.vehicleId = '';
+        });
+      }
+      try { renderTripSegmentsForm(); } catch (_) {}
+    }
+
+    function rrSpecialReadFormFields() {
+      const cb = document.getElementById('trip-log-special-move');
+      const specialMove = !!(cb && cb.checked);
+      const title = String((document.getElementById('trip-log-train-title') || {}).value || '').trim().slice(0, 80);
+      return { specialMove: specialMove, trainTitle: title || null };
+    }
+
+    function rrSpecialFillFormFields(data) {
+      const cb = document.getElementById('trip-log-special-move');
+      const titleEl = document.getElementById('trip-log-train-title');
+      const isSpecial = (typeof rrTripIsSpecialMove === 'function')
+        ? rrTripIsSpecialMove(data)
+        : !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      if (cb) cb.checked = isSpecial;
+      if (titleEl) titleEl.value = (data && data.trainTitle) ? String(data.trainTitle) : '';
+      rrSpecialSyncTitleWrap();
+    }
+
+    function rrSpecialClearFormFields() {
+      const cb = document.getElementById('trip-log-special-move');
+      const titleEl = document.getElementById('trip-log-train-title');
+      if (cb) cb.checked = false;
+      if (titleEl) titleEl.value = '';
+      rrSpecialSyncTitleWrap();
+    }
+
+    function rrSpecialHaversineM(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toR = Math.PI / 180;
+      const dLat = (lat2 - lat1) * toR;
+      const dLon = (lon2 - lon1) * toR;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+
+    // localStorage (not sessionStorage) so an active share survives reloads and tab restores.
+    function rrSpecialPersistLocal(state) {
+      try {
+        if (!state) {
+          localStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
+          sessionStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
+          return;
+        }
+        localStorage.removeItem('rrSpecialShareStopped');
+        localStorage.setItem(RR_SPECIAL_SHARE_LS_KEY, JSON.stringify({
+          uid: state.uid,
+          tripId: state.tripId,
+          title: state.title,
+          startedAt: state.startedAt,
+          expiresAt: state.expiresAt,
+          updatedAt: state.lastWriteAt || state.startedAt || Date.now(),
+          lastLat: state.lastLat != null ? state.lastLat : null,
+          lastLon: state.lastLon != null ? state.lastLon : null
+        }));
+      } catch (_) {}
+    }
+
+    function rrSpecialLoadLocal() {
+      try {
+        const raw = localStorage.getItem(RR_SPECIAL_SHARE_LS_KEY) || sessionStorage.getItem(RR_SPECIAL_SHARE_LS_KEY);
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        if (!o || !o.uid || !o.tripId || !o.expiresAt) return null;
+        if (Date.now() >= Number(o.expiresAt)) {
+          localStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
+          sessionStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
+          return null;
+        }
+        return o;
+      } catch (_) { return null; }
+    }
+
+    // True when this device holds an active, unexpired share for this trip.
+    function rrSpecialShareIsForTrip(data) {
+      const st = rrSpecialShareState;
+      if (!st || !data || Date.now() >= Number(st.expiresAt)) return false;
+      const byId = (typeof tripLogDataById !== 'undefined') ? tripLogDataById[st.tripId] : null;
+      if (byId && byId === data) return true;
+      return !!(byId && byId.startTime && byId.startTime === data.startTime &&
+        String(byId.trainTitle || '') === String(data.trainTitle || ''));
+    }
+
+    function rrSpecialSetShareStatus(msg, isError) {
+      const el = document.getElementById('trip-detail-share-status');
+      if (!el) return;
+      el.textContent = msg || '';
+      try { el.classList.toggle('is-error', !!(isError && msg)); } catch (_) {}
+    }
+
+
+    var rrSpecialSharePending = false;
+    function rrSpecialAbortPendingShare() {
+      rrSpecialSharePending = false;
+      try { rrSpecialClearWatch(); } catch (_) {}
+      try { rrSpecialClearDetailMarker(); } catch (_) {}
+      rrSpecialShareState = null;
+      rrSpecialShareQueue = [];
+      try { rrSpecialPersistLocal(null); } catch (_) {}
+      try { rrSpecialUpdateShareButtons(); } catch (_) {}
+    }
+    function rrSpecialUpdateShareButtons() {
+      const startBtn = document.getElementById('trip-detail-share-loc');
+      const stopBtn = document.getElementById('trip-detail-stop-share');
+      // Show Stop once we have state + (watch armed OR at least one successful write)
+      /* Sharing is ON only after a successful geo fix */
+      const sharing = !!(rrSpecialShareState && rrSpecialShareState.lastWriteAt);
+      const pending = !!(rrSpecialShareState && !sharing);
+      const resume = !!(rrSpecialShareState && rrSpecialShareState.resumeNeeded);
+      if (startBtn) {
+        startBtn.hidden = sharing && !resume;
+        startBtn.disabled = pending && !resume;
+        if (resume) startBtn.textContent = 'Tap to resume sharing';
+        else if (pending) startBtn.textContent = 'Waiting for location…';
+        else startBtn.textContent = 'Share location';
+      }
+      if (stopBtn) {
+        stopBtn.hidden = !sharing;
+        stopBtn.disabled = false;
+      }
+    }
+
+    function rrSpecialPaintDetailShare(tripId, data) {
+      const box = document.getElementById('trip-detail-special-share');
+      const titleEl = document.getElementById('trip-detail-special-title');
+      if (!box) return;
+      const isSpecial = (typeof rrTripIsSpecialMove === 'function') ? rrTripIsSpecialMove(data) : !!(data && data.specialMove);
+      const inProg = !!(data && typeof tripIsInProgressLight === 'function' && tripIsInProgressLight(data));
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      const mine = !!(user && data && data.userId && user.uid === data.userId);
+      const show = isSpecial && inProg && mine;
+      box.hidden = !show;
+      if (!show) {
+        if (titleEl) titleEl.textContent = '';
+        rrSpecialUpdateShareButtons();
+        return;
+      }
+      // Title already shown in badges — keep a short prompt here, not a duplicate name
+      if (titleEl) titleEl.textContent = 'Share location on the live map';
+      // If local share matches this trip, reflect button state
+      if (rrSpecialShareState && rrSpecialShareState.tripId === tripId) {
+        rrSpecialUpdateShareButtons();
+        try {
+          if (rrSpecialShareState.lastLat != null && rrSpecialShareState.lastLon != null) {
+            rrSpecialPaintDetailMarker(Number(rrSpecialShareState.lastLat), Number(rrSpecialShareState.lastLon));
+          }
+        } catch (_) {}
+        if (rrSpecialShareState.resumeNeeded) {
+          rrSpecialSetShareStatus('Sharing is still on, but location paused after reload. Tap to resume sharing.', true);
+        } else if (rrSpecialShareWatchId != null) {
+          try { rrSpecialStatusLine(); } catch (_) {
+            const left = Math.max(0, Number(rrSpecialShareState.expiresAt) - Date.now());
+            const hrs = Math.floor(left / 3600000);
+            const mins = Math.floor((left % 3600000) / 60000);
+            rrSpecialSetShareStatus('Sharing on the live map · stops in ' + (hrs ? (hrs + 'h ') : '') + mins + 'm');
+          }
+        }
+      } else {
+        rrSpecialUpdateShareButtons();
+        rrSpecialSetShareStatus('Up to 5 hours · works while this page is open.');
+      }
+    }
+
+    function rrSpecialIsOnline() {
+      try { return !(typeof navigator !== 'undefined' && navigator.onLine === false); } catch (_) { return true; }
+    }
+
+    function rrSpecialEnqueuePing(ping) {
+      if (!ping) return;
+      rrSpecialShareQueue.push(ping);
+      if (rrSpecialShareQueue.length > RR_SPECIAL_SHARE_QUEUE_MAX) {
+        rrSpecialShareQueue = rrSpecialShareQueue.slice(-RR_SPECIAL_SHARE_QUEUE_MAX);
+      }
+    }
+
+    function rrSpecialStatusLine(extra) {
+      if (!rrSpecialShareState) return;
+      const left = Math.max(0, Number(rrSpecialShareState.expiresAt) - Date.now());
+      const hrs = Math.floor(left / 3600000);
+      const mins = Math.floor((left % 3600000) / 60000);
+      const base = 'Sharing on the live map · stops in ' + (hrs ? (hrs + 'h ') : '') + mins + 'm';
+      if (rrSpecialShareState.offline || rrSpecialShareQueue.length) {
+        const n = rrSpecialShareQueue.length;
+        rrSpecialSetShareStatus((extra || 'Connection lost — buffering locally') + (n ? (' (' + n + ')') : '') + ' · ' + base);
+      } else {
+        rrSpecialSetShareStatus(extra || base);
+      }
+    }
+
+    async function rrSpecialFlushQueue() {
+      if (!rrSpecialShareState || !rrSpecialShareQueue.length) return;
+      if (!rrSpecialIsOnline()) return;
+      // Flush latest (+ short recent trail). expiresAt stays unchanged.
+      const latest = rrSpecialShareQueue[rrSpecialShareQueue.length - 1];
+      await rrSpecialCommitShare(latest, { fromQueue: true, force: true });
+    }
+
+    async function rrSpecialCommitShare(ping, opts) {
+      opts = opts || {};
+      if (!db || !rrSpecialShareState || !ping) return false;
+      const st = rrSpecialShareState;
+      const now = Date.now();
+      if (now >= Number(st.expiresAt)) {
+        await rrSpecialStopSharing({ reason: 'expired', silent: opts.silent });
+        return false;
+      }
+      if (rrSpecialShareWriting) {
+        rrSpecialEnqueuePing(ping);
+        return false;
+      }
+      rrSpecialShareWriting = true;
+      try {
+        const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (!user || user.uid !== st.uid) {
+          // Auth lost — keep local watch/queue; do not auto-stop (user may re-auth).
+          st.offline = true;
+          rrSpecialEnqueuePing(ping);
+          rrSpecialStatusLine('Signed out — buffering until you sign in again');
+          return false;
+        }
+        const recentSrc = rrSpecialShareQueue.length
+          ? rrSpecialShareQueue.slice(-RR_SPECIAL_SHARE_QUEUE_MAX)
+          : [ping];
+        const recent = recentSrc.map(function(p) {
+          return { lat: p.lat, lon: p.lon, at: p.at };
+        });
+        const doc = {
+          uid: st.uid,
+          displayName: rrSpecialFirstName(user),
+          tripId: st.tripId,
+          title: String(st.title || 'Special move').slice(0, 80),
+          lat: ping.lat,
+          lon: ping.lon,
+          heading: ping.heading,
+          speed: ping.speed,
+          startedAt: st.startedAt,
+          expiresAt: st.expiresAt, // unchanged across reconnects
+          updatedAt: now,
+          active: true,
+          recent: recent
+        };
+        await db.collection('specialMoveShares').doc(st.uid).set(doc, { merge: true });
+        st.lastWriteAt = now;
+        st.lastLat = ping.lat;
+        st.lastLon = ping.lon;
+        st.offline = false;
+        rrSpecialShareQueue = [];
+        rrSpecialStatusLine();
+        try { rrSpecialPaintDetailMarker(ping.lat, ping.lon, ping.heading); } catch (_) {}
+        // Own pin: merged with the snapshot by uid (no duplicate marker)
+        try { rrSpecialSetSelfDoc(doc); } catch (_) {}
+        return true;
+      } catch (e) {
+        // Network/rules blip: keep watching + buffer. Never auto-stop here.
+        console.warn('[special-share] write failed (will retry)', e);
+        st.offline = true;
+        rrSpecialEnqueuePing(ping);
+        const code = String((e && (e.code || e.message)) || e || '');
+        if (/permission-denied/i.test(code)) {
+          rrSpecialSetShareStatus('Firestore write failed (permission-denied). Check specialMoveShares rules / sign-in.', true);
+        } else if (/unavailable|network|offline|Failed to get document/i.test(code)) {
+          rrSpecialStatusLine('Connection lost — buffering locally');
+        } else {
+          rrSpecialSetShareStatus('Firestore write failed: ' + code.slice(0, 160) + ' — will retry', true);
+        }
+        return false;
+      } finally {
+        rrSpecialShareWriting = false;
+      }
+    }
+
+    async function rrSpecialWriteShare(coords, opts) {
+      opts = opts || {};
+      if (!rrSpecialShareState) return;
+      const st = rrSpecialShareState;
+      const now = Date.now();
+      if (now >= Number(st.expiresAt)) {
+        await rrSpecialStopSharing({ reason: 'expired', silent: opts.silent });
+        return;
+      }
+      const lat = Number(coords.latitude);
+      const lon = Number(coords.longitude);
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      const heading = (coords.heading != null && isFinite(Number(coords.heading))) ? Number(coords.heading) : null;
+      const speed = (coords.speed != null && isFinite(Number(coords.speed))) ? Number(coords.speed) : null;
+      const ping = { lat: lat, lon: lon, heading: heading, speed: speed, at: now };
+      // Always keep a local trail while sharing (for flush-on-reconnect).
+      const moved = (st.lastLat != null && st.lastLon != null)
+        ? rrSpecialHaversineM(st.lastLat, st.lastLon, lat, lon)
+        : 9999;
+      const due = !st.lastWriteAt || (now - st.lastWriteAt) >= RR_SPECIAL_SHARE_MIN_INTERVAL_MS;
+      const shouldSend = !!(opts.force || due || moved >= RR_SPECIAL_SHARE_MOVE_M || st.offline || rrSpecialShareQueue.length);
+      if (!shouldSend) return;
+      // Update local last fix even when offline so throttle still works after reconnect.
+      st.lastLat = lat;
+      st.lastLon = lon;
+      if (!db) {
+        rrSpecialEnqueuePing(ping);
+        rrSpecialSetShareStatus('Firebase not ready — cannot publish location to the live map.', true);
+        return;
+      }
+      if (!rrSpecialIsOnline()) {
+        st.offline = true;
+        rrSpecialEnqueuePing(ping);
+        rrSpecialStatusLine('Connection lost — buffering locally');
+        return;
+      }
+      // Online: always attempt commit (even after a prior blip marked offline).
+      await rrSpecialCommitShare(ping, opts);
+    }
+
+    function rrSpecialBindOnlineFlush() {
+      if (rrSpecialShareOnlineBound) return;
+      rrSpecialShareOnlineBound = true;
+      try {
+        window.addEventListener('online', function() {
+          if (!rrSpecialShareState) return;
+          rrSpecialShareState.offline = false;
+          rrSpecialStatusLine('Back online — syncing…');
+          rrSpecialFlushQueue();
+        });
+      } catch (_) {}
+      // Periodic retry while sharing (covers captive portals / flaky cell without waiting for 'online')
+      try {
+        setInterval(function() {
+          if (!rrSpecialShareState) return;
+          if (Date.now() >= Number(rrSpecialShareState.expiresAt)) {
+            rrSpecialStopSharing({ reason: 'expired' });
+            return;
+          }
+          if (rrSpecialShareQueue.length && rrSpecialIsOnline()) {
+            rrSpecialFlushQueue();
+          }
+        }, 15000);
+      } catch (_) {}
+    }
+
+    function rrSpecialClearWatch() {
+      if (rrSpecialShareWatchId != null && navigator.geolocation) {
+        try { navigator.geolocation.clearWatch(rrSpecialShareWatchId); } catch (_) {}
+      }
+      rrSpecialShareWatchId = null;
+          try { rrSpecialClearDetailMarker(); } catch (_) {}
+    }
+
+    function rrShowStopShare(on) {
+      const btn = document.getElementById('rr-stop-share');
+      if (!btn) return;
+      btn.hidden = !on;
+      btn.style.display = on ? 'inline-flex' : 'none';
+    }
+    async function rrSpecialPublishLiveTrip(tripId, title, fix) {
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!user || !db || !fix || fix.lat == null) return;
+      const startedAt = Date.now();
+      const expiresAt = startedAt + (typeof RR_SPECIAL_SHARE_MAX_MS === 'number' ? RR_SPECIAL_SHARE_MAX_MS : 5 * 60 * 60 * 1000);
+      rrSpecialShareState = {
+        uid: user.uid,
+        tripId: tripId,
+        title: String(title || 'Live trip').slice(0, 80),
+        startedAt: startedAt,
+        expiresAt: expiresAt,
+        lastWriteAt: 0,
+        lastLat: Number(fix.lat),
+        lastLon: Number(fix.lon),
+        offline: false
+      };
+      try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+      await db.collection('specialMoveShares').doc(user.uid).set({
+        uid: user.uid,
+        tripId: tripId,
+        title: rrSpecialShareState.title,
+        active: true,
+        lat: Number(fix.lat),
+        lon: Number(fix.lon),
+        startedAt: startedAt,
+        expiresAt: expiresAt,
+        updatedAt: startedAt
+      }, { merge: true });
+      try {
+        if (typeof rrSpecialApplyDocs === 'function') {
+          rrSpecialSetSelfDoc({ uid: user.uid, active: true, lat: Number(fix.lat), lon: Number(fix.lon), title: rrSpecialShareState.title, displayName: rrSpecialFirstName(user), expiresAt: expiresAt, updatedAt: startedAt });
+        }
+      } catch (_) {}
+      try { if (typeof rrSpecialStartMapListener === 'function') rrSpecialStartMapListener(); } catch (_) {}
+      // The fix + successful save count as a real ping; keep sending from this page too.
+      if (rrSpecialShareState) {
+        rrSpecialShareState.lastWriteAt = startedAt;
+        try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+        try { rrSpecialResumeSharing(false); } catch (_) {}
+      }
+      rrShowStopShare(true);
+      if (typeof showNotification === 'function') showNotification('Live trip is on the map');
+    }
+    document.addEventListener('click', function(ev) {
+      const btn = ev.target && ev.target.closest && ev.target.closest('#rr-stop-share, #trip-detail-stop-share');
+      if (!btn) return;
+      ev.preventDefault();
+      Promise.resolve(typeof rrSpecialStopSharing === 'function' ? rrSpecialStopSharing() : null).then(function() {
+        rrShowStopShare(false);
+      }).catch(function() { rrShowStopShare(false); });
+    });
+async function rrSpecialStopSharing(opts) {
+      opts = opts || {};
+      rrSpecialClearWatch();
+      const st = rrSpecialShareState;
+      rrSpecialShareState = null;
+      rrSpecialShareQueue = [];
+      rrSpecialPersistLocal(null);
+      try { localStorage.setItem('rrSpecialShareStopped', '1'); } catch (_) {}
+      try { rrSpecialShowResumeBanner(false); } catch (_) {}
+      try { rrSpecialSetSelfDoc(null); } catch (_) {}
+      try { rrShowStopShare(false); } catch (_) {}
+      if (st && db && st.uid) {
+        try {
+          await db.collection('specialMoveShares').doc(st.uid).delete();
+        } catch (e1) {
+          try {
+            await db.collection('specialMoveShares').doc(st.uid).set({
+              active: false,
+              updatedAt: Date.now(),
+              uid: st.uid
+            }, { merge: true });
+          } catch (e2) {
+            console.warn('[special-share] stop cleanup failed', e2);
+          }
+        }
+      }
+      rrSpecialUpdateShareButtons();
+      if (!opts.silent) {
+        if (opts.reason === 'expired') {
+          rrSpecialSetShareStatus('Sharing stopped — 5 hour limit reached.');
+          if (typeof showNotification === 'function') showNotification('Location sharing ended (5h limit)');
+        } else if (opts.reason === 'leave') {
+          rrSpecialSetShareStatus('');
+        } else {
+          rrSpecialSetShareStatus('Sharing stopped.');
+          if (typeof showNotification === 'function') showNotification('Stopped sharing location');
+        }
+      }
+    }
+
+    let rrSpecialDetailMarker = null;
+
+    function rrSpecialPaintDetailMarker(lat, lon, heading) {
+      try {
+        if (!tripDetailMap || typeof L === 'undefined') return;
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        const hk = rrSpecialHeadingDeg(heading);
+        if (rrSpecialDetailMarker) {
+          rrSpecialDetailMarker.setLatLng([lat, lon]);
+          if (heading != null && rrSpecialDetailMarker._rrHeading !== hk) {
+            try { rrSpecialDetailMarker.setIcon(rrSpecialCreateIcon(heading)); rrSpecialDetailMarker._rrHeading = hk; } catch (_) {}
+          }
+        } else {
+          rrSpecialDetailMarker = L.marker([lat, lon], {
+            icon: rrSpecialCreateIcon(heading),
+            zIndexOffset: 2000,
+            keyboard: false
+          }).addTo(tripDetailMap);
+          try { rrSpecialDetailMarker.bindTooltip('You (sharing)', { direction: 'top', opacity: 0.9 }); } catch (_) {}
+        }
+      } catch (e) {
+        console.warn('[special-share] detail marker failed', e);
+      }
+    }
+
+    function rrSpecialClearDetailMarker() {
+      if (rrSpecialDetailMarker) {
+        try { rrSpecialDetailMarker.remove(); } catch (_) {}
+        rrSpecialDetailMarker = null;
+      }
+    }
+
+    async function rrSpecialStartSharing(tripId, data) {
+      const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+      if (!user) {
+        rrSpecialSetShareStatus('Sign in to share location.', true);
+        return;
+      }
+      if (!data || !(typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true'))) {
+        rrSpecialSetShareStatus('Mark this trip as a Special move first.', true);
+        return;
+      }
+      if (typeof tripIsInProgressLight === 'function' && !tripIsInProgressLight(data)) {
+        rrSpecialSetShareStatus('Share is only available while the trip is in progress.', true);
+        return;
+      }
+      const title = String(data.trainTitle || '').trim().slice(0, 80);
+      if (!title) {
+        rrSpecialSetShareStatus('Add a map title on the trip before sharing.', true);
+        return;
+      }
+      if (!navigator.geolocation) {
+        rrSpecialSetShareStatus('Location is not supported in this browser.', true);
+        return;
+      }
+      if (!db) {
+        rrSpecialSetShareStatus('Firebase not ready — reload and try again.', true);
+        return;
+      }
+      // Clear prior watch/state SYNCHRONOUSLY so getCurrentPosition still runs in the user-gesture turn.
+      // (Awaiting Firestore delete here would break iOS/Safari permission prompts.)
+      if (rrSpecialShareWatchId != null || rrSpecialShareState) {
+        const prev = rrSpecialShareState;
+        rrSpecialClearWatch();
+        rrSpecialShareState = null;
+        rrSpecialShareQueue = [];
+        rrSpecialPersistLocal(null);
+        if (prev && db && prev.uid) {
+          try {
+            db.collection('specialMoveShares').doc(prev.uid).delete().catch(function() {
+              try {
+                db.collection('specialMoveShares').doc(prev.uid).set({
+                  active: false, updatedAt: Date.now(), uid: prev.uid
+                }, { merge: true });
+              } catch (_) {}
+            });
+          } catch (_) {}
+        }
+      }
+      const startedAt = Date.now();
+      const expiresAt = startedAt + RR_SPECIAL_SHARE_MAX_MS;
+      rrSpecialShareState = {
+        uid: user.uid,
+        tripId: tripId,
+        title: title,
+        startedAt: startedAt,
+        expiresAt: expiresAt,
+        lastWriteAt: 0,
+        lastLat: null,
+        lastLon: null,
+        offline: false
+      };
+      rrSpecialPersistLocal(rrSpecialShareState);
+      rrSpecialSetShareStatus('Requesting location permission…');
+      const startBtn = document.getElementById('trip-detail-share-loc');
+      if (startBtn) startBtn.disabled = true;
+
+      const geoOpts = { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 };
+
+      function armWatch() {
+        if (!rrSpecialShareState || rrSpecialShareWatchId != null) return;
+        try {
+          rrSpecialShareWatchId = navigator.geolocation.watchPosition(onGeoOk, onGeoErr, geoOpts);
+        } catch (e) {
+          console.warn('[special-share] watchPosition failed', e);
+        }
+        rrSpecialUpdateShareButtons();
+      }
+
+      function onGeoOk(pos) {
+        if (!rrSpecialShareState) return;
+        if (Date.now() >= rrSpecialShareState.expiresAt) {
+          rrSpecialStopSharing({ reason: 'expired' });
+          return;
+        }
+        try {
+          const c = pos && pos.coords;
+          if (c) {
+            rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude), c.heading);
+            // Detail map may still be initializing — retry pin shortly
+            if (!tripDetailMap) {
+              setTimeout(function() {
+                try {
+                  if (rrSpecialShareState && c) rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude), c.heading);
+                } catch (_) {}
+              }, 800);
+            }
+          }
+        } catch (_) {}
+        const first = !rrSpecialShareState.lastWriteAt;
+        rrSpecialWriteShare(pos.coords, { force: first }).then(function() {
+          if (first && rrSpecialShareState && !rrSpecialShareState.offline && rrSpecialShareState.lastWriteAt) {
+            if (typeof showNotification === 'function') showNotification('Sharing location on the live map');
+          }
+        }).catch(function(e) {
+          console.warn('[special-share] writeShare', e);
+        });
+        rrSpecialUpdateShareButtons();
+        if (!rrSpecialShareState.offline) rrSpecialStatusLine();
+        try {
+          if (typeof window.rrSpecialStartMapListener === 'function') window.rrSpecialStartMapListener();
+        } catch (_) {}
+      }
+      function onGeoErr(err) {
+        console.warn('[special-share] geo error', err);
+        if (err && err.code === 1) {
+          rrSpecialSetShareStatus('Location permission denied. Allow location for RailroadRadar in browser/site settings, then tap Share again.', true);
+          if (typeof rrSpecialAbortPendingShare === 'function') rrSpecialAbortPendingShare();
+          if (startBtn) startBtn.disabled = false;
+          return;
+        }
+        let msg = 'GPS blip — still sharing, waiting for a fix…';
+        if (err && err.code === 2) msg = 'Location unavailable (remote area?) — still sharing, will retry…';
+        else if (err && err.code === 3) msg = 'Location timed out — still sharing, will retry…';
+        // Keep trying via watch if we already have permission / state
+        if (rrSpecialShareState) {
+          armWatch();
+          rrSpecialStatusLine(msg);
+        } else {
+          rrSpecialSetShareStatus(msg, true);
+          if (startBtn) startBtn.disabled = false;
+        }
+        rrSpecialUpdateShareButtons();
+      }
+
+      // CRITICAL: only getCurrentPosition here (still in the click call stack).
+      // Do NOT pre-start watchPosition — that claimed "Sharing" before any prompt
+      // and on iOS a prior no-gesture watch from /mytrips could poison permission.
+      try {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          onGeoOk(pos);
+          armWatch();
+        }, function(err) {
+          onGeoErr(err);
+          // Transient errors: arm watch so we can recover without another tap
+          if (err && err.code !== 1 && rrSpecialShareState) armWatch();
+        }, geoOpts);
+      } catch (e) {
+        console.warn('[special-share] getCurrentPosition failed', e);
+        rrSpecialSetShareStatus('Could not request location: ' + String((e && e.message) || e).slice(0, 120), true);
+        rrSpecialShareState = null;
+        rrSpecialPersistLocal(null);
+        if (startBtn) startBtn.disabled = false;
+        rrSpecialUpdateShareButtons();
+        return;
+      }
+      try { rrSpecialBindOnlineFlush(); } catch (_) {}
+
+      // Auto-stop timer
+      try {
+        setTimeout(function() {
+          if (rrSpecialShareState && Date.now() >= rrSpecialShareState.expiresAt) {
+            rrSpecialStopSharing({ reason: 'expired' });
+          }
+        }, RR_SPECIAL_SHARE_MAX_MS + 500);
+      } catch (_) {}
+    }
+
+    function rrSpecialEscHtml(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '\u0026amp;').replace(/</g, '\u0026lt;').replace(/>/g, '\u0026gt;')
+        .replace(/"/g, '\u0026quot;').replace(/'/g, '\u0026#39;');
+    }
+    // Amber pin + short title label (main map and trip detail)
+    function rrSpecialHeadingDeg(h) {
+      const n = Number(h);
+      if (h == null || h === '' || !isFinite(n)) return 0;
+      return ((Math.round(n) % 360) + 360) % 360;
+    }
+    // Train icon from 4be1189 (rotates with heading); share doc 'icon' may pick another /assets/*.png
+    function rrSpecialCreateIcon(heading, iconSrc) {
+      const rot = rrSpecialHeadingDeg(heading);
+      const src = (typeof iconSrc === 'string' && /^\/assets\/[A-Za-z0-9-]+[.]png$/.test(iconSrc)) ? iconSrc : '/assets/hsp46.png';
+      return L.divIcon({
+        className: 'rr-special-share-icon',
+        html: '<img src="' + src + '" alt="" style="width:42px;height:18px;object-fit:contain;transform:rotate(' + rot + 'deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));">',
+        iconSize: [42, 18],
+        iconAnchor: [21, 9],
+        popupAnchor: [0, -12]
+      });
+    }
+    function rrSpecialPopupHtml(d) {
+      const title = rrSpecialEscHtml((d && d.title) || 'Special move');
+      const first = String((d && d.displayName) || '').trim().split(/\s+/)[0];
+      const who = rrSpecialEscHtml(first || 'Rider');
+      const updated = Number(d && d.updatedAt) || 0;
+      const ago = updated ? rrSpecialFmtAgo(Date.now() - updated) : '';
+      return '<div class="train-popup">' +
+        '<div class="train-popup-header"><span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;">' + title + '</span></div>' +
+        '<div style="padding:8px 10px;font-size:13px;color:#07093e;">' +
+          '<div style="font-weight:700;">Special move</div>' +
+          '<div>' + who + '</div>' +
+          '<div>Last ping ' + (ago || 'just now') + '</div>' +
+        '</div></div>';
+    }
+
+    function rrSpecialFmtAgo(ms) {
+      if (!isFinite(ms) || ms < 0) return '';
+      const s = Math.round(ms / 1000);
+      if (s < 5) return 'just now';
+      if (s < 60) return s + 's ago';
+      const m = Math.round(s / 60);
+      if (m < 60) return m + 'm ago';
+      return Math.round(m / 60) + 'h ago';
+    }
+
+
+    // Own share as written by this device; merged with the snapshot so we never draw two pins.
+    let rrSpecialSelfDoc = null;
+    function rrSpecialSetSelfDoc(d) {
+      rrSpecialSelfDoc = d ? Object.assign({}, d) : null;
+      try { rrSpecialApplyDocs(null); } catch (_) {}
+    }
+
+    function rrSpecialApplyDocs(docs) {
+      if (docs) rrSpecialShareLastDocs = docs;
+      const map = window.rrMainMap;
+      if (!map || typeof L === 'undefined') return;
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
+      const now = Date.now();
+      const byUid = Object.create(null);
+      (rrSpecialShareLastDocs || []).forEach(function(doc) {
+        const d = doc && doc.data ? doc.data() : doc;
+        if (!d) return;
+        const uid = String(d.uid || (doc && doc.id) || '');
+        if (uid) byUid[uid] = d;
+      });
+      if (rrSpecialSelfDoc && rrSpecialSelfDoc.uid) {
+        const su = String(rrSpecialSelfDoc.uid);
+        const cur = byUid[su];
+        if (!cur || (Number(rrSpecialSelfDoc.updatedAt) || 0) >= (Number(cur.updatedAt) || 0)) {
+          byUid[su] = Object.assign({}, cur || {}, rrSpecialSelfDoc);
+        }
+      }
+      const seen = {};
+      Object.keys(byUid).forEach(function(uid) {
+        const d = byUid[uid];
+        if (!d || d.active !== true) return;
+        const exp = Number(d.expiresAt);
+        if (!isFinite(exp) || exp <= now) return;
+        const updated = Number(d.updatedAt) || 0;
+        if (!updated || (now - updated) > RR_SPECIAL_SHARE_STALE_MS) return;
+        const lat = Number(d.lat);
+        const lon = Number(d.lon != null ? d.lon : d.lng);
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        seen[uid] = true;
+        const html = rrSpecialPopupHtml(d);
+        const iconKey = rrSpecialHeadingDeg(d.heading) + '|' + String(d.icon || '');
+        let m = rrSpecialShareMarkers[uid];
+        if (m) {
+          try {
+            m.setLatLng([lat, lon]);
+            if (m._rrIconKey !== iconKey) { m.setIcon(rrSpecialCreateIcon(d.heading, d.icon)); m._rrIconKey = iconKey; }
+            m.setPopupContent(html);
+          } catch (_) {}
+        } else {
+          try {
+            m = L.marker([lat, lon], {
+              icon: rrSpecialCreateIcon(d.heading, d.icon),
+              zIndexOffset: 1800,
+              keyboard: true
+            });
+            m._rrIconKey = iconKey;
+            m.bindPopup(html, { maxWidth: 240 });
+            m.addTo(map);
+            rrSpecialShareMarkers[uid] = m;
+          } catch (e) {
+            console.warn('[special-share] marker failed', e);
+          }
+        }
+      });
+      Object.keys(rrSpecialShareMarkers).forEach(function(uid) {
+        if (!seen[uid]) {
+          try { rrSpecialShareMarkers[uid].remove(); } catch (_) {}
+          delete rrSpecialShareMarkers[uid];
+        }
+      });
+    }
+
+    // One realtime listener, only where the main map is shown. The query MUST keep
+    // where('active','==',true): rules only allow reading active shares, so an
+    // unfiltered list query is denied.
+    function rrSpecialStartMapListener() {
+      if (rrSpecialShareMapStarted) return;
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no main map on /mytrips
+      const S = rrSpecialStartMapListener;
+      if (!db || typeof firebase === 'undefined' || !window.rrMainMap) {
+        // Firebase or map not ready yet — retry for a while so shares appear after load
+        S._retries = (S._retries || 0) + 1;
+        if (S._retries <= 60 && !S._pending) {
+          S._pending = setTimeout(function() { S._pending = null; try { rrSpecialStartMapListener(); } catch (_) {} }, 1000);
+        }
+        return;
+      }
+      rrSpecialShareMapStarted = true;
+      try {
+        rrSpecialShareUnsub = db.collection('specialMoveShares')
+          .where('active', '==', true)
+          .onSnapshot(function(snap) {
+            S._errors = 0;
+            try { rrSpecialApplyDocs(snap.docs || []); } catch (e) {
+              console.warn('[special-share] apply failed', e);
+            }
+          }, function(err) {
+            console.warn('[special-share] listen failed', err);
+            rrSpecialShareMapStarted = false;
+            rrSpecialShareUnsub = null;
+            // Back off and retry a few times (offline / transient); never spin.
+            S._errors = (S._errors || 0) + 1;
+            if (S._errors <= 5) {
+              setTimeout(function() { try { rrSpecialStartMapListener(); } catch (_) {} }, Math.min(60000, 5000 * S._errors));
+            }
+          });
+      } catch (e) {
+        console.warn('[special-share] listener start failed', e);
+        rrSpecialShareMapStarted = false;
+      }
+      // Refresh Last ping labels / drop expired or stale pins between snapshots (one timer only)
+      if (!S._timer) {
+        try {
+          S._timer = setInterval(function() {
+            if (document.visibilityState === 'hidden') return;
+            try { rrSpecialApplyDocs(null); } catch (_) {}
+          }, 30000);
+        } catch (_) {}
+      }
+    }
+
+    function rrSpecialBindUi() {
+      const cb = document.getElementById('trip-log-special-move');
+      if (cb && !cb._rrSpecialBound) {
+        cb._rrSpecialBound = true;
+        cb.addEventListener('change', rrSpecialSyncTitleWrap);
+      }
+      const startBtn = document.getElementById('trip-detail-share-loc');
+      if (startBtn && !startBtn._rrSpecialBound) {
+        startBtn._rrSpecialBound = true;
+        startBtn.addEventListener('click', function(ev) {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          const tripId = tripDetailOpenId;
+          const data = tripId ? tripLogDataById[tripId] : null;
+          if (rrSpecialShareState && rrSpecialShareState.tripId === tripId && Date.now() < Number(rrSpecialShareState.expiresAt)) {
+            try { rrSpecialResumeSharing(true); } catch (e) { console.warn('[special-share] resume failed', e); }
+            return;
+          }
+          // Fire immediately from the gesture; rrSpecialStartSharing requests geo sync before any await when possible.
+          try { rrSpecialStartSharing(tripId, data); } catch (e) {
+            console.warn('[special-share] start failed', e);
+            rrSpecialSetShareStatus('Share failed to start: ' + String((e && e.message) || e).slice(0, 120), true);
+          }
+        });
+      }
+      const stopBtn = document.getElementById('trip-detail-stop-share');
+      if (stopBtn && !stopBtn._rrSpecialBound) {
+        stopBtn._rrSpecialBound = true;
+        stopBtn.addEventListener('click', function(ev) {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          rrSpecialStopSharing({});
+        });
+      }
+      if (!window._rrSpecialLeaveBound) {
+        window._rrSpecialLeaveBound = true;
+        // Do not stop on pagehide/visibilitychange: iOS backgrounds fire those and
+        // would kill sharing. Auto-stop is explicit Stop, trip end, or 5h expiry.
+        // Network blips never auto-stop; map viewers keep markers up to 30 min with last-ping text.
+        window.addEventListener('pagehide', function(ev) {
+          if (ev && ev.persisted) return;
+          // Soft: persist local state only; Firestore doc expires via expiresAt.
+          try { if (rrSpecialShareState) rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+        });
+      }
+    }
+
+    // ---- Resume an active share after reload (RR special-move reload fix) ----
+    // The share doc stays active across reloads; only Stop, 5h expiry or trip end end it.
+    function rrSpecialShowResumeBanner(on, msg) {
+      let el = document.getElementById('rr-special-resume');
+      if (!on) {
+        if (el) el.style.display = 'none';
+        return;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'rr-special-resume';
+        el.setAttribute('role', 'alert');
+        el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:10060;display:flex;flex-direction:column;gap:8px;background:#07093e;color:#fff;padding:12px 14px;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.4);font:600 14px/1.35 sans-serif;max-width:520px;margin:0 auto;';
+        el.innerHTML = '<span id="rr-special-resume-text"></span>' +
+          '<button type="button" id="rr-special-resume-btn" style="background:#b00020;color:#fff;border:0;border-radius:999px;padding:12px 16px;font:800 16px/1 sans-serif;cursor:pointer;">Tap to resume sharing</button>';
+        (document.body || document.documentElement).appendChild(el);
+        el.querySelector('#rr-special-resume-btn').addEventListener('click', function(ev) {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          rrSpecialResumeSharing(true);
+        });
+      }
+      const t = el.querySelector('#rr-special-resume-text');
+      if (t) t.textContent = msg || '';
+      el.style.display = 'flex';
+    }
+
+    function rrSpecialNeedResume(msg) {
+      const st = rrSpecialShareState;
+      if (!st) return;
+      st.resumeNeeded = true;
+      const title = String(st.title || 'Special move');
+      rrSpecialShowResumeBanner(true, 'Sharing · ' + title + ' — location paused after reload.' + (msg ? (' ' + msg) : ''));
+      rrSpecialSetShareStatus('Sharing is still on, but location paused after reload. Tap to resume sharing.', true);
+      rrSpecialUpdateShareButtons();
+    }
+
+    function rrSpecialRefreshLiveUi() {
+      try { if (typeof tripListLiveTick === 'function') tripListLiveTick(); } catch (_) {}
+      try { if (tripLiveActiveId) tripLiveTick(); } catch (_) {}
+      try {
+        if (tripDetailOpenId && tripLogDataById[tripDetailOpenId]) rrSpecialPaintDetailShare(tripDetailOpenId, tripLogDataById[tripDetailOpenId]);
+      } catch (_) {}
+    }
+
+    function rrSpecialResumeSharing(fromGesture) {
+      const st = rrSpecialShareState;
+      if (!st || !navigator.geolocation) {
+        if (st) rrSpecialNeedResume('Location is not available in this browser.');
+        return;
+      }
+      if (Date.now() >= Number(st.expiresAt)) {
+        rrSpecialStopSharing({ reason: 'expired' });
+        return;
+      }
+      if (rrSpecialShareWatchId != null && !fromGesture) return;
+      const geoOpts = { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 };
+      let gotFix = false;
+      let forced = false;
+      function ok(pos) {
+        if (!rrSpecialShareState || rrSpecialShareState !== st) return;
+        gotFix = true;
+        if (st.resumeNeeded) {
+          st.resumeNeeded = false;
+          rrSpecialShowResumeBanner(false);
+        }
+        const c = pos && pos.coords;
+        if (!c) return;
+        try { rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude), c.heading); } catch (_) {}
+        const force = !forced;
+        forced = true;
+        rrSpecialWriteShare(c, { force: force }).then(function() {
+          try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+        }).catch(function(e) { console.warn('[special-share] resume write', e); });
+        rrSpecialUpdateShareButtons();
+        if (!st.offline) rrSpecialStatusLine();
+      }
+      function err(e) {
+        if (!rrSpecialShareState || rrSpecialShareState !== st) return;
+        console.warn('[special-share] resume geo error', e);
+        if (e && e.code === 1) {
+          // Needs a tap (iOS) or permission was revoked. Keep the share doc active.
+          if (rrSpecialShareWatchId != null) {
+            try { navigator.geolocation.clearWatch(rrSpecialShareWatchId); } catch (_) {}
+            rrSpecialShareWatchId = null;
+          }
+          rrSpecialNeedResume(fromGesture ? 'Allow location for RailroadRadar in Settings, then tap again.' : '');
+          return;
+        }
+        rrSpecialStatusLine('GPS blip — still sharing, waiting for a fix…');
+      }
+      function arm() {
+        if (rrSpecialShareWatchId != null || !rrSpecialShareState) return;
+        try {
+          rrSpecialShareWatchId = navigator.geolocation.watchPosition(ok, err, geoOpts);
+        } catch (e) {
+          console.warn('[special-share] resume watch failed', e);
+          rrSpecialNeedResume('');
+        }
+      }
+      if (fromGesture) {
+        if (rrSpecialShareWatchId != null) {
+          try { navigator.geolocation.clearWatch(rrSpecialShareWatchId); } catch (_) {}
+          rrSpecialShareWatchId = null;
+        }
+        try {
+          navigator.geolocation.getCurrentPosition(function(p) { ok(p); arm(); }, function(e) {
+            err(e);
+            if (!(e && e.code === 1)) arm();
+          }, geoOpts);
+        } catch (e) {
+          rrSpecialNeedResume('');
+        }
+      } else {
+        arm();
+        // No fix soon after a reload usually means iOS wants a gesture.
+        setTimeout(function() {
+          if (rrSpecialShareState === st && !gotFix) rrSpecialNeedResume('');
+        }, 12000);
+      }
+      try { rrSpecialBindOnlineFlush(); } catch (_) {}
+      if (!st._expiryTimer) {
+        st._expiryTimer = setTimeout(function() {
+          if (rrSpecialShareState === st) rrSpecialStopSharing({ reason: 'expired' });
+        }, Math.max(0, Number(st.expiresAt) - Date.now()) + 500);
+      }
+      rrSpecialUpdateShareButtons();
+    }
+
+    async function rrSpecialRestoreForUser(user) {
+      if (!user || !db || rrSpecialShareState) return null;
+      const local = rrSpecialLoadLocal();
+      let cand = (local && local.uid === user.uid) ? Object.assign({}, local) : null;
+      let docRead = false;
+      let docData = null;
+      try {
+        const snap = await db.collection('specialMoveShares').doc(user.uid).get();
+        docRead = true;
+        docData = snap.exists ? (snap.data() || {}) : null;
+      } catch (e) {
+        console.warn('[special-share] restore read failed (using local state)', e);
+      }
+      const now = Date.now();
+      if (docRead) {
+        const live = !!(docData && docData.active === true && Number(docData.expiresAt) > now && docData.tripId);
+        if (!live) {
+          // Stopped/expired elsewhere: drop stale local state.
+          if (cand) rrSpecialPersistLocal(null);
+          return null;
+        }
+        if (!cand || cand.tripId !== docData.tripId) cand = { uid: user.uid, tripId: docData.tripId };
+        cand.title = docData.title || cand.title;
+        cand.startedAt = Number(docData.startedAt) || cand.startedAt || now;
+        cand.expiresAt = Number(docData.expiresAt);
+        cand.updatedAt = Number(docData.updatedAt) || cand.updatedAt;
+        if (docData.lat != null) cand.lastLat = Number(docData.lat);
+        if (docData.lon != null) cand.lastLon = Number(docData.lon);
+        cand.displayName = docData.displayName;
+        cand.heading = docData.heading;
+      }
+      if (!cand || !cand.tripId || !(Number(cand.expiresAt) > now)) return null;
+      // The share must belong to one of this user's special-move trips.
+      let trip = tripLogDataById[cand.tripId] || null;
+      if (!trip) {
+        try {
+          const ts = await db.collection('tripLogs').doc(cand.tripId).get();
+          if (ts.exists) trip = ts.data() || null;
+        } catch (_) {}
+      }
+      if (!trip || trip.userId !== user.uid || !rrTripIsSpecialMove(trip)) return null;
+      if (rrSpecialShareState) return null;
+      rrSpecialShareState = {
+        uid: user.uid,
+        tripId: cand.tripId,
+        title: String(cand.title || trip.trainTitle || 'Special move').slice(0, 80),
+        startedAt: Number(cand.startedAt) || now,
+        expiresAt: Number(cand.expiresAt),
+        lastWriteAt: Number(cand.updatedAt) || Number(cand.startedAt) || now,
+        lastLat: cand.lastLat != null ? Number(cand.lastLat) : null,
+        lastLon: cand.lastLon != null ? Number(cand.lastLon) : null,
+        offline: false,
+        restored: true
+      };
+      rrSpecialPersistLocal(rrSpecialShareState);
+      // Keep the map pin with its Last ping label until a new fix arrives.
+      try {
+        if (rrSpecialShareState.lastLat != null && rrSpecialShareState.lastLon != null) {
+          const pinDoc = {
+            uid: user.uid, active: true, title: rrSpecialShareState.title,
+            displayName: cand.displayName || rrSpecialFirstName(user),
+            lat: rrSpecialShareState.lastLat, lon: rrSpecialShareState.lastLon, heading: cand.heading,
+            expiresAt: rrSpecialShareState.expiresAt, updatedAt: rrSpecialShareState.lastWriteAt
+          };
+          let pinTries = 0;
+          (function pin() {
+            if (!rrSpecialShareState) return;
+            if (window.rrMainMap) { try { rrSpecialSetSelfDoc(pinDoc); } catch (_) {} return; }
+            if (++pinTries < 20) setTimeout(pin, 1000);
+          })();
+          rrSpecialPaintDetailMarker(rrSpecialShareState.lastLat, rrSpecialShareState.lastLon, cand.heading);
+        }
+      } catch (_) {}
+      try { rrShowStopShare(true); } catch (_) {}
+      rrSpecialResumeSharing(false);
+      rrSpecialRefreshLiveUi();
+      return rrSpecialShareState;
+    }
+
+    function rrSpecialRestoreHint() {
+      if (rrSpecialRestoreHint._started) return;
+      rrSpecialRestoreHint._started = true;
+      let tries = 0;
+      const timer = setInterval(function() {
+        tries += 1;
+        if (rrSpecialShareState || tries > 120) { clearInterval(timer); return; }
+        const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (!user || !user.uid || !db) return;
+        clearInterval(timer);
+        rrSpecialRestoreForUser(user).catch(function(e) { console.warn('[special-share] restore failed', e); });
+      }, 1000);
+    }
+    try {
+      Object.defineProperty(window, 'rrSpecialShareState', { configurable: true, get: function() { return rrSpecialShareState; } });
+    } catch (_) {}
+    window.rrSpecialWriteShare = rrSpecialWriteShare;
+    window.rrSpecialResumeSharing = rrSpecialResumeSharing;
+
+    window.rrSpecialStartMapListener = rrSpecialStartMapListener;
+    window.rrSpecialStopSharing = rrSpecialStopSharing;
+
+
+    function rrAuthUser() {
+      try {
+        if (currentUser) return currentUser;
+        if (typeof auth !== 'undefined' && auth && auth.currentUser) {
+          currentUser = auth.currentUser;
+          return currentUser;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function openTripLogModal(e, opts) {
+      opts = opts || {};
+      if (e) {
+        try {
+          // Prefer full-page trip log unless already on /mytrips or forced modal
+          if (!rrIsMyTripsPage() && !opts.forceModal) {
+            const tag = (e.currentTarget && e.currentTarget.tagName) ? e.currentTarget.tagName.toLowerCase() : '';
+            if (tag === 'a') return; // let the /mytrips/ link navigate
+            e.preventDefault(); e.stopPropagation();
+            location.href = '/mytrips/';
+            return;
+          }
+          e.preventDefault(); e.stopPropagation();
+        } catch (_) {}
+      }
+      if (!rrAuthUser()) {
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+          try { showMyTripsGuestHome(); } catch (_) {}
+          return;
+        }
+        if (typeof showNotification === 'function') showNotification('Sign in to open Trip log.', 'error');
+        if (typeof openSignupPrompt === 'function') openSignupPrompt();
+        return;
+      }
+      try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
+      const modal = document.getElementById('trip-log-modal');
+      if (!modal) return;
+      const pending = tripConsumePendingLogTrip() || tripPrefillFromQuery();
+      if (pending) {
+        applyTripLogPrefill(pending);
+      } else {
+        ensureTripSegmentsState();
+        if (!tripLogSegmentsState[0].departTime) {
+          tripLogSegmentsState[0].departTime = defaultTripStartLocalValue();
+        }
+      }
+      renderTripSegmentsForm();
+      setTripLogError('');
+      const defaultTab = (opts.tab === 'list' || (rrIsMyTripsPage() && opts.tab !== 'log')) ? 'list' : 'log';
+      switchTripLogTab(defaultTab);
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      await loadTripLogStatsFromServer();
+      // Do not auto-request geolocation here (no user gesture). Nearby can use
+      // an already-known fix; Share location is the gesture that prompts on /mytrips.
+      try {
+        if (typeof userLat === 'number' && typeof userLng === 'number' &&
+            typeof window.rrStartMyTripsNearbyPrompt === 'function') {
+          window.rrStartMyTripsNearbyPrompt();
+        }
+      } catch (_) {}
+    }
+
+    function closeTripLogModal() {
+      if (rrIsMyTripsPage()) {
+        rrGoHomeFromMyTrips();
+        return;
+      }
+      const modal = document.getElementById('trip-log-modal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+
+    function showMyTripsGuestHome() {
+      if (currentUser || (typeof auth !== 'undefined' && auth && auth.currentUser)) {
+        hideMyTripsGuestHome();
+        return;
+      }
+      // Wait for first auth callback so Google redirect return is not painted as guest.
+      try {
+        if (typeof rrAuthResolved !== 'undefined' && !rrAuthResolved) return;
+        if (sessionStorage.getItem('rrAuthRedirect') === '1') return;
+      } catch (_) {}
+      // auth.currentUser is null until persistence restores. Do not paint Get Started
+      // for a signed-in user during that gap (authStateReady is the settled signal).
+      if (!rrAuthGateReady && typeof auth !== 'undefined' && auth && typeof auth.authStateReady === 'function') {
+        if (showMyTripsGuestHome._waiting) return;
+        showMyTripsGuestHome._waiting = true;
+        auth.authStateReady().then(function() {
+          showMyTripsGuestHome._waiting = false;
+          rrAuthGateReady = true;
+          try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+          if (currentUser || (auth && auth.currentUser)) { hideMyTripsGuestHome(); return; }
+          showMyTripsGuestHome();
+        }).catch(function() {
+          showMyTripsGuestHome._waiting = false;
+          rrAuthGateReady = true;
+          showMyTripsGuestHome();
+        });
+        return;
+      }
+      const el = document.getElementById('mytrips-guest');
+      if (el) el.hidden = false;
+      try { document.documentElement.classList.add('rr-mytrips-guest'); } catch (_) {}
+      const modal = document.getElementById('trip-log-modal');
+      if (modal) {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+      try {
+        const btn = document.getElementById('mytrips-guest-signin');
+        if (btn && btn.textContent === 'Signing in…') btn.textContent = 'Get Started';
+      } catch (_) {}
+    }
+    function hideMyTripsGuestHome() {
+      const el = document.getElementById('mytrips-guest');
+      if (el) el.hidden = true;
+      try { document.documentElement.classList.remove('rr-mytrips-guest'); } catch (_) {}
+    }
+    function wireMyTripsGuestHome() {
+      const btn = document.getElementById('mytrips-guest-signin');
+      if (!btn || btn.getAttribute('data-wired') === '1') return;
+      btn.setAttribute('data-wired', '1');
+      btn.addEventListener('click', function() {
+        if (typeof requestGoogleSignIn === 'function') requestGoogleSignIn();
+        else {
+          const headerBtn = document.getElementById('btn-google-signin');
+          if (headerBtn) headerBtn.click();
+        }
+      });
+    }
+    function rrBootstrapMyTripsPage() {
+      if (!rrIsMyTripsPage()) return;
+      try { document.documentElement.classList.add('rr-mytrips-page'); } catch (_) {}
+      try {
+        const logo = document.querySelector('.header-logo-picture') || document.querySelector('.header-logo');
+        if (logo) {
+          logo.style.cursor = 'pointer';
+          logo.addEventListener('click', function(e) {
+            e.preventDefault();
+            rrGoHomeFromMyTrips();
+          });
+          logo.setAttribute('title', 'MyTrips');
+          logo.setAttribute('role', 'link');
+        }
+        const oldTitle = document.getElementById('rr-mytrips-page-title');
+        if (oldTitle && oldTitle.parentNode) oldTitle.parentNode.removeChild(oldTitle);
+        const closeBtn = document.getElementById('trip-log-close');
+        if (closeBtn) {
+          closeBtn.hidden = true;
+          closeBtn.setAttribute('aria-hidden', 'true');
+          closeBtn.tabIndex = -1;
+        }
+        const modalTitle = document.getElementById('trip-log-title');
+        if (modalTitle) modalTitle.textContent = 'MyTrips';
+      } catch (_) {}
+      // Open list tab once auth is known (do not paint guest before auth resolves)
+      wireMyTripsGuestHome();
+      try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
+      const tryOpen = function() {
+        if (!auth) {
+          rrAuthResolved = true;
+          showMyTripsGuestHome();
+          return;
+        }
+        // wait for first auth callback / redirect result
+        let tries = 0;
+        const tick = function() {
+          tries++;
+          if (currentUser || (auth && auth.currentUser)) {
+            hideMyTripsGuestHome();
+            openTripLogModal(null, { tab: 'list', forceModal: true });
+            return;
+          }
+          if (typeof rrAuthResolved !== 'undefined' && rrAuthResolved) {
+            wireMyTripsGuestHome();
+            showMyTripsGuestHome();
+            return;
+          }
+          if (tries < 80) setTimeout(tick, 100);
+          else {
+            rrAuthResolved = true;
+            wireMyTripsGuestHome();
+            showMyTripsGuestHome();
+          }
+        };
+        tick();
+      };
+      tryOpen();
+    }
+
+    function wireTripLogUI() {
+      const modal = document.getElementById('trip-log-modal');
+      const closeBtn = document.getElementById('trip-log-close');
+      if (closeBtn) closeBtn.addEventListener('click', closeTripLogModal);
+      if (modal) {
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) closeTripLogModal();
+        });
+      }
+      document.querySelectorAll('.trip-log-tab').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          switchTripLogTab(btn.getAttribute('data-trip-tab'));
+        });
+      });
+      const segsRoot = document.getElementById('trip-log-segments');
+      if (segsRoot) {
+        segsRoot.addEventListener('change', onTripSegmentFieldChange);
+        segsRoot.addEventListener('input', function(e) {
+          const f = e.target && e.target.getAttribute && e.target.getAttribute('data-seg-field');
+          if (f === 'train' || f === 'depart' || f === 'arrive') {
+            syncTripSegmentStateFromDom();
+            if (f === 'depart' || f === 'arrive') {
+              const card = e.target.closest('.trip-segment');
+              const idx = card ? Number(card.getAttribute('data-seg-index')) : -1;
+              if (isFinite(idx) && idx >= 0 && idx < tripLogSegmentsState.length) {
+                const seg = tripLogSegmentsState[idx];
+                if (f === 'depart') seg.departTime = isoToLocalInput(seg.departTime) || seg.departTime || '';
+                if (f === 'arrive') seg.arriveTime = isoToLocalInput(seg.arriveTime) || seg.arriveTime || '';
+              }
+            }
+            updateTripMilesPreview();
+          }
+        });
+        // iOS sometimes finalizes datetime-local on blur rather than change
+        segsRoot.addEventListener('focusout', function(e) {
+          const f = e.target && e.target.getAttribute && e.target.getAttribute('data-seg-field');
+          if (f === 'depart' || f === 'arrive') {
+            syncTripSegmentStateFromDom();
+            const card = e.target.closest('.trip-segment');
+            const idx = card ? Number(card.getAttribute('data-seg-index')) : -1;
+            if (isFinite(idx) && idx >= 0 && idx < tripLogSegmentsState.length) {
+              const seg = tripLogSegmentsState[idx];
+              const norm = isoToLocalInput(f === 'depart' ? seg.departTime : seg.arriveTime);
+              if (norm) {
+                if (f === 'depart') seg.departTime = norm;
+                else seg.arriveTime = norm;
+                if (e.target.value !== norm) e.target.value = norm;
+              }
+            }
+          }
+        });
+        segsRoot.addEventListener('click', function(e) {
+          const extra = e.target.closest('[data-seg-extra]');
+          if (extra) {
+            const idx = Number(extra.getAttribute('data-seg-extra'));
+            if (isFinite(idx) && idx >= 0 && idx < tripLogSegmentsState.length) {
+              syncTripSegmentStateFromDom();
+              const seg = tripLogSegmentsState[idx];
+              seg.trainExtraMode = !seg.trainExtraMode;
+              if (seg.trainExtraMode) {
+                seg.scheduleStops = null;
+                seg.useFullStationList = true;
+              } else {
+                seg.useFullStationList = false;
+              }
+              renderTripSegmentsForm();
+            }
+            return;
+          }
+          const btn = e.target.closest('[data-seg-remove]');
+          if (!btn) return;
+          removeTripSegment(Number(btn.getAttribute('data-seg-remove')));
+        });
+      }
+      const addBtn = document.getElementById('trip-log-add-segment');
+      if (addBtn) addBtn.addEventListener('click', addTripSegment);
+      const shareBtn = document.getElementById('trip-detail-share');
+      if (shareBtn) shareBtn.addEventListener('click', function(ev) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+        tripDetailSharePng();
+      });
+      const saveBtn = document.getElementById('trip-log-save');
+      if (saveBtn) saveBtn.addEventListener('click', saveTripLog);
+      try { rrSpecialBindUi(); } catch (_) {}
+      try { rrSpecialRestoreHint(); } catch (_) {}
+      const gotoList = document.getElementById('trip-log-goto-list');
+      if (gotoList) gotoList.addEventListener('click', function() { switchTripLogTab('list'); });
+      const primaryLog = document.getElementById('trip-log-primary-log');
+      
+      function openLiveTripForm() {
+        switchTripLogTab('log');
+        const cb = document.getElementById('trip-log-special-move');
+        if (cb) {
+          cb.checked = true;
+          cb.dataset.locAsked = '';
+        }
+        try { if (typeof rrSpecialSyncTitleWrap === 'function') rrSpecialSyncTitleWrap(); } catch (_) {}
+        const te = document.getElementById('trip-log-train-title');
+        if (te) te.focus();
+      }
+      function openRegularTripForm() {
+        const cb = document.getElementById('trip-log-special-move');
+        if (cb) cb.checked = false;
+        try { if (typeof rrSpecialSyncTitleWrap === 'function') rrSpecialSyncTitleWrap(); } catch (_) {}
+        switchTripLogTab('log');
+      }
+if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
+      const liveLog = document.getElementById('trip-log-live');
+      if (liveLog) liveLog.addEventListener('click', openLiveTripForm);
+      const emptyLive = document.getElementById('trip-log-empty-live');
+      if (emptyLive) emptyLive.addEventListener('click', openLiveTripForm);
+      try { bindTripPublicProfileUi(); } catch (_) {}
+      const emptyCta = document.getElementById('trip-log-empty-cta');
+      if (emptyCta) emptyCta.addEventListener('click', openRegularTripForm);
+      const moreBtn = document.getElementById('trip-log-load-more');
+      if (moreBtn) moreBtn.addEventListener('click', function() { loadTripLogList(false); });
+      const refreshBtn = document.getElementById('trip-log-refresh');
+      if (refreshBtn) refreshBtn.addEventListener('click', function() {
+        ensureTripLogStats({ force: true }).catch(function() { loadTripLogStatsFromServer(); });
+        loadTripLogList(true);
+      });
+      const list = document.getElementById('trip-log-list');
+      if (list) {
+        list.addEventListener('click', function(e) {
+          const editBtn = e.target.closest('[data-trip-edit]');
+          if (editBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            editTripLog(editBtn.getAttribute('data-trip-edit'));
+            return;
+          }
+          const del = e.target.closest('[data-trip-delete]');
+          if (del) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteTripLog(del.getAttribute('data-trip-delete'));
+            return;
+          }
+          if (e.target.closest('.trip-log-row-actions')) return;
+          const row = e.target.closest('.trip-log-row');
+          if (!row) return;
+          const id = row.getAttribute('data-trip-id');
+          if (!id) return;
+          openTripDetailView(id, tripLogDataById[id], row);
+        });
+        list.addEventListener('keydown', function(e) {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          const row = e.target.closest('.trip-log-row');
+          if (!row || e.target.closest('button')) return;
+          e.preventDefault();
+          const id = row.getAttribute('data-trip-id');
+          if (!id) return;
+          openTripDetailView(id, tripLogDataById[id], row);
+        });
+      }
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('trip-detail-overlay');
+        if (overlay && overlay.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeTripDetailView();
+        }
+      }, true);
+      window.addEventListener('popstate', function() {
+        const overlay = document.getElementById('trip-detail-overlay');
+        if (overlay && overlay.classList.contains('open')) {
+          closeTripDetailView({ fromPopstate: true });
+        } else {
+          tripDetailHistoryOpen = false;
+        }
+      });
+      const acctBtn = document.getElementById('account-open-trip-log');
+      if (acctBtn) {
+        acctBtn.addEventListener('click', function(e) {
+          if (rrIsMyTripsPage()) {
+            openTripLogModal(e, { tab: 'list', forceModal: true });
+            return;
+          }
+          // <a href="/mytrips/"> navigates; still close settings first
+          try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
+          if (acctBtn.tagName && acctBtn.tagName.toLowerCase() === 'a') return;
+          e.preventDefault();
+          location.href = '/mytrips/';
+        });
+      }
+      const panelBtn = document.getElementById('btn-trip-log-panel');
+      if (panelBtn) {
+        panelBtn.addEventListener('click', function(e) {
+          try {
+            const panel = document.getElementById('control-panel');
+            const overlay = document.getElementById('overlay');
+            const menuBtn = document.getElementById('menu-button');
+            if (panel) panel.classList.remove('open');
+            if (overlay) overlay.classList.remove('open');
+            if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+          } catch (_) {}
+          if (rrIsMyTripsPage()) {
+            openTripLogModal(e, { tab: 'list', forceModal: true });
+            return;
+          }
+          e.preventDefault();
+          location.href = '/mytrips/';
+        });
+      }
+      try { rrBootstrapMyTripsPage(); } catch (bootErr) { console.warn('[mytrips] bootstrap failed', bootErr); }
+    }
+    /* ===== end Trip Log ===== */
+
+
+
+    function wireAccountAndAdminUI() {
+      const closeBtn = document.getElementById('account-settings-close');
+      const closeBtn2 = document.getElementById('account-close-btn');
+      const saveBtn = document.getElementById('account-save-settings');
+      const pubToggleBind = document.getElementById('account-public-profile-toggle');
+      const unameBind = document.getElementById('account-username');
+      const copyBind = document.getElementById('account-public-link-copy');
+      if (pubToggleBind && !pubToggleBind.getAttribute('data-rr-pub-bound')) {
+        pubToggleBind.setAttribute('data-rr-pub-bound', '1');
+        pubToggleBind.addEventListener('change', updateAccountPublicProfileUi);
+      }
+      if (unameBind && !unameBind.getAttribute('data-rr-pub-bound')) {
+        unameBind.setAttribute('data-rr-pub-bound', '1');
+        unameBind.addEventListener('input', updateAccountPublicProfileUi);
+      }
+      if (copyBind && !copyBind.getAttribute('data-rr-pub-bound')) {
+        copyBind.setAttribute('data-rr-pub-bound', '1');
+        copyBind.addEventListener('click', function() {
+          const link = document.getElementById('account-public-link');
+          const val = link && link.value;
+          if (!val) return;
+          const done = function() { showNotification('Profile link copied'); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(val).then(done).catch(function() {
+              try { link.select(); document.execCommand('copy'); done(); } catch (_) {}
+            });
+          } else {
+            try { link.select(); document.execCommand('copy'); done(); } catch (_) {}
+          }
+        });
+      }
+
+      const signOutBtn = document.getElementById('account-sign-out');
+      const delBtn = document.getElementById('account-delete');
+      const customLabel = document.getElementById('account-custom-label');
+      const accountModal = document.getElementById('account-settings-modal');
+      if (closeBtn) closeBtn.addEventListener('click', closeAccountSettingsLightbox);
+      if (closeBtn2) closeBtn2.addEventListener('click', closeAccountSettingsLightbox);
+      if (saveBtn) saveBtn.addEventListener('click', saveAccountSettings);
+      if (signOutBtn) signOutBtn.addEventListener('click', function() {
+        closeAccountSettingsLightbox();
+        signOutGoogle();
+      });
+      if (delBtn) delBtn.addEventListener('click', function() {
+        closeAccountSettingsLightbox();
+        deleteAccount();
+      });
+      if (customLabel) customLabel.addEventListener('input', updateAccountPreview);
+      document.querySelectorAll('input[name="report-display-mode"]').forEach(function(r) {
+        r.addEventListener('change', updateAccountPreview);
+      });
+      if (accountModal) {
+        accountModal.addEventListener('click', function(e) {
+          if (e.target === accountModal) closeAccountSettingsLightbox();
+        });
+      }
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const legalM = document.getElementById('legal-accept-modal');
+        if (legalM && legalM.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const interestM = document.getElementById('interest-railroads-modal');
+        if (interestM && interestM.classList.contains('open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const acctM = document.getElementById('account-settings-modal');
+        if (acctM && acctM.classList.contains('open')) {
+          closeAccountSettingsLightbox();
+          e.stopPropagation();
+        }
+      });
+    }
+
+
+    const firebaseConfigured = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_FIREBASE_API_KEY';
+    if (firebaseConfigured && typeof firebase !== 'undefined') {
+      try {
+        firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        console.log('%c[Firebase] Initialized', 'color:#27ae60');
+      } catch (e) {
+        console.error('%c[Firebase] Init failed', 'color:#e74c3c', e);
+      }
+    } else {
+      console.warn('%c[Firebase] Not configured — set FIREBASE_CONFIG to enable Sign up / Log in', 'color:#f39c12');
+    }
+
+    // MyTrips splash: wire Get Started immediately, but do NOT paint guest until auth resolves.
+    // Prior bug: eager showMyTripsGuestHome() before getRedirectResult/onAuthStateChanged left the
+    // splash stuck after Google redirect (auth UI was only wired later inside wireAuthUI/map init).
+    let rrAuthResolved = false;
+    let rrAuthGateReady = false;
+    let rrEarlyAuthWired = false;
+    function rrMarkAuthResolved(user) {
+      rrAuthResolved = true;
+      try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
+      try {
+        if (user) currentUser = user;
+        else if (user === null && !(typeof auth !== 'undefined' && auth && auth.currentUser)) currentUser = null;
+      } catch (_) {}
+    }
+    function rrSyncMyTripsAuthGate(user) {
+      try {
+        if (typeof rrIsMyTripsPage !== 'function' || !rrIsMyTripsPage()) return;
+        if (user) {
+          if (typeof hideMyTripsGuestHome === 'function') hideMyTripsGuestHome();
+          if (typeof openTripLogModal === 'function') {
+            openTripLogModal(null, { tab: 'list', forceModal: true });
+          }
+          return;
+        }
+        if (!rrAuthResolved) return;
+        // Still awaiting redirect handoff — don't paint guest yet.
+        try {
+          if (sessionStorage.getItem('rrAuthRedirect') === '1') return;
+        } catch (_) {}
+        if (typeof showMyTripsGuestHome === 'function') showMyTripsGuestHome();
+      } catch (e) {
+        console.warn('[mytrips] auth gate sync failed', e);
+      }
+    }
+    function rrWireEarlyAuth() {
+      // rrAuthSafariItp: await LOCAL persistence before getRedirectResult; keep pending
+      // flag when redirect result is null so onAuthStateChanged can still win the race.
+      if (!auth || rrEarlyAuthWired) return;
+      rrEarlyAuthWired = true;
+      const rrStartEarlyAuthHooks = function() {
+        try {
+          auth.getRedirectResult().then(function(cred) {
+            if (cred && cred.user) {
+              rrMarkAuthResolved(cred.user);
+              if (typeof upsertAccountMirror === 'function') {
+                upsertAccountMirror(cred.user).catch(function() {});
+              }
+              try {
+                if (typeof logUserAction === 'function') {
+                  logUserAction('sign_in', 'Signed in with Google (redirect)', cred.user);
+                }
+              } catch (_) {}
+              try { if (typeof showNotification === 'function') showNotification('Signed in with Google'); } catch (_) {}
+              rrSyncMyTripsAuthGate(cred.user);
+              return;
+            }
+            // No redirect cred. Do NOT clear rrAuthRedirect yet — Safari/ITP often
+            // returns null here while auth may still hydrate via onAuthStateChanged.
+            // Failsafe below clears pending if still unsigned-in.
+          }).catch(function(e) {
+            console.warn('[Auth] early redirect result', e);
+            try {
+              if (e && (e.code || e.message) && typeof showNotification === 'function') {
+                showNotification('Sign-in redirect failed: ' + (e.message || e.code), 'error');
+              }
+            } catch (_) {}
+            // Keep pending flag; failsafe / onAuthStateChanged decide guest vs signed-in.
+          });
+        } catch (e) { console.warn('[Auth] early redirect hook', e); }
+        try {
+          auth.onAuthStateChanged(function(user) {
+            if (!user && auth && auth.currentUser) user = auth.currentUser;
+            var applyEarly = function(u) {
+              if (u) rrAuthGateReady = true;
+              rrMarkAuthResolved(u || null);
+              try { if (typeof updateHeaderAuthUI === 'function') updateHeaderAuthUI(u || null); } catch (_) {}
+              if (u) {
+                try { if (typeof closeSignupPrompt === 'function') closeSignupPrompt(); } catch (_) {}
+              }
+              rrSyncMyTripsAuthGate(u || null);
+            };
+            // Ignore a null that arrives before persistence restore; that null was
+            // painting Sign up / Get Started for an already signed-in user.
+            if (!user && auth && typeof auth.authStateReady === 'function' && !rrAuthGateReady) {
+              auth.authStateReady().then(function() {
+                rrAuthGateReady = true;
+                applyEarly((auth && auth.currentUser) || null);
+              }).catch(function() {
+                rrAuthGateReady = true;
+                applyEarly(null);
+              });
+              return;
+            }
+            applyEarly(user || null);
+          });
+        } catch (e) { console.warn('[Auth] early auth listener', e); }
+      };
+      try {
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+          .then(rrStartEarlyAuthHooks)
+          .catch(function() { rrStartEarlyAuthHooks(); });
+      } catch (_) { rrStartEarlyAuthHooks(); }
+    }
+    try {
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+        document.documentElement.classList.add('rr-mytrips-page');
+        if (typeof wireMyTripsGuestHome === 'function') wireMyTripsGuestHome();
+        try {
+          if (sessionStorage.getItem('rrAuthRedirect') === '1') {
+            const btn = document.getElementById('mytrips-guest-signin');
+            if (btn) btn.textContent = 'Signing in…';
+          }
+        } catch (_) {}
+        rrWireEarlyAuth();
+        // Failsafe: never leave "Signing in…" forever if redirect handoff stalls
+        setTimeout(function() {
+          var giveUpRedirect = function() {
+            try {
+              if (sessionStorage.getItem('rrAuthRedirect') !== '1') return;
+              if (currentUser || (auth && auth.currentUser)) {
+                sessionStorage.removeItem('rrAuthRedirect');
+                rrSyncMyTripsAuthGate(currentUser || auth.currentUser);
+                return;
+              }
+              sessionStorage.removeItem('rrAuthRedirect');
+              rrAuthResolved = true;
+              rrAuthGateReady = true;
+              rrSyncMyTripsAuthGate(null);
+            try {
+              if (typeof showNotification === 'function') {
+                showNotification('Sign-in did not complete. On Safari, allow popups and try Get Started again.', 'error');
+              }
+            } catch (_) {}
+            } catch (_) {}
+          };
+          try {
+            if (auth && typeof auth.authStateReady === 'function') auth.authStateReady().then(giveUpRedirect).catch(giveUpRedirect);
+            else giveUpRedirect();
+          } catch (_) { giveUpRedirect(); }
+        }, 20000);
+      } else if (auth) {
+        // Still process redirect on non-mytrips pages ASAP
+        rrWireEarlyAuth();
+      }
+    } catch (earlyGuestErr) {
+      console.warn('[mytrips] early guest wire failed', earlyGuestErr);
+    }
+
+    function showNotification(message, type) {
+      type = type || 'success';
+      const el = document.getElementById('notification');
+      const text = document.getElementById('notification-text');
+      if (!el || !text) {
+        console.log('[Notification]', type + ':', message);
+        return;
+      }
+      text.textContent = message;
+      el.style.display = 'block';
+      el.style.background = (type === 'error') ? '#c0392b' : '#07093e';
+      clearTimeout(showNotification._t);
+      showNotification._t = setTimeout(function() { el.style.display = 'none'; }, 4000);
+    }
+
+    function logUserAction(action, detail, extraUser) {
+      try {
+        if (!db) return Promise.resolve();
+        const user = extraUser || currentUser || (auth && auth.currentUser) || {};
+        const payload = {
+          action: String(action || 'unknown').slice(0, 64),
+          detail: String(detail || '').slice(0, 400),
+          uid: user.uid || null,
+          email: (typeof normalizeEmail === 'function' ? normalizeEmail(user.email) : (user.email || null)) || null,
+          label: (user.displayName && String(user.displayName).trim()) || null,
+          at: firebase.firestore.FieldValue.serverTimestamp(),
+          expireAt: new Date(Date.now() + AUDIT_LOG_RETENTION_MS)
+        };
+        return db.collection('actionLog').add(payload).catch(function(err) {
+          console.warn('[actionLog] write failed', err);
+        });
+      } catch (e) {
+        console.warn('[actionLog] skip', e);
+        return Promise.resolve();
+      }
+    }
+    window.logUserAction = logUserAction;
+
+    function closeAccountMenu() {
+      const menu = document.getElementById('header-account-menu');
+      const btn = document.getElementById('btn-account-settings');
+      if (menu) menu.style.display = 'none';
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    function rrIdentifyBetterStack(user) {
+      try {
+        if (typeof betterstack !== 'function') return;
+        if (!user) return;
+        betterstack('user', {
+          id: user.uid || '',
+          email: user.email || '',
+          username: user.displayName || user.email || ''
+        });
+      } catch (_) {}
+    }
+
+    function updateHeaderAuthUI(user) {
+      const btnIn = document.getElementById('btn-google-signin');
+      const userWrap = document.getElementById('header-auth-user');
+      const avatar = document.getElementById('header-user-avatar');
+      const emailEl = document.getElementById('header-account-email');
+      const btnSettings = document.getElementById('btn-account-settings');
+      if (!btnIn || !userWrap) return;
+      if (user) {
+        btnIn.style.display = 'none';
+        userWrap.style.display = 'flex';
+        if (avatar) {
+          const photo = user.photoURL || '';
+          if (photo) {
+            avatar.src = photo;
+            avatar.alt = user.displayName || user.email || 'Account';
+            avatar.style.display = '';
+          } else {
+            const initial = String(user.displayName || user.email || '?').trim().charAt(0).toUpperCase() || '?';
+            // fallback: data URI SVG with initial
+            avatar.src = 'data:image/svg+xml,' + encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34"><rect width="34" height="34" rx="17" fill="#2c3e6b"/><text x="17" y="22" text-anchor="middle" fill="#fff" font-size="14" font-family="Segoe UI,sans-serif" font-weight="700">' + initial + '</text></svg>'
+            );
+            avatar.alt = user.displayName || user.email || 'Account';
+          }
+        }
+        if (emailEl) {
+          emailEl.textContent = user.displayName
+            ? (user.displayName + (user.email ? ' · ' + user.email : ''))
+            : (user.email || 'Signed in');
+        }
+        const nameText = document.getElementById('header-account-name-text');
+        // Desktop header always shows full Google display name (report prefs do not apply here)
+        const fullName = String(user.displayName || '').trim();
+        const emailLocal = String(user.email || '').split('@')[0];
+        const label = fullName || emailLocal || 'Account';
+        if (nameText) nameText.textContent = label;
+        else if (btnSettings) {
+          // keep badge child if present
+          const badge = document.getElementById('header-admin-badge');
+          btnSettings.textContent = label;
+          if (badge) btnSettings.appendChild(badge);
+        }
+        if (btnSettings) btnSettings.title = label;
+        try {
+          paintHeaderReportPoints(currentUserSettings && currentUserSettings.reportStats);
+        } catch (_) {}
+        const signedOut = document.getElementById('settings-account-signed-out');
+        const signedIn = document.getElementById('settings-account-signed-in');
+        if (signedOut) signedOut.hidden = true;
+        if (signedIn) signedIn.hidden = false;
+        document.getElementById('settings-account-name').textContent = label;
+        document.getElementById('settings-account-email').textContent = user.email || '';
+        updateAdminChrome(user);
+      } else {
+        btnIn.style.display = '';
+        userWrap.style.display = 'none';
+        closeAccountMenu();
+        if (emailEl) emailEl.textContent = '';
+        const nameTextOff = document.getElementById('header-account-name-text');
+        if (nameTextOff) nameTextOff.textContent = 'Account';
+        const ptsOff = document.getElementById('header-report-points');
+        if (ptsOff) { ptsOff.textContent = '0'; ptsOff.hidden = true; }
+        else if (btnSettings) btnSettings.textContent = 'Account';
+        updateAdminChrome(null);
+        if (avatar) { avatar.removeAttribute('src'); avatar.alt = 'Account'; }
+        const signedOutOff = document.getElementById('settings-account-signed-out');
+        const signedInOff = document.getElementById('settings-account-signed-in');
+        if (signedOutOff) signedOutOff.hidden = false;
+        if (signedInOff) signedInOff.hidden = true;
+      }
+    }
+
+    
+    function rrIsSafariAuthRedirectBroken() {
+      // Cross-origin authDomain (*.firebaseapp.com) + Safari/iOS ITP blocks the
+      // storage handoff that getRedirectResult needs. Prefer popup (Firebase Option 2).
+      // Marker: rrAuthSafariItp
+      try {
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIOS) return true;
+        const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|Android/i.test(ua);
+        return !!isSafari;
+      } catch (_) { return false; }
+    }
+    function rrPreferRedirectSignIn() {
+      try {
+        // Safari / iOS: redirect is broken without same-origin /__/auth proxy.
+        if (rrIsSafariAuthRedirectBroken()) return false;
+        const ua = navigator.userAgent || '';
+        return /Android|Mobile|webOS/i.test(ua);
+      } catch (_) { return false; }
+    }
+    let rrSignInBusy = false;
+    async function signInWithGoogle() {
+      if (!auth) {
+        showNotification('Firebase is not configured. See SETUP.md.', 'error');
+        return;
+      }
+      if (rrSignInBusy) return;
+      rrSignInBusy = true;
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const beginRedirect = async function() {
+          try { sessionStorage.setItem('rrAuthRedirect', '1'); } catch (_) {}
+          try {
+            const btn = document.getElementById('mytrips-guest-signin');
+            if (btn) btn.textContent = 'Signing in…';
+          } catch (_) {}
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          } catch (_) {}
+          await auth.signInWithRedirect(provider);
+        };
+        if (rrPreferRedirectSignIn()) {
+          await beginRedirect();
+          return;
+        }
+        try {
+          const cred = await auth.signInWithPopup(provider);
+          if (cred && cred.user) {
+            await upsertAccountMirror(cred.user);
+            rrMarkAuthResolved(cred.user);
+            rrSyncMyTripsAuthGate(cred.user);
+          }
+          try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
+          showNotification('Signed in with Google');
+        } catch (popupErr) {
+          const code = popupErr && popupErr.code;
+          if (code === 'auth/popup-blocked') {
+            if (rrIsSafariAuthRedirectBroken()) {
+              // Redirect fallback would silently fail on Safari/iOS (ITP + cross-origin authDomain).
+              showNotification('Allow popups for railroadradar.com, then tap Get Started again.', 'error');
+              try {
+                const btn = document.getElementById('mytrips-guest-signin');
+                if (btn) btn.textContent = 'Get Started';
+              } catch (_) {}
+              return;
+            }
+            showNotification('Popup blocked — redirecting to Google sign-in…');
+            await beginRedirect();
+            return;
+          }
+          if (code === 'auth/cancelled-popup-request') {
+            return;
+          }
+          if (code === 'auth/popup-closed-by-user') {
+            showNotification('Sign-in cancelled', 'error');
+            return;
+          }
+          throw popupErr;
+        }
+      } catch (e) {
+        console.error('[Auth] Sign-in failed', e);
+        showNotification('Sign-in failed: ' + (e.message || e), 'error');
+        try { sessionStorage.removeItem('rrAuthRedirect'); } catch (_) {}
+      } finally {
+        rrSignInBusy = false;
+      }
+    }
+
+    async function signOutGoogle() {
+      if (!auth) return;
+      try {
+        const leaving = currentUser || (auth && auth.currentUser);
+        try { await logUserAction('sign_out', 'Signed out', leaving); } catch (_) {}
+        await auth.signOut();
+        showNotification('Signed out');
+      } catch (e) {
+        showNotification('Sign-out failed: ' + (e.message || e), 'error');
+      }
+    }
+
+    async function deleteAccount() {
+      if (!auth || !auth.currentUser) {
+        showNotification('Sign in first to delete your account.', 'error');
+        return;
+      }
+      const ok = window.confirm('Permanently delete your RailroadRadar account? This cannot be undone.');
+      if (!ok) return;
+      const user = auth.currentUser;
+      try { await logUserAction('delete_account', 'Account deleted', user); } catch (_) {}
+      try {
+        if (db && user.uid) {
+          try { await db.collection('accounts').doc(user.uid).delete(); } catch (_) {}
+          try { await db.collection('userSettings').doc(user.uid).delete(); } catch (_) {}
+        }
+      } catch (_) {}
+      try {
+        await user.delete();
+        showNotification('Account deleted');
+      } catch (e) {
+        if (e && e.code === 'auth/requires-recent-login') {
+          try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await user.reauthenticateWithPopup(provider);
+            await auth.currentUser.delete();
+            showNotification('Account deleted');
+          } catch (e2) {
+            console.error('[Auth] Delete after reauth failed', e2);
+            showNotification('Could not delete account: ' + (e2.message || e2), 'error');
+          }
+        } else {
+          console.error('[Auth] Delete failed', e);
+          showNotification('Could not delete account: ' + (e.message || e), 'error');
+        }
+      }
+    }
+
+    function isSessionLegalAgreed() {
+      try { return sessionStorage.getItem('rr_legal_agreed') === '1'; } catch (e) { return false; }
+    }
+    function markSessionLegalAgreed() {
+      try {
+        sessionStorage.setItem('rr_legal_agreed', '1');
+        sessionStorage.setItem('rr_legal_pending', '1');
+      } catch (e) {}
+    }
+    function clearLegalPending() {
+      try { sessionStorage.removeItem('rr_legal_pending'); } catch (e) {}
+    }
+    function isLegalPending() {
+      try { return sessionStorage.getItem('rr_legal_pending') === '1'; } catch (e) { return false; }
+    }
+    async function persistLegalAcceptance(user) {
+      const u = user || currentUser || (auth && auth.currentUser);
+      if (!u || !db) return false;
+      const acceptedAt = new Date().toISOString();
+      try {
+        await db.collection('userSettings').doc(u.uid).set({
+          legalAccepted: true,
+          legalAcceptedAt: acceptedAt,
+          termsVersion: RR_TERMS_VERSION,
+          privacyVersion: RR_PRIVACY_VERSION,
+          email: normalizeEmail(u.email) || (u.email || null),
+          displayName: (u.displayName && String(u.displayName).trim()) || null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        try {
+          await db.collection('accounts').doc(u.uid).set({
+            legalAccepted: true,
+            legalAcceptedAt: acceptedAt,
+            termsVersion: RR_TERMS_VERSION,
+            privacyVersion: RR_PRIVACY_VERSION
+          }, { merge: true });
+        } catch (acctErr) {
+          console.warn('[legal] accounts mirror failed', acctErr);
+        }
+        currentUserSettings = currentUserSettings || {};
+        currentUserSettings.legalAccepted = true;
+        currentUserSettings.legalAcceptedAt = acceptedAt;
+        currentUserSettings.termsVersion = RR_TERMS_VERSION;
+        currentUserSettings.privacyVersion = RR_PRIVACY_VERSION;
+        clearLegalPending();
+        try { sessionStorage.setItem('rr_legal_agreed', '1'); } catch (e) {}
+        return true;
+      } catch (err) {
+        console.warn('[legal] persist failed', err);
+        return false;
+      }
+    }
+    function openLegalAcceptModal() {
+      const modal = document.getElementById('legal-accept-modal');
+      const err = document.getElementById('legal-accept-error');
+      if (!modal) return;
+      if (err) { err.textContent = ''; err.classList.remove('visible'); }
+      const updated = !!(currentUserSettings && currentUserSettings.legalAccepted);
+      const title = document.getElementById('legal-accept-title');
+      const sub = document.getElementById('legal-accept-sub');
+      if (title) title.textContent = updated ? 'We updated our Terms and Privacy Policy' : 'Please agree to continue';
+      if (sub) sub.textContent = updated
+        ? 'The Terms of Use and Privacy Policy were updated. Please review the changes and agree to keep using RailroadRadar.'
+        : 'You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('rr-legal-locked');
+    }
+    function closeLegalAcceptModal(force) {
+      if (!force && currentUser && !rrLegalIsCurrent(currentUserSettings)) {
+        openLegalAcceptModal();
+        return;
+      }
+      const modal = document.getElementById('legal-accept-modal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('rr-legal-locked');
+    }
+    async function confirmLegalAcceptFromModal() {
+      const err = document.getElementById('legal-accept-error');
+      const setErr = function(msg) {
+        if (!err) { showNotification(msg, 'error'); return; }
+        err.textContent = msg;
+        err.classList.add('visible');
+      };
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user) { setErr('Sign in required.'); return; }
+      const ok = await persistLegalAcceptance(user);
+      if (!ok) {
+        setErr('Could not save agreement. Please try again.');
+        return;
+      }
+      closeLegalAcceptModal(true);
+      if (!currentUserSettings.interestedRailroadsSet) {
+        openInterestRailroadsModal();
+      }
+    }
+    function wireLegalAcceptUI() {
+      const confirmBtn = document.getElementById('legal-accept-confirm');
+      const signoutBtn = document.getElementById('legal-accept-signout');
+      const backdrop = document.getElementById('legal-accept-modal');
+      if (confirmBtn) confirmBtn.addEventListener('click', function() { confirmLegalAcceptFromModal(); });
+      if (signoutBtn) signoutBtn.addEventListener('click', function() { signOutGoogle(); });
+      if (backdrop) backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      });
+    }
+    function closeSignupPrompt() {
+      const el = document.getElementById('signup-prompt-modal');
+      if (!el) return;
+      el.classList.remove('open');
+      el.setAttribute('aria-hidden', 'true');
+    }
+    function openSignupPrompt() {
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
+      if (currentUser || (auth && auth.currentUser)) return;
+      // Signed-in users look logged-out until authStateReady. Never show
+      // "Create an account" in that window, including forced opens.
+      if (!openSignupPrompt._bypassReady && !rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
+        auth.authStateReady().then(function() {
+          rrAuthGateReady = true;
+          try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+          if (currentUser || (auth && auth.currentUser)) { closeSignupPrompt(); return; }
+          openSignupPrompt._bypassReady = true;
+          try { openSignupPrompt(); } finally { openSignupPrompt._bypassReady = false; }
+        }).catch(function() { rrAuthGateReady = true; });
+        return;
+      }
+      const el = document.getElementById('signup-prompt-modal');
+      if (!el) return;
+      el.classList.add('open');
+      el.setAttribute('aria-hidden', 'false');
+    }
+    // "Continue with Google" under the "By continuing, you agree" line counts as accepting the terms.
+    function beginGoogleSignInWithLegal() {
+      markSessionLegalAgreed();
+      closeSignupPrompt();
+      signInWithGoogle();
+    }
+    function requestGoogleSignIn() {
+      if (currentUser || (auth && auth.currentUser)) return;
+      if (!rrAuthGateReady && auth && typeof auth.authStateReady === 'function') {
+        if (requestGoogleSignIn._waiting) return;
+        requestGoogleSignIn._waiting = true;
+        auth.authStateReady().then(function() {
+          requestGoogleSignIn._waiting = false;
+          rrAuthGateReady = true;
+          try { if (auth.currentUser) currentUser = currentUser || auth.currentUser; } catch (_) {}
+          if (currentUser || (auth && auth.currentUser)) return;
+          requestGoogleSignIn();
+        }).catch(function() {
+          requestGoogleSignIn._waiting = false;
+          rrAuthGateReady = true;
+          requestGoogleSignIn();
+        });
+        return;
+      }
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+        signInWithGoogle();
+        return;
+      }
+      if (isSessionLegalAgreed()) {
+        markSessionLegalAgreed();
+        signInWithGoogle();
+        return;
+      }
+      openSignupPrompt();
+    }
+    function wireSignupPromptUI() {
+      const closeBtn = document.getElementById('signup-prompt-close');
+      const backdrop = document.getElementById('signup-prompt-modal');
+      if (closeBtn) closeBtn.addEventListener('click', closeSignupPrompt);
+      if (backdrop) backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) closeSignupPrompt();
+      });
+    }
+
+    function wireAuthUI() {
+      const btnOut = document.getElementById('btn-google-signout');
+      const btnSettings = document.getElementById('btn-account-settings');
+      if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
+      if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
+      const menuSettings = document.getElementById('header-menu-account-settings');
+      if (menuSettings) menuSettings.addEventListener('click', function(e) {
+        if (typeof closeAccountMenu === 'function') closeAccountMenu();
+        openAccountSettingsLightbox(e);
+      });
+      const adminHeaderBtn = document.getElementById('btn-admin-header');
+      if (adminHeaderBtn) adminHeaderBtn.addEventListener('click', function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        window.location.href = '/admin.html';
+      });
+      const panelAccount = document.getElementById('btn-account-settings-panel');
+      if (panelAccount) panelAccount.addEventListener('click', function(e) {
+        try {
+          const panel = document.getElementById('control-panel');
+          const overlay = document.getElementById('overlay');
+          const menuBtn = document.getElementById('menu-button');
+          if (panel) panel.classList.remove('open');
+          if (overlay) overlay.classList.remove('open');
+          if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+        } catch (_) {}
+        openAccountSettingsLightbox(e);
+      });
+      const avatarBtn = document.getElementById('header-user-avatar');
+      if (avatarBtn) {
+        avatarBtn.style.cursor = 'pointer';
+        avatarBtn.setAttribute('role', 'button');
+        avatarBtn.setAttribute('tabindex', '0');
+        avatarBtn.setAttribute('aria-label', 'Account settings');
+        avatarBtn.addEventListener('click', openAccountSettingsLightbox);
+        avatarBtn.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openAccountSettingsLightbox(e);
+          }
+        });
+      }
+      document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('header-auth-user');
+        if (!wrap || wrap.style.display === 'none') return;
+        if (!wrap.contains(e.target)) closeAccountMenu();
+      });
+      wireAccountAndAdminUI();
+      wireTripLogUI();
+      wireSignupPromptUI();
+      wireLegalAcceptUI();
+      wireInterestRailroadUI();
+      if (auth) {
+        try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
+        try {
+          // Redirect may already be consumed by rrWireEarlyAuth; still safe to call.
+          auth.getRedirectResult().then(function(cred) {
+            if (cred && cred.user && typeof upsertAccountMirror === 'function') {
+              upsertAccountMirror(cred.user).catch(function() {});
+            }
+          }).catch(function(e) { console.warn('[Auth] redirect result', e); });
+        } catch (e) { console.warn('[Auth] redirect hook', e); }
+        auth.onAuthStateChanged(async function(user) {
+          if (!user && auth && auth.currentUser) user = auth.currentUser;
+          if (!user && auth && typeof auth.authStateReady === 'function' && !rrAuthGateReady) {
+            try {
+              await auth.authStateReady();
+              rrAuthGateReady = true;
+              if (auth.currentUser) user = auth.currentUser;
+            } catch (_) { rrAuthGateReady = true; }
+          }
+          if (user) rrAuthGateReady = true;
+          currentUser = user;
+          try { rrMarkAuthResolved(user || null); } catch (_) {}
+          rrIdentifyBetterStack(user);
+          updateHeaderAuthUI(user);
+          if (user) {
+            try {
+              if (typeof checkUserBanned === 'function') {
+                const ban = await checkUserBanned(user);
+                if (ban) {
+                  const why = ban.reason ? (' Reason: ' + ban.reason) : '';
+                  try { await auth.signOut(); } catch (_) {}
+                  currentUser = null;
+                  if (typeof showBannedScreen === 'function') showBannedScreen(ban.reason || '');
+                  else if (typeof showNotification === 'function') showNotification('This account is banned.' + why);
+                  else alert('This account is banned.' + why);
+                  return;
+                }
+              }
+            } catch (banErr) { console.warn('[bannedUsers] auth check', banErr); }
+            if (typeof hideMyTripsGuestHome === 'function') hideMyTripsGuestHome();
+            if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage() && typeof openTripLogModal === 'function') {
+              openTripLogModal(null, { tab: 'list', forceModal: true });
+            }
+            closeSignupPrompt();
+            try {
+              if (typeof window.applyTripLogFromLive === 'function') {
+                let pending = tripPendingLogTrip;
+                if (!pending) {
+                  try {
+                    const raw = sessionStorage.getItem('rrPendingLogTrip');
+                    if (raw) pending = JSON.parse(raw);
+                  } catch (_) {}
+                }
+                if (pending) {
+                  setTimeout(function() { window.applyTripLogFromLive(pending); }, 250);
+                }
+              }
+            } catch (_) {}
+            await loadUserSettings(user.uid);
+            await upsertAccountMirror(user);
+            try {
+              const cookiePrefs = window.__rrCookiePrefsPending || readLocalCookiePrefs();
+              if (cookiePrefs && cookiePrefs.decided) await persistCookieConsentToAccount(cookiePrefs, user);
+            } catch (_) {}
+            if (isLegalPending() && !rrLegalIsCurrent(currentUserSettings)) {
+              await persistLegalAcceptance(user);
+            }
+            await refreshAdminState(user);
+            // A later auth callback (another user, or sign-out) owns the gate now.
+            if (currentUser !== user) return;
+            if (currentUserSettings && currentUserSettings.loadFailed) {
+              console.warn('[auth] userSettings unread; not showing legal/interest gate');
+            } else if (!rrLegalIsCurrent(currentUserSettings)) {
+              openLegalAcceptModal();
+            } else if (!currentUserSettings.interestedRailroadsSet) {
+              openInterestRailroadsModal();
+            }
+          } else {
+            currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
+            currentAdminPerms = null;
+            closeAccountSettingsLightbox();
+            closeLegalAcceptModal(true);
+            closeInterestRailroadsModal(true);
+            try { rrSyncMyTripsAuthGate(null); } catch (_) {}
+          }
+        });
+      } else {
+        updateHeaderAuthUI(null);
+        try { rrAuthResolved = true; rrSyncMyTripsAuthGate(null); } catch (_) {}
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Hard failsafe: never leave the splash up forever if a fetch hangs
+      let loadingScreenHidden = false;
+      const LOADING_FAILSAFE_MS = 12000;
+      const loadingFailsafeTimer = setTimeout(function() {
+        try { hideLoadingScreen(); } catch (_) {}
+      }, LOADING_FAILSAFE_MS);
+      async function withTimeout(promise, ms, label) {
+        let timer;
+        try {
+          return await Promise.race([
+            Promise.resolve(promise),
+            new Promise(function(_, reject) {
+              timer = setTimeout(function() {
+                reject(new Error((label || 'operation') + ' timed out after ' + ms + 'ms'));
+              }, ms);
+            })
+          ]);
+        } catch (e) {
+          console.warn('[Startup]', label || 'operation', e && e.message ? e.message : e);
+          return null;
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }
+      
+      function rrRefreshMapTiles() {
+        try {
+          if (typeof map === 'undefined' || !map) return;
+          map.invalidateSize({ animate: false });
+          map.eachLayer(function(layer) {
+            try { if (layer && typeof layer.redraw === 'function') layer.redraw(); } catch (_) {}
+          });
+        } catch (_) {}
+      }
+      // Keep the Mapbox and OpenStreetMap credits above the footer, which covers the bottom of the map.
+      function rrSyncFooterHeight() {
+        const f = document.querySelector('.footer');
+        document.documentElement.style.setProperty('--rr-footer-h', (f && f.getClientRects().length ? f.offsetHeight : 0) + 'px');
+      }
+      rrSyncFooterHeight();
+      window.addEventListener('resize', rrSyncFooterHeight);
+      // Leaflet only draws lines a little past the screen edge and fills in the rest when a drag ends,
+      // so route lines cover a full screen past each edge to stay drawn while dragging.
+      const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
+      try { window.rrMainMap = map; } catch (_) {}
+      try { window.__rrMarkBootReady && window.__rrMarkBootReady(); } catch (_) {}
+      // Leaflet moves every marker on every frame of a pinch zoom, including the hundreds far off
+      // screen (all of Metra when looking at New York), which made zooming stutter on phones.
+      // Markers more than half a screen outside the view are hidden and left where they are.
+      const rrMarkerSetPos = L.Marker.prototype._setPos;
+      const rrOffscreenMarkers = new Set();
+      function rrMarkerRange() {
+        const size = map.getSize();
+        const topLeft = map.containerPointToLayerPoint([0, 0]);
+        return L.bounds(topLeft.subtract(size.divideBy(2)), topLeft.add(size.multiplyBy(1.5)));
+      }
+      L.Marker.include({
+        _setPos: function(pos) {
+          if (this._map !== map) return rrMarkerSetPos.call(this, pos);
+          if (!rrMarkerRange().contains(pos)) {
+            if (this._icon.style.display !== 'none') this._icon.style.display = 'none';
+            rrOffscreenMarkers.add(this);
+            return;
+          }
+          rrOffscreenMarkers.delete(this);
+          if (this._icon.style.display === 'none') this._icon.style.display = '';
+          rrMarkerSetPos.call(this, pos);
+        }
+      });
+      // Dragging doesn't move markers, so bring back the ones the view has come near.
+      map.on('move', function() {
+        const range = rrMarkerRange();
+        rrOffscreenMarkers.forEach(function(m) {
+          if (!m._map) rrOffscreenMarkers.delete(m);
+          else if (range.contains(map.latLngToLayerPoint(m.getLatLng()))) m.update();
+        });
+      });
+      // Leaflet measures a train label each time it places one, on every frame of a zoom and for
+      // every label when they refresh, and each measurement makes the browser lay out the page
+      // again. A label's width only changes with its text, so changed labels are measured together
+      // once the current script finishes. Train labels are the only tooltips placed below.
+      const rrTooltipSetPosition = L.Tooltip.prototype._setPosition;
+      const rrLabelsToMeasure = new Set();
+      function rrMeasureLabels() {
+        const labels = Array.from(rrLabelsToMeasure);
+        rrLabelsToMeasure.clear();
+        labels.forEach(function(t) { if (t._map) t._rrWidth = t._container.offsetWidth; });
+        labels.forEach(function(t) { if (t._map) t._updatePosition(); });
+      }
+      L.Tooltip.include({
+        _updateLayout: function() {
+          if (this.options.direction !== 'bottom') return;
+          if (!rrLabelsToMeasure.size) queueMicrotask(rrMeasureLabels);
+          rrLabelsToMeasure.add(this);
+        },
+        _setPosition: function(pos) {
+          if (this.options.direction !== 'bottom') return rrTooltipSetPosition.call(this, pos);
+          L.DomUtil.addClass(this._container, 'leaflet-tooltip-bottom');
+          L.DomUtil.setPosition(this._container, pos.subtract(L.point((this._rrWidth || 0) / 2, 0, true)).add(this.options.offset).add(this._getAnchor()));
+        }
+      });
+      // Reopen where the map was left, unless the link points at a train.
+      try {
+        const q = new URLSearchParams(location.search);
+        const view = JSON.parse(localStorage.getItem('rr_mapView') || 'null');
+        if (view && !q.get('train') && !q.get('t') && !q.get('focus')) map.setView([view.lat, view.lng], view.zoom, { animate: false });
+      } catch (_) {}
+      map.on('moveend', function() {
+        if (rrIsShareDeepLink()) return;
+        const c = map.getCenter();
+        try { localStorage.setItem('rr_mapView', JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })); } catch (_) {}
+      });
+      try { if (typeof window.rrSpecialStartMapListener === 'function') setTimeout(function(){ window.rrSpecialStartMapListener(); }, 800); } catch (_) {}
+      map.on('popupopen', function(ev) {
+        try {
+          const box = ev && ev.popup && ev.popup._container;
+          if (!box) return;
+          const vw = window.innerWidth || 520; const w = (vw <= 700) ? Math.min(320, Math.max(260, vw - 40)) : 350;
+          box.style.width = w + 'px';
+          box.style.maxWidth = w + 'px';
+          const nodes = box.querySelectorAll('.leaflet-popup-content-wrapper, .leaflet-popup-content, .train-popup, .station-popup');
+          for (let i = 0; i < nodes.length; i++) {
+            nodes[i].style.width = w + 'px';
+            nodes[i].style.maxWidth = w + 'px';
+            nodes[i].style.minWidth = '0px';
+          }
+        } catch (_) {}
+      });
+
+      try {
+        map.options.closePopupOnClick = true;
+        map.on('click', function() {
+          try { map.closePopup(); } catch (_) {}
+        });
+        document.addEventListener('click', function(e) {
+          const pop = e.target && e.target.closest && e.target.closest('.leaflet-popup');
+          const onMap = e.target && e.target.closest && e.target.closest('#map');
+          if (onMap && !pop) {
+            try { map.closePopup(); } catch (_) {}
+          }
+        }, true);
+      } catch (_) {}
+
+      window.addEventListener('resize', function() { try { rrRefreshMapTiles(); } catch (_) {} });
+      map.whenReady(function() { try { rrRefreshMapTiles(); } catch (_) {} });
+      // API_BASE: '' = same-origin /api/* (Pages+Worker on one host).
+      // For split hosting set e.g. 'https://railroadradar-proxy.YOUR.workers.dev'
+      const API_BASE = 'https://railroadradar-proxy.railroadradar.workers.dev';
+      try { window.RR_TRIP_API_BASE = API_BASE; } catch (_) {}
+      function apiUrl(path) {
+        const p = path.startsWith('/') ? path : '/' + path;
+        return (API_BASE || '').replace(/\/+$/, '') + p;
+      }
+      // Rewrite MBTA pagination next-links through the Worker (no upstream host string in source)
+      function mbtaProxyUrl(u) {
+        if (!u) return u;
+        const s = String(u);
+        const idx = s.indexOf('/api/mbta');
+        if (idx >= 0) return apiUrl(s.slice(idx));
+        try {
+          const parsed = new URL(s, (typeof location !== 'undefined' ? location.origin : 'https://local'));
+          return apiUrl('/api/mbta' + parsed.pathname + parsed.search);
+        } catch (_) {
+          if (s.startsWith('/')) return apiUrl('/api/mbta' + s);
+          return s;
+        }
+      }
+      // Truly transparent 1x1 PNG. The previous tile was RGBA(0,255,0,127);
+      // Leaflet stretches errorTileUrl to the tile size, so pan/zoom tile errors painted the map green.
+      const EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
+      function rrPopupOpts() {
+        let w = 520;
+        try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
+        if (w <= 700) return { maxWidth: Math.min(320, Math.max(240, w - 40)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
+        return { maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true };
+      }
+
+      // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
+      const mapboxAltLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}'), {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: false,
+        maxZoom: 20,
+        keepBuffer: 8,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
+        errorTileUrl: EMPTY_TILE
+      });
+      const mapboxDarkLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}'), {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: false,
+        maxZoom: 20,
+        keepBuffer: 8,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
+        errorTileUrl: EMPTY_TILE
+      });
+      // Light map is the default; dark uses Mapbox dark-v11
+      let currentTheme = 'light';
+      let usingMapboxFallback = false;
+      let currentBaseLayer = mapboxAltLightLayer;
+      currentBaseLayer.addTo(map);
+      L.control.layers(
+        {
+          "Dark": mapboxDarkLayer,
+          "Alt Light": mapboxAltLightLayer
+        }
+      ).addTo(map);
+      // Auto-fallback: >5 Mapbox tileerrors within 10s → switch to Carto for current theme
+      let mapboxTileErrorTimes = [];
+      let mapboxTileErrorLogged = false;
+      function onMapboxTileError(e) {
+        if (!mapboxTileErrorLogged) {
+          mapboxTileErrorLogged = true;
+          try {
+            console.warn('[RailroadRadar] Mapbox tile error', e && e.tile && e.tile.src);
+          } catch (_) {}
+        }
+        const now = Date.now();
+        mapboxTileErrorTimes.push(now);
+        mapboxTileErrorTimes = mapboxTileErrorTimes.filter(function(t) { return now - t < 10000; });
+        if (usingMapboxFallback || mapboxTileErrorTimes.length <= 1) return;
+        usingMapboxFallback = true;
+        try {
+          console.warn('[RailroadRadar] Mapbox tiles failing repeatedly; switching to OSM fallback');
+        } catch (_) {}
+        return;
+      }
+      mapboxAltLightLayer.on('tileerror', onMapboxTileError);
+      mapboxDarkLayer.on('tileerror', onMapboxTileError);
+      function layerForTheme(theme) {
+        const light = theme === 'light';
+        return light ? mapboxAltLightLayer : mapboxDarkLayer;
+      }
+      function setMapTheme(theme) {
+        currentTheme = theme === 'light' ? 'light' : 'dark';
+        const next = layerForTheme(currentTheme);
+        if (currentBaseLayer !== next) {
+          if (map.hasLayer(currentBaseLayer)) map.removeLayer(currentBaseLayer);
+          next.addTo(map);
+          currentBaseLayer = next;
+        }
+        const darkRadio = document.getElementById('map-theme-dark');
+        const lightRadio = document.getElementById('map-theme-light');
+        if (darkRadio && lightRadio) {
+          darkRadio.checked = currentTheme !== 'light';
+          lightRadio.checked = currentTheme === 'light';
+        }
+        try {
+          if (typeof safeStorage !== 'undefined' && safeStorage) {
+            safeStorage.set('rr_mapTheme', currentTheme);
+          }
+        } catch (_) {}
+      }
+      window.__rrSetMapTheme = setMapTheme;
+      map.on('baselayerchange', function(e) {
+        const name = (e && e.name) || '';
+        if (/light|openstreetmap|^osm$/i.test(name) && !/dark/i.test(name)) currentTheme = 'light';
+        else currentTheme = 'dark';
+        if (name === 'Alt Light' || name === 'Dark' || name === 'Light') {
+          usingMapboxFallback = false;
+          mapboxTileErrorTimes = [];
+          mapboxTileErrorLogged = false;
+        }
+        currentBaseLayer = e.layer;
+        const darkRadio = document.getElementById('map-theme-dark');
+        const lightRadio = document.getElementById('map-theme-light');
+        if (darkRadio && lightRadio) {
+          darkRadio.checked = currentTheme !== 'light';
+          lightRadio.checked = currentTheme === 'light';
+        }
+        try { if (typeof safeStorage !== 'undefined') safeStorage.set('rr_mapTheme', currentTheme); } catch (_) {}
+      });
+      map.on('zoomend moveend', () => {
+        if (typeof updateTrainLabelsVisibility === 'function') {
+          updateTrainLabelsVisibility();
+        }
+      });
+      let specialIcons = {};
+      let searchMode = 'all';
+
+      // ============================================================
+      // SPECIAL UNIT ROSTER + crowd-sourced trainReports (Firestore)
+      // ============================================================
+      const BUILTIN_SPECIAL_UNITS_ROSTER = [
+        { agency: 'mbta', id: '1030', name: 'B&M Minuteman' },
+        { agency: 'mbta', id: '1036', name: 'NYC Lightning Stripe', iconUrl: '/assets/mbta-1036.png' },
+        { agency: 'mbta', id: '1071', name: 'New Haven McGinnis' },
+        { agency: 'mbta', id: '1072', name: 'B&M McGinnis', iconUrl: '/assets/mbta-1072.png' },
+        { agency: 'mbta', id: '1128', name: 'New Haven' },
+        { agency: 'mbta', id: '1129', name: 'Cranberry' },
+        { agency: 'mbta', id: '1130', name: 'Original MBTA' },
+        { agency: 'mbta', id: '1776', name: 'America 250', iconUrl: '/assets/mbta-1776.png' },
+        { agency: 'mbta', id: '1125', name: 'MassDOT blue', iconUrl: '/assets/mbta-massdot.png' },
+        { agency: 'mbta', id: '1136', name: 'MassDOT blue', iconUrl: '/assets/mbta-massdot.png' },
+        { agency: 'mbta', id: '1137', name: 'MassDOT blue', iconUrl: '/assets/mbta-massdot.png' },
+        { agency: 'amtrak', id: '46', name: 'Phase V 50th' },
+        { agency: 'amtrak', id: '100', name: 'Midnight Blue' },
+        { agency: 'amtrak', id: '108', name: 'Phase VI' },
+        { agency: 'amtrak', id: '130', name: 'Phase II' },
+        { agency: 'amtrak', id: '145', name: 'Phase III' },
+        { agency: 'amtrak', id: '160', name: 'Pepsi Can' },
+        { agency: 'amtrak', id: '164', name: 'Phase IV' },
+        { agency: 'amtrak', id: '174', name: 'Phase VII' },
+        { agency: 'amtrak', id: '301', name: 'Day 1' },
+        { agency: 'amtrak', id: '600', name: 'David L. Gunn' },
+        { agency: 'amtrak', id: '642', name: 'Veterans' },
+        { agency: 'amtrak', id: '90406', name: 'Phase III NPCU' },
+        { agency: 'mnr', id: '201', name: 'Conrail' },
+        { agency: 'mnr', id: '203', name: 'MTA Central' },
+        { agency: 'mnr', id: '208', name: 'Original Metro-North' },
+        { agency: 'mnr', id: '211', name: 'NYC Lightning Stripe' },
+        { agency: 'mnr', id: '214', name: 'Employees' },
+        { agency: 'mnr', id: '216', name: 'Veterans' },
+        { agency: 'mnr', id: '217', name: 'Penn Central' },
+        { agency: 'mnr', id: '218', name: 'Never Forget 9/11' },
+        { agency: 'mnr', id: '222', name: 'New Haven green' },
+        { agency: 'mnr', id: '250', name: 'America 250' },
+        { agency: 'lirr', id: '521', name: 'America 250' }
+      ];
+      let SPECIAL_UNITS_ROSTER = BUILTIN_SPECIAL_UNITS_ROSTER.slice();
+      let ROSTER_IDS = new Set(SPECIAL_UNITS_ROSTER.map(u => String(u.id)));
+      function rebuildRosterIndexes() {
+        ROSTER_IDS = new Set(SPECIAL_UNITS_ROSTER.map(u => String(u.id)));
+      }
+      async function loadSpecialUnitsFromFirestore() {
+        if (!db) {
+          console.warn('%c[specialUnits] Firestore not available', 'color:#f39c12');
+          return;
+        }
+        try {
+          const snap = await db.collection('specialUnits').get();
+          const byKey = {};
+          snap.forEach(function(doc) {
+            const d = doc.data() || {};
+            const agency = String(d.agency || '').toLowerCase().trim();
+            const id = String(d.id != null ? d.id : '').trim();
+            if (!agency || !id) return;
+            if (['mbta', 'amtrak', 'mnr', 'lirr', 'njt'].indexOf(agency) === -1) return;
+            byKey[agency + '|' + id] = {
+              agency: agency,
+              id: id,
+              name: d.name || id,
+              iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : null,
+              builtin: false,
+              _fromFirestore: true
+            };
+          });
+          const merged = BUILTIN_SPECIAL_UNITS_ROSTER.map(function(u) {
+            const key = u.agency + '|' + String(u.id);
+            const overlay = byKey[key];
+            if (overlay) {
+              delete byKey[key];
+              return {
+                agency: u.agency,
+                id: String(u.id),
+                name: overlay.name || u.name,
+                iconUrl: overlay.iconUrl != null ? overlay.iconUrl : (u.iconUrl || null),
+                builtin: true,
+                _overridden: true,
+                _fromFirestore: true
+              };
+            }
+            return {
+              agency: u.agency,
+              id: String(u.id),
+              name: u.name,
+              iconUrl: u.iconUrl || null,
+              builtin: true
+            };
+          });
+          Object.keys(byKey).sort().forEach(function(k) {
+            merged.push(byKey[k]);
+          });
+          SPECIAL_UNITS_ROSTER = merged;
+          rebuildRosterIndexes();
+          try { if (typeof window.rrRenderNotifyTrainChips === 'function') window.rrRenderNotifyTrainChips(); } catch (_) {}
+          console.log('%c[specialUnits] Loaded roster: ' + SPECIAL_UNITS_ROSTER.length + ' unit(s) (' + snap.size + ' Firestore doc(s))', 'color:#27ae60');
+        } catch (e) {
+          console.error('%c[specialUnits] Load failed', 'color:#e74c3c', e);
+        }
+      }
+      window.loadSpecialUnitsFromFirestore = loadSpecialUnitsFromFirestore;
+      window.getSpecialUnitsRoster = function() { return SPECIAL_UNITS_ROSTER; };
+      window.getBuiltinSpecialUnitsRoster = function() { return BUILTIN_SPECIAL_UNITS_ROSTER; };
+      const MBTA_LOCO_TYPES = {
+        'HSP-46': '/assets/hsp46.png',
+        'F40PH': '/assets/f40ph.png',
+        'GP40MC': '/assets/gp40mc.png'
+      };
+      const MBTA_LOCO_TYPE_LABELS = {
+        'HSP-46': 'HSP-46',
+        'F40PH': 'F40PH',
+        'GP40MC': 'GP40MC/GP40-3'
+      };
+      const NJT_LOCO_ICON = '/assets/njt-alp.png';
+      const NJT_LOCO_TYPES = {
+        'ALP-46': NJT_LOCO_ICON,
+        'ALP-46A': NJT_LOCO_ICON,
+        'ALP-45DP': NJT_LOCO_ICON,
+        'ALP-45A': NJT_LOCO_ICON,
+        'ALP-45DP A': NJT_LOCO_ICON,
+        'default': NJT_LOCO_ICON
+      };
+
+      function normalizeMbtaLocoType(locoType) {
+        const raw = String(locoType || '').trim();
+        if (!raw) return '';
+        if (MBTA_LOCO_TYPES[raw]) return raw;
+        const compact = raw.toUpperCase().replace(/[\s_-]+/g, '');
+        const keys = Object.keys(MBTA_LOCO_TYPES);
+        for (let i = 0; i < keys.length; i++) {
+          if (keys[i].toUpperCase().replace(/[\s_-]+/g, '') === compact) return keys[i];
+        }
+        if (compact.indexOf('F40') !== -1) return 'F40PH';
+        if (compact.indexOf('GP40') !== -1) return 'GP40MC';
+        if (compact.indexOf('HSP') !== -1) return 'HSP-46';
+        return '';
+      }
+      function resolveMbtaLocoIconUrl(url, locoType) {
+        const typeKey = normalizeMbtaLocoType(locoType);
+        const fallback = MBTA_LOCO_TYPES[typeKey] || MBTA_LOCO_TYPES['HSP-46'] || '/assets/hsp46.png';
+        const u = (url == null ? '' : String(url)).trim();
+        if (/^data:/i.test(u)) return u;
+        if (!u) return rrAssetUrl(fallback);
+        const lower = u.toLowerCase();
+        // Stale Firestore / Apps Script postimg placeholders must never be used
+        if (lower.indexOf('postimg') !== -1 || lower.indexOf('earch.png') !== -1 || lower.indexOf('i.postimg.cc') !== -1) {
+          if (typeKey && MBTA_LOCO_TYPES[typeKey]) return rrAssetUrl(MBTA_LOCO_TYPES[typeKey]);
+          return rrAssetUrl(fallback);
+        }
+        // Relative assets/* → root-absolute
+        if (/^assets\//i.test(u)) return rrAssetUrl('/' + u.replace(/^\/+/, ''));
+        // Same-origin root-absolute assets
+        if (/^\/assets\//i.test(u)) return rrAssetUrl(u);
+        // Absolute same-origin path without scheme
+        try {
+          if (u.charAt(0) === '/' && u.indexOf('/assets/') !== -1) return rrAssetUrl(u);
+        } catch (_) {}
+        // Known local type map hit already handled; keep other http(s) only if not postimg
+        if (/^https?:\/\//i.test(u)) return u;
+        // Anything else → local HSP/type
+        if (typeKey && MBTA_LOCO_TYPES[typeKey]) return rrAssetUrl(MBTA_LOCO_TYPES[typeKey]);
+        return rrAssetUrl(fallback);
+      }
+      let trainReports = [];
+      let allTrainReports = [];
+      let trainReportsById = {};
+      let activeReportVehicleIds = new Set();
+      let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} }; // agency -> reports
+      let trainReportsLoadFailed = false;
+      let reportTrainExtraMode = false;
+      let reportTrainSelectToken = 0;
+      let reportTrainPreferNumber = '';
+
+      function nyServiceDateToday() {
+        try {
+          return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        } catch (_) {
+          const d = new Date();
+          return d.toISOString().slice(0, 10);
+        }
+      }
+      function nyServiceDatePlusDays(days) {
+        const today = nyServiceDateToday();
+        try {
+          const parts = today.split('-').map(Number);
+          const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0));
+          dt.setUTCDate(dt.getUTCDate() + (Number(days) || 0));
+          return dt.toISOString().slice(0, 10);
+        } catch (_) {
+          return today;
+        }
+      }
+      function isFutureServiceDate(sd) {
+        const d = String(sd || '').trim();
+        if (!d) return false;
+        return d > nyServiceDateToday();
+      }
+      function reportIsMapActive(rep) {
+        if (!rep) return false;
+        const today = nyServiceDateToday();
+        const sd = String(rep.serviceDate || '').trim();
+        if (sd && sd > today) return false;
+        const agency = normalizeAgency(rep.agency);
+        if (agency === 'mbta') {
+          // Live pairing docs (often undated legacy) + today's dated MBTA reports
+          if (!sd || sd === today) return true;
+          return false;
+        }
+        if (agency === 'amtrak' || agency === 'mnr' || agency === 'lirr' || agency === 'njt' || agency === 'ctrail') {
+          return !sd || sd === today;
+        }
+        return !sd || sd === today;
+      }
+      function normalizeAgency(agency) {
+        const a = String(agency || '').toLowerCase().trim();
+        if (a === 'metro-north' || a === 'metronorth' || a === 'metro_north') return 'mnr';
+        if (a === 'long island' || a === 'long-island') return 'lirr';
+        if (a === 'nj transit' || a === 'njtransit' || a === 'nj-transit' || a === 'njt rail') return 'njt';
+        if (a === 'marc train' || a === 'marc trains' || a === 'maryland transit' || a === 'mta maryland') return 'marc';
+        return a;
+      }
+      function rosterEntry(agency, vehicleId) {
+        const a = normalizeAgency(agency);
+        const id = String(vehicleId || '').trim();
+        if (!id) return null;
+        return SPECIAL_UNITS_ROSTER.find(u => u.agency === a && String(u.id) === id) || null;
+      }
+      function reportTimeMs(rep) {
+        if (!rep) return 0;
+        const c = (rep.contributors && rep.contributors[0] && rep.contributors[0].at) || 0;
+        const u = (typeof parseReportTimestamp === 'function') ? parseReportTimestamp(rep.updatedAt) : null;
+        const cr = (typeof parseReportTimestamp === 'function') ? parseReportTimestamp(rep.createdAt) : null;
+        return Math.max(Number(c) || 0, u ? u.getTime() : 0, cr ? cr.getTime() : 0);
+      }
+      function keepNewerReport(slot, rep) {
+        if (!slot) return rep;
+        return reportTimeMs(rep) >= reportTimeMs(slot) ? rep : slot;
+      }
+      function rebuildTrainReportIndexes() {
+        trainReportsById = {};
+        activeReportVehicleIds = new Set();
+        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {}, metra: {} };
+        const today = nyServiceDateToday();
+        (trainReports || []).forEach(function(rep) {
+          if (!rep || !rep.id) return;
+          trainReportsById[rep.id] = rep;
+          const agency = normalizeAgency(rep.agency);
+          const vid = String(rep.vehicleId || '').trim();
+          const tn = String(rep.trainNumber || '').trim();
+          const tnAlt = tn.replace(/^0+/, '') || tn;
+          if (vid) activeReportVehicleIds.add(vid);
+          if (agency === 'mbta') {
+            if (vid) activeTrainNumberReports.mbta[vid] = keepNewerReport(activeTrainNumberReports.mbta[vid], rep);
+            if (tn) {
+              activeTrainNumberReports.mbta['tn:' + tn] = keepNewerReport(activeTrainNumberReports.mbta['tn:' + tn], rep);
+              if (tnAlt !== tn) activeTrainNumberReports.mbta['tn:' + tnAlt] = keepNewerReport(activeTrainNumberReports.mbta['tn:' + tnAlt], rep);
+            }
+          } else if (activeTrainNumberReports[agency]) {
+            const sd = rep.serviceDate || '';
+            if (tn && (!sd || sd === today)) {
+              activeTrainNumberReports[agency][tn] = keepNewerReport(activeTrainNumberReports[agency][tn], rep);
+              if (tnAlt !== tn) activeTrainNumberReports[agency][tnAlt] = keepNewerReport(activeTrainNumberReports[agency][tnAlt], rep);
+            }
+          }
+        });
+      }
+      function isSpecialVehicle(vehicleId) {
+        const id = String(vehicleId || '').trim();
+        if (!id) return false;
+        if (specialIcons[id]) return true;
+        if (ROSTER_IDS.has(id)) return true;
+        if (activeReportVehicleIds.has(id)) return true;
+        return false;
+      }
+      function getSpecialForVehicle(agency, vehicleId, trainNumber) {
+        const a = normalizeAgency(agency);
+        const vid = String(vehicleId || '').trim();
+        const tn = String(trainNumber || '').trim();
+        const tnAlt = tn.replace(/^0+/, '') || tn;
+        if (a === 'mbta') {
+          let mbtaRep = (vid && activeTrainNumberReports.mbta && activeTrainNumberReports.mbta[vid]) || null;
+          if (!mbtaRep && tn && activeTrainNumberReports.mbta) {
+            mbtaRep = activeTrainNumberReports.mbta['tn:' + tn] || activeTrainNumberReports.mbta['tn:' + tnAlt] || null;
+          }
+          if (mbtaRep) {
+            const rep = mbtaRep;
+            const locos = normalizeReportLocomotives(rep);
+            const first = locos[0] || null;
+            const locoId = String((first && first.locomotiveId) || rep.locomotiveId || '').trim();
+            const locoType = (first && first.locoType) || rep.locoType || null;
+            const locoIconFromRep = (first && first.locoIconUrl) || rep.locoIconUrl || null;
+            const specialOverride = (first && first.specialOverride) || !!rep.specialOverride;
+            const isRosterSpecial = !!specialOverride || !!(locoId && rosterEntry('mbta', locoId));
+            // Do not force HSP-46 for roster specials — that would override specialIcons[locomotiveId]
+            let locoIconUrl = null;
+            if (locoIconFromRep || (locoType && MBTA_LOCO_TYPES[locoType]) || !isRosterSpecial) {
+              locoIconUrl = resolveMbtaLocoIconUrl(locoIconFromRep || null, locoType || null);
+              if (isRosterSpecial && !locoIconFromRep && !locoType) {
+                // Roster special without explicit type: leave null so specialIcons[locomotiveId] can win
+                locoIconUrl = null;
+              }
+            }
+            const unitName = (first && first.unitName) || rep.unitName || (locoId && (rosterEntry('mbta', locoId) || {}).name) || locoId || String(rep.vehicleId);
+            return {
+              vehicleId: String(rep.vehicleId),
+              locomotiveId: locoId || null,
+              unitName: unitName,
+              fromReport: true,
+              report: rep,
+              locoType: locoType || null,
+              locoIconUrl: locoIconUrl,
+              isRosterSpecial: isRosterSpecial,
+              specialOverride: !!specialOverride || isRosterSpecial,
+              locomotives: locos
+            };
+          }
+          if (vid && (specialIcons[vid] || ROSTER_IDS.has(vid))) {
+            const re = rosterEntry('mbta', vid);
+            return {
+              vehicleId: vid,
+              locomotiveId: re ? String(re.id) : null,
+              unitName: (re && re.name) || (specialIcons[vid] && specialIcons[vid].name) || vid,
+              fromReport: false,
+              isRosterSpecial: !!re,
+              specialOverride: !!re
+            };
+          }
+          return null;
+        }
+        if (a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'njt') {
+          let rep = null;
+          if (tn && activeTrainNumberReports[a]) {
+            rep = activeTrainNumberReports[a][tn] || activeTrainNumberReports[a][tnAlt] || null;
+          }
+          if (rep) {
+            const locos = normalizeReportLocomotives(rep);
+            const first = locos[0] || null;
+            const locoId = String((first && first.locomotiveId) || rep.locomotiveId || '').trim();
+            const re = locoId ? rosterEntry(a, locoId) : null;
+            return {
+              vehicleId: String(rep.vehicleId || ''),
+              locomotiveId: locoId || null,
+              unitName: (first && first.unitName) || rep.unitName || (re && re.name) || locoId || String(rep.vehicleId || ''),
+              fromReport: true,
+              report: rep,
+              locoType: (first && first.locoType) || rep.locoType || null,
+              locoIconUrl: (first && first.locoIconUrl) || rep.locoIconUrl || (re && re.iconUrl) || null,
+              isRosterSpecial: !!re,
+              specialOverride: !!((first && first.specialOverride) || rep.specialOverride || re),
+              locomotives: locos,
+              trainNumber: tn || String(rep.trainNumber || '')
+            };
+          }
+          if (vid && (specialIcons[vid] || rosterEntry(a, vid))) {
+            const re = rosterEntry(a, vid);
+            return {
+              vehicleId: vid,
+              unitName: (re && re.name) || (specialIcons[vid] && specialIcons[vid].name) || vid,
+              fromReport: false
+            };
+          }
+          return null;
+        }
+        return null;
+      }
+      function rrReapplyReportIcons() {
+        function each(dict, fn) {
+          if (!dict) return;
+          Object.keys(dict).forEach(function(id) {
+            const m = dict[id];
+            if (!m || typeof m.setIcon !== 'function') return;
+            try { fn(id, m); } catch (_) {}
+          });
+        }
+        each(typeof markers !== 'undefined' ? markers : null, function(vid) {
+          const info = (typeof trainInfo !== 'undefined' && trainInfo[vid]) || {};
+          markers[vid].setIcon(createTrainIcon(info.delayMinutes, vid));
+        });
+        each(typeof amtrakMarkers !== 'undefined' ? amtrakMarkers : null, function(vid) {
+          const info = (typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) || {};
+          amtrakMarkers[vid].setIcon(createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
+        });
+        each(typeof mnrMarkers !== 'undefined' ? mnrMarkers : null, function(vid) {
+          const info = (typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) || {};
+          mnrMarkers[vid].setIcon(createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
+        });
+        each(typeof lirrMarkers !== 'undefined' ? lirrMarkers : null, function(vid) {
+          const info = (typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) || {};
+          lirrMarkers[vid].setIcon(createLirrIcon(info.trainNum));
+        });
+        each(typeof njtMarkers !== 'undefined' ? njtMarkers : null, function(vid) {
+          const info = (typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) || {};
+          const special = getSpecialForVehicle('njt', null, info.trainNum);
+          const locoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
+          njtMarkers[vid].setIcon(createNjtIcon(locoType, info.trainNum));
+        });
+        each(typeof metraMarkers !== 'undefined' ? metraMarkers : null, function(vid) {
+          const info = (typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) || {};
+          metraMarkers[vid].setIcon(createMetraIcon(info.trainNum));
+        });
+        each(typeof marcMarkers !== 'undefined' ? marcMarkers : null, function(vid) {
+          const info = (typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) || {};
+          marcMarkers[vid].setIcon(createMarcIcon(info.trainNum));
+        });
+      }
+      function rrReportIconUrl(agency, vehicleId, trainNumber) {
+        try {
+          const spec = (typeof getSpecialForVehicle === 'function')
+            ? getSpecialForVehicle(agency, vehicleId, trainNumber)
+            : null;
+          if (!spec) return null;
+          const direct = spec.locoIconUrl ? String(spec.locoIconUrl).trim() : '';
+          if (direct) return direct;
+          const locoId = String(spec.locomotiveId || '').trim();
+          const re = locoId ? rosterEntry(agency, locoId) : null;
+          if (re && re.iconUrl) return String(re.iconUrl).trim();
+          const a = normalizeAgency(agency);
+          if (a === 'njt' && spec.locoType && typeof resolveNjtLocoIconUrl === 'function') {
+            return resolveNjtLocoIconUrl(spec.locoType);
+          }
+          if (a === 'mbta' && spec.locoType && typeof resolveMbtaLocoIconUrl === 'function') {
+            return resolveMbtaLocoIconUrl(null, spec.locoType);
+          }
+        } catch (_) {}
+        return null;
+      }
+      function rrIconFromUrl(url, className) {
+        let iconUrl = String(url || '').trim();
+        if (!iconUrl) return null;
+        if (/^assets\//i.test(iconUrl)) iconUrl = '/' + iconUrl.replace(/^\/+/, '');
+        return L.icon({
+          iconUrl: (typeof rrAssetUrl === 'function') ? rrAssetUrl(iconUrl) : iconUrl,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -22],
+          className: className || 'train-icon'
+        });
+      }
+      function specialUnitBadgeHtml(special) {
+        if (!special || !special.unitName) return '';
+        const name = (typeof escapeHtml === 'function') ? escapeHtml(special.unitName) : String(special.unitName).replace(/</g,'&lt;');
+        return '<span class="special-unit-badge" title="Special unit">' + name + '</span>';
+      }
+      function parseReportTimestamp(ts) {
+        if (ts == null) return null;
+        let d = null;
+        try {
+          if (ts instanceof Date) d = ts;
+          else if (typeof ts.toDate === 'function') d = ts.toDate();
+          else if (typeof ts.seconds === 'number') d = new Date(ts.seconds * 1000);
+          else if (typeof ts._seconds === 'number') d = new Date(ts._seconds * 1000);
+          else if (typeof ts === 'number') d = new Date(ts < 1e12 ? ts * 1000 : ts);
+          else if (typeof ts === 'string') d = new Date(ts);
+        } catch (_) { d = null; }
+        if (!d || isNaN(d.getTime())) return null;
+        return d;
+      }
+      function formatReportDayNy(ts) {
+        const d = parseReportTimestamp(ts);
+        if (!d) return null;
+        try {
+          return d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' });
+        } catch (_) {
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      }
+      function formatReportTimeNy(ts) {
+        const d = parseReportTimestamp(ts);
+        if (!d) return null;
+        try {
+          return d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
+        } catch (_) {
+          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+      }
+      function formatReporterShortName(rep) {
+        if (!rep) return '';
+        const snapLabel = String(rep.reportedByLabel || '').trim();
+        if (snapLabel) return snapLabel;
+        const mode = String(rep.reportedByDisplayMode || '').trim();
+        if (mode) {
+          return computeReporterLabel(
+            { reportDisplayMode: mode, reportCustomLabel: rep.reportedByLabel || '' },
+            rep.reportedByName || rep.reportedByDisplayName,
+            rep.reportedByEmail
+          );
+        }
+        const raw = String(rep.reportedByName || rep.reportedByDisplayName || '').trim();
+        if (raw) return firstInitialLabel(raw, rep.reportedByEmail);
+        const email = String(rep.reportedByEmail || '').trim();
+        if (email) {
+          const local = email.split('@')[0] || '';
+          return local ? local : '';
+        }
+        return '';
+      }
+      function formatContributorShortName(c) {
+        if (!c) return '';
+        const snapLabel = String(c.label || '').trim();
+        if (snapLabel) return snapLabel;
+        const mode = String(c.displayMode || '').trim();
+        if (mode) {
+          return computeReporterLabel(
+            { reportDisplayMode: mode, reportCustomLabel: c.label || '' },
+            c.name,
+            c.email
+          );
+        }
+        const raw = String(c.name || '').trim();
+        if (raw) return firstInitialLabel(raw, c.email);
+        const email = String(c.email || '').trim();
+        if (email) {
+          const local = email.split('@')[0] || '';
+          return local ? local : '';
+        }
+        return '';
+      }
+      function formatReportByAttribution(rep) {
+        if (!rep) return '';
+        let first = '';
+        let count = 0;
+        let badgeOpts = {};
+        if (Array.isArray(rep.contributors) && rep.contributors.length) {
+          const c0 = rep.contributors[0] || {};
+          first = formatContributorShortName(c0);
+          count = rep.contributors.length;
+          badgeOpts = {
+            uid: c0.uid,
+            verified: !!c0.verified,
+            email: c0.email,
+            isAdmin: !!(c0.email && isBootstrapAdmin(c0.email))
+          };
+        }
+        if (!first) {
+          const snapLabel = String(rep.firstReportedByLabel || '').trim();
+          if (snapLabel) {
+            first = snapLabel;
+            badgeOpts = {
+              uid: rep.firstReportedByUid,
+              verified: !!(rep.firstReportedByVerified || rep.reportedByVerified),
+              email: rep.firstReportedByEmail,
+              isAdmin: !!(rep.firstReportedByEmail && isBootstrapAdmin(rep.firstReportedByEmail))
+            };
+          } else if (rep.firstReportedByUid || rep.firstReportedByName || rep.firstReportedByEmail || rep.firstReportedByDisplayMode) {
+            first = formatContributorShortName({
+              label: rep.firstReportedByLabel,
+              displayMode: rep.firstReportedByDisplayMode,
+              name: rep.firstReportedByName,
+              email: rep.firstReportedByEmail
+            });
+            badgeOpts = {
+              uid: rep.firstReportedByUid,
+              verified: !!(rep.firstReportedByVerified || rep.reportedByVerified),
+              email: rep.firstReportedByEmail,
+              isAdmin: !!(rep.firstReportedByEmail && isBootstrapAdmin(rep.firstReportedByEmail))
+            };
+          }
+        }
+        if (!first) {
+          first = formatReporterShortName(rep);
+          badgeOpts = {
+            uid: rep.reportedByUid,
+            verified: !!rep.reportedByVerified,
+            email: rep.reportedByEmail,
+            isAdmin: !!(rep.reportedByEmail && isBootstrapAdmin(rep.reportedByEmail))
+          };
+        }
+        if (!count) {
+          if (Array.isArray(rep.contributors) && rep.contributors.length) {
+            count = rep.contributors.length;
+          } else if (first) {
+            count = 1;
+          } else {
+            count = 0;
+          }
+        }
+        if (!first) return '';
+        const firstHtml = reporterNameWithBadgeHtml(first, badgeOpts);
+        if (count >= 2) {
+          const n = count - 1;
+          return firstHtml + ' and ' + n + (n === 1 ? ' other' : ' others');
+        }
+        return firstHtml;
+      }
+      function formatOneLocoLabel(locoId, locoType, unitName, vehicleId) {
+        locoId = String(locoId || '').trim();
+        locoType = String(locoType || '').trim();
+        unitName = String(unitName || '').trim();
+        const typeLabel = locoType ? (MBTA_LOCO_TYPE_LABELS[locoType] || locoType) : '';
+        if (typeLabel && locoId) return typeLabel + ' #' + locoId;
+        if (typeLabel) return typeLabel;
+        if (unitName) return unitName;
+        if (locoId) return locoId;
+        return String(vehicleId || '').trim();
+      }
+      function normalizeReportLocomotives(rep) {
+        if (!rep) return [];
+        if (Array.isArray(rep.locomotives) && rep.locomotives.length) {
+          return rep.locomotives.map(function(L) {
+            return {
+              locomotiveId: String((L && (L.locomotiveId || L.id)) || '').trim(),
+              locoType: String((L && L.locoType) || '').trim() || null,
+              unitName: String((L && L.unitName) || '').trim() || null,
+              locoIconUrl: (L && L.locoIconUrl) || null,
+              specialOverride: !!(L && L.specialOverride),
+              customLoco: !!(L && L.customLoco)
+            };
+          }).filter(function(L) { return L.locomotiveId || L.unitName || L.locoType; });
+        }
+        const out = [];
+        const primaryId = String(rep.locomotiveId || '').trim();
+        if (primaryId || rep.unitName || rep.locoType) {
+          out.push({
+            locomotiveId: primaryId,
+            locoType: rep.locoType || null,
+            unitName: rep.unitName || null,
+            locoIconUrl: rep.locoIconUrl || null,
+            specialOverride: !!rep.specialOverride,
+            customLoco: !!rep.customLoco
+          });
+        }
+        const id2 = String(rep.locomotiveId2 || '').trim();
+        if (id2 || rep.unitName2 || rep.locoType2) {
+          out.push({
+            locomotiveId: id2,
+            locoType: rep.locoType2 || null,
+            unitName: rep.unitName2 || null,
+            locoIconUrl: rep.locoIconUrl2 || null,
+            specialOverride: false,
+            customLoco: !!rep.locoType2
+          });
+        }
+        return out;
+      }
+      function formatTrainReportLocoLabel(rep) {
+        if (!rep) return '';
+        const locos = normalizeReportLocomotives(rep);
+        if (!locos.length) {
+          return formatOneLocoLabel(rep.locomotiveId, rep.locoType, rep.unitName, rep.vehicleId);
+        }
+        return locos.map(function(L) {
+          return formatOneLocoLabel(L.locomotiveId, L.locoType, L.unitName, '');
+        }).filter(Boolean).join(' + ');
+      }
+
+      function currentMapIconUrl(agency, vehicleId, trainNumber) {
+        try {
+          const a = normalizeAgency(agency);
+          const vid = String(vehicleId || '').trim();
+          const tn = String(trainNumber || '').trim();
+          const dicts = [];
+          try { if (typeof markers !== 'undefined' && markers) dicts.push(markers); } catch (_) {}
+          try { if (typeof amtrakMarkers !== 'undefined' && amtrakMarkers) dicts.push(amtrakMarkers); } catch (_) {}
+          try { if (typeof mnrMarkers !== 'undefined' && mnrMarkers) dicts.push(mnrMarkers); } catch (_) {}
+          try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
+          try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
+          try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
+          const keys = [vid];
+          if (tn) {
+            keys.push(tn, a + '-' + tn);
+            if (a === 'amtrak') keys.push('amtrak-' + tn);
+            if (a === 'mnr') keys.push('mnr-' + tn);
+            if (a === 'lirr') keys.push('lirr-' + tn);
+            if (a === 'njt') keys.push('njt-' + tn);
+            if (a === 'metra') keys.push('metra-' + tn);
+          }
+          if (vid) keys.push(a + '-' + vid);
+          let found = null;
+          dicts.forEach(function(dict) {
+            if (found || !dict) return;
+            keys.forEach(function(k) {
+              if (!found && k && dict[k]) found = dict[k];
+            });
+          });
+          if (found && found.options && found.options.icon && found.options.icon.options) {
+            return found.options.icon.options.iconUrl || null;
+          }
+        } catch (_) {}
+        return null;
+      }
+      function latestReportIconUrl(agency, opts) {
+        opts = opts || {};
+        try {
+          const spec = (typeof getSpecialForVehicle === 'function')
+            ? getSpecialForVehicle(agency, opts.vehicleId, opts.trainNumber)
+            : null;
+          if (spec && spec.locoIconUrl) return spec.locoIconUrl;
+          const locoId = spec && spec.locomotiveId;
+          if (locoId && specialIcons[locoId] && specialIcons[locoId].iconUrl) return specialIcons[locoId].iconUrl;
+          if (spec && spec.locoType && typeof resolveMbtaLocoIconUrl === 'function') {
+            const u = resolveMbtaLocoIconUrl(null, spec.locoType);
+            if (u) return u;
+          }
+          const rep = (opts.report) || (spec && spec.report) || null;
+          if (rep && rep.locoIconUrl) return rep.locoIconUrl;
+          if (rep && Array.isArray(rep.locomotives) && rep.locomotives[0] && rep.locomotives[0].locoIconUrl) {
+            return rep.locomotives[0].locoIconUrl;
+          }
+        } catch (_) {}
+        return null;
+      }
+      function buildLocoReportPairingBlockHtml(agency, opts) {
+        opts = opts || {};
+        const a = normalizeAgency(agency || 'mbta');
+        const vid = String(opts.vehicleId || '').trim();
+        const trainNumber = String(opts.trainNumber || '').trim();
+        const escFn = (typeof escapeHtml === 'function') ? escapeHtml : function(s) { return String(s).replace(/</g, '<'); };
+        let rep = null;
+        if (!trainReportsLoadFailed) {
+          if (a === 'mbta') {
+            rep = (vid && activeTrainNumberReports.mbta && activeTrainNumberReports.mbta[vid]) || null;
+            if (!rep && trainNumber && activeTrainNumberReports.mbta) {
+              const tnAlt = trainNumber.replace(/^0+/, '') || trainNumber;
+              rep = activeTrainNumberReports.mbta['tn:' + trainNumber] || activeTrainNumberReports.mbta['tn:' + tnAlt] || null;
+            }
+          } else if (opts.report) {
+            rep = opts.report;
+          } else if (opts.special && opts.special.fromReport && opts.special.report) {
+            rep = opts.special.report;
+          } else if (trainNumber && activeTrainNumberReports[a]) {
+            const tnAlt = trainNumber.replace(/^0+/, '') || trainNumber;
+            rep = activeTrainNumberReports[a][trainNumber] || activeTrainNumberReports[a][tnAlt] || null;
+          }
+        }
+        const hasUnit = !!(rep && (rep.unitName || rep.locomotiveId || rep.locoType || rep.vehicleId || (Array.isArray(rep.locomotives) && rep.locomotives.length)));
+        let onclick;
+        if (a === 'mbta') {
+          const safeVid = vid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          onclick = "openReportTrainModalForVehicle('mbta','" + safeVid + "')";
+        } else {
+          const safeTn = trainNumber.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          onclick = "openReportTrainModal({agency:'" + a + "',trainNumber:'" + safeTn + "'})";
+        }
+        let stale = false;
+        if (hasUnit && !trainReportsLoadFailed) {
+          const when = parseReportTimestamp(rep.updatedAt || rep.createdAt);
+          stale = !when || ((Date.now() - when.getTime()) > 7 * 24 * 60 * 60 * 1000);
+        }
+        let body;
+        if (trainReportsLoadFailed) {
+          body = '<div class="loco-report-label">Report</div><div class="loco-report-unit">Unavailable</div>';
+        } else if (!hasUnit) {
+          body = '<div class="loco-report-label">Reported unit</div><div class="loco-report-unit is-empty">None yet</div>';
+        } else {
+          const unit = formatTrainReportLocoLabel(rep);
+          const whenTs = rep.updatedAt || rep.createdAt;
+          const day = formatReportDayNy(whenTs);
+          const time = formatReportTimeNy(whenTs);
+          const byHtml = formatReportByAttribution(rep);
+          const when = [day, time].filter(Boolean).join(', ');
+          let meta = when ? escFn(when) : '';
+          if (byHtml) meta = meta ? (meta + ' · ' + byHtml) : byHtml;
+          const comment = String(rep.comment || '').trim();
+          body = '<div class="loco-report-label">Reported unit</div>' +
+            '<div class="loco-report-unit">' + escFn(unit) + '</div>' +
+            (meta ? ('<div class="loco-report-meta">' + meta + '</div>') : '') +
+            (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '');
+        }
+        let actionsHtml;
+        if (stale) {
+          const confirmClick = (a === 'mbta')
+            ? ("confirmStaleTrainReport('mbta','" + vid.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "','')")
+            : ("confirmStaleTrainReport('" + a + "','','" + trainNumber.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "')");
+          actionsHtml =
+            '<div class="loco-report-stale-ask">Older than a week. Still this unit?</div>' +
+            '<div class="loco-report-actions">' +
+              '<button type="button" class="popup-action-btn update-pairing-btn confirm-pairing-btn" onclick="' + confirmClick + '">Yes</button>' +
+              '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + onclick + '">Change</button>' +
+            '</div>';
+        } else {
+          const label = hasUnit ? 'Update' : 'Report unit';
+          actionsHtml = '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">' + label + '</button>';
+        }
+        return '<div class="loco-report-block' + (stale ? ' is-stale' : '') + '">' +
+          '<div class="loco-report-text">' + body + '</div>' +
+          actionsHtml +
+          '</div>';
+      }
+      async function confirmStaleTrainReport(agency, vehicleId, trainNumber) {
+        try {
+          if (!auth || !auth.currentUser) {
+            showNotification('Sign in to confirm this locomotive.', 'error');
+            if (typeof openSignupPrompt === 'function') openSignupPrompt();
+            return;
+          }
+          const a = normalizeAgency(agency || 'mbta');
+          const vid = String(vehicleId || '').trim();
+          const tn = String(trainNumber || '').trim();
+          let rep = null;
+          if (a === 'mbta') {
+            rep = (vid && activeTrainNumberReports.mbta && activeTrainNumberReports.mbta[vid]) || null;
+          } else if (tn && activeTrainNumberReports[a]) {
+            const tnAlt = tn.replace(/^0+/, '') || tn;
+            rep = activeTrainNumberReports[a][tn] || activeTrainNumberReports[a][tnAlt] || null;
+          }
+          if (!rep) {
+            showNotification('No existing report to confirm.', 'error');
+            return;
+          }
+          const locos = normalizeReportLocomotives(rep);
+          const first = locos[0] || {};
+          const reportVid = a === 'mbta' ? (vid || String(rep.vehicleId || '').trim()) : (first.locomotiveId || String(rep.vehicleId || '').trim());
+          await submitTrainReport({
+            agency: a,
+            trainNumber: tn || rep.trainNumber || null,
+            vehicleId: reportVid,
+            locomotiveId: first.locomotiveId || rep.locomotiveId || reportVid,
+            unitName: first.unitName || rep.unitName,
+            serviceDate: rep.serviceDate || nyServiceDateToday(),
+            locoType: first.locoType || rep.locoType,
+            locoIconUrl: first.locoIconUrl || rep.locoIconUrl,
+            specialOverride: !!(first.specialOverride || rep.specialOverride),
+            customLoco: !!(first.customLoco || rep.customLoco),
+            locomotives: locos.length ? locos : undefined,
+            comment: rep.comment || ''
+          });
+          showNotification('Locomotive confirmed');
+          await loadTrainReports();
+          try { if (typeof fetchTrains === 'function') fetchTrains(); } catch (_) {}
+          try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch (_) {}
+          try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch (_) {}
+          try { if (typeof fetchLirrTrains === 'function') fetchLirrTrains(); } catch (_) {}
+          try { if (typeof fetchMetraTrains === 'function') fetchMetraTrains(); } catch (_) {}
+          try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch (_) {}
+          try { if (typeof fetchMarcTrains === 'function') fetchMarcTrains(); } catch (_) {}
+        } catch (e) {
+          showNotification('Could not confirm: ' + (e && e.message ? e.message : e), 'error');
+        }
+      }
+      window.confirmStaleTrainReport = confirmStaleTrainReport;
+      async function loadTrainReports() {
+        if (!db) {
+          trainReportsLoadFailed = true;
+          console.warn('%c[trainReports] Firestore not available', 'color:#f39c12');
+          return;
+        }
+        try {
+          const snap = await db.collection('trainReports').get();
+          const rows = [];
+          snap.forEach(function(doc) {
+            const data = doc.data() || {};
+            rows.push(Object.assign({ id: doc.id }, data));
+          });
+          allTrainReports = rows;
+          // Map / live pairing index: today (and undated MBTA live docs); future kept only in allTrainReports
+          trainReports = rows.filter(function(rep) { return reportIsMapActive(rep); });
+          rebuildTrainReportIndexes();
+          trainReportsLoadFailed = false;
+          window.__rrTrainReportsLoadedAt = Date.now();
+          window.__rrTrainReportsLoadMeta = { fromServer: true, live: false, count: allTrainReports.length };
+          try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
+          try { if (typeof rrReapplyReportIcons === 'function') rrReapplyReportIcons(); } catch (_) {}
+          try { if (typeof renderUpcomingBoard === 'function') renderUpcomingBoard(); } catch (_) {}
+          console.log('%c[trainReports] Loaded ' + allTrainReports.length + ' total (' + trainReports.length + ' map-active)', 'color:#27ae60');
+        } catch (e) {
+          allTrainReports = [];
+          trainReports = [];
+          rebuildTrainReportIndexes();
+          trainReportsLoadFailed = true;
+          console.error('%c[trainReports] Load failed', 'color:#e74c3c', e);
+        }
+      }
+      function trainReportDocId(agency, trainNumber, vehicleId, serviceDate) {
+        const a = normalizeAgency(agency);
+        const today = nyServiceDateToday();
+        const sd = String(serviceDate || today).trim() || today;
+        const future = sd > today;
+        if (a === 'mbta' && !future && vehicleId) return 'mbta_' + String(vehicleId).trim();
+        return a + '_' + sd + '_' + String(trainNumber).trim();
+      }
+      async function userNeedsReportApproval(uid) {
+        if (!db || !uid) return false;
+        try {
+          const snap = await db.collection('reportHold').doc(uid).get();
+          return !!(snap.exists && (snap.data() || {}).required !== false);
+        } catch (_) { return false; }
+      }
+      async function submitTrainReport(payload) {
+        if (!auth || !auth.currentUser) throw new Error('Sign in required');
+        if (!db) throw new Error('Firestore is not configured');
+        const user = auth.currentUser;
+        const ban = await checkUserBanned(user);
+        if (ban) {
+          const why = ban.reason ? (' Reason: ' + ban.reason) : '';
+          throw new Error('Your account is banned from submitting reports.' + why);
+        }
+        if (!currentUserSettings || !currentUserSettings.reportDisplayMode) {
+          await loadUserSettings(user.uid);
+        }
+        const agency = normalizeAgency(payload.agency);
+        const trainNumber = payload.trainNumber != null ? String(payload.trainNumber).trim() : '';
+        let serviceDate;
+        if (agency === 'mbta' && (payload.serviceDate == null || payload.serviceDate === '')) {
+          serviceDate = null; // live pairing docs are undated (doc id mbta_${vehicleId})
+        } else {
+          serviceDate = String(payload.serviceDate || nyServiceDateToday()).trim() || nyServiceDateToday();
+        }
+        const future = isFutureServiceDate(serviceDate);
+        let vehicleId = String(payload.vehicleId || '').trim();
+        if (!trainNumber && (future || agency !== 'mbta')) throw new Error('Train number is required');
+        if (!future && agency === 'mbta' && !vehicleId) throw new Error('Vehicle ID is required');
+        if (future && !vehicleId) vehicleId = '';
+        const locomotiveId = payload.locomotiveId != null ? String(payload.locomotiveId).trim() : (agency === 'mbta' ? '' : vehicleId);
+        const unitName = payload.unitName || (rosterEntry(agency, agency === 'mbta' ? locomotiveId : vehicleId) || {}).name || (agency === 'mbta' ? (locomotiveId || vehicleId) : vehicleId);
+        const docId = trainReportDocId(agency, trainNumber, vehicleId, serviceDate);
+        const ref = db.collection('trainReports').doc(docId);
+        const existing = await ref.get();
+        const now = firebase.firestore.FieldValue.serverTimestamp();
+        const reportedByEmail = user.email || null;
+        const reportedByName = (user.displayName && String(user.displayName).trim()) || null;
+        const reportedByDisplayMode = (currentUserSettings && currentUserSettings.reportDisplayMode) || 'first_initial';
+        const reportedByLabel = computeReporterLabel(
+          currentUserSettings,
+          user.displayName,
+          user.email
+        );
+        const reporterVerified = isVerifiedReporterUid(user.uid) || isBootstrapAdmin(user.email);
+        // Public contributor: label/mode only — no email or raw Google name on trainReports
+        const currentContributorPublic = {
+          uid: user.uid,
+          label: reportedByLabel,
+          displayMode: reportedByDisplayMode,
+          at: Date.now(),
+          verified: !!reporterVerified
+        };
+        const currentContributorFull = {
+          uid: user.uid,
+          email: reportedByEmail,
+          name: reportedByName,
+          label: reportedByLabel,
+          displayMode: reportedByDisplayMode,
+          at: Date.now(),
+          verified: !!reporterVerified
+        };
+        function toPublicContributor(c) {
+          if (!c) return null;
+          return {
+            uid: c.uid || '',
+            label: c.label || '',
+            displayMode: c.displayMode || 'first_initial',
+            at: (c.at != null ? c.at : null),
+            verified: !!c.verified
+          };
+        }
+        let contributors = [];
+        let contributorsFull = [];
+        let seedFirstReporter = false;
+        // Load existing admin audit for full contributor history (best-effort)
+        let prevAudit = null;
+        try {
+          const auditExisting = await db.collection('reportAudit').doc(docId).get();
+          if (auditExisting.exists) prevAudit = auditExisting.data() || {};
+        } catch (auditReadErr) {
+          console.warn('[trainReports] reportAudit read failed', auditReadErr);
+        }
+        if (!existing.exists) {
+          contributors = [currentContributorPublic];
+          contributorsFull = [currentContributorFull];
+          seedFirstReporter = true;
+        } else {
+          const prev = existing.data() || {};
+          if (Array.isArray(prev.contributors) && prev.contributors.length) {
+            contributors = prev.contributors.map(toPublicContributor).filter(Boolean);
+          } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
+            contributors = [toPublicContributor({
+              uid: prev.reportedByUid || '',
+              label: prev.reportedByLabel || '',
+              displayMode: prev.reportedByDisplayMode || 'first_initial',
+              at: null
+            })];
+            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
+          } else {
+            contributors = [];
+            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
+          }
+          if (prevAudit && Array.isArray(prevAudit.contributors) && prevAudit.contributors.length) {
+            contributorsFull = prevAudit.contributors.slice();
+          } else if (Array.isArray(prev.contributors) && prev.contributors.length) {
+            // Legacy: public docs may still hold email/name until overwritten
+            contributorsFull = prev.contributors.map(function(c) {
+              return {
+                uid: (c && c.uid) || '',
+                email: (c && c.email) || null,
+                name: (c && c.name) || null,
+                label: (c && c.label) || '',
+                displayMode: (c && c.displayMode) || 'first_initial',
+                at: (c && c.at != null) ? c.at : null,
+                verified: !!(c && c.verified)
+              };
+            });
+          } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
+            contributorsFull = [{
+              uid: prev.reportedByUid || '',
+              email: prev.reportedByEmail || null,
+              name: prev.reportedByName || null,
+              label: prev.reportedByLabel || '',
+              displayMode: prev.reportedByDisplayMode || 'first_initial',
+              at: null,
+              verified: !!prev.reportedByVerified
+            }];
+          } else {
+            contributorsFull = [];
+          }
+          const already = contributors.some(function(c) { return c && c.uid === user.uid; });
+          if (!already) {
+            contributors.push(currentContributorPublic);
+          } else {
+            contributors = contributors.map(function(c) {
+              if (!c || c.uid !== user.uid) return c;
+              return {
+                uid: c.uid,
+                label: reportedByLabel,
+                displayMode: reportedByDisplayMode,
+                at: (c.at != null ? c.at : Date.now()),
+                verified: !!reporterVerified
+              };
+            });
+          }
+          const alreadyFull = contributorsFull.some(function(c) { return c && c.uid === user.uid; });
+          if (!alreadyFull) {
+            contributorsFull.push(currentContributorFull);
+          } else {
+            contributorsFull = contributorsFull.map(function(c) {
+              if (!c || c.uid !== user.uid) return c;
+              return {
+                uid: c.uid,
+                email: reportedByEmail,
+                name: reportedByName,
+                label: reportedByLabel,
+                displayMode: reportedByDisplayMode,
+                at: (c.at != null ? c.at : Date.now()),
+                verified: !!reporterVerified
+              };
+            });
+          }
+          if (!contributors.length) {
+            contributors = [currentContributorPublic];
+            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
+          }
+          if (!contributorsFull.length) {
+            contributorsFull = [currentContributorFull];
+          }
+        }
+        const firstC = contributors[0] || currentContributorPublic;
+        const fvDelete = firebase.firestore.FieldValue.delete();
+        const data = {
+          agency: agency,
+          trainNumber: trainNumber || null,
+          vehicleId: vehicleId || null,
+          unitName: unitName,
+          serviceDate: serviceDate || null,
+          reportedByUid: user.uid,
+          reportedByDisplayMode: reportedByDisplayMode,
+          reportedByLabel: reportedByLabel,
+          reportedByPhotoURL: user.photoURL || null,
+          reportedByVerified: !!reporterVerified,
+          contributors: contributors,
+          updatedAt: now,
+          comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
+          // Scrub legacy PII from public trainReports on every republish
+          reportedByEmail: fvDelete,
+          reportedByName: fvDelete,
+          firstReportedByEmail: fvDelete,
+          firstReportedByName: fvDelete
+        };
+        if (seedFirstReporter) {
+          data.firstReportedByUid = firstC.uid || user.uid;
+          data.firstReportedByDisplayMode = firstC.displayMode || reportedByDisplayMode;
+          data.firstReportedByLabel = firstC.label || reportedByLabel;
+        }
+        const locosPayload = Array.isArray(payload.locomotives) ? payload.locomotives : null;
+        if (locosPayload && locosPayload.length) {
+          data.locomotives = locosPayload.slice(0, 5).map(function(L) {
+            return {
+              locomotiveId: L.locomotiveId != null ? String(L.locomotiveId).trim() : null,
+              unitName: L.unitName || null,
+              locoType: L.locoType ? String(L.locoType) : null,
+              locoIconUrl: L.locoIconUrl || null,
+              specialOverride: !!L.specialOverride,
+              customLoco: !!L.customLoco
+            };
+          });
+          // Keep legacy single/dual fields in sync with first/second for older readers
+          const L0 = data.locomotives[0];
+          const L1 = data.locomotives[1];
+          data.locomotiveId2 = L1 ? L1.locomotiveId : null;
+          data.unitName2 = L1 ? L1.unitName : null;
+          data.locoType2 = L1 ? L1.locoType : null;
+          data.locoIconUrl2 = L1 ? L1.locoIconUrl : null;
+        } else {
+          data.locomotives = null;
+          data.locomotiveId2 = null;
+          data.unitName2 = null;
+          data.locoType2 = null;
+          data.locoIconUrl2 = null;
+        }
+        if (agency === 'mbta') {
+          data.locomotiveId = locomotiveId || null;
+          const rosterSpecial = !!(payload.specialOverride) || (!!(locomotiveId && rosterEntry('mbta', locomotiveId)) && !payload.customLoco);
+          if (rosterSpecial && !payload.customLoco) {
+            // Roster special: do not force HSP-46 type/icon (would override specialIcons[locomotiveId])
+            data.specialOverride = true;
+            data.locoType = payload.locoType ? String(payload.locoType) : null;
+            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || (data.locoType && MBTA_LOCO_TYPES[data.locoType]) || null, data.locoType);
+            if (!payload.locoIconUrl && !data.locoType) data.locoIconUrl = null;
+          } else if (payload.locoType) {
+            data.specialOverride = false;
+            data.locoType = String(payload.locoType);
+            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || MBTA_LOCO_TYPES['HSP-46'], data.locoType);
+          } else {
+            data.specialOverride = false;
+            data.locoType = null;
+            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES['HSP-46'], data.locoType);
+          }
+        } else if (payload.locoType) {
+          data.locoType = String(payload.locoType);
+          data.locoIconUrl = payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || null;
+        }
+        if (!existing.exists) data.createdAt = now;
+        const needsHold = await userNeedsReportApproval(user.uid);
+        if (needsHold) {
+          data.status = 'pending';
+          data.submittedAt = now;
+          await db.collection('pendingReports').doc(docId).set(data, { merge: true });
+          try {
+            if (typeof window.logUserAction === 'function') {
+              await window.logUserAction('submit_report_pending', (agency + ' ' + (trainNumber || vehicleId) + ' held for approval').trim());
+            }
+          } catch (_) {}
+          return { pending: true, id: docId };
+        }
+        await ref.set(data, { merge: true });
+        try {
+          const localRow = Object.assign({ id: docId }, data, {
+            createdAt: existing.exists ? Date.now() : Date.now(),
+            updatedAt: Date.now()
+          });
+          delete localRow.reportedByEmail;
+          delete localRow.reportedByName;
+          delete localRow.firstReportedByEmail;
+          delete localRow.firstReportedByName;
+          if (existing.exists) {
+            const prev = (allTrainReports || []).find(function(r) { return r && r.id === docId; });
+            if (prev && prev.createdAt) localRow.createdAt = prev.createdAt;
+          }
+          const ix = allTrainReports.findIndex(function(r) { return r && r.id === docId; });
+          if (ix >= 0) allTrainReports[ix] = Object.assign({}, allTrainReports[ix], localRow);
+          else allTrainReports.push(localRow);
+          window.__rrTrainReportsLoadedAt = Date.now();
+          const lbOpen = document.getElementById('weekly-leaderboard-modal');
+          if (lbOpen && lbOpen.classList.contains('open') && typeof renderWeeklyLeaderboard === 'function') {
+            renderWeeklyLeaderboard();
+          }
+        } catch (_) {}
+        try {
+          if (typeof window.logUserAction === 'function') {
+            await window.logUserAction('submit_report', (agency + ' ' + (trainNumber || vehicleId)).trim());
+          }
+        } catch (_) {}
+        try {
+          const bumpLocos = reportLocoIdsFromRow({
+            locomotives: data.locomotives,
+            locomotiveId: data.locomotiveId || locomotiveId,
+            unitName: data.unitName || unitName
+          });
+          if (typeof bumpUserReportStats === 'function') {
+            await bumpUserReportStats(user.uid, docId, bumpLocos);
+          }
+        } catch (statErr) {
+          console.warn('[userSettings] reportStats bump failed', statErr);
+        }
+        // Dual-write admin-only reporter identity (same doc id)
+        try {
+          const auditPayload = {
+            reportedByUid: user.uid,
+            reportedByEmail: reportedByEmail,
+            reportedByName: reportedByName,
+            reportedByLabel: reportedByLabel,
+            reportedByDisplayMode: reportedByDisplayMode,
+            agency: agency,
+            vehicleId: vehicleId,
+            trainNumber: agency === 'mbta' ? null : trainNumber,
+            serviceDate: serviceDate,
+            contributors: contributorsFull,
+            updatedAt: now
+          };
+          if (!existing.exists || !(prevAudit && prevAudit.createdAt)) {
+            auditPayload.createdAt = (prevAudit && prevAudit.createdAt) ? prevAudit.createdAt : now;
+          }
+          await db.collection('reportAudit').doc(docId).set(auditPayload, { merge: true });
+        } catch (auditWriteErr) {
+          console.warn('[trainReports] reportAudit write failed', auditWriteErr);
+        }
+        return docId;
+      }
+      const REPORT_LOCO_MAX = 5;
+      let reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
+
+      function reportLocoTypeOptionsHtml(selected, agency) {
+        const a = normalizeAgency(agency || ((document.getElementById('report-agency') || {}).value) || 'mbta');
+        const opts = a === 'njt'
+          ? [['', '— Select type —'], ['ALP-46', 'ALP-46'], ['ALP-46A', 'ALP-46A'], ['ALP-45DP', 'ALP-45DP'], ['ALP-45A', 'ALP-45A']]
+          : [['', '— Select type —'], ['HSP-46', 'HSP-46'], ['F40PH', 'F40PH'], ['GP40MC', 'GP40MC/GP40-3']];
+        return opts.map(function(o) {
+          return '<option value="' + o[0] + '"' + (selected === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('');
+      }
+      function reportRosterOptionsHtml(agency, selected) {
+        const units = SPECIAL_UNITS_ROSTER.filter(function(u) { return u.agency === agency; });
+        const isMbta = agency === 'mbta';
+        let html = '<option value="">' + (isMbta ? '— Optional special locomotive —' : '— Select from roster —') + '</option>';
+        html += units.map(function(u) {
+          return '<option value="' + u.id + '"' + (selected === u.id ? ' selected' : '') + '>' + u.id + ' — ' + u.name + '</option>';
+        }).join('');
+        return html;
+      }
+      function syncReportLocoSlotsFromDom() {
+        const list = document.getElementById('report-locos-list');
+        if (!list) return;
+        const rows = list.querySelectorAll('.report-loco-row');
+        const next = [];
+        rows.forEach(function(row) {
+          const idx = row.getAttribute('data-idx');
+          const roster = ((document.getElementById('report-unit-select-' + idx) || {}).value || '').trim();
+          const custom = ((document.getElementById('report-custom-vehicle-' + idx) || {}).value || '').trim();
+          const type = ((document.getElementById('report-loco-type-' + idx) || {}).value || '').trim();
+          next.push({ rosterId: roster, customId: custom, locoType: type });
+        });
+        if (next.length) reportLocoSlots = next;
+      }
+      function updateReportLocoTypeVisibility() {
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        reportLocoSlots.forEach(function(_, i) {
+          const wrap = document.getElementById('report-loco-type-wrap-' + i);
+          const customEl = document.getElementById('report-custom-vehicle-' + i);
+          const customId = ((customEl || {}).value || '').trim();
+          const show = (agency === 'mbta' && !!customId) || agency === 'njt';
+          if (wrap) wrap.style.display = show ? '' : 'none';
+          if (!show) {
+            const lt = document.getElementById('report-loco-type-' + i);
+            if (lt) lt.value = '';
+            if (reportLocoSlots[i]) reportLocoSlots[i].locoType = '';
+          }
+        });
+      }
+      function renderReportLocosList() {
+        const list = document.getElementById('report-locos-list');
+        const addBtn = document.getElementById('report-add-loco-btn');
+        if (!list) return;
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        const isMbta = agency === 'mbta';
+        if (!reportLocoSlots.length) reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
+        if (reportLocoSlots.length > REPORT_LOCO_MAX) reportLocoSlots = reportLocoSlots.slice(0, REPORT_LOCO_MAX);
+        list.innerHTML = reportLocoSlots.map(function(slot, i) {
+          const title = (i === 0)
+            ? ('Locomotive 1 (used for map icon)')
+            : ('Locomotive ' + (i + 1));
+          const unitLabel = isMbta ? 'Special locomotive (optional list)' : 'Special unit (roster)';
+          const customLabel = isMbta ? 'Or different locomotive number' : 'Or custom vehicle ID';
+          const customPh = isMbta ? 'Loco number not on the list' : 'Optional — custom vehicle ID';
+          const canUp = i > 0;
+          const canDown = i < reportLocoSlots.length - 1;
+          const canRemove = reportLocoSlots.length > 1;
+          return (
+            '<div class="report-loco-row" data-idx="' + i + '">' +
+              '<div class="report-loco-row-head">' +
+                '<span class="report-loco-row-title">' + title + '</span>' +
+                '<div class="report-loco-row-actions">' +
+                  '<button type="button" data-loco-act="up" data-idx="' + i + '"' + (canUp ? '' : ' disabled') + ' title="Move up">↑</button>' +
+                  '<button type="button" data-loco-act="down" data-idx="' + i + '"' + (canDown ? '' : ' disabled') + ' title="Move down">↓</button>' +
+                  '<button type="button" class="report-loco-remove" data-loco-act="remove" data-idx="' + i + '"' + (canRemove ? '' : ' disabled') + '>Remove</button>' +
+                '</div>' +
+              '</div>' +
+              '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
+              '<select id="report-unit-select-' + i + '">' + reportRosterOptionsHtml(agency, slot.rosterId || '') + '</select>' +
+              '<label for="report-custom-vehicle-' + i + '">' + customLabel + '</label>' +
+              '<input type="text" id="report-custom-vehicle-' + i + '" placeholder="' + customPh + '" autocomplete="off" value="' + String(slot.customId || '').replace(/"/g, '&quot;') + '">' +
+              '<div id="report-loco-type-wrap-' + i + '" style="display:none;">' +
+                '<label for="report-loco-type-' + i + '">Locomotive type (icon)</label>' +
+                '<select id="report-loco-type-' + i + '">' + reportLocoTypeOptionsHtml(slot.locoType || '') + '</select>' +
+              '</div>' +
+            '</div>'
+          );
+        }).join('');
+        if (addBtn) {
+          addBtn.style.display = reportLocoSlots.length >= REPORT_LOCO_MAX ? 'none' : '';
+          addBtn.textContent = reportLocoSlots.length >= REPORT_LOCO_MAX
+            ? ''
+            : ('+ Add another locomotive (' + reportLocoSlots.length + '/' + REPORT_LOCO_MAX + ')');
+        }
+        updateReportLocoTypeVisibility();
+      }
+      function addReportLocoSlot() {
+        syncReportLocoSlotsFromDom();
+        if (reportLocoSlots.length >= REPORT_LOCO_MAX) return;
+        reportLocoSlots.push({ rosterId: '', customId: '', locoType: '' });
+        renderReportLocosList();
+      }
+      function moveReportLocoSlot(idx, dir) {
+        syncReportLocoSlotsFromDom();
+        const j = idx + dir;
+        if (j < 0 || j >= reportLocoSlots.length) return;
+        const tmp = reportLocoSlots[idx];
+        reportLocoSlots[idx] = reportLocoSlots[j];
+        reportLocoSlots[j] = tmp;
+        renderReportLocosList();
+      }
+      function removeReportLocoSlot(idx) {
+        syncReportLocoSlotsFromDom();
+        if (reportLocoSlots.length <= 1) return;
+        reportLocoSlots.splice(idx, 1);
+        renderReportLocosList();
+      }
+      function resetReportLocoSlots() {
+        reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
+        renderReportLocosList();
+      }
+      function resolveSlotToLoco(agency, slot) {
+        const rosterId = String((slot && slot.rosterId) || '').trim();
+        const customId = String((slot && slot.customId) || '').trim();
+        const locoType = String((slot && slot.locoType) || '').trim();
+        if (!rosterId && !customId) return null;
+        if (agency === 'mbta') {
+          if (customId) {
+            if (!locoType) return { error: 'Select a locomotive type for each custom locomotive number.' };
+            return {
+              locomotiveId: customId,
+              locoType: locoType,
+              unitName: (MBTA_LOCO_TYPE_LABELS[locoType] || locoType) + ' #' + customId,
+              locoIconUrl: resolveMbtaLocoIconUrl(MBTA_LOCO_TYPES[locoType] || MBTA_LOCO_TYPES['HSP-46'], locoType),
+              specialOverride: false,
+              customLoco: true
+            };
+          }
+          const re = rosterEntry('mbta', rosterId);
+          let rosterIcon = (re && re.iconUrl) ? String(re.iconUrl).trim() : '';
+          return {
+            locomotiveId: rosterId,
+            locoType: locoType || null,
+            unitName: (re && re.name) || rosterId,
+            locoIconUrl: rosterIcon
+              ? rosterIcon
+              : (locoType ? resolveMbtaLocoIconUrl(MBTA_LOCO_TYPES[locoType], locoType) : null),
+            specialOverride: true,
+            customLoco: false
+          };
+        }
+        const id = customId || rosterId;
+        const re = rosterEntry(agency, id);
+        let icon = (re && re.iconUrl) ? String(re.iconUrl).trim() : null;
+        if (!icon && agency === 'njt' && locoType && typeof resolveNjtLocoIconUrl === 'function') {
+          icon = resolveNjtLocoIconUrl(locoType);
+        }
+        return {
+          locomotiveId: id,
+          locoType: locoType || null,
+          unitName: (re && re.name) || id,
+          locoIconUrl: icon,
+          specialOverride: !!re,
+          customLoco: !!customId
+        };
+      }
+      function setReportTrainExtraMode(on) {
+        reportTrainExtraMode = !!on;
+        const btn = document.getElementById('report-train-extra-btn');
+        const sel = document.getElementById('report-train-select');
+        const tnWrap = document.getElementById('report-train-number-wrap');
+        if (btn) {
+          btn.classList.toggle('active', reportTrainExtraMode);
+          btn.setAttribute('aria-pressed', reportTrainExtraMode ? 'true' : 'false');
+        }
+        if (sel) sel.disabled = reportTrainExtraMode;
+        if (tnWrap) tnWrap.style.display = reportTrainExtraMode ? '' : 'none';
+        if (!reportTrainExtraMode) {
+          const tnEl = document.getElementById('report-train-number');
+          if (tnEl) tnEl.value = '';
+        }
+      }
+      function formatReportTrainOptionLabel(row) {
+        const num = String((row && row.trainNumber) || '').trim();
+        const name = String((row && row.name) || '').trim();
+        const dest = String((row && row.dest) || '').trim();
+        let label = num;
+        if (name && dest) label += ' · ' + name + ' to ' + dest;
+        else if (dest) label += ' · to ' + dest;
+        else if (name) label += ' · ' + name;
+        return label;
+      }
+      async function fetchAgencyScheduleTrains(agency, serviceDate) {
+        const a = normalizeAgency(agency);
+        const url = apiUrl('/api/schedules?agency=' + encodeURIComponent(a) + '&date=' + encodeURIComponent(serviceDate));
+        const res = await fetch(url);
+        if (!res.ok) {
+          let detail = '';
+          try {
+            const j = await res.json();
+            detail = (j && (j.detail || j.error)) ? String(j.detail || j.error) : '';
+          } catch (_) {}
+          throw new Error(detail || ('HTTP ' + res.status));
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        return data.filter(function(r) { return r && r.trainNumber; });
+      }
+      async function populateReportTrainSelect(preferTrainNumber) {
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        if (agency === 'mbta') return; // MBTA uses vehicle-ID form; do not fetch /api/schedules
+        const dateEl = document.getElementById('report-service-date');
+        const sel = document.getElementById('report-train-select');
+        if (!sel || !dateEl) return;
+        const today = nyServiceDateToday();
+        let serviceDate = String(dateEl.value || '').trim() || today;
+        if (serviceDate < today) {
+          serviceDate = today;
+          dateEl.value = today;
+        }
+        const max = nyServiceDatePlusDays(14);
+        if (serviceDate > max) {
+          serviceDate = max;
+          dateEl.value = max;
+        }
+        const prefer = String(preferTrainNumber != null ? preferTrainNumber : reportTrainPreferNumber || '').trim();
+        const token = ++reportTrainSelectToken;
+        sel.innerHTML = '<option value="">Loading trains…</option>';
+        sel.disabled = true;
+        try {
+          const rows = await fetchAgencyScheduleTrains(agency, serviceDate);
+          if (token !== reportTrainSelectToken) return;
+          let html = '<option value="">Select a train…</option>';
+          rows.forEach(function(r) {
+            const num = String(r.trainNumber).trim();
+            const label = formatReportTrainOptionLabel(r).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label + '</option>';
+          });
+          if (!rows.length) {
+            html = '<option value="">No scheduled trains for this date</option>';
+          }
+          sel.innerHTML = html;
+          if (prefer) {
+            const opts = Array.prototype.slice.call(sel.options || []);
+            const hit = opts.find(function(o) { return o.value === prefer; });
+            if (hit) sel.value = prefer;
+            else {
+              setReportTrainExtraMode(true);
+              const tnEl = document.getElementById('report-train-number');
+              if (tnEl) tnEl.value = prefer;
+            }
+          }
+        } catch (e) {
+          if (token !== reportTrainSelectToken) return;
+          console.warn('[report] schedule fetch failed', e);
+          sel.innerHTML = '<option value="">Could not load schedule — use Extra / Not listed</option>';
+        } finally {
+          if (token === reportTrainSelectToken) {
+            sel.disabled = reportTrainExtraMode;
+          }
+        }
+      }
+      function populateReportUnitSelect() {
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        const isMbta = agency === 'mbta';
+        const mbtaVehWrap = document.getElementById('report-mbta-vehicle-wrap');
+        const dtWrap = document.getElementById('report-service-date-wrap');
+        const trainPickRow = document.getElementById('report-train-pick-row');
+        const tnWrap = document.getElementById('report-train-number-wrap');
+        const hint = document.getElementById('report-train-hint');
+        const serviceDateInput = document.getElementById('report-service-date');
+        const today = nyServiceDateToday();
+        if (isMbta) {
+          // Old MBTA live-pairing form: vehicle ID + locos (no schedule UI)
+          setReportTrainExtraMode(false);
+          if (dtWrap) dtWrap.style.display = 'none';
+          if (trainPickRow) trainPickRow.style.display = 'none';
+          if (tnWrap) tnWrap.style.display = 'none';
+          if (mbtaVehWrap) mbtaVehWrap.style.display = '';
+          if (hint) {
+            hint.textContent = 'Pairs locomotives to this vehicle ID until reported differently. First locomotive sets the map icon.';
+          }
+          syncReportLocoSlotsFromDom();
+          renderReportLocosList();
+          return;
+        }
+        // Schedule-style form for Amtrak / MNR / LIRR / NJT / CTrail
+        if (dtWrap) dtWrap.style.display = '';
+        if (trainPickRow) trainPickRow.style.display = '';
+        if (mbtaVehWrap) {
+          mbtaVehWrap.style.display = 'none';
+          const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
+          if (mbtaVidEl) mbtaVidEl.value = '';
+        }
+        if (serviceDateInput) {
+          serviceDateInput.min = today;
+          serviceDateInput.max = nyServiceDatePlusDays(14);
+          if (!serviceDateInput.value) serviceDateInput.value = today;
+        }
+        const sd = String((serviceDateInput && serviceDateInput.value) || today).trim() || today;
+        const future = isFutureServiceDate(sd);
+        if (hint) {
+          if (future) {
+            hint.textContent = "We'll show this pairing under Specials until that service day. First locomotive sets the icon.";
+          } else {
+            hint.textContent = 'These units are linked to that trip on the selected date. First locomotive sets the map icon.';
+          }
+        }
+        syncReportLocoSlotsFromDom();
+        renderReportLocosList();
+        populateReportTrainSelect(reportTrainPreferNumber);
+      }
+      window.populateReportUnitSelect = populateReportUnitSelect;
+      function openReportTrainModal(opts) {
+        opts = opts || {};
+        if (!auth || !auth.currentUser) {
+          showNotification('Sign in to report a train.', 'error');
+          const btnIn = document.getElementById('btn-google-signin');
+          if (btnIn) btnIn.click();
+          return;
+        }
+        const agency = normalizeAgency(opts.agency || 'mbta');
+        const agencyEl = document.getElementById('report-agency');
+        if (agencyEl) agencyEl.value = agency;
+        const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
+        const tnEl = document.getElementById('report-train-number');
+        reportTrainPreferNumber = opts.trainNumber != null ? String(opts.trainNumber).trim() : '';
+        if (mbtaVidEl) mbtaVidEl.value = (agency === 'mbta' && opts.vehicleId) ? String(opts.vehicleId).trim() : '';
+        if (tnEl) tnEl.value = '';
+        setReportTrainExtraMode(false);
+        const modal = document.getElementById('report-train-modal');
+        const err = document.getElementById('report-train-error');
+        if (err) { err.textContent = ''; err.classList.remove('visible'); }
+        resetReportLocoSlots();
+        const commentEl = document.getElementById('report-comment');
+        if (commentEl) commentEl.value = '';
+        const serviceDateInput = document.getElementById('report-service-date');
+        const today = nyServiceDateToday();
+        if (serviceDateInput) {
+          serviceDateInput.min = today;
+          serviceDateInput.max = nyServiceDatePlusDays(14);
+          serviceDateInput.value = today;
+        }
+        populateReportUnitSelect();
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+        closeAccountMenu();
+      }
+      function openReportTrainModalForVehicle(agency, vehicleId, trainNumber) {
+        openReportTrainModal({
+          agency: agency || 'mbta',
+          vehicleId: vehicleId,
+          trainNumber: trainNumber
+        });
+      }
+      window.openReportTrainModal = openReportTrainModal;
+      window.openReportTrainModalForVehicle = openReportTrainModalForVehicle;
+      function closeReportTrainModal() {
+        const modal = document.getElementById('report-train-modal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+      async function handleReportTrainSubmit() {
+        const err = document.getElementById('report-train-error');
+        const setErr = function(msg) {
+          if (!err) { showNotification(msg, 'error'); return; }
+          err.textContent = msg;
+          err.classList.add('visible');
+        };
+        if (!auth || !auth.currentUser) {
+          setErr('Sign in required to submit a report.');
+          return;
+        }
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value);
+        const isMbta = agency === 'mbta';
+        let serviceDate = ((document.getElementById('report-service-date') || {}).value || '').trim() || nyServiceDateToday();
+        if (isMbta) serviceDate = null; // live pairing; omit dated schedule field
+        const future = !isMbta && isFutureServiceDate(serviceDate);
+        let trainNumber = '';
+        if (!isMbta) {
+          if (reportTrainExtraMode) {
+            trainNumber = ((document.getElementById('report-train-number') || {}).value || '').trim();
+          } else {
+            trainNumber = ((document.getElementById('report-train-select') || {}).value || '').trim();
+          }
+        }
+        const mbtaApiVehicleId = ((document.getElementById('report-mbta-vehicle-id') || {}).value || '').trim();
+        syncReportLocoSlotsFromDom();
+        if (!isMbta) {
+          if (!serviceDate) { setErr('Pick a service date.'); return; }
+          if (!trainNumber) {
+            setErr(reportTrainExtraMode ? 'Enter the train number.' : 'Select a train (or Extra / Not listed).');
+            return;
+          }
+        }
+        let vehicleId = '';
+        if (isMbta) {
+          vehicleId = mbtaApiVehicleId;
+          if (!vehicleId) {
+            setErr('Enter the MBTA Vehicle ID (API vehicle-id).');
+            return;
+          }
+        }
+        const resolved = [];
+        for (let i = 0; i < reportLocoSlots.length; i++) {
+          const r = resolveSlotToLoco(agency, reportLocoSlots[i]);
+          if (!r) continue;
+          if (r.error) { setErr(r.error); return; }
+          resolved.push(r);
+        }
+        if (!resolved.length) {
+          setErr(agency === 'mbta'
+            ? 'Add at least one locomotive (special list or number + type).'
+            : 'Add at least one roster unit or custom vehicle ID.');
+          return;
+        }
+        if (!isMbta) {
+          vehicleId = vehicleId || resolved[0].locomotiveId || '';
+        }
+        try {
+          const first = resolved[0];
+          const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
+          const saved = await submitTrainReport({
+            agency: agency,
+            trainNumber: trainNumber,
+            vehicleId: vehicleId,
+            locomotiveId: first.locomotiveId,
+            unitName: first.unitName,
+            serviceDate: serviceDate,
+            locoType: first.locoType,
+            locoIconUrl: first.locoIconUrl,
+            specialOverride: first.specialOverride,
+            customLoco: first.customLoco,
+            locomotives: resolved,
+            comment: comment
+          });
+          const savedLabel = resolved.map(function(L) { return L.unitName || L.locomotiveId; }).join(' + ');
+          showNotification((saved && saved.pending) ? ('Report sent for approval: ' + savedLabel) : ('Report saved for ' + savedLabel));
+          closeReportTrainModal();
+          await loadTrainReports();
+          try { if (typeof fetchTrains === 'function') fetchTrains(); } catch(_){}
+          try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch(_){}
+          try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch(_){}
+          try { if (typeof fetchLirrTrains === 'function') fetchLirrTrains(); } catch(_){}
+          try { if (typeof updateTrainVisibility === 'function') updateTrainVisibility(); } catch(_){}
+          try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch(_){}
+          try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch(_){}
+          try { if (typeof updateLirrVisibility === 'function') updateLirrVisibility(); } catch(_){}
+        } catch (e) {
+          console.error('[trainReports] Submit failed', e);
+          const code = (e && e.code) || '';
+          let msg = (e && e.message) || String(e);
+          if (/permission-denied/i.test(code) || /permission/i.test(msg)) {
+            msg = 'Firestore blocked the write. Update security rules for trainReports (see SETUP.md), then try again.';
+          }
+          setErr(msg);
+          showNotification(msg, 'error');
+        }
+      }
+      function wireReportTrainUI() {
+        const btnHeader = document.getElementById('btn-report-train-header');
+        const btnMenu = document.getElementById('btn-report-train-menu');
+        const btnPanel = document.getElementById('btn-report-train-panel');
+        const btnClose = document.getElementById('report-train-close');
+        const btnSubmit = document.getElementById('report-train-submit');
+        const agencySel = document.getElementById('report-agency');
+        const modal = document.getElementById('report-train-modal');
+        const list = document.getElementById('report-locos-list');
+        const addBtn = document.getElementById('report-add-loco-btn');
+        if (btnHeader) btnHeader.addEventListener('click', openReportTrainModal);
+        if (btnMenu) btnMenu.addEventListener('click', openReportTrainModal);
+        if (btnPanel) btnPanel.addEventListener('click', openReportTrainModal);
+        if (btnClose) btnClose.addEventListener('click', closeReportTrainModal);
+        if (btnSubmit) btnSubmit.addEventListener('click', handleReportTrainSubmit);
+        if (agencySel) agencySel.addEventListener('change', function() {
+          reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
+          reportTrainPreferNumber = '';
+          setReportTrainExtraMode(false);
+          populateReportUnitSelect();
+        });
+        const dateSel = document.getElementById('report-service-date');
+        if (dateSel) dateSel.addEventListener('change', function() {
+          reportTrainPreferNumber = ((document.getElementById('report-train-select') || {}).value || reportTrainPreferNumber || '').trim();
+          populateReportUnitSelect();
+        });
+        const extraBtn = document.getElementById('report-train-extra-btn');
+        if (extraBtn) extraBtn.addEventListener('click', function() {
+          setReportTrainExtraMode(!reportTrainExtraMode);
+          if (reportTrainExtraMode) {
+            const tnEl = document.getElementById('report-train-number');
+            if (tnEl) tnEl.focus();
+          }
+        });
+        if (addBtn) addBtn.addEventListener('click', addReportLocoSlot);
+        if (list) {
+          list.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-loco-act]');
+            if (!btn || btn.disabled) return;
+            const act = btn.getAttribute('data-loco-act');
+            const idx = parseInt(btn.getAttribute('data-idx'), 10);
+            if (isNaN(idx)) return;
+            if (act === 'up') moveReportLocoSlot(idx, -1);
+            else if (act === 'down') moveReportLocoSlot(idx, 1);
+            else if (act === 'remove') removeReportLocoSlot(idx);
+          });
+          list.addEventListener('input', function(e) {
+            if (e.target && e.target.id && e.target.id.indexOf('report-custom-vehicle-') === 0) {
+              syncReportLocoSlotsFromDom();
+              updateReportLocoTypeVisibility();
+            }
+          });
+          list.addEventListener('change', function(e) {
+            if (e.target && e.target.id && (
+              e.target.id.indexOf('report-unit-select-') === 0 ||
+              e.target.id.indexOf('report-custom-vehicle-') === 0 ||
+              e.target.id.indexOf('report-loco-type-') === 0
+            )) {
+              syncReportLocoSlotsFromDom();
+              updateReportLocoTypeVisibility();
+            }
+          });
+        }
+        if (modal) {
+          modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeReportTrainModal();
+          });
+        }
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'Escape') return;
+          const acctM = document.getElementById('account-settings-modal');
+          if (acctM && acctM.classList.contains('open')) return;
+          closeReportTrainModal();
+        });
+      }
+
+
+      function agencyPrettyName(a) {
+        const map = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
+        return map[normalizeAgency(a)] || String(a || '').toUpperCase();
+      }
+      function reportTimeMs(r) {
+        const t = r && (r.updatedAt || r.createdAt);
+        if (!t) return 0;
+        try {
+          if (typeof t.toMillis === 'function') return t.toMillis();
+          if (typeof t.toDate === 'function') return t.toDate().getTime();
+          if (typeof t.seconds === 'number') return t.seconds * 1000;
+        } catch (_) {}
+        const n = Number(t);
+        return isNaN(n) ? 0 : n;
+      }
+      function formatBoardTime(ms) {
+        if (!ms) return '';
+        try {
+          return new Date(ms).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        } catch (_) { return ''; }
+      }
+      function locoIsSpecial(agency, L, rep) {
+        const id = String((L && L.locomotiveId) || '').trim();
+        if (L && L.specialOverride) return true;
+        if (rep && rep.specialOverride && L && normalizeReportLocomotives(rep)[0] === L) return true;
+        if (id && typeof rosterEntry === 'function' && rosterEntry(agency, id)) return true;
+        if (id && typeof ROSTER_IDS !== 'undefined' && ROSTER_IDS.has(id)) return true;
+        return false;
+      }
+      function reportLocoLabel(agency, L, rep) {
+        const id = String((L && L.locomotiveId) || (rep && rep.locomotiveId) || '').trim();
+        const roster = (id && typeof rosterEntry === 'function') ? rosterEntry(agency, id) : null;
+        const name = (L && L.unitName) || (roster && roster.name) || (rep && rep.unitName) || '';
+        if (id && name && name !== id) return id + ' · ' + name;
+        return id || name || 'Unknown loco';
+      }
+      function collectActiveSpecials() {
+        const rows = [];
+        (typeof trainReports !== 'undefined' ? trainReports : []).forEach(function(rep) {
+          if (!rep) return;
+          if (isFutureServiceDate(rep.serviceDate)) return;
+          const agency = normalizeAgency(rep.agency);
+          const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const use = locos.length ? locos : [{ locomotiveId: rep.locomotiveId, unitName: rep.unitName, specialOverride: !!rep.specialOverride }];
+          use.forEach(function(L) {
+            if (!locoIsSpecial(agency, L, rep)) return;
+            rows.push({
+              agency: agency,
+              locoId: String((L && L.locomotiveId) || '').trim(),
+              title: reportLocoLabel(agency, L, rep),
+              trainNumber: String(rep.trainNumber || (agency === 'mbta' ? '' : '') || '').trim(),
+              vehicleId: String(rep.vehicleId || '').trim(),
+              reporter: String(rep.reportedByLabel || '').trim(),
+              comment: String(rep.comment || '').trim(),
+              ms: reportTimeMs(rep),
+              rep: rep
+            });
+          });
+        });
+        return rows;
+      }
+      function collectBoardReports() {
+        const src = (typeof allTrainReports !== 'undefined' && allTrainReports && allTrainReports.length)
+          ? allTrainReports
+          : (typeof trainReports !== 'undefined' ? trainReports : []);
+        return src.filter(function(rep) {
+          if (!rep) return false;
+          return !isFutureServiceDate(rep.serviceDate);
+        }).map(function(rep) {
+          const agency = normalizeAgency(rep.agency);
+          const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const locoTxt = locos.length
+            ? locos.map(function(L) { return reportLocoLabel(agency, L, rep); }).join(', ')
+            : reportLocoLabel(agency, null, rep);
+          return {
+            agency: agency,
+            locoId: String((locos[0] && locos[0].locomotiveId) || rep.locomotiveId || '').trim(),
+            locoTxt: locoTxt,
+            trainNumber: String(rep.trainNumber || '').trim(),
+            vehicleId: String(rep.vehicleId || '').trim(),
+            reporter: String(rep.reportedByLabel || '').trim(),
+            comment: String(rep.comment || '').trim(),
+            ms: reportTimeMs(rep),
+            serviceDate: String(rep.serviceDate || '').trim(),
+            rep: rep
+          };
+        });
+      }
+      function collectUpcomingPairings() {
+        const src = (typeof allTrainReports !== 'undefined' && allTrainReports) ? allTrainReports : [];
+        return src.filter(function(rep) {
+          return rep && isFutureServiceDate(rep.serviceDate);
+        }).map(function(rep) {
+          const agency = normalizeAgency(rep.agency);
+          const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const locoTxt = locos.length
+            ? locos.map(function(L) { return reportLocoLabel(agency, L, rep); }).join(', ')
+            : reportLocoLabel(agency, null, rep);
+          return {
+            agency: agency,
+            locoId: String((locos[0] && locos[0].locomotiveId) || rep.locomotiveId || '').trim(),
+            locoTxt: locoTxt,
+            trainNumber: String(rep.trainNumber || '').trim(),
+            vehicleId: String(rep.vehicleId || '').trim(),
+            reporter: String(rep.reportedByLabel || '').trim(),
+            comment: String(rep.comment || '').trim(),
+            ms: reportTimeMs(rep),
+            serviceDate: String(rep.serviceDate || '').trim(),
+            rep: rep
+          };
+        });
+      }
+      function sortBoardRows(rows, sort) {
+        const copy = rows.slice();
+        copy.sort(function(a, b) {
+          if (sort === 'oldest') return (a.ms || 0) - (b.ms || 0);
+          if (sort === 'railroad') {
+            const c = String(a.agency).localeCompare(String(b.agency));
+            return c || String(a.locoId).localeCompare(String(b.locoId), undefined, { numeric: true });
+          }
+          if (sort === 'loco') return String(a.locoId || a.locoTxt || a.title || '').localeCompare(String(b.locoId || b.locoTxt || b.title || ''), undefined, { numeric: true });
+          if (sort === 'train') return String(a.trainNumber || a.vehicleId || '').localeCompare(String(b.trainNumber || b.vehicleId || ''), undefined, { numeric: true });
+          if (sort === 'reporter') return String(a.reporter || '').localeCompare(String(b.reporter || ''));
+          return (b.ms || 0) - (a.ms || 0);
+        });
+        return copy;
+      }
+      function focusReportedTrain(rep) {
+        if (!rep) return;
+        if (isFutureServiceDate(rep.serviceDate)) {
+          closeSpecialsBoard();
+          return;
+        }
+        closeSpecialsBoard();
+        const a = normalizeAgency(rep.agency);
+        const vid = String(rep.vehicleId || '').trim();
+        const tn = String(rep.trainNumber || '').trim();
+        const dicts = [];
+        try { if (typeof markers !== 'undefined' && markers) dicts.push(markers); } catch (_) {}
+        try { if (typeof amtrakMarkers !== 'undefined' && amtrakMarkers) dicts.push(amtrakMarkers); } catch (_) {}
+        try { if (typeof mnrMarkers !== 'undefined' && mnrMarkers) dicts.push(mnrMarkers); } catch (_) {}
+        try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
+        try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
+        try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
+        let found = null;
+        const keys = [vid, tn, (a + '-' + vid), (a + '-' + tn)].filter(Boolean);
+        dicts.forEach(function(dict) {
+          if (found) return;
+          keys.forEach(function(k) {
+            if (found || !k) return;
+            if (dict[k]) found = dict[k];
+          });
+        });
+        if (!found && tn) {
+          dicts.forEach(function(dict) {
+            if (found) return;
+            Object.keys(dict).forEach(function(k) {
+              if (found) return;
+              if (String(k).indexOf(tn) !== -1) found = dict[k];
+            });
+          });
+        }
+        if (found && found.getLatLng) {
+          const ll = found.getLatLng();
+          map.setView(ll, 15);
+          try { if (!map.hasLayer(found)) found.addTo(map); } catch (_) {}
+          try { found.openPopup(); } catch (_) {}
+          try {
+            if (highlightedMarker && highlightedMarker.getElement) highlightedMarker.getElement().classList.remove('highlighted-train');
+            found.getElement && found.getElement() && found.getElement().classList.add('highlighted-train');
+            highlightedMarker = found;
+          } catch (_) {}
+        } else {
+          showNotification('That train is not on the map right now');
+        }
+      }
+      function boardCardHtml(opts) {
+        const agency = escapeHtmlLite(agencyPrettyName(opts.agency));
+        const time = escapeHtmlLite(formatBoardTime(opts.ms));
+        const title = escapeHtmlLite(opts.title || '');
+        const bits = [];
+        if (opts.trainNumber) bits.push('Train ' + opts.trainNumber);
+        if (opts.vehicleId && opts.vehicleId !== opts.trainNumber) bits.push('Vehicle ' + opts.vehicleId);
+        if (opts.reporter) bits.push('by ' + opts.reporter);
+        if (opts.extra) bits.push(opts.extra);
+        const note = String(opts.note || '').trim();
+        return '<button type="button" class="rr-board-card" data-rep-id="' + escapeHtmlLite(opts.id || '') + '">' +
+          '<div class="rr-board-card-top"><span class="rr-board-agency">' + agency + '</span><span class="rr-board-time">' + time + '</span></div>' +
+          '<div class="rr-board-title">' + title + '</div>' +
+          (bits.length ? '<div class="rr-board-meta">' + escapeHtmlLite(bits.join(' · ')) + '</div>' : '') +
+          (note ? '<div class="rr-board-note">“' + escapeHtmlLite(note) + '”</div>' : '') +
+          '</button>';
+      }
+      function bindBoardCards(container, byId) {
+        if (!container) return;
+        container.querySelectorAll('.rr-board-card').forEach(function(el) {
+          el.addEventListener('click', function() {
+            const id = el.getAttribute('data-rep-id');
+            const row = byId[id];
+            if (row && row.rep) focusReportedTrain(row.rep);
+          });
+        });
+      }
+      function renderSpecialsBoard() {
+        const agencyF = ((document.getElementById('board-specials-agency') || {}).value || 'all');
+        const sort = ((document.getElementById('board-specials-sort') || {}).value || 'railroad');
+        let rows = collectActiveSpecials();
+        if (agencyF !== 'all') rows = rows.filter(function(r) { return r.agency === agencyF; });
+        rows = sortBoardRows(rows, sort);
+        const list = document.getElementById('board-specials-list');
+        const empty = document.getElementById('board-specials-empty');
+        const byId = {};
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '';
+          if (empty) empty.hidden = false;
+          return;
+        }
+        if (empty) empty.hidden = true;
+        let html = '';
+        let lastAg = null;
+        rows.forEach(function(r, i) {
+          const id = (r.rep && r.rep.id) ? (r.rep.id + ':' + r.locoId + ':' + i) : String(i);
+          byId[id] = r;
+          if (sort === 'railroad' && r.agency !== lastAg) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(agencyPrettyName(r.agency)) + '</div>';
+            lastAg = r.agency;
+          }
+          html += boardCardHtml({
+            id: id,
+            agency: r.agency,
+            ms: r.ms,
+            title: r.title,
+            trainNumber: r.trainNumber,
+            vehicleId: r.vehicleId,
+            reporter: r.reporter,
+            note: r.comment
+          });
+        });
+        list.innerHTML = html;
+        bindBoardCards(list, byId);
+      }
+      function renderReportsBoard() {
+        const agencyF = ((document.getElementById('board-reports-agency') || {}).value || 'all');
+        const sort = ((document.getElementById('board-reports-sort') || {}).value || 'newest');
+        const q = String(((document.getElementById('board-reports-search') || {}).value || '')).trim().toLowerCase();
+        let rows = collectBoardReports();
+        if (agencyF !== 'all') rows = rows.filter(function(r) { return r.agency === agencyF; });
+        if (q) {
+          rows = rows.filter(function(r) {
+            const blob = [r.locoTxt, r.locoId, r.trainNumber, r.vehicleId, r.reporter, r.comment, r.agency].join(' ').toLowerCase();
+            return blob.indexOf(q) !== -1;
+          });
+        }
+        rows = sortBoardRows(rows, sort);
+        const list = document.getElementById('board-reports-list');
+        const empty = document.getElementById('board-reports-empty');
+        const byId = {};
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '';
+          if (empty) empty.hidden = false;
+          return;
+        }
+        if (empty) empty.hidden = true;
+        let html = '';
+        let lastAg = null;
+        rows.forEach(function(r, i) {
+          const id = (r.rep && r.rep.id) ? (r.rep.id + ':' + i) : String(i);
+          byId[id] = r;
+          if (sort === 'railroad' && r.agency !== lastAg) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(agencyPrettyName(r.agency)) + '</div>';
+            lastAg = r.agency;
+          }
+          html += boardCardHtml({
+            id: id,
+            agency: r.agency,
+            ms: r.ms,
+            title: r.locoTxt,
+            trainNumber: r.trainNumber,
+            vehicleId: r.vehicleId,
+            reporter: r.reporter,
+            extra: '',
+            note: r.comment
+          });
+        });
+        list.innerHTML = html;
+        bindBoardCards(list, byId);
+      }
+      function renderUpcomingBoard() {
+        const agencyF = ((document.getElementById('board-upcoming-agency') || {}).value || 'all');
+        const sort = ((document.getElementById('board-upcoming-sort') || {}).value || 'date');
+        let rows = collectUpcomingPairings();
+        if (agencyF !== 'all') rows = rows.filter(function(r) { return r.agency === agencyF; });
+        rows.sort(function(a, b) {
+          if (sort === 'railroad') {
+            const c = String(a.agency).localeCompare(String(b.agency));
+            if (c) return c;
+            const d = String(a.serviceDate).localeCompare(String(b.serviceDate));
+            if (d) return d;
+            return String(a.trainNumber).localeCompare(String(b.trainNumber), undefined, { numeric: true });
+          }
+          if (sort === 'train') {
+            const c = String(a.trainNumber).localeCompare(String(b.trainNumber), undefined, { numeric: true });
+            if (c) return c;
+            return String(a.serviceDate).localeCompare(String(b.serviceDate));
+          }
+          const d = String(a.serviceDate).localeCompare(String(b.serviceDate));
+          if (d) return d;
+          const c = String(a.agency).localeCompare(String(b.agency));
+          if (c) return c;
+          return String(a.trainNumber).localeCompare(String(b.trainNumber), undefined, { numeric: true });
+        });
+        const list = document.getElementById('board-upcoming-list');
+        const empty = document.getElementById('board-upcoming-empty');
+        const byId = {};
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '';
+          if (empty) empty.hidden = false;
+          return;
+        }
+        if (empty) empty.hidden = true;
+        let html = '';
+        let lastKey = null;
+        rows.forEach(function(r, i) {
+          const id = (r.rep && r.rep.id) ? (r.rep.id + ':up:' + i) : ('up:' + i);
+          byId[id] = r;
+          if (sort === 'date' && r.serviceDate !== lastKey) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(r.serviceDate) + '</div>';
+            lastKey = r.serviceDate;
+          } else if (sort === 'railroad' && r.agency !== lastKey) {
+            html += '<div class="rr-board-group">' + escapeHtmlLite(agencyPrettyName(r.agency)) + '</div>';
+            lastKey = r.agency;
+          }
+          html += boardCardHtml({
+            id: id,
+            agency: r.agency,
+            ms: r.ms,
+            title: r.locoTxt,
+            trainNumber: r.trainNumber,
+            vehicleId: '',
+            reporter: r.reporter,
+            extra: r.serviceDate ? ('Service ' + r.serviceDate) : '',
+            note: r.comment
+          });
+        });
+        list.innerHTML = html;
+        list.querySelectorAll('.rr-board-card').forEach(function(el) {
+          el.addEventListener('click', function() {
+            const id = el.getAttribute('data-rep-id');
+            const row = byId[id];
+            if (row && row.rep) focusReportedTrain(row.rep);
+            else closeSpecialsBoard();
+          });
+        });
+      }
+      function setBoardTab(tab) {
+        const t = (tab === 'reports' || tab === 'upcoming') ? tab : 'specials';
+        document.querySelectorAll('[data-board-tab]').forEach(function(btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-board-tab') === t);
+        });
+        document.querySelectorAll('[data-board-pane]').forEach(function(pane) {
+          pane.classList.toggle('active', pane.getAttribute('data-board-pane') === t);
+        });
+        if (t === 'reports') renderReportsBoard();
+        else if (t === 'upcoming') renderUpcomingBoard();
+        else renderSpecialsBoard();
+      }
+      function rrEtParts(date) {
+        const d = date instanceof Date ? date : new Date(date);
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York',
+          weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', hourCycle: 'h23'
+        }).formatToParts(d);
+        const get = function(t) {
+          for (let i = 0; i < parts.length; i++) if (parts[i].type === t) return parts[i].value;
+          return '';
+        };
+        const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        return { y: Number(get('year')), m: Number(get('month')), d: Number(get('day')), wd: wdMap[get('weekday')] != null ? wdMap[get('weekday')] : 1, hour: Number(get('hour')) };
+      }
+      function rrEtMidnightMs(y, m, d) {
+        const mm = String(m).padStart(2, '0');
+        const dd = String(d).padStart(2, '0');
+        const iso = y + '-' + mm + '-' + dd + 'T00:00:00';
+        const cands = [iso + '-04:00', iso + '-05:00'];
+        for (let i = 0; i < cands.length; i++) {
+          const t = Date.parse(cands[i]);
+          if (!t) continue;
+          const p = rrEtParts(new Date(t));
+          if (p.y === y && p.m === m && p.d === d && p.hour === 0) return t;
+        }
+        return Date.parse(iso + '-04:00');
+      }
+      function rrAddDaysYmd(y, m, d, days) {
+        const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
+        return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+      }
+      function rrWeekWindow(offsetWeeks) {
+        const nowP = rrEtParts(new Date());
+        const back = (nowP.wd + 6) % 7;
+        const mon = rrAddDaysYmd(nowP.y, nowP.m, nowP.d, -back + (offsetWeeks || 0) * 7);
+        const next = rrAddDaysYmd(mon.y, mon.m, mon.d, 7);
+        const startMs = rrEtMidnightMs(mon.y, mon.m, mon.d);
+        const endMs = rrEtMidnightMs(next.y, next.m, next.d);
+        const pad = function(n) { return String(n).padStart(2, '0'); };
+        return { startMs: startMs, endMs: endMs, weekId: mon.y + '-' + pad(mon.m) + '-' + pad(mon.d), monday: mon, nextMonday: next };
+      }
+      function rrFmtWeekRange(win) {
+        try {
+          const a = new Date(win.startMs);
+          const b = new Date(win.endMs - 1000);
+          const opts = { timeZone: 'America/New_York', month: 'short', day: 'numeric' };
+          return a.toLocaleDateString('en-US', opts) + ' \u2013 ' + b.toLocaleDateString('en-US', opts);
+        } catch (_) { return win.weekId; }
+      }
+      function rrLeaderboardDisplayName(row) {
+        const raw = String(row.name || row.label || '').trim();
+        if (raw && raw.toLowerCase() !== 'anonymous') return firstInitialLabel(raw, row.email || '');
+        return firstInitialLabel('', row.email || '') || 'Anonymous';
+      }
+      function rrLeaderboardInitials(name) {
+        const p = String(name || '').replace(/\./g, '').trim().split(/\s+/).filter(Boolean);
+        if (!p.length) return '?';
+        if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+        return (p[0].charAt(0) + p[p.length - 1].charAt(0)).toUpperCase();
+      }
+      function rrReportUids(rep) {
+        const ids = [];
+        function add(id) {
+          const u = String(id || '').trim();
+          if (u && ids.indexOf(u) === -1) ids.push(u);
+        }
+        add(rep && rep.firstReportedByUid);
+        add(rep && rep.reportedByUid);
+        if (rep && Array.isArray(rep.contributors)) rep.contributors.forEach(function(c) { if (c) add(c.uid); });
+        return ids;
+      }
+      function rrReportNameForUid(rep, uid) {
+        if (!rep) return '';
+        if (rep.firstReportedByUid === uid && rep.firstReportedByLabel) return String(rep.firstReportedByLabel);
+        if (rep.reportedByUid === uid && rep.reportedByLabel) return String(rep.reportedByLabel);
+        if (Array.isArray(rep.contributors)) {
+          for (let i = 0; i < rep.contributors.length; i++) {
+            const c = rep.contributors[i];
+            if (c && c.uid === uid && (c.label || c.name)) return String(c.label || c.name);
+          }
+        }
+        return String(rep.reportedByLabel || rep.firstReportedByLabel || '');
+      }
+      function rrReportPhotoForUid(rep, uid) {
+        if (!rep) return '';
+        if (rep.reportedByUid === uid && rep.reportedByPhotoURL) return String(rep.reportedByPhotoURL);
+        if (Array.isArray(rep.contributors)) {
+          for (let i = 0; i < rep.contributors.length; i++) {
+            const c = rep.contributors[i];
+            if (c && c.uid === uid && c.photoURL) return String(c.photoURL);
+          }
+        }
+        return '';
+      }
+      function rrTsInWeek(ts, win) {
+        const d = parseReportTimestamp(ts);
+        if (!d || !win) return false;
+        const ms = d.getTime();
+        return ms >= win.startMs && ms < win.endMs;
+      }
+      function rrServiceDateInWeek(rep, win) {
+        const sd = String((rep && rep.serviceDate) || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sd) || !win) return false;
+        const p = sd.split('-').map(Number);
+        const ms = rrEtMidnightMs(p[0], p[1], p[2]);
+        return ms >= win.startMs && ms < win.endMs;
+      }
+      function rrUidsActiveInWeek(rep, win) {
+        const ids = [];
+        function add(id) {
+          const u = String(id || '').trim();
+          if (u && ids.indexOf(u) === -1) ids.push(u);
+        }
+        if (!rep || !win) return ids;
+        if (Array.isArray(rep.contributors)) {
+          rep.contributors.forEach(function(c) {
+            if (!c) return;
+            if (c.at != null) {
+              if (rrTsInWeek(c.at, win)) add(c.uid);
+            } else if (rrTsInWeek(rep.updatedAt, win) && c.uid === rep.reportedByUid) {
+              add(c.uid);
+            }
+          });
+        }
+        if (rrTsInWeek(rep.updatedAt, win)) add(rep.reportedByUid);
+        if (rrTsInWeek(rep.createdAt, win)) add(rep.firstReportedByUid || rep.reportedByUid);
+        if (rrTsInWeek(rep.submittedAt, win)) add(rep.reportedByUid);
+        if (!ids.length && rrServiceDateInWeek(rep, win)) {
+          rrReportUids(rep).forEach(add);
+        }
+        if (!ids.length && (rrTsInWeek(rep.updatedAt || rep.createdAt, win) || rrServiceDateInWeek(rep, win))) {
+          const label = String(rep.reportedByLabel || rep.firstReportedByLabel || '').trim();
+          if (label) add('label:' + label.toLowerCase());
+        }
+        return ids;
+      }
+      function buildWeeklyLeaderboardRows(offsetWeeks) {
+        const win = rrWeekWindow(offsetWeeks);
+        const byUid = {};
+        const rowsSrc = (typeof allTrainReports !== 'undefined' && allTrainReports && allTrainReports.length)
+          ? allTrainReports
+          : ((typeof trainReports !== 'undefined' && trainReports) ? trainReports : []);
+        (rowsSrc || []).forEach(function(rep) {
+          rrUidsActiveInWeek(rep, win).forEach(function(uid) {
+            if (!byUid[uid]) byUid[uid] = { uid: uid, docs: {}, name: '', photoURL: '', email: '' };
+            byUid[uid].docs[String(rep.id || uid + ':' + (rep.serviceDate || ''))] = true;
+            const nm = rrReportNameForUid(rep, uid.indexOf('label:') === 0 ? (rep.reportedByUid || '') : uid) || (uid.indexOf('label:') === 0 ? uid.slice(6) : '');
+            if (nm && (!byUid[uid].name || byUid[uid].name === 'Anonymous')) byUid[uid].name = nm;
+            const ph = rrReportPhotoForUid(rep, uid);
+            if (ph && !byUid[uid].photoURL) byUid[uid].photoURL = ph;
+          });
+        });
+        const ptsEach = (typeof RR_POINTS_PER_REPORT === 'number') ? RR_POINTS_PER_REPORT : 5;
+        const list = Object.keys(byUid).map(function(uid) {
+          const r = byUid[uid];
+          const reports = Object.keys(r.docs).filter(Boolean).length;
+          return { uid: uid, name: rrLeaderboardDisplayName(r), photoURL: r.photoURL || '', reports: reports, points: reports * ptsEach };
+        }).filter(function(r) { return r.reports > 0; });
+        list.sort(function(a, b) {
+          if (b.reports !== a.reports) return b.reports - a.reports;
+          if (b.points !== a.points) return b.points - a.points;
+          return String(a.name).localeCompare(String(b.name));
+        });
+        return { week: win, rows: list };
+      }
+      function rrLbPhotoHtml(url, name, extraClass) {
+        const cls = extraClass || 'rr-lb-row-photo';
+        if (url) return '<img class="' + cls + '" src="' + escapeHtmlLite(url) + '" alt="" width="40" height="40" referrerpolicy="no-referrer">';
+        return '<span class="' + cls + ' placeholder">' + escapeHtmlLite(rrLeaderboardInitials(name)) + '</span>';
+      }
+      async function hydrateLeaderboardPhotos(rows) {
+        if (!db || !rows || !rows.length) return rows;
+        const missing = rows.filter(function(r) { return r.uid && !r.photoURL; }).slice(0, 40);
+        await Promise.all(missing.map(function(r) {
+          return db.collection('accounts').doc(r.uid).get().then(function(snap) {
+            if (snap && snap.exists) {
+              const d = snap.data() || {};
+              if (d.photoURL) r.photoURL = d.photoURL;
+              if ((!r.name || r.name === 'Anonymous') && d.displayName) r.name = firstInitialLabel(d.displayName, d.email || '');
+            }
+          }).catch(function() {});
+        }));
+        return rows;
+      }
+      async function loadSavedWeekWinner(weekId) {
+        if (!db || !weekId) return null;
+        try {
+          const snap = await db.collection('leaderboardWeeks').doc(weekId).get();
+          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {});
+        } catch (_) {}
+        return null;
+      }
+      async function saveWeekWinner(weekId, winner) {
+        if (!db || !weekId || !winner) return winner;
+        try {
+          const ref = db.collection('leaderboardWeeks').doc(weekId);
+          const snap = await ref.get();
+          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {}, winner);
+          await ref.set({
+            weekId: weekId, uid: winner.uid || null, name: winner.name || '',
+            photoURL: winner.photoURL || null, reports: winner.reports || 0, points: winner.points || 0,
+            savedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch (err) {
+          console.warn('[leaderboard] save winner skipped', err && err.message ? err.message : err);
+        }
+        return winner;
+      }
+      async function renderWeeklyLeaderboard() {
+        const listEl = document.getElementById('weekly-leaderboard-list');
+        const emptyEl = document.getElementById('weekly-leaderboard-empty');
+        const rangeEl = document.getElementById('weekly-leaderboard-range');
+        const winWrap = document.getElementById('weekly-leaderboard-winner');
+        const winText = document.getElementById('weekly-leaderboard-winner-text');
+        const winPhoto = document.getElementById('weekly-leaderboard-winner-photo-slot');
+        if (typeof loadTrainReports === 'function') {
+          try { await loadTrainReports(); } catch (_) {}
+        }
+        const current = buildWeeklyLeaderboardRows(0);
+        await hydrateLeaderboardPhotos(current.rows);
+        if (rangeEl) rangeEl.textContent = 'This week \u00b7 ' + rrFmtWeekRange(current.week) + ' \u00b7 ' + ((typeof RR_POINTS_PER_REPORT === 'number') ? RR_POINTS_PER_REPORT : 5) + ' points per report';
+        if (!current.rows.length) {
+          if (listEl) listEl.innerHTML = '';
+          if (emptyEl) emptyEl.hidden = false;
+        } else {
+          if (emptyEl) emptyEl.hidden = true;
+          if (listEl) {
+            listEl.innerHTML = current.rows.map(function(r, i) {
+              return '<div class="rr-lb-row">' +
+                '<div class="rr-lb-rank">' + (i + 1) + '</div>' +
+                rrLbPhotoHtml(r.photoURL, r.name) +
+                '<div class="rr-lb-name">' + escapeHtmlLite(r.name) + '</div>' +
+                '<div class="rr-lb-meta"><strong>' + r.points + ' pts</strong>' + r.reports + ' report' + (r.reports === 1 ? '' : 's') + '</div>' +
+                '</div>';
+            }).join('');
+          }
+        }
+        const last = buildWeeklyLeaderboardRows(-1);
+        await hydrateLeaderboardPhotos(last.rows);
+        let winner = last.rows[0] || null;
+        const saved = await loadSavedWeekWinner(last.week.weekId);
+        if (saved && saved.uid) {
+          winner = { uid: saved.uid, name: saved.name || (winner && winner.name) || 'Anonymous', photoURL: saved.photoURL || (winner && winner.photoURL) || '', reports: Number(saved.reports) || (winner && winner.reports) || 0, points: Number(saved.points) || (winner && winner.points) || 0 };
+        } else if (winner) {
+          await saveWeekWinner(last.week.weekId, winner);
+        }
+        if (winner && winner.reports > 0) {
+          if (winWrap) winWrap.hidden = false;
+          if (winPhoto) winPhoto.innerHTML = rrLbPhotoHtml(winner.photoURL, winner.name, 'rr-lb-winner-photo');
+          if (winText) {
+            winText.innerHTML = '<strong>' + escapeHtmlLite(winner.name) + '</strong> won last week\'s leaderboard with a total of <strong>' +
+              winner.reports + '</strong> report' + (winner.reports === 1 ? '' : 's') +
+              ' and <strong>' + winner.points + '</strong> points!';
+          }
+        } else {
+          if (winWrap) winWrap.hidden = true;
+          if (winText) winText.textContent = '';
+          if (winPhoto) winPhoto.innerHTML = '';
+        }
+        var updatedEl = document.getElementById('weekly-leaderboard-updated');
+        if (updatedEl) {
+          var whenMs = window.__rrTrainReportsLoadedAt || Date.now();
+          var whenStr = '';
+          try {
+            whenStr = new Date(whenMs).toLocaleString(undefined, {
+              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit'
+            });
+          } catch (_) {
+            whenStr = new Date(whenMs).toString();
+          }
+          var suffix = '';
+          if (typeof trainReportsLoadFailed !== 'undefined' && trainReportsLoadFailed) {
+            suffix = ' (last successful load — refresh failed)';
+          } else if (window.__rrTrainReportsLoadMeta && window.__rrTrainReportsLoadMeta.live) {
+            suffix = ' · live';
+          } else if (window.__rrTrainReportsLoadMeta && window.__rrTrainReportsLoadMeta.fromServer) {
+            suffix = ' · server';
+          }
+          updatedEl.textContent = 'Updated at ' + whenStr + suffix;
+        }
+      }
+      function openWeeklyLeaderboard() {
+        const modal = document.getElementById('weekly-leaderboard-modal');
+        if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+        try {
+          const panel = document.getElementById('control-panel');
+          const overlay = document.getElementById('overlay');
+          if (panel) panel.classList.remove('open');
+          if (overlay) overlay.classList.remove('open');
+        } catch (_) {}
+        renderWeeklyLeaderboard();
+      }
+      function closeWeeklyLeaderboard() {
+        const modal = document.getElementById('weekly-leaderboard-modal');
+        if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+      }
+      function wireWeeklyLeaderboardUI() {
+        const btnH = document.getElementById('btn-leaderboard-header');
+        const btnP = document.getElementById('btn-leaderboard-panel');
+        const btnC = document.getElementById('weekly-leaderboard-close');
+        const btnR = document.getElementById('weekly-leaderboard-refresh');
+        const modal = document.getElementById('weekly-leaderboard-modal');
+        if (btnH) btnH.addEventListener('click', openWeeklyLeaderboard);
+        if (btnP) btnP.addEventListener('click', openWeeklyLeaderboard);
+        if (btnC) btnC.addEventListener('click', closeWeeklyLeaderboard);
+        if (btnR) btnR.addEventListener('click', function() { renderWeeklyLeaderboard(); });
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeWeeklyLeaderboard(); });
+      }
+      function openSpecialsBoard() {
+        renderSpecialsBoard();
+        renderReportsBoard();
+        renderUpcomingBoard();
+        const modal = document.getElementById('specials-board-modal');
+        if (modal) {
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+        try {
+          const panel = document.getElementById('control-panel');
+          const overlay = document.getElementById('overlay');
+          if (panel) panel.classList.remove('open');
+          if (overlay) overlay.classList.remove('open');
+        } catch (_) {}
+      }
+      function closeSpecialsBoard() {
+        const modal = document.getElementById('specials-board-modal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      }
+      function wireSpecialsBoardUI() {
+        const btnH = document.getElementById('btn-specials-header');
+        const btnP = document.getElementById('btn-specials-panel');
+        const btnC = document.getElementById('specials-board-close');
+        const modal = document.getElementById('specials-board-modal');
+        if (btnH) btnH.addEventListener('click', openSpecialsBoard);
+        if (btnP) btnP.addEventListener('click', openSpecialsBoard);
+        if (btnC) btnC.addEventListener('click', closeSpecialsBoard);
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeSpecialsBoard(); });
+        document.querySelectorAll('[data-board-tab]').forEach(function(btn) {
+          btn.addEventListener('click', function() { setBoardTab(btn.getAttribute('data-board-tab')); });
+        });
+        ['board-specials-agency', 'board-specials-sort'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', renderSpecialsBoard);
+        });
+        ['board-reports-agency', 'board-reports-sort'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', renderReportsBoard);
+        });
+        ['board-upcoming-agency', 'board-upcoming-sort'].forEach(function(id) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', renderUpcomingBoard);
+        });
+        const search = document.getElementById('board-reports-search');
+        if (search) search.addEventListener('input', renderReportsBoard);
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'Escape') return;
+          const m = document.getElementById('specials-board-modal');
+          if (m && m.classList.contains('open')) {
+            closeSpecialsBoard();
+            e.stopPropagation();
+          }
+        });
+      }
+
+      // ============================================================
+      // SPECIAL ICONS — Apps Script icon feed removed (use roster + local type assets)
+      // ============================================================
+      const CAPE_FLYER_ICONS = {
+        onTime: "/assets/hsp46.png",
+        delayed: "/assets/hsp46.png",
+        veryDelayed: "/assets/hsp46.png"
+      };
+      async function loadSpecialIcons() {
+        // Intentionally empty: no Google Apps Script / postimg special icons
+        specialIcons = {};
+        console.log('%c[SpecialIcons] Apps Script icon feed disabled — using roster + local HSP/F40 assets', 'color:#27ae60');
+      }
+      function createTrainIcon(delayMinutes, vehicleId) {
+        const delayKey = (delayMinutes === null || delayMinutes <= 5) ? 'onTime'
+                       : (delayMinutes <= 15) ? 'delayed'
+                       : 'veryDelayed';
+        const hspDefault = MBTA_LOCO_TYPES['HSP-46'] || '/assets/hsp46.png';
+        function mbtaIcon(url, locoType) {
+          // Keep already-resolved data URIs / type assets; only remap stale postimg
+          const iconUrl = resolveMbtaLocoIconUrl(url, locoType) || rrAssetUrl(hspDefault);
+          if (!createTrainIcon._cache) createTrainIcon._cache = {};
+          if (createTrainIcon._cache[iconUrl]) return createTrainIcon._cache[iconUrl];
+          const icon = L.icon({
+            iconUrl: iconUrl,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'train-icon'
+          });
+          createTrainIcon._cache[iconUrl] = icon;
+          return icon;
+        }
+        // 1. CapeFLYER — highest priority (local HSP until dedicated assets hosted)
+        if (trainInfo[vehicleId] && trainInfo[vehicleId].isCapeFlyer) {
+          return mbtaIcon(CAPE_FLYER_ICONS[delayKey] || hspDefault);
+        }
+        try {
+          const mbtaTn = (trainInfo[vehicleId] && typeof extractTrainNumber === 'function')
+            ? extractTrainNumber(trainInfo[vehicleId].tripId)
+            : null;
+          const specialRep = getSpecialForVehicle('mbta', vehicleId, mbtaTn);
+          if (specialRep && specialRep.fromReport) {
+            const rep = specialRep.report || {};
+            const locoId = String(specialRep.locomotiveId || rep.locomotiveId || '').trim();
+            const isRosterSpecial = !!(specialRep.specialOverride || specialRep.isRosterSpecial || rep.specialOverride || (locoId && rosterEntry('mbta', locoId)));
+            // 2. Roster special: prefer explicit roster iconUrl (admin-set) as-is
+            if (isRosterSpecial) {
+              const reIcon = locoId ? rosterEntry('mbta', locoId) : null;
+              const explicitIcon = (reIcon && reIcon.iconUrl)
+                ? String(reIcon.iconUrl).trim()
+                : ((specialRep.locoIconUrl || rep.locoIconUrl)
+                    ? String(specialRep.locoIconUrl || rep.locoIconUrl).trim()
+                    : '');
+              if (explicitIcon && reIcon && reIcon.iconUrl) {
+                let iconUrl = explicitIcon;
+                if (/^assets\//i.test(iconUrl)) iconUrl = '/' + iconUrl.replace(/^\/+/, '');
+                return L.icon({
+                  iconUrl: rrAssetUrl(iconUrl),
+                  iconSize: [44, 44],
+                  iconAnchor: [22, 22],
+                  popupAnchor: [0, -22],
+                  className: 'train-icon'
+                });
+              }
+              const typeHint = rep.locoType || specialRep.locoType || null;
+              const typeUrl = resolveMbtaLocoIconUrl(
+                specialRep.locoIconUrl || rep.locoIconUrl || null,
+                typeHint
+              );
+              return mbtaIcon(typeUrl, typeHint);
+            }
+            // 3. Different-loco / reported type: remap stale postimg → local asset
+            const typeHint2 = rep.locoType || specialRep.locoType || null;
+            const locoUrl = resolveMbtaLocoIconUrl(
+              specialRep.locoIconUrl || rep.locoIconUrl || null,
+              typeHint2
+            );
+            return mbtaIcon(locoUrl, typeHint2);
+          }
+        } catch (_) {}
+        // 4. Roster special for this vehicle (e.g. 1776 America 250) — baked-in art
+        try {
+          const reSelf = rosterEntry('mbta', vehicleId);
+          if (reSelf && reSelf.iconUrl) {
+            let iconUrl = String(reSelf.iconUrl).trim();
+            if (/^assets\//i.test(iconUrl)) iconUrl = '/' + iconUrl.replace(/^\/+/, '');
+            if (iconUrl && !/postimg|i\.postimg\.cc/i.test(iconUrl)) {
+              return L.icon({
+                iconUrl: rrAssetUrl(iconUrl),
+                iconSize: [44, 44],
+                iconAnchor: [22, 22],
+                popupAnchor: [0, -22],
+                className: 'train-icon special-train-icon'
+              });
+            }
+          }
+        } catch (_) {}
+        // 5. Every MBTA vehicle with no usable special/type icon → local HSP-46
+        return mbtaIcon(hspDefault);
+      }
+      const vehicleUrl = apiUrl('/api/mbta/vehicles?filter[route_type]=2&include=trip,route,stop');
+      const routesUrl = apiUrl('/api/mbta/routes?filter[type]=2');
+      const stopsUrl = apiUrl('/api/mbta/stops?filter[route_type]=2&include=route');
+      const scheduleUrl = apiUrl('/api/mbta/schedules');
+      const alertsUrl = apiUrl('/api/mbta/alerts?filter[route_type]=2');
+      const amtrakUrl = apiUrl('/api/amtrak/trains');
+      // ==================== DETAILED FETCH LOGGING ====================
+      const FetchStats = {
+        start(label) { return { label, start: performance.now() }; },
+        end(stat, extra = {}) {
+          const ms = (performance.now() - stat.start).toFixed(0);
+          const details = Object.entries(extra).map(([k,v]) => `${k}:${v}`).join(' | ');
+          console.log(`%c[${stat.label}] ${ms}ms${details ? ' • '+details : ''}`, 'color:#3498db; font-size:11px; font-family:monospace');
+        },
+        error(label, err) {
+          console.error(`%c[${label}] FAILED`, 'color:#e74c3c; font-weight:bold', err?.message || err);
+        }
+      };
+      const markers = {};
+      const trainLastSeen = {};
+      const routeLines = {};
+      const routeColors = {};
+      const stationMarkers = {};
+      const trainInfo = {};
+      const stationInfo = {};
+      const tripStopsCache = {};
+      const stationDeparturesCache = {};
+      const liveTrainTrips = new Set();
+      const stationsByName = {};
+      let schedules = {};
+      let highlightedMarker = null;
+      let showStations = true;
+      let showTrainLabels = true;   // Default ON
+      let showClusters = false;     // Default OFF — always show HSP icons; toggle enables label declutter badge
+      let showRoutes = true;
+      let showOnlySpecial = false;
+      let showMbta = true;
+      let showAmtrak = true;
+      // VIA Rail trains arrive in the Amtraker feed (train numbers 'v1', provider 'Via'); own toggle.
+      let showVia = true;
+      let rrViaShapesLoaded = false;
+      try { showVia = localStorage.getItem('rr_showVia') !== '0'; } catch (_) {}
+      function rrIsViaTrain(t) {
+        if (!t) return false;
+        if (t.isVia === true) return true;
+        const prov = String(t.provider || '').toLowerCase();
+        const ps = String(t.providerShort || '').toUpperCase();
+        if (prov === 'via' || prov === 'via rail' || ps === 'VIA') return true;
+        return /^v\d/i.test(String(t.trainNum || '')) || /^v\d/i.test(String(t.trainID || ''));
+      }
+      try { window.rrIsViaTrain = rrIsViaTrain; } catch (_) {}
+      function rrViaDisplayNum(t) {
+        const raw = String((t && (t.trainNumRaw || t.trainNum)) || '').replace(/^v/i, '');
+        return raw || String((t && t.trainNum) || '');
+      }
+      const VIA_ICON_URL = '/assets/f40ph.png';
+      const VIA_COLOR = '#FFC20E';
+      const amtrakMarkers = {};
+      const amtrakTrainInfo = {};
+      const amtrakLastSeen = {};
+      let showMnr = true;
+      const mnrMarkers = {};
+      const mnrTrainInfo = {};
+      const mnrLastSeen = {};
+      let showLirr = true;
+      const lirrMarkers = {};
+      const lirrTrainInfo = {};
+      const lirrLastSeen = {};
+      let showMetra = true;
+      const metraMarkers = {};
+      const metraTrainInfo = {};
+      const metraLastSeen = {};
+      let showNjt = true;
+      let showCtrail = true;
+      let showMarc = true;
+      const marcMarkers = {};
+      const marcTrainInfo = {};
+      const marcLastSeen = {};
+      const njtMarkers = {};
+      const njtTrainInfo = {};
+      const njtLastSeen = {};
+      const njtStopsCache = {};
+      const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
+      // ---- Loading progress helper ----
+      const RR_LOADING_TIPS = window.RR_LOADING_TIPS || [
+        'Check the weekly leaderboard to see if you’re reporting the most!'
+      ]
+      let loadingTipTimer = null;
+      let loadingTipIdx = 0;
+      function setLoadingTip(msg) {
+        const txt = document.getElementById('loading-text');
+        if (txt) txt.textContent = msg;
+      }
+      function startLoadingTips() {
+        if (!RR_LOADING_TIPS.length) return;
+        if (typeof window.__rrLoadingTipIdx === 'number' && window.__rrLoadingTipIdx >= 0 && window.__rrLoadingTipIdx < RR_LOADING_TIPS.length) {
+          loadingTipIdx = window.__rrLoadingTipIdx;
+        } else {
+          loadingTipIdx = Math.floor(Math.random() * RR_LOADING_TIPS.length);
+        }
+        setLoadingTip(RR_LOADING_TIPS[loadingTipIdx]);
+        try { clearInterval(loadingTipTimer); } catch (_) {}
+        loadingTipTimer = setInterval(function() {
+          loadingTipIdx = (loadingTipIdx + 1) % RR_LOADING_TIPS.length;
+          setLoadingTip(RR_LOADING_TIPS[loadingTipIdx]);
+        }, 2800);
+      }
+      function setLoadingProgress(percent, message) {
+        const bar = document.getElementById('loading-bar');
+        const p = Math.round(Math.min(100, Math.max(0, Number(percent) || 0)));
+        if (bar) bar.style.width = p + '%';
+        const text = document.getElementById('loading-text');
+        if (text && message) text.textContent = message;
+      }
+      function hideLoadingScreen() {
+        if (loadingScreenHidden) return;
+        loadingScreenHidden = true;
+        try { clearTimeout(loadingFailsafeTimer); } catch (_) {}
+        try { clearInterval(loadingTipTimer); } catch (_) {}
+        const loadingScreen = document.getElementById('loading-screen');
+        if (!loadingScreen) return;
+        const skipWait = document.documentElement.classList.contains('rr-train-page') || document.documentElement.classList.contains('rr-mytrips-page') || !!(new URLSearchParams(location.search).get('train') || new URLSearchParams(location.search).get('t'));
+        if (skipWait) {
+          loadingScreen.style.display = 'none';
+        try { rrRefreshMapTiles(); } catch (_) {}
+          loadingScreen.style.opacity = '0';
+          return;
+        }
+        setLoadingProgress(100, 'Ready!');
+        try { setLoadingTip('No defects. Detector out. ✌️'); } catch (_) {}
+        loadingScreen.style.opacity = '0';
+        loadingScreen.style.pointerEvents = 'none';
+        setTimeout(function() {
+          loadingScreen.style.display = 'none';
+        try { rrRefreshMapTiles(); } catch (_) {}
+        }, 400);
+      }
+      startLoadingTips();
+      setLoadingProgress(8, 'Starting...');
+      await withTimeout(loadSpecialIcons(), 500, 'loadSpecialIcons');
+      setLoadingProgress(18, 'Ready for reports...');
+      wireAuthUI();
+      wireReportTrainUI();
+      wireSpecialsBoardUI();
+      wireWeeklyLeaderboardUI();
+      setLoadingProgress(20, 'Loading train reports...');
+      await withTimeout(loadTrainReports(), 5000, 'loadTrainReports');
+      setInterval(loadTrainReports, 7 * 60 * 1000);
+      setLoadingProgress(22, 'Loading special locomotives...');
+      await withTimeout(loadSpecialUnitsFromFirestore(), 5000, 'loadSpecialUnitsFromFirestore');
+      setInterval(function() {
+        loadSpecialUnitsFromFirestore().catch(function() {});
+      }, 7 * 60 * 1000);
+      setLoadingProgress(23, 'Loading verified reporters...');
+      await withTimeout(loadVerifiedReporters(), 5000, 'loadVerifiedReporters');
+      setInterval(function() {
+        loadVerifiedReporters().catch(function() {});
+      }, 7 * 60 * 1000);
+      // Hundreds of station dots as separate images made panning and zooming slow, so they are
+      // drawn on one canvas in their own pane, above route lines and below trains.
+      map.createPane('rrStations').style.zIndex = 450;
+      // The same white-edged, navy-ringed dot as /assets/station.png.
+      function drawStationDot(ctx, p) {
+        [[8, '#fff'], [7, '#07093e'], [6, '#f1f2f2']].forEach(function(ring) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, ring[0], 0, Math.PI * 2);
+          ctx.fillStyle = ring[1];
+          ctx.fill();
+        });
+      }
+      // Leaflet's zoom animation runs 0.25 s on cubic-bezier(0, 0, 0.25, 1); this is that curve.
+      function rrZoomEase(x) {
+        let lo = 0, hi = 1, t = x;
+        for (let i = 0; i < 20; i++) {
+          t = (lo + hi) / 2;
+          if (0.75 * t * t + 0.25 * t * t * t < x) lo = t; else hi = t;
+        }
+        return 3 * t * t - 2 * t * t * t;
+      }
+      // Leaflet stretches a canvas while zooming, which would grow or shrink the dots. This one
+      // redraws them at their moving positions instead, so they keep their size like train markers.
+      const StationCanvas = L.Canvas.extend({
+        _drawPoints: function(points) {
+          const b = this._bounds;
+          const ctx = this._ctx;
+          if (!b || !ctx) return;
+          ctx.clearRect(b.min.x, b.min.y, b.max.x - b.min.x, b.max.y - b.min.y);
+          points.forEach(function(p) { drawStationDot(ctx, p); });
+        },
+        _onZoom: function() {
+          const points = [];
+          for (const id in this._layers) points.push(map.latLngToLayerPoint(this._layers[id].getLatLng()));
+          this._drawPoints(points);
+        },
+        _onAnimZoom: function(ev) {
+          const self = this;
+          const moves = [];
+          for (const id in this._layers) {
+            const ll = this._layers[id].getLatLng();
+            const from = map.latLngToLayerPoint(ll);
+            moves.push([from, map._latLngToNewLayerPoint(ll, ev.zoom, ev.center).subtract(from)]);
+          }
+          const start = performance.now();
+          cancelAnimationFrame(this._rrFrame);
+          const step = function(now) {
+            const k = rrZoomEase(Math.min(1, (now - start) / 250));
+            self._drawPoints(moves.map(function(m) { return m[0].add(m[1].multiplyBy(k)); }));
+            if (k < 1 && map._animatingZoom) self._rrFrame = requestAnimationFrame(step);
+          };
+          this._rrFrame = requestAnimationFrame(step);
+        }
+      });
+      const stationRenderer = new StationCanvas({ pane: 'rrStations', padding: 0.5 });
+      const StationDot = L.CircleMarker.extend({
+        _updatePath: function() {
+          const r = this._renderer;
+          if (!r._drawing || this._empty()) return;
+          drawStationDot(r._ctx, this._point);
+        }
+      });
+      function createStationDot(lat, lng) {
+        return new StationDot([lat, lng], { renderer: stationRenderer, radius: 8 });
+      }
+      function agencyStationsVisible(agency) {
+        if (!showStations) return false;
+        const a = String(agency || 'mbta').toLowerCase();
+        if (a === 'mbta') return true;
+        if (a === 'amtrak') return !!showAmtrak;
+        if (a === 'mnr') return !!showMnr;
+        if (a === 'lirr') return !!showLirr;
+        if (a === 'metra') return !!showMetra;
+        if (a === 'njt') return !!showNjt;
+        if (a === 'ctrail') return !!showCtrail;
+        if (a === 'marc') return !!showMarc;
+        return true;
+      }
+      function upsertAgencyStationDot(agency, sid, name, lat, lng) {
+        const latN = Number(lat);
+        const lngN = Number(lng);
+        if (!isFinite(latN) || !isFinite(lngN)) return null;
+        const a = String(agency || '').toLowerCase();
+        const key = a + ':' + String(sid);
+        if (stationMarkers[key]) return stationMarkers[key];
+        const title = String(name || sid || 'Station');
+        const esc = (typeof escapeHtml === 'function') ? escapeHtml(title) : title.replace(/</g, '&lt;');
+        const labels = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
+        const agencyLabel = labels[a] || a.toUpperCase();
+        const m = createStationDot(latN, lngN);
+        m._rrAgency = a;
+        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); }
+        stationMarkers[key] = m;
+        if (agencyStationsVisible(a)) m.addTo(map);
+        return m;
+      }
+      function plotStaticAgencyStationDots() {
+        const menuIcon = document.querySelector('.station-toggle img.station-icon');
+        if (menuIcon) menuIcon.src = rrAssetUrl('/assets/station.png');
+        function walk(staticObj, agency) {
+          if (!staticObj || !staticObj.stops) return;
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s) return;
+            upsertAgencyStationDot(agency, sid, s.name || sid, s.lat, s.lon != null ? s.lon : s.lng);
+          });
+        }
+        try { walk(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'mnr'); } catch (_) {}
+        try { walk(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'lirr'); } catch (_) {}
+        try { walk(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'metra'); } catch (_) {}
+      }
+      function harvestAmtrakStationDots(trainObj) {
+        const stations = (trainObj && trainObj.stations) || [];
+        stations.forEach(function(s) {
+          if (!s) return;
+          const lat = s.lat != null ? s.lat : s.latitude;
+          const lon = s.lon != null ? s.lon : (s.lng != null ? s.lng : s.longitude);
+          const id = s.code || s.id || s.name;
+          if (!id) return;
+          upsertAgencyStationDot('amtrak', id, s.name || s.code || id, lat, lon);
+        });
+      }
+      function extractTrackNumber(platformName, platformDesc) {
+        if (platformDesc) {
+          const m = platformDesc.match(/track\s+(\d+)/i) || platformDesc.match(/platform\s+(\d+)/i);
+          if (m) return m[1];
+        }
+        if (platformName) {
+          const m = platformName.match(/track\s+(\d+)/i) || platformName.match(/platform\s+(\d+)/i) || platformName.match(/-(\d+)$/) || platformName.match(/\s(\d+)$/);
+          if (m) return m[1];
+        }
+        return null;
+      }
+      function extractTrainNumber(tripId) {
+        if (!tripId) return null;
+        const raw = String(tripId).trim();
+        const parts = raw.split('-').filter(Boolean);
+        if (!parts.length) return raw;
+        for (let i = parts.length - 1; i >= 0; i--) {
+          if (/^\d+[A-Za-z]?$/.test(parts[i])) return parts[i];
+        }
+        return parts.length > 2 ? parts[2] : parts[parts.length - 1];
+      }
+      async function getOnTimeStatus(tripIds) {
+        if (!tripIds.length) return {};
+        try {
+          const res = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripIds.join(',')}&include=schedule`));
+          const data = await res.json();
+          const onTimeStatus = {};
+          liveTrainTrips.clear();
+          data.data.forEach(p => {
+            const tripId = p.relationships.trip.data.id;
+            const stopId = p.relationships.stop.data.id;
+            const key = `${tripId}-${stopId}`;
+            let delayMinutes = null;
+            let status = p.attributes.status || "Unknown";
+            if (!p.attributes.status) {
+              const sched = data.included.find(i => i.type === "schedule" && i.relationships.trip.data.id === tripId && i.relationships.stop.data.id === stopId);
+              if (sched) {
+                const useArrival = p.attributes.arrival_time && sched.attributes.arrival_time;
+                const useDep = p.attributes.departure_time && sched.attributes.departure_time;
+                let pred, schedTime;
+                if (useArrival) { pred = new Date(p.attributes.arrival_time); schedTime = new Date(sched.attributes.arrival_time); }
+                else if (useDep) { pred = new Date(p.attributes.departure_time); schedTime = new Date(sched.attributes.departure_time); }
+                if (pred && schedTime) {
+                  delayMinutes = (pred - schedTime) / 60000;
+                  status = Math.abs(delayMinutes) <= 5 ? "On Time" : delayMinutes > 5 ? `Delayed ${Math.round(delayMinutes)} min` : `Early ${Math.round(Math.abs(delayMinutes))} min`;
+                }
+              }
+            }
+            liveTrainTrips.add(tripId);
+            onTimeStatus[key] = { delayMinutes, status, isLive: true };
+          });
+          return onTimeStatus;
+        } catch (e) { return {}; }
+      }
+      function haversine(lat1, lon1, lat2, lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
+        const R = 3958.8; // Earth radius in miles
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+  
+    function rrStopServiceDate(raw) {
+      try {
+        const d = raw ? new Date(raw) : new Date();
+        if (isNaN(d.getTime())) return new Date().toISOString().slice(0,10);
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+      } catch (_) { return new Date().toISOString().slice(0,10); }
+    }
+    function rrStopActualDocId(agency, trainNumber, serviceDate) {
+      return [String(agency || 'mbta').toLowerCase(), String(serviceDate || rrStopServiceDate()), String(trainNumber || '').replace(/[^A-Za-z0-9_-]/g, '')].slice(0, 140).join('_');
+    }
+    const rrStopActualMem = {};
+    async function rrLoadStopActuals(agency, trainNumber, serviceDate) {
+      const id = rrStopActualDocId(agency, trainNumber, serviceDate);
+      if (rrStopActualMem[id] && (Date.now() - (rrStopActualMem[id]._at || 0)) < 60000) return rrStopActualMem[id];
+      if (typeof db === 'undefined' || !db) return null;
+      try {
+        const snap = await db.collection('trainStopActuals').doc(id).get();
+        if (!snap.exists) return null;
+        const data = snap.data() || {};
+        let exp = 0;
+        try {
+          if (data.expiresAt && typeof data.expiresAt.toMillis === 'function') exp = data.expiresAt.toMillis();
+          else if (data.expiresAt) exp = new Date(data.expiresAt).getTime();
+        } catch (_) {}
+        if (exp && exp < Date.now()) return null;
+        rrStopActualMem[id] = Object.assign({ _at: Date.now() }, data);
+        return rrStopActualMem[id];
+      } catch (e) {
+        console.warn('[stopActuals] load failed', e && e.message);
+        return null;
+      }
+    }
+    function rrApplyStopActuals(stops, cached) {
+      if (!stops || !cached || !Array.isArray(cached.stops)) return stops;
+      const byId = {};
+      const byName = {};
+      cached.stops.forEach(function(s) {
+        if (s && s.stopId) byId[String(s.stopId)] = s;
+        if (s && s.name) byName[String(s.name).toLowerCase()] = s;
+      });
+      let laterPassed = false;
+      for (let i = stops.length - 1; i >= 0; i--) {
+        const s = stops[i];
+        const c = byId[String(s.id || s.stopId || '')] || byName[String(s.name || '').toLowerCase()] || cached.stops[i] || null;
+        if (c && ((c.actual && c.actual !== (c.scheduled || s.formattedScheduledTime)) || c.completed)) laterPassed = true;
+        if (!c && !laterPassed) continue;
+        if (c && c.actual && c.actual !== (c.scheduled || s.formattedScheduledTime)) {
+          s.formattedActualTime = c.actual;
+          if (!s.formattedPredictedTime) s.formattedPredictedTime = c.actual;
+        }
+        if (laterPassed || (c && (c.completed || c.actual))) s.isCompleted = true;
+      }
+      return stops;
+    }
+    function rrSaveStopActuals(agency, trainNumber, serviceDate, stops) {
+      if (typeof db === 'undefined' || !db || !stops || !stops.length) return;
+      // Firestore only accepts stop actuals from signed-in users.
+      if (!auth || !auth.currentUser) return;
+      const id = rrStopActualDocId(agency, trainNumber, serviceDate);
+      const payloadStops = stops.map(function(s) {
+        const actual = (s.formattedActualTime && s.formattedActualTime !== s.formattedScheduledTime)
+          ? s.formattedActualTime
+          : (s.isCompleted && s.formattedPredictedTime && s.formattedPredictedTime !== s.formattedScheduledTime ? s.formattedPredictedTime : null);
+        return {
+          name: s.name || '',
+          stopId: String(s.id || s.stopId || ''),
+          scheduled: s.formattedScheduledTime || null,
+          predicted: s.formattedPredictedTime || null,
+          actual: actual,
+          completed: !!s.isCompleted,
+          delayMinutes: Number(s.delayMinutes) || 0
+        };
+      });
+      const last = stops[stops.length - 1] || {};
+      const lastDate = last.scheduledTime || last.predictedTime || last.actualTime || Date.now();
+      const lastMs = (lastDate && lastDate.getTime) ? lastDate.getTime() : Number(lastDate) || Date.now();
+      const expires = Math.max(Date.now(), lastMs) + 24 * 60 * 60 * 1000;
+      const doc = {
+        agency: String(agency || 'mbta').toLowerCase(),
+        trainNumber: String(trainNumber || ''),
+        serviceDate: String(serviceDate || rrStopServiceDate()),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedByUid: (auth && auth.currentUser && auth.currentUser.uid) || '',
+        expiresAt: firebase.firestore.Timestamp.fromMillis(expires),
+        stops: payloadStops
+      };
+      db.collection('trainStopActuals').doc(id).set(doc, { merge: true }).then(function() {
+        rrStopActualMem[id] = Object.assign({ _at: Date.now(), stops: payloadStops }, doc);
+      }).catch(function(e) {
+        console.warn('[stopActuals] save failed', e && e.message);
+      });
+    }
+
+    async function rrRecordMbtaMapActuals(vehicles) {
+      if (!auth || !auth.currentUser || !db || !vehicles || !vehicles.length) return;
+      if (typeof apiUrl !== 'function') return;
+      let pred;
+      try {
+        const res = await fetch(apiUrl('/api/mbta/predictions?filter[route_type]=2&include=stop&page[limit]=1000'));
+        if (!res.ok) return;
+        pred = await res.json();
+      } catch (_) { return; }
+      const names = {};
+      (pred.included || []).forEach(function(inc) {
+        if (inc && inc.type === 'stop') names[inc.id] = (inc.attributes && inc.attributes.name) || '';
+      });
+      const byTrip = {};
+      const now = Date.now();
+      (pred.data || []).forEach(function(row) {
+        const tripId = row && row.relationships && row.relationships.trip && row.relationships.trip.data && row.relationships.trip.data.id;
+        const stopId = row && row.relationships && row.relationships.stop && row.relationships.stop.data && row.relationships.stop.data.id;
+        const iso = row && row.attributes && (row.attributes.departure_time || row.attributes.arrival_time);
+        if (!tripId || !stopId || !iso) return;
+        const when = new Date(iso);
+        if (isNaN(when.getTime()) || when.getTime() > now) return;
+        (byTrip[tripId] = byTrip[tripId] || []).push({
+          stopId: String(stopId),
+          name: names[stopId] || '',
+          actual: when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      });
+      const svc = rrStopServiceDate();
+      const seen = {};
+      for (let i = 0; i < vehicles.length; i++) {
+        const v = vehicles[i];
+        const tripId = v && v.relationships && v.relationships.trip && v.relationships.trip.data && v.relationships.trip.data.id;
+        if (!tripId || seen[tripId] || !byTrip[tripId]) continue;
+        seen[tripId] = true;
+        const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId);
+        const cached = await rrLoadStopActuals('mbta', tnum, svc);
+        const merged = ((cached && cached.stops) || []).map(function(s) { return Object.assign({}, s); });
+        let changed = !cached;
+        byTrip[tripId].forEach(function(p) {
+          let row = null;
+          for (let n = 0; n < merged.length; n++) {
+            const s = merged[n];
+            if (String(s.stopId || '') === p.stopId || (p.name && String(s.name || '').toLowerCase() === p.name.toLowerCase())) { row = s; break; }
+          }
+          if (!row) {
+            merged.push({ name: p.name, stopId: p.stopId, scheduled: null, predicted: p.actual, actual: p.actual, completed: true, delayMinutes: 0 });
+            changed = true;
+          } else if (!row.actual) {
+            row.actual = p.actual;
+            row.completed = true;
+            row.predicted = row.predicted || p.actual;
+            changed = true;
+          }
+        });
+        if (!changed) continue;
+        rrSaveStopActuals('mbta', tnum, svc, merged.map(function(s) {
+          return {
+            name: s.name || '',
+            id: s.stopId || '',
+            formattedScheduledTime: s.scheduled || null,
+            formattedPredictedTime: s.predicted || s.actual || null,
+            formattedActualTime: s.actual || null,
+            isCompleted: !!(s.completed || s.actual),
+            delayMinutes: Number(s.delayMinutes) || 0
+          };
+        }));
+      }
+    }
+    async function rrRecordAmtrakMapActuals(trains) {
+      if (!auth || !auth.currentUser || !db || !trains) return;
+      const svc = rrStopServiceDate();
+      const list = Array.isArray(trains) ? trains : Object.keys(trains).map(function(k) { return trains[k]; });
+      for (let i = 0; i < list.length; i++) {
+        const tr = list[i];
+        if (!tr || !tr.stations) continue;
+        const num = tr.trainNum || tr.trainNumRaw;
+        if (!num) continue;
+        let stops = amtrakStationsToStops(tr.stations);
+        const cached = await rrLoadStopActuals('amtrak', num, svc);
+        if (cached) rrApplyStopActuals(stops, cached);
+        const had = (cached && cached.stops) || [];
+        const newlyPassed = stops.some(function(s) {
+          if (!s.isCompleted) return false;
+          const name = String(s.name || '').toLowerCase();
+          const old = had.find(function(c) { return String(c.name || '').toLowerCase() === name; });
+          return !old || !old.actual;
+        });
+        if (newlyPassed || !cached) rrSaveStopActuals('amtrak', num, svc, stops);
+      }
+    }
+    async function getTripStops(tripId, serviceDate) {
+        const cacheKey = String(tripId) + '|' + String(serviceDate || '');
+        if (tripStopsCache[cacheKey] && (Date.now() - tripStopsCache[cacheKey].timestamp) < 300000) {
+          const cachedStops = tripStopsCache[cacheKey].stops || [];
+          try {
+            const svc = serviceDate || rrStopServiceDate();
+            const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId || '');
+            const cached = rrStopActualMem[rrStopActualDocId('mbta', tnum, svc)] || null;
+            if (cached) rrApplyStopActuals(cachedStops, cached);
+          } catch (_) {}
+          return cachedStops;
+        }
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout to prevent hanging
+          const nyYmd = d => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          const _now = new Date();
+          const dates = [];
+          if (serviceDate) dates.push(String(serviceDate));
+          [nyYmd(_now), nyYmd(new Date(_now.getTime() + 24*60*60*1000)), nyYmd(new Date(_now.getTime() - 24*60*60*1000))].forEach(dt => { if (dates.indexOf(dt) === -1) dates.push(dt); });
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}`), { signal: controller.signal });
+          let schedData = { data: [], included: [] };
+          for (const dt of dates) {
+            const schedRes = await fetch(apiUrl('/api/mbta' + `/schedules?filter[trip]=${encodeURIComponent(tripId)}&filter[date]=${encodeURIComponent(dt)}&include=stop`), { signal: controller.signal });
+            const json = await schedRes.json();
+            if (json && json.data && json.data.length) { schedData = json; break; }
+          }
+          clearTimeout(timeoutId);
+          const predData = await predRes.json();
+          const stops = [];
+          const now = new Date();
+          if (schedData.data?.length) {
+            const all = schedData.data.map(s => {
+              const stopId = s.relationships.stop.data.id;
+              const stopInfo = schedData.included.find(i => i.type === "stop" && i.id === stopId);
+              const schedTime = s.attributes.departure_time ? new Date(s.attributes.departure_time) : (s.attributes.arrival_time ? new Date(s.attributes.arrival_time) : null);
+              const pred = predData.data.find(p => p.relationships.stop.data.id === stopId);
+              const predTime = pred ? (pred.attributes.departure_time ? new Date(pred.attributes.departure_time) : (pred.attributes.arrival_time ? new Date(pred.attributes.arrival_time) : null)) : null;
+              let delay = null, status = "Scheduled", isLive = !!predTime;
+              if (predTime && schedTime) {
+                delay = (predTime - schedTime) / 60000;
+                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+              }
+              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const isCompleted = (predTime || schedTime) ? (predTime || schedTime) < now : false;
+              if (isCompleted) status = "Passed";
+              return {
+                id: stopId,
+                name: stopInfo?.attributes.name || "Unknown",
+                scheduledTime: schedTime,
+                predictedTime: predTime,
+                delayMinutes: delay,
+                delayStatus: status,
+                isLive,
+                trackNumber: track,
+                formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
+                formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
+                formattedActualTime: isCompleted && predTime
+                  ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+                  : null,
+                isCompleted,
+                lat: stopInfo?.attributes?.latitude || null,
+                lng: stopInfo?.attributes?.longitude || null
+              };
+            }).sort((a,b) => a.scheduledTime - b.scheduledTime);
+            stops.push(...all);
+            // Compute cumulative miles along the journey (from first stop)
+            if (stops.length > 0) {
+              stops[0].cumulativeMiles = 0;
+              for (let i = 1; i < stops.length; i++) {
+                const prev = stops[i-1];
+                const curr = stops[i];
+                if (prev.lat != null && prev.lng != null && curr.lat != null && curr.lng != null) {
+                  const dist = haversine(prev.lat, prev.lng, curr.lat, curr.lng);
+                  curr.cumulativeMiles = (prev.cumulativeMiles || 0) + dist;
+                } else {
+                  curr.cumulativeMiles = prev.cumulativeMiles || 0;
+                }
+              }
+            }
+          }
+          try {
+            const svc = serviceDate || (stops[0] && stops[0].scheduledTime ? rrStopServiceDate(stops[0].scheduledTime) : rrStopServiceDate());
+            const tnum = (typeof extractTrainNumber === 'function') ? extractTrainNumber(tripId) : String(tripId || '');
+            const cached = await rrLoadStopActuals('mbta', tnum, svc);
+            if (cached) rrApplyStopActuals(stops, cached);
+            rrSaveStopActuals('mbta', tnum, svc, stops);
+          } catch (cacheErr) { console.warn('[stopActuals]', cacheErr); }
+          tripStopsCache[cacheKey] = { stops, timestamp: Date.now() };
+          return stops;
+        } catch (e) { 
+          if (e.name === 'AbortError') {
+            console.warn(`getTripStops timed out for trip ${tripId}`);
+          }
+          return []; 
+        }
+      }
+      async function getStationDepartures(stationIds) {
+        if (!Array.isArray(stationIds)) stationIds = [stationIds];
+        const key = stationIds.sort().join('-');
+        if (stationDeparturesCache[key] && (Date.now() - stationDeparturesCache[key].timestamp) < 300000) return stationDeparturesCache[key].departures;
+        try {
+          const now = new Date();
+          const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          const nyYmd = d => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          const dates = [nyYmd(now)];
+          const endDay = nyYmd(horizon);
+          if (dates.indexOf(endDay) === -1) dates.push(endDay);
+          const stopQ = stationIds.join(',');
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${stopQ}&include=trip,route,schedule,stop&sort=departure_time`));
+          const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time`))));
+          const predData = await predRes.json();
+          const schedData = { data: [], included: [] };
+          for (const r of schedResList) {
+            try {
+              const j = await r.json();
+              if (j.data) schedData.data = schedData.data.concat(j.data);
+              if (j.included) schedData.included = schedData.included.concat(j.included);
+            } catch (e) {}
+          }
+          const departures = [];
+          const processed = new Set();
+          if (predData.data?.length) {
+            predData.data.forEach(p => {
+              if (!p.attributes.departure_time) return;
+              const depTime = new Date(p.attributes.departure_time);
+              if (depTime < now || depTime > horizon) return;
+              const tripId = p.relationships.trip.data?.id;
+              const stopId = p.relationships.stop.data?.id;
+              const tKey = `${tripId}-${stopId}`;
+              if (!tripId || processed.has(tKey)) return;
+              processed.add(tKey);
+              const tripInfo = predData.included?.find(i => i.type === "trip" && i.id === tripId);
+              const routeInfo = predData.included?.find(i => i.type === "route" && i.id === p.relationships.route.data?.id);
+              const stopInfo = predData.included?.find(i => i.type === "stop" && i.id === stopId);
+              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const sched = predData.included?.find(i => i.type === "schedule" && i.relationships.trip.data?.id === tripId && i.relationships.stop.data?.id === stopId);
+              let schedDep = null, delay = null, status = "On Time";
+              if (sched?.attributes.departure_time) {
+                schedDep = new Date(sched.attributes.departure_time);
+                delay = (depTime - schedDep) / 60000;
+                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+              }
+              const mins = Math.floor((depTime - now) / 60000);
+              if (mins > 0 && mins < 60) status = `in ${mins} min`;
+              departures.push({
+                tripId, routeId: p.relationships.route.data?.id, stopId,
+                stopName: stopInfo?.attributes.name || "Unknown",
+                trackNumber: track,
+                routeName: routeInfo?.attributes.long_name || "Unknown",
+                destination: tripInfo?.attributes.headsign || "Unknown",
+                scheduledDeparture: schedDep || depTime,
+                predictedDeparture: depTime,
+                delayMinutes: delay,
+                status,
+                isLive: true,
+                formattedScheduledTime: (schedDep || depTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+              });
+            });
+          }
+          if (schedData.data?.length) {
+            schedData.data.forEach(s => {
+              if (!s.attributes.departure_time) return;
+              const depTime = new Date(s.attributes.departure_time);
+              if (depTime < now || depTime > horizon) return;
+              const tripId = s.relationships.trip.data?.id;
+              const stopId = s.relationships.stop.data?.id;
+              const tKey = `${tripId}-${stopId}`;
+              if (!tripId || processed.has(tKey)) return;
+              processed.add(tKey);
+              const tripInfo = schedData.included?.find(i => i.type === "trip" && i.id === tripId);
+              const routeInfo = schedData.included?.find(i => i.type === "route" && i.id === s.relationships.route.data?.id);
+              const stopInfo = schedData.included?.find(i => i.type === "stop" && i.id === stopId);
+              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const isLive = liveTrainTrips.has(tripId);
+              const mins = Math.floor((depTime - now) / 60000);
+              let status = (mins > 0 && mins < 60) ? `in ${mins} min` : "Scheduled";
+              departures.push({
+                tripId, routeId: s.relationships.route.data?.id, stopId,
+                stopName: stopInfo?.attributes.name || "Unknown",
+                trackNumber: track,
+                routeName: routeInfo?.attributes.long_name || "Unknown",
+                destination: tripInfo?.attributes.headsign || "Unknown",
+                scheduledDeparture: depTime,
+                predictedDeparture: null,
+                delayMinutes: null,
+                status,
+                isLive,
+                formattedScheduledTime: depTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+              });
+            });
+          }
+          departures.sort((a,b) => (a.predictedDeparture || a.scheduledDeparture) - (b.predictedDeparture || b.scheduledDeparture));
+          const limited = departures;
+          stationDeparturesCache[key] = { departures: limited, timestamp: Date.now() };
+          return limited;
+        } catch (e) { return []; }
+      }
+
+      function rrMinutesLate(schedText, actualText) {
+        function mins(s) {
+          const m = String(s || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+          if (!m) return null;
+          let h = Number(m[1]);
+          const min = Number(m[2]);
+          const ap = (m[3] || '').toUpperCase();
+          if (ap === 'PM' && h < 12) h += 12;
+          if (ap === 'AM' && h === 12) h = 0;
+          return h * 60 + min;
+        }
+        const a = mins(schedText), b = mins(actualText);
+        if (a == null || b == null) return null;
+        let d = b - a;
+        if (d > 720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+      }
+      function buildStopsHtml(stops, currentLat = null, currentLng = null) {
+        if (!stops?.length) return '<div class="no-departures">No stops found</div>';
+        return `<div class="upcoming-stops"><h4>Stops</h4><ul class="stops-list">${ 
+          stops.map(stop => {
+            const sched = stop.formattedScheduledTime || '';
+            const pred = stop.formattedPredictedTime || '';
+            const actual = stop.formattedActualTime || '';
+            let cls = 'status-on-time';
+            let disp = 'On time';
+            // 28g: completed/passed stops — no Departed (or late-Departed) status pill; checkmark stays
+            let statusHtml = '';
+            if (stop.isCompleted || stop.formattedActualTime) {
+              cls = 'status-passed';
+              disp = '';
+              statusHtml = '';
+            } else if (!stop.predictedTime) {
+              cls = 'status-scheduled';
+              disp = 'Scheduled';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+            } else if (stop.delayMinutes > 15) {
+              cls = 'status-very-delayed';
+              disp = pred ? pred : 'Delayed';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+            } else if (stop.delayMinutes > 5) {
+              cls = 'status-delayed';
+              disp = pred ? pred : 'Delayed';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+            } else {
+              cls = 'status-on-time';
+              disp = pred || 'On time';
+              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+            }
+            const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
+            const done = stop.isCompleted ? `<img src="/assets/icons/completed.png" class="checkmark">` : '';
+            let mileageInfo = '';
+            if (stop.cumulativeMiles != null) {
+              mileageInfo = `Journey mile: ${stop.cumulativeMiles.toFixed(1)} mi`;
+            }
+            if (!stop.isCompleted && currentLat != null && currentLng != null && stop.lat != null && stop.lng != null) {
+              const distAway = haversine(currentLat, currentLng, stop.lat, stop.lng);
+              if (mileageInfo) mileageInfo += ' • ';
+              mileageInfo += `Train is ${distAway.toFixed(1)} mi away`;
+            }
+            const extraHtml = mileageInfo ? `<br><small class="stop-mileage" style="font-size:10px; line-height:1.1;">${mileageInfo}</small>` : '';
+            const schedTime = stop.formattedScheduledTime || '';
+            let actualTime = stop.isCompleted ? (stop.formattedActualTime || stop.formattedPredictedTime || '') : '';
+            if (actualTime && schedTime && actualTime === schedTime) actualTime = '';
+            const leftTime = schedTime || stop.formattedPredictedTime || actualTime || '';
+            if (stop.isCompleted && actualTime) {
+              const late = rrMinutesLate(schedTime, actualTime);
+              const box = late == null ? 'status-on-time' : late > 15 ? 'status-very-delayed' : late > 5 ? 'status-delayed' : 'status-on-time';
+              statusHtml = `<span class="stop-status ${box}">${actualTime}</span>`;
+            }
+            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
+          }).join('')
+        }</ul></div>`;
+      }
+      // ==================== AMTRAK + LOGGING (Final) ====================
+// NEC icon only while the train is GEOGRAPHICALLY on the corridor:
+      // WAS↔BOS for normal NEC trains; WAS↔NHV if the train uses the Springfield Line.
+      // Acela never uses this icon. Off-corridor (e.g. Silver Meteor in FL, Keystone west of PHL) → default marker.
+      const AMTRAK_NEC_ICON_URL = '/assets/amtrak-acs64.png';
+      const AMTRAK_DEFAULT_ICON_URL = '/assets/amtrak.png';
+      const AMTRAK_NEC_WAS_TO_NHV = [
+        [38.8969, -77.0062], // WAS
+        [39.1924, -76.6944], // BWI
+        [39.3073, -76.6155], // BAL
+        [39.7367, -75.5511], // WIL
+        [39.9556, -75.1821], // PHL
+        [40.2189, -74.7544], // TRE
+        [40.7346, -74.1638], // NWK
+        [40.7506, -73.9935], // NYP
+        [40.9118, -73.7842], // NRO
+        [41.0469, -73.5415], // STM
+        [41.2975, -72.9267]  // NHV
+      ];
+      const AMTRAK_NEC_NHV_TO_BOS = [
+        [41.2975, -72.9267], // NHV
+        [41.3459, -72.0930], // NLC (approx Old Saybrook/New London corridor)
+        [41.3543, -72.0930], // NLC
+        [41.3810, -71.9700], // MYS
+        [41.3810, -71.8300], // WLY
+        [41.4262, -71.4880], // KIN
+        [41.8293, -71.4130], // PVD
+        [42.2100, -71.1480], // RTE
+        [42.3473, -71.0755], // BBY
+        [42.3519, -71.0551]  // BOS
+      ];
+      const AMTRAK_NEC_WAS_TO_BOS = AMTRAK_NEC_WAS_TO_NHV.concat(AMTRAK_NEC_NHV_TO_BOS.slice(1));
+      function amtrakDistMiles(lat1, lon1, lat2, lon2) {
+        const R = 3958.8;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      // Distance from point to segment, miles (equirectangular local projection)
+      function amtrakDistToSegmentMiles(lat, lon, lat1, lon1, lat2, lon2) {
+        const x = lon, y = lat;
+        const x1 = lon1, y1 = lat1, x2 = lon2, y2 = lat2;
+        const dx = x2 - x1, dy = y2 - y1;
+        if (dx === 0 && dy === 0) return amtrakDistMiles(lat, lon, lat1, lon1);
+        let t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
+        t = Math.max(0, Math.min(1, t));
+        return amtrakDistMiles(lat, lon, y1 + t * dy, x1 + t * dx);
+      }
+      function amtrakDistToPolylineMiles(lat, lon, poly) {
+        let best = Infinity;
+        for (let i = 0; i < poly.length - 1; i++) {
+          const a = poly[i], b = poly[i + 1];
+          const d = amtrakDistToSegmentMiles(lat, lon, a[0], a[1], b[0], b[1]);
+          if (d < best) best = d;
+        }
+        return best;
+      }
+      function trainUsesSpringfieldLine(t) {
+        const codes = new Set(
+          (t.stations || []).map(function(s) { return String(s.code || '').toUpperCase(); }).filter(Boolean)
+        );
+        if (codes.has('SPG') || codes.has('WNL') || codes.has('HFD') || codes.has('GFD')) return true;
+        const o = String(t.origCode || '').toUpperCase();
+        const d = String(t.destCode || '').toUpperCase();
+        return o === 'SPG' || d === 'SPG' || o === 'GFD' || d === 'GFD';
+      }
+      // True only when the train's CURRENT lat/lon is on the NEC corridor segment.
+      function isOnNecCorridorNow(t) {
+        if (!t) return false;
+        const route = String(t.routeName || '');
+        // Never: Acela, or services that only touch NYP then leave onto other corridors
+        if (/acela/i.test(route)) return false;
+        if (/empire service|adirondack|maple leaf|ethan allen|downeaster|lake\s*shore limited|lakeshore limited/i.test(route)) return false;
+        const lat = parseFloat(t.lat);
+        const lon = parseFloat(t.lon != null ? t.lon : t.lng);
+        if (isNaN(lat) || isNaN(lon)) return false;
+        const poly = trainUsesSpringfieldLine(t) ? AMTRAK_NEC_WAS_TO_NHV : AMTRAK_NEC_WAS_TO_BOS;
+        // ~8 mi buffer: on the NEC alignment only (not whole multi-day trips)
+        return amtrakDistToPolylineMiles(lat, lon, poly) <= 8;
+      }
+      const AMTRAK_EMPIRE_ICON_URL = '/assets/amtrak-empire.png';
+      const AMTRAK_ACELA_ICON_URL = '/assets/amtrak-acela.png';
+      function isAcelaTrain(t) {
+        return /acela/i.test(String((t && t.routeName) || ''));
+      }
+      function isEmpireCorridorTrain(t) {
+        return /empire service|maple leaf|lake\s*shore limited|lakeshore limited/i.test(String((t && t.routeName) || ''));
+      }
+      const AMTRAK_EMPIRE_NYP_ALB = [
+        [40.7506, -73.9935], // NYP
+        [40.935, -73.902],   // Yonkers
+        [41.208, -73.882],   // Croton-Harmon
+        [41.498, -73.985],   // Beacon / New Hamburg
+        [41.707, -73.938],   // Poughkeepsie
+        [41.921, -73.951],   // Rhinecliff
+        [42.254, -73.798],   // Hudson
+        [42.641, -73.741]    // ALB
+      ];
+      function isOnEmpireNypAlbNow(t) {
+        if (!isEmpireCorridorTrain(t)) return false;
+        const lat = parseFloat(t.lat);
+        const lon = parseFloat(t.lon != null ? t.lon : t.lng);
+        if (isNaN(lat) || isNaN(lon)) return false;
+        return amtrakDistToPolylineMiles(lat, lon, AMTRAK_EMPIRE_NYP_ALB) <= 10;
+      }
+      function createAmtrakIcon(trainNum, statusMsg, trainObj) {
+        if (rrIsViaTrain(trainObj) || /^v\d/i.test(String(trainNum || ''))) {
+          return L.icon({
+            iconUrl: VIA_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon via-rail-icon'
+          });
+        }
+        const reported = rrReportIconUrl('amtrak', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'amtrak-nec-icon');
+        // Acela: dedicated icon (Acela only runs on the NEC)
+        if (isAcelaTrain(trainObj)) {
+          return L.icon({
+            iconUrl: AMTRAK_ACELA_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon amtrak-acela-icon'
+          });
+        }
+        // Empire Service / Maple Leaf / Lake Shore Limited on the Hudson Line between NYP and ALB
+        if (isOnEmpireNypAlbNow(trainObj)) {
+          return L.icon({
+            iconUrl: AMTRAK_EMPIRE_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon amtrak-empire-icon'
+          });
+        }
+        // Non-Acela: custom NEC icon only while geographically on the corridor
+        if (isOnNecCorridorNow(trainObj)) {
+          return L.icon({
+            iconUrl: AMTRAK_NEC_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon'
+          });
+        }
+        // Default Amtrak icon for trains not using Acela / on-NEC custom icons
+        return L.icon({
+          iconUrl: AMTRAK_DEFAULT_ICON_URL,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -22],
+          className: 'amtrak-nec-icon amtrak-default-icon'
+        });
+      }
+      // toLocaleTimeString builds a new formatter on every call, and these run for every stop of every
+      // train on each refresh, so they share one.
+      const RR_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
+      function rrClockTime(d) {
+        return isNaN(d) ? '' : RR_TIME_FORMAT.format(d);
+      }
+      function formatAmtrakTime(iso) {
+        if (!iso) return '';
+        try {
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          return rrClockTime(d);
+        } catch (_) { return ''; }
+      }
+      function parseAmtrakDelayMinutes(s) {
+        const cmnt = String((s && s.arrCmnt) || '') + ' ' + String((s && s.depCmnt) || '');
+        const m = cmnt.match(/(\d+)\s*min/i);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (/early/i.test(cmnt)) return -n;
+          return n;
+        }
+        const schIso = s && (s.schDep || s.schArr);
+        const liveIso = s && (s.dep || s.arr);
+        if (schIso && liveIso) {
+          const d = (new Date(liveIso) - new Date(schIso)) / 60000;
+          if (!isNaN(d)) return d;
+        }
+        return null;
+      }
+      // Map Amtrak station objects into the same shape MBTA buildStopsHtml expects
+      // so every train popup stop list uses one shared layout.
+      function amtrakStationsToStops(stations) {
+        return (stations || []).map(function(s) {
+          const st = String(s.status || '').toLowerCase();
+          const completed = st === 'departed';
+          const schIso = s.schDep || s.schArr || null;
+          const liveIso = s.dep || s.arr || null;
+          const schTime = schIso ? new Date(schIso) : null;
+          const liveTime = liveIso ? new Date(liveIso) : null;
+          const schOk = schTime && !isNaN(schTime.getTime());
+          const liveOk = liveTime && !isNaN(liveTime.getTime());
+          const formattedScheduled = formatAmtrakTime(s.schDep) || formatAmtrakTime(s.schArr) || '—';
+          const formattedLive = formatAmtrakTime(s.dep) || formatAmtrakTime(s.arr) || null;
+          return {
+            name: s.name || s.code || 'Unknown',
+            scheduledTime: schOk ? schTime : null,
+            predictedTime: (!completed && liveOk) ? liveTime : null,
+            delayMinutes: parseAmtrakDelayMinutes(s),
+            trackNumber: s.platform ? String(s.platform) : null,
+            formattedScheduledTime: formattedScheduled,
+            formattedPredictedTime: formattedLive,
+            formattedActualTime: (completed && formattedLive) ? formattedLive : null,
+            isCompleted: completed,
+            lat: (s.lat != null && s.lat !== '') ? parseFloat(s.lat) : null,
+            lng: (s.lon != null && s.lon !== '') ? parseFloat(s.lon) : ((s.lng != null && s.lng !== '') ? parseFloat(s.lng) : null)
+          };
+        });
+      }
+      function buildAmtrakStopsHtml(stations, currentLat, currentLng, trainNumber) {
+        let stops = amtrakStationsToStops(stations);
+        try {
+          const svc = rrStopServiceDate();
+          const tnum = String(trainNumber || '');
+          const cached = rrStopActualMem[rrStopActualDocId('amtrak', tnum, svc)] || null;
+          if (cached) rrApplyStopActuals(stops, cached);
+        } catch (_) {}
+        if (!stops.length) return '<div class="no-departures">No stop data</div>';
+        return buildStopsHtml(stops, currentLat, currentLng);
+      }
+      async function rrHydrateAmtrakStopActuals(vid, t) {
+        try {
+          const num = (t && (t.trainNum || t.trainNumRaw)) || String(vid || '').replace('amtrak-', '');
+          const svc = rrStopServiceDate();
+          let stops = amtrakStationsToStops((t && t.stations) || []);
+          const cached = await rrLoadStopActuals('amtrak', num, svc);
+          if (cached) rrApplyStopActuals(stops, cached);
+          // Prefer live Amtrak departed stamps; Firebase fills gaps for already-passed stops missing times
+          rrSaveStopActuals('amtrak', num, svc, stops);
+          if (amtrakMarkers[vid] && amtrakMarkers[vid].isPopupOpen && amtrakMarkers[vid].isPopupOpen()) {
+            const info = amtrakTrainInfo[vid] || t;
+            amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
+            amtrakMarkers[vid].getPopup().update();
+            scrollStopsListToNextStop(amtrakMarkers[vid].getPopup());
+          }
+          return stops;
+        } catch (e) {
+          console.warn('[stopActuals] amtrak hydrate', e && e.message);
+          return null;
+        }
+      }
+      function amtrakTrainNumKey(n) {
+        const s = String(n == null ? '' : n).trim();
+        if (!s) return '';
+        return s.replace(/^0+/, '') || '0';
+      }
+      const AMTRAK_ALERTS_URL = apiUrl('/api/amtrak/alerts');
+      let amtrakAlertsCache = { at: 0, byTrain: {} };
+      function indexAmtrakGtfsRtAlerts(feed) {
+        const byTrain = {};
+        function add(num, msg) {
+          const k = amtrakTrainNumKey(num);
+          if (!k || !msg) return;
+          if (!byTrain[k]) byTrain[k] = msg;
+        }
+        (feed.entity || []).forEach(function(e) {
+          const a = e && e.alert;
+          if (!a || !gtfsRtAlertIsActive(a)) return;
+          const header = gtfsRtTranslatedText(a.header_text);
+          const desc = gtfsRtTranslatedText(a.description_text);
+          const msg = (desc || header || '').trim();
+          if (!msg) return;
+          const idm = String(e.id || '').match(/AMTK[_-]?(\d+)/i);
+          if (idm) add(idm[1], msg);
+          (a.informed_entity || []).forEach(function(ent) {
+            if (!ent) return;
+            const tripId = (ent.trip && ent.trip.trip_id != null) ? String(ent.trip.trip_id) : '';
+            const tm = tripId.match(/AMTK[_-]?(\d+)/i);
+            if (tm) add(tm[1], msg);
+            if (ent.trip && ent.trip.trip_short_name) add(ent.trip.trip_short_name, msg);
+          });
+        });
+        return byTrain;
+      }
+      async function fetchAmtrakAlertsByTrain() {
+        const now = Date.now();
+        if (amtrakAlertsCache.at && (now - amtrakAlertsCache.at) < 45000) return amtrakAlertsCache.byTrain || {};
+        try {
+          const res = await fetch(AMTRAK_ALERTS_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = new Uint8Array(await res.arrayBuffer());
+          const FeedMessage = getFeedMessageType();
+          const feed = FeedMessage.decode(buf);
+          const byTrain = indexAmtrakGtfsRtAlerts(feed);
+          amtrakAlertsCache = { at: now, byTrain: byTrain };
+          return byTrain;
+        } catch (e) {
+          console.warn('[Amtrak alerts] unavailable (deploy Worker /api/amtrak/alerts if missing):', e && e.message ? e.message : e);
+          return amtrakAlertsCache.byTrain || {};
+        }
+      }
+      function amtrakAlertFromTrain(t, officialMsg) {
+        const official = (officialMsg || (t && t.officialAlert) || '').toString().trim();
+        const alerts = (t && t.alerts) || [];
+        let msg = official;
+        if (!msg && alerts.length) {
+          const a0 = alerts[0] || {};
+          msg = (a0.message || a0.header || a0.title || '').trim();
+        }
+        if (!msg && t && t.alertHeader) msg = String(t.alertHeader).trim();
+        const status = (t && t.statusMsg && String(t.statusMsg).trim()) || (t && t.trainState) || '';
+        const disruption = /disruption/i.test(status);
+        if (!msg && disruption) msg = 'Service disruption';
+        const hasAlert = !!official || !!(t && t.hasAlert) || alerts.length > 0 || disruption;
+        return { hasAlert: hasAlert, header: msg || (hasAlert ? 'Active Amtrak alert' : '') };
+      }
+      // Exactly MBTA's popup wording/thresholds: text from getOnTimeStatus, pill class from createTrainPopupContent.
+      function rrMbtaStyleDelayStatus(delayMinutes) {
+        const d = Number(delayMinutes);
+        if (delayMinutes == null || !isFinite(d)) return null;
+        const text = Math.abs(d) <= 5 ? 'On Time' : d > 5 ? ('Delayed ' + Math.round(d) + ' min') : ('Early ' + Math.round(Math.abs(d)) + ' min');
+        const cls = Math.abs(d) <= 5 ? 'status-on-time' : (d <= 15) ? 'status-delayed' : 'status-very-delayed';
+        return { text: text, cls: cls };
+      }
+      // Predicted vs scheduled at the next stop (Amtraker stations); falls back to the last departed stop.
+      function amtrakNextStopDelayMinutes(t) {
+        const st = Array.isArray(t && t.stations) ? t.stations : [];
+        if (!st.length) return null;
+        function diff(liveIso, schIso) {
+          if (!liveIso || !schIso) return null;
+          const a = Date.parse(liveIso), b = Date.parse(schIso);
+          return (isFinite(a) && isFinite(b)) ? (a - b) / 60000 : null;
+        }
+        function stopDelay(s, preferDep) {
+          if (!s) return null;
+          let d = preferDep ? diff(s.dep, s.schDep) : diff(s.arr, s.schArr);
+          if (d == null) d = preferDep ? diff(s.arr, s.schArr) : diff(s.dep, s.schDep);
+          if (d == null) {
+            try { d = parseAmtrakDelayMinutes(s); } catch (_) { d = null; }
+          }
+          return d;
+        }
+        let idx = -1;
+        for (let i = 0; i < st.length; i++) {
+          if (String((st[i] && st[i].status) || '').toLowerCase() !== 'departed') { idx = i; break; }
+        }
+        if (idx >= 0) {
+          const atStation = String(st[idx].status || '').toLowerCase() === 'station';
+          const d = stopDelay(st[idx], atStation);
+          if (d != null) return d;
+        }
+        for (let j = (idx >= 0 ? idx : st.length) - 1; j >= 0; j--) {
+          const d = stopDelay(st[j], true);
+          if (d != null) return d;
+        }
+        return null;
+      }
+      function createAmtrakPopupContent(vid, t) {
+        const isViaPopup = rrIsViaTrain(t);
+        const num = t.trainNum || t.trainNumRaw || String(vid).replace('amtrak-', '');
+        const dispNum = isViaPopup ? rrViaDisplayNum(t) : num;
+        const route = t.routeName || (isViaPopup ? 'VIA Rail' : 'Amtrak');
+        const dest = t.destName || t.destCode || '—';
+        const origin = t.origName || t.origCode || '—';
+        let status = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+        // Generic 'Active' -> same lateness text/colors as MBTA popups (getOnTimeStatus + createTrainPopupContent)
+        const amtrakDelayMin = (!(t.statusMsg && String(t.statusMsg).trim()) && /^active$/i.test(String(t.trainState || ''))) ? amtrakNextStopDelayMinutes(t) : null;
+        const amtrakMbtaStyle = amtrakDelayMin != null ? rrMbtaStyleDelayStatus(amtrakDelayMin) : null;
+        if (amtrakMbtaStyle) status = amtrakMbtaStyle.text;
+        const speed = t.velocity != null ? Math.round(Number(t.velocity)) : 0;
+        const heading = t.heading || '—';
+        const tripId = t.trainID || num;
+        const eventName = t.eventName || t.eventCode || '—';
+        const delayed = /late|delay/i.test(status);
+        const veryLate = /late\s*([2-9]\d|\d{3,})/i.test(status) || /hours?/i.test(status);
+        let statusPillClass = 'status-on-time';
+        if (/disruption/i.test(status)) statusPillClass = 'status-disruption';
+        else if (/alert/i.test(status)) statusPillClass = 'status-alert';
+        else if (veryLate) statusPillClass = 'status-very-delayed';
+        else if (delayed) statusPillClass = 'status-delayed';
+        else if (/predeparture|scheduled|not yet/i.test(status)) statusPillClass = 'status-scheduled';
+        if (amtrakMbtaStyle) statusPillClass = amtrakMbtaStyle.cls;
+        const nextStop = (eventName && eventName !== '—') ? eventName : dest;
+        const txt = t.trainState === 'Completed'
+          ? `Completed · ${origin} to ${dest}`
+          : `On the way to ${nextStop}`;
+        const lastSeenTime = amtrakLastSeen[vid]
+          ? new Date(amtrakLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+          : '—';
+        const amtrakAlert = amtrakAlertFromTrain(t);
+        const hasAmtrakAlert = amtrakAlert.hasAlert;
+        const alertText = amtrakAlert.header;
+        const al = trainAlertBannerHtml(hasAmtrakAlert, alertText || 'Active Amtrak alert');
+        const amtrakAlertIcon = trainAlertHeaderIconHtml(hasAmtrakAlert);
+        const amtrakBadge = isViaPopup
+          ? `<span class="cape-badge" style="background:${VIA_COLOR};color:#1a1a1a;">VIA Rail</span>`
+          : `<span class="cape-badge" style="background:#003087;">Amtrak</span>`;
+        const ctrailStops = (t.stations || []).map(function(s){ return String((s && (s.code || s.stationCode)) || '').toUpperCase(); });
+        const onHartfordLine = !isViaPopup && ctrailStops.indexOf('HFD') !== -1 || ctrailStops.indexOf('WFD') !== -1 || ctrailStops.indexOf('MDN') !== -1 || ctrailStops.indexOf('BER') !== -1;
+        const ctrailBadge = onHartfordLine
+          ? '<span class="cape-badge" style="background:#EA0D2A;">CTrail Hartford Line</span>'
+          : '';
+        const amtrakSpecial = isViaPopup ? null : (getSpecialForVehicle('amtrak', (t.specialUnit && t.specialUnit.vehicleId) || null, num) || t.specialUnit || null);
+        const amtrakPairingBlock = isViaPopup ? '' : buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial });
+        const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshAmtrakTrain('${vid}')">Refresh</button>`;
+        const shareBtn = rrShareTrainBtnHtml('amtrak', vid, num);
+        const logTripBtn = isViaPopup ? '' : rrLogTripBtnHtml('amtrak', vid, num);
+        const amtrakLat = parseFloat(t.lat);
+        const amtrakLng = parseFloat(t.lon != null ? t.lon : t.lng);
+        const stopsHtml = buildAmtrakStopsHtml(
+          t.stations,
+          isNaN(amtrakLat) ? null : amtrakLat,
+          isNaN(amtrakLng) ? null : amtrakLng,
+          num
+        );
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                ${ctrailBadge}
+                ${amtrakBadge}
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dispNum}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${amtrakAlertIcon}
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${txt}</p>
+                <span class="status-pill ${statusPillClass}">${status}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Train</span>
+                  <span class="info-value">${isViaPopup ? ('VIA ' + dispNum) : num}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Line</span>
+                  <span class="info-value">${route || '—'}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Heading</span>
+                  <span class="info-value">${heading}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Speed</span>
+                  <span class="info-value">${speed} mph</span>
+                </div>
+              </div>
+              ${al}
+              <div class="meta-row">
+                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              ${amtrakPairingBlock}
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${logTripBtn}${shareBtn}${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+      window.refreshAmtrakTrain = async function(vid) {
+        await fetchAmtrakTrains();
+        try {
+          const id = vid || Object.keys(amtrakMarkers || {}).find(function(k){ return amtrakMarkers[k] && amtrakMarkers[k].isPopupOpen && amtrakMarkers[k].isPopupOpen(); });
+          if (id && amtrakTrainInfo[id]) await rrHydrateAmtrakStopActuals(id, amtrakTrainInfo[id]);
+        } catch (_) {}
+      };
+      function updateAmtrakVisibility() {
+        Object.keys(amtrakMarkers).forEach(function(vid) {
+          const m = amtrakMarkers[vid];
+          const info = amtrakTrainInfo[vid] || {};
+          const isVia = rrIsViaTrain(info);
+          const special = isVia ? null : getSpecialForVehicle('amtrak', (info.specialUnit && info.specialUnit.vehicleId) || null, info.trainNum);
+          const okSpecial = !showOnlySpecial || !!special;
+          if ((isVia ? showVia : showAmtrak) && okSpecial) map.addLayer(m);
+          else if (map.hasLayer(m)) map.removeLayer(m);
+        });
+        if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+      }
+      // Amtrak: show every live train. Still gated by the Show Amtrak checkbox.
+      async function fetchAmtrakTrains() {
+        if (!showAmtrak && !showVia) return;
+        const stat = FetchStats.start('Amtrak');
+        try {
+          const officialAlertsP = fetchAmtrakAlertsByTrain();
+          const res = await fetch(amtrakUrl);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          const officialAlerts = await officialAlertsP.catch(function() { return {}; });
+          if (!data || typeof data !== 'object') {
+            console.warn('%c[Amtrak] Unexpected Amtraker payload', 'color:#f39c12');
+            FetchStats.end(stat, { status: 'bad-payload' });
+            return;
+          }
+          const now = Date.now();
+          amtrakAllTrains = [];
+          let created = 0, updated = 0, skipped = 0, filtered = 0;
+          const seen = new Set();
+          // Top-level object keyed by train number; each value is an array of train objects
+          Object.keys(data).forEach(function(k) {
+            if (k === 'error' || (k === 'v1' && !Array.isArray(data[k]))) return;
+            const arr = data[k];
+            if (!Array.isArray(arr) || !arr.length) { skipped++; return; }
+            arr.forEach(function(t) {
+              if (!amtrakAllTrains) amtrakAllTrains = [];
+              const isVia = rrIsViaTrain(t);
+              // VIA trains stay out of Amtrak lookups (My Trips, station dots, actuals)
+              if (!isVia) {
+                amtrakAllTrains.push(t);
+                try { harvestAmtrakStationDots(t); } catch (_) {}
+              }
+              if (!t || t.lat == null || t.lon == null) { skipped++; return; }
+              const trainNum = t.trainNum || t.trainNumRaw || k;
+              const vid = 'amtrak-' + (t.trainID || trainNum);
+              const lat = parseFloat(t.lat);
+              const lng = parseFloat(t.lon);
+              if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
+              seen.add(vid);
+              const specialUnit = isVia ? null : getSpecialForVehicle('amtrak', null, trainNum);
+              const officialMsg = isVia ? '' : ((officialAlerts && (officialAlerts[amtrakTrainNumKey(trainNum)] || officialAlerts[String(trainNum)])) || '');
+              const amtrakAlert = amtrakAlertFromTrain(t, officialMsg);
+              const info = Object.assign({}, t, {
+                id: vid, trainNum: trainNum, lat: lat, lng: lng, specialUnit: specialUnit || null,
+                hasAlert: amtrakAlert.hasAlert,
+                alertHeader: amtrakAlert.header,
+                officialAlert: officialMsg || '',
+                isVia: isVia
+              });
+              amtrakTrainInfo[vid] = info;
+              if (!isVia) { try { harvestAmtrakStationDots(t); } catch (_) {} }
+              const icon = createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t);
+              const amtrakLabelInfo = buildCyclingTrainInfo({
+                route: info.routeName || (isVia ? 'VIA Rail' : 'Amtrak'),
+                trainNum: isVia ? ('VIA ' + rrViaDisplayNum(info)) : trainNum,
+                dest: info.destName || info.destCode || '',
+                speedMph: info.velocity != null ? Number(info.velocity) : null,
+                status: (info.statusMsg && String(info.statusMsg).trim()) || info.trainState || '',
+                nextStop: info.eventName || info.eventCode || ''
+              });
+              if (amtrakMarkers[vid]) {
+                amtrakMarkers[vid].setLatLng([lat, lng]);
+                amtrakMarkers[vid].setIcon(icon);
+                if (amtrakMarkers[vid].getPopup()) {
+                  amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
+                } else {
+                  amtrakMarkers[vid].bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+                }
+                applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
+                updated++;
+              } else {
+                const m = L.marker([lat, lng], { icon: icon });
+                m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+              m.on('popupopen', function() {
+                if (isVia) return;
+                try { rrHydrateAmtrakStopActuals(vid, amtrakTrainInfo[vid] || info); } catch (_) {}
+              });
+                applyCyclingLabel(m, amtrakLabelInfo, true);
+                const zoom = map.getZoom();
+                if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                  m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label', opacity: 1 });
+                  if (m._info.length) m.getTooltip().setContent(m._info[0]);
+                }
+                amtrakMarkers[vid] = m;
+                const _as = isVia ? null : (specialUnit || getSpecialForVehicle('amtrak', null, trainNum));
+                if ((isVia ? showVia : showAmtrak) && (!showOnlySpecial || _as)) m.addTo(map);
+                created++;
+              }
+              amtrakLastSeen[vid] = rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, now);
+            });
+          });
+          // Drop markers no longer present / filtered out
+          Object.keys(amtrakMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(amtrakMarkers[vid]);
+              delete amtrakMarkers[vid];
+              delete amtrakTrainInfo[vid];
+              delete amtrakLastSeen[vid];
+            }
+          });
+          try {
+            (amtrakAllTrains || []).forEach(function(tr) { harvestAmtrakStationDots(tr); });
+            if (typeof updateStationVisibility === 'function') updateStationVisibility();
+          } catch (_) {}
+          try {
+            const amtrakOnly = {};
+            Object.keys(data).forEach(function(k) {
+              const a = data[k];
+              if (!Array.isArray(a)) return;
+              const keep = a.filter(function(t) { return !rrIsViaTrain(t); });
+              if (keep.length) amtrakOnly[k] = keep;
+            });
+            rrRecordAmtrakMapActuals(amtrakOnly);
+          } catch (_) {}
+          FetchStats.end(stat, {
+            received: Object.keys(data).length,
+            created: created,
+            updated: updated,
+            skipped: skipped,
+            filtered: filtered,
+            active: Object.keys(amtrakMarkers).length
+          });
+          updateAmtrakVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('Amtrak', e);
+          console.warn('%c[Amtrak] Amtraker fetch failed', 'color:#f39c12', e);
+        }
+      }
+
+      // ==================== METRO-NORTH (MTA GTFS-RT) ====================
+      const MNR_GTFS_RT_URL = apiUrl('/api/mta/mnr');
+      const MNR_STATIC = {"stops":{"1":{"name":"Grand Central","lat":40.752998,"lon":-73.977056,"code":"0NY"},"4":{"name":"Harlem-125 St","lat":40.805157,"lon":-73.939149,"code":"0HL"},"622":{"name":"Yankees-E 153 St","lat":40.8253,"lon":-73.9299,"code":"0YS"},"184":{"name":"Highbridge Yard","lat":40.8359,"lon":-73.9315,"code":"0HI"},"9":{"name":"Morris Heights","lat":40.854252,"lon":-73.919583,"code":"0MH"},"10":{"name":"University Heights","lat":40.862248,"lon":-73.91312,"code":"0UH"},"11":{"name":"Marble Hill","lat":40.874333,"lon":-73.910941,"code":"0MB"},"14":{"name":"Spuyten Duyvil","lat":40.878245,"lon":-73.921455,"code":"0DV"},"16":{"name":"Riverdale","lat":40.903981,"lon":-73.914126,"code":"0RV"},"17":{"name":"Ludlow","lat":40.924972,"lon":-73.904612,"code":"0LU"},"18":{"name":"Yonkers","lat":40.935795,"lon":-73.902668,"code":"0YK"},"19":{"name":"Glenwood","lat":40.950496,"lon":-73.899062,"code":"0GD"},"20":{"name":"Greystone","lat":40.972705,"lon":-73.889069,"code":"0GY"},"22":{"name":"Hastings-on-Hudson","lat":40.994109,"lon":-73.884512,"code":"0HS"},"23":{"name":"Dobbs Ferry","lat":41.012459,"lon":-73.87949,"code":"0DF"},"24":{"name":"Ardsley-on-Hudson","lat":41.026198,"lon":-73.876543,"code":"0AR"},"25":{"name":"Irvington","lat":41.039993,"lon":-73.873083,"code":"0IV"},"27":{"name":"Tarrytown","lat":41.076473,"lon":-73.864563,"code":"0TT"},"29":{"name":"Philipse Manor","lat":41.09492,"lon":-73.869755,"code":"0PM"},"30":{"name":"Scarborough","lat":41.135763,"lon":-73.866163,"code":"0SB"},"31":{"name":"Ossining","lat":41.157663,"lon":-73.869281,"code":"0OS"},"33":{"name":"Croton-Harmon","lat":41.189903,"lon":-73.882394,"code":"0HM"},"37":{"name":"Cortlandt","lat":41.246259,"lon":-73.921884,"code":"0CT"},"39":{"name":"Peekskill","lat":41.285962,"lon":-73.93042,"code":"0PE"},"40":{"name":"Manitou","lat":41.332601,"lon":-73.970426,"code":"0MN"},"42":{"name":"Garrison","lat":41.38178,"lon":-73.947202,"code":"0GA"},"43":{"name":"Cold Spring","lat":41.415283,"lon":-73.95809,"code":"0CS"},"44":{"name":"Breakneck Ridge","lat":41.450181,"lon":-73.982449,"code":"0BK"},"46":{"name":"Beacon","lat":41.504007,"lon":-73.984528,"code":"0BC"},"49":{"name":"New Hamburg","lat":41.587448,"lon":-73.947226,"code":"0NM"},"51":{"name":"Poughkeepsie","lat":41.705839,"lon":-73.937946,"code":"0PO"},"54":{"name":"Melrose","lat":40.825761,"lon":-73.915231,"code":"1ML"},"55":{"name":"Tremont","lat":40.847301,"lon":-73.89955,"code":"1TR"},"56":{"name":"Fordham","lat":40.8615,"lon":-73.89058,"code":"1FO"},"57":{"name":"Botanical Garden","lat":40.866555,"lon":-73.883109,"code":"1BG"},"58":{"name":"Williams Bridge","lat":40.878569,"lon":-73.871064,"code":"1WG"},"59":{"name":"Woodlawn","lat":40.895361,"lon":-73.862916,"code":"1WN"},"61":{"name":"Wakefield","lat":40.905936,"lon":-73.85568,"code":"1WF"},"62":{"name":"Mt Vernon West","lat":40.912142,"lon":-73.851129,"code":"1MW"},"64":{"name":"Fleetwood","lat":40.92699,"lon":-73.83948,"code":"1FW"},"65":{"name":"Bronxville","lat":40.93978,"lon":-73.835208,"code":"1BX"},"66":{"name":"Tuckahoe","lat":40.949393,"lon":-73.830166,"code":"1TK"},"68":{"name":"Crestwood","lat":40.958997,"lon":-73.820564,"code":"1CW"},"71":{"name":"Scarsdale","lat":40.989168,"lon":-73.808634,"code":"1SC"},"72":{"name":"Hartsdale","lat":41.010333,"lon":-73.796407,"code":"1HA"},"74":{"name":"White Plains","lat":41.032589,"lon":-73.775208,"code":"1WP"},"76":{"name":"North White Plains","lat":41.049806,"lon":-73.773142,"code":"1NW"},"78":{"name":"Valhalla","lat":41.072819,"lon":-73.772599,"code":"1VA"},"79":{"name":"Mt Pleasant","lat":41.095877,"lon":-73.793822,"code":"1MP"},"80":{"name":"Hawthorne","lat":41.108581,"lon":-73.79625,"code":"1HN"},"81":{"name":"Pleasantville","lat":41.135222,"lon":-73.792661,"code":"1PV"},"83":{"name":"Chappaqua","lat":41.158015,"lon":-73.774885,"code":"1CQ"},"84":{"name":"Mt Kisco","lat":41.208242,"lon":-73.729778,"code":"1MK"},"85":{"name":"Bedford Hills","lat":41.237316,"lon":-73.699936,"code":"1BH"},"86":{"name":"Katonah","lat":41.259552,"lon":-73.684155,"code":"1KA"},"88":{"name":"Goldens Bridge","lat":41.294338,"lon":-73.677655,"code":"1GO"},"89":{"name":"Purdy's","lat":41.325775,"lon":-73.659061,"code":"1PY"},"90":{"name":"Croton Falls","lat":41.347722,"lon":-73.662269,"code":"1CF"},"91":{"name":"Brewster","lat":41.39447,"lon":-73.619802,"code":"1BW"},"94":{"name":"Southeast","lat":41.413203,"lon":-73.623787,"code":"1BR"},"97":{"name":"Patterson","lat":41.511827,"lon":-73.604584,"code":"1PA"},"98":{"name":"Pawling","lat":41.564205,"lon":-73.600524,"code":"1PW"},"99":{"name":"Appalachian Trail","lat":41.592871,"lon":-73.588032,"code":"1AT"},"100":{"name":"Harlem Valley-Wingdale","lat":41.637525,"lon":-73.57145,"code":"1WI"},"101":{"name":"Dover Plains","lat":41.740401,"lon":-73.576502,"code":"1DO"},"176":{"name":"Tenmile River","lat":41.779938,"lon":-73.558204,"code":"1TM"},"177":{"name":"Wassaic","lat":41.814722,"lon":-73.562197,"code":"1WA"},"105":{"name":"Mt Vernon East","lat":40.912161,"lon":-73.832185,"code":"2ME"},"106":{"name":"Pelham","lat":40.910321,"lon":-73.810242,"code":"2PH"},"108":{"name":"New Rochelle","lat":40.911605,"lon":-73.783807,"code":"2NR"},"110":{"name":"Larchmont","lat":40.933394,"lon":-73.759792,"code":"2LA"},"111":{"name":"Mamaroneck","lat":40.954061,"lon":-73.736125,"code":"2MA"},"112":{"name":"Harrison","lat":40.969432,"lon":-73.712964,"code":"2HS"},"114":{"name":"Rye","lat":40.985922,"lon":-73.682553,"code":"2RY"},"115":{"name":"Port Chester","lat":41.000732,"lon":-73.6647,"code":"2PC"},"116":{"name":"Greenwich","lat":41.021277,"lon":-73.624621,"code":"2GN"},"118":{"name":"Cos Cob","lat":41.030171,"lon":-73.598306,"code":"2CC"},"120":{"name":"Riverside","lat":41.031682,"lon":-73.588173,"code":"2RS"},"121":{"name":"Old Greenwich","lat":41.033817,"lon":-73.565859,"code":"2OG"},"124":{"name":"Stamford","lat":41.046611,"lon":-73.542846,"code":"2SM"},"153":{"name":"Glenbrook","lat":41.070547,"lon":-73.520021,"code":"3GB"},"651":{"name":"Springdale MW Facility","lat":41.082147,"lon":-73.519675,"code":"3SP"},"154":{"name":"Springdale","lat":41.08876,"lon":-73.517828,"code":"3SD"},"155":{"name":"Talmadge Hill","lat":41.116012,"lon":-73.498149,"code":"3TH"},"157":{"name":"New Canaan","lat":41.146305,"lon":-73.495626,"code":"3NC"},"127":{"name":"Noroton Heights","lat":41.069041,"lon":-73.49788,"code":"2NO"},"128":{"name":"Darien","lat":41.076913,"lon":-73.472966,"code":"2DA"},"129":{"name":"Rowayton","lat":41.077456,"lon":-73.445527,"code":"2RO"},"131":{"name":"South Norwalk","lat":41.09673,"lon":-73.421132,"code":"2SN"},"158":{"name":"Merritt 7","lat":41.146618,"lon":-73.427859,"code":"4M7"},"160":{"name":"Wilton","lat":41.196202,"lon":-73.432434,"code":"4WI"},"161":{"name":"Cannondale","lat":41.21662,"lon":-73.426703,"code":"4CA"},"162":{"name":"Branchville","lat":41.26763,"lon":-73.441421,"code":"4BV"},"163":{"name":"Redding","lat":41.325684,"lon":-73.4338,"code":"4RD"},"164":{"name":"Bethel","lat":41.376225,"lon":-73.418171,"code":"4BE"},"165":{"name":"Danbury","lat":41.396146,"lon":-73.44879,"code":"4DN"},"133":{"name":"East Norwalk","lat":41.103996,"lon":-73.404588,"code":"2EN"},"134":{"name":"Westport","lat":41.118928,"lon":-73.371413,"code":"2WP"},"136":{"name":"Green's Farms","lat":41.122265,"lon":-73.315408,"code":"2GF"},"137":{"name":"Southport","lat":41.134844,"lon":-73.28897,"code":"2SP"},"138":{"name":"Fairfield","lat":41.143077,"lon":-73.257742,"code":"2FF"},"188":{"name":"Fairfield-Black Rock","lat":41.161,"lon":-73.234336,"code":"2FM"},"140":{"name":"Bridgeport","lat":41.178677,"lon":-73.187076,"code":"2BP"},"143":{"name":"Stratford","lat":41.194255,"lon":-73.131532,"code":"2SR"},"167":{"name":"Derby-Shelton","lat":41.319718,"lon":-73.083548,"code":"5DB"},"168":{"name":"Ansonia","lat":41.344156,"lon":-73.079892,"code":"5AN"},"169":{"name":"Seymour","lat":41.395139,"lon":-73.072499,"code":"5SY"},"170":{"name":"Beacon Falls","lat":41.441752,"lon":-73.06359,"code":"5BF"},"171":{"name":"Naugatuck","lat":41.494204,"lon":-73.052655,"code":"5NG"},"172":{"name":"Waterbury","lat":41.552728,"lon":-73.046126,"code":"5WB"},"145":{"name":"Milford","lat":41.223231,"lon":-73.057647,"code":"2MI"},"190":{"name":"West Haven","lat":41.27142,"lon":-72.963488,"code":"2WH"},"149":{"name":"New Haven","lat":41.296501,"lon":-72.92829,"code":"2NH"},"151":{"name":"New Haven-State St","lat":41.304979,"lon":-72.921747,"code":"2SS"}},"routes":{"3":{"name":"New Haven","color":"#EE0034","text":"#FFFFFF"},"4":{"name":"New Canaan","color":"#EE0034","text":"#FFFFFF"},"5":{"name":"Danbury","color":"#EE0034","text":"#FFFFFF"},"6":{"name":"Waterbury","color":"#EE0034","text":"#FFFFFF"},"1":{"name":"Hudson","color":"#009B3A","text":"#FFFFFF"},"2":{"name":"Harlem","color":"#0039A6","text":"#FFFFFF"}}};
+      const GTFS_RT_DESCRIPTOR = {
+        nested: {
+          transit_realtime: {
+            nested: {
+              FeedMessage: {
+                fields: {
+                  header: { type: 'FeedHeader', id: 1 },
+                  entity: { rule: 'repeated', type: 'FeedEntity', id: 2 }
+                }
+              },
+              FeedHeader: {
+                fields: {
+                  gtfs_realtime_version: { type: 'string', id: 1 },
+                  incrementality: { type: 'int32', id: 2 },
+                  timestamp: { type: 'uint64', id: 3 },
+                  feed_version: { type: 'string', id: 4 }
+                }
+              },
+              FeedEntity: {
+                fields: {
+                  id: { type: 'string', id: 1 },
+                  is_deleted: { type: 'bool', id: 2 },
+                  trip_update: { type: 'TripUpdate', id: 3 },
+                  vehicle: { type: 'VehiclePosition', id: 4 },
+                  alert: { type: 'Alert', id: 5 }
+                }
+              },
+              TripUpdate: {
+                fields: {
+                  trip: { type: 'TripDescriptor', id: 1 },
+                  stop_time_update: { rule: 'repeated', type: 'StopTimeUpdate', id: 2 },
+                  vehicle: { type: 'VehicleDescriptor', id: 3 },
+                  timestamp: { type: 'uint64', id: 4 },
+                  delay: { type: 'int32', id: 5 }
+                }
+              },
+              StopTimeUpdate: {
+                fields: {
+                  stop_sequence: { type: 'uint32', id: 1 },
+                  arrival: { type: 'StopTimeEvent', id: 2 },
+                  departure: { type: 'StopTimeEvent', id: 3 },
+                  stop_id: { type: 'string', id: 4 },
+                  schedule_relationship: { type: 'int32', id: 5 }
+                }
+              },
+              StopTimeEvent: {
+                fields: {
+                  delay: { type: 'int32', id: 1 },
+                  time: { type: 'int64', id: 2 },
+                  uncertainty: { type: 'int32', id: 3 }
+                }
+              },
+              TripDescriptor: {
+                fields: {
+                  trip_id: { type: 'string', id: 1 },
+                  start_time: { type: 'string', id: 2 },
+                  start_date: { type: 'string', id: 3 },
+                  schedule_relationship: { type: 'int32', id: 4 },
+                  route_id: { type: 'string', id: 5 },
+                  direction_id: { type: 'uint32', id: 6 }
+                }
+              },
+              VehiclePosition: {
+                fields: {
+                  trip: { type: 'TripDescriptor', id: 1 },
+                  position: { type: 'Position', id: 2 },
+                  current_stop_sequence: { type: 'uint32', id: 3 },
+                  current_status: { type: 'int32', id: 4 },
+                  timestamp: { type: 'uint64', id: 5 },
+                  congestion_level: { type: 'int32', id: 6 },
+                  stop_id: { type: 'string', id: 7 },
+                  vehicle: { type: 'VehicleDescriptor', id: 8 }
+                }
+              },
+              Position: {
+                fields: {
+                  latitude: { type: 'float', id: 1 },
+                  longitude: { type: 'float', id: 2 },
+                  bearing: { type: 'float', id: 3 },
+                  odometer: { type: 'double', id: 4 },
+                  speed: { type: 'float', id: 5 }
+                }
+              },
+              VehicleDescriptor: {
+                fields: {
+                  id: { type: 'string', id: 1 },
+                  label: { type: 'string', id: 2 },
+                  license_plate: { type: 'string', id: 3 }
+                }
+              },
+              Alert: {
+                fields: {
+                  active_period: { rule: 'repeated', type: 'TimeRange', id: 1 },
+                  informed_entity: { rule: 'repeated', type: 'EntitySelector', id: 5 },
+                  cause: { type: 'int32', id: 6 },
+                  effect: { type: 'int32', id: 7 },
+                  url: { type: 'TranslatedString', id: 8 },
+                  header_text: { type: 'TranslatedString', id: 10 },
+                  description_text: { type: 'TranslatedString', id: 11 }
+                }
+              },
+              TimeRange: {
+                fields: {
+                  start: { type: 'uint64', id: 1 },
+                  end: { type: 'uint64', id: 2 }
+                }
+              },
+              EntitySelector: {
+                fields: {
+                  agency_id: { type: 'string', id: 1 },
+                  route_id: { type: 'string', id: 2 },
+                  route_type: { type: 'int32', id: 3 },
+                  trip: { type: 'TripDescriptor', id: 4 },
+                  stop_id: { type: 'string', id: 5 }
+                }
+              },
+              TranslatedString: {
+                fields: {
+                  translation: { rule: 'repeated', type: 'Translation', id: 1 }
+                }
+              },
+              Translation: {
+                fields: {
+                  text: { type: 'string', id: 1 },
+                  language: { type: 'string', id: 2 }
+                }
+              }
+            }
+          }
+        }
+      };
+      // Metro-North, LIRR, Metra, and MARC all publish standard GTFS-realtime feeds.
+      let feedMessageType = null;
+      function getFeedMessageType() {
+        if (feedMessageType) return feedMessageType;
+        if (typeof protobuf === 'undefined' || !protobuf.Root) {
+          throw new Error('protobufjs not loaded');
+        }
+        const root = protobuf.Root.fromJSON(GTFS_RT_DESCRIPTOR);
+        feedMessageType = root.lookupType('transit_realtime.FeedMessage');
+        return feedMessageType;
+      }
+      // Shared GTFS-RT ServiceAlert helpers (Metra / MNR / LIRR). Escape for popup HTML.
+      function gtfsRtTranslatedText(ts) {
+        if (!ts || !ts.translation || !ts.translation.length) return '';
+        let pick = null;
+        for (let i = 0; i < ts.translation.length; i++) {
+          const t = ts.translation[i];
+          if (!t) continue;
+          if (!t.language || String(t.language).toLowerCase().indexOf('en') === 0) { pick = t; break; }
+          if (!pick) pick = t;
+        }
+        return String((pick && pick.text) || '').trim();
+      }
+      function gtfsRtAlertIsActive(alert) {
+        const periods = (alert && alert.active_period) || [];
+        if (!periods.length) return true;
+        const now = Math.floor(Date.now() / 1000);
+        return periods.some(function(p) {
+          const start = (p.start != null) ? Number(p.start) : 0;
+          const end = (p.end != null && Number(p.end) > 0) ? Number(p.end) : Number.POSITIVE_INFINITY;
+          return now >= start && now <= end;
+        });
+      }
+      function indexGtfsRtServiceAlerts(feed, agencyIds, routeIdsAllow) {
+        const byTrip = {};
+        const byRoute = {};
+        const allow = (agencyIds && agencyIds.length)
+          ? new Set(agencyIds.map(function(a) { return String(a).toUpperCase(); }))
+          : null;
+        const routeAllow = (routeIdsAllow && routeIdsAllow.length)
+          ? new Set(routeIdsAllow.map(function(r) { return String(r); }))
+          : null;
+        (feed.entity || []).forEach(function(e) {
+          const a = e && e.alert;
+          if (!a || !gtfsRtAlertIsActive(a)) return;
+          const header = gtfsRtTranslatedText(a.header_text) || 'Active Service Alert';
+          (a.informed_entity || []).forEach(function(ent) {
+            if (!ent) return;
+            if (allow) {
+              if (ent.agency_id) {
+                if (!allow.has(String(ent.agency_id).toUpperCase())) return;
+              } else if (routeAllow) {
+                const rid = (ent.route_id != null && ent.route_id !== '') ? String(ent.route_id) : '';
+                if (!rid || !routeAllow.has(rid)) return;
+              } else {
+                return; // agency filter set but entity has neither matching agency nor allowed route
+              }
+            }
+            const tripId = (ent.trip && ent.trip.trip_id != null) ? String(ent.trip.trip_id) : '';
+            const routeId = (ent.route_id != null && ent.route_id !== '') ? String(ent.route_id) : '';
+            if (tripId) byTrip[tripId] = header;
+            if (routeId) byRoute[routeId] = header;
+          });
+        });
+        return { byTrip: byTrip, byRoute: byRoute };
+      }
+      function lookupGtfsRtAlert(index, tripId, routeId) {
+        if (!index) return null;
+        if (tripId != null && tripId !== '' && index.byTrip[String(tripId)]) return index.byTrip[String(tripId)];
+        if (routeId != null && routeId !== '' && index.byRoute[String(routeId)]) return index.byRoute[String(routeId)];
+        return null;
+      }
+      function applyGtfsRtAlertFields(info, index) {
+        const header = lookupGtfsRtAlert(index, info.tripId, info.routeId);
+        info.hasAlert = !!header;
+        info.alertHeader = header || '';
+        return info;
+      }
+      function trainAlertBannerHtml(hasAlert, alertHeader) {
+        if (!hasAlert) return '';
+        const text = escapeHtmlLite(alertHeader || 'Active Service Alert');
+        return '<div class="alert-banner"><img src="/assets/icons/alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ' + text + '</div>';
+      }
+      function trainAlertHeaderIconHtml(hasAlert) {
+        return hasAlert
+          ? '<img src="/assets/icons/alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">'
+          : '';
+      }
+      // MTA publishes ServiceAlerts on camsys/all-alerts (not inside /api/mta/mnr or /lirr vehicle feeds).
+      // Requires Worker route /api/mta/alerts — if undeployed, fetches fail soft and popups keep hasAlert hooks only.
+      const MTA_ALERTS_URL = apiUrl('/api/mta/alerts');
+      let mtaAlertsCache = { at: 0, feed: null };
+      async function fetchMtaAlertsFeed() {
+        const now = Date.now();
+        if (mtaAlertsCache.feed && (now - mtaAlertsCache.at) < 60000) return mtaAlertsCache.feed;
+        try {
+          const res = await fetch(MTA_ALERTS_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = new Uint8Array(await res.arrayBuffer());
+          const FeedMessage = getFeedMessageType();
+          const feed = FeedMessage.decode(buf);
+          mtaAlertsCache = { at: now, feed: feed };
+          return feed;
+        } catch (e) {
+          console.warn('[MTA alerts] unavailable (deploy Worker /api/mta/alerts if missing):', e && e.message ? e.message : e);
+          return null;
+        }
+      }
+      function mnrUnixToDate(t) {
+        if (t == null || t === '') return null;
+        let n = (typeof t === 'object' && t !== null && typeof t.toNumber === 'function') ? t.toNumber() : Number(t);
+        if (!isFinite(n) || n <= 0) return null;
+        if (n > 1e12) n = Math.floor(n / 1000);
+        const d = new Date(n * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      function mnrFormatTime(d) {
+        if (!d) return null;
+        return rrClockTime(d);
+      }
+      function mnrStopCoords(stopId) {
+        if (!stopId) return null;
+        const s = MNR_STATIC.stops[String(stopId)];
+        if (!s || s.lat == null || s.lon == null) return null;
+        const lat = Number(s.lat), lon = Number(s.lon);
+        if (!lat && !lon) return null;
+        return { lat, lon, name: s.name || String(stopId) };
+      }
+      function mnrRouteInfo(routeId) {
+        const r = MNR_STATIC.routes[String(routeId || '')] || null;
+        return {
+          id: String(routeId || ''),
+          name: (r && r.name) || (routeId ? ('Route ' + routeId) : 'Metro-North'),
+          color: (r && r.color) || '#0039A6',
+          text: (r && r.text) || '#FFFFFF'
+        };
+      }
+      function mnrEventTime(ev) {
+        if (!ev) return null;
+        return mnrUnixToDate(ev.time);
+      }
+      function mnrEventDelayMin(ev) {
+        if (!ev || ev.delay == null) return null;
+        const sec = Number(ev.delay);
+        if (!isFinite(sec)) return null;
+        return Math.round(sec / 60);
+      }
+      function mnrStopTimeUnix(stu) {
+        const dep = mnrEventTime(stu && stu.departure);
+        const arr = mnrEventTime(stu && stu.arrival);
+        return dep || arr;
+      }
+      function mnrBuildStopsFromTripUpdate(tu) {
+        const now = Date.now();
+        const list = (tu && tu.stop_time_update) || [];
+        return list.map(function(stu) {
+          const stopId = stu.stop_id != null ? String(stu.stop_id) : '';
+          const staticStop = MNR_STATIC.stops[stopId] || null;
+          const name = (staticStop && staticStop.name) || stopId || 'Unknown';
+          const arr = mnrEventTime(stu.arrival);
+          const dep = mnrEventTime(stu.departure);
+          const primary = dep || arr;
+          const delayMin = mnrEventDelayMin(stu.departure);
+          const delayMin2 = delayMin != null ? delayMin : mnrEventDelayMin(stu.arrival);
+          const isCompleted = primary ? primary.getTime() < now : false;
+          return {
+            name: name,
+            stopId: stopId,
+            scheduledTime: primary,
+            predictedTime: primary,
+            delayMinutes: delayMin2,
+            trackNumber: null,
+            formattedScheduledTime: mnrFormatTime(primary) || '—',
+            formattedPredictedTime: mnrFormatTime(primary),
+            formattedActualTime: null,
+            isCompleted: isCompleted,
+            lat: staticStop ? Number(staticStop.lat) : null,
+            lng: staticStop ? Number(staticStop.lon) : null
+          };
+        });
+      }
+      function mnrResolveCoords(entity) {
+        const v = entity.vehicle || null;
+        const tu = entity.trip_update || null;
+        if (v && v.position) {
+          const lat = Number(v.position.latitude);
+          const lon = Number(v.position.longitude);
+          if (isFinite(lat) && isFinite(lon) && (lat !== 0 || lon !== 0)) {
+            return { lat: lat, lon: lon, source: 'gps' };
+          }
+        }
+        if (v && v.stop_id) {
+          const c = mnrStopCoords(v.stop_id);
+          if (c) return { lat: c.lat, lon: c.lon, source: 'vehicle_stop' };
+        }
+        const updates = (tu && tu.stop_time_update) || [];
+        if (v && v.current_stop_sequence != null) {
+          for (let i = 0; i < updates.length; i++) {
+            if (Number(updates[i].stop_sequence) === Number(v.current_stop_sequence) && updates[i].stop_id) {
+              const c = mnrStopCoords(updates[i].stop_id);
+              if (c) return { lat: c.lat, lon: c.lon, source: 'current_seq' };
+            }
+          }
+        }
+        const nowSec = Date.now() / 1000;
+        for (let i = 0; i < updates.length; i++) {
+          const stu = updates[i];
+          const t = mnrStopTimeUnix(stu);
+          if (t && (t.getTime() / 1000) >= nowSec - 30) {
+            const c = mnrStopCoords(stu.stop_id);
+            if (c) return { lat: c.lat, lon: c.lon, source: 'upcoming_stop' };
+          }
+        }
+        if (updates.length) {
+          const last = updates[updates.length - 1];
+          const c = mnrStopCoords(last.stop_id);
+          if (c) return { lat: c.lat, lon: c.lon, source: 'last_stop' };
+        }
+        return null;
+      }
+      const MNR_NEW_HAVEN_ICON_URL = '/assets/mnr-new-haven.png';
+      const MNR_DEFAULT_ICON_URL = '/assets/mnr.png';
+      function createMnrIcon(trainNum, color, textColor, routeId) {
+        const reported = rrReportIconUrl('mnr', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'amtrak-nec-icon mnr-default-icon');
+        // New Haven Line (route_id 3) uses dedicated custom icon
+        if (String(routeId || '') === '3') {
+          return L.icon({
+            iconUrl: MNR_NEW_HAVEN_ICON_URL,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22],
+            className: 'amtrak-nec-icon mnr-nhv-icon'
+          });
+        }
+        // All other Metro-North lines share the default icon
+        return L.icon({
+          iconUrl: MNR_DEFAULT_ICON_URL,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -22],
+          className: 'amtrak-nec-icon mnr-default-icon'
+        });
+      }
+      function createMnrPopupContent(vid, info) {
+        const num = info.trainNum || String(vid).replace(/^mnr-/, '');
+        const route = info.routeName || 'Metro-North';
+        const dest = info.destName || '—';
+        const origin = info.origName || '—';
+        const status = info.statusText || 'On Time';
+        const statusPillClass = info.statusPillClass || 'status-on-time';
+        const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
+        const track = info.track || null;
+        const lastSeenTime = mnrLastSeen[vid]
+          ? rrClockTime(new Date(mnrLastSeen[vid]))
+          : '—';
+        const mnrBadge = '<span class="cape-badge" style="background:#0039A6;">Metro-North</span>';
+        const mnrSpecial = getSpecialForVehicle('mnr', null, num) || info.specialUnit || null;
+        const mnrPairingBlock = buildLocoReportPairingBlockHtml('mnr', { trainNumber: num, special: mnrSpecial });
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMnrTrain(\'' + vid + '\')">Refresh</button>';
+        const shareBtn = rrShareTrainBtnHtml('mnr', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('mnr', vid, num);
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
+        const stopsHtml = (info.stops && info.stops.length)
+          ? buildStopsHtml(info.stops, info.lat, info.lng)
+          : '<div class="no-departures">No stop data</div>';
+        let statusDesc = 'On the way to ' + dest;
+        if (info.vehicleStatus === 1 && info.currentStopName) statusDesc = 'Stopped at ' + info.currentStopName;
+        else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
+        else if (info.coordSource && info.coordSource !== 'gps') statusDesc = 'Near ' + (info.currentStopName || dest);
+        const speedHtml = speed != null
+          ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>')
+          : '';
+        const trackHtml = track
+          ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + track + '</span></div>')
+          : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>');
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                ${mnrBadge}
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${statusDesc}</p>
+                <span class="status-pill ${statusPillClass}">${status}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Train</span>
+                  <span class="info-value">${num}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Route</span>
+                  <span class="info-value">${route}</span>
+                </div>
+                ${trackHtml}
+                ${speedHtml}
+              </div>
+              ${al}
+              <div class="meta-row">
+                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              ${mnrPairingBlock}
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${logTripBtn}${shareBtn}${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+      window.refreshMnrTrain = async function() { return fetchMnrTrains(); };
+      function updateMnrVisibility() {
+        Object.keys(mnrMarkers).forEach(function(vid) {
+          const m = mnrMarkers[vid];
+          const info = mnrTrainInfo[vid] || {};
+          const special = getSpecialForVehicle('mnr', null, info.trainNum);
+          const okSpecial = !showOnlySpecial || !!special;
+          if (showMnr && okSpecial) map.addLayer(m);
+          else if (map.hasLayer(m)) map.removeLayer(m);
+        });
+        if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+      }
+      function mnrParseEntity(entity) {
+        const trainNum = String(entity.id || '').trim();
+        if (!trainNum) return null;
+        const v = entity.vehicle || null;
+        const tu = entity.trip_update || null;
+        if (!v && !tu) return null;
+        const tripV = (v && v.trip) || {};
+        const tripU = (tu && tu.trip) || {};
+        const trip = Object.assign({}, tripV, tripU);
+        // Prefer trip_update route_id (vehicle.trip often only has trip_id = train number)
+        const routeId = (tripU.route_id != null && tripU.route_id !== '')
+          ? String(tripU.route_id)
+          : (tripV.route_id != null ? String(tripV.route_id) : '');
+        const route = mnrRouteInfo(routeId);
+        const coords = mnrResolveCoords(entity);
+        if (!coords) return null;
+        const stops = mnrBuildStopsFromTripUpdate(tu);
+        const destName = stops.length ? stops[stops.length - 1].name : '—';
+        const origName = stops.length ? stops[0].name : '—';
+        let maxDelay = null;
+        stops.forEach(function(s) {
+          if (s.delayMinutes == null) return;
+          if (maxDelay == null || Math.abs(s.delayMinutes) > Math.abs(maxDelay)) maxDelay = s.delayMinutes;
+        });
+        let statusText = 'On Time';
+        let statusPillClass = 'status-on-time';
+        if (maxDelay != null && Math.abs(maxDelay) > 15) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
+        } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
+        } else if (maxDelay != null && maxDelay > 0) {
+          statusText = maxDelay + ' min late';
+        }
+        const vehicleStatus = (v && v.current_status != null) ? Number(v.current_status) : null;
+        let currentStopName = null;
+        if (v && v.stop_id) {
+          const cs = mnrStopCoords(v.stop_id);
+          if (cs) currentStopName = cs.name;
+        }
+        let speedMph = null;
+        if (v && v.position && v.position.speed != null) {
+          const mps = Number(v.position.speed);
+          if (isFinite(mps) && mps >= 0) speedMph = mps * 2.23693629;
+        }
+        return {
+          id: 'mnr-' + trainNum,
+          trainNum: trainNum,
+          routeId: routeId,
+          routeName: route.name,
+          routeColor: route.color,
+          routeText: route.text,
+          lat: coords.lat,
+          lng: coords.lon,
+          coordSource: coords.source,
+          stops: stops,
+          destName: destName,
+          origName: origName,
+          statusText: statusText,
+          statusPillClass: statusPillClass,
+          delayMinutes: maxDelay,
+          vehicleStatus: vehicleStatus,
+          currentStopName: currentStopName,
+          speedMph: speedMph,
+          tripId: trip.trip_id || null,
+          hasAlert: false,
+          alertHeader: ''
+        };
+      }
+      async function fetchMnrTrains() {
+        if (!showMnr) return;
+        const stat = FetchStats.start('Metro-North');
+        try {
+          const res = await fetch(MNR_GTFS_RT_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = new Uint8Array(await res.arrayBuffer());
+          const FeedMessage = getFeedMessageType();
+          const feed = FeedMessage.decode(buf);
+          // Vehicle feed has no alert entities; ServiceAlerts live on /api/mta/alerts (Worker).
+          const alertsFeed = await fetchMtaAlertsFeed();
+          const alertIndex = alertsFeed ? indexGtfsRtServiceAlerts(alertsFeed, ['MNR'], Object.keys(MNR_STATIC.routes || {})) : { byTrip: {}, byRoute: {} };
+          const now = Date.now();
+          let created = 0, updated = 0, skipped = 0;
+          const seen = new Set();
+          const entities = feed.entity || [];
+          entities.forEach(function(entity) {
+            const info = mnrParseEntity(entity);
+            if (!info) { skipped++; return; }
+            applyGtfsRtAlertFields(info, alertIndex);
+            const vid = info.id;
+            seen.add(vid);
+            mnrTrainInfo[vid] = info;
+            mnrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
+            const icon = createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId);
+            const mnrLabelInfo = buildCyclingTrainInfo({
+              route: info.routeName || 'Metro-North',
+              trainNum: info.trainNum,
+              dest: info.destName || '',
+              speedMph: info.speedMph,
+              status: info.statusText || '',
+              nextStop: info.currentStopName || ''
+            });
+            if (mnrMarkers[vid]) {
+              mnrMarkers[vid].setLatLng([info.lat, info.lng]);
+              mnrMarkers[vid].setIcon(icon);
+              if (mnrMarkers[vid].getPopup()) {
+                mnrMarkers[vid].setPopupContent(createMnrPopupContent(vid, info));
+              }
+              applyCyclingLabel(mnrMarkers[vid], mnrLabelInfo, false);
+              updated++;
+            } else {
+              const m = L.marker([info.lat, info.lng], { icon: icon });
+              m.bindPopup(createMnrPopupContent(vid, info), rrPopupOpts());
+              applyCyclingLabel(m, mnrLabelInfo, true);
+              const zoom = map.getZoom();
+              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+              }
+              mnrMarkers[vid] = m;
+              if (showMnr) m.addTo(map);
+              created++;
+            }
+          });
+          Object.keys(mnrMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(mnrMarkers[vid]);
+              delete mnrMarkers[vid];
+              delete mnrTrainInfo[vid];
+              delete mnrLastSeen[vid];
+            }
+          });
+          FetchStats.end(stat, {
+            entities: entities.length,
+            created: created,
+            updated: updated,
+            skipped: skipped,
+            active: Object.keys(mnrMarkers).length
+          });
+          updateMnrVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('Metro-North', e);
+          console.warn('%c[Metro-North] GTFS-RT fetch failed', 'color:#f39c12', e);
+        }
+      }
+
+      // ==================== LONG ISLAND RAIL ROAD (MTA GTFS-RT) ====================
+      const LIRR_GTFS_RT_URL = apiUrl('/api/mta/lirr');
+      const LIRR_STATIC = {"stops":{"1":{"name":"Albertson","lat":40.77206317,"lon":-73.64169095,"code":"ABT"},"100":{"name":"Islip","lat":40.73583449,"lon":-73.20932145,"code":"ISP"},"101":{"name":"Inwood","lat":40.61228773,"lon":-73.74418354,"code":"IWD"},"102":{"name":"Jamaica","lat":40.69960817,"lon":-73.80852987,"code":"JAM"},"107":{"name":"Kew Gardens","lat":40.70964917,"lon":-73.83088807,"code":"KGN"},"11":{"name":"Broadway","lat":40.76165318,"lon":-73.80176612,"code":"BDY"},"111":{"name":"Kings Park","lat":40.88366659,"lon":-73.25624757,"code":"KPK"},"113":{"name":"Long Beach","lat":40.5901817,"lon":-73.66481822,"code":"LBH"},"114":{"name":"Lawrence","lat":40.6157347,"lon":-73.73589955,"code":"LCE"},"117":{"name":"Lindenhurst","lat":40.68826504,"lon":-73.36921149,"code":"LHT"},"118":{"name":"Long Island City","lat":40.74134343,"lon":-73.95763922,"code":"LIC"},"119":{"name":"Locust Manor","lat":40.67513907,"lon":-73.76504303,"code":"LMR"},"120":{"name":"Little Neck","lat":40.77504393,"lon":-73.74064662,"code":"LNK"},"122":{"name":"Laurelton","lat":40.66848304,"lon":-73.75174687,"code":"LTN"},"123":{"name":"Locust Valley","lat":40.87446697,"lon":-73.59830284,"code":"LVL"},"124":{"name":"Lakeview","lat":40.68585582,"lon":-73.65213777,"code":"LVW"},"125":{"name":"Lynbrook","lat":40.65605814,"lon":-73.67607083,"code":"LYN"},"126":{"name":"Mattituck","lat":40.99179354,"lon":-72.53606243,"code":"MAK"},"127":{"name":"Merillon Avenue","lat":40.73516903,"lon":-73.66252148,"code":"MAV"},"129":{"name":"Medford","lat":40.81739665,"lon":-72.99890946,"code":"MFD"},"13":{"name":"Bridgehampton","lat":40.93898378,"lon":-72.31004593,"code":"BHN"},"130":{"name":"Murray Hill","lat":40.76270926,"lon":-73.81453928,"code":"MHL"},"131":{"name":"Manhasset","lat":40.7967241,"lon":-73.69989909,"code":"MHT"},"132":{"name":"Mineola","lat":40.74034743,"lon":-73.64086293,"code":"MIN"},"135":{"name":"Massapequa Park","lat":40.6778591,"lon":-73.45473724,"code":"MPK"},"136":{"name":"Massapequa","lat":40.67693014,"lon":-73.46905552,"code":"MQA"},"14":{"name":"Stony Brook","lat":40.92032252,"lon":-73.12854943,"code":"BK"},"140":{"name":"Mastic-Shirley","lat":40.79898815,"lon":-72.86442272,"code":"MSY"},"141":{"name":"Montauk","lat":41.04710896,"lon":-71.95388103,"code":"MTK"},"142":{"name":"Malverne","lat":40.67547844,"lon":-73.66886364,"code":"MVN"},"148":{"name":"Nostrand Avenue","lat":40.67838785,"lon":-73.94822108,"code":"NAV"},"149":{"name":"Nassau Boulevard","lat":40.72296245,"lon":-73.66269823,"code":"NBD"},"152":{"name":"New Hyde Park","lat":40.73075708,"lon":-73.68095886,"code":"NHP"},"153":{"name":"Northport","lat":40.88064972,"lon":-73.32848513,"code":"NPT"},"154":{"name":"Oyster Bay","lat":40.87533774,"lon":-73.53403366,"code":"OBY"},"155":{"name":"Oceanside","lat":40.63472102,"lon":-73.65466582,"code":"ODE"},"157":{"name":"Oakdale","lat":40.74343275,"lon":-73.13243549,"code":"ODL"},"16":{"name":"Bellmore","lat":40.66880043,"lon":-73.52886016,"code":"BMR"},"162":{"name":"Plandome","lat":40.81069853,"lon":-73.69521438,"code":"PDM"},"163":{"name":"Patchogue","lat":40.76187901,"lon":-73.01574451,"code":"PGE"},"164":{"name":"Port Jefferson","lat":40.9345531,"lon":-73.05250164,"code":"PJN"},"165":{"name":"Pinelawn","lat":40.74535851,"lon":-73.39960092,"code":"PLN"},"171":{"name":"Port Washington","lat":40.82903533,"lon":-73.687401,"code":"PWS"},"175":{"name":"Queens Village","lat":40.71745785,"lon":-73.73645989,"code":"QVG"},"176":{"name":"Riverhead","lat":40.91983928,"lon":-72.66691054,"code":"RHD"},"179":{"name":"Ronkonkoma","lat":40.80808613,"lon":-73.10594023,"code":"RON"},"180":{"name":"Rosedale","lat":40.66594933,"lon":-73.73554816,"code":"ROS"},"182":{"name":"Roslyn","lat":40.7904781,"lon":-73.64326175,"code":"RSN"},"183":{"name":"Rockville Centre","lat":40.65831811,"lon":-73.64654935,"code":"RVC"},"184":{"name":"St. Albans","lat":40.69118348,"lon":-73.76550937,"code":"SAB"},"185":{"name":"Sea Cliff","lat":40.85236805,"lon":-73.62541695,"code":"SCF"},"187":{"name":"Seaford","lat":40.67572393,"lon":-73.48656847,"code":"SFD"},"190":{"name":"Southold","lat":41.06632089,"lon":-72.4278803,"code":"SHD"},"191":{"name":"Southampton","lat":40.89471874,"lon":-72.39012376,"code":"SHN"},"193":{"name":"St. James","lat":40.88216931,"lon":-73.15950725,"code":"SJM"},"195":{"name":"Stewart Manor","lat":40.72302771,"lon":-73.68102041,"code":"SMR"},"198":{"name":"Speonk","lat":40.82131516,"lon":-72.70526225,"code":"SPK"},"199":{"name":"Mets-Willets Point","lat":40.75239835,"lon":-73.84370059,"code":"SSM"},"2":{"name":"Auburndale","lat":40.76144288,"lon":-73.78995927,"code":"ADL"},"20":{"name":"Bethpage","lat":40.74303924,"lon":-73.48343821,"code":"BPG"},"202":{"name":"Smithtown","lat":40.85654755,"lon":-73.19803235,"code":"STN"},"204":{"name":"Sayville","lat":40.74035373,"lon":-73.08645531,"code":"SVL"},"205":{"name":"Syosset","lat":40.82485746,"lon":-73.5004456,"code":"SYT"},"21":{"name":"Bellport","lat":40.7737389,"lon":-72.94396574,"code":"BPT"},"211":{"name":"Valley Stream","lat":40.66151762,"lon":-73.70475875,"code":"VSM"},"213":{"name":"Westbury","lat":40.75345386,"lon":-73.5858661,"code":"WBY"},"214":{"name":"Woodside","lat":40.74585067,"lon":-73.90297516,"code":"WDD"},"215":{"name":"Wantagh","lat":40.67299016,"lon":-73.50896484,"code":"WGH"},"216":{"name":"West Hempstead","lat":40.70196099,"lon":-73.64164361,"code":"WHD"},"217":{"name":"Woodmere","lat":40.63133646,"lon":-73.71371544,"code":"WMR"},"219":{"name":"Westwood","lat":40.66837227,"lon":-73.68120878,"code":"WWD"},"220":{"name":"Wyandanch","lat":40.75480101,"lon":-73.35806588,"code":"WYD"},"223":{"name":"Yaphank-BNL","lat":40.849270453967,"lon":-72.864465900794,"code":"YPK"},"225":{"name":"Baldwin","lat":40.65673224,"lon":-73.60716245,"code":"BWN"},"226":{"name":"Merrick","lat":40.6638004,"lon":-73.55062102,"code":"MRK"},"23":{"name":"Bellerose","lat":40.72220443,"lon":-73.71665289,"code":"BRS"},"233":{"name":"Westhampton","lat":40.83030532,"lon":-72.65032454,"code":"WHN"},"237":{"name":"Penn Station","lat":40.75058844,"lon":-73.99358408,"code":"NYK"},"24":{"name":"Belmont Park","lat":40.71368754,"lon":-73.72829722,"code":"BRT"},"241":{"name":"Atlantic Terminal","lat":40.68359596,"lon":-73.97567112,"code":"ATL"},"25":{"name":"Bayside","lat":40.76315241,"lon":-73.77124986,"code":"BSD"},"26":{"name":"Bay Shore","lat":40.72443344,"lon":-73.25408295,"code":"BSR"},"27":{"name":"Babylon","lat":40.70068942,"lon":-73.32405561,"code":"BTA"},"29":{"name":"Brentwood","lat":40.78083474,"lon":-73.24361074,"code":"BWD"},"31":{"name":"Centre Avenue","lat":40.64831835,"lon":-73.6639675,"code":"CAV"},"32":{"name":"Cedarhurst","lat":40.62217451,"lon":-73.72618275,"code":"CHT"},"33":{"name":"Central Islip","lat":40.79185312,"lon":-73.19486082,"code":"CI"},"349":{"name":"Grand Central","lat":40.755162,"lon":-73.975455,"code":"GCT"},"359":{"name":"Elmont-UBS Arena","lat":40.720074,"lon":-73.725549,"code":"EMT"},"36":{"name":"Country Life Press","lat":40.72145656,"lon":-73.62967386,"code":"CLP"},"38":{"name":"Copiague","lat":40.68101528,"lon":-73.39834027,"code":"CPG"},"39":{"name":"Carle Place","lat":40.74920704,"lon":-73.60365242,"code":"CPL"},"4":{"name":"Amagansett","lat":40.98003964,"lon":-72.13233416,"code":"AGT"},"40":{"name":"Cold Spring Harbor","lat":40.83563832,"lon":-73.45108591,"code":"CSH"},"42":{"name":"Douglaston","lat":40.76806862,"lon":-73.74941265,"code":"DGL"},"44":{"name":"Deer Park","lat":40.76948364,"lon":-73.29356494,"code":"DPK"},"48":{"name":"East Hampton","lat":40.96508629,"lon":-72.19324238,"code":"EHN"},"50":{"name":"East New York","lat":40.67581191,"lon":-73.90280882,"code":"ENY"},"51":{"name":"East Rockaway","lat":40.64221085,"lon":-73.65821626,"code":"ERY"},"52":{"name":"East Williston","lat":40.7560191,"lon":-73.63940764,"code":"EWN"},"55":{"name":"Forest Hills","lat":40.71957556,"lon":-73.84481402,"code":"FHL"},"56":{"name":"Flushing Main Street","lat":40.75789494,"lon":-73.83134684,"code":"FLS"},"59":{"name":"Farmingdale","lat":40.73591503,"lon":-73.44123878,"code":"FMD"},"63":{"name":"Floral Park","lat":40.72463725,"lon":-73.70639714,"code":"FPK"},"64":{"name":"Freeport","lat":40.65745799,"lon":-73.58232401,"code":"FPT"},"65":{"name":"Far Rockaway","lat":40.60914311,"lon":-73.75054135,"code":"FRY"},"66":{"name":"Gibson","lat":40.64925173,"lon":-73.70183483,"code":"GBN"},"67":{"name":"Glen Cove","lat":40.86583421,"lon":-73.61616614,"code":"GCV"},"68":{"name":"Garden City","lat":40.72310156,"lon":-73.64036107,"code":"GCY"},"71":{"name":"Glen Head","lat":40.83222531,"lon":-73.62611822,"code":"GHD"},"72":{"name":"Great Neck","lat":40.78721647,"lon":-73.72610046,"code":"GNK"},"73":{"name":"Greenport","lat":41.09970991,"lon":-72.36310396,"code":"GPT"},"74":{"name":"Great River","lat":40.74044444,"lon":-73.17019585,"code":"GRV"},"76":{"name":"Glen Street","lat":40.85798112,"lon":-73.62121715,"code":"GST"},"77":{"name":"Greenvale","lat":40.81571566,"lon":-73.62687152,"code":"GVL"},"78":{"name":"Greenlawn","lat":40.86866524,"lon":-73.36284977,"code":"GWN"},"8":{"name":"Amityville","lat":40.68024859,"lon":-73.42031192,"code":"AVL"},"83":{"name":"Hampton Bays","lat":40.87660916,"lon":-72.52394936,"code":"HBY"},"84":{"name":"Hempstead","lat":40.71329663,"lon":-73.62503239,"code":"HEM"},"85":{"name":"Hempstead Gardens","lat":40.69491356,"lon":-73.64620888,"code":"HGN"},"86":{"name":"Hillside Facility","lat":40.70773582,"lon":-73.77695851,"code":"HIL"},"89":{"name":"Hollis","lat":40.71018151,"lon":-73.76675252,"code":"HOL"},"90":{"name":"Hunterspoint Avenue","lat":40.74239046,"lon":-73.94678997,"code":"HPA"},"91":{"name":"Huntington","lat":40.85300971,"lon":-73.40952576,"code":"HUN"},"92":{"name":"Hicksville","lat":40.76717491,"lon":-73.52853322,"code":"HVL"},"94":{"name":"Hewlett","lat":40.63676432,"lon":-73.70513866,"code":"HWT"},"99":{"name":"Island Park","lat":40.60129906,"lon":-73.65474248,"code":"IPK"}},"routes":{"1":{"name":"Babylon Branch","color":"#00985F","text":"#FFFFFF"},"2":{"name":"Hempstead Branch","color":"#CE8E00","text":"#121212"},"3":{"name":"Oyster Bay Branch","color":"#00AF3F","text":"#FFFFFF"},"4":{"name":"Ronkonkoma Branch","color":"#A626AA","text":"#FFFFFF"},"5":{"name":"Montauk Branch","color":"#00B2A9","text":"#121212"},"6":{"name":"Long Beach Branch","color":"#FF6319","text":"#FFFFFF"},"7":{"name":"Far Rockaway Branch","color":"#6E3219","text":"#FFFFFF"},"8":{"name":"West Hempstead Branch","color":"#00A1DE","text":"#121212"},"9":{"name":"Port Washington Branch","color":"#C60C30","text":"#FFFFFF"},"10":{"name":"Port Jefferson Branch","color":"#006EC7","text":"#FFFFFF"},"11":{"name":"Belmont Park","color":"#60269E","text":"#FFFFFF"},"12":{"name":"City Terminal Zone","color":"#4D5357","text":"#FFFFFF"},"13":{"name":"Greenport Service","color":"#A626AA","text":"#FFFFFF"}}};
+      const LIRR_ICON_URL = "/assets/lirr.png";
+      function lirrUnixToDate(t) {
+        if (t == null || t === '') return null;
+        let n = (typeof t === 'object' && t !== null && typeof t.toNumber === 'function') ? t.toNumber() : Number(t);
+        if (!isFinite(n) || n <= 0) return null;
+        if (n > 1e12) n = Math.floor(n / 1000);
+        const d = new Date(n * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      function lirrFormatTime(d) {
+        if (!d) return null;
+        return rrClockTime(d);
+      }
+      function lirrStopCoords(stopId) {
+        if (!stopId) return null;
+        const s = LIRR_STATIC.stops[String(stopId)];
+        if (!s || s.lat == null || s.lon == null) return null;
+        const lat = Number(s.lat), lon = Number(s.lon);
+        if (!lat && !lon) return null;
+        return { lat, lon, name: s.name || String(stopId) };
+      }
+      function lirrRouteInfo(routeId) {
+        const r = LIRR_STATIC.routes[String(routeId || '')] || null;
+        return {
+          id: String(routeId || ''),
+          name: (r && r.name) || (routeId ? ('Route ' + routeId) : 'LIRR'),
+          color: (r && r.color) || '#0039A6',
+          text: (r && r.text) || '#FFFFFF'
+        };
+      }
+      function lirrEventTime(ev) {
+        if (!ev) return null;
+        return lirrUnixToDate(ev.time);
+      }
+      function lirrEventDelayMin(ev) {
+        if (!ev || ev.delay == null) return null;
+        const sec = Number(ev.delay);
+        if (!isFinite(sec)) return null;
+        return Math.round(sec / 60);
+      }
+      function lirrStopTimeUnix(stu) {
+        const dep = lirrEventTime(stu && stu.departure);
+        const arr = lirrEventTime(stu && stu.arrival);
+        return dep || arr;
+      }
+      function lirrBuildStopsFromTripUpdate(tu) {
+        const now = Date.now();
+        const list = (tu && tu.stop_time_update) || [];
+        return list.map(function(stu) {
+          const stopId = stu.stop_id != null ? String(stu.stop_id) : '';
+          const staticStop = LIRR_STATIC.stops[stopId] || null;
+          const name = (staticStop && staticStop.name) || stopId || 'Unknown';
+          const arr = lirrEventTime(stu.arrival);
+          const dep = lirrEventTime(stu.departure);
+          const primary = dep || arr;
+          const delayMin = lirrEventDelayMin(stu.departure);
+          const delayMin2 = delayMin != null ? delayMin : lirrEventDelayMin(stu.arrival);
+          const isCompleted = primary ? primary.getTime() < now : false;
+          return {
+            name: name,
+            stopId: stopId,
+            scheduledTime: primary,
+            predictedTime: primary,
+            delayMinutes: delayMin2,
+            trackNumber: null,
+            formattedScheduledTime: lirrFormatTime(primary) || '—',
+            formattedPredictedTime: lirrFormatTime(primary),
+            formattedActualTime: null,
+            isCompleted: isCompleted,
+            lat: staticStop ? Number(staticStop.lat) : null,
+            lng: staticStop ? Number(staticStop.lon) : null
+          };
+        });
+      }
+      function lirrResolveCoords(entity) {
+        const v = entity.vehicle || null;
+        const tu = entity.trip_update || null;
+        if (v && v.position) {
+          const lat = Number(v.position.latitude);
+          const lon = Number(v.position.longitude);
+          if (isFinite(lat) && isFinite(lon) && (lat !== 0 || lon !== 0)) {
+            return { lat: lat, lon: lon, source: 'gps' };
+          }
+        }
+        if (v && v.stop_id) {
+          const c = lirrStopCoords(v.stop_id);
+          if (c) return { lat: c.lat, lon: c.lon, source: 'vehicle_stop' };
+        }
+        const updates = (tu && tu.stop_time_update) || [];
+        if (v && v.current_stop_sequence != null) {
+          for (let i = 0; i < updates.length; i++) {
+            if (Number(updates[i].stop_sequence) === Number(v.current_stop_sequence) && updates[i].stop_id) {
+              const c = lirrStopCoords(updates[i].stop_id);
+              if (c) return { lat: c.lat, lon: c.lon, source: 'current_seq' };
+            }
+          }
+        }
+        const nowSec = Date.now() / 1000;
+        for (let i = 0; i < updates.length; i++) {
+          const stu = updates[i];
+          const t = lirrStopTimeUnix(stu);
+          if (t && (t.getTime() / 1000) >= nowSec - 30) {
+            const c = lirrStopCoords(stu.stop_id);
+            if (c) return { lat: c.lat, lon: c.lon, source: 'upcoming_stop' };
+          }
+        }
+        if (updates.length) {
+          const last = updates[updates.length - 1];
+          const c = lirrStopCoords(last.stop_id);
+          if (c) return { lat: c.lat, lon: c.lon, source: 'last_stop' };
+        }
+        return null;
+      }
+      function lirrEntityBaseId(entityId) {
+        const id = String(entityId || '');
+        if (id.endsWith('_V') || id.endsWith('_T')) return id.slice(0, -2);
+        return id;
+      }
+      function lirrDisplayTrainNum(entity, tripId) {
+        function fromId(raw) {
+          const s = String(raw || '').trim();
+          if (!s) return null;
+          const parts = s.split('_');
+          let lastNumeric = null;
+          for (let i = parts.length - 1; i >= 0; i--) {
+            if (/^\d+$/.test(parts[i])) {
+              if (!lastNumeric) lastNumeric = parts[i];
+              // Prefer substantial train numbers (e.g. 6770) over short section suffixes (e.g. _1)
+              if (parts[i].length >= 3) return parts[i];
+            }
+          }
+          return lastNumeric;
+        }
+        const fromTrip = fromId(tripId);
+        if (fromTrip) return fromTrip;
+        let eid = String((entity && entity.id) || '').trim();
+        if (eid.endsWith('_V') || eid.endsWith('_T')) eid = eid.slice(0, -2);
+        const fromEntity = fromId(eid);
+        if (fromEntity) return fromEntity;
+        return eid || String((entity && entity.id) || '?');
+      }
+      function lirrMergeFeedEntities(entities) {
+        const byBase = {};
+        (entities || []).forEach(function(entity) {
+          const base = lirrEntityBaseId(entity.id);
+          if (!byBase[base]) byBase[base] = { id: base };
+          const slot = byBase[base];
+          if (entity.vehicle) slot.vehicle = entity.vehicle;
+          if (entity.trip_update) slot.trip_update = entity.trip_update;
+          if (entity.id) {
+            if (String(entity.id).endsWith('_V')) slot._vid = entity.id;
+            else if (String(entity.id).endsWith('_T')) slot._tid = entity.id;
+            else slot.id = entity.id;
+          }
+        });
+        return Object.keys(byBase).map(function(k) {
+          const slot = byBase[k];
+          return {
+            id: slot._vid || slot._tid || slot.id || k,
+            vehicle: slot.vehicle || null,
+            trip_update: slot.trip_update || null
+          };
+        });
+      }
+      function createLirrIcon(trainNum) {
+        const reported = rrReportIconUrl('lirr', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'amtrak-nec-icon lirr-icon');
+        return L.icon({
+          iconUrl: LIRR_ICON_URL,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -22],
+          className: 'amtrak-nec-icon lirr-icon'
+        });
+      }
+      function createLirrPopupContent(vid, info) {
+        const num = info.trainNum || String(vid).replace(/^lirr-/, '');
+        const route = info.routeName || 'LIRR';
+        const dest = info.destName || '—';
+        const origin = info.origName || '—';
+        const status = info.statusText || 'On Time';
+        const statusPillClass = info.statusPillClass || 'status-on-time';
+        const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
+        const track = info.track || null;
+        const lastSeenTime = lirrLastSeen[vid]
+          ? rrClockTime(new Date(lirrLastSeen[vid]))
+          : '—';
+        const lirrBadge = '<span class="cape-badge" style="background:#0039A6;">LIRR</span>';
+        const lirrSpecial = getSpecialForVehicle('lirr', null, num) || info.specialUnit || null;
+        const lirrPairingBlock = buildLocoReportPairingBlockHtml('lirr', { trainNumber: num, special: lirrSpecial });
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshLirrTrain(\'' + vid + '\')">Refresh</button>';
+        const shareBtn = rrShareTrainBtnHtml('lirr', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('lirr', vid, num);
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
+        const stopsHtml = (info.stops && info.stops.length)
+          ? buildStopsHtml(info.stops, info.lat, info.lng)
+          : '<div class="no-departures">No stop data</div>';
+        let statusDesc = 'On the way to ' + dest;
+        if (info.vehicleStatus === 1 && info.currentStopName) statusDesc = 'Stopped at ' + info.currentStopName;
+        else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
+        else if (info.coordSource && info.coordSource !== 'gps') statusDesc = 'Near ' + (info.currentStopName || dest);
+        const speedHtml = speed != null
+          ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>')
+          : '';
+        const trackHtml = track
+          ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + track + '</span></div>')
+          : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>');
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                ${lirrBadge}
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${statusDesc}</p>
+                <span class="status-pill ${statusPillClass}">${status}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Train</span>
+                  <span class="info-value">${num}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Route</span>
+                  <span class="info-value">${route}</span>
+                </div>
+                ${trackHtml}
+                ${speedHtml}
+              </div>
+              ${al}
+              <div class="meta-row">
+                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              ${lirrPairingBlock}
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${logTripBtn}${shareBtn}${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+      window.refreshLirrTrain = async function() { return fetchLirrTrains(); };
+      function updateLirrVisibility() {
+        Object.keys(lirrMarkers).forEach(function(vid) {
+          const m = lirrMarkers[vid];
+          const info = lirrTrainInfo[vid] || {};
+          const special = getSpecialForVehicle('lirr', null, info.trainNum);
+          const okSpecial = !showOnlySpecial || !!special;
+          if (showLirr && okSpecial) map.addLayer(m);
+          else if (map.hasLayer(m)) map.removeLayer(m);
+        });
+        if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+      }
+      function lirrParseEntity(entity, usedTrainNums) {
+        const v = entity.vehicle || null;
+        const tu = entity.trip_update || null;
+        if (!v && !tu) return null;
+        const tripV = (v && v.trip) || {};
+        const tripU = (tu && tu.trip) || {};
+        const trip = Object.assign({}, tripV, tripU);
+        const tripId = trip.trip_id != null ? String(trip.trip_id) : '';
+        let trainNum = lirrDisplayTrainNum(entity, tripId);
+        if (!trainNum) return null;
+        // Prefer trip_update route_id (vehicle.trip often lacks route_id)
+        const routeId = (tripU.route_id != null && tripU.route_id !== '')
+          ? String(tripU.route_id)
+          : (tripV.route_id != null ? String(tripV.route_id) : '');
+        const route = lirrRouteInfo(routeId);
+        const coords = lirrResolveCoords(entity);
+        if (!coords) return null;
+        const stops = lirrBuildStopsFromTripUpdate(tu);
+        const destName = stops.length ? stops[stops.length - 1].name : '—';
+        const origName = stops.length ? stops[0].name : '—';
+        let maxDelay = null;
+        stops.forEach(function(s) {
+          if (s.delayMinutes == null) return;
+          if (maxDelay == null || Math.abs(s.delayMinutes) > Math.abs(maxDelay)) maxDelay = s.delayMinutes;
+        });
+        let statusText = 'On Time';
+        let statusPillClass = 'status-on-time';
+        if (maxDelay != null && Math.abs(maxDelay) > 15) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
+        } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
+        } else if (maxDelay != null && maxDelay > 0) {
+          statusText = maxDelay + ' min late';
+        }
+        const vehicleStatus = (v && v.current_status != null) ? Number(v.current_status) : null;
+        let currentStopName = null;
+        if (v && v.stop_id) {
+          const cs = lirrStopCoords(v.stop_id);
+          if (cs) currentStopName = cs.name;
+        }
+        let speedMph = null;
+        if (v && v.position && v.position.speed != null) {
+          const mps = Number(v.position.speed);
+          if (isFinite(mps) && mps >= 0) speedMph = mps * 2.23693629;
+        }
+        let markerKey = 'lirr-' + trainNum;
+        if (usedTrainNums && usedTrainNums.has(trainNum)) {
+          markerKey = 'lirr-' + String(entity.id || lirrEntityBaseId(entity.id) || trainNum);
+        }
+        if (usedTrainNums) usedTrainNums.add(trainNum);
+        return {
+          id: markerKey,
+          trainNum: trainNum,
+          routeId: routeId,
+          routeName: route.name,
+          routeColor: route.color,
+          routeText: route.text,
+          lat: coords.lat,
+          lng: coords.lon,
+          coordSource: coords.source,
+          stops: stops,
+          destName: destName,
+          origName: origName,
+          statusText: statusText,
+          statusPillClass: statusPillClass,
+          delayMinutes: maxDelay,
+          vehicleStatus: vehicleStatus,
+          currentStopName: currentStopName,
+          speedMph: speedMph,
+          tripId: tripId || null,
+          hasAlert: false,
+          alertHeader: ''
+        };
+      }
+      async function fetchLirrTrains() {
+        if (!showLirr) return;
+        const stat = FetchStats.start('LIRR');
+        try {
+          const res = await fetch(LIRR_GTFS_RT_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = new Uint8Array(await res.arrayBuffer());
+          const FeedMessage = getFeedMessageType();
+          const feed = FeedMessage.decode(buf);
+          // Vehicle/TU feed has no alert entities; ServiceAlerts on /api/mta/alerts (agency LI).
+          const alertsFeed = await fetchMtaAlertsFeed();
+          const alertIndex = alertsFeed ? indexGtfsRtServiceAlerts(alertsFeed, ['LI', 'LIRR'], Object.keys(LIRR_STATIC.routes || {})) : { byTrip: {}, byRoute: {} };
+          const now = Date.now();
+          let created = 0, updated = 0, skipped = 0;
+          const seen = new Set();
+          const usedTrainNums = new Set();
+          const rawEntities = feed.entity || [];
+          // LIRR publishes separate _V / _T entities — merge by base trip id
+          const entities = lirrMergeFeedEntities(rawEntities);
+          entities.forEach(function(entity) {
+            const info = lirrParseEntity(entity, usedTrainNums);
+            if (!info) { skipped++; return; }
+            applyGtfsRtAlertFields(info, alertIndex);
+            const vid = info.id;
+            seen.add(vid);
+            lirrTrainInfo[vid] = info;
+            lirrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
+            const icon = createLirrIcon(info.trainNum);
+            const lirrLabelInfo = buildCyclingTrainInfo({
+              route: info.routeName || 'LIRR',
+              trainNum: info.trainNum,
+              dest: info.destName || '',
+              speedMph: info.speedMph,
+              status: info.statusText || '',
+              nextStop: info.currentStopName || ''
+            });
+            if (lirrMarkers[vid]) {
+              lirrMarkers[vid].setLatLng([info.lat, info.lng]);
+              lirrMarkers[vid].setIcon(icon);
+              if (lirrMarkers[vid].getPopup()) {
+                lirrMarkers[vid].setPopupContent(createLirrPopupContent(vid, info));
+              }
+              applyCyclingLabel(lirrMarkers[vid], lirrLabelInfo, false);
+              updated++;
+            } else {
+              const m = L.marker([info.lat, info.lng], { icon: icon });
+              m.bindPopup(createLirrPopupContent(vid, info), rrPopupOpts());
+              applyCyclingLabel(m, lirrLabelInfo, true);
+              const zoom = map.getZoom();
+              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+              }
+              lirrMarkers[vid] = m;
+              if (showLirr) m.addTo(map);
+              created++;
+            }
+          });
+          Object.keys(lirrMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(lirrMarkers[vid]);
+              delete lirrMarkers[vid];
+              delete lirrTrainInfo[vid];
+              delete lirrLastSeen[vid];
+            }
+          });
+          FetchStats.end(stat, {
+            entities: rawEntities.length,
+            merged: entities.length,
+            created: created,
+            updated: updated,
+            skipped: skipped,
+            active: Object.keys(lirrMarkers).length
+          });
+          updateLirrVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('LIRR', e);
+          console.warn('%c[LIRR] GTFS-RT fetch failed', 'color:#f39c12', e);
+        }
+      }
+
+      // ==================== METRA (GTFS-RT via Cloudflare Worker proxy) ====================
+      const METRA_POSITIONS_URL = apiUrl('/api/metra/positions');
+      const METRA_TRIPUPDATES_URL = apiUrl('/api/metra/tripupdates');
+      const METRA_ALERTS_URL = apiUrl('/api/metra/alerts');
+      const METRA_STATIC = {"stops":{"GENEVA":{"name":"Geneva","lat":41.8816667,"lon":-88.31,"code":"GENEVA"},"WCHICAGO":{"name":"West Chicago","lat":41.8811111,"lon":-88.1988889,"code":"WCHICAGO"},"WINFIELD":{"name":"Winfield","lat":41.87,"lon":-88.1569444,"code":"WINFIELD"},"WHEATON":{"name":"Wheaton","lat":41.8644444,"lon":-88.1119444,"code":"WHEATON"},"COLLEGEAVE":{"name":"College Ave","lat":41.8683333,"lon":-88.0902778,"code":"COLLEGEAVE"},"GLENELLYN":{"name":"Glen Ellyn","lat":41.8766667,"lon":-88.0647222,"code":"GLENELLYN"},"LOMBARD":{"name":"Lombard","lat":41.8866667,"lon":-88.0186111,"code":"LOMBARD"},"VILLAPARK":{"name":"Villa Park","lat":41.8963889,"lon":-87.9775,"code":"VILLAPARK"},"ELMHURST":{"name":"Elmhurst","lat":41.8997222,"lon":-87.9408333,"code":"ELMHURST"},"BERKELEY":{"name":"Berkeley","lat":41.8961111,"lon":-87.9152778,"code":"BERKELEY"},"BELLWOOD":{"name":"Bellwood","lat":41.8913889,"lon":-87.8825,"code":"BELLWOOD"},"MELROSEPK":{"name":"Melrose Park","lat":41.8902778,"lon":-87.8555556,"code":"MELROSEPK"},"MAYWOOD":{"name":"Maywood","lat":41.8883333,"lon":-87.8386111,"code":"MAYWOOD"},"RIVRFOREST":{"name":"River Forest","lat":41.8869444,"lon":-87.825,"code":"RIVRFOREST"},"OAKPARK":{"name":"Oak Park","lat":41.8869444,"lon":-87.8011111,"code":"OAKPARK"},"KEDZIE":{"name":"Kedzie","lat":41.8883333,"lon":-87.7069444,"code":"KEDZIE"},"AURORA":{"name":"Aurora","lat":41.7608333,"lon":-88.3083333,"code":"AURORA"},"ROUTE59":{"name":"Route 59","lat":41.7777778,"lon":-88.2086111,"code":"ROUTE59"},"NAPERVILLE":{"name":"Naperville","lat":41.7797222,"lon":-88.1455556,"code":"NAPERVILLE"},"LISLE":{"name":"Lisle","lat":41.7977778,"lon":-88.0719444,"code":"LISLE"},"BELMONT":{"name":"Belmont","lat":41.7952778,"lon":-88.0380556,"code":"BELMONT"},"MAINST-DG":{"name":"Downers Grove","lat":41.7952778,"lon":-88.0097222,"code":"MAINST-DG"},"FAIRVIEWDG":{"name":"Fairview Ave.","lat":41.7952778,"lon":-87.9936111,"code":"FAIRVIEWDG"},"WESTMONT":{"name":"Westmont","lat":41.7955556,"lon":-87.9763889,"code":"WESTMONT"},"CLARNDNHIL":{"name":"Clarendon Hills","lat":41.7969444,"lon":-87.9536111,"code":"CLARNDNHIL"},"WHINSDALE":{"name":"West Hinsdale","lat":41.7988889,"lon":-87.9452778,"code":"WHINSDALE"},"HINSDALE":{"name":"Hinsdale","lat":41.8027778,"lon":-87.9283333,"code":"HINSDALE"},"HIGHLANDS":{"name":"Highlands","lat":41.805,"lon":-87.9183333,"code":"HIGHLANDS"},"WESTSPRING":{"name":"Western Springs","lat":41.8088889,"lon":-87.9011111,"code":"WESTSPRING"},"STONEAVE":{"name":"Stone Ave.","lat":41.8141667,"lon":-87.8783333,"code":"STONEAVE"},"LAGRANGE":{"name":"LaGrange Road","lat":41.8158333,"lon":-87.8711111,"code":"LAGRANGE"},"CONGRESSPK":{"name":"Congress Park","lat":41.8188889,"lon":-87.8575,"code":"CONGRESSPK"},"BROOKFIELD":{"name":"Brookfield","lat":41.8219444,"lon":-87.8430556,"code":"BROOKFIELD"},"HOLLYWOOD":{"name":"Hollywood","lat":41.8244444,"lon":-87.8338889,"code":"HOLLYWOOD"},"RIVERSIDE":{"name":"Riverside","lat":41.8272222,"lon":-87.82,"code":"RIVERSIDE"},"HARLEM":{"name":"Harlem Ave.","lat":41.8313889,"lon":-87.8019444,"code":"HARLEM"},"BERWYN":{"name":"Berwyn","lat":41.8330556,"lon":-87.7936111,"code":"BERWYN"},"LAVERGNE":{"name":"Lavergne","lat":41.8355556,"lon":-87.7833333,"code":"LAVERGNE"},"CICERO":{"name":"Cicero","lat":41.8441667,"lon":-87.7455556,"code":"CICERO"},"BNWESTERN":{"name":"Western Avenue","lat":41.8577778,"lon":-87.6852778,"code":"BNWESTERN"},"HALSTED":{"name":"Halsted Street","lat":41.8602778,"lon":-87.6472222,"code":"HALSTED"},"JOLIET":{"name":"Joliet","lat":41.5244444,"lon":-88.0797222,"code":"JOLIET"},"LOCKPORT":{"name":"Lockport","lat":41.585,"lon":-88.0602778,"code":"LOCKPORT"},"LEMONT":{"name":"Lemont","lat":41.6736111,"lon":-88.0025,"code":"LEMONT"},"WILLOWSPRN":{"name":"Willow Springs","lat":41.7333333,"lon":-87.8783333,"code":"WILLOWSPRN"},"SUMMIT":{"name":"Summit","lat":41.795,"lon":-87.8097222,"code":"SUMMIT"},"179TH-SWS":{"name":"Orland Park 179th","lat":41.5638889,"lon":-87.9025,"code":"179TH-SWS"},"153RD-SWS":{"name":"Orland Park 153rd","lat":41.6094444,"lon":-87.8733333,"code":"153RD-SWS"},"143RD-SWS":{"name":"Orland Park 143rd","lat":41.6305556,"lon":-87.8591667,"code":"143RD-SWS"},"PALOSPARK":{"name":"Palos Park","lat":41.6688889,"lon":-87.8202778,"code":"PALOSPARK"},"WORTH":{"name":"Worth","lat":41.6913889,"lon":-87.7958333,"code":"WORTH"},"CHICRIDGE":{"name":"Chicago Ridge","lat":41.7033333,"lon":-87.7802778,"code":"CHICRIDGE"},"OAKLAWN":{"name":"Oak Lawn Patriot","lat":41.7194444,"lon":-87.7486111,"code":"OAKLAWN"},"ASHBURN":{"name":"Ashburn","lat":41.7416667,"lon":-87.7125,"code":"ASHBURN"},"WRIGHTWOOD":{"name":"Wrightwood","lat":41.7488889,"lon":-87.7036111,"code":"WRIGHTWOOD"},"CLYBOURN":{"name":"Clybourn","lat":41.9169444,"lon":-87.6680556,"code":"CLYBOURN"},"RAVENSWOOD":{"name":"Ravenswood","lat":41.9683333,"lon":-87.6744444,"code":"RAVENSWOOD"},"ROGERPK":{"name":"Rogers Park","lat":42.0094444,"lon":-87.6755556,"code":"ROGERPK"},"MAINST":{"name":"Main St.","lat":42.0333333,"lon":-87.68,"code":"MAINST"},"EVANSTON":{"name":"Evanston (Davis St.)","lat":42.0480556,"lon":-87.6847222,"code":"EVANSTON"},"CENTRALST":{"name":"Central St.","lat":42.0641667,"lon":-87.6980556,"code":"CENTRALST"},"WILMETTE":{"name":"Wilmette","lat":42.0772222,"lon":-87.7091667,"code":"WILMETTE"},"KENILWORTH":{"name":"Kenilworth","lat":42.0863889,"lon":-87.7166667,"code":"KENILWORTH"},"WINNETKA":{"name":"Winnetka","lat":42.1052778,"lon":-87.7327778,"code":"WINNETKA"},"HUBARDWOOD":{"name":"Hubbard Woods","lat":42.1180556,"lon":-87.7436111,"code":"HUBARDWOOD"},"GLENCOE":{"name":"Glencoe","lat":42.1355556,"lon":-87.7580556,"code":"GLENCOE"},"BRAESIDE":{"name":"Braeside","lat":42.1527778,"lon":-87.7725,"code":"BRAESIDE"},"RAVINIA":{"name":"Ravinia","lat":42.165,"lon":-87.7827778,"code":"RAVINIA"},"HIGHLANDPK":{"name":"Highland Park","lat":42.1833333,"lon":-87.7975,"code":"HIGHLANDPK"},"HIGHWOOD":{"name":"Highwood","lat":42.2033333,"lon":-87.8105556,"code":"HIGHWOOD"},"FTSHERIDAN":{"name":"Fort Sheridan","lat":42.2175,"lon":-87.8208333,"code":"FTSHERIDAN"},"LKFOREST":{"name":"Lake Forest.","lat":42.2525,"lon":-87.8397222,"code":"LKFOREST"},"LAKEBLUFF":{"name":"Lake Bluff","lat":42.2797222,"lon":-87.8466667,"code":"LAKEBLUFF"},"GRTLAKES":{"name":"Great Lakes","lat":42.3069444,"lon":-87.8463889,"code":"GRTLAKES"},"NCHICAGO":{"name":"North Chicago","lat":42.3286111,"lon":-87.8369444,"code":"NCHICAGO"},"WAUKEGAN":{"name":"Waukegan","lat":42.3605556,"lon":-87.8283333,"code":"WAUKEGAN"},"ZION":{"name":"Zion","lat":42.4491667,"lon":-87.8180556,"code":"ZION"},"WINTHROP":{"name":"Winthrop Harbor","lat":42.4827778,"lon":-87.8161111,"code":"WINTHROP"},"FOXLAKE":{"name":"Fox Lake","lat":42.3983333,"lon":-88.1822222,"code":"FOXLAKE"},"INGLESIDE":{"name":"Ingleside","lat":42.3838889,"lon":-88.1536111,"code":"INGLESIDE"},"LONGLAKE":{"name":"Long Lake","lat":42.3680556,"lon":-88.1280556,"code":"LONGLAKE"},"ROUNDLAKE":{"name":"Round Lake","lat":42.3544444,"lon":-88.0941667,"code":"ROUNDLAKE"},"GRAYSLAKE":{"name":"Grayslake","lat":42.3336111,"lon":-88.0433333,"code":"GRAYSLAKE"},"LIBERTYVIL":{"name":"Libertyville","lat":42.2911111,"lon":-87.9563889,"code":"LIBERTYVIL"},"LAKEFRST":{"name":"Lake Forest","lat":42.2236111,"lon":-87.8747222,"code":"LAKEFRST"},"DEERFIELD":{"name":"Deerfield","lat":42.1680556,"lon":-87.85,"code":"DEERFIELD"},"LAKECOOKRD":{"name":"Lake-Cook","lat":42.1516667,"lon":-87.8413889,"code":"LAKECOOKRD"},"NBROOK":{"name":"Northbrook","lat":42.1269444,"lon":-87.8277778,"code":"NBROOK"},"NGLENVIEW":{"name":"Glen/N. Glenview","lat":42.0975,"lon":-87.8158333,"code":"NGLENVIEW"},"GLENVIEW":{"name":"Glenview","lat":42.075,"lon":-87.8055556,"code":"GLENVIEW"},"GOLF":{"name":"Golf","lat":42.0583333,"lon":-87.7969444,"code":"GOLF"},"MORTONGRV":{"name":"Morton Grove","lat":42.035,"lon":-87.7852778,"code":"MORTONGRV"},"EDGEBROOK":{"name":"Edgebrook","lat":41.9977778,"lon":-87.7655556,"code":"EDGEBROOK"},"FORESTGLEN":{"name":"Forest Glen","lat":41.9780556,"lon":-87.7555556,"code":"FORESTGLEN"},"MAYFAIR":{"name":"Mayfair","lat":41.9597222,"lon":-87.7458333,"code":"MAYFAIR"},"GRAYLAND":{"name":"Grayland","lat":41.9488889,"lon":-87.7402778,"code":"GRAYLAND"},"HEALY":{"name":"Healy","lat":41.9247222,"lon":-87.7277778,"code":"HEALY"},"WESTERNAVE":{"name":"Western Ave","lat":41.8891667,"lon":-87.6880556,"code":"WESTERNAVE"},"RAVINIAPK":{"name":"Ravinia Park","lat":42.1580556,"lon":-87.7769444,"code":"RAVINIAPK"},"INDIANHILL":{"name":"Indian Hill","lat":42.0944444,"lon":-87.7238889,"code":"INDIANHILL"},"KENOSHA":{"name":"Kenosha","lat":42.5858333,"lon":-87.8258333,"code":"KENOSHA"},"HARVARD":{"name":"Harvard","lat":42.4197222,"lon":-88.6175,"code":"HARVARD"},"WOODSTOCK":{"name":"Woodstock","lat":42.3169444,"lon":-88.4475,"code":"WOODSTOCK"},"CRYSTAL":{"name":"Crystal Lake","lat":42.2441667,"lon":-88.3172222,"code":"CRYSTAL"},"MCHENRY":{"name":"McHenry","lat":42.3433333,"lon":-88.2761111,"code":"MCHENRY"},"CARY":{"name":"Cary","lat":42.2088889,"lon":-88.2413889,"code":"CARY"},"FOXRG":{"name":"Fox River Grove","lat":42.1977778,"lon":-88.2194444,"code":"FOXRG"},"BARRINGTON":{"name":"Barrington","lat":42.1527778,"lon":-88.1319444,"code":"BARRINGTON"},"PALATINE":{"name":"Palatine","lat":42.1130556,"lon":-88.0483333,"code":"PALATINE"},"ARLINGTNPK":{"name":"Arlington Park","lat":42.0952778,"lon":-88.0091667,"code":"ARLINGTNPK"},"ARLINGTNHT":{"name":"Arlington Heights","lat":42.0841667,"lon":-87.9836111,"code":"ARLINGTNHT"},"MTPROSPECT":{"name":"Mt. Prospect","lat":42.0630556,"lon":-87.9361111,"code":"MTPROSPECT"},"CUMBERLAND":{"name":"Cumberland","lat":42.0525,"lon":-87.9122222,"code":"CUMBERLAND"},"DESPLAINES":{"name":"Des Plaines","lat":42.0408333,"lon":-87.8866667,"code":"DESPLAINES"},"DEEROAD":{"name":"Dee Road","lat":42.0241667,"lon":-87.8561111,"code":"DEEROAD"},"PARKRIDGE":{"name":"Park Ridge","lat":42.0102778,"lon":-87.8316667,"code":"PARKRIDGE"},"IRVINGPK":{"name":"Irving Park","lat":41.9525,"lon":-87.7297222,"code":"IRVINGPK"},"BIGTIMBER":{"name":"Big Timber","lat":42.0586111,"lon":-88.3277778,"code":"BIGTIMBER"},"ELGIN":{"name":"Elgin","lat":42.0361111,"lon":-88.2861111,"code":"ELGIN"},"NATIONALS":{"name":"National St","lat":42.0263889,"lon":-88.2788889,"code":"NATIONALS"},"HANOVERP":{"name":"Hanover Park","lat":41.9880556,"lon":-88.1491667,"code":"HANOVERP"},"SCHAUM":{"name":"Schaumburg","lat":41.9891667,"lon":-88.1180556,"code":"SCHAUM"},"ROSELLE":{"name":"Roselle","lat":41.9813889,"lon":-88.0672222,"code":"ROSELLE"},"MEDINAH":{"name":"Medinah","lat":41.9780556,"lon":-88.0508333,"code":"MEDINAH"},"ITASCA":{"name":"Itasca","lat":41.9713889,"lon":-88.0141667,"code":"ITASCA"},"WOODDALE":{"name":"Wood Dale","lat":41.9625,"lon":-87.9752778,"code":"WOODDALE"},"BENSENVIL":{"name":"Bensenville","lat":41.9569444,"lon":-87.9419444,"code":"BENSENVIL"},"MANNHEIM":{"name":"Mannheim","lat":41.9416667,"lon":-87.8833333,"code":"MANNHEIM"},"FRANKLIN":{"name":"Franklin Park","lat":41.9366667,"lon":-87.8663889,"code":"FRANKLIN"},"MONTCLARE":{"name":"Mont Clare","lat":41.9216667,"lon":-87.8016667,"code":"MONTCLARE"},"MARS":{"name":"Mars","lat":41.9191667,"lon":-87.7944444,"code":"MARS"},"GALEWOOD":{"name":"Galewood","lat":41.9163889,"lon":-87.7858333,"code":"GALEWOOD"},"HANSONPK":{"name":"Hanson Park","lat":41.9166667,"lon":-87.7669444,"code":"HANSONPK"},"GRAND-CIC":{"name":"Grand/Cicero","lat":41.9144444,"lon":-87.7461111,"code":"GRAND-CIC"},"OHARE":{"name":"O'Hare Transfer","lat":41.995,"lon":-87.8805556,"code":"OHARE"},"PROSPECTHG":{"name":"Prospect Hts","lat":42.0922222,"lon":-87.9080556,"code":"PROSPECTHG"},"WHEELING":{"name":"Wheeling","lat":42.1363889,"lon":-87.9272222,"code":"WHEELING"},"BUFFGROVE":{"name":"Buffalo Grove","lat":42.1686111,"lon":-87.9413889,"code":"BUFFGROVE"},"PRAIRIEVW":{"name":"Prairie View","lat":42.1980556,"lon":-87.9558333,"code":"PRAIRIEVW"},"VERNON":{"name":"Vernon Hills","lat":42.2155556,"lon":-87.9644444,"code":"VERNON"},"MUNDELEIN":{"name":"Mundelein","lat":42.2669444,"lon":-87.9980556,"code":"MUNDELEIN"},"PRAIRCROSS":{"name":"Prairie Crossing.","lat":42.3180556,"lon":-88.0172222,"code":"PRAIRCROSS"},"ROUNDLKBCH":{"name":"Round Lake Beach","lat":42.385,"lon":-88.0655556,"code":"ROUNDLKBCH"},"LAKEVILLA":{"name":"Lake Villa","lat":42.4175,"lon":-88.0794444,"code":"LAKEVILLA"},"ANTIOCH":{"name":"Antioch","lat":42.4811111,"lon":-88.0925,"code":"ANTIOCH"},"NEWLENOX":{"name":"New Lenox","lat":41.5144444,"lon":-87.9652778,"code":"NEWLENOX"},"MOKENA":{"name":"Mokena","lat":41.5308333,"lon":-87.8866667,"code":"MOKENA"},"HICKORYCRK":{"name":"Hickory Creek","lat":41.5486111,"lon":-87.8455556,"code":"HICKORYCRK"},"TINLEY80TH":{"name":"Tinley-80th","lat":41.5644444,"lon":-87.8094444,"code":"TINLEY80TH"},"TINLEYPARK":{"name":"Tinley Park","lat":41.5758333,"lon":-87.7827778,"code":"TINLEYPARK"},"OAKFOREST":{"name":"Oak Forest","lat":41.6044444,"lon":-87.7383333,"code":"OAKFOREST"},"MIDLOTHIAN":{"name":"Midlothian","lat":41.6263889,"lon":-87.7116667,"code":"MIDLOTHIAN"},"ROBBINS":{"name":"Robbins","lat":41.6408333,"lon":-87.6944444,"code":"ROBBINS"},"KENSINGTN":{"name":"Kensington","lat":41.6858333,"lon":-87.6122222,"code":"KENSINGTN"},"59TH-UP":{"name":"59th St. (U. of Chicago)","lat":41.7880556,"lon":-87.5886111,"code":"59TH-UP"},"UNIVERSITY":{"name":"University Park","lat":41.4594444,"lon":-87.7233333,"code":"UNIVERSITY"},"RICHTON":{"name":"Richton Park","lat":41.4855556,"lon":-87.7094444,"code":"RICHTON"},"MATTESON":{"name":"Matteson","lat":41.4986111,"lon":-87.7022222,"code":"MATTESON"},"211TH-UP":{"name":"211th St.","lat":41.5061111,"lon":-87.6983333,"code":"211TH-UP"},"OLYMPIA":{"name":"Olympia Fields","lat":41.5213889,"lon":-87.69,"code":"OLYMPIA"},"FLOSSMOOR":{"name":"Flossmoor","lat":41.5430556,"lon":-87.6786111,"code":"FLOSSMOOR"},"HOMEWOOD":{"name":"Homewood","lat":41.5622222,"lon":-87.6686111,"code":"HOMEWOOD"},"CALUMET":{"name":"Calumet","lat":41.5736111,"lon":-87.6625,"code":"CALUMET"},"EDISONPK":{"name":"Edison Park","lat":42.0022222,"lon":-87.8175,"code":"EDISONPK"},"NORWOODP":{"name":"Norwood Park","lat":41.9916667,"lon":-87.7988889,"code":"NORWOODP"},"GLADSTONEP":{"name":"Gladstone Park","lat":41.9797222,"lon":-87.7780556,"code":"GLADSTONEP"},"JEFFERSONP":{"name":"Jefferson Park","lat":41.9713889,"lon":-87.7633333,"code":"JEFFERSONP"},"BARTLETT":{"name":"Bartlett","lat":41.9922222,"lon":-88.1838889,"code":"BARTLETT"},"47TH-UP":{"name":"47th St. (Kenwood)","lat":41.8097222,"lon":-87.5913889,"code":"47TH-UP"},"51ST-53RD":{"name":"51st/53rd St. (Hyde Park)","lat":41.8,"lon":-87.5869444,"code":"51ST-53RD"},"55-56-57TH":{"name":"55th - 56th - 57th St.","lat":41.7933333,"lon":-87.5875,"code":"55-56-57TH"},"63RD-UP":{"name":"63rd St.","lat":41.7802778,"lon":-87.5905556,"code":"63RD-UP"},"PRAIRIEXNG":{"name":"Prairie Crossing","lat":42.3208333,"lon":-88.0152778,"code":"PRAIRIEXNG"},"RIVERGROVE":{"name":"River Grove","lat":41.9311111,"lon":-87.8361111,"code":"RIVERGROVE"},"ELMWOODPK":{"name":"Elmwood Park","lat":41.9247222,"lon":-87.8147222,"code":"ELMWOODPK"},"RIVERDALE":{"name":"Riverdale","lat":41.6466667,"lon":-87.6233333,"code":"RIVERDALE"},"IVANHOE":{"name":"Ivanhoe","lat":41.6333333,"lon":-87.6302778,"code":"IVANHOE"},"147TH-UP":{"name":"147th St.","lat":41.6227778,"lon":-87.6361111,"code":"147TH-UP"},"HARVEY":{"name":"Harvey","lat":41.6083333,"lon":-87.6438889,"code":"HARVEY"},"HAZELCREST":{"name":"Hazel Crest","lat":41.5808333,"lon":-87.6586111,"code":"HAZELCREST"},"MILLENNIUM":{"name":"Millennium Station","lat":41.8841667,"lon":-87.6230556,"code":"MILLENNIUM"},"VANBUREN":{"name":"Van Buren St.","lat":41.8769444,"lon":-87.6230556,"code":"VANBUREN"},"MUSEUM":{"name":"Museum Campus/11th St.","lat":41.8686111,"lon":-87.6213889,"code":"MUSEUM"},"18TH-UP":{"name":"18th St.","lat":41.8583333,"lon":-87.6180556,"code":"18TH-UP"},"MCCORMICK":{"name":"McCormick Place","lat":41.8513889,"lon":-87.6163889,"code":"MCCORMICK"},"27TH-UP":{"name":"27th St.","lat":41.8441667,"lon":-87.6133333,"code":"27TH-UP"},"75TH-UP":{"name":"75th St. (Grand Crossing)","lat":41.7588889,"lon":-87.5952778,"code":"75TH-UP"},"79TH-UP":{"name":"79th St. (Chatham)","lat":41.7508333,"lon":-87.5972222,"code":"79TH-UP"},"83RD-UP":{"name":"83rd St. (Avalon Park)","lat":41.7441667,"lon":-87.5986111,"code":"83RD-UP"},"87TH-UP":{"name":"87th St. (Woodruff)","lat":41.7369444,"lon":-87.6002778,"code":"87TH-UP"},"91ST-UP":{"name":"91st St.","lat":41.7294444,"lon":-87.6019444,"code":"91ST-UP"},"95TH-UP":{"name":"95th St.","lat":41.7219444,"lon":-87.6038889,"code":"95TH-UP"},"103RD-UP":{"name":"103rd St. (Rosemoor)","lat":41.7069444,"lon":-87.6072222,"code":"103RD-UP"},"107TH-UP":{"name":"107th St.","lat":41.6997222,"lon":-87.6088889,"code":"107TH-UP"},"111TH-UP":{"name":"111th St. (Pullman)","lat":41.6927778,"lon":-87.6105556,"code":"111TH-UP"},"STONYISLND":{"name":"Stony Island","lat":41.7661111,"lon":-87.5869444,"code":"STONYISLND"},"BRYNMAWR":{"name":"Bryn Mawr","lat":41.7661111,"lon":-87.5766667,"code":"BRYNMAWR"},"SOUTHSHORE":{"name":"South Shore","lat":41.7652778,"lon":-87.5658333,"code":"SOUTHSHORE"},"WINDSORPK":{"name":"Windsor Park","lat":41.7586111,"lon":-87.5594444,"code":"WINDSORPK"},"79TH-SC":{"name":"Cheltenham (79th St.)","lat":41.7522222,"lon":-87.5525,"code":"79TH-SC"},"83RD-SC":{"name":"83rd St.","lat":41.745,"lon":-87.5516667,"code":"83RD-SC"},"87TH-SC":{"name":"87th St.","lat":41.7377778,"lon":-87.5483333,"code":"87TH-SC"},"93RD-SC":{"name":"South Chicago (93rd)","lat":41.7266667,"lon":-87.5477778,"code":"93RD-SC"},"LSS":{"name":"LaSalle Street","lat":41.8763889,"lon":-87.6322222,"code":"LSS"},"GRESHAM":{"name":"Gresham","lat":41.7363889,"lon":-87.6447222,"code":"GRESHAM"},"VERMONT":{"name":"Blue Island-Vermont","lat":41.6547222,"lon":-87.6777778,"code":"VERMONT"},"LONGWOOD":{"name":"95th St.-Longwood","lat":41.7211111,"lon":-87.6502778,"code":"LONGWOOD"},"WASHHGTS":{"name":"103rd St.-Washington Hts.","lat":41.7055556,"lon":-87.6558333,"code":"WASHHGTS"},"BRAINERD":{"name":"Brainerd","lat":41.7322222,"lon":-87.6588889,"code":"BRAINERD"},"91ST-BEV":{"name":"91st St. - Beverly Hills","lat":41.7280556,"lon":-87.6672222,"code":"91ST-BEV"},"PRAIRIEST":{"name":"Prairie St.","lat":41.6625,"lon":-87.675,"code":"PRAIRIEST"},"123RD-BEV":{"name":"123rd St.","lat":41.67,"lon":-87.6736111,"code":"123RD-BEV"},"119TH-BEV":{"name":"119th St.","lat":41.6763889,"lon":-87.6725,"code":"119TH-BEV"},"115TH-BEV":{"name":"115th St. - Morgan Park","lat":41.685,"lon":-87.6716667,"code":"115TH-BEV"},"111TH-BEV":{"name":"111th St. - Morgan Park","lat":41.6927778,"lon":-87.6705556,"code":"111TH-BEV"},"107TH-BEV":{"name":"107th St. - Beverly Hills","lat":41.6988889,"lon":-87.67,"code":"107TH-BEV"},"103RD-BEV":{"name":"103rd St. - Beverly Hills","lat":41.7061111,"lon":-87.6688889,"code":"103RD-BEV"},"99TH-BEV":{"name":"99th St. - Beverly Hills","lat":41.7136111,"lon":-87.6675,"code":"99TH-BEV"},"95TH-BEV":{"name":"95th St. - Beverly Hills","lat":41.7213889,"lon":-87.6672222,"code":"95TH-BEV"},"BLUEISLAND":{"name":"Blue Island","lat":41.6561111,"lon":-87.6758333,"code":"BLUEISLAND"},"BURROAK":{"name":"Burr Oak","lat":41.6622222,"lon":-87.6688889,"code":"BURROAK"},"ASHLAND":{"name":"Ashland","lat":41.6694444,"lon":-87.6605556,"code":"ASHLAND"},"RACINE":{"name":"Racine","lat":41.6741667,"lon":-87.6519444,"code":"RACINE"},"WPULLMAN":{"name":"West Pullman","lat":41.6741667,"lon":-87.6422222,"code":"WPULLMAN"},"STEWARTRID":{"name":"Stewart Ridge","lat":41.6744444,"lon":-87.6316667,"code":"STEWARTRID"},"STATEST":{"name":"State St.","lat":41.6744444,"lon":-87.6219444,"code":"STATEST"},"SCHILLERPK":{"name":"Schiller Park","lat":41.9627778,"lon":-87.8705556,"code":"SCHILLERPK"},"PALOSHTS":{"name":"Palos Heights","lat":41.6819444,"lon":-87.8069444,"code":"PALOSHTS"},"PINGREE":{"name":"Pingree Road","lat":42.2341667,"lon":-88.2980556,"code":"PINGREE"},"CUS":{"name":"Chicago Union Station","lat":41.8788889,"lon":-87.6388889,"code":"CUS"},"OTC":{"name":"Chicago OTC","lat":41.8822222,"lon":-87.6405556,"code":"OTC"},"LARAWAY":{"name":"Laraway Road","lat":41.4847222,"lon":-87.9597222,"code":"LARAWAY"},"MANHATTAN":{"name":"Manhattan","lat":41.4183333,"lon":-87.9891667,"code":"MANHATTAN"},"NCSGRAYSLK":{"name":"Washington St (Grayslake)","lat":42.3591667,"lon":-88.0505556,"code":"NCSGRAYSLK"},"ROSEMONT":{"name":"Rosemont","lat":41.9761111,"lon":-87.8738889,"code":"ROSEMONT"},"FRANKLINPK":{"name":"Franklin Pk","lat":41.9377778,"lon":-87.86,"code":"FRANKLINPK"},"LAFOX":{"name":"La Fox","lat":41.8866667,"lon":-88.4122222,"code":"LAFOX"},"ELBURN":{"name":"Elburn","lat":41.8905556,"lon":-88.4638889,"code":"ELBURN"},"35TH":{"name":"35th St. - Lou Jones","lat":41.8313889,"lon":-87.6291667,"code":"35TH"},"ROMEOVILLE":{"name":"Romeoville","lat":41.6372222,"lon":-88.0494444,"code":"ROMEOVILLE"},"PETERSON":{"name":"Peterson/Ridge","lat":41.9911111,"lon":-87.675,"code":"PETERSON"}},"routes":{"BNSF":{"name":"BNSF Railway","color":"#29C233","text":"#000000"},"HC":{"name":"Heritage Corridor","color":"#550E0C","text":"#FFFFFF"},"MD-N":{"name":"Milwaukee District North","color":"#CC5500","text":"#FFFFFF"},"MD-W":{"name":"Milwaukee District West","color":"#F1AD0E","text":"#000000"},"ME":{"name":"Metra Electric","color":"#EB5C00","text":"#FFFFFF"},"NCS":{"name":"North Central Service","color":"#9785BC","text":"#FFFFFF"},"RI":{"name":"Rock Island","color":"#E02400","text":"#FFFFFF"},"SWS":{"name":"SouthWest Service","color":"#0042A8","text":"#FFFFFF"},"UP-N":{"name":"Union Pacific North","color":"#008000","text":"#FFFFFF"},"UP-NW":{"name":"Union Pacific Northwest","color":"#FFE600","text":"#000000"},"UP-W":{"name":"Union Pacific West","color":"#FE8D81","text":"#000000"}}};
+      function metraUnixToDate(t) {
+        if (t == null || t === '') return null;
+        let n = (typeof t === 'object' && t !== null && typeof t.toNumber === 'function') ? t.toNumber() : Number(t);
+        if (!isFinite(n) || n <= 0) return null;
+        if (n > 1e12) n = Math.floor(n / 1000);
+        const d = new Date(n * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      function metraFormatTime(d) {
+        if (!d) return null;
+        return rrClockTime(d);
+      }
+      function metraStopCoords(stopId) {
+        if (!stopId) return null;
+        const s = METRA_STATIC.stops[String(stopId)];
+        if (!s || s.lat == null || s.lon == null) return null;
+        const lat = Number(s.lat), lon = Number(s.lon);
+        if (!lat && !lon) return null;
+        return { lat, lon, name: s.name || String(stopId) };
+      }
+      function metraRouteInfo(routeId) {
+        const r = METRA_STATIC.routes[String(routeId || '')] || null;
+        return {
+          id: String(routeId || ''),
+          name: (r && r.name) || (routeId ? String(routeId) : 'Metra'),
+          color: (r && r.color) || '#0055A4',
+          text: (r && r.text) || '#FFFFFF'
+        };
+      }
+      function metraEventTime(ev) {
+        if (!ev) return null;
+        return metraUnixToDate(ev.time);
+      }
+      function metraEventDelayMin(ev) {
+        if (!ev || ev.delay == null) return null;
+        const sec = Number(ev.delay);
+        if (!isFinite(sec)) return null;
+        return Math.round(sec / 60);
+      }
+      function metraBuildStopsFromTripUpdate(tu) {
+        const now = Date.now();
+        const list = (tu && tu.stop_time_update) || [];
+        return list.map(function(stu) {
+          const stopId = stu.stop_id != null ? String(stu.stop_id) : '';
+          const staticStop = METRA_STATIC.stops[stopId] || null;
+          const name = (staticStop && staticStop.name) || stopId || 'Unknown';
+          const arr = metraEventTime(stu.arrival);
+          const dep = metraEventTime(stu.departure);
+          const primary = dep || arr;
+          const delayMin = metraEventDelayMin(stu.departure);
+          const delayMin2 = delayMin != null ? delayMin : metraEventDelayMin(stu.arrival);
+          const isCompleted = primary ? primary.getTime() < now : false;
+          return {
+            name: name,
+            stopId: stopId,
+            scheduledTime: primary,
+            predictedTime: primary,
+            delayMinutes: delayMin2,
+            trackNumber: null,
+            formattedScheduledTime: metraFormatTime(primary) || '—',
+            formattedPredictedTime: metraFormatTime(primary),
+            formattedActualTime: null,
+            isCompleted: isCompleted,
+            lat: staticStop ? Number(staticStop.lat) : null,
+            lng: staticStop ? Number(staticStop.lon) : null
+          };
+        });
+      }
+      function metraDisplayTrainNum(tripId, vehicleId) {
+        const s = String(tripId || '').trim();
+        if (s) {
+          const parts = s.split('_');
+          // Prefer second segment if it contains digits (e.g. RI_RI234_V1_D → RI234)
+          if (parts.length >= 2 && /\d/.test(parts[1])) return parts[1];
+          // Fallback: any segment with digits
+          for (let i = 0; i < parts.length; i++) {
+            if (/\d/.test(parts[i])) return parts[i];
+          }
+        }
+        return vehicleId ? String(vehicleId) : '?';
+      }
+      function createMetraIcon(trainNum) {
+        const reported = rrReportIconUrl('metra', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'train-icon metra-icon');
+        return L.divIcon({
+          className: 'metra-icon',
+          html: '<div style="width:16px;height:16px;background:#0055A4;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+          popupAnchor: [0, -8]
+        });
+      }
+      function createMetraPopupContent(vid, info) {
+        const num = info.trainNum || String(vid).replace(/^metra-/, '');
+        const route = info.routeName || 'Metra';
+        const dest = info.destName || '—';
+        const origin = info.origName || '—';
+        const status = info.statusText || 'On Time';
+        const statusPillClass = info.statusPillClass || 'status-on-time';
+        const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
+        const lastSeenTime = metraLastSeen[vid]
+          ? rrClockTime(new Date(metraLastSeen[vid]))
+          : '—';
+        const metraBadge = '<span class="cape-badge" style="background:#0055A4;">Metra</span>';
+        const metraSpecial = getSpecialForVehicle('metra', info.vehicleId || null, num) || info.specialUnit || null;
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMetraTrain(\'' + vid + '\')">Refresh</button>';
+        const shareBtn = rrShareTrainBtnHtml('metra', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('metra', vid, num);
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
+        const stopsHtml = (info.stops && info.stops.length)
+          ? buildStopsHtml(info.stops, info.lat, info.lng)
+          : '<div class="no-departures">No stop data</div>';
+        let statusDesc = 'On the way to ' + dest;
+        if (info.vehicleStatus === 1 && info.currentStopName) statusDesc = 'Stopped at ' + info.currentStopName;
+        else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
+        else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
+        const speedHtml = speed != null
+          ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>')
+          : '';
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                ${metraBadge}
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${statusDesc}</p>
+                <span class="status-pill ${statusPillClass}">${status}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Train</span>
+                  <span class="info-value">${num}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Route</span>
+                  <span class="info-value">${route}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Status</span>
+                  <span class="info-value">${status}</span>
+                </div>
+                ${speedHtml}
+              </div>
+              ${al}
+              <div class="meta-row">
+                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${logTripBtn}${shareBtn}${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+      window.refreshMetraTrain = async function() { return fetchMetraTrains(); };
+      function updateMetraVisibility() {
+        Object.values(metraMarkers).forEach(function(m) {
+          if (showMetra) map.addLayer(m);
+          else map.removeLayer(m);
+        });
+        if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+      }
+      function metraParseJoined(vehicleEntity, tripUpdate, usedTrainNums) {
+        const v = (vehicleEntity && vehicleEntity.vehicle) || null;
+        if (!v || !v.position) return null;
+        const lat = Number(v.position.latitude);
+        const lon = Number(v.position.longitude);
+        if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) return null;
+        const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
+        const tu = tripUpdate || null;
+        const tripV = (v && v.trip) || {};
+        const tripU = (tu && tu.trip) || {};
+        const trip = Object.assign({}, tripV, tripU);
+        const tripId = trip.trip_id != null ? String(trip.trip_id) : '';
+        const trainNum = metraDisplayTrainNum(tripId, vehicleId);
+        if (!trainNum) return null;
+        const routeId = (tripU.route_id != null && tripU.route_id !== '')
+          ? String(tripU.route_id)
+          : (tripV.route_id != null ? String(tripV.route_id) : '');
+        const route = routeId ? metraRouteInfo(routeId) : { id: '', name: 'Metra', color: '#0055A4', text: '#FFFFFF' };
+        const stops = metraBuildStopsFromTripUpdate(tu);
+        const destName = stops.length ? stops[stops.length - 1].name : '—';
+        const origName = stops.length ? stops[0].name : '—';
+        let maxDelay = null;
+        stops.forEach(function(s) {
+          if (s.delayMinutes == null) return;
+          if (maxDelay == null || Math.abs(s.delayMinutes) > Math.abs(maxDelay)) maxDelay = s.delayMinutes;
+        });
+        let statusText = 'On Time';
+        let statusPillClass = 'status-on-time';
+        if (maxDelay != null && Math.abs(maxDelay) > 15) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
+        } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
+        } else if (maxDelay != null && maxDelay > 0) {
+          statusText = maxDelay + ' min late';
+        } else if (!tu) {
+          statusText = 'Live';
+          statusPillClass = 'status-scheduled';
+        }
+        const vehicleStatus = (v && v.current_status != null) ? Number(v.current_status) : null;
+        let currentStopName = null;
+        if (v && v.stop_id) {
+          const cs = metraStopCoords(v.stop_id);
+          if (cs) currentStopName = cs.name;
+        }
+        let speedMph = null;
+        if (v.position.speed != null) {
+          const mps = Number(v.position.speed);
+          if (isFinite(mps) && mps >= 0) speedMph = mps * 2.23693629;
+        }
+        let markerKey = 'metra-' + (vehicleId || trainNum);
+        if (usedTrainNums && usedTrainNums.has(markerKey)) {
+          markerKey = 'metra-' + String((vehicleEntity && vehicleEntity.id) || vehicleId || trainNum);
+        }
+        if (usedTrainNums) usedTrainNums.add(markerKey);
+        return {
+          id: markerKey,
+          trainNum: trainNum,
+          vehicleId: vehicleId || null,
+          routeId: routeId,
+          routeName: route.name,
+          routeColor: route.color,
+          routeText: route.text,
+          lat: lat,
+          lng: lon,
+          coordSource: 'gps',
+          stops: stops,
+          destName: destName,
+          origName: origName,
+          statusText: statusText,
+          statusPillClass: statusPillClass,
+          delayMinutes: maxDelay,
+          vehicleStatus: vehicleStatus,
+          currentStopName: currentStopName,
+          speedMph: speedMph,
+          tripId: tripId || null,
+          hasAlert: false,
+          alertHeader: ''
+        };
+      }
+      async function fetchMetraTrains() {
+        if (!showMetra) return;
+        const stat = FetchStats.start('Metra');
+        try {
+          const FeedMessage = getFeedMessageType();
+          const [posRes, tuRes, alRes] = await Promise.all([
+            fetch(METRA_POSITIONS_URL),
+            fetch(METRA_TRIPUPDATES_URL),
+            fetch(METRA_ALERTS_URL).catch(function() { return null; })
+          ]);
+          if (!posRes.ok) throw new Error('positions HTTP ' + posRes.status);
+          if (!tuRes.ok) throw new Error('tripupdates HTTP ' + tuRes.status);
+          const [posBuf, tuBuf, alBuf] = await Promise.all([
+            posRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
+            tuRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
+            (alRes && alRes.ok) ? alRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }) : Promise.resolve(null)
+          ]);
+          const posFeed = FeedMessage.decode(posBuf);
+          const tuFeed = FeedMessage.decode(tuBuf);
+          let alertIndex = { byTrip: {}, byRoute: {} };
+          if (alBuf) {
+            try {
+              const alFeed = FeedMessage.decode(alBuf);
+              alertIndex = indexGtfsRtServiceAlerts(alFeed, ['METRA']);
+            } catch (alErr) {
+              console.warn('[Metra alerts] decode failed', alErr);
+            }
+          }
+          // Index trip updates by trip_update.vehicle.id
+          const tuByVehicleId = {};
+          (tuFeed.entity || []).forEach(function(entity) {
+            const tu = entity.trip_update;
+            if (!tu || !tu.vehicle || tu.vehicle.id == null || tu.vehicle.id === '') return;
+            tuByVehicleId[String(tu.vehicle.id)] = tu;
+          });
+          const now = Date.now();
+          let created = 0, updated = 0, skipped = 0, joined = 0, gpsOnly = 0;
+          const seen = new Set();
+          const usedTrainNums = new Set();
+          const posEntities = posFeed.entity || [];
+          posEntities.forEach(function(entity) {
+            const v = entity.vehicle;
+            if (!v || !v.position) { skipped++; return; }
+            const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
+            const tu = vehicleId ? (tuByVehicleId[vehicleId] || null) : null;
+            if (tu) joined++; else gpsOnly++;
+            const info = metraParseJoined(entity, tu, usedTrainNums);
+            if (!info) { skipped++; return; }
+            applyGtfsRtAlertFields(info, alertIndex);
+            const vid = info.id;
+            seen.add(vid);
+            metraTrainInfo[vid] = info;
+            metraLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
+            const icon = createMetraIcon(info.trainNum);
+            const metraLabelInfo = buildCyclingTrainInfo({
+              route: info.routeName || 'Metra',
+              trainNum: info.trainNum,
+              dest: info.destName || '',
+              vehicle: info.vehicleId || '',
+              speedMph: info.speedMph,
+              status: info.statusText || '',
+              nextStop: info.currentStopName || ''
+            });
+            if (metraMarkers[vid]) {
+              metraMarkers[vid].setLatLng([info.lat, info.lng]);
+              metraMarkers[vid].setIcon(icon);
+              if (metraMarkers[vid].getPopup()) {
+                metraMarkers[vid].setPopupContent(createMetraPopupContent(vid, info));
+              }
+              applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
+              updated++;
+            } else {
+              const m = L.marker([info.lat, info.lng], { icon: icon });
+              m.bindPopup(createMetraPopupContent(vid, info), rrPopupOpts());
+              applyCyclingLabel(m, metraLabelInfo, true);
+              const zoom = map.getZoom();
+              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+              }
+              metraMarkers[vid] = m;
+              if (showMetra) m.addTo(map);
+              created++;
+            }
+          });
+          Object.keys(metraMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(metraMarkers[vid]);
+              delete metraMarkers[vid];
+              delete metraTrainInfo[vid];
+              delete metraLastSeen[vid];
+            }
+          });
+          FetchStats.end(stat, {
+            positions: posEntities.length,
+            tripupdates: (tuFeed.entity || []).length,
+            joined: joined,
+            gpsOnly: gpsOnly,
+            created: created,
+            updated: updated,
+            skipped: skipped,
+            active: Object.keys(metraMarkers).length
+          });
+          updateMetraVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('Metra', e);
+          console.warn('%c[Metra] GTFS-RT fetch failed', 'color:#f39c12', e);
+        }
+      }
+
+      const NJT_VEHICLES_URL = apiUrl('/api/njt/vehicles');
+      const NJT_STOPS_URL = apiUrl('/api/njt/stops');
+      const NJT_COLOR = '#FF671F';
+      const NJT_LINES = {
+        AC: { name: 'Atlantic City Line', abbr: 'ACRL', color: '#005DAA' },
+        BC: { name: 'Bergen County Line', abbr: 'BERG', color: '#FFC20E' },
+        SL: { name: 'BetMGM Meadowlands', abbr: 'BMGM', color: '#C4D600' },
+        GS: { name: 'Gladstone Branch', abbr: 'M&E', color: '#00A94F' },
+        ME: { name: 'Morris & Essex Line', abbr: 'M&E', color: '#00A94F' },
+        ML: { name: 'Main Line', abbr: 'MAIN', color: '#FFC20E' },
+        MC: { name: 'Montclair-Boonton Line', abbr: 'MOBO', color: '#EE8125' },
+        NC: { name: 'North Jersey Coast Line', abbr: 'NJCL', color: '#00A4E4' },
+        NE: { name: 'Northeast Corridor Line', abbr: 'NEC', color: '#EF3E42' },
+        PV: { name: 'Pascack Valley Line', abbr: 'PASC', color: '#8B1D41' },
+        PR: { name: 'Princeton Branch', abbr: 'PRIN', color: '#E31837' },
+        RV: { name: 'Raritan Valley Line', abbr: 'RARV', color: '#FF7900' },
+        AM: { name: 'Amtrak', abbr: 'AMTK', color: '#003087' },
+        SP: { name: 'SEPTA', abbr: 'SEPTA', color: '#4F6D1E' }
+      };
+      function njtPick(obj, keys) {
+        if (!obj) return '';
+        for (let i = 0; i < keys.length; i++) {
+          const v = obj[keys[i]];
+          if (v != null && String(v).trim() !== '') return v;
+        }
+        return '';
+      }
+      function njtLineInfo(codeOrName) {
+        const raw = String(codeOrName || '').trim();
+        const code = raw.toUpperCase();
+        if (NJT_LINES[code]) return Object.assign({ id: code }, NJT_LINES[code]);
+        const found = Object.keys(NJT_LINES).find(function(k) {
+          const L = NJT_LINES[k];
+          return raw.toLowerCase() === L.name.toLowerCase() || raw.toUpperCase() === L.abbr;
+        });
+        if (found) return Object.assign({ id: found }, NJT_LINES[found]);
+        return { id: '', name: raw || 'NJ Transit', abbr: 'NJT', color: NJT_COLOR };
+      }
+      function njtIsForeignCarrier(trainId) {
+        const s = String(trainId || '').trim().toUpperCase();
+        if (!s) return false;
+        const ch = s.charAt(0);
+        return ch === 'A' || ch === 'S';
+      }
+      function njtDelayParts(secLate) {
+        const sec = Number(secLate);
+        if (!isFinite(sec)) return { minutes: null, text: 'Live', pill: 'status-scheduled' };
+        const minutes = Math.round(sec / 60);
+        if (Math.abs(minutes) <= 5) return { minutes: minutes, text: 'On Time', pill: 'status-on-time' };
+        if (minutes > 15) return { minutes: minutes, text: minutes + ' min late', pill: 'status-very-delayed' };
+        if (minutes > 5) return { minutes: minutes, text: minutes + ' min late', pill: 'status-delayed' };
+        if (minutes < -5) return { minutes: minutes, text: 'Early', pill: 'status-on-time' };
+        return { minutes: minutes, text: 'On Time', pill: 'status-on-time' };
+      }
+      function njtParseTrain(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const trainNum = String(njtPick(raw, ['ID', 'id', 'trainId', 'TRAIN_ID', 'trainNum'])).trim();
+        if (!trainNum || njtIsForeignCarrier(trainNum)) return null;
+        const lat = Number(njtPick(raw, ['LATITUDE', 'lat', 'latitude', 'GPSLATITUDE']));
+        const lng = Number(njtPick(raw, ['LONGITUDE', 'lng', 'lon', 'longitude', 'GPSLONGITUDE']));
+        if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return null;
+        const lineRaw = njtPick(raw, ['LINECODE', 'lineCode', 'TRAIN_LINE', 'line', 'LINE']);
+        const line = njtLineInfo(lineRaw);
+        const nextStop = String(njtPick(raw, ['NEXT_STOP', 'nextStop', 'NEXTSTOP']) || '—');
+        const dest = String(njtPick(raw, ['DESTINATION', 'destination', 'destName']) || nextStop || '—');
+        const direction = String(njtPick(raw, ['DIRECTION', 'direction']) || '');
+        const delay = njtDelayParts(njtPick(raw, ['SEC_LATE', 'secLate', 'delaySeconds']));
+        const lastModified = njtPick(raw, ['LAST_MODIFIED', 'lastModified', 'GPSTIME']);
+        const schedDep = njtPick(raw, ['SCHED_DEP_TIME', 'SCHED_DEP_DATE', 'schedDep']);
+        return {
+          id: 'njt-' + trainNum,
+          trainNum: trainNum,
+          routeId: line.id,
+          routeName: line.name,
+          routeColor: line.color,
+          lat: lat,
+          lng: lng,
+          destName: dest,
+          currentStopName: nextStop,
+          direction: direction,
+          statusText: delay.text,
+          statusPillClass: delay.pill,
+          delayMinutes: delay.minutes,
+          lastModified: lastModified || '',
+          schedDep: schedDep || '',
+          stops: Array.isArray(raw.stops) ? raw.stops : (Array.isArray(raw.STOPS) ? raw.STOPS : []),
+          hasAlert: !!raw.hasAlert,
+          alertHeader: raw.alertHeader || '',
+          specialUnit: null
+        };
+      }
+      function njtExtractTrainList(payload) {
+        if (!payload) return [];
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.trains)) return payload.trains;
+        if (Array.isArray(payload.TRAINS)) return payload.TRAINS;
+        if (Array.isArray(payload.vehicles)) return payload.vehicles;
+        if (payload.TRAINS && Array.isArray(payload.TRAINS.TRAINS)) return payload.TRAINS.TRAINS;
+        return [];
+      }
+      function njtNormalizeStops(payload, fallbackDest) {
+        const rawStops = payload && (payload.stops || payload.STOPS || (payload.data && payload.data.stops));
+        const dest = String((payload && (payload.destination || payload.DESTINATION)) || fallbackDest || '—');
+        if (!Array.isArray(rawStops) || !rawStops.length) return { dest: dest, stops: [] };
+        const stops = rawStops.map(function(st, idx) {
+          const name = String(njtPick(st, ['STATIONNAME', 'stationName', 'name', 'STOP_NAME']) || 'Stop');
+          const departed = String(njtPick(st, ['DEPARTED', 'departed']) || '').toUpperCase() === 'YES';
+          const status = String(njtPick(st, ['STOP_STATUS', 'status']) || '');
+          const time = String(njtPick(st, ['TIME', 'DEP_TIME', 'time']) || '');
+          return {
+            name: name,
+            time: time,
+            departed: departed,
+            status: status,
+            seq: idx,
+            lat: null,
+            lng: null
+          };
+        });
+        return { dest: dest, stops: stops };
+      }
+      async function fetchNjtStopList(trainNum) {
+        const id = String(trainNum || '').trim();
+        if (!id) return [];
+        const cached = njtStopsCache[id];
+        if (cached && (Date.now() - cached.at) < 120000) return cached.stops || [];
+        try {
+          const res = await fetch(NJT_STOPS_URL + '?train=' + encodeURIComponent(id));
+          if (!res.ok) throw new Error('stops HTTP ' + res.status);
+          const payload = await res.json();
+          const norm = njtNormalizeStops(payload, '');
+          njtStopsCache[id] = { at: Date.now(), stops: norm.stops, dest: norm.dest };
+          return norm.stops;
+        } catch (e) {
+          console.warn('[NJT] stop list failed for', id, e);
+          return (cached && cached.stops) || [];
+        }
+      }
+      function resolveNjtLocoIconUrl(locoType) {
+        const t = String(locoType || '').trim().toUpperCase().replace(/\s+/g, '');
+        const key = Object.keys(NJT_LOCO_TYPES).find(function(k) {
+          return k.toUpperCase().replace(/\s+/g, '') === t;
+        });
+        return rrAssetUrl((key && NJT_LOCO_TYPES[key]) || NJT_LOCO_ICON);
+      }
+      function createNjtIcon(locoType, trainNum) {
+        const reported = rrReportIconUrl('njt', null, trainNum);
+        const iconUrl = reported || resolveNjtLocoIconUrl(locoType);
+        if (!createNjtIcon._cache) createNjtIcon._cache = {};
+        if (createNjtIcon._cache[iconUrl]) return createNjtIcon._cache[iconUrl];
+        const icon = L.icon({
+          iconUrl: iconUrl,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -22],
+          className: 'train-icon njt-icon'
+        });
+        createNjtIcon._cache[iconUrl] = icon;
+        return icon;
+      }
+      function createNjtPopupContent(vid, info) {
+        const num = info.trainNum || String(vid).replace(/^njt-/, '');
+        const route = info.routeName || 'NJ Transit';
+        const dest = info.destName || '—';
+        const status = info.statusText || 'Live';
+        const statusPillClass = info.statusPillClass || 'status-scheduled';
+        const lastSeenTime = njtLastSeen[vid]
+          ? rrClockTime(new Date(njtLastSeen[vid]))
+          : '—';
+        const njtBadge = '<span class="cape-badge" style="background:' + NJT_COLOR + ';">NJ Transit</span>';
+        const njtSpecial = getSpecialForVehicle('njt', null, num) || info.specialUnit || null;
+        const njtPairingBlock = buildLocoReportPairingBlockHtml('njt', { trainNumber: num, special: njtSpecial });
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshNjtTrain(\'' + vid + '\')">Refresh</button>';
+        const shareBtn = rrShareTrainBtnHtml('njt', vid, num);
+        const logTripBtn = rrLogTripBtnHtml('njt', vid, num);
+        const hasAlert = !!info.hasAlert;
+        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
+        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
+        const stopsHtml = (info.stops && info.stops.length)
+          ? buildStopsHtml(info.stops, info.lat, info.lng)
+          : '<div class="no-departures">No stop data</div>';
+        let statusDesc = info.currentStopName && info.currentStopName !== '—'
+          ? ('On the way to ' + info.currentStopName)
+          : ('On the way to ' + dest);
+        const dirHtml = info.direction
+          ? ('<div class="info-item"><span class="info-label">Direction</span><span class="info-value">' + info.direction + '</span></div>')
+          : '';
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                ${njtBadge}
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${alertIcon}
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${statusDesc}</p>
+                <span class="status-pill ${statusPillClass}">${status}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Train</span>
+                  <span class="info-value">${num}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Route</span>
+                  <span class="info-value">${route}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Next</span>
+                  <span class="info-value">${info.currentStopName || '—'}</span>
+                </div>
+                ${dirHtml}
+              </div>
+              ${al}
+              <div class="meta-row">
+                Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              ${njtPairingBlock}
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${logTripBtn}${shareBtn}${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+      async function hydrateNjtPopupStops(vid) {
+        const info = njtTrainInfo[vid];
+        if (!info || !info.trainNum) return;
+        const stops = await fetchNjtStopList(info.trainNum);
+        if (!stops.length) return;
+        info.stops = stops;
+        if (stops.length) info.destName = stops[stops.length - 1].name || info.destName;
+        const m = njtMarkers[vid];
+        if (m && m.getPopup()) m.setPopupContent(createNjtPopupContent(vid, info));
+      }
+      window.refreshNjtTrain = async function(vid) {
+        if (vid && njtTrainInfo[vid] && njtTrainInfo[vid].trainNum) {
+          delete njtStopsCache[njtTrainInfo[vid].trainNum];
+        }
+        await fetchNjtTrains();
+        if (vid) hydrateNjtPopupStops(vid);
+      };
+      function updateNjtVisibility() {
+        Object.values(njtMarkers).forEach(function(m) {
+          if (showNjt) map.addLayer(m);
+          else map.removeLayer(m);
+        });
+        if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+      }
+      async function fetchNjtTrains() {
+        if (!showNjt) return;
+        const stat = FetchStats.start('NJ Transit');
+        try {
+          const res = await fetch(NJT_VEHICLES_URL);
+          if (!res.ok) throw new Error('vehicles HTTP ' + res.status);
+          const payload = await res.json();
+          const rows = njtExtractTrainList(payload);
+          const now = Date.now();
+          const seen = new Set();
+          let created = 0, updated = 0, skipped = 0;
+          rows.forEach(function(raw) {
+            const info = njtParseTrain(raw);
+            if (!info) { skipped++; return; }
+            const special = getSpecialForVehicle('njt', null, info.trainNum);
+            if (special) info.specialUnit = special;
+            const vid = info.id;
+            seen.add(vid);
+            if (njtStopsCache[info.trainNum] && njtStopsCache[info.trainNum].stops) {
+              info.stops = njtStopsCache[info.trainNum].stops;
+              if (njtStopsCache[info.trainNum].dest) info.destName = njtStopsCache[info.trainNum].dest;
+            }
+            njtTrainInfo[vid] = info;
+            njtLastSeen[vid] = rrSeenMs(raw.timestamp || raw.updatedAt || raw.updated || raw.lastUpdated, now);
+            const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
+            const icon = createNjtIcon(njtLocoType, info.trainNum);
+            const labelInfo = buildCyclingTrainInfo({
+              route: info.routeName || 'NJ Transit',
+              trainNum: info.trainNum,
+              dest: info.destName || '',
+              vehicle: info.trainNum,
+              status: info.statusText || '',
+              nextStop: info.currentStopName || ''
+            });
+            if (njtMarkers[vid]) {
+              njtMarkers[vid].setLatLng([info.lat, info.lng]);
+              njtMarkers[vid].setIcon(icon);
+              if (njtMarkers[vid].getPopup()) {
+                njtMarkers[vid].setPopupContent(createNjtPopupContent(vid, info));
+              }
+              applyCyclingLabel(njtMarkers[vid], labelInfo, false);
+              updated++;
+            } else {
+              const m = L.marker([info.lat, info.lng], { icon: icon });
+              m.bindPopup(createNjtPopupContent(vid, info), rrPopupOpts());
+              m.on('popupopen', function() { hydrateNjtPopupStops(vid); });
+              applyCyclingLabel(m, labelInfo, true);
+              const zoom = map.getZoom();
+              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+              }
+              njtMarkers[vid] = m;
+              if (showNjt) m.addTo(map);
+              created++;
+            }
+          });
+          Object.keys(njtMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(njtMarkers[vid]);
+              delete njtMarkers[vid];
+              delete njtTrainInfo[vid];
+              delete njtLastSeen[vid];
+            }
+          });
+          FetchStats.end(stat, {
+            rows: rows.length,
+            created: created,
+            updated: updated,
+            skipped: skipped,
+            active: Object.keys(njtMarkers).length
+          });
+          updateNjtVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('NJ Transit', e);
+          console.warn('%c[NJT] vehicle fetch failed — Worker /api/njt/* not deployed yet?', 'color:#f39c12', e);
+        }
+      }
+
+      function marcFeedUrl(path) {
+        try { return (typeof rrAssetUrl === 'function') ? rrAssetUrl(path) : path; } catch (_) { return path; }
+      }
+      function marcFetchFirstOk(urls, label) {
+        return (async function() {
+          let last = null;
+          for (let i = 0; i < urls.length; i++) {
+            const u = urls[i];
+            try {
+              const res = await fetch(u, { cache: 'no-store' });
+              if (res && res.ok) return res;
+              last = new Error(label + ' HTTP ' + (res && res.status) + ' ' + u);
+            } catch (e) { last = e; }
+          }
+          throw last || new Error(label + ' unavailable');
+        })();
+      }
+      const MARC_POSITIONS_URLS = [
+        marcFeedUrl('/feeds/marc-vp.pb'),
+        'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-vp.pb'
+      ];
+      const MARC_TRIPUPDATES_URLS = [
+        marcFeedUrl('/feeds/marc-tu.pb'),
+        'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-tu.pb'
+      ];
+      const MARC_COLOR = '#FF8000';
+      // MARC is paused until its feed moves to railroadradar-proxy. Set to false to bring it back.
+      const MARC_PAUSED = true;
+      const MARC_STATIC = {"stops":{"11940":{"name":"Martinsburg WV","lat":39.458534,"lon":-77.960739},"11941":{"name":"Duffields WV Marc","lat":39.362055,"lon":-77.828072},"11942":{"name":"Harpers Ferry WV Marc","lat":39.324633,"lon":-77.731283},"11943":{"name":"Brunswick Marc","lat":39.312002,"lon":-77.627908},"11944":{"name":"Frederick Marc","lat":39.411687,"lon":-77.40515},"11945":{"name":"Monocacy Marc","lat":39.382593,"lon":-77.39444},"11946":{"name":"Point Of Rocks Marc","lat":39.273486,"lon":-77.533735},"11947":{"name":"Dickerson Marc","lat":39.219981,"lon":-77.422041},"11948":{"name":"Barnesville Marc","lat":39.209769,"lon":-77.382615},"11949":{"name":"Boyds Marc","lat":39.184205,"lon":-77.314338},"11950":{"name":"Germantown Marc","lat":39.17336,"lon":-77.270606},"11951":{"name":"Metropolitan Grove Marc","lat":39.149744,"lon":-77.226701},"11952":{"name":"Gaithersburg Marc","lat":39.141491,"lon":-77.192736},"11953":{"name":"Washington Grove Marc","lat":39.136383,"lon":-77.177721},"11954":{"name":"Rockville Marc","lat":39.084231,"lon":-77.145973},"11955":{"name":"Garrett Park Marc","lat":39.039009,"lon":-77.093597},"11956":{"name":"Kensington Marc","lat":39.026822,"lon":-77.071741},"11957":{"name":"Silver Spring Marc","lat":38.992721,"lon":-77.030304},"11958":{"name":"UNION STATION Washington","lat":38.899036,"lon":-77.006795},"11959":{"name":"Silver Spring Marc","lat":38.993006,"lon":-77.030135},"11960":{"name":"Kensington Marc","lat":39.026892,"lon":-77.071675},"11961":{"name":"Garrett Park Marc","lat":39.039052,"lon":-77.093533},"11962":{"name":"Rockville Marc","lat":39.08429,"lon":-77.145892},"11963":{"name":"Washington Grove Marc","lat":39.136445,"lon":-77.177633},"11964":{"name":"Gaithersburg Marc","lat":39.141586,"lon":-77.192501},"11965":{"name":"Metropolitan Grove Marc","lat":39.149642,"lon":-77.226772},"11966":{"name":"Germantown Marc","lat":39.173284,"lon":-77.270674},"11967":{"name":"Boyds Marc","lat":39.184293,"lon":-77.314294},"11968":{"name":"Barnesville Marc","lat":39.209837,"lon":-77.382585},"11969":{"name":"Dickerson Marc","lat":39.220043,"lon":-77.422033},"11970":{"name":"Point Of Rocks Marc","lat":39.273573,"lon":-77.533707},"11971":{"name":"Monocacy Marc","lat":39.382557,"lon":-77.394327},"11972":{"name":"Frederick Marc","lat":39.411639,"lon":-77.405265},"11973":{"name":"Brunswick Marc","lat":39.312115,"lon":-77.627875},"11974":{"name":"Harpers Ferry WV Marc","lat":39.324703,"lon":-77.731255},"11975":{"name":"Duffields WV Marc","lat":39.362111,"lon":-77.828083},"11976":{"name":"Perryville","lat":39.558112,"lon":-76.073792},"11977":{"name":"Aberdeen Marc","lat":39.508557,"lon":-76.163024},"11978":{"name":"Edgewood Marc","lat":39.415988,"lon":-76.292763},"11979":{"name":"Martin Airport Marc","lat":39.33844,"lon":-76.419345},"11980":{"name":"Penn Station Marc","lat":39.307198,"lon":-76.615715},"11981":{"name":"West Baltimore Marc","lat":39.293351,"lon":-76.653375},"11982":{"name":"Halethorpe Marc","lat":39.236824,"lon":-76.691476},"11984":{"name":"BWI Rail Station Marc","lat":39.19228,"lon":-76.694726},"11985":{"name":"Odenton Marc","lat":39.086896,"lon":-76.706191},"11986":{"name":"Bowie State Marc","lat":39.017732,"lon":-76.765097},"11987":{"name":"Seabrook Marc","lat":38.973334,"lon":-76.843124},"11988":{"name":"New Carrollton Marc","lat":38.947966,"lon":-76.872491},"11989":{"name":"New Carrollton Marc","lat":38.947741,"lon":-76.872205},"11990":{"name":"Seabrook Marc","lat":38.97309,"lon":-76.843291},"11991":{"name":"Bowie State Marc","lat":39.017591,"lon":-76.764903},"11992":{"name":"Odenton Marc","lat":39.086794,"lon":-76.706383},"11993":{"name":"BWI Rail Station Marc","lat":39.192327,"lon":-76.69456},"11994":{"name":"Halethorpe Marc","lat":39.236819,"lon":-76.691217},"11995":{"name":"West Baltimore Marc","lat":39.293319,"lon":-76.653064},"12002":{"name":"Penn Station Marc","lat":39.307223,"lon":-76.615769},"12003":{"name":"Martin Airport Marc","lat":39.338478,"lon":-76.419377},"12004":{"name":"Edgewood Marc","lat":39.41592,"lon":-76.29272},"12005":{"name":"Aberdeen Marc","lat":39.508507,"lon":-76.162905},"12006":{"name":"Camden Station","lat":39.283157,"lon":-76.619527},"12007":{"name":"St Denis Marc","lat":39.224439,"lon":-76.703854},"12008":{"name":"Dorsey Marc","lat":39.181314,"lon":-76.745299},"12009":{"name":"Jessup Marc","lat":39.151561,"lon":-76.776402},"12010":{"name":"Savage Marc","lat":39.122927,"lon":-76.796374},"12011":{"name":"Laurel Racetrack Marc","lat":39.105772,"lon":-76.833944},"12012":{"name":"Laurel Marc","lat":39.102201,"lon":-76.841864},"12013":{"name":"Muirkirk Marc","lat":39.062711,"lon":-76.884428},"12014":{"name":"Greenbelt Marc","lat":39.010054,"lon":-76.912672},"12015":{"name":"College Park Marc","lat":38.977999,"lon":-76.92879},"12016":{"name":"Riverdale Marc","lat":38.962997,"lon":-76.935023},"12017":{"name":"Riverdale Marc","lat":38.962977,"lon":-76.934918},"12018":{"name":"College Park Marc","lat":38.977974,"lon":-76.928688},"12019":{"name":"Greenbelt Marc","lat":39.009951,"lon":-76.912466},"12020":{"name":"Muirkirk Marc","lat":39.062663,"lon":-76.884357},"12021":{"name":"Laurel Marc","lat":39.10216,"lon":-76.841811},"12023":{"name":"Savage Marc","lat":39.122855,"lon":-76.796351},"12024":{"name":"Jessup Marc","lat":39.151525,"lon":-76.776332},"12025":{"name":"Dorsey Marc","lat":39.181578,"lon":-76.744968},"12026":{"name":"St Denis Marc","lat":39.22433,"lon":-76.703801}},"routes":{"11704":{"name":"Brunswick Line","color":"#FF8000","text":"#FFFFFF"},"11705":{"name":"Penn Line","color":"#FF8000","text":"#FFFFFF"},"11706":{"name":"Camden Line","color":"#FF8000","text":"#FFFFFF"}}};
+      function marcUnixToDate(t) {
+        if (t == null || t === '') return null;
+        let n = (typeof t === 'object' && t !== null && typeof t.toNumber === 'function') ? t.toNumber() : Number(t);
+        if (!isFinite(n) || n <= 0) return null;
+        if (n > 1e12) n = Math.floor(n / 1000);
+        const d = new Date(n * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      function marcFormatTime(d) {
+        if (!d) return null;
+        return rrClockTime(d);
+      }
+      function marcStopCoords(stopId) {
+        const s = MARC_STATIC.stops[String(stopId || '')];
+        if (!s || s.lat == null || s.lon == null) return null;
+        return { lat: Number(s.lat), lon: Number(s.lon), name: s.name || String(stopId) };
+      }
+      function marcRouteInfo(routeId) {
+        const r = MARC_STATIC.routes[String(routeId || '')] || null;
+        return { id: String(routeId || ''), name: (r && r.name) || 'MARC', color: (r && r.color) || MARC_COLOR, text: (r && r.text) || '#FFFFFF' };
+      }
+      function marcEventTime(ev) { return ev ? marcUnixToDate(ev.time) : null; }
+      function marcEventDelayMin(ev) {
+        if (!ev || ev.delay == null) return null;
+        const sec = Number(ev.delay);
+        return isFinite(sec) ? Math.round(sec / 60) : null;
+      }
+      function marcBuildStopsFromTripUpdate(tu) {
+        const now = Date.now();
+        return ((tu && tu.stop_time_update) || []).map(function(stu) {
+          const stopId = stu.stop_id != null ? String(stu.stop_id) : '';
+          const staticStop = MARC_STATIC.stops[stopId] || null;
+          const name = (staticStop && staticStop.name) || stopId || 'Unknown';
+          const arr = marcEventTime(stu.arrival);
+          const dep = marcEventTime(stu.departure);
+          const primary = dep || arr;
+          const delayMin = marcEventDelayMin(stu.departure);
+          const delayMin2 = delayMin != null ? delayMin : marcEventDelayMin(stu.arrival);
+          return {
+            name: name, stopId: stopId, scheduledTime: primary, predictedTime: primary,
+            delayMinutes: delayMin2, trackNumber: null,
+            formattedScheduledTime: marcFormatTime(primary) || '\u2014',
+            formattedPredictedTime: marcFormatTime(primary),
+            formattedActualTime: null,
+            isCompleted: primary ? primary.getTime() < now : false,
+            lat: staticStop ? Number(staticStop.lat) : null,
+            lng: staticStop ? Number(staticStop.lon) : null
+          };
+        });
+      }
+      function marcDisplayTrainNum(tripId, vehicleId) {
+        const s = String(tripId || vehicleId || '').trim();
+        const m = s.match(/(\d{2,4})\s*$/) || s.match(/Train\s*(\d+)/i);
+        if (m) return m[1];
+        return s.replace(/^Train/i, '') || '?';
+      }
+      function createMarcIcon(trainNum) {
+        const reported = rrReportIconUrl('marc', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'train-icon marc-icon');
+        return L.divIcon({
+          className: 'marc-icon',
+          html: '<div style="width:16px;height:16px;background:#FF8000;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>',
+          iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8]
+        });
+      }
+      function createMarcPopupContent(vid, info) {
+        const num = info.trainNum || String(vid).replace(/^marc-/, '');
+        const route = info.routeName || 'MARC';
+        const dest = info.destName || '\u2014';
+        const origin = info.origName || '\u2014';
+        const status = info.statusText || 'On Time';
+        const statusPillClass = info.statusPillClass || 'status-on-time';
+        const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
+        const lastSeenTime = marcLastSeen[vid] ? rrClockTime(new Date(marcLastSeen[vid])) : '\u2014';
+        const badge = '<span class="cape-badge" style="background:#FF8000;">MARC</span>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMarcTrain(\'' + vid + '\')">Refresh</button>';
+        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('marc', vid, num) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('marc', vid, num) : '';
+        const hasAlert = !!info.hasAlert;
+        const al = (typeof trainAlertBannerHtml === 'function') ? trainAlertBannerHtml(hasAlert, info.alertHeader) : '';
+        const alertIcon = (typeof trainAlertHeaderIconHtml === 'function') ? trainAlertHeaderIconHtml(hasAlert) : '';
+        const stopsHtml = (info.stops && info.stops.length) ? buildStopsHtml(info.stops, info.lat, info.lng) : '<div class="no-departures">No stop data</div>';
+        let statusDesc = 'On the way to ' + dest;
+        if (info.vehicleStatus === 1 && info.currentStopName) statusDesc = 'Stopped at ' + info.currentStopName;
+        else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
+        else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
+        const speedHtml = speed != null ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>') : '';
+        return '<div class="train-popup"><div class="train-popup-header"><div>' + badge +
+          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + route + '</span> ' +
+          '<span style="font-weight:700;color:#fff;font-style:italic;">' + num + '</span> ' +
+          '<span style="color:#fff;font-style:italic;">to</span> ' +
+          '<span style="font-weight:700;color:#fff;font-style:italic;">' + dest + '</span>' + alertIcon +
+          '</div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;">' +
+          '<p class="status-desc" style="margin:0;">' + statusDesc + '</p><span class="status-pill ' + statusPillClass + '">' + status + '</span></div>' +
+          '<div class="info-grid"><div class="info-item"><span class="info-label">Train</span><span class="info-value">' + num + '</span></div>' +
+          '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + route + '</span></div>' +
+          '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>' + speedHtml + '</div>' +
+          al + '<div class="meta-row">' + origin + ' \u2192 ' + dest + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
+          ((typeof buildLocoReportPairingBlockHtml==='function') ? buildLocoReportPairingBlockHtml('mbta', { trainNumber: (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid }) : '') + '<div class="stops-wrapper">' + stopsHtml + '</div>' + '</div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
+      }
+      window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
+      function updateMarcVisibility() {
+        Object.values(marcMarkers).forEach(function(m) {
+          if (showMarc) map.addLayer(m); else map.removeLayer(m);
+        });
+      }
+      function marcParseJoined(vehicleEntity, tripUpdate, usedTrainNums) {
+        const v = (vehicleEntity && vehicleEntity.vehicle) || null;
+        if (!v || !v.position) return null;
+        const lat = Number(v.position.latitude);
+        const lon = Number(v.position.longitude);
+        if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) return null;
+        const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
+        const tu = tripUpdate || null;
+        const trip = Object.assign({}, (v && v.trip) || {}, (tu && tu.trip) || {});
+        const tripId = trip.trip_id != null ? String(trip.trip_id) : '';
+        const trainNum = marcDisplayTrainNum(tripId, vehicleId);
+        const routeId = (tu && tu.trip && tu.trip.route_id) ? String(tu.trip.route_id) : (trip.route_id != null ? String(trip.route_id) : '');
+        const route = marcRouteInfo(routeId);
+        const stops = marcBuildStopsFromTripUpdate(tu);
+        const destName = stops.length ? stops[stops.length - 1].name : '\u2014';
+        const origName = stops.length ? stops[0].name : '\u2014';
+        let maxDelay = null;
+        stops.forEach(function(s) {
+          if (s.delayMinutes == null) return;
+          if (maxDelay == null || Math.abs(s.delayMinutes) > Math.abs(maxDelay)) maxDelay = s.delayMinutes;
+        });
+        let statusText = 'On Time';
+        let statusPillClass = 'status-on-time';
+        if (maxDelay != null && Math.abs(maxDelay) > 15) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
+        } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
+          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
+        } else if (maxDelay != null && maxDelay > 0) {
+          statusText = maxDelay + ' min late';
+        } else if (!tu) {
+          statusText = 'Live';
+          statusPillClass = 'status-scheduled';
+        }
+        let currentStopName = null;
+        if (v && v.stop_id) {
+          const cs = marcStopCoords(v.stop_id);
+          if (cs) currentStopName = cs.name;
+        }
+        let speedMph = null;
+        if (v.position.speed != null) {
+          const mps = Number(v.position.speed);
+          if (isFinite(mps) && mps >= 0) speedMph = mps * 2.23693629;
+        }
+        let markerKey = 'marc-' + (vehicleId || trainNum);
+        if (usedTrainNums && usedTrainNums.has(markerKey)) markerKey = 'marc-' + String((vehicleEntity && vehicleEntity.id) || vehicleId || trainNum);
+        if (usedTrainNums) usedTrainNums.add(markerKey);
+        return {
+          id: markerKey, trainNum: trainNum, vehicleId: vehicleId || null, routeId: routeId,
+          routeName: route.name, routeColor: route.color, routeText: route.text,
+          lat: lat, lng: lon, coordSource: 'gps', stops: stops, destName: destName, origName: origName,
+          statusText: statusText, statusPillClass: statusPillClass, delayMinutes: maxDelay,
+          vehicleStatus: (v.current_status != null) ? Number(v.current_status) : null,
+          currentStopName: currentStopName, speedMph: speedMph, tripId: tripId || null,
+          hasAlert: false, alertHeader: ''
+        };
+      }
+      async function fetchMarcTrains() {
+        if (!showMarc) return;
+        if (MARC_PAUSED) return;
+        const stat = FetchStats.start('MARC');
+        try {
+          const FeedMessage = getFeedMessageType();
+          const [posRes, tuRes] = await Promise.all([
+            marcFetchFirstOk(MARC_POSITIONS_URLS, 'positions'),
+            marcFetchFirstOk(MARC_TRIPUPDATES_URLS, 'tripupdates')
+          ]);
+          if (!posRes.ok) throw new Error('positions HTTP ' + posRes.status);
+          if (!tuRes.ok) throw new Error('tripupdates HTTP ' + tuRes.status);
+          const [posBuf, tuBuf] = await Promise.all([
+            posRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
+            tuRes.arrayBuffer().then(function(b) { return new Uint8Array(b); })
+          ]);
+          const posFeed = FeedMessage.decode(posBuf);
+          const tuFeed = FeedMessage.decode(tuBuf);
+          const tuByVehicleId = {};
+          const tuByTripId = {};
+          (tuFeed.entity || []).forEach(function(entity) {
+            const tu = entity.trip_update;
+            if (!tu) return;
+            if (tu.vehicle && tu.vehicle.id != null && tu.vehicle.id !== '') tuByVehicleId[String(tu.vehicle.id)] = tu;
+            if (tu.trip && tu.trip.trip_id) tuByTripId[String(tu.trip.trip_id)] = tu;
+          });
+          const now = Date.now();
+          let created = 0, updated = 0, skipped = 0, joined = 0, gpsOnly = 0;
+          const seen = new Set();
+          const usedTrainNums = new Set();
+          (posFeed.entity || []).forEach(function(entity) {
+            const v = entity.vehicle;
+            if (!v || !v.position) { skipped++; return; }
+            const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
+            const tripId = (v.trip && v.trip.trip_id != null) ? String(v.trip.trip_id) : '';
+            const tu = (vehicleId && tuByVehicleId[vehicleId]) || (tripId && tuByTripId[tripId]) || null;
+            if (tu) joined++; else gpsOnly++;
+            const info = marcParseJoined(entity, tu, usedTrainNums);
+            if (!info) { skipped++; return; }
+            const vid = info.id;
+            seen.add(vid);
+            marcTrainInfo[vid] = info;
+            marcLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
+            const icon = createMarcIcon(info.trainNum);
+            const labelInfo = (typeof buildCyclingTrainInfo === 'function') ? buildCyclingTrainInfo({
+              agency: 'MARC', routeName: info.routeName, trainNum: info.trainNum, dest: info.destName,
+              statusText: info.statusText, lat: info.lat, lng: info.lng
+            }) : null;
+            if (marcMarkers[vid]) {
+              marcMarkers[vid].setLatLng([info.lat, info.lng]);
+              marcMarkers[vid].setIcon(icon);
+              if (marcMarkers[vid].getPopup()) marcMarkers[vid].setPopupContent(createMarcPopupContent(vid, info));
+              if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(marcMarkers[vid], labelInfo, false);
+              updated++;
+            } else {
+              const m = L.marker([info.lat, info.lng], { icon: icon });
+              m.bindPopup(createMarcPopupContent(vid, info), rrPopupOpts());
+              if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(m, labelInfo, true);
+              marcMarkers[vid] = m;
+              if (showMarc) m.addTo(map);
+              created++;
+            }
+          });
+          Object.keys(marcMarkers).forEach(function(vid) {
+            if (!seen.has(vid)) {
+              map.removeLayer(marcMarkers[vid]);
+              delete marcMarkers[vid];
+              delete marcTrainInfo[vid];
+              delete marcLastSeen[vid];
+            }
+          });
+          FetchStats.end(stat, { joined: joined, gpsOnly: gpsOnly, created: created, updated: updated, skipped: skipped, active: Object.keys(marcMarkers).length });
+          updateMarcVisibility();
+          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
+        } catch (e) {
+          FetchStats.error('MARC', e);
+          console.warn('%c[MARC] GTFS-RT fetch failed \u2014 add /api/marc/* to railroadradar-proxy', 'color:#f39c12', e);
+        }
+      }
+
+      async function fetchStations() {
+        if (!showMbta) return;
+        try {
+          const res = await fetch(stopsUrl);
+          const data = await res.json();
+          data.data.forEach(stop => {
+            const id = stop.id, name = stop.attributes.name, lat = stop.attributes.latitude, lng = stop.attributes.longitude;
+            if (lat && lng) {
+              stationInfo[id] = { id, name, lat, lng, routes: [] };
+              const key = name.toLowerCase();
+              if (!stationsByName[key]) stationsByName[key] = { name, stopIds: [], lat: 0, lng: 0, routes: [] };
+              stationsByName[key].stopIds.push(id);
+              stationsByName[key].lat += lat;
+              stationsByName[key].lng += lng;
+            }
+          });
+          if (data.included) {
+            data.included.forEach(item => {
+              if (item.type === 'route') {
+                const rid = item.id, rname = item.attributes.long_name;
+                data.data.forEach(s => {
+                  if (s.relationships?.route?.data?.some(r => r.id === rid)) {
+                    if (stationInfo[s.id]) {
+                      stationInfo[s.id].routes.push({ id: rid, name: rname });
+                      const skey = s.attributes.name.toLowerCase();
+                      if (stationsByName[skey]) {
+                        if (!stationsByName[skey].routes.find(r => r.id === rid)) stationsByName[skey].routes.push({ id: rid, name: rname });
+                      }
+                    }
+                  }
+                });
+              }
+            });
+          }
+          for (const skey in stationsByName) {
+            const g = stationsByName[skey];
+            const n = g.stopIds.length;
+            g.lat /= n; g.lng /= n;
+            const m = createStationDot(g.lat, g.lng);
+            m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
+            m.on('popupopen', async () => {
+              const deps = await getStationDepartures(g.stopIds);
+              m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
+            });
+            stationMarkers[g.stopIds[0]] = m;
+            if (showStations) m.addTo(map);
+          }
+        } catch (e) { console.error("Stations error", e); }
+        plotStaticAgencyStationDots();
+      }
+      let amtrakAllTrains = [];
+      window.stationDepartureClick = function(agency, tripId, rname, dest, svcDate) {
+        if (agency === 'amtrak') {
+          const m = amtrakMarkers && (amtrakMarkers[tripId] || amtrakMarkers['amtrak-' + tripId]);
+          if (m && m.getLatLng) {
+            map.flyTo(m.getLatLng(), 14, { animate: true });
+            setTimeout(function() { try { m.openPopup(); } catch (e) {} }, 900);
+          }
+          return;
+        }
+        if (typeof openTrainSchedule === 'function') openTrainSchedule(tripId, rname, dest, svcDate);
+      };
+      function createStationPopupContent(name, ids, deps, n) {
+        let html = '';
+        if (!deps.length) html = '<div class="no-departures">No upcoming departures</div>';
+        else {
+          html = `<div class="upcoming-stops"><h4>Upcoming Departures <small>(click a train for its schedule)</small></h4><ul class="departures-list">${ 
+            deps.map(d => {
+              let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
+              const live = d.isLive ? `<span class="live-indicator"><img src="/assets/icons/live.png" class="live-train-icon"></span>` : '';
+              const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
+              const trk = d.trackNumber ? `<span class="track-badge">Track ${d.trackNumber}</span>` : '';
+              const svcDate = ((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\'")}', '${d.destination.replace(/'/g,"\'")}', '${svcDate}')" style="cursor:pointer">
+                <span class="departure-time">${d.formattedScheduledTime}</span>
+                <span class="departure-destination"><small>${d.agency === 'amtrak' ? 'Amtrak' : 'MBTA'}</small> ${d.destination || d.routeName} ${plat} ${trk} ${live}</span>
+                <span class="departure-status ${cls}">${d.status}</span>
+              </li>`;
+            }).join('')
+          }</ul></div>`;
+        }
+        const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
+        return `<div class="station-popup"><h3>${name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3>${n>1 ? `<p><strong>Platforms:</strong> ${n}</p>` : ''}${html}<button class="refresh-button" onclick="refreshStationDepartures('${idsStr}', 'mbta')">Refresh</button></div>`;
+      }
+      window.refreshStationDepartures = async function(idsStr, type) {
+        const ids = idsStr.split(',');
+        const m = stationMarkers[ids[0]];
+        if (m && m.isPopupOpen()) {
+          const nm = stationInfo[ids[0]].name;
+          m.getPopup().setContent(`<div class="station-popup"><h3>${nm}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading...</div></div>`);
+          delete stationDeparturesCache[ids.sort().join('-')];
+          const deps = await getStationDepartures(ids);
+          m.getPopup().setContent(createStationPopupContent(nm, ids, deps, ids.length));
+        }
+      };
+
+      // ---- Static GTFS route shapes (MNR / LIRR / Amtrak) ----
+      function gtfsShapeKey(agency, routeId) { return 'gtfs-' + agency + '-' + routeId; }
+      function shouldShowGtfsShape(agency) {
+        if (!showRoutes) return false;
+        if (agency === 'mbta') return !!showMbta;
+        if (agency === 'mnr') return showMnr;
+        if (agency === 'lirr') return showLirr;
+        if (agency === 'amtrak') return showAmtrak;
+        if (agency === 'njt') return showNjt;
+        if (agency === 'ctrail') return showCtrail;
+        if (agency === 'marc') return showMarc;
+        if (agency === 'via') return !!showVia;
+        return true;
+      }
+      function updateGtfsShapeVisibility() {
+        Object.keys(routeLines).forEach(function(key) {
+          if (key.indexOf('gtfs-') !== 0) return;
+          const grp = routeLines[key];
+          const agency = key.split('-')[1];
+          const show = shouldShowGtfsShape(agency);
+          if (show) { if (!map.hasLayer(grp)) map.addLayer(grp); }
+          else { if (map.hasLayer(grp)) map.removeLayer(grp); }
+        });
+      }
+      async function loadStaticGtfsShapes(onlyIds) {
+        let agencies = [
+          { id: 'mbta', file: rrAssetUrl('/assets/shapes/mbta.json'), fallback: '#800080' },
+          { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
+          { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
+          { id: 'amtrak', file: rrAssetUrl('/assets/shapes/amtrak.json'), fallback: '#003366' },
+          { id: 'njt', file: rrAssetUrl('/assets/shapes/njt.json'), fallback: '#FF671F' },
+          { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: '#EA0D2A' },
+          { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' },
+          // VIA Rail (yellow, same as the VIA badge); precomputed from VIA's GTFS shapes.txt
+          { id: 'via', file: rrAssetUrl('/assets/shapes/via.json'), fallback: VIA_COLOR }
+        ].filter(function(ag) {
+          if (Array.isArray(onlyIds) && onlyIds.indexOf(ag.id) < 0) return false;
+          if (ag.id === 'via') return !!showVia && !rrViaShapesLoaded;
+          if (ag.id === 'mbta') return !!showMbta;
+          if (ag.id === 'mnr') return !!showMnr;
+          if (ag.id === 'lirr') return !!showLirr;
+          if (ag.id === 'amtrak') return !!showAmtrak;
+          if (ag.id === 'njt') return !!showNjt;
+          if (ag.id === 'ctrail') return !!showCtrail;
+          if (ag.id === 'marc') return !!showMarc;
+          return true;
+        });
+        let totalRoutes = 0, totalPolys = 0;
+        if (agencies.some(function(ag) { return ag.id === 'via'; })) rrViaShapesLoaded = true;
+        for (const ag of agencies) {
+          try {
+            const res = await fetch(ag.file);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            const routes = (data && data.routes) || [];
+            try {
+              if (typeof rrRegisterTripShapes === 'function') rrRegisterTripShapes(ag.id, routes);
+              else if (typeof window.rrRegisterTripShapes === 'function') window.rrRegisterTripShapes(ag.id, routes);
+            } catch (_) {}
+            let agencyPolys = 0;
+            routes.forEach(function(rt) {
+              const color = rt.color || ag.fallback;
+              if (ag.id === 'mbta' && rt.id) routeColors[rt.id] = color;
+              const grp = L.layerGroup();
+              (rt.polylines || []).forEach(function(pl) {
+                if (!pl || pl.length < 2) return;
+                grp.addLayer(L.polyline(pl, {
+                  color: color,
+                  weight: 3,
+                  opacity: 0.65,
+                  interactive: false,
+                  className: 'gtfs-shape-line'
+                }));
+                agencyPolys++;
+              });
+              const key = gtfsShapeKey(ag.id, rt.id);
+              grp._rrAgency = ag.id;
+              grp._rrRouteId = rt.id;
+              grp._rrName = rt.name || '';
+              routeLines[key] = grp;
+              if (shouldShowGtfsShape(ag.id) && grp.getLayers().length > 0) grp.addTo(map);
+            });
+            totalRoutes += routes.length;
+            totalPolys += agencyPolys;
+            console.log('%c[Shapes] ' + ag.id.toUpperCase() + ': ' + routes.length + ' routes, ' + agencyPolys + ' polylines', 'color:#27ae60');
+          } catch (e) {
+            console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
+            if (ag.id === 'via') rrViaShapesLoaded = false;
+          }
+        }
+        console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
+        return { routes: totalRoutes, polylines: totalPolys };
+      }
+
+      async function fetchRouteShapes() {
+        try {
+          // Prefer one CDN fetch of /assets/shapes/mbta.json (~50KB) over N× proxy→MBTA
+          // shapes calls (each can be ~1–2s TTFB on Cache MISS). Still non-blocking for splash.
+          try {
+            setLoadingProgress(32, 'Loading route lines...');
+            await loadStaticGtfsShapes();
+          } catch (gtfsShapeErr) {
+            console.warn('[Shapes] static GTFS load error', gtfsShapeErr);
+          }
+          if (!showMbta) return;
+          const hasMbtaStatic = Object.keys(routeLines).some(function(k) {
+            return k.indexOf('gtfs-mbta-') === 0;
+          });
+          if (hasMbtaStatic) {
+            console.log('%c[Shapes] MBTA lines from static mbta.json (skipped per-route API)', 'color:#27ae60;font-weight:bold');
+            return;
+          }
+          // Fallback: proxy MBTA shapes API (warm Cache API / long TTL on worker).
+          const r = await fetch(routesUrl);
+          const rd = await r.json();
+          rd.data.forEach(rt => routeColors[rt.id] = `#${rt.attributes.color || '800080'}`);
+          if (!routeColors['CapeFlyer']) routeColors['CapeFlyer'] = '#00ccff';
+          async function loadMbtaRouteShapes(rid) {
+            let shapes = [];
+            let url = apiUrl('/api/mbta' + `/shapes?filter[route]=${rid}&page[limit]=1000`);
+            let more = true;
+            while (more) {
+              try {
+                const sr = await fetch(url);
+                if (!sr.ok) break;
+                const sd = await sr.json();
+                if (sd.data) {
+                  sd.data.forEach(s => {
+                    if (s.attributes?.polyline) shapes.push(s.attributes.polyline);
+                  });
+                }
+                url = mbtaProxyUrl(sd.links?.next);
+                more = !!url;
+              } catch (shapeErr) {
+                more = false;
+              }
+            }
+            const grp = L.layerGroup();
+            const tripPolys = [];
+            shapes.forEach(pl => {
+              if (pl) {
+                const pts = L.Polyline.fromEncoded(pl).getLatLngs();
+                tripPolys.push(pts);
+                grp.addLayer(L.polyline(pts, { color: routeColors[rid] || '#800080', weight: 3, opacity: 0.7 }));
+              }
+            });
+            try {
+              if (typeof rrRegisterTripShapePolylines === 'function') rrRegisterTripShapePolylines('mbta', rid, tripPolys);
+              else if (typeof window.rrRegisterTripShapePolylines === 'function') window.rrRegisterTripShapePolylines('mbta', rid, tripPolys);
+            } catch (_) {}
+            routeLines[rid] = grp;
+            if (showRoutes && shapes.length > 0) {
+              grp.addTo(map);
+            }
+          }
+          const mbtaShapeIds = rd.data.map(r => r.id);
+          const SHAPE_CONCURRENCY = 6;
+          for (let i = 0; i < mbtaShapeIds.length; i += SHAPE_CONCURRENCY) {
+            const batch = mbtaShapeIds.slice(i, i + SHAPE_CONCURRENCY);
+            await Promise.all(batch.map(function(rid) {
+              return loadMbtaRouteShapes(rid).catch(function(e) {
+                console.warn('[Shapes] route failed', rid, e && e.message);
+              });
+            }));
+          }
+        } catch (e) { console.error("Routes error", e); }
+      }
+      async function fetchTrainAlerts(tripIds, routeIds) {
+        try {
+          if (!tripIds.length && !routeIds.length) return {};
+          const url = `${alertsUrl}${tripIds.length ? `&filter[trip]=${tripIds.join(',')}` : ''}${routeIds.length ? `&filter[route]=${routeIds.join(',')}` : ''}`;
+          const res = await fetch(url);
+          const d = await res.json();
+          const alerts = {};
+          (d.data || []).forEach(a => {
+            const active = (a.attributes.active_period || []).some(p => {
+              const st = p.start ? new Date(p.start) : new Date();
+              const en = p.end ? new Date(p.end) : new Date(Date.now() + 86400000);
+              return st <= new Date() && new Date() <= en;
+            });
+            if (!active) return;
+            (a.attributes.informed_entity || []).forEach(ent => {
+              if (ent.trip && tripIds.includes(ent.trip)) {
+                alerts[ent.trip] = { hasAlert: true, shortHeader: a.attributes.short_header || a.attributes.header || 'Alert' };
+              }
+            });
+          });
+          return alerts;
+        } catch (e) { return {}; }
+      }
+      async function fetchTrains() {
+        if (!showMbta) return;
+        const _ftStat = (typeof FetchStats !== 'undefined' && FetchStats.start) ? FetchStats.start('MBTA fetchTrains') : null;
+        let created = 0, updated = 0, skipped = 0;
+        try {
+          const res = await fetch(vehicleUrl);
+          const data = await res.json();
+          if (!data || !Array.isArray(data.data)) {
+            console.warn('[MBTA fetchTrains] No vehicle data', data && data.errors);
+            if (_ftStat) FetchStats.end(_ftStat, { created: 0, updated: 0, skipped: 0, vehicles: 0 });
+            return;
+          }
+          const tripIds = data.data.map(v => v.relationships.trip.data?.id).filter(Boolean);
+          const routeIds = data.data.map(v => v.relationships.route.data?.id).filter(Boolean);
+          const [onTime, alerts] = await Promise.all([getOnTimeStatus(tripIds), fetchTrainAlerts(tripIds, routeIds)]);
+          const now = Date.now();
+          Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
+          data.data.forEach(v => {
+            const vid = v.id, lat = v.attributes.latitude, lng = v.attributes.longitude, bearing = v.attributes.bearing;
+            const status = v.attributes.current_status, tripId = v.relationships.trip.data?.id, routeId = v.relationships.route.data?.id;
+            const stopId = v.relationships.stop.data?.id, speedMps = v.attributes.speed;
+            if (!lat || !lng || !tripId || !routeId) { skipped++; return; }
+            let head = "Unknown", rname = "Unknown", sname = "Unknown", track = null;
+            if (data.included) {
+              const t = data.included.find(i => i.type === "trip" && i.id === tripId);
+              if (t) head = t.attributes.headsign || "Unknown";
+              const r = data.included.find(i => i.type === "route" && i.id === routeId);
+              if (r) rname = r.attributes.long_name || "Unknown";
+              if (stopId) {
+                const s = data.included.find(i => i.type === "stop" && i.id === stopId);
+                if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = extractTrackNumber(s.attributes.name, s.attributes.description); }
+              }
+            }
+            // === CAPEFLYER DETECTION (robust) ===
+            let displayRouteName = rname;
+            let isCapeFlyer = false;
+            const headLower = (head || '').toLowerCase();
+            const routeLower = (rname || '').toLowerCase();
+            if (headLower.includes('hyannis') || 
+                routeLower.includes('cape') || 
+                routeLower.includes('flyer') ||
+                headLower.includes('cape flyer')) {
+              displayRouteName = 'CapeFLYER';
+              isCapeFlyer = true;
+            }
+            const k = `${tripId}-${stopId}`;
+            const ts = onTime[k] || {};
+            const delay = ts.delayMinutes, dstatus = ts.status || "Scheduled", live = ts.isLive || false;
+            const al = alerts[tripId] || { hasAlert: false, shortHeader: '' };
+            const mph = (speedMps != null && status !== "STOPPED_AT") ? speedMps * 2.23694 : 0;
+            trainInfo[vid] = { 
+              id: vid, tripId, routeId, 
+              routeName: displayRouteName, 
+              destination: head, 
+              status, delayStatus: dstatus, delayMinutes: delay, isLive: live, 
+              lat, lng, stopName: sname, trackNumber: track, speedMph: mph, 
+              hasAlert: al.hasAlert, alertHeader: al.shortHeader,
+              isCapeFlyer 
+            };
+            if (markers[vid]) {
+              markers[vid].setLatLng([lat, lng]);
+              markers[vid].setIcon(createTrainIcon(delay, vid));
+              updated++;
+              if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
+              markers[vid]._info = [
+                rname || 'Unknown',
+                (extractTrainNumber(tripId) || tripId || '—') + ' to ' + (head || '—'),
+                'Vehicle ' + vid,
+                Math.round(mph) + ' mph',
+                dstatus || 'Scheduled',
+                'Next: ' + (sname || '—')
+              ];
+              if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(markers[vid]._info[markers[vid]._infoIndex % markers[vid]._info.length]);
+            } else {
+              const icon = createTrainIcon(delay, vid);
+              const m = L.marker([lat, lng], { icon });
+              m.bindPopup(createTrainPopupContent(vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert), rrPopupOpts());
+              m.on('popupopen', async () => {
+                updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
+                const stops = await getTripStops(tripId).catch(() => []);
+                updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
+                try {
+                  const svc = rrStopServiceDate();
+                  const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId || '');
+                  rrSaveStopActuals('mbta', tnum, svc, stops);
+                } catch (_) {}
+              });
+              m._info = [
+                rname || 'Unknown',
+                (extractTrainNumber(tripId) || tripId || '—') + ' to ' + (head || '—'),
+                'Vehicle ' + vid,
+                Math.round(mph) + ' mph',
+                dstatus || 'Scheduled',
+                'Next: ' + (sname || '—')
+              ];
+              m._infoIndex = 0;
+              // Only add label if user wants it AND we're zoomed in enough
+              const zoom = map.getZoom();
+              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
+                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+                m.getTooltip().setContent(m._info[0]);
+              }
+              markers[vid] = m;
+              m.addTo(map);
+              created++;
+            }
+            trainLastSeen[vid] = rrSeenMs(v.attributes && v.attributes.updated_at, now);
+          });
+          try { rrRecordMbtaMapActuals(data.data); } catch (_) {}
+          if (_ftStat) FetchStats.end(_ftStat, { created: created, updated: updated, skipped: skipped, vehicles: data.data.length, markers: Object.keys(markers).length });
+          else console.log('%c[MBTA fetchTrains] created:' + created + ' updated:' + updated + ' skipped:' + skipped + ' vehicles:' + data.data.length + ' markers:' + Object.keys(markers).length, 'color:#3498db');
+          // 12-minute timeout for better CapeFLYER / special service support
+          Object.keys(trainLastSeen).forEach(vid => {
+            if (now - trainLastSeen[vid] > 12 * 60 * 1000 && markers[vid]) {
+              map.removeLayer(markers[vid]);
+              delete markers[vid];
+              delete trainLastSeen[vid];
+              delete trainInfo[vid];
+            }
+          });
+          updateTrainVisibility();
+          updateTrainLabelsVisibility();
+          document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+          // Keep closest-trains list fresh when train positions update
+          if (userLat != null && userLng != null) {
+            renderClosestTrains(userLat, userLng);
+          }
+        } catch (e) {
+          console.error('%c[MBTA fetchTrains] FAILED', 'color:#e74c3c', e);
+          document.getElementById('last-updated').textContent = `Error: ${e.message}`;
+        }
+      }
+      function updateTrainVisibility() {
+        Object.keys(markers).forEach(function(vid) {
+          const m = markers[vid];
+          if (!m) return;
+          const okSpecial = !showOnlySpecial || isSpecialVehicle(vid) || !!getSpecialForVehicle('mbta', vid, null);
+          if (showMbta && okSpecial) {
+            if (!map.hasLayer(m)) map.addLayer(m);
+          } else if (map.hasLayer(m)) {
+            map.removeLayer(m);
+          }
+        });
+        // Re-run clustering so icons stay hidden under circles
+        if (typeof updateTrainLabelsVisibility === 'function') {
+          updateTrainLabelsVisibility();
+        }
+      }
+      async function fetchSchedules() {
+        if (!showMbta) return;
+        try {
+          const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          // MBTA rejects filter[route_type] alone on /schedules — must use filter[route]
+          let crRouteIds = Object.keys(routeColors).filter(function(id) {
+            return id && id !== 'CapeFlyer' && String(id).indexOf('CR-') === 0;
+          });
+          if (!crRouteIds.length) {
+            try {
+              const rr = await fetch(routesUrl);
+              const rd = await rr.json();
+              (rd.data || []).forEach(function(rt) {
+                if (rt && rt.id) {
+                  crRouteIds.push(rt.id);
+                  if (!routeColors[rt.id]) routeColors[rt.id] = '#' + (rt.attributes && rt.attributes.color ? rt.attributes.color : '800080');
+                }
+              });
+            } catch (_) {}
+          }
+          if (!crRouteIds.length) {
+            crRouteIds = ['CR-Fairmount','CR-NewBedford','CR-Fitchburg','CR-Worcester','CR-Franklin','CR-Greenbush','CR-Haverhill','CR-Kingston','CR-Lowell','CR-Needham','CR-Newburyport','CR-Providence','CR-Foxboro'];
+          }
+          schedules = {};
+          let totalRows = 0;
+          // Fetch per-route (full-day multi-route payloads can be huge); merge by train number
+          const CONCURRENCY = 4;
+          async function fetchOneRoute(rid) {
+            const url = scheduleUrl + '?filter[date]=' + encodeURIComponent(today) + '&filter[route]=' + encodeURIComponent(rid) + '&include=trip,stop,route';
+            const res = await fetch(url);
+            if (!res.ok) {
+              console.warn('[Schedules] route', rid, 'HTTP', res.status);
+              return [];
+            }
+            const data = await res.json();
+            return { data: data.data || [], included: data.included || [] };
+          }
+          for (let i = 0; i < crRouteIds.length; i += CONCURRENCY) {
+            const batch = crRouteIds.slice(i, i + CONCURRENCY);
+            const results = await Promise.all(batch.map(function(rid) {
+              return fetchOneRoute(rid).catch(function(e) {
+                console.warn('[Schedules] route failed', rid, e && e.message);
+                return { data: [], included: [] };
+              });
+            }));
+            results.forEach(function(pack) {
+              if (!pack || !pack.data) return;
+              const included = pack.included || [];
+              pack.data.forEach(function(s) {
+                const tid = s.relationships && s.relationships.trip && s.relationships.trip.data && s.relationships.trip.data.id;
+                if (!tid) return;
+                const num = extractTrainNumber(tid);
+                if (!num) return;
+                if (!schedules[num]) schedules[num] = [];
+                const sid = s.relationships && s.relationships.stop && s.relationships.stop.data && s.relationships.stop.data.id;
+                const stop = included.find(function(i) { return i.type === 'stop' && i.id === sid; });
+                schedules[num].push({
+                  stopName: (stop && stop.attributes && stop.attributes.name) || 'Unknown',
+                  arrTime: s.attributes && s.attributes.arrival_time ? new Date(s.attributes.arrival_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—',
+                  depTime: s.attributes && s.attributes.departure_time ? new Date(s.attributes.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—',
+                  sequence: (s.attributes && s.attributes.stop_sequence) || 0
+                });
+                totalRows++;
+              });
+            });
+          }
+          Object.keys(schedules).forEach(function(k) {
+            schedules[k].sort(function(a,b) { return a.sequence - b.sequence; });
+          });
+          console.log('%c[Schedules] Loaded ' + totalRows + ' rows for ' + Object.keys(schedules).length + ' trains across ' + crRouteIds.length + ' routes', 'color:#27ae60');
+          if (typeof FetchStats !== 'undefined' && FetchStats.end) {
+            /* no-op: keep console above as primary success log */
+          }
+        } catch (e) {
+          console.error("Schedules error", e);
+          schedules = {};
+        }
+      }
+      function createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops = null, track = null, mph = null, hasAlert = false) {
+        let txt = status === "INCOMING_AT" ? `Arriving at ${sname}` : status === "STOPPED_AT" ? `Stopped at ${sname}` : `On the way to ${sname}`;
+        let statusPillClass = (delay === null || Math.abs(delay) <= 5) ? "status-on-time" 
+                            : (delay <= 15) ? "status-delayed" 
+                            : "status-very-delayed";
+        const trk = track || '—';
+        const spd = mph !== null ? Math.round(mph) : 0;
+        const al = trainAlertBannerHtml(hasAlert, (trainInfo[vid] && trainInfo[vid].alertHeader) || 'Active Service Alert');
+        const lastSeenTime = trainLastSeen[vid] 
+          ? new Date(trainLastSeen[vid]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) 
+          : '—';
+        let currentLat = null, currentLng = null;
+        if (vid && trainInfo[vid]) {
+          currentLat = trainInfo[vid].lat;
+          currentLng = trainInfo[vid].lng;
+        }
+        const stopsHtml = stops === null 
+          ? `<div class="stops-loading"><span class="loading"></span> Loading stops...</div>` 
+          : buildStopsHtml(stops, currentLat, currentLng);
+        const capeBadge = (trainInfo[vid] && trainInfo[vid].isCapeFlyer) 
+          ? `<span class="cape-badge">CapeFLYER</span>` 
+          : '';
+        const mbtaSpecial = getSpecialForVehicle('mbta', vid, extractTrainNumber(tid) || null);
+        const mbtaPairingBlock = buildLocoReportPairingBlockHtml('mbta', { vehicleId: vid });
+        const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshTrainStops('${tid}', '${vid}')">Refresh</button>`;
+        const shareBtn = rrShareTrainBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
+        const logTripBtn = rrLogTripBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
+        return `
+          <div class="train-popup">
+            <div class="train-popup-header">
+              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                ${capeBadge}
+                <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rname}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${extractTrainNumber(tid) || tid}</span>
+                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                ${hasAlert ? `<img src="/assets/icons/alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">` : ''}
+              </div>
+            </div>
+            <div class="train-popup-body">
+              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                <p class="status-desc" style="margin:0;">${txt}</p>
+                <span class="status-pill ${statusPillClass}">${dstatus}</span>
+              </div>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Vehicle</span>
+                  <span class="info-value">${vid}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Line</span>
+                  <span class="info-value">${rname || '—'}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Track</span>
+                  <span class="info-value">${trk}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Speed</span>
+                  <span class="info-value">${spd} mph</span>
+                </div>
+              </div>
+              ${al}
+              <div class="meta-row">
+                Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+              </div>
+              ${mbtaPairingBlock}
+              <div class="stops-wrapper">
+                ${stopsHtml}
+              </div>
+            </div>
+            <div class="train-popup-footer">
+              ${logTripBtn}${shareBtn}${refreshBtn}
+            </div>
+          </div>
+        `;
+      }
+      function scrollStopsListToNextStop(popup) {
+        if (!popup || !popup._contentNode) return;
+        // Always keep the main popup content at the top
+        popup._contentNode.scrollTop = 0;
+        const list = popup._contentNode.querySelector('.stops-list');
+        if (!list) return;
+        // Find the first non-completed stop and scroll *only* the inner stops list
+        const nextStopLi = list.querySelector('li:not(.completed)');
+        if (nextStopLi) {
+          const listRect = list.getBoundingClientRect();
+          const liRect = nextStopLi.getBoundingClientRect();
+          const offset = liRect.top - listRect.top + list.scrollTop;
+          list.scrollTo({
+            top: offset,
+            behavior: 'smooth'
+          });
+        }
+      }
+      function updateTrainPopupContent(m, vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert) {
+        // Cache loaded stops so live poll refresh does not wipe the list back to "Loading stops..."
+        if (stops !== null && stops !== undefined) {
+          try { m._rrStops = stops; } catch (_) {}
+          try { if (vid && trainInfo[vid]) trainInfo[vid].stops = stops; } catch (_) {}
+        } else if (m && m._rrStops) {
+          stops = m._rrStops;
+        } else if (vid && trainInfo[vid] && trainInfo[vid].stops) {
+          stops = trainInfo[vid].stops;
+        }
+        m.getPopup().setContent(createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops, track, mph, hasAlert));
+        m.getPopup().update();
+        // Auto-scroll stops list so the next upcoming stop is at the top
+        scrollStopsListToNextStop(m.getPopup());
+      }
+      window.refreshTrainStops = async function(tid, vid) {
+        const m = markers[vid];
+        if (m && m.isPopupOpen()) {
+          const t = trainInfo[vid];
+          updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, null, t.trackNumber, t.speedMph, t.hasAlert);
+          const stops = await getTripStops(tid).catch(() => []);
+          updateTrainPopupContent(m, vid, tid, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, stops, t.trackNumber, t.speedMph, t.hasAlert);
+          try {
+            const svc = rrStopServiceDate();
+            const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tid) : '') || String(tid || '');
+            rrSaveStopActuals('mbta', tnum, svc, stops);
+          } catch (_) {}
+        }
+      };
+      window.openTrainSchedule = async function(tid, rname = '', dest = '', serviceDate = '') {
+        let found = null;
+        for (const v in trainInfo) if (trainInfo[v].tripId === tid) { found = v; break; }
+        if (found && markers[found]) {
+          map.flyTo([trainInfo[found].lat, trainInfo[found].lng], 14, { animate: true });
+          setTimeout(() => markers[found].openPopup(), 1500);
+          return;
+        }
+        map.closePopup();
+        try {
+          const stops = await getTripStops(tid, serviceDate);
+          const title = rname ? `${rname} to ${dest}` : `Trip ${tid}`;
+          const _when = (stops||[]).map(s => s.predictedTime || s.scheduledTime).find(tm => tm);
+          let departsMsg = 'Scheduled';
+          if (_when) {
+            const totalMin = Math.round((_when.getTime() - Date.now()) / 60000);
+            if (totalMin <= 0) departsMsg = 'Departed';
+            else {
+              const days = Math.floor(totalMin / 1440);
+              const hours = Math.floor((totalMin % 1440) / 60);
+              const mins = totalMin % 60;
+              const parts = [];
+              if (days) parts.push(days + ' day' + (days === 1 ? '' : 's'));
+              if (hours) parts.push(hours + ' hour' + (hours === 1 ? '' : 's'));
+              if (mins || !parts.length) parts.push(mins + ' minute' + (mins === 1 ? '' : 's'));
+              departsMsg = 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
+            }
+          }
+          const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', tid, (typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid, serviceDate) : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', tid, (typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid) : '';
+          L.popup(rrPopupOpts()).setLatLng(map.getCenter()).setContent(`
+            <div class="train-popup">
+              <div class="train-popup-header">
+                <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
+                  <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${rname || 'Trip'}</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${(typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid}</span>
+                  <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest || '—'}</span>
+                </div>
+              </div>
+              <div class="train-popup-body">
+                <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
+                  <p class="status-desc" style="margin:0;">${departsMsg}</p>
+                  <span class="status-pill status-scheduled">Scheduled</span>
+                </div>
+                <div class="info-grid">
+                  <div class="info-item"><span class="info-label">Line</span><span class="info-value">${rname || '—'}</span></div>
+                  <div class="info-item"><span class="info-label">Route</span><span class="info-value">${rname || '—'}</span></div>
+                </div>
+                <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
+              </div>
+              <div class="train-popup-footer">${logTripBtn}${shareBtn}</div>
+            </div>
+          `).openOn(map);
+        } catch (e) { showNotification('Could not load schedule.', 'error'); }
+      };
+      function updateStationVisibility() {
+        Object.keys(stationMarkers).forEach(function(key) {
+          const m = stationMarkers[key];
+          if (!m) return;
+          const agency = m._rrAgency || (key.indexOf(':') >= 0 ? key.split(':')[0] : 'mbta');
+          const show = agencyStationsVisible(agency);
+          if (show) { if (!map.hasLayer(m)) map.addLayer(m); }
+          else { if (map.hasLayer(m)) map.removeLayer(m); }
+        });
+      }
+      function toggleRoutes(show) {
+        showRoutes = show;
+        Object.keys(routeLines).forEach(function(key) {
+          const l = routeLines[key];
+          let showThis = show;
+          if (show && key.indexOf('gtfs-') === 0) {
+            const agency = key.split('-')[1];
+            showThis = shouldShowGtfsShape(agency);
+          }
+          if (showThis) { if (!map.hasLayer(l)) map.addLayer(l); }
+          else { if (map.hasLayer(l)) map.removeLayer(l); }
+        });
+      }
+      function toggleTrainLabels(show) {
+        showTrainLabels = show;
+        updateTrainLabelsVisibility();
+      }
+      // ---- Label declutter / overlap clustering ----
+      let trainClusterMarkers = [];
+      const LABEL_CLUSTER_PX = 48; // pixel distance to treat labels as overlapping
+      function clearTrainClusters() {
+        trainClusterMarkers.forEach(function(m) {
+          if (map.hasLayer(m)) map.removeLayer(m);
+        });
+        trainClusterMarkers = [];
+      }
+      function createClusterIcon(count) {
+        return L.divIcon({
+          className: '',
+          html: '<div class="train-cluster-icon">' + count + '</div>',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+      }
+
+      // Build cycling permanent-label parts; skip missing fields (do not invent).
+      function buildCyclingTrainInfo(opts) {
+        const info = [];
+        if (!opts) return info;
+        const route = opts.route != null ? String(opts.route).trim() : '';
+        if (route) info.push(route);
+        const trainNum = opts.trainNum != null ? String(opts.trainNum).trim() : '';
+        const dest = opts.dest != null ? String(opts.dest).trim() : '';
+        if (trainNum && dest && dest !== '—' && dest !== '-' && dest.toLowerCase() !== 'unknown') {
+          info.push(trainNum + ' to ' + dest);
+        } else if (trainNum) {
+          info.push(trainNum);
+        }
+        const vehicle = opts.vehicle != null ? String(opts.vehicle).trim() : '';
+        if (vehicle) info.push('Vehicle ' + vehicle);
+        if (opts.speedMph != null && isFinite(Number(opts.speedMph))) {
+          info.push(Math.round(Number(opts.speedMph)) + ' mph');
+        }
+        const status = opts.status != null ? String(opts.status).trim() : '';
+        if (status && status.toLowerCase() !== 'unknown') info.push(status);
+        const nextStop = opts.nextStop != null ? String(opts.nextStop).trim() : '';
+        if (nextStop && nextStop !== '—' && nextStop !== '-') info.push('Next: ' + nextStop);
+        return info;
+      }
+      function applyCyclingLabel(marker, infoArr, isNew) {
+        if (!marker) return;
+        marker._info = infoArr && infoArr.length ? infoArr : [];
+        if (isNew || marker._infoIndex == null) marker._infoIndex = 0;
+        if (marker.getTooltip() && marker._info.length) {
+          marker.getTooltip().setContent(marker._info[marker._infoIndex % marker._info.length]);
+        }
+      }
+
+      // Collect train markers for labeling (optionally viewport-filtered).
+      // Considers all trains that *should* be visible (not only those currently on the map).
+      function collectTrainLabelItems(bounds) {
+        const items = [];
+        function pushItem(vid, m) {
+          const ll = m.getLatLng();
+          if (!ll) return;
+          if (bounds && !bounds.contains(ll)) return;
+          const pt = map.latLngToLayerPoint(ll);
+          items.push({ vid: vid, marker: m, pt: pt, latlng: ll });
+        }
+        Object.keys(markers).forEach(function(vid) {
+          const m = markers[vid];
+          // Respect "show only special units" filter
+          if (showOnlySpecial && !isSpecialVehicle(vid) && !getSpecialForVehicle('mbta', vid, null)) return;
+          pushItem(vid, m);
+        });
+        if (showAmtrak || showVia) {
+          Object.keys(amtrakMarkers).forEach(function(vid) {
+            const m = amtrakMarkers[vid];
+            const info = amtrakTrainInfo[vid] || {};
+            if (rrIsViaTrain(info) ? !showVia : !showAmtrak) return;
+            const special = getSpecialForVehicle('amtrak', (info.specialUnit && info.specialUnit.vehicleId) || null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
+        if (showMnr) {
+          Object.keys(mnrMarkers).forEach(function(vid) {
+            const m = mnrMarkers[vid];
+            const info = mnrTrainInfo[vid] || {};
+            const special = getSpecialForVehicle('mnr', null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
+        if (showLirr) {
+          Object.keys(lirrMarkers).forEach(function(vid) {
+            const m = lirrMarkers[vid];
+            const info = lirrTrainInfo[vid] || {};
+            const special = getSpecialForVehicle('lirr', null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
+        if (showMetra) {
+          Object.keys(metraMarkers).forEach(function(vid) {
+            const m = metraMarkers[vid];
+            const info = metraTrainInfo[vid] || {};
+            const special = getSpecialForVehicle('metra', info.vehicleId || null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
+        if (showNjt) {
+          Object.keys(njtMarkers).forEach(function(vid) {
+            const m = njtMarkers[vid];
+            const info = njtTrainInfo[vid] || {};
+            const special = getSpecialForVehicle('njt', null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
+        return items;
+      }
+      // Group markers that are within LABEL_CLUSTER_PX of each other (screen space)
+      function groupOverlappingTrains(itemsList) {
+        const items = itemsList || collectTrainLabelItems(null);
+        const used = {};
+        const groups = [];
+        for (let i = 0; i < items.length; i++) {
+          if (used[items[i].vid]) continue;
+          const group = [items[i]];
+          used[items[i].vid] = true;
+          // Simple flood-fill style grouping
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (let j = 0; j < items.length; j++) {
+              if (used[items[j].vid]) continue;
+              for (let k = 0; k < group.length; k++) {
+                const dx = items[j].pt.x - group[k].pt.x;
+                const dy = items[j].pt.y - group[k].pt.y;
+                if (Math.sqrt(dx * dx + dy * dy) < LABEL_CLUSTER_PX) {
+                  group.push(items[j]);
+                  used[items[j].vid] = true;
+                  changed = true;
+                  break;
+                }
+              }
+            }
+          }
+          groups.push(group);
+        }
+        return groups;
+      }
+      // Fast path: bind/unbind permanent labels without O(n²) overlap grouping
+      function estimateTrainLabelBox(item) {
+        var m = item.marker;
+        var text = '';
+        if (m._info && m._info.length) {
+          var idx = (typeof m._infoIndex === 'number' ? m._infoIndex : 0) % m._info.length;
+          text = String(m._info[idx] == null ? '' : m._info[idx]);
+        }
+        text = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        var w = Math.min(220, Math.max(40, text.length * 7 + 22));
+        var h = 26;
+        // Permanent tooltip sits under the icon (direction: bottom, offset [0, 16])
+        var left = item.pt.x - w / 2;
+        var top = item.pt.y + 16;
+        return { l: left, t: top, r: left + w, b: top + h };
+      }
+      function trainLabelBoxesOverlap(a, b, pad) {
+        pad = pad == null ? 6 : pad;
+        return !(a.r + pad <= b.l || b.r + pad <= a.l || a.b + pad <= b.t || b.b + pad <= a.t);
+      }
+      function bindTrainLabel(m) {
+        if (!m.getTooltip()) {
+          m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
+        }
+        if (m._info && m._info.length && m.getTooltip()) {
+          var idx = (typeof m._infoIndex === 'number' ? m._infoIndex : 0) % m._info.length;
+          m.getTooltip().setContent(m._info[idx]);
+        }
+      }
+      // Hide labels whose boxes collide; show them again when they have room.
+      function applyTrainLabelCollision(items, shouldShowLabels) {
+        if (!shouldShowLabels) {
+          items.forEach(function(g) {
+            if (g.marker.getTooltip && g.marker.getTooltip()) g.marker.unbindTooltip();
+          });
+          return;
+        }
+        items.forEach(function(g) {
+          g._labelBox = estimateTrainLabelBox(g);
+          g._hasLabel = !!(g.marker.getTooltip && g.marker.getTooltip());
+          g._isHighlighted = (typeof highlightedMarker !== 'undefined' && highlightedMarker === g.marker);
+        });
+        // Keep already-visible labels first so they don't flicker as trains move
+        items.sort(function(a, b) {
+          if (a._isHighlighted !== b._isHighlighted) return a._isHighlighted ? -1 : 1;
+          if (a._hasLabel !== b._hasLabel) return a._hasLabel ? -1 : 1;
+          return (a.pt.y - b.pt.y) || (a.pt.x - b.pt.x);
+        });
+        var kept = [];
+        items.forEach(function(g) {
+          var hit = false;
+          for (var i = 0; i < kept.length; i++) {
+            if (trainLabelBoxesOverlap(g._labelBox, kept[i]._labelBox, 6)) { hit = true; break; }
+          }
+          if (hit) {
+            if (g.marker.getTooltip && g.marker.getTooltip()) g.marker.unbindTooltip();
+          } else {
+            kept.push(g);
+            bindTrainLabel(g.marker);
+          }
+        });
+      }
+      function applyTrainLabelsFast(shouldShowLabels, bounds) {
+        // Unbind off-screen (and out-of-filter) tooltips across all agency dicts
+        const inViewVids = {};
+        const inView = collectTrainLabelItems(bounds);
+        inView.forEach(function(g) { inViewVids[g.vid] = true; });
+        function unbindIfNotInView(dict) {
+          Object.keys(dict).forEach(function(vid) {
+            const m = dict[vid];
+            if (inViewVids[vid]) return;
+            if (m.getTooltip && m.getTooltip()) m.unbindTooltip();
+          });
+        }
+        unbindIfNotInView(markers);
+        unbindIfNotInView(amtrakMarkers);
+        unbindIfNotInView(mnrMarkers);
+        unbindIfNotInView(lirrMarkers);
+        unbindIfNotInView(metraMarkers);
+        unbindIfNotInView(njtMarkers);
+        applyTrainLabelCollision(inView, shouldShowLabels);
+      }
+      function updateTrainLabelsVisibilityNow() {
+        const zoom = map.getZoom();
+        const shouldShowLabels = showTrainLabels && zoom >= LABEL_MIN_ZOOM;
+        const bounds = map.getBounds().pad(0.1);
+        clearTrainClusters();
+
+        // Default / fast path: no O(n²) grouping when clustering is OFF
+        if (!showClusters) {
+          applyTrainLabelsFast(shouldShowLabels, bounds);
+          return;
+        }
+
+        // Cluster path: only group in-viewport markers; bail to fast path if too many
+        const inView = collectTrainLabelItems(bounds);
+        if (inView.length > 200) {
+          applyTrainLabelsFast(shouldShowLabels, bounds);
+          return;
+        }
+
+        // Unbind tooltips on markers not in the filtered in-viewport set
+        const inViewVids = {};
+        inView.forEach(function(g) { inViewVids[g.vid] = true; });
+        function unbindOutside(dict) {
+          Object.keys(dict).forEach(function(vid) {
+            if (inViewVids[vid]) return;
+            const m = dict[vid];
+            if (m.getTooltip && m.getTooltip()) m.unbindTooltip();
+          });
+        }
+        unbindOutside(markers);
+        unbindOutside(amtrakMarkers);
+        unbindOutside(mnrMarkers);
+        unbindOutside(lirrMarkers);
+        unbindOutside(metraMarkers);
+        unbindOutside(njtMarkers);
+
+        const groups = groupOverlappingTrains(inView);
+        const soloLabelItems = [];
+        groups.forEach(function(group) {
+          if (group.length === 1) {
+            // Solo train — keep icon; label visibility decided after grouping
+            group.forEach(function(g) {
+              if (!map.hasLayer(g.marker)) g.marker.addTo(map);
+            });
+            soloLabelItems.push(group[0]);
+          } else {
+            // 2+ overlapping and clustering ON — keep icons visible;
+            // only declutter labels and show a count circle badge nearby
+            let sumLat = 0, sumLng = 0;
+            group.forEach(function(g) {
+              sumLat += g.latlng.lat;
+              sumLng += g.latlng.lng;
+              if (!map.hasLayer(g.marker)) g.marker.addTo(map);
+              if (g.marker.getTooltip()) g.marker.unbindTooltip();
+            });
+            const center = L.latLng(sumLat / group.length, sumLng / group.length);
+            const cluster = L.marker(center, {
+              icon: createClusterIcon(group.length),
+              interactive: true,
+              zIndexOffset: 1500
+            });
+            cluster.on('click', function() {
+              map.setView(center, Math.min(map.getZoom() + 2, 18));
+            });
+            cluster.bindTooltip(group.length + ' trains — click to zoom', {
+              permanent: false,
+              direction: 'top',
+              className: 'train-label'
+            });
+            cluster.addTo(map);
+            trainClusterMarkers.push(cluster);
+          }
+        });
+        applyTrainLabelCollision(soloLabelItems, shouldShowLabels);
+      }
+      // Debounced public entry: coalesce zoom/fetch/toggle storms via rAF + 300ms
+      let _trainLabelVisRaf = null;
+      let _trainLabelVisTimer = null;
+      function updateTrainLabelsVisibility() {
+        if (_trainLabelVisTimer) clearTimeout(_trainLabelVisTimer);
+        _trainLabelVisTimer = setTimeout(function() {
+          _trainLabelVisTimer = null;
+          if (_trainLabelVisRaf) cancelAnimationFrame(_trainLabelVisRaf);
+          _trainLabelVisRaf = requestAnimationFrame(function() {
+            _trainLabelVisRaf = null;
+            updateTrainLabelsVisibilityNow();
+          });
+        }, 300);
+      }
+      function resetAllMarkerHighlights() {
+        if (highlightedMarker && map.hasLayer(highlightedMarker)) { highlightedMarker.getElement().classList.remove('highlighted-train'); highlightedMarker = null; }
+        map.closePopup();
+      }
+      // Search Type Menu Logic
+      const searchMenu = document.getElementById('search-type-menu');
+      const searchDropdown = document.getElementById('search-type-dropdown');
+      const searchOptions = document.querySelectorAll('.search-type-option');
+      const searchInput = document.getElementById('header-search-input');
+      searchMenu.addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        searchDropdown.classList.toggle('show');
+      });
+      searchOptions.forEach(option => {
+        option.addEventListener('click', () => {
+          searchOptions.forEach(o => o.classList.remove('active'));
+          option.classList.add('active');
+          searchMode = option.dataset.type;
+          searchMenu.textContent = option.textContent + ' ▼';
+          searchDropdown.classList.remove('show');
+          if (searchMode === 'all') searchInput.placeholder = 'Search trains, stations, or ask…';
+          else if (searchMode === 'train') searchInput.placeholder = 'Search trains...';
+          else searchInput.placeholder = 'Search stations...';
+          if (searchInput.value.trim().length >= 2) {
+            const event = new Event('input');
+            searchInput.dispatchEvent(event);
+          }
+        });
+      });
+      document.addEventListener('click', () => {
+        searchDropdown.classList.remove('show');
+      });
+
+      function delayStatusParts(delay, fallbackText, fallbackClass) {
+        let statusClass = fallbackClass || 'status-on-time';
+        let statusText = fallbackText || 'On Time';
+        if (delay === null || delay === undefined) {
+          if (fallbackText) return { statusClass: statusClass, statusText: statusText };
+          return { statusClass: 'status-scheduled', statusText: 'Scheduled' };
+        } else if (Math.abs(delay) <= 5) {
+          statusClass = 'status-on-time';
+          statusText = 'On Time';
+        } else if (delay <= 15) {
+          statusClass = 'status-delayed';
+          statusText = 'Delayed ' + Math.round(delay) + ' min';
+        } else {
+          statusClass = 'status-very-delayed';
+          statusText = 'Delayed ' + Math.round(delay) + ' min';
+        }
+        return { statusClass: statusClass, statusText: statusText };
+      }
+      function collectLiveTrainRows() {
+        const res = [];
+        try {
+          for (const vid in trainInfo) {
+            const t = trainInfo[vid];
+            const tripNum = extractTrainNumber(t.tripId) || t.tripId || '';
+            const st = delayStatusParts(t.delayMinutes, t.delayStatus);
+            let stopLabel = 'Next', stopName = t.stopName || '—';
+            if (t.status === 'STOPPED_AT') stopLabel = 'At';
+            else if (t.status === 'INCOMING_AT') stopLabel = 'Arriving';
+            res.push({
+              agency: 'MBTA', agencyColor: '#1a1a2e', id: vid, markerMap: markers,
+              routeName: t.routeName || 'MBTA', trainNum: tripNum || '—', dest: t.destination || '—',
+              vehicleLabel: vid, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              delayMinutes: (t.delayMinutes != null ? Number(t.delayMinutes) : null),
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, t.tripId, tripNum, t.routeName, t.destination]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in amtrakTrainInfo) {
+            const t = amtrakTrainInfo[vid];
+            const num = t.trainNum || t.trainNumRaw || String(vid).replace(/^amtrak-/, '');
+            const statusRaw = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+            let statusClass = 'status-on-time';
+            if (/disruption/i.test(statusRaw)) statusClass = 'status-disruption';
+            else if (/late|delay/i.test(statusRaw)) statusClass = /late\s*([2-9]\d|\d{3,})/i.test(statusRaw) || /hours?/i.test(statusRaw) ? 'status-very-delayed' : 'status-delayed';
+            else if (/predeparture|scheduled|not yet/i.test(statusRaw)) statusClass = 'status-scheduled';
+            const hasAlert = (typeof amtrakAlertFromTrain === 'function') ? amtrakAlertFromTrain(t).hasAlert : !!t.hasAlert;
+            const rowVia = rrIsViaTrain(t);
+            if (rowVia ? !showVia : false) continue;
+            res.push({
+              agency: rowVia ? 'VIA Rail' : 'Amtrak', agencyColor: rowVia ? VIA_COLOR : '#003087', id: vid, markerMap: amtrakMarkers,
+              routeName: t.routeName || (rowVia ? 'VIA Rail' : 'Amtrak'), trainNum: rowVia ? ('VIA ' + rrViaDisplayNum(t)) : num, dest: t.destName || t.destCode || '—',
+              vehicleLabel: t.trainID || num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
+              statusClass: statusClass, statusText: statusRaw,
+              hasAlert: hasAlert, lat: t.lat, lng: (t.lng != null ? t.lng : t.lon),
+              matchFields: [vid, num, t.trainID, t.routeName, t.destName, t.destCode, t.origName, t.origCode]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in mnrTrainInfo) {
+            const t = mnrTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^mnr-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'MNR', agencyColor: '#0039A6', id: vid, markerMap: mnrMarkers,
+              routeName: t.routeName || 'Metro-North', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in lirrTrainInfo) {
+            const t = lirrTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^lirr-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'LIRR', agencyColor: '#0039A6', id: vid, markerMap: lirrMarkers,
+              routeName: t.routeName || 'LIRR', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in njtTrainInfo) {
+            const t = njtTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^njt-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            res.push({
+              agency: 'NJT', agencyColor: '#FF671F', id: vid, markerMap: njtMarkers,
+              routeName: t.routeName || 'NJ Transit', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: num, speedMph: null, stopLabel: 'Next', stopName: t.currentStopName || '—',
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.routeName, t.destName, t.currentStopName, t.direction]
+            });
+          }
+        } catch (_) {}
+        try {
+          for (const vid in metraTrainInfo) {
+            const t = metraTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^metra-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'Metra', agencyColor: '#0055A4', id: vid, markerMap: metraMarkers,
+              routeName: t.routeName || 'Metra', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+
+        try {
+          for (const vid in marcTrainInfo) {
+            const t = marcTrainInfo[vid];
+            const num = t.trainNum || String(vid).replace(/^marc-/, '');
+            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
+            let stopLabel = 'Next', stopName = t.currentStopName || '—';
+            if (t.vehicleStatus === 1) stopLabel = 'At';
+            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
+            res.push({
+              agency: 'MARC', agencyColor: '#FF8000', id: vid, markerMap: marcMarkers,
+              routeName: t.routeName || 'MARC', trainNum: num, dest: t.destName || '—',
+              vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
+              statusClass: st.statusClass, statusText: st.statusText,
+              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
+              matchFields: [vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName]
+            });
+          }
+        } catch (_) {}
+        return res;
+      }
+
+      function rrNormShareAgency(s) {
+        const k = String(s || '').toLowerCase().replace(/[\s_-]+/g, '');
+        if (k.indexOf('amtrak') >= 0) return 'amtrak';
+        if (k.indexOf('mbta') >= 0) return 'mbta';
+        if (k.indexOf('metronorth') >= 0 || k === 'mnr') return 'mnr';
+        if (k.indexOf('lirr') >= 0 || k.indexOf('longisland') >= 0) return 'lirr';
+        if (k.indexOf('metra') >= 0) return 'metra';
+        if (k.indexOf('njtransit') >= 0 || k === 'njt') return 'njt';
+        if (k.indexOf('ctrail') >= 0) return 'ctrail';
+        if (k.indexOf('marc') >= 0) return 'marc';
+        return k;
+      }
+      function rrNormShareId(s) {
+        return String(s || '').trim().toLowerCase().replace(/^(amtrak|mbta|mnr|lirr|metra|njt|ctrail|marc)[-:]/, '');
+      }
+      function rrTrainShareKey(agency, vid, trainNum) {
+        const a = rrNormShareAgency(agency);
+        const slug = String(trainNum || '').trim() || rrNormShareId(vid) || String(vid || '').trim();
+        return a + ':' + slug;
+      }
+      function rrTrainShareUrl(agency, vid, trainNum, serviceDate) {
+        const origin = (location.origin && location.origin !== 'null') ? location.origin : 'https://railroadradar.com';
+        const key = rrTrainShareKey(agency, vid, trainNum);
+        const parts = key.split(':');
+        const slug = encodeURIComponent(parts.slice(1).join(':') || parts[0]);
+        let url = origin + '/?train=' + encodeURIComponent(parts[0] || 'mbta') + ':' + slug;
+        const date = String(serviceDate || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) url += '&date=' + date;
+        if (vid && String(vid) !== String(trainNum || '')) url += '&trip=' + encodeURIComponent(vid);
+        return url;
+      }
+      function rrShareTrainBtnHtml(agency, vid, trainNum, serviceDate) {
+        const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+        return '<button type="button" class="popup-action-btn share-btn" onclick="shareTrainLink(\'' +
+          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\',\'' + esc(serviceDate || '') + '\')">Share</button>';
+      }
+      /* Trip log from live */
+      function rrLogTripBtnHtml(agency, vid, trainNum) {
+        const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+        return '<button type="button" class="popup-action-btn log-trip-btn" onclick="logTripFromLive(\'' +
+          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Log this ride</button>';
+      }
+      function rrBuildLogTripPrefill(agency, vid, trainNum) {
+        const a = (typeof rrNormShareAgency === 'function') ? rrNormShareAgency(agency) : String(agency || '').toLowerCase();
+        const prefill = {
+          railroad: a,
+          agency: a,
+          trainNumber: String(trainNum || '').trim(),
+          vehicleId: String(vid || ''),
+          lineName: '',
+          routeName: '',
+          originName: '',
+          destName: '',
+          departTime: (typeof defaultTripStartLocalValue === 'function') ? defaultTripStartLocalValue() : '',
+          arriveTime: '',
+          scheduleStops: null
+        };
+        try {
+          if (a === 'amtrak' && typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) {
+            const tinfo = amtrakTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || tinfo.trainNumRaw || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || tinfo.origCode || '';
+            prefill.destName = tinfo.destName || tinfo.destCode || '';
+            prefill.scheduleStops = tinfo.stations || null;
+            if (tinfo.origSchDep || tinfo.scheduledDeparture) {
+              const d = (typeof isoToLocalInput === 'function') ? isoToLocalInput(tinfo.origSchDep || tinfo.scheduledDeparture) : '';
+              if (d) prefill.departTime = d;
+            }
+          } else if (a === 'mnr' && typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) {
+            const tinfo = mnrTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'lirr' && typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) {
+            const tinfo = lirrTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'njt' && typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) {
+            const tinfo = njtTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'metra' && typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) {
+            const tinfo = metraTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'marc' && typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) {
+            const tinfo = marcTrainInfo[vid];
+            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.originName = tinfo.origName || '';
+            prefill.destName = tinfo.destName || '';
+            prefill.scheduleStops = tinfo.stops || null;
+          } else if (a === 'mbta' && typeof trainInfo !== 'undefined' && trainInfo[vid]) {
+            const tinfo = trainInfo[vid];
+            prefill.trainNumber = String(trainNum || (typeof extractTrainNumber === 'function' ? extractTrainNumber(tinfo.tripId) : '') || '').trim();
+            prefill.routeName = tinfo.routeName || '';
+            prefill.lineName = tinfo.routeName || '';
+            prefill.lineId = tinfo.routeId || '';
+            prefill.destName = tinfo.destination || '';
+            prefill.originName = '';
+          }
+        } catch (e) {
+          console.warn('[trip-log] live prefill', e);
+        }
+        if (!prefill.departTime && typeof defaultTripStartLocalValue === 'function') {
+          prefill.departTime = defaultTripStartLocalValue();
+        }
+        return prefill;
+      }
+      window.logTripFromLive = function(agency, vid, trainNum) {
+        const prefill = rrBuildLogTripPrefill(agency, vid, trainNum);
+        if (typeof window.applyTripLogFromLive === 'function') {
+          window.applyTripLogFromLive(prefill);
+        } else {
+          try {
+            sessionStorage.setItem('rrPendingLogTrip', JSON.stringify(prefill));
+          } catch (_) {}
+          location.href = '/mytrips/?logtrip=' + encodeURIComponent(String(agency || '') + ':' + String(trainNum || ''));
+        }
+      };
+
+      function rrParseShareSpec(raw) {
+        raw = String(raw || '').trim();
+        if (!raw) return null;
+        const parts = raw.split(/[:|/]/);
+        if (parts.length >= 2) {
+          return { agency: rrNormShareAgency(parts[0]), id: parts.slice(1).join(':') };
+        }
+        return { agency: '', id: raw };
+      }
+      function rrReadTrainQuery() {
+        try {
+          const q = new URLSearchParams(location.search);
+          const page = rrParseShareSpec(q.get('train') || q.get('t'));
+          if (page) {
+            page.date = q.get('date') || '';
+            page.trip = q.get('trip') || '';
+          }
+          return {
+            page: page,
+            focus: rrParseShareSpec(q.get('focus'))
+          };
+        } catch (_) {
+          return { page: null, focus: null };
+        }
+      }
+      function rrFindSharedTrain(spec) {
+        if (!spec || !spec.id) return null;
+        const wantA = spec.agency;
+        const wantId = rrNormShareId(spec.id);
+        const wantBare = wantId.replace(/^0+/, '') || wantId;
+        const rows = collectLiveTrainRows();
+        let fallback = null;
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          const a = rrNormShareAgency(r.agency);
+          const ids = [r.id, r.trainNum, r.vehicleLabel].map(rrNormShareId);
+          const hit = ids.some(function(x) {
+            if (!x) return false;
+            if (x === wantId) return true;
+            return (x.replace(/^0+/, '') || x) === wantBare;
+          });
+          if (!hit) continue;
+          if (!wantA || a === wantA || (wantA === 'ctrail' && a === 'amtrak')) return r;
+          fallback = r;
+        }
+        return fallback;
+      }
+      try { window.rrCollectLiveTrainRows = collectLiveTrainRows; } catch (_) {}
+      try { window.rrFindSharedTrain = rrFindSharedTrain; } catch (_) {}
+      window.shareTrainLink = async function(agency, vid, trainNum, serviceDate) {
+        const url = rrTrainShareUrl(agency, vid, trainNum, serviceDate);
+        try {
+          if (navigator.share) {
+            try {
+              await navigator.share({ url: url });
+            } catch (shareErr) {
+              if (shareErr && shareErr.name === 'AbortError') return;
+              await navigator.share({ text: url });
+            }
+            return;
+          }
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+        }
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(url);
+            showNotification('Link copied');
+            return;
+          }
+        } catch (_) {}
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = url;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showNotification('Link copied');
+        } catch (_) {
+          showNotification('Could not copy link', 'error');
+        }
+      };
+      let rrTrainPageSpec = null;
+      let rrTrainPageStops = null;
+      let rrTrainPageCentered = false;
+      function rrPopupHtmlForRow(r) {
+        if (!r) return '';
+        const vid = r.id;
+        const a = rrNormShareAgency(r.agency);
+        try {
+          if (a === 'amtrak' && amtrakTrainInfo[vid]) return createAmtrakPopupContent(vid, amtrakTrainInfo[vid]);
+          if (a === 'mnr' && mnrTrainInfo[vid]) return createMnrPopupContent(vid, mnrTrainInfo[vid]);
+          if (a === 'lirr' && lirrTrainInfo[vid]) return createLirrPopupContent(vid, lirrTrainInfo[vid]);
+          if (a === 'metra' && metraTrainInfo[vid]) return createMetraPopupContent(vid, metraTrainInfo[vid]);
+          if (a === 'njt' && njtTrainInfo[vid]) return createNjtPopupContent(vid, njtTrainInfo[vid]);
+          if (a === 'mbta' && trainInfo[vid]) {
+            const t = trainInfo[vid];
+            return createTrainPopupContent(vid, t.tripId, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, rrTrainPageStops, t.trackNumber, t.speedMph, t.hasAlert);
+          }
+        } catch (e) {
+          console.warn('[share] popup html', e);
+        }
+        const m = r.markerMap && r.markerMap[vid];
+        if (m && m.getPopup()) return m.getPopup().getContent() || '';
+        return '';
+      }
+      function rrNormRouteName(s) {
+        return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      }
+      function rrTrainRouteBits(row) {
+        const a = rrNormShareAgency(row && row.agency);
+        const vid = row && row.id;
+        const bits = { agency: a, ids: [], names: [] };
+        const addId = function(x) { const s = String(x || '').trim(); if (s) bits.ids.push(s); };
+        const addName = function(x) { const s = rrNormRouteName(x); if (s) bits.names.push(s); };
+        addName(row && row.routeName);
+        if (a === 'mbta' && trainInfo[vid]) {
+          addId(trainInfo[vid].routeId);
+          addName(trainInfo[vid].routeName);
+          if (trainInfo[vid].isCapeFlyer) { addId('CapeFlyer'); addName('capeflyer'); }
+        } else if (a === 'amtrak' && amtrakTrainInfo[vid]) {
+          addName(amtrakTrainInfo[vid].routeName);
+        } else if (a === 'mnr' && mnrTrainInfo[vid]) {
+          addId(mnrTrainInfo[vid].routeId);
+          addName(mnrTrainInfo[vid].routeName);
+        } else if (a === 'lirr' && lirrTrainInfo[vid]) {
+          addId(lirrTrainInfo[vid].routeId);
+          addName(lirrTrainInfo[vid].routeName);
+        } else if (a === 'metra' && metraTrainInfo[vid]) {
+          addId(metraTrainInfo[vid].routeId);
+          addName(metraTrainInfo[vid].routeName);
+        } else if (a === 'njt' && njtTrainInfo[vid]) {
+          addId(njtTrainInfo[vid].routeId);
+          addName(njtTrainInfo[vid].routeName);
+        }
+        return bits;
+      }
+      function rrRouteLineMatchesTrain(key, grp, row) {
+        const bits = rrTrainRouteBits(row);
+        const a = bits.agency;
+        if (a === 'mbta') {
+          return bits.ids.some(function(id) { return String(key) === String(id); });
+        }
+        if (String(key).indexOf('gtfs-') !== 0) return false;
+        const rest = String(key).slice(5);
+        const dash = rest.indexOf('-');
+        const agency = dash >= 0 ? rest.slice(0, dash) : rest;
+        const rid = dash >= 0 ? rest.slice(dash + 1) : '';
+        const agencyOk = agency === a
+          || (a === 'amtrak' && agency === 'ctrail')
+          || (a === 'ctrail' && (agency === 'amtrak' || agency === 'ctrail'));
+        if (!agencyOk) return false;
+        if (rid && bits.ids.some(function(id) { return String(id).toLowerCase() === String(rid).toLowerCase(); })) return true;
+        const lineName = rrNormRouteName((grp && grp._rrName) || '');
+        if (lineName && bits.names.some(function(n) {
+          return n === lineName || n.indexOf(lineName) >= 0 || lineName.indexOf(n) >= 0;
+        })) return true;
+        return false;
+      }
+      function rrApplyOnlyThisTrain(row) {
+        if (!row || !map) return;
+        const keepId = String(row.id);
+        const keepMap = row.markerMap;
+        function sweep(obj) {
+          Object.keys(obj || {}).forEach(function(id) {
+            const m = obj[id];
+            if (!m) return;
+            const keep = keepMap && obj === keepMap && String(id) === keepId;
+            try {
+              if (keep) { if (!map.hasLayer(m)) map.addLayer(m); }
+              else if (map.hasLayer(m)) map.removeLayer(m);
+            } catch (_) {}
+          });
+        }
+        sweep(markers);
+        sweep(amtrakMarkers);
+        sweep(mnrMarkers);
+        sweep(lirrMarkers);
+        sweep(metraMarkers);
+        sweep(njtMarkers);
+        Object.keys(stationMarkers || {}).forEach(function(key) {
+          const m = stationMarkers[key];
+          try { if (m && map.hasLayer(m)) map.removeLayer(m); } catch (_) {}
+        });
+        Object.keys(routeLines || {}).forEach(function(key) {
+          const l = routeLines[key];
+          if (!l) return;
+          const keep = rrRouteLineMatchesTrain(key, l, row);
+          try {
+            if (keep) { if (!map.hasLayer(l)) map.addLayer(l); }
+            else if (map.hasLayer(l)) map.removeLayer(l);
+          } catch (_) {}
+        });
+        const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
+        if (isFinite(lat) && isFinite(lng) && !rrTrainPageCentered) {
+          map.setView([lat, lng], 11, { animate: false });
+          rrTrainPageCentered = true;
+        } else if (isFinite(lat) && isFinite(lng)) {
+          try { map.panTo([lat, lng], { animate: true }); } catch (_) {}
+        }
+        try { map.closePopup(); } catch (_) {}
+        try { map.invalidateSize(); } catch (_) {}
+      }
+
+      let rrScheduledPage = null;
+      let rrScheduledLine = null;
+      function rrClearScheduledLine() {
+        if (rrScheduledLine && map) {
+          try { map.removeLayer(rrScheduledLine); } catch (e) {}
+        }
+        rrScheduledLine = null;
+      }
+      function rrDepartsInMsg(date) {
+        if (!date) return 'Scheduled';
+        const totalMin = Math.round((date.getTime() - Date.now()) / 60000);
+        if (totalMin <= 0) return 'Departed';
+        const days = Math.floor(totalMin / 1440);
+        const hours = Math.floor((totalMin % 1440) / 60);
+        const mins = totalMin % 60;
+        const parts = [];
+        if (days) parts.push(days + ' day' + (days === 1 ? '' : 's'));
+        if (hours) parts.push(hours + ' hour' + (hours === 1 ? '' : 's'));
+        if (mins || !parts.length) parts.push(mins + ' minute' + (mins === 1 ? '' : 's'));
+        return 'Departs in ' + (parts.length === 1 ? parts[0] : parts.length === 2 ? parts[0] + ' and ' + parts[1] : parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1]);
+      }
+      async function rrDrawScheduledRoute(stops, tripId, routeId) {
+        if (!map || typeof L === 'undefined') return;
+        if (rrScheduledLine && map.hasLayer(rrScheduledLine) && rrDrawScheduledRoute._drawnFor === String(tripId || '')) return;
+        let pts = null;
+        if (tripId) {
+          try {
+            const res = await fetch(apiUrl('/api/mbta' + '/trips/' + encodeURIComponent(tripId) + '?include=shape'));
+            const data = await res.json();
+            let poly = null;
+            if (data && data.included) {
+              const sh = data.included.find(function(x) { return x && x.type === 'shape'; });
+              if (sh && sh.attributes && sh.attributes.polyline) poly = sh.attributes.polyline;
+            }
+            if (!poly && data && data.data && data.data.relationships && data.data.relationships.shape && data.data.relationships.shape.data) {
+              const sid = data.data.relationships.shape.data.id;
+              const sr = await fetch(apiUrl('/api/mbta' + '/shapes/' + encodeURIComponent(sid)));
+              const sd = await sr.json();
+              if (sd && sd.data && sd.data.attributes && sd.data.attributes.polyline) poly = sd.data.attributes.polyline;
+            }
+            if (poly && L.Polyline && typeof L.Polyline.fromEncoded === 'function') {
+              pts = L.Polyline.fromEncoded(poly).getLatLngs();
+            }
+          } catch (e) {}
+        }
+        if (!pts || pts.length < 2) {
+          pts = (stops || []).filter(s => s && s.lat != null && s.lng != null).map(s => [Number(s.lat), Number(s.lng)]).filter(p => isFinite(p[0]) && isFinite(p[1]));
+        }
+        if ((!pts || pts.length < 2) && routeId && routeLines && routeLines[routeId]) {
+          try { pts = routeLines[routeId].getLatLngs(); } catch (e) {}
+        }
+        if (!pts || pts.length < 2) return;
+        const nextLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
+        if (rrScheduledLine && rrScheduledLine !== nextLine) {
+          try { map.removeLayer(rrScheduledLine); } catch (e) {}
+        }
+        rrScheduledLine = nextLine;
+        rrDrawScheduledRoute._drawnFor = String(tripId || '');
+        try { rrScheduledLine.bringToFront(); } catch (e) {}
+        const fit = function() {
+          try { map.invalidateSize(); } catch (e) {}
+          try { map.fitBounds(rrScheduledLine.getBounds(), { padding: [28, 28], maxZoom: 9, animate: false }); } catch (e) {}
+        };
+        fit();
+        setTimeout(fit, 250);
+      }
+      function rrScheduledPopupHtml(page) {
+        const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid, page.date || '') : '';
+        const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid) : '';
+        const stopsHtml = (typeof buildStopsHtml === 'function') ? buildStopsHtml(page.stops || []) : '';
+        return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:14.5px;line-height:1.25;color:#ffffff;font-style:italic;letter-spacing:0;word-spacing:-0.06em;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          String((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;margin:0 2px;">to</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          String(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
+          String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Line</span><span class="info-value">' +
+          String(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
+          String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
+      }
+
+
+      function rrSeenMs(raw, fallback) {
+        if (raw == null || raw === '') return fallback;
+        const s = String(raw);
+        if (/^[0-9]+$/.test(s)) {
+          const n = Number(s);
+          if (n > 1e12) return n;
+          if (n > 1e9) return n * 1000;
+        }
+        const parsed = Date.parse(s);
+        return isNaN(parsed) ? fallback : parsed;
+      }
+
+      function rrPlaceReportBoxBelowStops(root) {
+        if (!root) return;
+        const box = root.querySelector('.loco-report-block');
+        const stops = root.querySelector('.stops-wrapper');
+        if (!box || !stops || !stops.parentNode) return;
+        stops.parentNode.insertBefore(box, stops.nextSibling);
+      }
+      function rrFitTrainPageTitle() {
+        const title = document.querySelector('#rr-train-page-card .train-popup-header > div');
+        if (!title) return;
+        const max = title.clientWidth || title.parentElement.clientWidth;
+        if (!max) return;
+        let size = 22;
+        title.style.fontSize = size + 'px';
+        while (size > 12 && title.scrollWidth > max) {
+          size -= 0.5;
+          title.style.fontSize = size + 'px';
+        }
+      }
+      // The card is rebuilt on every refresh, so its buttons replace the ones already in the bar.
+      function rrMoveTrainPageActions(card) {
+        const foot = card && card.querySelector('.train-popup-footer');
+        const bar = document.getElementById('rr-train-page-actions');
+        if (!foot || !bar) return;
+        bar.replaceChildren(foot);
+        bar.hidden = false;
+      }
+      function rrRenderScheduledTrainPage() {
+        const page = rrScheduledPage;
+        if (!page) return false;
+        const card = document.getElementById('rr-train-page-card');
+        const slot = document.getElementById('rr-train-page-map-slot');
+        const status = document.getElementById('rr-train-page-status');
+        const mapEl = document.getElementById('map');
+        document.documentElement.classList.add('rr-train-page');
+        document.documentElement.classList.remove('rr-train-page-waiting');
+        const pageEl = document.getElementById('rr-train-page');
+        if (pageEl) pageEl.hidden = false;
+        if (status) status.textContent = (page.rname ? page.rname + ' ' : '') + (page.tid || '') + (page.dest ? (' to ' + page.dest) : '');
+        const keepScroll = window.scrollY || document.documentElement.scrollTop || 0;
+        if (card) card.innerHTML = rrScheduledPopupHtml(page);
+        rrPlaceReportBoxBelowStops(card);
+        if (keepScroll) requestAnimationFrame(function() { window.scrollTo(0, keepScroll); });
+        requestAnimationFrame(function() { rrFitTrainPageTitle(); });
+        const grid = card && card.querySelector('.info-grid');
+        const body = card && card.querySelector('.train-popup-body');
+        if (slot) {
+          const stopsWrap = card && card.querySelector('.stops-wrapper');
+          if (stopsWrap && stopsWrap.parentNode) stopsWrap.parentNode.insertBefore(slot, stopsWrap);
+          else if (grid && grid.parentNode) grid.parentNode.insertBefore(slot, grid.nextSibling);
+          else if (body) body.appendChild(slot);
+          else if (card) card.appendChild(slot);
+        }
+        if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
+        setTimeout(function() { try { map.invalidateSize(); } catch (e) {} }, 50);
+        rrMoveTrainPageActions(card);
+        try {
+          if (typeof rrApplyOnlyThisTrain === 'function') rrApplyOnlyThisTrain({ id: '__scheduled__', markerMap: {} });
+        } catch (e) {}
+        rrDrawScheduledRoute(page.stops, page.tid, page.routeId);
+        return true;
+      }
+      async function rrLoadScheduledSharePage(spec) {
+        if (!spec || !spec.id || rrLoadScheduledSharePage._busy) return false;
+        const agency = (typeof rrNormShareAgency === 'function') ? rrNormShareAgency(spec.agency) : String(spec.agency || '');
+        if (agency && agency !== 'mbta') return false;
+        rrLoadScheduledSharePage._busy = true;
+        try {
+          if (typeof getTripStops !== 'function') return false;
+          const tripId = spec.trip || spec.id;
+          const stops = await getTripStops(tripId, spec.date || '');
+          if (!stops || !stops.length) return false;
+          const when = stops.map(s => s.predictedTime || s.scheduledTime).find(Boolean);
+          let lineName = '';
+          try {
+            const tr = await fetch(apiUrl('/api/mbta' + '/trips/' + encodeURIComponent(spec.id) + '?include=route'));
+            const td = await tr.json();
+            const route = (td.included || []).find(function(x) { return x && x.type === 'route'; });
+            if (route && route.attributes) lineName = route.attributes.long_name || route.attributes.short_name || '';
+            if (route && route.id) rrScheduledPageRouteId = route.id;
+          } catch (e) {}
+          rrScheduledPage = {
+            routeId: (typeof rrScheduledPageRouteId !== 'undefined' && rrScheduledPageRouteId) || '',
+            tid: tripId,
+            date: spec.date || '',
+            rname: lineName,
+            origin: (stops[0] && stops[0].name) || '',
+            dest: (stops[stops.length - 1] && stops[stops.length - 1].name) || '',
+            stops: stops,
+            departsMsg: rrDepartsInMsg(when)
+          };
+          return rrRenderScheduledTrainPage();
+        } catch (e) {
+          return false;
+        } finally {
+          rrLoadScheduledSharePage._busy = false;
+        }
+      }
+      function rrRenderTrainPage() {
+        const page = document.getElementById('rr-train-page');
+        const card = document.getElementById('rr-train-page-card');
+        const slot = document.getElementById('rr-train-page-map-slot');
+        const status = document.getElementById('rr-train-page-status');
+        const mapEl = document.getElementById('map');
+        if (!page || !card) return;
+        page.hidden = false;
+        const row = rrFindSharedTrain(rrTrainPageSpec);
+        if (!row) {
+          if (rrScheduledPage) return rrRenderScheduledTrainPage();
+          if (typeof rrLoadScheduledSharePage === 'function') rrLoadScheduledSharePage(rrTrainPageSpec);
+          document.documentElement.classList.add('rr-train-page-waiting');
+          if (status) status.textContent = 'Looking for that train…';
+          if (mapEl && slot && mapEl.parentNode === slot) {
+            const pageEl = document.getElementById('rr-train-page');
+            if (pageEl && pageEl.parentNode) pageEl.parentNode.insertBefore(mapEl, pageEl);
+            else document.body.insertBefore(mapEl, pageEl || null);
+          }
+          card.innerHTML = '<p class="rr-modal-hint rr-train-page-empty">Looking for that train… If it is not running right now, open the full map to browse live trains.</p>';
+          return false;
+        }
+        document.documentElement.classList.remove('rr-train-page-waiting');
+        rrScheduledPage = null;
+        if (status) {
+          status.textContent = (row.agency || '') + ' ' + (row.trainNum || '') + (row.dest ? (' to ' + row.dest) : '');
+        }
+        if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
+        card.innerHTML = rrPopupHtmlForRow(row) || '<p class="rr-modal-hint">Loading train details…</p>';
+        rrPlaceReportBoxBelowStops(card);
+        rrMoveTrainPageActions(card);
+        const grid = card.querySelector('.info-grid');
+        const body = card.querySelector('.train-popup-body');
+        if (slot) {
+          if (grid && grid.parentNode) grid.parentNode.insertBefore(slot, grid.nextSibling);
+          else if (body) body.insertBefore(slot, body.firstChild);
+          else card.appendChild(slot);
+        }
+        if (mapEl && slot && mapEl.parentNode !== slot) slot.appendChild(mapEl);
+        rrApplyOnlyThisTrain(row);
+        if (rrScheduledLine && map && !map.hasLayer(rrScheduledLine)) {
+          try { rrScheduledLine.addTo(map); rrScheduledLine.bringToFront(); } catch (e) {}
+        }
+        return true;
+      }
+      function rrLoadMbtaStopsForPage(row) {
+        if (!row || rrNormShareAgency(row.agency) !== 'mbta') return;
+        const t = trainInfo[row.id];
+        if (!t || !t.tripId || typeof getTripStops !== 'function') return;
+        getTripStops(t.tripId).then(function(stops) {
+          rrTrainPageStops = stops || [];
+          rrRenderTrainPage();
+        }).catch(function() {});
+      }
+      function rrLoadNjtStopsForPage(row) {
+        if (!row || rrNormShareAgency(row.agency) !== 'njt') return;
+        if (typeof hydrateNjtPopupStops === 'function') {
+          hydrateNjtPopupStops(row.id).then(function() { rrRenderTrainPage(); }).catch(function() {});
+        }
+      }
+      function rrStartTrainPage(spec) {
+        rrTrainPageSpec = spec;
+        document.documentElement.classList.add('rr-train-page');
+        const page = document.getElementById('rr-train-page');
+        if (page) page.hidden = false;
+        if (rrStartTrainPage._started) {
+          rrRenderTrainPage();
+          return;
+        }
+        rrStartTrainPage._started = true;
+        let tries = 0;
+        function attempt() {
+          tries++;
+          const ok = rrRenderTrainPage();
+          if (ok) {
+            const row = rrFindSharedTrain(spec);
+            rrLoadMbtaStopsForPage(row);
+            rrLoadNjtStopsForPage(row);
+            return;
+          }
+          if (tries >= 25) {
+            const status = document.getElementById('rr-train-page-status');
+            const card = document.getElementById('rr-train-page-card');
+            if (status) status.textContent = 'That train is not live right now';
+            if (card) card.innerHTML = '<p class="rr-modal-hint rr-train-page-empty">That train is not live right now. Open the full map to browse other trains.</p>';
+            showNotification('That train is not live right now', 'error');
+            return;
+          }
+          setTimeout(attempt, 800);
+        }
+        attempt();
+        setInterval(function() {
+          if (rrTrainPageSpec) rrRenderTrainPage();
+        }, 5000);
+      }
+      function rrOpenSharedTrainOnFullMap(spec) {
+        let tries = 0;
+        function attempt() {
+          tries++;
+          const row = rrFindSharedTrain(spec);
+          if (row && row.markerMap && row.markerMap[row.id]) {
+            const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
+            if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], 15);
+            try { row.markerMap[row.id].openPopup(); } catch (_) {}
+            return;
+          }
+          if (tries < 25) setTimeout(attempt, 800);
+        }
+        attempt();
+      }
+      function rrWireTrainShare() {
+        const full = document.getElementById('rr-train-page-fullmap');
+        if (full && !full.getAttribute('data-wired')) {
+          full.setAttribute('data-wired', '1');
+          full.addEventListener('click', function() {
+            const spec = rrTrainPageSpec || (rrReadTrainQuery().page);
+            const origin = (location.origin && location.origin !== 'null') ? location.origin : 'https://railroadradar.com';
+            let path = location.pathname || '/';
+            if (/index\.html$/i.test(path)) path = path.replace(/index\.html$/i, '');
+            const key = spec ? encodeURIComponent((spec.agency ? spec.agency + ':' : '') + spec.id) : '';
+            location.href = origin + path + (key ? ('?focus=' + key) : '');
+          });
+        }
+        const q = rrReadTrainQuery();
+        if (q.page) {
+          rrStartTrainPage(q.page);
+        } else if (q.focus) {
+          rrOpenSharedTrainOnFullMap(q.focus);
+        }
+      }
+
+      const RR_NOTIFY_PREFS_KEY = 'rr_notify_prefs';
+      const RR_NOTIFY_SEEN_KEY = 'rr_notify_seen';
+      const RR_NOTIFY_RAILROADS = [
+        { id: 'mbta', label: 'MBTA' },
+        { id: 'amtrak', label: 'Amtrak' },
+        { id: 'mnr', label: 'Metro-North' },
+        { id: 'lirr', label: 'LIRR' },
+        { id: 'metra', label: 'Metra' },
+        { id: 'njt', label: 'NJ Transit' },
+        { id: 'ctrail', label: 'CTrail' }
+      ];
+      function rrNotifyDefaultPrefs() {
+        return { enabled: false, specialActive: true, specialReport: true, railroads: [], trains: [] };
+      }
+      function rrNotifyNormList(arr) {
+        const out = [];
+        const seen = {};
+        (Array.isArray(arr) ? arr : []).forEach(function(v) {
+          const k = String(v || '').trim().toLowerCase();
+          if (!k || seen[k]) return;
+          seen[k] = true;
+          out.push(k);
+        });
+        return out;
+      }
+      function rrNotifyTrainKey(agency, id) {
+        return String(agency || '').toLowerCase() + '|' + String(id || '').trim();
+      }
+      function rrNotifyEventAllowed(prefs, agency, unitId) {
+        prefs = prefs || rrNotifyDefaultPrefs();
+        const rails = rrNotifyNormList(prefs.railroads);
+        const trains = rrNotifyNormList(prefs.trains);
+        const a = String(agency || '').toLowerCase();
+        const id = String(unitId || '').trim();
+        if (rails.length && a && rails.indexOf(a) === -1) return false;
+        if (trains.length) {
+          const k = (a + '|' + id).toLowerCase();
+          const idLower = id.toLowerCase();
+          let ok = false;
+          for (let i = 0; i < trains.length; i++) {
+            const t = trains[i];
+            if (t === k || t === idLower) { ok = true; break; }
+          }
+          if (!ok) return false;
+        }
+        return true;
+      }
+      function rrLoadNotifyPrefs() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(RR_NOTIFY_PREFS_KEY) || '{}');
+          return Object.assign(rrNotifyDefaultPrefs(), raw);
+        } catch (_) { return rrNotifyDefaultPrefs(); }
+      }
+      function rrSaveNotifyPrefs(p) {
+        try { localStorage.setItem(RR_NOTIFY_PREFS_KEY, JSON.stringify(p)); } catch (_) {}
+      }
+      let rrNotifyDraftTrains = [];
+      let rrNotifyPendingPrefs = null;
+      function rrNotifyMarkDirty() {
+        rrNotifyPendingPrefs = null;
+        const btn = document.getElementById('notify-confirm');
+        if (btn) btn.disabled = true;
+        const hint = document.getElementById('notify-save-hint');
+        if (hint) hint.textContent = 'Tap Save, then Confirm.';
+      }
+      function rrNotifyReadForm() {
+        const en = document.getElementById('notify-enable');
+        const a = document.getElementById('notify-special-active');
+        const r = document.getElementById('notify-special-report');
+        const root = document.getElementById('notify-railroads');
+        const checked = root
+          ? Array.prototype.map.call(root.querySelectorAll('input[name="notify-railroad"]:checked'), function(el) { return el.value; })
+          : [];
+        const allIds = RR_NOTIFY_RAILROADS.map(function(row) { return row.id; });
+        const railroads = (checked.length === 0 || checked.length === allIds.length) ? [] : rrNotifyNormList(checked);
+        return {
+          enabled: !!(en && en.checked),
+          specialActive: !a || !!a.checked,
+          specialReport: !r || !!r.checked,
+          railroads: railroads,
+          trains: rrNotifyNormList(rrNotifyDraftTrains)
+        };
+      }
+      function rrNotifyShouldBackgroundPoll() {
+        const p = rrLoadNotifyPrefs();
+        return !!(p.enabled && (p.specialActive || p.specialReport) && typeof Notification !== 'undefined' && Notification.permission === 'granted');
+      }
+      window.rrNotifyShouldBackgroundPoll = rrNotifyShouldBackgroundPoll;
+      function rrLoadSeenNotify() {
+        try {
+          const arr = JSON.parse(localStorage.getItem(RR_NOTIFY_SEEN_KEY) || '[]');
+          const o = {};
+          (Array.isArray(arr) ? arr : []).forEach(function(k) { o[k] = 1; });
+          return o;
+        } catch (_) { return {}; }
+      }
+      function rrSaveSeenNotify(o) {
+        const keys = Object.keys(o);
+        if (keys.length > 400) keys.splice(0, keys.length - 400);
+        try { localStorage.setItem(RR_NOTIFY_SEEN_KEY, JSON.stringify(keys)); } catch (_) {}
+      }
+      function rrNotifyCandidateIds(r) {
+        const out = [];
+        function add(v) {
+          const s = String(v == null ? '' : v).trim();
+          if (!s) return;
+          if (out.indexOf(s) === -1) out.push(s);
+          const stripped = s.replace(/^[a-z]+-/i, '');
+          if (stripped && stripped !== s && out.indexOf(stripped) === -1) out.push(stripped);
+        }
+        add(r && r.id);
+        add(r && r.vehicleLabel);
+        const tn = r && r.trainNum != null ? String(r.trainNum).trim() : '';
+        if (tn && out.indexOf(tn) === -1) out.push(tn);
+        return out;
+      }
+      function rrCollectSpecialActiveEvents() {
+        const events = {};
+        const prefs = rrLoadNotifyPrefs();
+        const trains = rrNotifyNormList(prefs.trains);
+        try {
+          const rows = collectLiveTrainRows();
+          rows.forEach(function(r) {
+            const agency = normalizeAgency(r.agency);
+            const spec = (typeof getSpecialForVehicle === 'function')
+              ? getSpecialForVehicle(agency, r.id, r.trainNum)
+              : null;
+            if (spec) {
+              const loco = spec.vehicleId || spec.locomotiveId || '';
+              if (!rrNotifyEventAllowed(prefs, agency, loco)) return;
+              const name = spec.unitName || loco || 'Special unit';
+              const k = 'live|' + agency + '|' + loco + '|' + String(r.trainNum || r.id || '');
+              const train = r.trainNum ? (' train ' + r.trainNum) : '';
+              const dest = r.dest && r.dest !== '—' ? (' to ' + r.dest) : '';
+              events[k] = {
+                type: 'active',
+                title: name + ' is live',
+                body: (agencyPrettyName(agency) + train + dest).trim(),
+                tag: k,
+                agency: agency,
+                unitId: loco
+              };
+              return;
+            }
+            if (!trains.length) return;
+            const candidates = rrNotifyCandidateIds(r);
+            let matchedId = null;
+            for (let i = 0; i < candidates.length; i++) {
+              if (rrNotifyEventAllowed(prefs, agency, candidates[i])) {
+                matchedId = candidates[i];
+                break;
+              }
+            }
+            if (!matchedId) return;
+            const k = 'live|' + agency + '|' + matchedId + '|' + String(r.trainNum || r.id || '');
+            const train = r.trainNum ? (' train ' + r.trainNum) : '';
+            const dest = r.dest && r.dest !== '—' ? (' to ' + r.dest) : '';
+            events[k] = {
+              type: 'active',
+              title: matchedId + ' is live',
+              body: (agencyPrettyName(agency) + train + dest).trim(),
+              tag: k,
+              agency: agency,
+              unitId: matchedId
+            };
+          });
+        } catch (_) {}
+        return events;
+      }
+      function rrCollectSpecialReportEvents() {
+        const events = {};
+        const prefs = rrLoadNotifyPrefs();
+        try {
+          const rows = (typeof collectActiveSpecials === 'function') ? collectActiveSpecials() : [];
+          rows.forEach(function(r) {
+            const id = (r.rep && r.rep.id) ? r.rep.id : (r.agency + '|' + r.locoId + '|' + r.trainNumber + '|' + (r.ms || 0));
+            const k = 'rep|' + id + '|' + String(r.locoId || '');
+            const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
+            const who = r.reporter ? (' · ' + r.reporter) : '';
+            if (!rrNotifyEventAllowed(prefs, r.agency, r.locoId)) return;
+            events[k] = {
+              type: 'report',
+              title: 'New report: ' + (r.title || r.locoId || 'special'),
+              body: (agencyPrettyName(r.agency) + train + who).trim(),
+              tag: k,
+              agency: r.agency,
+              unitId: r.locoId
+            };
+          });
+          const trains = rrNotifyNormList(prefs.trains);
+          if (trains.length && typeof collectBoardReports === 'function') {
+            collectBoardReports().forEach(function(r) {
+              const locoId = r.locoId || r.vehicleId || '';
+              if (!rrNotifyEventAllowed(prefs, r.agency, locoId)) return;
+              const id = (r.rep && r.rep.id) ? r.rep.id : (r.agency + '|' + locoId + '|' + r.trainNumber + '|' + (r.ms || 0));
+              const k = 'rep|' + id + '|' + String(locoId || '');
+              if (events[k]) return;
+              const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
+              const who = r.reporter ? (' · ' + r.reporter) : '';
+              events[k] = {
+                type: 'report',
+                title: 'New report: ' + (r.locoTxt || locoId || 'unit'),
+                body: (agencyPrettyName(r.agency) + train + who).trim(),
+                tag: k,
+                agency: r.agency,
+                unitId: locoId
+              };
+            });
+          }
+        } catch (_) {}
+        return events;
+      }
+      async function rrShowSpecialNotification(evt) {
+        const payload = { type: 'rr-notify', title: evt.title, body: evt.body, tag: evt.tag, url: '/' };
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg && reg.active) {
+            reg.active.postMessage(payload);
+            return;
+          }
+          if (reg && reg.showNotification) {
+            await reg.showNotification(evt.title, { body: evt.body, tag: evt.tag, icon: '/assets/icons/icon-192.png' });
+            return;
+          }
+        } catch (_) {}
+        try {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification(evt.title, { body: evt.body, tag: evt.tag });
+          }
+        } catch (_) {}
+      }
+      let rrNotifySeeded = false;
+      async function rrCheckSpecialNotifications() {
+        const prefs = rrLoadNotifyPrefs();
+        if (!prefs.enabled) return;
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        const seen = rrLoadSeenNotify();
+        const events = {};
+        if (prefs.specialActive) Object.assign(events, rrCollectSpecialActiveEvents());
+        if (prefs.specialReport) Object.assign(events, rrCollectSpecialReportEvents());
+        const keys = Object.keys(events);
+        if (!rrNotifySeeded && !Object.keys(seen).length) {
+          keys.forEach(function(k) { seen[k] = 1; });
+          rrSaveSeenNotify(seen);
+          rrNotifySeeded = true;
+          return;
+        }
+        rrNotifySeeded = true;
+        const fresh = keys.filter(function(k) { return !seen[k]; });
+        fresh.forEach(function(k) { seen[k] = 1; });
+        if (fresh.length) rrSaveSeenNotify(seen);
+        for (let i = 0; i < fresh.length && i < 6; i++) {
+          await rrShowSpecialNotification(events[fresh[i]]);
+        }
+      }
+      window.rrCheckSpecialNotifications = rrCheckSpecialNotifications;
+
+      function rrNotifyStatus(msg) {
+        const el = document.getElementById('notify-status');
+        if (el) el.textContent = msg || '';
+      }
+      function rrFillNotifyLocoAgency() {
+        const agencySel = document.getElementById('notify-loco-agency');
+        if (!agencySel) return;
+        if (agencySel.options && agencySel.options.length) return;
+        agencySel.innerHTML = RR_NOTIFY_RAILROADS.map(function(row) {
+          return '<option value="' + row.id + '">' + row.label + '</option>';
+        }).join('');
+      }
+      function rrSyncNotifyCheckboxes() {
+        const p = rrLoadNotifyPrefs();
+        const en = document.getElementById('notify-enable');
+        const a = document.getElementById('notify-special-active');
+        const r = document.getElementById('notify-special-report');
+        if (en) en.checked = !!p.enabled;
+        if (a) a.checked = p.specialActive !== false;
+        if (r) r.checked = p.specialReport !== false;
+        const railRoot = document.getElementById('notify-railroads');
+        if (railRoot && !railRoot.childElementCount) {
+          railRoot.innerHTML = RR_NOTIFY_RAILROADS.map(function(row) {
+            return '<label><input type="checkbox" name="notify-railroad" value="' + row.id + '"> ' + row.label + '</label>';
+          }).join('');
+        }
+        if (railRoot) {
+          const rails = rrNotifyNormList(p.railroads);
+          const allOn = !rails.length;
+          railRoot.querySelectorAll('input[name="notify-railroad"]').forEach(function(el) {
+            el.checked = allOn || rails.indexOf(el.value) !== -1;
+          });
+        }
+        rrFillNotifyLocoAgency();
+        rrNotifyDraftTrains = rrNotifyNormList(p.trains);
+        rrNotifyPendingPrefs = null;
+        const confirmBtn = document.getElementById('notify-confirm');
+        if (confirmBtn) confirmBtn.disabled = true;
+        const saveHint = document.getElementById('notify-save-hint');
+        if (saveHint) saveHint.textContent = '';
+        rrRenderNotifyTrainChips();
+        rrFillNotifyTrainSelect();
+        if (typeof Notification === 'undefined') {
+          rrNotifyStatus('Notifications are not available in this browser.');
+        } else if (p.enabled && Notification.permission === 'denied') {
+          rrNotifyStatus('Notifications are blocked. Enable them in the system settings for RailroadRadar.');
+        } else if (p.enabled && Notification.permission === 'granted') {
+          if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+            rrNotifyStatus('On iPhone, open the Home Screen app and enable notifications there. Safari will not alert you after you leave.');
+          } else if (rrIsIosDevice()) {
+            rrNotifyStatus('On. Keep alerts allowed in iPhone Settings → RailroadRadar.');
+          } else {
+            rrNotifyStatus('On. Add to Home Screen so alerts still arrive after you leave the map.');
+          }
+        } else if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+          rrNotifyStatus('On iPhone, add to Home Screen, open that icon, then enable notifications.');
+        } else {
+          rrNotifyStatus('');
+        }
+      }
+      function rrNotifyRosterUnits() {
+        const roster = (typeof window.getSpecialUnitsRoster === 'function')
+          ? (window.getSpecialUnitsRoster() || [])
+          : [];
+        return roster.slice().sort(function(a, b) {
+          const aa = String(a.agency || '').localeCompare(String(b.agency || ''));
+          if (aa) return aa;
+          return String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true });
+        });
+      }
+      function rrNotifyCheckedRails() {
+        const root = document.getElementById('notify-railroads');
+        const checked = root
+          ? Array.prototype.map.call(root.querySelectorAll('input[name="notify-railroad"]:checked'), function(el) { return el.value; })
+          : [];
+        const allIds = RR_NOTIFY_RAILROADS.map(function(r) { return r.id; });
+        return (checked.length === 0 || checked.length === allIds.length) ? [] : rrNotifyNormList(checked);
+      }
+      function rrFillNotifyTrainSelect() {
+        const sel = document.getElementById('notify-train-select');
+        if (!sel) return;
+        const picked = {};
+        rrNotifyNormList(rrNotifyDraftTrains).forEach(function(k) { picked[k] = true; });
+        const rails = rrNotifyCheckedRails();
+        let html = '<option value="">Specials — pick one to add</option>';
+        rrNotifyRosterUnits().forEach(function(u) {
+          const agency = String(u.agency || '').toLowerCase();
+          const id = String(u.id || '').trim();
+          if (!agency || !id) return;
+          if (rails.length && rails.indexOf(agency) === -1) return;
+          const key = rrNotifyTrainKey(agency, id);
+          if (picked[key]) return;
+          const pretty = (typeof agencyPrettyName === 'function') ? agencyPrettyName(agency) : agency.toUpperCase();
+          const name = u.name && u.name !== id ? (' · ' + u.name) : '';
+          html += '<option value="' + key.replace(/"/g, '') + '">' + pretty + ' ' + id + name + '</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = '';
+      }
+      window.rrFillNotifyTrainSelect = rrFillNotifyTrainSelect;
+      function rrNotifyAddTrainKey(key) {
+        key = String(key || '').trim().toLowerCase();
+        if (!key) return;
+        const trains = rrNotifyNormList(rrNotifyDraftTrains);
+        if (trains.indexOf(key) === -1) trains.push(key);
+        rrNotifyDraftTrains = trains;
+        rrRenderNotifyTrainChips();
+        rrFillNotifyTrainSelect();
+        rrNotifyMarkDirty();
+      }
+      function rrRenderNotifyTrainChips() {
+        const wrap = document.getElementById('notify-train-chips');
+        const hint = document.getElementById('notify-train-hint');
+        if (!wrap) return;
+        const trains = rrNotifyNormList(rrNotifyDraftTrains);
+        if (!trains.length) {
+          wrap.innerHTML = '<span class="notify-chip">Every special</span>';
+          if (hint) hint.textContent = 'No locos picked means every special on the railroads above. Pick a special, or type any number.';
+          return;
+        }
+        const byKey = {};
+        rrNotifyRosterUnits().forEach(function(u) {
+          byKey[rrNotifyTrainKey(u.agency, u.id).toLowerCase()] = u;
+        });
+        wrap.innerHTML = trains.map(function(k) {
+          const u = byKey[k];
+          const parts = k.split('|');
+          const agency = parts[0] || '';
+          const id = parts.slice(1).join('|');
+          const pretty = (typeof agencyPrettyName === 'function') ? agencyPrettyName(agency) : agency.toUpperCase();
+          const name = u && u.name && u.name !== id ? (' · ' + u.name) : '';
+          const label = pretty + ' ' + id + name;
+          return '<span class="notify-chip">' + label.replace(/</g, '&lt;') +
+            ' <button type="button" data-notify-train-remove="' + k.replace(/"/g, '') + '" aria-label="Remove">×</button></span>';
+        }).join('');
+        if (hint) hint.textContent = trains.length + ' locomotive' + (trains.length === 1 ? '' : 's') + ' watched.';
+      }
+      window.rrRenderNotifyTrainChips = rrRenderNotifyTrainChips;
+      function rrNotifyAddLoco() {
+        const agencyEl = document.getElementById('notify-loco-agency');
+        const numEl = document.getElementById('notify-loco-number');
+        const agency = String((agencyEl && agencyEl.value) || '').toLowerCase().trim();
+        let id = String((numEl && numEl.value) || '').trim().replace(/\s+/g, '');
+        const saveHint = document.getElementById('notify-save-hint');
+        if (!agency || !id) {
+          if (saveHint) saveHint.textContent = 'Pick a railroad and enter a locomotive number.';
+          return;
+        }
+        if (!/^[a-z0-9._-]{1,16}$/i.test(id)) {
+          if (saveHint) saveHint.textContent = 'Use letters, numbers, dots, underscores, or hyphens (max 16).';
+          return;
+        }
+        const key = rrNotifyTrainKey(agency, id).toLowerCase();
+        const trains = rrNotifyNormList(rrNotifyDraftTrains);
+        if (trains.indexOf(key) === -1) trains.push(key);
+        rrNotifyDraftTrains = trains;
+        if (numEl) numEl.value = '';
+        rrRenderNotifyTrainChips();
+        rrFillNotifyTrainSelect();
+        rrNotifyMarkDirty();
+      }
+      function rrIsIosDevice() {
+        const ua = navigator.userAgent || '';
+        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      }
+      function rrIsStandalonePwa() {
+        try {
+          if (window.navigator && window.navigator.standalone === true) return true;
+        } catch (_) {}
+        try {
+          if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+          if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) return true;
+        } catch (_) {}
+        return false;
+      }
+      function rrEnsureServiceWorker() {
+        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('Service workers are not available'));
+        return navigator.serviceWorker.register('/sw.js').then(function () {
+          return navigator.serviceWorker.ready;
+        });
+      }
+      async function rrSubscribePush() {
+        try {
+          if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+            rrNotifyStatus('On iPhone, add RailroadRadar to your Home Screen, open it from that icon, then enable notifications there.');
+            return false;
+          }
+          if (!('serviceWorker' in navigator)) {
+            rrNotifyStatus('Notifications are not available in this browser.');
+            return false;
+          }
+          if (!('PushManager' in window) || !('Notification' in window)) {
+            rrNotifyStatus(rrIsIosDevice()
+              ? 'Apple Web Push needs iOS 16.4 or later, and the Home Screen app.'
+              : 'Push is not available here.');
+            return false;
+          }
+          const reg = await rrEnsureServiceWorker();
+          const vapidRes = await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/vapid');
+          if (!vapidRes.ok) {
+            rrNotifyStatus('Could not reach the push service.');
+            return false;
+          }
+          const vapid = await vapidRes.json();
+          if (!vapid || !vapid.publicKey) {
+            rrNotifyStatus('Push is not configured.');
+            return false;
+          }
+          const raw = vapid.publicKey;
+          const pad = '='.repeat((4 - (raw.length % 4)) % 4);
+          const bin = atob((raw + pad).replace(/-/g, '+').replace(/_/g, '/'));
+          const key = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) key[i] = bin.charCodeAt(i);
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+          }
+          const prefs = rrLoadNotifyPrefs();
+          const res = await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: sub.toJSON(),
+              prefs: {
+                specialActive: prefs.specialActive !== false,
+                specialReport: prefs.specialReport !== false,
+                railroads: rrNotifyNormList(prefs.railroads),
+                trains: rrNotifyNormList(prefs.trains)
+              }
+            })
+          });
+          if (!res.ok) {
+            rrNotifyStatus('Could not save this device for alerts.');
+            return false;
+          }
+          const apple = (sub.endpoint || '').indexOf('web.push.apple.com') !== -1;
+          rrNotifyStatus(apple
+            ? 'On. Keep alerts allowed in iPhone Settings → RailroadRadar. Leave the Home Screen app installed.'
+            : 'On. Add to Home Screen so alerts still arrive after you leave the map.');
+          return true;
+        } catch (e) {
+          console.warn('[notify] push subscribe failed', e);
+          const msg = (e && e.message) ? String(e.message) : String(e);
+          if (rrIsIosDevice() && !rrIsStandalonePwa()) {
+            rrNotifyStatus('On iPhone, open RailroadRadar from the Home Screen icon, then enable notifications.');
+          } else {
+            rrNotifyStatus('Could not enable alerts' + (msg ? (': ' + msg) : '.'));
+          }
+          return false;
+        }
+      }
+      async function rrUnsubscribePush() {
+        try {
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (!sub) return;
+          try {
+            await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/push/unsubscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: sub.endpoint })
+            });
+          } catch (_) {}
+          await sub.unsubscribe();
+        } catch (_) {}
+      }
+      async function rrSetNotifyEnabled(on) {
+        const p = rrLoadNotifyPrefs();
+        if (on) {
+          if (typeof Notification === 'undefined') {
+            rrNotifyStatus('Notifications are not available here.');
+            return;
+          }
+          let perm = Notification.permission;
+          if (perm === 'default') perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            p.enabled = false;
+            rrSaveNotifyPrefs(p);
+            rrSyncNotifyCheckboxes();
+            rrNotifyStatus(perm === 'denied'
+              ? 'Notifications are blocked. Enable them in the system settings for RailroadRadar.'
+              : 'Permission was not granted.');
+            return;
+          }
+          p.enabled = true;
+          rrSaveNotifyPrefs(p);
+          try { localStorage.removeItem(RR_NOTIFY_SEEN_KEY); } catch (_) {}
+          rrNotifySeeded = false;
+          const ok = await rrSubscribePush();
+          rrSyncNotifyCheckboxes();
+          if (ok !== false) rrCheckSpecialNotifications();
+        } else {
+          p.enabled = false;
+          rrSaveNotifyPrefs(p);
+          await rrUnsubscribePush();
+          rrSyncNotifyCheckboxes();
+        }
+      }
+      function wireNotifySettings() {
+        rrSyncNotifyCheckboxes();
+        const en = document.getElementById('notify-enable');
+        const a = document.getElementById('notify-special-active');
+        const r = document.getElementById('notify-special-report');
+        if (en) en.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        if (a) a.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        if (r) r.addEventListener('change', function() { rrNotifyMarkDirty(); });
+        const railRoot = document.getElementById('notify-railroads');
+        if (railRoot) railRoot.addEventListener('change', function() { rrNotifyMarkDirty(); rrFillNotifyTrainSelect(); });
+        const trainSel = document.getElementById('notify-train-select');
+        if (trainSel) {
+          trainSel.addEventListener('change', function() {
+            const key = String(trainSel.value || '').trim().toLowerCase();
+            if (!key) return;
+            rrNotifyAddTrainKey(key);
+          });
+        }
+        const addBtn = document.getElementById('notify-loco-add');
+        if (addBtn) addBtn.addEventListener('click', function() { rrNotifyAddLoco(); });
+        const numEl = document.getElementById('notify-loco-number');
+        if (numEl) {
+          numEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              rrNotifyAddLoco();
+            }
+          });
+        }
+        const chips = document.getElementById('notify-train-chips');
+        if (chips) {
+          chips.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-notify-train-remove]');
+            if (!btn) return;
+            const key = String(btn.getAttribute('data-notify-train-remove') || '').toLowerCase();
+            rrNotifyDraftTrains = rrNotifyNormList(rrNotifyDraftTrains).filter(function(k) { return k !== key; });
+            rrRenderNotifyTrainChips();
+            rrFillNotifyTrainSelect();
+            rrNotifyMarkDirty();
+          });
+        }
+        const saveBtn = document.getElementById('notify-save');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', function() {
+            rrNotifyPendingPrefs = rrNotifyReadForm();
+            const confirmBtn = document.getElementById('notify-confirm');
+            if (confirmBtn) confirmBtn.disabled = false;
+            const hint = document.getElementById('notify-save-hint');
+            if (hint) hint.textContent = 'Confirm these notification settings?';
+          });
+        }
+        const confirmBtn = document.getElementById('notify-confirm');
+        if (confirmBtn) {
+          confirmBtn.addEventListener('click', async function() {
+            const hint = document.getElementById('notify-save-hint');
+            if (!rrNotifyPendingPrefs) {
+              if (hint) hint.textContent = 'Tap Save first, then Confirm.';
+              return;
+            }
+            const pending = rrNotifyPendingPrefs;
+            const prev = rrLoadNotifyPrefs();
+            const wasEnabled = !!prev.enabled;
+            rrSaveNotifyPrefs(pending);
+            try {
+              if (pending.enabled) {
+                await rrSetNotifyEnabled(true);
+              } else if (wasEnabled) {
+                await rrSetNotifyEnabled(false);
+              } else {
+                rrSyncNotifyCheckboxes();
+              }
+            } catch (_) {
+              rrSyncNotifyCheckboxes();
+            }
+            rrNotifyPendingPrefs = null;
+            const cbtn = document.getElementById('notify-confirm');
+            if (cbtn) cbtn.disabled = true;
+            const h = document.getElementById('notify-save-hint');
+            if (h) h.textContent = 'Saved.';
+            try {
+              if (typeof logUserAction === 'function') logUserAction('save settings', 'notifications');
+              else if (typeof window.logUserAction === 'function') window.logUserAction('save settings', 'notifications');
+            } catch (_) {}
+          });
+        }
+        if (rrLoadNotifyPrefs().enabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          rrSubscribePush();
+        }
+        setInterval(function() {
+          try { rrCheckSpecialNotifications(); } catch (_) {}
+        }, 20000);
+      }
+      try { wireNotifySettings(); } catch (_) {}
+
+      function appendTrainResultCard(r, container, closeEl) {
+        const alertIcon = r.hasAlert
+          ? ' <img src="/assets/icons/alert.png" style="height:14px;vertical-align:middle;margin-left:4px;">'
+          : '';
+        const speedTxt = (r.speedMph != null && isFinite(Number(r.speedMph))) ? (Math.round(Number(r.speedMph)) + ' mph') : '—';
+        const agencyBadge = '<span class="cape-badge" style="background:' + r.agencyColor + ';font-size:10px;padding:2px 6px;margin-right:4px;">' + r.agency + '</span>';
+        const d = document.createElement('div');
+        d.className = 'search-result';
+        d.innerHTML =
+          '<div class="search-result-header">' +
+            agencyBadge +
+            '<span class="route">' + escapeHtmlLite(r.routeName || 'Unknown') + '</span>' +
+            '<span class="trip-num">' + escapeHtmlLite(String(r.trainNum || '—')) + '</span>' +
+            '<span class="to-label">to</span>' +
+            '<span class="dest">' + escapeHtmlLite(r.dest || '—') + '</span>' + alertIcon +
+          '</div>' +
+          '<div class="search-result-body">' +
+            '<div class="search-result-meta">' +
+              '<span><span class="label">Vehicle</span>' + escapeHtmlLite(String(r.vehicleLabel || r.id)) + '</span>' +
+            '</div>' +
+            '<div class="search-result-meta" style="margin-left:auto;">' +
+              '<span><span class="label">Speed</span>' + speedTxt + '</span>' +
+              '<span><span class="label">' + escapeHtmlLite(r.stopLabel || 'Next') + '</span>' + escapeHtmlLite(r.stopName || '—') + '</span>' +
+              '<span class="search-status-pill ' + r.statusClass + '">' + escapeHtmlLite(r.statusText || '') + '</span>' +
+            '</div>' +
+          '</div>';
+        d.onclick = function() {
+          const lat = parseFloat(r.lat), lng = parseFloat(r.lng);
+          if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], 15);
+          if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
+          const m = r.markerMap && r.markerMap[r.id];
+          if (m) {
+            m.openPopup();
+            m.getElement()?.classList.add('highlighted-train');
+            highlightedMarker = m;
+          }
+          const panel = closeEl || container;
+          if (panel && panel.classList) panel.classList.remove('active');
+          document.getElementById('control-panel').classList.remove('open');
+          document.getElementById('overlay').classList.remove('open');
+        };
+        container.appendChild(d);
+      }
+      function askAgencyKey(name) {
+        const s = String(name || '').toLowerCase().replace(/[\s-]+/g, '');
+        if (s.indexOf('amtrak') >= 0) return 'Amtrak';
+        if (s.indexOf('mbta') >= 0) return 'MBTA';
+        if (s.indexOf('metronorth') >= 0 || s === 'mnr') return 'MNR';
+        if (s.indexOf('lirr') >= 0 || s.indexOf('longisland') >= 0) return 'LIRR';
+        if (s.indexOf('metra') >= 0) return 'Metra';
+        if (s.indexOf('njtransit') >= 0 || s === 'njt') return 'NJT';
+        return '';
+      }
+      function looksLikeQuestion(raw) {
+        const q = String(raw || '').trim();
+        if (q.length < 4) return false;
+        if (/\?/.test(q)) return true;
+        if (/^(what|where|which|who|when|why|how|is|are|was|were|can|could|should|does|do|did|any|show|list|tell|find|next)\b/i.test(q)) return true;
+        if (/\bfrom\b.+\bto\b/i.test(q) || /\bto\b.+\bfrom\b/i.test(q)) return true;
+        return q.split(/\s+/).filter(Boolean).length >= 3;
+      }
+      let askTimer = null;
+      let askSeq = 0;
+      function renderAskCard(results, state, text) {
+        let card = results.querySelector('.search-ask-card');
+        if (!card) {
+          card = document.createElement('div');
+          card.className = 'search-ask-card';
+          results.insertBefore(card, results.firstChild);
+        }
+        card.classList.toggle('loading', state === 'loading');
+        card.innerHTML = '<div class="search-ask-label"><img src="/assets/icons/ask.png" alt="">Ask</div><div class="search-ask-answer"></div><div class="search-ask-disclaimer">AI is in beta and may make mistakes. Please do not solely rely on this information for decisions.</div>';
+        card.querySelector('.search-ask-answer').textContent = text;
+      }
+
+      function filterAskRows(question, rows) {
+        const q = String(question || '').toLowerCase();
+        const stop = { the:1, and:1, are:1, any:1, for:1, how:1, who:1, why:1, what:1, when:1, which:1, where:1, this:1, that:1, with:1, from:1, have:1, has:1, was:1, were:1, can:1, you:1, see:1, show:1, list:1, tell:1, find:1, there:1, they:1, live:1, train:1, trains:1, right:1, now:1, does:1, did:1, about:1, some:1, all:1, is:1, on:1, to:1, of:1, in:1, at:1, or:1, me:1, my:1, get:1, going:1, run:1, running:1, line:1, lines:1, railroad:1, railroads:1, status:1, info:1, please:1, just:1, looking:1, look:1, currently:1, current:1, today:1, tonight:1, still:1, its:1, delay:1, delays:1, delayed:1, late:1, later:1, disrupt:1, disrupted:1, disruption:1, problem:1, problems:1, issue:1, issues:1, trouble:1, cancel:1, canceled:1, cancelled:1 };
+        const tokens = (q.match(/[a-z]{3,}/g) || []).filter(function(w) { return !stop[w]; });
+        const nums = q.match(/\b\d+[a-z]?\b/g) || [];
+        let agencyHint = '';
+        try { agencyHint = askAgencyKey(q); } catch (_) {}
+        if (!agencyHint) {
+          if (/\bmbta\b/.test(q)) agencyHint = 'MBTA';
+          else if (/\bamtrak\b/.test(q)) agencyHint = 'Amtrak';
+          else if (/\b(metro-?north|\bmnr\b)/.test(q)) agencyHint = 'MNR';
+          else if (/\b(lirr|long island)\b/.test(q)) agencyHint = 'LIRR';
+          else if (/\bmetra\b/.test(q)) agencyHint = 'Metra';
+          else if (/\b(nj\s*transit|\bnjt\b)/.test(q)) agencyHint = 'NJT';
+        }
+        const wantDelay = /delay|late|disrupt|problem|issue|trouble|cancel/.test(q);
+        const wantOnTime = /on\s*time|running\s*ok|on\s*schedule/.test(q);
+        const aliases = {
+          worcester: ['worcester', 'framingham'],
+          framingham: ['worcester', 'framingham'],
+          stoughton: ['stoughton', 'providence'],
+          hartford: ['hartford', 'springfield'],
+          springfield: ['springfield', 'hartford']
+        };
+        function hay(r) {
+          return [r.agency, r.routeName, r.trainNum, r.dest, r.stopName, r.vehicleLabel, r.statusText].map(function(x){ return String(x||'').toLowerCase(); }).join(' | ');
+        }
+        function score(r) {
+          if (agencyHint && r.agency !== agencyHint) return 0;
+          const h = hay(r);
+          let n = 0;
+          if (agencyHint && r.agency === agencyHint) n += 4;
+          for (let i = 0; i < tokens.length; i++) {
+            const opts = aliases[tokens[i]] || [tokens[i]];
+            for (let j = 0; j < opts.length; j++) {
+              if (h.indexOf(opts[j]) >= 0) { n += 10; break; }
+            }
+          }
+          for (let i = 0; i < nums.length; i++) {
+            let safe = '';
+            try { safe = String(nums[i]).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); } catch (_) { continue; }
+            if (new RegExp('\\b' + safe + '\\b', 'i').test(String(r.trainNum || ''))) n += 25;
+          }
+          if (wantDelay && /delay|late|disrupt/.test(String(r.statusText||'').toLowerCase() + ' ' + r.statusClass)) n += 3;
+          if (wantOnTime && /on time|active|scheduled/.test(String(r.statusText||'').toLowerCase())) n += 2;
+          return n;
+        }
+        let scored = rows.map(function(r){ return { r:r, n: score(r) }; });
+        if (agencyHint) scored = scored.filter(function(x){ return x.r.agency === agencyHint; });
+        if (nums.length) {
+          const numbered = scored.filter(function(x) {
+            const tn = String(x.r.trainNum || '');
+            for (let i = 0; i < nums.length; i++) {
+              let safe = '';
+              try { safe = String(nums[i]).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); } catch (_) { continue; }
+              if (new RegExp('\\b' + safe + '\\b', 'i').test(tn)) return true;
+            }
+            return false;
+          });
+          return numbered.sort(function(a,b){ return b.n - a.n; }).map(function(x){ return x.r; });
+        }
+        const need = tokens.length ? 10 : 0;
+        if (need) {
+          const hits = scored.filter(function(x){ return x.n >= need; });
+          return hits.sort(function(a,b){ return b.n - a.n; }).map(function(x){ return x.r; });
+        }
+        if (wantDelay) {
+          const delayed = scored.filter(function(x){ return /delay|late|disrupt/.test(String(x.r.statusText||'').toLowerCase() + ' ' + x.r.statusClass); });
+          if (delayed.length) scored = delayed;
+        }
+        scored.sort(function(a,b){ return b.n - a.n; });
+        return scored.map(function(x){ return x.r; });
+      }
+      function formatAskFactAnswer(question, rows) {
+        const list = (rows || []).slice(0, 8);
+        if (!list.length) {
+          return 'I do not see any matching trains on the live map right now.';
+        }
+        const bits = list.map(function(r) {
+          let s = (r.agency ? r.agency + ' ' : '') + String(r.trainNum || '—');
+          if (r.routeName) s += ' on the ' + r.routeName;
+          s += ' to ' + (r.dest || '—');
+          if (r.statusText) s += ', ' + r.statusText;
+          if (r.stopName && r.stopName !== '—') s += ', ' + (r.stopLabel || 'next') + ' ' + r.stopName;
+          return s;
+        });
+        if (bits.length === 1) return 'Right now I see ' + bits[0] + '.';
+        return 'Right now I see:\n• ' + bits.join('\n• ');
+      }
+      function askFactsGrounded(answer, rows) {
+        const text = String(answer || '');
+        if (!text.trim() || !rows || !rows.length) return false;
+        const allowed = {};
+        const extraOk = {};
+        rows.forEach(function(r) {
+          const n = String(r.trainNum || '').toLowerCase();
+          if (n && n !== '—') allowed[n] = true;
+          const blob = [r.dest, r.statusText, r.routeName, r.stopName].join(' ');
+          const found = blob.match(/\b\d{2,5}[a-z]?\b/ig) || [];
+          found.forEach(function(x) { extraOk[String(x).toLowerCase()] = true; });
+        });
+        const nums = Object.keys(allowed);
+        const al = text.toLowerCase();
+        for (let i = 0; i < nums.length && i < 8; i++) {
+          let safe = '';
+          try { safe = nums[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); } catch (_) { return false; }
+          if (!new RegExp('\\b' + safe + '\\b', 'i').test(al)) return false;
+        }
+        const mentioned = al.match(/\b\d{2,5}[a-z]?\b/g) || [];
+        for (let i = 0; i < mentioned.length; i++) {
+          const k = mentioned[i].toLowerCase();
+          if (!allowed[k] && !extraOk[k]) return false;
+        }
+        return true;
+      }
+      function renderAskTrainCards(results, rows) {
+        const old = results.querySelector('.search-ask-trains');
+        if (old) old.remove();
+        const list = (rows || []).slice(0, 6);
+        if (!list.length) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'search-ask-trains';
+        const lab = document.createElement('div');
+        lab.className = 'search-ask-trains-label';
+        lab.textContent = list.length === 1 ? 'Train' : 'Trains';
+        wrap.appendChild(lab);
+        list.forEach(function(r) { appendTrainResultCard(r, wrap, results); });
+        const card = results.querySelector('.search-ask-card');
+        if (card && card.nextSibling) results.insertBefore(wrap, card.nextSibling);
+        else if (card) card.after(wrap);
+        else results.appendChild(wrap);
+      }
+      function parseAskFromTo(question) {
+        const raw = String(question || '').replace(/\s+/g, ' ').trim();
+        if (!raw) return null;
+        function clean(s) {
+          return String(s || '')
+            .replace(/\b(the|a|an|next|train|trains|please|now|today|tonight|departing|leaving|heading|bound)\b/ig, ' ')
+            .replace(/\bright now\b/ig, ' ')
+            .replace(/[?!.]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        let dest = '', origin = '';
+        let m = raw.match(/\bto\s+(.+?)\s+from\s+(.+)$/i);
+        if (m) { dest = m[1]; origin = m[2]; }
+        else {
+          m = raw.match(/\bfrom\s+(.+?)\s+to\s+(.+)$/i);
+          if (m) { origin = m[1]; dest = m[2]; }
+        }
+        origin = clean(origin);
+        dest = clean(dest);
+        if (!origin || !dest || origin.length < 3 || dest.length < 3) return null;
+        if (origin === dest) return null;
+        return { origin: origin, dest: dest };
+      }
+      function listAskStations() {
+        const out = [];
+        try {
+          for (const key in stationsByName) {
+            const g = stationsByName[key];
+            if (!g || !g.name) continue;
+            out.push({ agency: 'MBTA', name: g.name, key: key, stopIds: g.stopIds || [], lat: g.lat, lng: g.lng });
+          }
+        } catch (_) {}
+        function addStatic(staticObj, agency) {
+          if (!staticObj || !staticObj.stops) return;
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s || !s.name) return;
+            out.push({ agency: agency, name: s.name, key: String(s.name).toLowerCase(), stopIds: [sid], lat: s.lat, lng: s.lon });
+          });
+        }
+        try { addStatic(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR'); } catch (_) {}
+        try { addStatic(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR'); } catch (_) {}
+        try { addStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra'); } catch (_) {}
+        return out;
+      }
+      window.rrCollectTripStations = function(railroad) {
+        const rr = String(railroad || '').toLowerCase();
+        const out = [];
+        const seen = {};
+        function push(id, name, lat, lon) {
+          if (id == null || id === '') return;
+          const key = String(id);
+          if (seen[key]) return;
+          seen[key] = true;
+          out.push({
+            id: key,
+            name: String(name || id),
+            lat: (lat != null && isFinite(Number(lat))) ? Number(lat) : null,
+            lon: (lon != null && isFinite(Number(lon))) ? Number(lon) : null
+          });
+        }
+        function fromStatic(staticObj) {
+          if (!staticObj || !staticObj.stops) return;
+          const seenName = {};
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s || !s.name) return;
+            const nk = String(s.name).toLowerCase().replace(/\s+/g, ' ').trim();
+            if (seenName[nk]) return;
+            seenName[nk] = true;
+            push(sid, s.name, s.lat, s.lon != null ? s.lon : s.lng);
+          });
+        }
+        function fromMarkers(agency) {
+          const prefix = agency + ':';
+          try {
+            Object.keys(stationMarkers || {}).forEach(function(key) {
+              if (!key || key.indexOf(prefix) !== 0) return;
+              const m = stationMarkers[key];
+              const sid = key.slice(prefix.length);
+              let name = sid, lat = null, lon = null;
+              if (m && m._rrStation) {
+                name = m._rrStation.name || sid;
+                lat = m._rrStation.lat;
+                lon = m._rrStation.lng != null ? m._rrStation.lng : m._rrStation.lon;
+              } else if (m && typeof m.getLatLng === 'function') {
+                const ll = m.getLatLng();
+                if (ll) { lat = ll.lat; lon = ll.lng; }
+              }
+              push(sid, name, lat, lon);
+            });
+          } catch (_) {}
+        }
+        try {
+          if (rr === 'mbta') {
+            if (typeof MBTA_TRIP_STATIONS !== 'undefined' && MBTA_TRIP_STATIONS.length) {
+              MBTA_TRIP_STATIONS.forEach(function(s) {
+                push(s.id, s.name, s.lat, s.lon);
+              });
+            } else {
+              Object.keys(stationsByName || {}).forEach(function(key) {
+                const g = stationsByName[key];
+                if (!g || !g.name) return;
+                const id = (g.stopIds && g.stopIds[0]) ? g.stopIds[0] : key;
+                push(id, g.name, g.lat, g.lng);
+              });
+            }
+          } else if (rr === 'mnr') {
+            fromStatic(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null);
+          } else if (rr === 'lirr') {
+            fromStatic(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null);
+          } else if (rr === 'metra') {
+            fromStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null);
+          } else if (rr === 'marc') {
+            fromStatic(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null);
+          } else if (rr === 'ctrail') {
+            fromMarkers('ctrail');
+          } else if (rr === 'amtrak') {
+            if (typeof AMTRAK_TRIP_STATIONS !== 'undefined' && AMTRAK_TRIP_STATIONS.length) {
+              AMTRAK_TRIP_STATIONS.forEach(function(s) {
+                push(s.id, s.name, s.lat, s.lon);
+              });
+            } else {
+              fromMarkers('amtrak');
+            }
+          } else if (rr === 'njt') {
+            fromMarkers('njt');
+          }
+        } catch (e) {
+          console.warn('[trip-log] collect stations failed', e);
+        }
+        return out;
+      };
+
+      window.rrCollectTripLines = function(railroad) {
+        const rr = String(railroad || '').toLowerCase();
+        const out = [];
+        const seen = {};
+        function add(id, name) {
+          const lid = String(id || '');
+          if (!lid || seen[lid]) return;
+          seen[lid] = true;
+          out.push({ id: lid, name: String(name || lid) });
+        }
+        try {
+          if (rr === 'mbta') {
+            const pack = (typeof TRIP_LINE_STOPS !== 'undefined') ? TRIP_LINE_STOPS.mbta : null;
+            if (pack) {
+              Object.keys(pack).forEach(function(lid) {
+                add(lid, (pack[lid] && pack[lid].n) || lid);
+              });
+            }
+            Object.keys(stationsByName || {}).forEach(function(key) {
+              const g = stationsByName[key];
+              (g && g.routes || []).forEach(function(r) {
+                if (r && r.id) add(r.id, r.name || r.id);
+              });
+            });
+            out.sort(function(a, b) { return a.name.localeCompare(b.name); });
+          }
+        } catch (_) {}
+        return out;
+      };
+
+      window.rrLineHasStation = function(railroad, lineId, stationId) {
+        const rr = String(railroad || '').toLowerCase();
+        const lid = String(lineId || '');
+        const sid = String(stationId || '');
+        if (!lid || !sid) return false;
+        if (lid === 'ALL') return true;
+        try {
+          if (rr === 'mbta') {
+            for (const key of Object.keys(stationsByName || {})) {
+              const g = stationsByName[key];
+              if (!g) continue;
+              const id = (g.stopIds && g.stopIds[0]) ? String(g.stopIds[0]) : String(key);
+              if (id !== sid) continue;
+              return (g.routes || []).some(function(r) { return r && String(r.id) === lid; });
+            }
+            return false;
+          }
+        } catch (_) {}
+        return false;
+      };
+
+      window.rrStationsOnLine = function(railroad, lineId) {
+        const rr = String(railroad || '').toLowerCase();
+        const lid = String(lineId || '');
+        const out = [];
+        const seen = {};
+        if (!lid) return out;
+        try {
+          if (rr === 'mbta') {
+            Object.keys(stationsByName || {}).forEach(function(key) {
+              const g = stationsByName[key];
+              if (!g || !g.name) return;
+              if (lid !== 'ALL') {
+                const hit = (g.routes || []).some(function(r) { return r && String(r.id) === lid; });
+                if (!hit) return;
+              }
+              const id = (g.stopIds && g.stopIds[0]) ? String(g.stopIds[0]) : String(key);
+              if (seen[id]) return;
+              seen[id] = true;
+              out.push({
+                id: id,
+                name: String(g.name),
+                lat: g.lat != null ? Number(g.lat) : null,
+                lon: g.lng != null ? Number(g.lng) : (g.lon != null ? Number(g.lon) : null)
+              });
+            });
+            out.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+          }
+        } catch (_) {}
+        return out;
+      };
+
+
+      function findAskStation(query) {
+        const q = String(query || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!q || q.length < 3) return null;
+        const list = listAskStations();
+        let best = null, bestScore = 0;
+        list.forEach(function(st) {
+          const k = String(st.key || st.name || '').toLowerCase();
+          if (!k) return;
+          let n = 0;
+          if (k === q) n = 120;
+          else if (k.indexOf(q) === 0) n = 85 + Math.min(q.length, 20);
+          else if (k.indexOf(q) >= 0) n = 55 + q.length;
+          else {
+            const toks = q.split(' ').filter(Boolean);
+            let hit = 0;
+            for (let i = 0; i < toks.length; i++) {
+              if (toks[i].length >= 3 && k.indexOf(toks[i]) >= 0) hit++;
+            }
+            if (toks.length && hit === toks.length) n = 42 + hit * 6;
+          }
+          if (n > bestScore) { bestScore = n; best = st; }
+        });
+        return bestScore >= 42 ? best : null;
+      }
+      function askDestMatches(destName, destQuery) {
+        const d = String(destName || '').toLowerCase();
+        const q = String(destQuery || '').toLowerCase();
+        if (!d || !q) return false;
+        if (d.indexOf(q) >= 0 || q.indexOf(d) >= 0) return true;
+        if (q === 'boston' || q === 'south station' || q === 'south sta') {
+          return /south station|boston|back bay/.test(d);
+        }
+        if (q === 'north station' || q === 'north sta') return /north station/.test(d);
+        return false;
+      }
+      function askLiveRowsForFromTo(originName, destQuery, rows) {
+        const o = String(originName || '').toLowerCase();
+        const hits = [];
+        (rows || []).forEach(function(r) {
+          if (!askDestMatches(r.dest, destQuery) && !askDestMatches(r.routeName, destQuery)) return;
+          const blob = [r.routeName, r.stopName, r.dest].join(' ').toLowerCase();
+          if (!askDestMatches(r.dest, destQuery)) return;
+          const originTok = o.split(' ').filter(function(w){ return w.length >= 4; })[0] || o.split(' ')[0];
+          if (originTok && blob.indexOf(originTok) < 0) return;
+          hits.push(r);
+        });
+        return hits;
+      }
+      async function answerAskFromTo(question, liveRows) {
+        const parsed = parseAskFromTo(question);
+        if (!parsed) return null;
+        const origin = findAskStation(parsed.origin);
+        if (!origin) {
+          return { answer: 'I could not find a station called ' + parsed.origin + '.', rows: [] };
+        }
+        let deps = [];
+        if (origin.agency === 'MBTA' && origin.stopIds && origin.stopIds.length && typeof getStationDepartures === 'function') {
+          try { deps = await getStationDepartures(origin.stopIds.slice()); } catch (_) { deps = []; }
+        }
+        const toward = (deps || []).filter(function(d) { return askDestMatches(d.destination, parsed.dest); }).slice(0, 3);
+        const live = askLiveRowsForFromTo(origin.name, parsed.dest, liveRows).slice(0, 4);
+        if (!toward.length && !live.length) {
+          return {
+            answer: 'I do not see a train from ' + origin.name + ' to ' + parsed.dest + ' on the board right now.',
+            rows: []
+          };
+        }
+        const bits = [];
+        toward.forEach(function(d) {
+          const num = (typeof extractTrainNumber === 'function') ? (extractTrainNumber(d.tripId) || '') : '';
+          let s = (num ? ('MBTA ' + num) : 'MBTA') + ' to ' + (d.destination || parsed.dest);
+          if (d.formattedScheduledTime) s += ' at ' + d.formattedScheduledTime;
+          if (d.status) s += ' (' + d.status + ')';
+          bits.push(s);
+        });
+        if (!bits.length && live.length) {
+          live.slice(0, 2).forEach(function(r) {
+            let s = (r.agency ? r.agency + ' ' : '') + String(r.trainNum || '—') + ' to ' + (r.dest || parsed.dest);
+            if (r.stopName && r.stopName !== '—') s += ', ' + (r.stopLabel || 'next') + ' ' + r.stopName;
+            bits.push(s);
+          });
+        }
+        let answer;
+        if (bits.length === 1) answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ': ' + bits[0] + '.';
+        else answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ':\n• ' + bits.join('\n• ');
+        const cards = [];
+        const seen = {};
+        live.forEach(function(r) { if (r && !seen[r.id]) { seen[r.id] = true; cards.push(r); } });
+        toward.forEach(function(d) {
+          const num = (typeof extractTrainNumber === 'function') ? (extractTrainNumber(d.tripId) || d.tripId) : d.tripId;
+          const liveHit = live.filter(function(r) { return String(r.trainNum) === String(num); })[0];
+          if (liveHit) return;
+          cards.push({
+            agency: 'MBTA', agencyColor: '#1a1a2e', id: 'ask-dep-' + String(d.tripId || num),
+            markerMap: typeof markers !== 'undefined' ? markers : {},
+            routeName: d.routeName || 'MBTA', trainNum: num || '—', dest: d.destination || parsed.dest,
+            vehicleLabel: num || '—', speedMph: null, stopLabel: 'Departs',
+            stopName: (d.formattedScheduledTime || '') + ' from ' + origin.name,
+            statusClass: d.isLive ? 'status-on-time' : 'status-scheduled',
+            statusText: d.status || 'Scheduled',
+            hasAlert: false, lat: origin.lat, lng: origin.lng,
+            matchFields: [d.tripId, num, d.destination]
+          });
+        });
+        return { answer: answer, rows: cards.slice(0, 6) };
+      }
+      async function askRailroadRadar(raw, results) {
+        const seq = ++askSeq;
+        renderAskCard(results, 'loading', 'Looking at live trains…');
+        try {
+          const rows = collectLiveTrainRows();
+          const fromTo = await answerAskFromTo(raw, rows);
+          if (fromTo && fromTo.answer) {
+            if (seq !== askSeq) return;
+            renderAskCard(results, 'ok', fromTo.answer);
+            renderAskTrainCards(results, fromTo.rows || []);
+            if (!(fromTo.rows || []).length) return;
+            const facts = (fromTo.rows || []).map(function(r) {
+              return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
+            }).join('\n');
+            try {
+              const res = await fetch(apiUrl('/api/ask'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
+              });
+              const data = await res.json().catch(function() { return {}; });
+              if (seq !== askSeq) return;
+              const polished = data && data.answer ? String(data.answer).trim() : '';
+              if (res.ok && polished && askFactsGrounded(polished, fromTo.rows)) {
+                renderAskCard(results, 'ok', polished);
+                renderAskTrainCards(results, fromTo.rows);
+              }
+            } catch (_) {}
+            return;
+          }
+          const matched = filterAskRows(raw, rows).slice(0, 8);
+          const fact = formatAskFactAnswer(raw, matched);
+          if (seq !== askSeq) return;
+          renderAskCard(results, 'ok', fact);
+          renderAskTrainCards(results, matched);
+          if (!matched.length) return;
+          const facts = matched.map(function(r) {
+            return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
+          }).join('\n');
+          const res = await fetch(apiUrl('/api/ask'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question: raw,
+              context: facts,
+              mode: 'polish'
+            })
+          });
+          const data = await res.json().catch(function() { return {}; });
+          if (seq !== askSeq) return;
+          const polished = data && data.answer ? String(data.answer).trim() : '';
+          if (res.ok && polished && askFactsGrounded(polished, matched)) {
+            renderAskCard(results, 'ok', polished);
+            renderAskTrainCards(results, matched);
+          }
+        } catch (_) {
+          if (seq !== askSeq) return;
+          try {
+            const matched = filterAskRows(raw, collectLiveTrainRows()).slice(0, 8);
+            renderAskCard(results, 'ok', formatAskFactAnswer(raw, matched));
+            renderAskTrainCards(results, matched);
+          } catch (__) {
+            renderAskCard(results, 'error', 'Could not reach Ask.');
+          }
+        }
+      }
+      function setupSearch() {
+        const results = document.getElementById('header-search-results');
+        function runSearchAndAsk(immediate) {
+          resetAllMarkerHighlights();
+          const raw = searchInput.value.trim();
+          const q = raw.toLowerCase();
+          results.innerHTML = '';
+          if (q.length < 2) { results.classList.remove('active'); return; }
+          results.classList.add('active');
+          const asking = looksLikeQuestion(raw);
+          try {
+            if (searchMode === 'all' || searchMode === 'train') {
+              searchTrains(q, results);
+            }
+            if (searchMode === 'all' || searchMode === 'station') {
+              searchStations(q, results);
+            }
+          } catch (_) {}
+          const shouldAsk = asking || results.children.length === 0;
+          if (shouldAsk) {
+            if (askTimer) clearTimeout(askTimer);
+            askSeq += 1;
+            if (immediate) {
+              askRailroadRadar(raw, results);
+            } else {
+              askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 3000);
+            }
+          } else if (results.children.length === 0) {
+            results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${q}</strong>"</div>`;
+          }
+        }
+        searchInput.addEventListener('input', () => { runSearchAndAsk(false); });
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            runSearchAndAsk(true);
+          }
+        });
+        document.addEventListener('click', e => {
+          if (!searchInput.contains(e.target) && !results.contains(e.target)) {
+            results.classList.remove('active');
+          }
+        });
+      }
+      function searchTrains(q, container) {
+        const qLower = q;
+        function fieldMatch(fields) {
+          for (let i = 0; i < fields.length; i++) {
+            const f = fields[i];
+            if (f != null && String(f).toLowerCase().includes(qLower)) return true;
+          }
+          return false;
+        }
+        const res = collectLiveTrainRows().filter(function(r) {
+          return fieldMatch(r.matchFields || [r.id, r.trainNum, r.routeName, r.dest, r.vehicleLabel]);
+        });
+        if (res.length === 0) return;
+        const header = document.createElement('div');
+        header.className = 'search-section-header';
+        header.textContent = 'Trains (' + res.length + ')';
+        container.appendChild(header);
+        res.forEach(function(r) { appendTrainResultCard(r, container); });
+      }
+      function searchStations(q, container) {
+        const res = [];
+        const seen = new Set();
+        for (const skey in stationsByName) {
+          if (skey.includes(q)) {
+            const g = stationsByName[skey];
+            const id = g.stopIds[0];
+            seen.add('mbta:' + String(id));
+            res.push({
+              type: 'station',
+              agency: 'MBTA',
+              id: id,
+              name: g.name,
+              platforms: g.stopIds.length,
+              lat: g.lat,
+              lng: g.lng,
+              markerId: id
+            });
+          }
+        }
+        function addStaticStops(staticObj, agency, idPrefix) {
+          if (!staticObj || !staticObj.stops) return;
+          Object.keys(staticObj.stops).forEach(function(sid) {
+            const s = staticObj.stops[sid];
+            if (!s || !s.name) return;
+            const nameKey = String(s.name).toLowerCase();
+            if (!nameKey.includes(q) && !String(sid).toLowerCase().includes(q)) return;
+            const key = idPrefix + ':' + sid;
+            if (seen.has(key)) return;
+            seen.add(key);
+            res.push({
+              type: 'station',
+              agency: agency,
+              id: idPrefix + '-' + sid,
+              name: s.name,
+              platforms: 1,
+              lat: s.lat,
+              lng: s.lon,
+              markerId: idPrefix + ':' + sid
+            });
+          });
+        }
+        // Other-agency stations from in-memory static GTFS (same map dots as MBTA)
+        try { addStaticStops(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR', 'mnr'); } catch (e) {}
+        try { addStaticStops(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR', 'lirr'); } catch (e) {}
+        try { addStaticStops(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra', 'metra'); } catch (e) {}
+        try { addStaticStops(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'MARC', 'marc'); } catch (e) {}
+        if (res.length === 0) return;
+        const header = document.createElement('div');
+        header.className = 'search-section-header';
+        header.textContent = 'Stations (' + res.length + ')';
+        container.appendChild(header);
+        res.forEach(function(r) {
+          const d = document.createElement('div');
+          d.className = 'search-result search-station-result';
+          const sub = r.agency === 'MBTA'
+            ? (r.platforms > 1 ? r.platforms + ' platforms' : 'MBTA Station')
+            : (r.agency + ' Station');
+          d.innerHTML =
+            '<div class="search-result-header">' +
+              '<span class="route">' + escapeHtmlLite(r.name) + '</span>' +
+            '</div>' +
+            '<div class="search-result-body">' +
+              '<div class="search-result-meta"><span>' + escapeHtmlLite(sub) + '</span></div>' +
+            '</div>';
+          d.onclick = function() {
+            map.setView([r.lat, r.lng], 15);
+            var m = null;
+            if (r.markerId && stationMarkers[r.markerId]) m = stationMarkers[r.markerId];
+            if (!m && r.agency && r.id) {
+              var prefix = String(r.agency).toLowerCase();
+              if (prefix === 'metro-north') prefix = 'mnr';
+              m = stationMarkers[prefix + ':' + String(r.id).split('-').slice(1).join('-')] || null;
+            }
+            if (m) m.openPopup();
+            container.classList.remove('active');
+            document.getElementById('control-panel').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+          };
+          container.appendChild(d);
+        });
+      }
+      function updateLabels() {
+        function cycleDict(dict) {
+          Object.values(dict).forEach(function(m) {
+            if (!map.hasLayer(m)) return;
+            const tip = m.getTooltip && m.getTooltip();
+            if (!tip || !tip.options || !tip.options.permanent) return;
+            if (!m._info || !m._info.length) return;
+            m._infoIndex = ((m._infoIndex || 0) + 1) % m._info.length;
+            tip.setContent(m._info[m._infoIndex]);
+          });
+        }
+        cycleDict(markers);
+        cycleDict(amtrakMarkers);
+        cycleDict(mnrMarkers);
+        cycleDict(lirrMarkers);
+        cycleDict(metraMarkers);
+      }
+      document.getElementById('show-stations').addEventListener('change', e => {
+        showStations = e.target.checked;
+        updateStationVisibility();
+        safeStorage.set('rr_showStations', e.target.checked);
+      });
+      document.getElementById('show-routes').addEventListener('change', e => {
+        toggleRoutes(e.target.checked);
+        safeStorage.set('rr_showRoutes', e.target.checked);
+      });
+      // Safe localStorage wrapper (prevents crashes in sandboxed iframes / Google Sites)
+      const safeStorage = {
+        get(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        },
+        set(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (e) {
+            // Silently fail in sandboxed environments
+          }
+        }
+      };
+      const RR_MAP_RAIL_KEY = 'rr_map_railroads';
+      const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc'];
+      const rrRailPollTimers = {};
+      function defaultMapRailPrefs() {
+        const o = {};
+        RR_MAP_RAIL_IDS.forEach(function(id) { o[id] = true; });
+        return o;
+      }
+      function getMapRailPrefs() {
+        try {
+          const raw = safeStorage.get(RR_MAP_RAIL_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object') return null;
+          const out = {};
+          let any = false;
+          RR_MAP_RAIL_IDS.forEach(function(id) {
+            out[id] = !!parsed[id];
+            if (out[id]) any = true;
+          });
+          return any ? out : null;
+        } catch (_) {
+          return null;
+        }
+      }
+      function setMapRailPrefs(prefs) {
+        try {
+          const out = {};
+          RR_MAP_RAIL_IDS.forEach(function(id) { out[id] = !!(prefs && prefs[id]); });
+          safeStorage.set(RR_MAP_RAIL_KEY, JSON.stringify(out));
+        } catch (_) {}
+      }
+      function rrIsShareDeepLink() {
+        try {
+          if (document.documentElement.classList.contains('rr-train-page')) return true;
+          const q = new URLSearchParams(location.search);
+          return !!(q.get('train') || q.get('t') || q.get('focus'));
+        } catch (_) {
+          return false;
+        }
+      }
+      function prefsForShareDeepLink() {
+        const all = defaultMapRailPrefs();
+        try {
+          const q = new URLSearchParams(location.search);
+          const raw = q.get('train') || q.get('t') || q.get('focus');
+          if (!raw) return all;
+          const spec = (typeof rrParseShareSpec === 'function') ? rrParseShareSpec(raw) : null;
+          const agency = spec && spec.agency ? String(spec.agency).toLowerCase() : '';
+          if (!agency || RR_MAP_RAIL_IDS.indexOf(agency) < 0) return all;
+          const prefs = {};
+          RR_MAP_RAIL_IDS.forEach(function(id) { prefs[id] = false; });
+          prefs[agency] = true;
+          // Share pages often need map context; keep MBTA shapes/stations cheap path on.
+          // CTrail vehicles ride Amtrak feeds in places — enable both when either is shared.
+          if (agency === 'ctrail') prefs.amtrak = true;
+          if (agency === 'amtrak') prefs.ctrail = true;
+          return prefs;
+        } catch (_) {
+          return all;
+        }
+      }
+      function applyMapRailPrefs(prefs) {
+        const p = prefs || defaultMapRailPrefs();
+        showMbta = !!p.mbta;
+        showAmtrak = !!p.amtrak;
+        showMnr = !!p.mnr;
+        showLirr = !!p.lirr;
+        showMetra = !!p.metra;
+        showNjt = !!p.njt;
+        showCtrail = !!p.ctrail;
+        showMarc = !!p.marc;
+        const setCb = function(id, on) {
+          const el = document.getElementById(id);
+          if (el) el.checked = !!on;
+        };
+        setCb('show-mbta', showMbta);
+        setCb('show-amtrak', showAmtrak);
+        setCb('show-mnr', showMnr);
+        setCb('show-lirr', showLirr);
+        setCb('show-metra', showMetra);
+        setCb('show-njt', showNjt);
+        setCb('show-ctrail', showCtrail);
+        setCb('show-marc', showMarc);
+        try { if (typeof updateTrainVisibility === 'function') updateTrainVisibility(); } catch (_) {}
+        try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch (_) {}
+        try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch (_) {}
+        try { if (typeof updateLirrVisibility === 'function') updateLirrVisibility(); } catch (_) {}
+        try { if (typeof updateMetraVisibility === 'function') updateMetraVisibility(); } catch (_) {}
+        try { if (typeof updateNjtVisibility === 'function') updateNjtVisibility(); } catch (_) {}
+        try { if (typeof updateMarcVisibility === 'function') updateMarcVisibility(); } catch (_) {}
+        try { if (typeof updateStationVisibility === 'function') updateStationVisibility(); } catch (_) {}
+        try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
+      }
+      function readPickerPrefsFromDom() {
+        const out = {};
+        RR_MAP_RAIL_IDS.forEach(function(id) { out[id] = false; });
+        const root = document.getElementById('rr-rail-picker-list');
+        if (!root) return out;
+        root.querySelectorAll('input[data-rail]').forEach(function(inp) {
+          const id = inp.getAttribute('data-rail');
+          if (id && out.hasOwnProperty(id)) out[id] = !!inp.checked;
+        });
+        return out;
+      }
+      function syncPickerDom(prefs) {
+        const root = document.getElementById('rr-rail-picker-list');
+        if (!root) return;
+        root.querySelectorAll('input[data-rail]').forEach(function(inp) {
+          const id = inp.getAttribute('data-rail');
+          if (id && prefs && prefs.hasOwnProperty(id)) inp.checked = !!prefs[id];
+        });
+      }
+      function updateRailPickerGoEnabled() {
+        const go = document.getElementById('rr-rail-picker-go');
+        if (!go) return;
+        const prefs = readPickerPrefsFromDom();
+        const any = RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; });
+        go.disabled = !any;
+      }
+      function hideRailPicker() {
+        const el = document.getElementById('rr-rail-picker');
+        if (!el) return;
+        el.classList.remove('is-open');
+        el.hidden = true;
+        el.setAttribute('aria-hidden', 'true');
+      }
+      function showRailPickerUi() {
+        try { setLoadingProgress(20, 'Choose railroads to load...'); } catch (_) {}
+        const el = document.getElementById('rr-rail-picker');
+        if (!el) return;
+        el.hidden = false;
+        el.removeAttribute('hidden');
+        el.setAttribute('aria-hidden', 'false');
+        el.classList.add('is-open');
+        updateRailPickerGoEnabled();
+      }
+      function promiseMapRailPrefs() {
+        return new Promise(function(resolve) {
+          if (rrIsShareDeepLink()) {
+            resolve(prefsForShareDeepLink());
+            return;
+          }
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+            resolve(defaultMapRailPrefs());
+            return;
+          }
+          const saved = getMapRailPrefs();
+          const el = document.getElementById('rr-rail-picker');
+          if (saved || !el) {
+            resolve(saved || defaultMapRailPrefs());
+            return;
+          }
+          syncPickerDom(defaultMapRailPrefs());
+          showRailPickerUi();
+          const list = document.getElementById('rr-rail-picker-list');
+          const go = document.getElementById('rr-rail-picker-go');
+          const allBtn = document.getElementById('rr-rail-picker-all');
+          const clearBtn = document.getElementById('rr-rail-picker-clear');
+          const onChange = function() { updateRailPickerGoEnabled(); };
+          if (list && !list.getAttribute('data-wired')) {
+            list.setAttribute('data-wired', '1');
+            list.addEventListener('change', onChange);
+            // clicking the row label already toggles; also allow row click outside label padding
+          }
+          if (allBtn && !allBtn.getAttribute('data-wired')) {
+            allBtn.setAttribute('data-wired', '1');
+            allBtn.addEventListener('click', function() {
+              syncPickerDom(defaultMapRailPrefs());
+              updateRailPickerGoEnabled();
+            });
+          }
+          if (clearBtn && !clearBtn.getAttribute('data-wired')) {
+            clearBtn.setAttribute('data-wired', '1');
+            clearBtn.addEventListener('click', function() {
+              const empty = {};
+              RR_MAP_RAIL_IDS.forEach(function(id) { empty[id] = false; });
+              syncPickerDom(empty);
+              updateRailPickerGoEnabled();
+            });
+          }
+          window._rrRailPickerOnGo = function() {
+            const prefs = readPickerPrefsFromDom();
+            if (!RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; })) return;
+            setMapRailPrefs(prefs);
+            hideRailPicker();
+            window._rrRailPickerOnGo = null;
+            resolve(prefs);
+          };
+          if (go && !go.getAttribute('data-wired')) {
+            go.setAttribute('data-wired', '1');
+            go.addEventListener('click', function() {
+              try {
+                if (typeof window._rrRailPickerOnGo === 'function') window._rrRailPickerOnGo();
+              } catch (err) { console.warn('[rail-picker] go failed', err); }
+            });
+          }
+          updateRailPickerGoEnabled();
+        });
+      }
+      function stopRailPoll(key) {
+        if (rrRailPollTimers[key]) {
+          try { clearInterval(rrRailPollTimers[key]); } catch (_) {}
+          delete rrRailPollTimers[key];
+        }
+      }
+      function startRailPoll(key, fn, ms) {
+        if (rrRailPollTimers[key]) return;
+        rrRailPollTimers[key] = rrLivePoll(fn, ms);
+      }
+      function startEnabledRailPolls() {
+        if (showMbta) startRailPoll('mbta', fetchTrains, 60000);
+        else stopRailPoll('mbta');
+        if (showAmtrak || showVia) startRailPoll('amtrak', fetchAmtrakTrains, 60000);
+        else stopRailPoll('amtrak');
+        if (showMnr) startRailPoll('mnr', fetchMnrTrains, 25000);
+        else stopRailPoll('mnr');
+        if (showLirr) startRailPoll('lirr', fetchLirrTrains, 25000);
+        else stopRailPoll('lirr');
+        if (showMetra) startRailPoll('metra', fetchMetraTrains, 30000);
+        else stopRailPoll('metra');
+        if (showNjt) startRailPoll('njt', fetchNjtTrains, 30000);
+        else stopRailPoll('njt');
+        if (showMarc) startRailPoll('marc', fetchMarcTrains, 30000);
+        else stopRailPoll('marc');
+        // MBTA schedules only when MBTA is enabled
+        if (showMbta) startRailPoll('schedules', fetchSchedules, 300000);
+        else stopRailPoll('schedules');
+      }
+      function persistMapRailPrefsFromFlags() {
+        setMapRailPrefs({
+          mbta: !!showMbta,
+          amtrak: !!showAmtrak,
+          mnr: !!showMnr,
+          lirr: !!showLirr,
+          metra: !!showMetra,
+          njt: !!showNjt,
+          ctrail: !!showCtrail,
+          marc: !!showMarc
+        });
+      }
+      function onMapRailToggle(agency, enabled) {
+        persistMapRailPrefsFromFlags();
+        if (enabled) {
+          try {
+            if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, 60000); fetchTrains(); }
+            else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
+            else if (agency === 'mnr') { startRailPoll('mnr', fetchMnrTrains, 25000); fetchMnrTrains(); }
+            else if (agency === 'lirr') { startRailPoll('lirr', fetchLirrTrains, 25000); fetchLirrTrains(); }
+            else if (agency === 'metra') { startRailPoll('metra', fetchMetraTrains, 30000); fetchMetraTrains(); }
+            else if (agency === 'njt') { startRailPoll('njt', fetchNjtTrains, 30000); fetchNjtTrains(); }
+            else if (agency === 'marc') { startRailPoll('marc', fetchMarcTrains, 30000); fetchMarcTrains(); }
+            else if (agency === 'ctrail') {
+              // No dedicated vehicle feed — station/shape visibility only
+            }
+          } catch (_) {}
+        } else {
+          if (agency === 'mbta') stopRailPoll('mbta');
+          else if (agency === 'amtrak') { if (!showVia) stopRailPoll('amtrak'); }
+          else if (agency === 'mnr') stopRailPoll('mnr');
+          else if (agency === 'lirr') stopRailPoll('lirr');
+          else if (agency === 'metra') stopRailPoll('metra');
+          else if (agency === 'njt') stopRailPoll('njt');
+          else if (agency === 'marc') stopRailPoll('marc');
+          if (agency === 'mbta') stopRailPoll('schedules');
+        }
+      }
+      function reopenMapRailPicker() {
+        const current = {
+          mbta: !!showMbta,
+          amtrak: !!showAmtrak,
+          mnr: !!showMnr,
+          lirr: !!showLirr,
+          metra: !!showMetra,
+          njt: !!showNjt,
+          ctrail: !!showCtrail,
+          marc: !!showMarc
+        };
+        syncPickerDom(current);
+        const go = document.getElementById('rr-rail-picker-go');
+        if (go && !go.getAttribute('data-wired')) {
+          go.setAttribute('data-wired', '1');
+          go.addEventListener('click', function() {
+            try {
+              if (typeof window._rrRailPickerOnGo === 'function') window._rrRailPickerOnGo();
+            } catch (err) { console.warn('[rail-picker] go failed', err); }
+          });
+        }
+        // Wire Select all / Clear if not already (boot path may not have run)
+        const list = document.getElementById('rr-rail-picker-list');
+        const allBtn = document.getElementById('rr-rail-picker-all');
+        const clearBtn = document.getElementById('rr-rail-picker-clear');
+        if (list && !list.getAttribute('data-wired')) {
+          list.setAttribute('data-wired', '1');
+          list.addEventListener('change', function() { updateRailPickerGoEnabled(); });
+        }
+        if (allBtn && !allBtn.getAttribute('data-wired')) {
+          allBtn.setAttribute('data-wired', '1');
+          allBtn.addEventListener('click', function() {
+            syncPickerDom(defaultMapRailPrefs());
+            updateRailPickerGoEnabled();
+          });
+        }
+        if (clearBtn && !clearBtn.getAttribute('data-wired')) {
+          clearBtn.setAttribute('data-wired', '1');
+          clearBtn.addEventListener('click', function() {
+            const empty = {};
+            RR_MAP_RAIL_IDS.forEach(function(id) { empty[id] = false; });
+            syncPickerDom(empty);
+            updateRailPickerGoEnabled();
+          });
+        }
+        window._rrRailPickerOnGo = function() {
+          const prefs = readPickerPrefsFromDom();
+          if (!RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; })) return;
+          setMapRailPrefs(prefs);
+          hideRailPicker();
+          window._rrRailPickerOnGo = null;
+          applyMapRailPrefs(prefs);
+          startEnabledRailPolls();
+          try {
+            if (prefs.mbta) fetchTrains();
+            if (prefs.amtrak) fetchAmtrakTrains();
+            if (prefs.mnr) fetchMnrTrains();
+            if (prefs.lirr) fetchLirrTrains();
+            if (prefs.metra) fetchMetraTrains();
+            if (prefs.njt) fetchNjtTrains();
+            if (prefs.marc) fetchMarcTrains();
+          } catch (_) {}
+        };
+        showRailPickerUi();
+      }
+      function applySavedMapTheme() {
+        const savedTheme = safeStorage.get('rr_mapTheme');
+        const theme = savedTheme === 'dark' ? 'dark' : 'light';
+        if (typeof window.__rrSetMapTheme === 'function') window.__rrSetMapTheme(theme);
+        else setMapTheme(theme);
+      }
+      const mapThemeDark = document.getElementById('map-theme-dark');
+      const mapThemeLight = document.getElementById('map-theme-light');
+      if (mapThemeDark) mapThemeDark.addEventListener('change', function() {
+        if (this.checked) {
+          setMapTheme('dark');
+        }
+      });
+      if (mapThemeLight) mapThemeLight.addEventListener('change', function() {
+        if (this.checked) {
+          setMapTheme('light');
+        }
+      });
+      applySavedMapTheme();
+
+      // Load persisted UI preferences (safe)
+      if (safeStorage.get('rr_showRoutes') === 'false') {
+        document.getElementById('show-routes').checked = false;
+        toggleRoutes(false);
+      }
+      if (safeStorage.get('rr_showStations') === 'false') {
+        document.getElementById('show-stations').checked = false;
+        showStations = false;
+        updateStationVisibility();
+      }
+      // Train labels now default to ON
+      const savedShowLabels = safeStorage.get('rr_showLabels');
+      const savedShowSpecial = safeStorage.get('rr_showOnlySpecial') === 'true';
+      const labelsEnabled = savedShowLabels === null || savedShowLabels === 'true';
+      if (labelsEnabled) {
+        document.getElementById('show-labels').checked = true;
+        toggleTrainLabels(true); // This will call updateTrainLabelsVisibility()
+      } else {
+        document.getElementById('show-labels').checked = false;
+        toggleTrainLabels(false);
+      }
+      if (savedShowSpecial) {
+        document.getElementById('show-only-special').checked = true;
+        showOnlySpecial = true;
+        updateTrainVisibility();
+      }
+      // Clusters default OFF unless user explicitly turned them on (keeps HSP icons visible)
+      const savedShowClusters = safeStorage.get('rr_showClusters');
+      if (savedShowClusters === 'true') {
+        document.getElementById('show-clusters').checked = true;
+        showClusters = true;
+      } else {
+        document.getElementById('show-clusters').checked = false;
+        showClusters = false;
+      }
+      document.getElementById('show-labels').addEventListener('change', e => {
+        toggleTrainLabels(e.target.checked);
+        safeStorage.set('rr_showLabels', e.target.checked);
+      });
+      document.getElementById('show-clusters').addEventListener('change', e => {
+        showClusters = e.target.checked;
+        updateTrainLabelsVisibility();
+        safeStorage.set('rr_showClusters', e.target.checked);
+      });
+      document.getElementById('show-only-special').addEventListener('change', e => {
+        showOnlySpecial = e.target.checked;
+        updateTrainVisibility();
+        if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility();
+        if (typeof updateMnrVisibility === 'function') updateMnrVisibility();
+        if (typeof updateLirrVisibility === 'function') updateLirrVisibility();
+        if (typeof updateMetraVisibility === 'function') updateMetraVisibility();
+        if (typeof updateNjtVisibility === 'function') updateNjtVisibility();
+        safeStorage.set('rr_showOnlySpecial', e.target.checked);
+      });
+      document.getElementById('show-mbta').addEventListener('change', e => {
+        showMbta = e.target.checked;
+        updateTrainVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('mbta', showMbta);
+      });
+      document.getElementById('show-amtrak').addEventListener('change', e => {
+        showAmtrak = e.target.checked;
+        updateAmtrakVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('amtrak', showAmtrak);
+      });
+      (function() {
+        const viaCb = document.getElementById('show-via');
+        if (!viaCb) return;
+        viaCb.checked = !!showVia;
+        viaCb.addEventListener('change', e => {
+          showVia = e.target.checked;
+          try { localStorage.setItem('rr_showVia', showVia ? '1' : '0'); } catch (_) {}
+          updateAmtrakVisibility();
+          try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
+          // Lazy: VIA lines are fetched only once VIA is switched on
+          if (showVia && !rrViaShapesLoaded) { try { loadStaticGtfsShapes(['via']); } catch (_) {} }
+          if (showVia) { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
+          else if (!showAmtrak) stopRailPoll('amtrak');
+        });
+      })();
+      document.getElementById('show-mnr').addEventListener('change', e => {
+        showMnr = e.target.checked;
+        updateMnrVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('mnr', showMnr);
+      });
+      document.getElementById('show-lirr').addEventListener('change', e => {
+        showLirr = e.target.checked;
+        updateLirrVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('lirr', showLirr);
+      });
+      document.getElementById('show-metra').addEventListener('change', e => {
+        showMetra = e.target.checked;
+        updateMetraVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        onMapRailToggle('metra', showMetra);
+      });
+      document.getElementById('show-njt').addEventListener('change', e => {
+        showNjt = e.target.checked;
+        updateNjtVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('njt', showNjt);
+      });
+      document.getElementById('show-ctrail').addEventListener('change', e => {
+        showCtrail = e.target.checked;
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('ctrail', showCtrail);
+      });
+      document.getElementById('show-marc').addEventListener('change', e => {
+        showMarc = e.target.checked;
+        if (typeof updateMarcVisibility === 'function') updateMarcVisibility();
+        if (typeof updateStationVisibility === 'function') updateStationVisibility();
+        if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
+        onMapRailToggle('marc', showMarc);
+      });
+      (function wireChangeRailroads() {
+        const btn = document.getElementById('rr-change-railroads');
+        if (!btn || btn.getAttribute('data-wired')) return;
+        btn.setAttribute('data-wired', '1');
+        btn.addEventListener('click', function() {
+          try { reopenMapRailPicker(); } catch (err) { console.warn('[rail-picker] reopen failed', err); }
+        });
+      })();
+      document.getElementById('refresh-button').addEventListener('click', async function() {
+        this.disabled = true; this.innerHTML = '<span class="loading"></span> Refreshing...';
+        Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
+        Object.keys(stationDeparturesCache).forEach(k => delete stationDeparturesCache[k]);
+        if (showMbta) {
+          await fetchTrains();
+          await fetchSchedules();
+        }
+        if (showAmtrak) await fetchAmtrakTrains();
+        if (showMnr) await fetchMnrTrains();
+        if (showLirr) await fetchLirrTrains();
+        if (showMetra) await fetchMetraTrains();
+        if (showNjt) await fetchNjtTrains();
+        if (showMarc && typeof fetchMarcTrains === 'function') await fetchMarcTrains();
+        this.disabled = false; this.textContent = 'Refresh Data';
+      });
+      L.Polyline.fromEncoded = function(encoded, options) {
+        const points = []; let index = 0, lat = 0, lng = 0;
+        while (index < encoded.length) {
+          let b, shift = 0, result = 0;
+          do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          lat += ((result & 1) ? ~(result >> 1) : (result >> 1));
+          shift = 0; result = 0;
+          do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          lng += ((result & 1) ? ~(result >> 1) : (result >> 1));
+          points.push([lat / 1e5, lng / 1e5]);
+        }
+        return new L.Polyline(points, options);
+      };
+      let currentAlerts = [];
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+      function renderAlerts() {
+        const el = document.getElementById('alerts-list');
+        const countEl = document.getElementById('alerts-count');
+        if (!el) return;
+        if (countEl) {
+          countEl.textContent = currentAlerts.length
+            ? currentAlerts.length + ' active alert' + (currentAlerts.length === 1 ? '' : 's')
+            : '';
+        }
+        if (!currentAlerts.length) {
+          el.innerHTML = '<div class="alerts-empty"><strong>No active service alerts</strong>All Commuter Rail trains are operating normally.</div>';
+          return;
+        }
+        let html = '';
+        currentAlerts.forEach(function(a) {
+          const badgeClass = a.severity === 'severe' ? 'severe' : (a.severity === 'warning' ? 'warning' : '');
+          const badgeLabel = a.severity === 'severe' ? 'Severe' : (a.severity === 'warning' ? 'Warning' : 'Info');
+          let meta = '';
+          if (a.effect) meta += '<span>' + escapeHtml(a.effect) + '</span>';
+          if (a.routes && a.routes.length) {
+            a.routes.forEach(function(r) { meta += '<span>' + escapeHtml(r) + '</span>'; });
+          }
+          html += '<div class="alert-card">';
+          html += '<div class="alert-card-header">';
+          html += '<p class="alert-card-title">' + escapeHtml(a.header) + '</p>';
+          html += '<span class="alert-badge ' + badgeClass + '">' + badgeLabel + '</span>';
+          html += '</div>';
+          html += '<div class="alert-card-body">';
+          if (a.description) html += '<p>' + escapeHtml(a.description) + '</p>';
+          if (meta) html += '<div class="alert-meta">' + meta + '</div>';
+          if (a.url) html += '<a class="alert-link" href="' + escapeHtml(a.url) + '" target="_blank" rel="noopener">More details</a>';
+          html += '</div></div>';
+        });
+        el.innerHTML = html;
+      }
+      window.checkServiceAlerts = async function() {
+        const el = document.getElementById('alerts-list');
+        if (el) el.innerHTML = '<div class="alerts-empty"><strong>Loading alerts...</strong></div>';
+        try {
+          const res = await fetch(alertsUrl);
+          const data = await res.json();
+          currentAlerts = [];
+          (data.data || []).forEach(function(a) {
+            const periods = a.attributes.active_period || [];
+            const active = periods.some(function(p) {
+              const st = p.start ? new Date(p.start) : new Date();
+              const en = p.end ? new Date(p.end) : new Date(Date.now() + 86400000);
+              return st <= new Date() && new Date() <= en;
+            });
+            if (!active) return;
+            const sev = Number(a.attributes.severity) || 0;
+            const effect = (a.attributes.effect || '').toUpperCase();
+            let severity = 'info';
+            if (sev >= 7 || effect === 'NO_SERVICE' || effect === 'SUSPENSION') severity = 'severe';
+            else if (sev >= 4 || effect === 'DETOUR' || effect === 'DELAY' || effect === 'SIGNIFICANT_DELAYS') severity = 'warning';
+            const routes = [];
+            (a.attributes.informed_entity || []).forEach(function(ent) {
+              if (ent.route && routes.indexOf(ent.route) === -1) routes.push(ent.route);
+            });
+            currentAlerts.push({
+              header: a.attributes.header || a.attributes.short_header || 'Service Alert',
+              description: a.attributes.description || '',
+              url: a.attributes.url || '',
+              severity: severity,
+              effect: effect ? effect.replace(/_/g, ' ') : '',
+              routes: routes
+            });
+          });
+          currentAlerts.sort(function(a, b) {
+            const order = { severe: 0, warning: 1, info: 2 };
+            return (order[a.severity] || 3) - (order[b.severity] || 3);
+          });
+          renderAlerts();
+        } catch (e) {
+          if (el) el.innerHTML = '<div class="alerts-empty"><strong>Could not load alerts</strong>Please try again.</div>';
+        }
+      };
+      // ==================== USER LOCATION ====================
+      let userMarker = null;
+      let userLat = null;
+      let userLng = null;
+      let locationWatchId = null;
+      let centerOnNextFix = false;
+      function createUserLocationIcon() {
+        return L.divIcon({
+          className: 'user-location-marker',
+          html: '<div style="width:18px;height:18px;background:#2980b9;border:3px solid white;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,0.4);"></div>',
+          iconSize: [18, 18],
+          iconAnchor: [9, 9]
+        });
+      }
+      function findClosestTrains(lat, lng, limit) {
+        limit = limit || 5;
+        const results = [];
+        for (const vid in trainInfo) {
+          const t = trainInfo[vid];
+          if (t.lat == null || t.lng == null) continue;
+          const dist = haversine(lat, lng, t.lat, t.lng);
+          results.push({ vid: vid, train: t, distance: dist });
+        }
+        results.sort(function(a, b) { return a.distance - b.distance; });
+        return results.slice(0, limit);
+      }
+      function renderClosestTrains(lat, lng) {
+        const container = document.getElementById('closest-trains');
+        if (!container) return;
+        const closest = findClosestTrains(lat, lng, 5);
+        if (!closest.length) {
+          container.innerHTML = '<div style="font-size:12.5px;color:#7f8c9a;">No live trains found nearby.</div>';
+          return;
+        }
+        let html = '';
+        closest.forEach(function(item) {
+          const t = item.train;
+          const distStr = item.distance < 1
+            ? (item.distance * 5280).toFixed(0) + ' ft'
+            : item.distance.toFixed(1) + ' mi';
+          html += '<div class="closest-train-item" data-vid="' + item.vid + '">';
+          html += '<div class="ct-route">' + (t.routeName || 'Unknown') + ' to ' + (t.destination || '—') + '</div>';
+          html += '<div class="ct-meta">Vehicle ' + item.vid + ' · ' + Math.round(t.speedMph || 0) + ' mph · <span class="ct-dist">' + distStr + ' away</span></div>';
+          html += '</div>';
+        });
+        container.innerHTML = html;
+        container.querySelectorAll('.closest-train-item').forEach(function(el) {
+          el.addEventListener('click', function() {
+            const vid = el.getAttribute('data-vid');
+            const t = trainInfo[vid];
+            if (!t) return;
+            map.setView([t.lat, t.lng], 15);
+            if (markers[vid]) {
+              markers[vid].openPopup();
+              if (highlightedMarker) highlightedMarker.getElement()?.classList.remove('highlighted-train');
+              markers[vid].getElement()?.classList.add('highlighted-train');
+              highlightedMarker = markers[vid];
+            }
+            document.getElementById('control-panel').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+          });
+        });
+      }
+      function onUserLocationUpdate(pos) {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        const statusEl = document.getElementById('location-status');
+        const btn = document.getElementById('location-btn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Center on Me'; }
+        if (statusEl) statusEl.textContent = 'Tracking (' + userLat.toFixed(4) + ', ' + userLng.toFixed(4) + ')';
+        if (userMarker) {
+          userMarker.setLatLng([userLat, userLng]);
+        } else {
+          userMarker = L.marker([userLat, userLng], { icon: createUserLocationIcon(), zIndexOffset: 2000 });
+          userMarker.bindTooltip('You are here', { permanent: false, direction: 'top' });
+          userMarker.addTo(map);
+        }
+        // Only move the map when someone pressed Show My Location.
+        if (centerOnNextFix) {
+          centerOnNextFix = false;
+          map.setView([userLat, userLng], 13);
+        }
+        renderClosestTrains(userLat, userLng);
+        try {
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+            rrEvaluateNearbyTripPrompt(userLat, userLng);
+          }
+        } catch (_) {}
+      }
+      function onUserLocationError(err) {
+        const statusEl = document.getElementById('location-status');
+        const btn = document.getElementById('location-btn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Show My Location'; }
+        let msg = 'Could not get location.';
+        if (err.code === 1) {
+          msg = 'Location permission denied. Tap the button to try again.';
+          try { rrNearbyGeoDenied = true; } catch (_) {}
+        }
+        else if (err.code === 2) msg = 'Location unavailable.';
+        else if (err.code === 3) msg = 'Location request timed out.';
+        if (statusEl) statusEl.textContent = msg;
+      }
+      function startLocationWatch() {
+        if (!navigator.geolocation) {
+          const statusEl = document.getElementById('location-status');
+          if (statusEl) statusEl.textContent = 'Geolocation is not supported by this browser.';
+          return;
+        }
+        // Avoid starting multiple watches
+        if (locationWatchId !== null) return;
+        const statusEl = document.getElementById('location-status');
+        const btn = document.getElementById('location-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Locating...'; }
+        if (statusEl) statusEl.textContent = 'Requesting location permission...';
+        locationWatchId = navigator.geolocation.watchPosition(
+          onUserLocationUpdate,
+          onUserLocationError,
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+      }
+      // Button: re-center map on user (or restart permission flow if needed)
+      window.requestUserLocation = function() {
+        if (userLat != null && userLng != null) {
+          map.setView([userLat, userLng], 14);
+          renderClosestTrains(userLat, userLng);
+          return;
+        }
+        // Permission may have been denied earlier — try starting watch again
+        if (locationWatchId !== null) {
+          navigator.geolocation.clearWatch(locationWatchId);
+          locationWatchId = null;
+        }
+        centerOnNextFix = true;
+        startLocationWatch();
+      };
+      setInterval(updateLabels, 5000);
+      // Core MBTA map data first (with timeouts), then hide splash ASAP.
+      // Wrapped in async IIFE so this stays valid even if outer scope brace matching drifts.
+      function rrLivePoll(fn, ms) {
+        return setInterval(function() {
+          const keep = (typeof window.rrNotifyShouldBackgroundPoll === 'function') && window.rrNotifyShouldBackgroundPoll();
+          if (typeof document !== 'undefined' && document.hidden && !keep) return;
+          try { fn(); } catch (_) {}
+        }, ms);
+      }
+      ;(async function startupCoreLoads() {
+        try {
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+            // Light page: stations for the trip form. No route-shape waterfall.
+            // Live vehicle polls start only for railroads on an in-progress trip.
+            // /* MyTrips live feeds for in-progress cards */
+            setLoadingProgress(40, 'Preparing trip log...');
+            window.rrEnsureMyTripsLiveFeeds = function rrEnsureMyTripsLiveFeeds() {
+              if (typeof rrIsMyTripsPage === 'function' && !rrIsMyTripsPage()) return;
+              const need = Object.create(null);
+              function note(data) {
+                if (!data) return;
+                // Special moves never need GTFS vehicle polls
+                if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true')) return;
+                if (typeof tripIsInProgressLight === 'function' && !tripIsInProgressLight(data)) return;
+                const segs = (Array.isArray(data.segments) && data.segments.length) ? data.segments : [data];
+                for (let i = 0; i < segs.length; i++) {
+                  const s = segs[i] || {};
+                  let a = (typeof tripNormalizeAgency === 'function')
+                    ? tripNormalizeAgency(s.railroad || data.railroad)
+                    : String(s.railroad || data.railroad || '').toLowerCase();
+                  if (a === 'ctrail') a = 'amtrak';
+                  if (a === 'mbta' || a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'metra' || a === 'njt' || a === 'marc') need[a] = 1;
+                }
+              }
+              try {
+                if (typeof tripLogDataById !== 'undefined' && tripLogDataById) {
+                  Object.keys(tripLogDataById).forEach(function(id) { note(tripLogDataById[id]); });
+                }
+              } catch (_) {}
+              try { if (typeof tripLiveData !== 'undefined') note(tripLiveData); } catch (_) {}
+              const jobs = [];
+              const kick = window.rrEnsureMyTripsLiveFeeds._kick || (window.rrEnsureMyTripsLiveFeeds._kick = Object.create(null));
+              function arm(key, turnOn, pollFn, ms, fetchFn) {
+                if (!need[key] || kick[key]) return;
+                kick[key] = 1;
+                try { turnOn(); } catch (_) {}
+                try { startRailPoll(key, pollFn, ms); } catch (_) {}
+                try {
+                  const p = fetchFn();
+                  if (p && typeof p.then === 'function') jobs.push(p);
+                } catch (_) {}
+              }
+              arm('mbta', function() { showMbta = true; }, fetchTrains, 60000, fetchTrains);
+              arm('amtrak', function() { showAmtrak = true; }, fetchAmtrakTrains, 60000, fetchAmtrakTrains);
+              arm('mnr', function() { showMnr = true; }, fetchMnrTrains, 25000, fetchMnrTrains);
+              arm('lirr', function() { showLirr = true; }, fetchLirrTrains, 25000, fetchLirrTrains);
+              arm('metra', function() { showMetra = true; }, fetchMetraTrains, 30000, fetchMetraTrains);
+              arm('njt', function() { showNjt = true; }, fetchNjtTrains, 30000, fetchNjtTrains);
+              arm('marc', function() { showMarc = true; }, fetchMarcTrains, 30000, fetchMarcTrains);
+              if (!jobs.length) return;
+              Promise.allSettled(jobs).then(function() {
+                try { if (typeof tripListLiveTick === 'function') tripListLiveTick(); } catch (_) {}
+                try { if (typeof tripLiveActiveId !== 'undefined' && tripLiveActiveId && typeof tripLiveTick === 'function') tripLiveTick(); } catch (_) {}
+              });
+            };
+            try {
+              // Keep map polls off until an in-progress trip needs that railroad.
+              const emptyPrefs = {};
+              if (typeof RR_MAP_RAIL_IDS !== 'undefined') RR_MAP_RAIL_IDS.forEach(function(id) { emptyPrefs[id] = false; });
+              applyMapRailPrefs(emptyPrefs);
+            } catch (_) {}
+            setLoadingProgress(70, 'Loading stations for trip form...');
+            await withTimeout(fetchStations(), 12000, 'fetchStations');
+            setLoadingProgress(90, 'Trip log ready');
+            try { setupSearch(); } catch (_) {}
+            try { window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
+          } else {
+            // Ask which railroads to load (or apply saved / share-link prefs) before any agency fetches/polls.
+            const railPrefs = await promiseMapRailPrefs();
+            applyMapRailPrefs(railPrefs);
+            startEnabledRailPolls();
+            // First paint: live trains (+ MBTA stations) in parallel. Route shapes load in background
+            // so splash is not blocked on the MBTA shapes waterfall / large amtrak.json.
+            setLoadingProgress(35, 'Loading live trains...');
+            const firstPaint = [];
+            if (showMbta) {
+              firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
+              firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
+            }
+            if (showAmtrak) firstPaint.push(withTimeout(fetchAmtrakTrains(), 12000, 'fetchAmtrakTrains'));
+            if (showMnr) firstPaint.push(withTimeout(fetchMnrTrains(), 10000, 'fetchMnrTrains'));
+            if (showLirr) firstPaint.push(withTimeout(fetchLirrTrains(), 10000, 'fetchLirrTrains'));
+            if (showMetra) firstPaint.push(withTimeout(fetchMetraTrains(), 10000, 'fetchMetraTrains'));
+            if (showNjt) firstPaint.push(withTimeout(fetchNjtTrains(), 10000, 'fetchNjtTrains'));
+            if (showMarc) firstPaint.push(withTimeout(fetchMarcTrains(), 10000, 'fetchMarcTrains'));
+            if (firstPaint.length) await Promise.allSettled(firstPaint);
+            setLoadingProgress(85, 'Map ready — loading route lines...');
+            setupSearch();
+          }
+        } catch (loadErr) {
+          console.error('[Init] Load error', loadErr);
+        } finally {
+          hideLoadingScreen();
+          try { rrWireTrainShare(); } catch (_) {}
+        }
+        // Background: schedules + enabled agencies only (do not block overlay)
+        try {
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+            // Route shapes stay off on /mytrips. In-progress vehicles: rrEnsureMyTripsLiveFeeds.
+          } else {
+            const bg = [];
+            // Shapes are non-blocking for map usability; parallelized inside fetchRouteShapes.
+            bg.push(withTimeout(fetchRouteShapes(), 60000, 'fetchRouteShapes'));
+            if (showMbta) bg.push(withTimeout(fetchSchedules(), 60000, 'fetchSchedules'));
+            // Live agencies already fetched on first paint; polls keep them fresh.
+            if (bg.length) await Promise.allSettled(bg);
+          }
+        } catch (bgErr) {
+          console.error('[Init] Background load error', bgErr);
+        }
+        try { rrWireTrainShare(); } catch (shareErr) { console.warn('[share] wire failed', shareErr); }
+      })();
+      const menuButton = document.getElementById('menu-button');
+      const closePanel = document.getElementById('close-panel');
+      const controlPanel = document.getElementById('control-panel');
+      const overlay = document.getElementById('overlay');
+      function toggleMenu() {
+        const isOpen = controlPanel.classList.contains('open');
+        controlPanel.classList.toggle('open');
+        overlay.classList.toggle('open');
+        menuButton.setAttribute('aria-expanded', !isOpen);
+      }
+      menuButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+      closePanel.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+      overlay.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+      function isAppFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+      }
+      function syncFullscreenButton() {
+        const btn = document.getElementById('btn-fullscreen');
+        if (!btn) return;
+        const on = isAppFullscreen();
+        btn.textContent = on ? 'Exit full screen' : 'Full screen';
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+      async function toggleAppFullscreen() {
+        const el = document.documentElement;
+        try {
+          if (isAppFullscreen()) {
+            if (document.exitFullscreen) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
+          } else {
+            if (el.requestFullscreen) await el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            else if (el.msRequestFullscreen) el.msRequestFullscreen();
+          }
+        } catch (err) {
+          console.warn('[fullscreen]', err && err.message ? err.message : err);
+        }
+        setTimeout(function() {
+          syncFullscreenButton();
+          if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+        }, 120);
+      }
+      const fsBtn = document.getElementById('btn-fullscreen');
+      if (fsBtn) fsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleAppFullscreen();
+      });
+      document.addEventListener('fullscreenchange', function() {
+        syncFullscreenButton();
+        if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+      });
+      document.addEventListener('webkitfullscreenchange', function() {
+        syncFullscreenButton();
+        if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+      });
+      syncFullscreenButton();
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && controlPanel.classList.contains('open')) {
+          toggleMenu();
+        }
+      });
+      console.log('%cRailroadRadar v4.5 ready (NEC icon by position)', 'color:#07093e');
+      // Loading screen already hidden after core MBTA load (failsafe + finally)
+      // Offline / online detection
+      function updateOnlineStatus() {
+        const banner = document.getElementById('offline-banner');
+        if (!banner) return;
+        if (navigator.onLine) {
+          banner.classList.remove('visible');
+        } else {
+          banner.classList.add('visible');
+        }
+      }
+      window.addEventListener('online', function() {
+        updateOnlineStatus();
+        // Refresh data when connection returns (respect railroad prefs; early-returns also guard)
+        if (showMbta && typeof fetchTrains === 'function') fetchTrains();
+        if (showAmtrak && typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains();
+        if (showMnr && typeof fetchMnrTrains === 'function') fetchMnrTrains();
+        if (showLirr && typeof fetchLirrTrains === 'function') fetchLirrTrains();
+        if (showMetra && typeof fetchMetraTrains === 'function') fetchMetraTrains();
+        if (showNjt && typeof fetchNjtTrains === 'function') fetchNjtTrains();
+        if (showMarc && typeof fetchMarcTrains === 'function') fetchMarcTrains();
+      });
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+      // ==================== MyTrips nearby live train prompt ====================
+      // "Very close" ≈ 200 m (~0.124 mi). Suggest at most the closest train.
+      const RR_NEARBY_TRIP_MILES = 200 / 1609.344;
+      let rrNearbyDismissedKey = '';
+      let rrNearbyAskedGeo = false;
+      let rrNearbyGeoDenied = false;
+      let rrNearbyCurrent = null;
+      let rrNearbyRetryTimer = null;
+      let rrNearbyWired = false;
+
+      function rrCollectLiveVehiclesForNearby() {
+        const out = [];
+        function pushAgency(agency, mapObj, pick) {
+          if (!mapObj) return;
+          Object.keys(mapObj).forEach(function(vid) {
+            const t = mapObj[vid];
+            if (!t || t.isVia === true) return;
+            const lat = (t.lat != null) ? Number(t.lat) : NaN;
+            const lng = (t.lng != null) ? Number(t.lng) : ((t.lon != null) ? Number(t.lon) : NaN);
+            if (!isFinite(lat) || !isFinite(lng)) return;
+            const picked = pick(t, vid) || {};
+            out.push({
+              agency: agency,
+              vid: String(vid),
+              lat: lat,
+              lng: lng,
+              trainNumber: String(picked.trainNumber || '').trim(),
+              routeName: String(picked.routeName || '').trim(),
+              routeId: String(picked.routeId || '').trim(),
+              destName: String(picked.destName || '').trim()
+            });
+          });
+        }
+        try {
+          pushAgency('mbta', typeof trainInfo !== 'undefined' ? trainInfo : null, function(t, vid) {
+            let num = '';
+            try {
+              if (typeof extractTrainNumber === 'function') num = extractTrainNumber(t.tripId) || '';
+            } catch (_) {}
+            return {
+              trainNumber: num || String(vid || ''),
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destination || ''
+            };
+          });
+          pushAgency('amtrak', typeof amtrakTrainInfo !== 'undefined' ? amtrakTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || t.trainNumRaw || '',
+              routeName: t.routeName || '',
+              routeId: '',
+              destName: t.destName || t.destCode || ''
+            };
+          });
+          pushAgency('mnr', typeof mnrTrainInfo !== 'undefined' ? mnrTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('lirr', typeof lirrTrainInfo !== 'undefined' ? lirrTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('metra', typeof metraTrainInfo !== 'undefined' ? metraTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('njt', typeof njtTrainInfo !== 'undefined' ? njtTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+          pushAgency('marc', typeof marcTrainInfo !== 'undefined' ? marcTrainInfo : null, function(t) {
+            return {
+              trainNumber: t.trainNum || '',
+              routeName: t.routeName || '',
+              routeId: t.routeId || '',
+              destName: t.destName || ''
+            };
+          });
+        } catch (e) {
+          console.warn('[mytrips-nearby] collect failed', e);
+        }
+        return out;
+      }
+
+      function rrNearbyVehicleKey(v) {
+        if (!v) return '';
+        return String(v.agency || '') + ':' + String(v.vid || '') + ':' + String(v.trainNumber || '');
+      }
+
+      function rrFindClosestLiveVehicle(lat, lng) {
+        const vehicles = rrCollectLiveVehiclesForNearby();
+        let best = null;
+        for (let i = 0; i < vehicles.length; i++) {
+          const v = vehicles[i];
+          const d = haversine(lat, lng, v.lat, v.lng);
+          if (!(d >= 0) || d > RR_NEARBY_TRIP_MILES) continue;
+          if (!best || d < best.distanceMiles) {
+            best = Object.assign({}, v, { distanceMiles: d });
+          }
+        }
+        return best;
+      }
+
+      function rrNearbyRailLabel(agency) {
+        try {
+          if (typeof TRIP_LOG_RAIL_LABELS !== 'undefined' && TRIP_LOG_RAIL_LABELS[agency]) {
+            return TRIP_LOG_RAIL_LABELS[agency];
+          }
+        } catch (_) {}
+        const fallback = {
+          mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
+          metra: 'Metra', njt: 'NJ Transit', marc: 'MARC', ctrail: 'CTrail'
+        };
+        return fallback[agency] || String(agency || 'Railroad');
+      }
+
+      function rrNearbyPromptHtml(v) {
+        const rail = rrNearbyRailLabel(v.agency);
+        const line = v.routeName || 'Line';
+        const train = v.trainNumber || v.vid || '?';
+        const distFt = Math.round((v.distanceMiles || 0) * 5280);
+        const distLabel = distFt < 1000 ? (distFt + ' ft away') : ((v.distanceMiles || 0).toFixed(2) + ' mi away');
+        return 'Are you traveling on ' + rail + ', ' + line + ', train ' + train + '?' +
+          '<span class="trip-nearby-banner-meta">' + distLabel + (v.destName ? (' · to ' + v.destName) : '') + '</span>';
+      }
+
+      function rrHideNearbyTripBanner() {
+        const el = document.getElementById('trip-nearby-banner');
+        if (el) el.hidden = true;
+        rrNearbyCurrent = null;
+      }
+
+      function rrShowNearbyTripBanner(v) {
+        const el = document.getElementById('trip-nearby-banner');
+        const text = document.getElementById('trip-nearby-banner-text');
+        if (!el || !text || !v) return;
+        rrNearbyCurrent = v;
+        text.innerHTML = rrNearbyPromptHtml(v);
+        el.hidden = false;
+      }
+
+      function rrWireNearbyTripBanner() {
+        if (rrNearbyWired) return;
+        rrNearbyWired = true;
+        const logBtn = document.getElementById('trip-nearby-log');
+        const dismissBtn = document.getElementById('trip-nearby-dismiss');
+        if (logBtn) {
+          logBtn.addEventListener('click', function() {
+            const v = rrNearbyCurrent;
+            if (!v) return;
+            rrNearbyDismissedKey = rrNearbyVehicleKey(v);
+            rrHideNearbyTripBanner();
+            try {
+              if (typeof window.logTripFromLive === 'function') {
+                window.logTripFromLive(v.agency, v.vid, v.trainNumber);
+              } else if (typeof window.applyTripLogFromLive === 'function') {
+                window.applyTripLogFromLive({
+                  railroad: v.agency,
+                  agency: v.agency,
+                  trainNumber: v.trainNumber,
+                  vehicleId: v.vid,
+                  lineName: v.routeName,
+                  routeName: v.routeName,
+                  lineId: v.routeId,
+                  destName: v.destName
+                });
+              }
+            } catch (e) {
+              console.warn('[mytrips-nearby] log failed', e);
+            }
+          });
+        }
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', function() {
+            if (rrNearbyCurrent) rrNearbyDismissedKey = rrNearbyVehicleKey(rrNearbyCurrent);
+            rrHideNearbyTripBanner();
+          });
+        }
+      }
+
+      function rrEvaluateNearbyTripPrompt(lat, lng) {
+        try {
+          if (typeof rrIsMyTripsPage !== 'function' || !rrIsMyTripsPage()) return;
+          const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+          if (!user) { rrHideNearbyTripBanner(); return; }
+          if (document.documentElement.classList.contains('rr-mytrips-guest')) {
+            rrHideNearbyTripBanner();
+            return;
+          }
+          rrWireNearbyTripBanner();
+          const best = rrFindClosestLiveVehicle(lat, lng);
+          if (!best) {
+            rrHideNearbyTripBanner();
+            return;
+          }
+          const key = rrNearbyVehicleKey(best);
+          if (key && key === rrNearbyDismissedKey) return;
+          rrShowNearbyTripBanner(best);
+        } catch (e) {
+          console.warn('[mytrips-nearby] evaluate failed', e);
+        }
+      }
+
+      function rrScheduleNearbyRetries(lat, lng) {
+        if (rrNearbyRetryTimer) {
+          try { clearInterval(rrNearbyRetryTimer); } catch (_) {}
+          rrNearbyRetryTimer = null;
+        }
+        let tries = 0;
+        rrNearbyRetryTimer = setInterval(function() {
+          tries++;
+          rrEvaluateNearbyTripPrompt(lat, lng);
+          if (tries >= 8 || (rrNearbyCurrent && !document.getElementById('trip-nearby-banner').hidden)) {
+            try { clearInterval(rrNearbyRetryTimer); } catch (_) {}
+            rrNearbyRetryTimer = null;
+          }
+        }, 4000);
+      }
+
+      window.rrStartMyTripsNearbyPrompt = function() {
+        try {
+          if (typeof rrIsMyTripsPage !== 'function' || !rrIsMyTripsPage()) return;
+          const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+          if (!user) return;
+          if (rrNearbyGeoDenied) return;
+          rrWireNearbyTripBanner();
+          const runWith = function(lat, lng) {
+            rrEvaluateNearbyTripPrompt(lat, lng);
+            rrScheduleNearbyRetries(lat, lng);
+          };
+          if (userLat != null && userLng != null) {
+            runWith(userLat, userLng);
+            return;
+          }
+          if (!navigator.geolocation) return;
+          /* Never auto-request geolocation on /mytrips or a shared train page */
+          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
+          if (document.documentElement.classList.contains('rr-train-page')) return;
+          try {
+            const q = new URLSearchParams(location.search);
+            if (q.get('train') || q.get('t')) return;
+          } catch (_) {}
+          if (rrNearbyAskedGeo) return;
+          rrNearbyAskedGeo = true;
+          navigator.geolocation.getCurrentPosition(
+            function(pos) {
+              try {
+                userLat = pos.coords.latitude;
+                userLng = pos.coords.longitude;
+              } catch (_) {}
+              runWith(pos.coords.latitude, pos.coords.longitude);
+            },
+            function(err) {
+              if (err && err.code === 1) rrNearbyGeoDenied = true;
+              // Do not loop on denial / errors.
+            },
+            { enableHighAccuracy: true, maximumAge: 60000, timeout: 12000 }
+          );
+        } catch (e) {
+          console.warn('[mytrips-nearby] start failed', e);
+        }
+      };
+
+      // Ask for location when the map is ready — but NEVER on /mytrips without a gesture.
+      // Safari/iOS denies no-gesture geolocation (code 1) and that can poison Special-move Share.
+      try {
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
+          // Wait for Share or another explicit action before asking for location.
+        } else {
+          startLocationWatch();
+        }
+      } catch (_) {
+        try { startLocationWatch(); } catch (__) {}
+      }
+    });
+    // Legacy email/password/2FA/account-settings code removed — Google Sign up / Log in only.
+
+  

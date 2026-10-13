@@ -1,0 +1,37 @@
+
+    document.addEventListener('click', function(ev) {
+      var btn = ev.target && ev.target.closest && ev.target.closest('#trip-log-go-live');
+      if (!btn) return;
+      ev.preventDefault();
+      var cb = document.getElementById('trip-log-special-move');
+      if (cb) cb.checked = true;
+      var user = null;
+      try { user = (typeof rrAuthUser === 'function') ? rrAuthUser() : null; } catch (e) {}
+      if (!user) try { user = window.currentUser; } catch (e) {}
+      if (!user && window.firebase && firebase.auth) try { user = firebase.auth().currentUser; } catch (e) {}
+      if (!user || !user.uid) { alert('Sign in before going live.'); return; }
+      var title = ((document.getElementById('trip-log-train-title') || {}).value || 'Live trip').trim().slice(0, 80);
+      var icon = ((document.getElementById('trip-log-live-icon') || {}).value || '/assets/hsp46.png');
+      var go = function() { location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid); };
+      var savedTripId = null;
+      var finish = function(pos) {
+        var now = Date.now();
+        var cur = window.rrSpecialShareState;
+        var share = { uid: user.uid, tripId: savedTripId, title: title, icon: icon, startedAt: (cur && cur.startedAt) || now, expiresAt: (cur && cur.expiresAt) || (now + 5 * 60 * 60 * 1000), updatedAt: now };
+        if (pos && pos.coords) { share.lastLat = pos.coords.latitude; share.lastLon = pos.coords.longitude; }
+        try { localStorage.removeItem('rrSpecialShareStopped'); localStorage.setItem('rrSpecialMoveShareV1', JSON.stringify(share)); } catch (e) {}
+        var db = window.db || (firebase.firestore && firebase.firestore());
+        if (!db || !pos || !pos.coords) { go(); return; }
+        db.collection('specialMoveShares').doc(user.uid).set({
+          uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, icon: icon, active: true,
+          lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: share.startedAt, expiresAt: share.expiresAt, updatedAt: now
+        }, { merge: true }).then(go).catch(go);
+      };
+      // Save the trip first (it must exist with its stations), then share under its real id.
+      Promise.resolve(typeof saveTripLog === 'function' ? saveTripLog() : null).then(function(id) {
+        if (!id) return; // save failed or was blocked; the form shows why
+        savedTripId = id;
+        if (!navigator.geolocation) finish(null);
+        else navigator.geolocation.getCurrentPosition(finish, function() { finish(null); }, { enableHighAccuracy: true, timeout: 8000 });
+      }).catch(function(e) { console.warn('[go-live] save failed', e); });
+    });
