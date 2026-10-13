@@ -13152,8 +13152,8 @@ function closeTripDetailView(opts) {
 
 
     const RR_SPECIAL_SHARE_MAX_MS = 5 * 60 * 60 * 1000;
-    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 1000;
-    const RR_SPECIAL_SHARE_MOVE_M = 8;
+    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 5000; // every write is a read for each viewer
+    const RR_SPECIAL_SHARE_MOVE_M = 20;
     // Keep markers through remote/dead zones; show "last ping X min ago" instead of dropping ASAP.
     const RR_SPECIAL_SHARE_STALE_MS = 30 * 60 * 1000;
     const RR_SPECIAL_SHARE_QUEUE_MAX = 12;
@@ -13515,23 +13515,8 @@ function rrSpecialSyncTitleWrap() {
         rrSpecialShareQueue = [];
         rrSpecialStatusLine();
         try { rrSpecialPaintDetailMarker(ping.lat, ping.lon); } catch (_) {}
-        // Optimistic main-map pin for self only (do not replace snapshot docs)
-        try {
-          if (window.rrMainMap && typeof L !== 'undefined') {
-            const uid = st.uid;
-            let m = rrSpecialShareMarkers[uid];
-            const html = rrSpecialPopupHtml(doc);
-            if (m) {
-              m.setLatLng([ping.lat, ping.lon]);
-              try { m.setPopupContent(html); } catch (_) {}
-            } else {
-              m = L.marker([ping.lat, ping.lon], { icon: rrSpecialCreateIcon(ping.heading), zIndexOffset: 1800 });
-              m.bindPopup(html, { maxWidth: 240 });
-              m.addTo(window.rrMainMap);
-              rrSpecialShareMarkers[uid] = m;
-            }
-          }
-        } catch (_) {}
+        // Own pin: merged with the snapshot by uid (no duplicate marker)
+        try { rrSpecialSetSelfDoc(doc); } catch (_) {}
         return true;
       } catch (e) {
         // Network/rules blip: keep watching + buffer. Never auto-stop here.
@@ -13662,7 +13647,7 @@ function rrSpecialSyncTitleWrap() {
       }, { merge: true });
       try {
         if (typeof rrSpecialApplyDocs === 'function') {
-          rrSpecialApplyDocs([{ data: function() { return { active: true, lat: Number(fix.lat), lon: Number(fix.lon), title: rrSpecialShareState.title, expiresAt: expiresAt, updatedAt: startedAt, uid: user.uid }; } }]);
+          rrSpecialSetSelfDoc({ uid: user.uid, active: true, lat: Number(fix.lat), lon: Number(fix.lon), title: rrSpecialShareState.title, displayName: rrSpecialFirstName(user), expiresAt: expiresAt, updatedAt: startedAt });
         }
       } catch (_) {}
       try { if (typeof rrSpecialStartMapListener === 'function') rrSpecialStartMapListener(); } catch (_) {}
@@ -13692,6 +13677,7 @@ async function rrSpecialStopSharing(opts) {
       rrSpecialPersistLocal(null);
       try { localStorage.setItem('rrSpecialShareStopped', '1'); } catch (_) {}
       try { rrSpecialShowResumeBanner(false); } catch (_) {}
+      try { rrSpecialSetSelfDoc(null); } catch (_) {}
       try { rrShowStopShare(false); } catch (_) {}
       if (st && db && st.uid) {
         try {
@@ -13732,7 +13718,7 @@ async function rrSpecialStopSharing(opts) {
           rrSpecialDetailMarker.setLatLng([lat, lon]);
         } else {
           rrSpecialDetailMarker = L.marker([lat, lon], {
-            icon: rrSpecialCreateIcon(heading),
+            icon: rrSpecialCreateIcon(heading, rrSpecialShareState && rrSpecialShareState.title),
             zIndexOffset: 2000,
             keyboard: false
           }).addTo(tripDetailMap);
@@ -13916,27 +13902,37 @@ async function rrSpecialStopSharing(opts) {
       } catch (_) {}
     }
 
-    function rrSpecialCreateIcon(heading) {
-      const rot = (heading != null && isFinite(Number(heading))) ? Number(heading) : 0;
+    function rrSpecialEscHtml(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '\u0026amp;').replace(/</g, '\u0026lt;').replace(/>/g, '\u0026gt;')
+        .replace(/"/g, '\u0026quot;').replace(/'/g, '\u0026#39;');
+    }
+    // Amber pin + short title label (main map and trip detail)
+    function rrSpecialCreateIcon(heading, title) {
+      const label = String(title || '').trim().slice(0, 28);
       return L.divIcon({
         className: 'rr-special-share-icon',
-        html: '<img src="/assets/hsp46.png" alt="" style="width:42px;height:18px;object-fit:contain;transform:rotate(' + rot + 'deg);filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));">',
-        iconSize: [42, 18],
-        iconAnchor: [21, 9],
-        popupAnchor: [0, -12]
+        html: '<div style="position:relative;width:34px;height:34px;">' +
+          '<div class="rr-special-share-pin" title="Special move"></div>' +
+          (label ? ('<div style="position:absolute;left:50%;top:36px;transform:translateX(-50%);white-space:nowrap;background:#e89420;color:#fff;font:700 11px/1.2 sans-serif;padding:2px 6px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.35);">' + rrSpecialEscHtml(label) + '</div>') : '') +
+          '</div>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+        popupAnchor: [0, -18]
       });
     }
     function rrSpecialPopupHtml(d) {
-      const title = String((d && d.title) || 'Live trip').replace(/</g, '&lt;');
-      const who = String((d && d.displayName) || 'Rider').replace(/</g, '&lt;');
+      const title = rrSpecialEscHtml((d && d.title) || 'Special move');
+      const first = String((d && d.displayName) || '').trim().split(/\s+/)[0];
+      const who = rrSpecialEscHtml(first || 'Rider');
       const updated = Number(d && d.updatedAt) || 0;
-      const ago = updated ? rrSpecialFmtAgo(Date.now() - updated) : 'just now';
+      const ago = updated ? rrSpecialFmtAgo(Date.now() - updated) : '';
       return '<div class="train-popup">' +
-        '<div class="train-popup-header"><span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;">' + title + '</span></div>' +
+        '<div class="train-popup-header" style="background:#e89420;"><span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;">' + title + '</span></div>' +
         '<div style="padding:8px 10px;font-size:13px;color:#07093e;">' +
-          '<div style="font-weight:700;">Live trip</div>' +
+          '<div style="font-weight:700;">Special move</div>' +
           '<div>' + who + '</div>' +
-          '<div>Updated ' + ago + '</div>' +
+          '<div>Last ping ' + (ago || 'just now') + '</div>' +
         '</div></div>';
     }
 
@@ -13951,45 +13947,62 @@ async function rrSpecialStopSharing(opts) {
     }
 
 
+    // Own share as written by this device; merged with the snapshot so we never draw two pins.
+    let rrSpecialSelfDoc = null;
+    function rrSpecialSetSelfDoc(d) {
+      rrSpecialSelfDoc = d ? Object.assign({}, d) : null;
+      try { rrSpecialApplyDocs(null); } catch (_) {}
+    }
+
     function rrSpecialApplyDocs(docs) {
+      if (docs) rrSpecialShareLastDocs = docs;
       const map = window.rrMainMap;
       if (!map || typeof L === 'undefined') return;
-      if (docs) rrSpecialShareLastDocs = docs;
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return;
       const now = Date.now();
-      const seen = {};
+      const byUid = Object.create(null);
       (rrSpecialShareLastDocs || []).forEach(function(doc) {
-        const d = doc.data ? doc.data() : doc;
+        const d = doc && doc.data ? doc.data() : doc;
+        if (!d) return;
+        const uid = String(d.uid || (doc && doc.id) || '');
+        if (uid) byUid[uid] = d;
+      });
+      if (rrSpecialSelfDoc && rrSpecialSelfDoc.uid) {
+        const su = String(rrSpecialSelfDoc.uid);
+        const cur = byUid[su];
+        if (!cur || (Number(rrSpecialSelfDoc.updatedAt) || 0) >= (Number(cur.updatedAt) || 0)) {
+          byUid[su] = Object.assign({}, cur || {}, rrSpecialSelfDoc);
+        }
+      }
+      const seen = {};
+      Object.keys(byUid).forEach(function(uid) {
+        const d = byUid[uid];
         if (!d || d.active !== true) return;
         const exp = Number(d.expiresAt);
         if (!isFinite(exp) || exp <= now) return;
         const updated = Number(d.updatedAt) || 0;
-        const age = updated ? (now - updated) : 0;
-        // Tolerate long gaps (remote areas). Only drop after STALE window; still show last-ping text before that.
-        if (updated && age > RR_SPECIAL_SHARE_STALE_MS) return;
+        if (!updated || (now - updated) > RR_SPECIAL_SHARE_STALE_MS) return;
         const lat = Number(d.lat);
         const lon = Number(d.lon != null ? d.lon : d.lng);
         if (!isFinite(lat) || !isFinite(lon)) return;
-        const uid = String(d.uid || (doc.id || ''));
-        if (!uid) return;
         seen[uid] = true;
-        const title = String(d.title || 'Special move').replace(/</g, '&lt;');
-        const who = String(d.displayName || 'Rider').replace(/</g, '&lt;');
-        const ago = updated ? rrSpecialFmtAgo(age) : '';
-        const pingLabel = ago ? ('Last ping ' + ago) : 'Last ping just now';
         const html = rrSpecialPopupHtml(d);
+        const iconKey = String(d.title || '');
         let m = rrSpecialShareMarkers[uid];
         if (m) {
           try {
             m.setLatLng([lat, lon]);
+            if (m._rrIconKey !== iconKey) { m.setIcon(rrSpecialCreateIcon(d.heading, d.title)); m._rrIconKey = iconKey; }
             m.setPopupContent(html);
           } catch (_) {}
         } else {
           try {
             m = L.marker([lat, lon], {
-              icon: rrSpecialCreateIcon(d.heading),
+              icon: rrSpecialCreateIcon(d.heading, d.title),
               zIndexOffset: 1800,
               keyboard: true
             });
+            m._rrIconKey = iconKey;
             m.bindPopup(html, { maxWidth: 240 });
             m.addTo(map);
             rrSpecialShareMarkers[uid] = m;
@@ -14006,19 +14019,18 @@ async function rrSpecialStopSharing(opts) {
       });
     }
 
+    // One realtime listener, only where the main map is shown. The query MUST keep
+    // where('active','==',true): rules only allow reading active shares, so an
+    // unfiltered list query is denied.
     function rrSpecialStartMapListener() {
-      return;
       if (rrSpecialShareMapStarted) return;
-      // /mytrips hides #map — still allow listener if rrMainMap exists (hidden), but
-      // prefer skipping work on that page; live viewers use railroadradar.com index.
-      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no visible main map on /mytrips
-      if (!db || typeof firebase === 'undefined') return;
-      if (!window.rrMainMap) {
-        // Map not ready yet — retry so shares appear after load
-        if (!rrSpecialStartMapListener._retries) rrSpecialStartMapListener._retries = 0;
-        if (rrSpecialStartMapListener._retries < 40) {
-          rrSpecialStartMapListener._retries += 1;
-          setTimeout(function() { try { rrSpecialStartMapListener(); } catch (_) {} }, 1000);
+      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no main map on /mytrips
+      const S = rrSpecialStartMapListener;
+      if (!db || typeof firebase === 'undefined' || !window.rrMainMap) {
+        // Firebase or map not ready yet — retry for a while so shares appear after load
+        S._retries = (S._retries || 0) + 1;
+        if (S._retries <= 60 && !S._pending) {
+          S._pending = setTimeout(function() { S._pending = null; try { rrSpecialStartMapListener(); } catch (_) {} }, 1000);
         }
         return;
       }
@@ -14027,27 +14039,33 @@ async function rrSpecialStopSharing(opts) {
         rrSpecialShareUnsub = db.collection('specialMoveShares')
           .where('active', '==', true)
           .onSnapshot(function(snap) {
+            S._errors = 0;
             try { rrSpecialApplyDocs(snap.docs || []); } catch (e) {
               console.warn('[special-share] apply failed', e);
             }
           }, function(err) {
             console.warn('[special-share] listen failed', err);
-            try {
-              rrSpecialShareMapStarted = false;
-              rrSpecialShareUnsub = null;
-            } catch (_) {}
+            rrSpecialShareMapStarted = false;
+            rrSpecialShareUnsub = null;
+            // Back off and retry a few times (offline / transient); never spin.
+            S._errors = (S._errors || 0) + 1;
+            if (S._errors <= 5) {
+              setTimeout(function() { try { rrSpecialStartMapListener(); } catch (_) {} }, Math.min(60000, 5000 * S._errors));
+            }
           });
       } catch (e) {
         console.warn('[special-share] listener start failed', e);
         rrSpecialShareMapStarted = false;
       }
-      // Refresh last-ping labels / drop truly stale markers without needing a new snapshot
-      try {
-        setInterval(function() {
-          if (!rrSpecialShareMapStarted || !rrSpecialShareLastDocs) return;
-          try { rrSpecialApplyDocs(null); } catch (_) {}
-        }, 30000);
-      } catch (_) {}
+      // Refresh Last ping labels / drop expired or stale pins between snapshots (one timer only)
+      if (!S._timer) {
+        try {
+          S._timer = setInterval(function() {
+            if (document.visibilityState === 'hidden') return;
+            try { rrSpecialApplyDocs(null); } catch (_) {}
+          }, 30000);
+        } catch (_) {}
+      }
     }
 
     function rrSpecialBindUi() {
@@ -14290,7 +14308,7 @@ async function rrSpecialStopSharing(opts) {
           let pinTries = 0;
           (function pin() {
             if (!rrSpecialShareState) return;
-            if (window.rrMainMap) { try { rrSpecialApplyDocs([pinDoc]); } catch (_) {} return; }
+            if (window.rrMainMap) { try { rrSpecialSetSelfDoc(pinDoc); } catch (_) {} return; }
             if (++pinTries < 20) setTimeout(pin, 1000);
           })();
           rrSpecialPaintDetailMarker(rrSpecialShareState.lastLat, rrSpecialShareState.lastLon, cand.heading);
