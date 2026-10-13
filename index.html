@@ -7408,10 +7408,25 @@
       }
       return firstInitialLabel(displayName, email);
     }
-    async function loadUserSettings(uid) {
+    // Concurrent loads (Safari fires onAuthStateChanged more than once, and Account Settings
+    // reloads too) share one read. Settings are assigned only when the read finishes, so a
+    // gate check never sees reset defaults and shows Terms or onboarding to a finished user.
+    let rrUserSettingsLoad = null;
+    function loadUserSettings(uid) {
+      if (rrUserSettingsLoad && rrUserSettingsLoad.uid === uid) return rrUserSettingsLoad.promise;
+      const promise = readUserSettings(uid).then(function(settings) {
+        currentUserSettings = settings;
+        return settings;
+      }).finally(function() {
+        if (rrUserSettingsLoad && rrUserSettingsLoad.promise === promise) rrUserSettingsLoad = null;
+      });
+      rrUserSettingsLoad = { uid: uid, promise: promise };
+      return promise;
+    }
+    async function readUserSettings(uid) {
       const defaults = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, legalAcceptedAt: null, legalVersion: null, cookieConsent: null, cookieClarity: false, cookiePreferences: true, cookieDecidedAt: null, publicProfile: false, username: '' };
-      currentUserSettings = Object.assign({}, defaults);
-      if (!db || !uid) return currentUserSettings;
+      let settings = Object.assign({}, defaults);
+      if (!db || !uid) return settings;
       try {
         const snap = await db.collection('userSettings').doc(uid).get();
         if (snap.exists) {
@@ -7419,7 +7434,7 @@
           const mode = String(d.reportDisplayMode || 'first_initial');
           const allowed = ['first_initial', 'full_name', 'anonymous', 'custom'];
           const interests = normalizeInterestIds(d.interestedRailroads);
-          currentUserSettings = {
+          settings = {
             reportDisplayMode: allowed.indexOf(mode) !== -1 ? mode : 'first_initial',
             reportCustomLabel: String(d.reportCustomLabel || ''),
             interestedRailroads: interests,
@@ -7436,11 +7451,21 @@
             username: d.username ? String(d.username) : ''
           };
         }
+        if (!settings.legalAccepted) {
+          // Older and seeded accounts recorded agreement only on the accounts mirror.
+          const acct = await db.collection('accounts').doc(uid).get();
+          const a = acct.exists ? (acct.data() || {}) : {};
+          if (a.legalAccepted === true) {
+            settings.legalAccepted = true;
+            settings.legalAcceptedAt = a.legalAcceptedAt ? String(a.legalAcceptedAt) : null;
+            settings.legalVersion = a.legalVersion ? String(a.legalVersion) : null;
+          }
+        }
       } catch (err) {
         console.warn('[userSettings] load failed', err);
-        if (currentUserSettings) currentUserSettings.loadFailed = true;
+        settings.loadFailed = true;
       }
-      return currentUserSettings;
+      return settings;
     }
     let rrLiveTrainReports = [];
     function onTrainReportsUpdated(rows) {
@@ -15554,6 +15579,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               await persistLegalAcceptance(user);
             }
             await refreshAdminState(user);
+            // A later auth callback (another user, or sign-out) owns the gate now.
+            if (currentUser !== user) return;
             if (currentUserSettings && currentUserSettings.loadFailed) {
               console.warn('[auth] userSettings unread; not showing legal/interest gate');
             } else if (!currentUserSettings.legalAccepted) {
