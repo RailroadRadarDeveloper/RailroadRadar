@@ -1946,11 +1946,14 @@
     var trains = [];
     if (!data || typeof data !== 'object') return trains;
     Object.keys(data).forEach(function (k) {
-      if (k === 'v1' || k === 'error') return;
+      if (k === 'error' || (k === 'v1' && !Array.isArray(data[k]))) return;
       var arr = data[k];
       if (!Array.isArray(arr)) return;
       arr.forEach(function (t) {
         if (!t || typeof t !== 'object') return;
+        // VIA Rail trains share the Amtraker feed ('v' numbers, provider Via); not Amtrak.
+        var prov = String(t.provider || '').toLowerCase();
+        if (prov === 'via' || String(t.providerShort || '').toUpperCase() === 'VIA' || /^v\d/i.test(String(t.trainNum || ''))) return;
         var num = String(t.trainNum || t.trainNumRaw || k);
         var lat = parseFloat(t.lat), lng = parseFloat(t.lon);
         var ok = isFinite(lat) && isFinite(lng) && !(lat === 0 && lng === 0);
