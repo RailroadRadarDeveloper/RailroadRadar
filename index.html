@@ -19520,12 +19520,57 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const hasAlert = !!official || !!(t && t.hasAlert) || alerts.length > 0 || disruption;
         return { hasAlert: hasAlert, header: msg || (hasAlert ? 'Active Amtrak alert' : '') };
       }
+      // Exactly MBTA's popup wording/thresholds: text from getOnTimeStatus, pill class from createTrainPopupContent.
+      function rrMbtaStyleDelayStatus(delayMinutes) {
+        const d = Number(delayMinutes);
+        if (delayMinutes == null || !isFinite(d)) return null;
+        const text = Math.abs(d) <= 5 ? 'On Time' : d > 5 ? ('Delayed ' + Math.round(d) + ' min') : ('Early ' + Math.round(Math.abs(d)) + ' min');
+        const cls = Math.abs(d) <= 5 ? 'status-on-time' : (d <= 15) ? 'status-delayed' : 'status-very-delayed';
+        return { text: text, cls: cls };
+      }
+      // Predicted vs scheduled at the next stop (Amtraker stations); falls back to the last departed stop.
+      function amtrakNextStopDelayMinutes(t) {
+        const st = Array.isArray(t && t.stations) ? t.stations : [];
+        if (!st.length) return null;
+        function diff(liveIso, schIso) {
+          if (!liveIso || !schIso) return null;
+          const a = Date.parse(liveIso), b = Date.parse(schIso);
+          return (isFinite(a) && isFinite(b)) ? (a - b) / 60000 : null;
+        }
+        function stopDelay(s, preferDep) {
+          if (!s) return null;
+          let d = preferDep ? diff(s.dep, s.schDep) : diff(s.arr, s.schArr);
+          if (d == null) d = preferDep ? diff(s.arr, s.schArr) : diff(s.dep, s.schDep);
+          if (d == null) {
+            try { d = parseAmtrakDelayMinutes(s); } catch (_) { d = null; }
+          }
+          return d;
+        }
+        let idx = -1;
+        for (let i = 0; i < st.length; i++) {
+          if (String((st[i] && st[i].status) || '').toLowerCase() !== 'departed') { idx = i; break; }
+        }
+        if (idx >= 0) {
+          const atStation = String(st[idx].status || '').toLowerCase() === 'station';
+          const d = stopDelay(st[idx], atStation);
+          if (d != null) return d;
+        }
+        for (let j = (idx >= 0 ? idx : st.length) - 1; j >= 0; j--) {
+          const d = stopDelay(st[j], true);
+          if (d != null) return d;
+        }
+        return null;
+      }
       function createAmtrakPopupContent(vid, t) {
         const num = t.trainNum || t.trainNumRaw || String(vid).replace('amtrak-', '');
         const route = t.routeName || 'Amtrak';
         const dest = t.destName || t.destCode || '—';
         const origin = t.origName || t.origCode || '—';
-        const status = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+        let status = (t.statusMsg && String(t.statusMsg).trim()) || t.trainState || 'Unknown';
+        // Generic 'Active' -> same lateness text/colors as MBTA popups (getOnTimeStatus + createTrainPopupContent)
+        const amtrakDelayMin = (!(t.statusMsg && String(t.statusMsg).trim()) && /^active$/i.test(String(t.trainState || ''))) ? amtrakNextStopDelayMinutes(t) : null;
+        const amtrakMbtaStyle = amtrakDelayMin != null ? rrMbtaStyleDelayStatus(amtrakDelayMin) : null;
+        if (amtrakMbtaStyle) status = amtrakMbtaStyle.text;
         const speed = t.velocity != null ? Math.round(Number(t.velocity)) : 0;
         const heading = t.heading || '—';
         const tripId = t.trainID || num;
@@ -19538,6 +19583,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else if (veryLate) statusPillClass = 'status-very-delayed';
         else if (delayed) statusPillClass = 'status-delayed';
         else if (/predeparture|scheduled|not yet/i.test(status)) statusPillClass = 'status-scheduled';
+        if (amtrakMbtaStyle) statusPillClass = amtrakMbtaStyle.cls;
         const nextStop = (eventName && eventName !== '—') ? eventName : dest;
         const txt = t.trainState === 'Completed'
           ? `Completed · ${origin} to ${dest}`
