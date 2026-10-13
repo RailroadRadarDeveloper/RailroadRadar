@@ -1,0 +1,33 @@
+name: Apply VIA lines Canada clip
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-via-clip.yml'
+permissions:
+  contents: write
+concurrency:
+  group: apply-via-clip
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Rejoin, verify, apply, clean up
+        run: |
+          set -eu
+          if [ ! -f scripts/via-clip.b64.part0 ]; then echo already applied; exit 0; fi
+          echo "7cb5892c9ccd1a34e8a11e072b0d23414e0fee1cc9d094ef8ca33fa54d28f22c  assets/shapes/via.json" | sha256sum -c -
+          cat scripts/via-clip.b64.part0 scripts/via-clip.b64.part1 scripts/via-clip.b64.part2 scripts/via-clip.b64.part3 scripts/via-clip.b64.part4 scripts/via-clip.b64.part5 | tr -d ' \n\r' > /tmp/v.b64
+          echo "6aa98314388e024e2be9215442c992f75e04171d024cf24ae04dd8108d5c85f8  /tmp/v.b64" | sha256sum -c -
+          base64 -d /tmp/v.b64 | gunzip > assets/shapes/via.json
+          echo "6ad367fe7d749ff79e1f508b967a7ccbe4c31a82f4407aaccedcdcaba7442892  assets/shapes/via.json" | sha256sum -c -
+          git rm -q scripts/via-clip.b64.part0 scripts/via-clip.b64.part1 scripts/via-clip.b64.part2 scripts/via-clip.b64.part3 scripts/via-clip.b64.part4 scripts/via-clip.b64.part5 .github/workflows/apply-via-clip.yml
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add assets/shapes/via.json
+          git commit -m "VIA Rail lines: drop the Maple Leaf's US section (lines stay in Canada)"
+          git push origin HEAD:main
