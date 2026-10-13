@@ -1,0 +1,40 @@
+name: Apply VIA Rail route lines
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/via-shapes.*'
+      - '.github/workflows/apply-via-shapes.yml'
+permissions:
+  contents: write
+concurrency:
+  group: apply-via-shapes
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Rejoin, verify, apply, clean up
+        run: |
+          set -eu
+          if [ ! -f scripts/via-shapes.index.patch.gz.b64 ]; then echo already applied; exit 0; fi
+          echo "d0e162848d68e6c3bf6753029993320dbbb913d54acf66375ebac7fa251b9106  index.html" | sha256sum -c -
+          tr -d ' \n\r' < scripts/via-shapes.index.patch.gz.b64 > /tmp/i.b64
+          cat scripts/via-shapes.b64.part0 scripts/via-shapes.b64.part1 scripts/via-shapes.b64.part2 scripts/via-shapes.b64.part3 scripts/via-shapes.b64.part4 scripts/via-shapes.b64.part5 | tr -d ' \n\r' > /tmp/v.b64
+          echo "90d05a2321e422df3b47461f1c5f3c70c59ab6f8f80ba278a6bccbff3293ef80  /tmp/i.b64" | sha256sum -c -
+          echo "bf649a71682357a39c3fb30a7800b2a102ba2b238c4a8de8491ca1176429d494  /tmp/v.b64" | sha256sum -c -
+          base64 -d /tmp/i.b64 | gunzip > /tmp/i.patch
+          patch --no-backup-if-mismatch index.html /tmp/i.patch
+          mkdir -p assets/shapes
+          base64 -d /tmp/v.b64 | gunzip > assets/shapes/via.json
+          echo "fbb0f073229d5d13756ca8cdd25c10c234f609571473ba4d70d83ff25f83f17f  index.html" | sha256sum -c -
+          echo "7cb5892c9ccd1a34e8a11e072b0d23414e0fee1cc9d094ef8ca33fa54d28f22c  assets/shapes/via.json" | sha256sum -c -
+          git rm -q scripts/via-shapes.index.patch.gz.b64 scripts/via-shapes.b64.part0 scripts/via-shapes.b64.part1 scripts/via-shapes.b64.part2 scripts/via-shapes.b64.part3 scripts/via-shapes.b64.part4 scripts/via-shapes.b64.part5 .github/workflows/apply-via-shapes.yml
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html assets/shapes/via.json
+          git commit -m "Add yellow VIA Rail route lines (from VIA GTFS shapes)"
+          git push origin HEAD:main
