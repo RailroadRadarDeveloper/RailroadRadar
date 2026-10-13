@@ -15694,11 +15694,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             rep = activeTrainNumberReports[a][tn] || activeTrainNumberReports[a][tnAlt] || null;
           }
           if (rep) {
+            const locos = normalizeReportLocomotives(rep);
+            const first = locos[0] || null;
+            const locoId = String((first && first.locomotiveId) || rep.locomotiveId || '').trim();
+            const re = locoId ? rosterEntry(a, locoId) : null;
             return {
-              vehicleId: String(rep.vehicleId),
-              unitName: rep.unitName || (rosterEntry(a, rep.vehicleId) || {}).name || String(rep.vehicleId),
+              vehicleId: String(rep.vehicleId || ''),
+              locomotiveId: locoId || null,
+              unitName: (first && first.unitName) || rep.unitName || (re && re.name) || locoId || String(rep.vehicleId || ''),
               fromReport: true,
               report: rep,
+              locoType: (first && first.locoType) || rep.locoType || null,
+              locoIconUrl: (first && first.locoIconUrl) || rep.locoIconUrl || (re && re.iconUrl) || null,
+              isRosterSpecial: !!re,
+              specialOverride: !!((first && first.specialOverride) || rep.specialOverride || re),
+              locomotives: locos,
               trainNumber: tn || String(rep.trainNumber || '')
             };
           }
@@ -15713,6 +15723,39 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return null;
         }
         return null;
+      }
+      function rrReportIconUrl(agency, vehicleId, trainNumber) {
+        try {
+          const spec = (typeof getSpecialForVehicle === 'function')
+            ? getSpecialForVehicle(agency, vehicleId, trainNumber)
+            : null;
+          if (!spec) return null;
+          const direct = spec.locoIconUrl ? String(spec.locoIconUrl).trim() : '';
+          if (direct) return direct;
+          const locoId = String(spec.locomotiveId || '').trim();
+          const re = locoId ? rosterEntry(agency, locoId) : null;
+          if (re && re.iconUrl) return String(re.iconUrl).trim();
+          const a = normalizeAgency(agency);
+          if (a === 'njt' && spec.locoType && typeof resolveNjtLocoIconUrl === 'function') {
+            return resolveNjtLocoIconUrl(spec.locoType);
+          }
+          if (a === 'mbta' && spec.locoType && typeof resolveMbtaLocoIconUrl === 'function') {
+            return resolveMbtaLocoIconUrl(null, spec.locoType);
+          }
+        } catch (_) {}
+        return null;
+      }
+      function rrIconFromUrl(url, className) {
+        let iconUrl = String(url || '').trim();
+        if (!iconUrl) return null;
+        if (/^assets\//i.test(iconUrl)) iconUrl = '/' + iconUrl.replace(/^\/+/, '');
+        return L.icon({
+          iconUrl: (typeof rrAssetUrl === 'function') ? rrAssetUrl(iconUrl) : iconUrl,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -22],
+          className: className || 'train-icon'
+        });
       }
       function specialUnitBadgeHtml(special) {
         if (!special || !special.unitName) return '';
@@ -16477,17 +16520,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const REPORT_LOCO_MAX = 5;
       let reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
 
-      function reportLocoTypeOptionsHtml(selected) {
-        const opts = [
-          ['', '— Select type —'],
-          ['HSP-46', 'HSP-46'],
-          ['F40PH', 'F40PH'],
-          ['GP40MC', 'GP40MC/GP40-3'],
-          ['ALP-46', 'ALP-46'],
-          ['ALP-46A', 'ALP-46A'],
-          ['ALP-45DP', 'ALP-45DP'],
-          ['ALP-45A', 'ALP-45A']
-        ];
+      function reportLocoTypeOptionsHtml(selected, agency) {
+        const a = normalizeAgency(agency || ((document.getElementById('report-agency') || {}).value) || 'mbta');
+        const opts = a === 'njt'
+          ? [['', '— Select type —'], ['ALP-46', 'ALP-46'], ['ALP-46A', 'ALP-46A'], ['ALP-45DP', 'ALP-45DP'], ['ALP-45A', 'ALP-45A']]
+          : [['', '— Select type —'], ['HSP-46', 'HSP-46'], ['F40PH', 'F40PH'], ['GP40MC', 'GP40MC/GP40-3']];
         return opts.map(function(o) {
           return '<option value="' + o[0] + '"' + (selected === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
         }).join('');
@@ -16521,7 +16558,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const wrap = document.getElementById('report-loco-type-wrap-' + i);
           const customEl = document.getElementById('report-custom-vehicle-' + i);
           const customId = ((customEl || {}).value || '').trim();
-          const show = agency === 'mbta' && !!customId;
+          const show = (agency === 'mbta' && !!customId) || agency === 'njt';
           if (wrap) wrap.style.display = show ? '' : 'none';
           if (!show) {
             const lt = document.getElementById('report-loco-type-' + i);
@@ -16634,12 +16671,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const id = customId || rosterId;
         const re = rosterEntry(agency, id);
+        let icon = (re && re.iconUrl) ? String(re.iconUrl).trim() : null;
+        if (!icon && agency === 'njt' && locoType && typeof resolveNjtLocoIconUrl === 'function') {
+          icon = resolveNjtLocoIconUrl(locoType);
+        }
         return {
           locomotiveId: id,
-          locoType: null,
+          locoType: locoType || null,
           unitName: (re && re.name) || id,
-          locoIconUrl: null,
-          specialOverride: false,
+          locoIconUrl: icon,
+          specialOverride: !!re,
           customLoco: !!customId
         };
       }
@@ -18653,6 +18694,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return amtrakDistToPolylineMiles(lat, lon, AMTRAK_EMPIRE_NYP_ALB) <= 10;
       }
       function createAmtrakIcon(trainNum, statusMsg, trainObj) {
+        const reported = rrReportIconUrl('amtrak', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'amtrak-nec-icon');
         // Acela: dedicated icon (Acela only runs on the NEC)
         if (isAcelaTrain(trainObj)) {
           return L.icon({
@@ -19439,6 +19482,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const MNR_NEW_HAVEN_ICON_URL = '/assets/mnr-new-haven.png';
       const MNR_DEFAULT_ICON_URL = '/assets/mnr.png';
       function createMnrIcon(trainNum, color, textColor, routeId) {
+        const reported = rrReportIconUrl('mnr', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'amtrak-nec-icon mnr-default-icon');
         // New Haven Line (route_id 3) uses dedicated custom icon
         if (String(routeId || '') === '3') {
           return L.icon({
@@ -19865,7 +19910,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           };
         });
       }
-      function createLirrIcon() {
+      function createLirrIcon(trainNum) {
+        const reported = rrReportIconUrl('lirr', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'amtrak-nec-icon lirr-icon');
         return L.icon({
           iconUrl: LIRR_ICON_URL,
           iconSize: [44, 44],
@@ -20069,7 +20116,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             seen.add(vid);
             lirrTrainInfo[vid] = info;
             lirrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createLirrIcon();
+            const icon = createLirrIcon(info.trainNum);
             const lirrLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'LIRR',
               trainNum: info.trainNum,
@@ -20210,7 +20257,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         return vehicleId ? String(vehicleId) : '?';
       }
-      function createMetraIcon() {
+      function createMetraIcon(trainNum) {
+        const reported = rrReportIconUrl('metra', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'train-icon metra-icon');
         return L.divIcon({
           className: 'metra-icon',
           html: '<div style="width:16px;height:16px;background:#0055A4;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>',
@@ -20438,7 +20487,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             seen.add(vid);
             metraTrainInfo[vid] = info;
             metraLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createMetraIcon();
+            const icon = createMetraIcon(info.trainNum);
             const metraLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'Metra',
               trainNum: info.trainNum,
@@ -20641,8 +20690,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         return rrAssetUrl((key && NJT_LOCO_TYPES[key]) || NJT_LOCO_ICON);
       }
-      function createNjtIcon(locoType) {
-        const iconUrl = resolveNjtLocoIconUrl(locoType);
+      function createNjtIcon(locoType, trainNum) {
+        const reported = rrReportIconUrl('njt', null, trainNum);
+        const iconUrl = reported || resolveNjtLocoIconUrl(locoType);
         if (!createNjtIcon._cache) createNjtIcon._cache = {};
         if (createNjtIcon._cache[iconUrl]) return createNjtIcon._cache[iconUrl];
         const icon = L.icon({
@@ -20780,7 +20830,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             njtTrainInfo[vid] = info;
             njtLastSeen[vid] = rrSeenMs(raw.timestamp || raw.updatedAt || raw.updated || raw.lastUpdated, now);
             const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
-            const icon = createNjtIcon(njtLocoType);
+            const icon = createNjtIcon(njtLocoType, info.trainNum);
             const labelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'NJ Transit',
               trainNum: info.trainNum,
@@ -20920,7 +20970,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (m) return m[1];
         return s.replace(/^Train/i, '') || '?';
       }
-      function createMarcIcon() {
+      function createMarcIcon(trainNum) {
+        const reported = rrReportIconUrl('marc', null, trainNum);
+        if (reported) return rrIconFromUrl(reported, 'train-icon marc-icon');
         return L.divIcon({
           className: 'marc-icon',
           html: '<div style="width:16px;height:16px;background:#FF8000;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>',
@@ -21069,7 +21121,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             seen.add(vid);
             marcTrainInfo[vid] = info;
             marcLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createMarcIcon();
+            const icon = createMarcIcon(info.trainNum);
             const labelInfo = (typeof buildCyclingTrainInfo === 'function') ? buildCyclingTrainInfo({
               agency: 'MARC', routeName: info.routeName, trainNum: info.trainNum, dest: info.destName,
               statusText: info.statusText, lat: info.lat, lng: info.lng
