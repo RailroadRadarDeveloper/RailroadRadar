@@ -9259,11 +9259,14 @@
         if (isFinite(lat) && isFinite(lon)) dest = [lat, lon];
       }
       let line = null;
-      // Special move / extra: never prefill scheduled route geometry — OD dots (+ light dashed) only.
-      const isSpecial = !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      // Special move / extra: never prefill scheduled route geometry — OD dots only (no route/dashed line).
+      /* RR special-move no route line 2026-10-05 */
+      const isSpecial = (typeof rrTripIsSpecialMove === 'function')
+        ? rrTripIsSpecialMove(data)
+        : !!(data && (data.specialMove === true || data.specialMove === 'true'));
       if (origin && dest) {
         if (isSpecial) {
-          line = null; // paintTrip* will draw dashed OD when line is absent
+          line = null; // paintTrip* skips all polylines for special; OD dots only
         } else {
           const polys = rrGetCachedTripPolylines(ids.railroad, ids.lineId);
           if (polys && polys.length) {
@@ -9315,7 +9318,7 @@
 
     function rrEnsureTripGeomsShapes(data) {
       // Special moves: no scheduled shapes
-      if (data && (data.specialMove === true || data.specialMove === 'true')) {
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data && (data.specialMove === true || data.specialMove === 'true'))) {
         return Promise.resolve();
       }
       const segs = rrTripSegmentsForMap(data);
@@ -9474,7 +9477,7 @@ function tripCardStationDotIcon() {
 
       const bounds = [];
       /* Special move / extra: OD dots only */
-      var odOnly = !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      var odOnly = (typeof rrTripIsSpecialMove === 'function') ? rrTripIsSpecialMove(data) : !!(data && (data.specialMove === true || data.specialMove === 'true'));
       /* Trip transfer dots */
       segs.forEach(function(g) {
         if (!odOnly && g.line && g.line.length >= 2) {
@@ -9683,7 +9686,7 @@ function tripCardStationDotIcon() {
 
       const bounds = [];
       /* Special move / extra: OD dots only */
-      var odOnly = !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      var odOnly = (typeof rrTripIsSpecialMove === 'function') ? rrTripIsSpecialMove(data) : !!(data && (data.specialMove === true || data.specialMove === 'true'));
       /* Trip transfer dots */
       segs.forEach(function(g) {
         if (!odOnly && g.line && g.line.length >= 2) {
@@ -9809,11 +9812,11 @@ function tripCardStationDotIcon() {
       const segs = Array.isArray(data.segments) ? data.segments : null;
       if (segs && segs.length) {
         return {
-          origin: segs[0].originName || data.originName || '?',
-          dest: segs[segs.length - 1].destName || data.destName || '?'
+          origin: rrTripOdName(data, 'origin'),
+          dest: rrTripOdName(data, 'dest')
         };
       }
-      return { origin: data.originName || '?', dest: data.destName || '?' };
+      return { origin: rrTripOdName(data, 'origin'), dest: rrTripOdName(data, 'dest') };
     }
 
     function fillTripDetailPanel(data) {
@@ -9989,7 +9992,7 @@ function tripCardStationDotIcon() {
             '<span class="trip-rail-badge-train">Leg ' + (i + 1) + '</span>';
           const odEl = document.createElement('div');
           odEl.className = 'trip-detail-seg-od';
-          odEl.innerHTML = tripRouteOdHtml(s.originName, s.destName);
+          odEl.innerHTML = tripRouteOdHtml(rrTripSegOdName(s, data, 'origin') || '?', rrTripSegOdName(s, data, 'dest') || '?');
           const sub = document.createElement('div');
           sub.className = 'trip-detail-seg-sub';
           const bits = [];
@@ -10046,7 +10049,18 @@ function tripCardStationDotIcon() {
       if (!isFinite(start)) return false;
       const now = Date.now();
       if (now < start - TRIP_LIVE_PRE_DEPART_MS) return false;
-      const end = endIso ? Date.parse(endIso) : NaN;
+      let end = endIso ? Date.parse(endIso) : NaN;
+      // RR special-move reload fix: special moves saved without an arrive time used to store
+      // arriveTime = departTime, so the trip looked finished the moment it began (and on reload).
+      // Treat those as open-ended (5h share window), and keep any trip with an active share live.
+      if (typeof rrTripIsSpecialMove === 'function' && rrTripIsSpecialMove(data)) {
+        const lastSeg = segs && segs.length ? segs[segs.length - 1] : null;
+        const openEnded = data.openEnded === true || !!(lastSeg && lastSeg.openEnded === true);
+        if (openEnded || !isFinite(end) || (end - start) < 60 * 1000) {
+          try { if (typeof rrSpecialShareIsForTrip === 'function' && rrSpecialShareIsForTrip(data)) return true; } catch (_) {}
+          end = Math.max(isFinite(end) ? end : 0, start + 5 * 60 * 60 * 1000);
+        }
+      }
       // Finished past trips: hide live chip / "Looking for…" once arrive time has passed.
       // Keep live only while the ride is in progress (or within pre-depart window).
       if (isFinite(end)) {
@@ -10151,7 +10165,7 @@ function tripCardStationDotIcon() {
 
     function tripFindLiveRowForTrip(data) {
       // Special move / extra is not a scheduled CR/Amtrak train — never match live feed rows.
-      if (data && (data.specialMove === true || data.specialMove === 'true')) return null;
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data && (data.specialMove === true || data.specialMove === 'true'))) return null;
       const seg = tripLivePickSegment(data);
       const agency = tripNormalizeAgency(seg.railroad || data.railroad);
       const trainNum = String(seg.trainNumber || data.trainNumber || '').split('/')[0].replace(/^#/, '').trim();
@@ -10326,9 +10340,9 @@ function tripCardStationDotIcon() {
         return;
       }
       // Special move: no GTFS "Looking for your train" — location share is the live signal.
-      if (tripLiveData && (tripLiveData.specialMove === true || tripLiveData.specialMove === 'true')) {
+      if (tripLiveData && (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(tripLiveData) : (tripLiveData.specialMove === true || tripLiveData.specialMove === 'true'))) {
         const title = String(tripLiveData.trainTitle || 'Special move').trim();
-        const sharing = !!(rrSpecialShareState && rrSpecialShareState.tripId === tripLiveActiveId && rrSpecialShareWatchId != null);
+        const sharing = !!(rrSpecialShareState && rrSpecialShareState.tripId === tripLiveActiveId && rrSpecialShareState.lastWriteAt);
         tripLiveSetStatus(sharing ? ('Sharing · ' + title) : ('Special move · ' + title), sharing ? 'on-time' : 'miss');
         tripLiveClearMarker();
         tripLiveMisses = 0;
@@ -10369,7 +10383,7 @@ function tripCardStationDotIcon() {
       if (!tripId || !data || !tripIsInProgressLight(data)) {
         tripLiveSetStatus('', '');
         try {
-          if (tripId && data && !(data.specialMove === true || data.specialMove === 'true')) {
+          if (tripId && data && !(typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true'))) {
             tripTryEnrichActualTimes(tripId, data);
           }
         } catch (_) {}
@@ -10387,7 +10401,14 @@ function tripCardStationDotIcon() {
           }
         });
       }
-      tripLiveSetStatus('Tracking live…', 'on-time');
+      // Special moves: never pretend we are GTFS-tracking a scheduled train
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data && (data.specialMove === true || data.specialMove === 'true'))) {
+        const stitle = String((data && data.trainTitle) || 'Special move').trim();
+        tripLiveSetStatus('Special move · ' + stitle, 'miss');
+        tripLiveClearMarker();
+      } else {
+        tripLiveSetStatus('Tracking live…', 'on-time');
+      }
       // Slight delay so detail map exists
       setTimeout(function() { tripLiveTick(); }, 400);
       tripLiveTimer = setInterval(tripLiveTick, TRIP_LIVE_POLL_MS);
@@ -10413,9 +10434,9 @@ function tripCardStationDotIcon() {
           return;
         }
         // Special move cards: never look like a scheduled live train
-        if (data.specialMove === true || data.specialMove === 'true') {
+        if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true')) {
           const stitle = String(data.trainTitle || 'Special move').trim();
-          const sharing = !!(typeof rrSpecialShareState !== 'undefined' && rrSpecialShareState && rrSpecialShareState.tripId === id && rrSpecialShareWatchId != null);
+          const sharing = !!(typeof rrSpecialShareState !== 'undefined' && rrSpecialShareState && rrSpecialShareState.tripId === id && rrSpecialShareState.lastWriteAt);
           tripLiveSetCardStatus(rowEl, sharing ? ('Sharing · ' + stitle) : ('Special move · ' + stitle), sharing ? 'on-time' : 'miss');
           tripLiveClearCardMarker(id);
           return;
@@ -10673,6 +10694,8 @@ function tripCardStationDotIcon() {
 
     async function tripTryEnrichActualTimes(tripId, data) {
       if (!tripId || !data || !db) return false;
+      // Special moves have no GTFS trip to enrich from
+      if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true')) return false;
       if (data.actualTimesEnrichedAt && data.actualDepartTime && data.actualArriveTime) return false;
       if (!tripHasEndedForEnrich(data) && tripIsInProgressLight(data)) return false;
       // Allow enrich when ended OR when open detail of a trip past its arrive window
@@ -12060,6 +12083,99 @@ function closeTripDetailView(opts) {
       if (name === 'list') loadTripLogList(true);
     }
 
+    function rrTripStationNameFor(rr, id) {
+      if (!id) return '';
+      try {
+        const st = findTripStation(rr, id);
+        if (st && st.name) return String(st.name);
+      } catch (_) {}
+      return '';
+    }
+
+    function rrTripSegStationFallback(seg, id) {
+      const sid = String(id || '');
+      if (!seg || !sid) return null;
+      const lists = [];
+      try { lists.push(tripStationsForSegment(seg) || []); } catch (_) {}
+      if (Array.isArray(seg.scheduleStops)) lists.push(seg.scheduleStops);
+      try { if (seg.lineId) lists.push(getTripLogStationsForLine(String(seg.railroad || '').toLowerCase(), seg.lineId) || []); } catch (_) {}
+      for (let a = 0; a < lists.length; a++) {
+        const l = lists[a];
+        for (let b = 0; b < l.length; b++) {
+          if (l[b] && String(l[b].id) === sid) return { id: sid, name: String(l[b].name || sid) };
+        }
+      }
+      return { id: sid, name: '' };
+    }
+
+    function rrTripSegOdName(seg, data, which) {
+      const isO = which === 'origin';
+      const nm = seg && (isO ? seg.originName : seg.destName);
+      if (nm) return String(nm);
+      const rr = (seg && seg.railroad) || (data && data.railroad);
+      const id = seg && (isO ? seg.originStationId : seg.destStationId);
+      return rrTripStationNameFor(rr, id);
+    }
+
+    function rrTripOdName(data, which) {
+      if (!data) return '?';
+      const isO = which === 'origin';
+      const segs = Array.isArray(data.segments) && data.segments.length ? data.segments : null;
+      const seg = segs ? (isO ? segs[0] : segs[segs.length - 1]) : null;
+      return rrTripSegOdName(seg, data, which) ||
+        (isO ? data.originName : data.destName) ||
+        rrTripStationNameFor(data.railroad, isO ? data.originStationId : data.destStationId) ||
+        (isO ? data.originStationId : data.destStationId) || '?';
+    }
+
+    // Repair trips saved with station ids but no names (merge-only; never removes fields).
+    function rrTripRepairStationNames(tripId, data) {
+      if (!data || !tripId) return false;
+      const patch = {};
+      const segs = Array.isArray(data.segments) ? data.segments : null;
+      if (segs && segs.length) {
+        let segChanged = false;
+        const next = segs.map(function(sg) {
+          if (!sg || typeof sg !== 'object') return sg;
+          const out = Object.assign({}, sg);
+          const rr = out.railroad || data.railroad;
+          if (!out.originName && out.originStationId) {
+            const n = rrTripStationNameFor(rr, out.originStationId);
+            if (n) { out.originName = n; segChanged = true; }
+          }
+          if (!out.destName && out.destStationId) {
+            const n2 = rrTripStationNameFor(rr, out.destStationId);
+            if (n2) { out.destName = n2; segChanged = true; }
+          }
+          return out;
+        });
+        if (segChanged) { patch.segments = next; data.segments = next; }
+      }
+      const s0 = data.segments && data.segments.length ? data.segments[0] : null;
+      const sN = data.segments && data.segments.length ? data.segments[data.segments.length - 1] : null;
+      if (!data.originName) {
+        const n = (s0 && s0.originName) || rrTripStationNameFor(data.railroad, data.originStationId || (s0 && s0.originStationId));
+        if (n) { patch.originName = n; data.originName = n; }
+      }
+      if (!data.destName) {
+        const n = (sN && sN.destName) || rrTripStationNameFor((sN && sN.railroad) || data.railroad, data.destStationId || (sN && sN.destStationId));
+        if (n) { patch.destName = n; data.destName = n; }
+      }
+      if (!data.originStationId && s0 && s0.originStationId) { patch.originStationId = s0.originStationId; data.originStationId = s0.originStationId; }
+      if (!data.destStationId && sN && sN.destStationId) { patch.destStationId = sN.destStationId; data.destStationId = sN.destStationId; }
+      if (!Object.keys(patch).length) return false;
+      try {
+        const u = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (db && u && data.userId === u.uid) {
+          patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+          db.collection('tripLogs').doc(tripId).set(patch, { merge: true }).catch(function(e) {
+            console.warn('[trip-log] station name repair failed', e);
+          });
+        }
+      } catch (_) {}
+      return true;
+    }
+
     function tripRouteOdHtml(origin, dest) {
       const o = String(origin == null || origin === '' ? '?' : origin).replace(/</g, '&lt;');
       const d = String(dest == null || dest === '' ? '?' : dest).replace(/</g, '&lt;');
@@ -12071,12 +12187,12 @@ function closeTripDetailView(opts) {
     function tripDisplayRouteHtml(data) {
       const segs = Array.isArray(data.segments) ? data.segments : null;
       if (segs && segs.length) {
-        const o = segs[0].originName || data.originName || '?';
-        const d = segs[segs.length - 1].destName || data.destName || '?';
+        const o = rrTripOdName(data, 'origin');
+        const d = rrTripOdName(data, 'dest');
         const n = segs.length;
         return tripRouteOdHtml(o, d) + (n > 1 ? (' <span class="trip-route-extra">(' + n + ' trains)</span>') : '');
       }
-      return tripRouteOdHtml(data.originName, data.destName);
+      return tripRouteOdHtml(rrTripOdName(data, 'origin'), rrTripOdName(data, 'dest'));
     }
 
     function tripDisplayRail(data) {
@@ -12367,11 +12483,21 @@ function closeTripDetailView(opts) {
       let pastCount = pastRows ? pastRows.querySelectorAll('.trip-log-row').length : 0;
       docs.forEach(function(doc) {
         const data = doc.data() || {};
+        // Normalize special-move flag so live matching never treats these as scheduled trains
+        try {
+          if (typeof rrTripIsSpecialMove === 'function' && rrTripIsSpecialMove(data)) {
+            data.specialMove = true;
+            if (!data.kind) data.kind = 'specialMove';
+          } else {
+            data.specialMove = false;
+          }
+        } catch (_) {}
         const row = document.createElement('div');
         row.className = 'trip-log-row';
         row.setAttribute('data-trip-id', doc.id);
         row.setAttribute('role', 'button');
         row.setAttribute('tabindex', '0');
+        try { rrTripRepairStationNames(doc.id, data); } catch (_) {}
         tripLogDataById[doc.id] = data;
         const railIds = tripRailIdsFromData(data);
         const route = tripDisplayRouteHtml(data);
@@ -12403,7 +12529,7 @@ function closeTripDetailView(opts) {
             const rr = String(s.railroad || '').toLowerCase();
             const line = s.lineName ? String(s.lineName) : '';
             const tn = s.trainNumber ? ('Train ' + s.trainNumber) : '';
-            const odHtml = tripRouteOdHtml(s.originName, s.destName);
+            const odHtml = tripRouteOdHtml(rrTripSegOdName(s, data, 'origin') || '?', rrTripSegOdName(s, data, 'dest') || '?');
             const bits = [];
             if (line) bits.push(String(line).replace(/</g, '&lt;'));
             if (tn) bits.push(String(tn).replace(/</g, '&lt;'));
@@ -12610,8 +12736,15 @@ function closeTripDetailView(opts) {
         if (departIso && arriveIso && Date.parse(arriveIso) < Date.parse(departIso)) {
           throw new Error('Segment ' + (i + 1) + ': arrive must be at or after depart.');
         }
-        let origin = originId ? findTripStation(rr, originId) : null;
-        let dest = destId ? findTripStation(rr, destId) : null;
+        if (isSpecial && (!originId || !destId)) {
+          let segStations = [];
+          try { segStations = tripStationsForSegment(seg) || []; } catch (_) {}
+          if (segStations.length) throw new Error('Segment ' + (i + 1) + ': pick the From and To stations.');
+        }
+        // Special/Extra legs often use schedule-stop or full-list ids that the railroad index
+        // does not know; fall back to the segment's own lists and never drop the id or name.
+        let origin = originId ? (findTripStation(rr, originId) || rrTripSegStationFallback(seg, originId)) : null;
+        let dest = destId ? (findTripStation(rr, destId) || rrTripSegStationFallback(seg, destId)) : null;
         if (!routeOptional && (!origin || !dest)) throw new Error('Segment ' + (i + 1) + ': station not found for this railroad.');
         const originCanon = origin ? String(origin.id || originId) : '';
         const destCanon = dest ? String(dest.id || destId) : '';
@@ -12619,6 +12752,7 @@ function closeTripDetailView(opts) {
         if (miles == null) miles = 0;
         totalMiles += Number(miles) || 0;
         const nowIso = new Date().toISOString();
+        const isSpecialSeg = !!(specialOpts && specialOpts.specialMove);
         const segOut = {
           railroad: rr,
           lineId: lineId,
@@ -12627,17 +12761,24 @@ function closeTripDetailView(opts) {
           originName: origin ? String(origin.name || originCanon) : '',
           destStationId: destCanon,
           destName: dest ? String(dest.name || destCanon) : '',
-          trainNumber: trainNumber || ((specialOpts && specialOpts.specialMove) ? 'Extra' : ''),
+          // Special: never keep a live/scheduled train number that would re-bind GTFS matching
+          trainNumber: isSpecialSeg ? 'Extra' : trainNumber,
           departTime: departIso || nowIso,
           arriveTime: arriveIso || departIso || nowIso,
           miles: Number(miles) || 0
         };
+        if (isSpecialSeg && !arriveIso) segOut.openEnded = true;
         if (specialOpts && specialOpts.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
           segOut.liveLat = Number(window.rrSpecialLastFix.lat);
           segOut.liveLon = Number(window.rrSpecialLastFix.lon);
         }
-        const vid = String(seg.vehicleId || '').trim();
-        if (vid) segOut.vehicleId = vid.slice(0, 64);
+        if (isSpecialSeg) {
+          segOut.specialMove = true;
+          // Strip live vehicle id — otherwise list/detail can re-attach to the scheduled train
+        } else {
+          const vid = String(seg.vehicleId || '').trim();
+          if (vid) segOut.vehicleId = vid.slice(0, 64);
+        }
         segments.push(segOut);
       }
       const first = segments[0];
@@ -12645,7 +12786,10 @@ function closeTripDetailView(opts) {
       const startIso = first.departTime;
       const startMs = Date.parse(startIso);
       const endIso = last.arriveTime || null;
-      const trainJoined = segments.map(function(s) { return s.trainNumber; }).join(' / ');
+      const isSpecialTrip = !!(specialOpts && specialOpts.specialMove);
+      const trainJoined = isSpecialTrip
+        ? 'Extra'
+        : segments.map(function(s) { return s.trainNumber; }).join(' / ');
       const railroads = [];
       const seenRr = {};
       segments.forEach(function(s) {
@@ -12669,6 +12813,8 @@ function closeTripDetailView(opts) {
         segmentCount: segments.length,
         segments: segments,
         specialMove: !!(specialOpts && specialOpts.specialMove),
+        openEnded: !!(isSpecialTrip && segments.some(function(s) { return s.openEnded === true; })),
+        kind: (specialOpts && specialOpts.specialMove) ? 'specialMove' : null,
         trainTitle: (specialOpts && specialOpts.trainTitle) ? String(specialOpts.trainTitle).slice(0, 80) : null
       };
     }
@@ -12802,9 +12948,11 @@ function closeTripDetailView(opts) {
         try { await ensureTripLogStats({ force: true }); }
         catch (_) { await loadTripLogStatsFromServer(); }
         switchTripLogTab('list');
+        return tripRef.id;
       } catch (e) {
         console.warn('[trip-log] save failed', e);
         setTripLogError('Could not save trip. ' + String((e && e.message) || e));
+        return null;
       } finally {
         if (saveBtn) saveBtn.disabled = false;
       }
@@ -13021,6 +13169,23 @@ function closeTripDetailView(opts) {
     let rrSpecialShareMapStarted = false;
     let rrSpecialShareLastDocs = null;
 
+    /* RR special-move never-live 2026-10-05 */
+    function rrTripIsSpecialMove(data) {
+      if (!data) return false;
+      const v = data.specialMove;
+      if (v === true || v === 1) return true;
+      if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        if (s === 'true' || s === '1' || s === 'yes' || s === 'special') return true;
+      }
+      // Redundant stamp from save (survives partial writes / older clients)
+      if (data.kind === 'specialMove' || data.tripKind === 'specialMove') return true;
+      const title = String(data.trainTitle || '').trim();
+      if (title && (data.isSpecialMove === true || data.isSpecial === true)) return true;
+      return false;
+    }
+    window.rrTripIsSpecialMove = rrTripIsSpecialMove;
+
     function rrSpecialFirstName(user) {
       try {
         const n = String((user && user.displayName) || '').trim();
@@ -13090,7 +13255,12 @@ function rrSpecialSyncTitleWrap() {
         tripLogSegmentsState.forEach(function(seg) {
           if (!seg) return;
           seg.trainExtraMode = true;
-          seg.useFullStationList = true;
+          // Keep schedule stops when From/To were already picked from them, otherwise the
+          // re-render drops those ids and the trip saves as "? to ?".
+          const keepSched = Array.isArray(seg.scheduleStops) && seg.scheduleStops.length && (seg.originId || seg.destId) && !seg.useFullStationList;
+          if (!keepSched) seg.useFullStationList = true;
+          // Do not carry a live-train vehicleId into a Special move log
+          seg.vehicleId = '';
         });
       }
       try { renderTripSegmentsForm(); } catch (_) {}
@@ -13106,7 +13276,9 @@ function rrSpecialSyncTitleWrap() {
     function rrSpecialFillFormFields(data) {
       const cb = document.getElementById('trip-log-special-move');
       const titleEl = document.getElementById('trip-log-train-title');
-      const isSpecial = !!(data && (data.specialMove === true || data.specialMove === 'true'));
+      const isSpecial = (typeof rrTripIsSpecialMove === 'function')
+        ? rrTripIsSpecialMove(data)
+        : !!(data && (data.specialMove === true || data.specialMove === 'true'));
       if (cb) cb.checked = isSpecial;
       if (titleEl) titleEl.value = (data && data.trainTitle) ? String(data.trainTitle) : '';
       rrSpecialSyncTitleWrap();
@@ -13130,34 +13302,51 @@ function rrSpecialSyncTitleWrap() {
       return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
     }
 
+    // localStorage (not sessionStorage) so an active share survives reloads and tab restores.
     function rrSpecialPersistLocal(state) {
       try {
         if (!state) {
+          localStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
           sessionStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
           return;
         }
-        sessionStorage.setItem(RR_SPECIAL_SHARE_LS_KEY, JSON.stringify({
+        localStorage.removeItem('rrSpecialShareStopped');
+        localStorage.setItem(RR_SPECIAL_SHARE_LS_KEY, JSON.stringify({
           uid: state.uid,
           tripId: state.tripId,
           title: state.title,
           startedAt: state.startedAt,
-          expiresAt: state.expiresAt
+          expiresAt: state.expiresAt,
+          updatedAt: state.lastWriteAt || state.startedAt || Date.now(),
+          lastLat: state.lastLat != null ? state.lastLat : null,
+          lastLon: state.lastLon != null ? state.lastLon : null
         }));
       } catch (_) {}
     }
 
     function rrSpecialLoadLocal() {
       try {
-        const raw = sessionStorage.getItem(RR_SPECIAL_SHARE_LS_KEY);
+        const raw = localStorage.getItem(RR_SPECIAL_SHARE_LS_KEY) || sessionStorage.getItem(RR_SPECIAL_SHARE_LS_KEY);
         if (!raw) return null;
         const o = JSON.parse(raw);
         if (!o || !o.uid || !o.tripId || !o.expiresAt) return null;
         if (Date.now() >= Number(o.expiresAt)) {
+          localStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
           sessionStorage.removeItem(RR_SPECIAL_SHARE_LS_KEY);
           return null;
         }
         return o;
       } catch (_) { return null; }
+    }
+
+    // True when this device holds an active, unexpired share for this trip.
+    function rrSpecialShareIsForTrip(data) {
+      const st = rrSpecialShareState;
+      if (!st || !data || Date.now() >= Number(st.expiresAt)) return false;
+      const byId = (typeof tripLogDataById !== 'undefined') ? tripLogDataById[st.tripId] : null;
+      if (byId && byId === data) return true;
+      return !!(byId && byId.startTime && byId.startTime === data.startTime &&
+        String(byId.trainTitle || '') === String(data.trainTitle || ''));
     }
 
     function rrSpecialSetShareStatus(msg, isError) {
@@ -13185,10 +13374,12 @@ function rrSpecialSyncTitleWrap() {
       /* Sharing is ON only after a successful geo fix */
       const sharing = !!(rrSpecialShareState && rrSpecialShareState.lastWriteAt);
       const pending = !!(rrSpecialShareState && !sharing);
+      const resume = !!(rrSpecialShareState && rrSpecialShareState.resumeNeeded);
       if (startBtn) {
-        startBtn.hidden = sharing;
-        startBtn.disabled = pending;
-        if (pending) startBtn.textContent = 'Waiting for location…';
+        startBtn.hidden = sharing && !resume;
+        startBtn.disabled = pending && !resume;
+        if (resume) startBtn.textContent = 'Tap to resume sharing';
+        else if (pending) startBtn.textContent = 'Waiting for location…';
         else startBtn.textContent = 'Share location';
       }
       if (stopBtn) {
@@ -13201,7 +13392,7 @@ function rrSpecialSyncTitleWrap() {
       const box = document.getElementById('trip-detail-special-share');
       const titleEl = document.getElementById('trip-detail-special-title');
       if (!box) return;
-      const isSpecial = !!(data && data.specialMove);
+      const isSpecial = (typeof rrTripIsSpecialMove === 'function') ? rrTripIsSpecialMove(data) : !!(data && data.specialMove);
       const inProg = !!(data && typeof tripIsInProgressLight === 'function' && tripIsInProgressLight(data));
       const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
       const mine = !!(user && data && data.userId && user.uid === data.userId);
@@ -13217,7 +13408,14 @@ function rrSpecialSyncTitleWrap() {
       // If local share matches this trip, reflect button state
       if (rrSpecialShareState && rrSpecialShareState.tripId === tripId) {
         rrSpecialUpdateShareButtons();
-        if (rrSpecialShareWatchId != null) {
+        try {
+          if (rrSpecialShareState.lastLat != null && rrSpecialShareState.lastLon != null) {
+            rrSpecialPaintDetailMarker(Number(rrSpecialShareState.lastLat), Number(rrSpecialShareState.lastLon));
+          }
+        } catch (_) {}
+        if (rrSpecialShareState.resumeNeeded) {
+          rrSpecialSetShareStatus('Sharing is still on, but location paused after reload. Tap to resume sharing.', true);
+        } else if (rrSpecialShareWatchId != null) {
           try { rrSpecialStatusLine(); } catch (_) {
             const left = Math.max(0, Number(rrSpecialShareState.expiresAt) - Date.now());
             const hrs = Math.floor(left / 3600000);
@@ -13327,7 +13525,7 @@ function rrSpecialSyncTitleWrap() {
               m.setLatLng([ping.lat, ping.lon]);
               try { m.setPopupContent(html); } catch (_) {}
             } else {
-              m = L.marker([ping.lat, ping.lon], { icon: rrSpecialCreateIcon(d.heading), zIndexOffset: 1800 });
+              m = L.marker([ping.lat, ping.lon], { icon: rrSpecialCreateIcon(ping.heading), zIndexOffset: 1800 });
               m.bindPopup(html, { maxWidth: 240 });
               m.addTo(window.rrMainMap);
               rrSpecialShareMarkers[uid] = m;
@@ -13468,6 +13666,12 @@ function rrSpecialSyncTitleWrap() {
         }
       } catch (_) {}
       try { if (typeof rrSpecialStartMapListener === 'function') rrSpecialStartMapListener(); } catch (_) {}
+      // The fix + successful save count as a real ping; keep sending from this page too.
+      if (rrSpecialShareState) {
+        rrSpecialShareState.lastWriteAt = startedAt;
+        try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+        try { rrSpecialResumeSharing(false); } catch (_) {}
+      }
       rrShowStopShare(true);
       if (typeof showNotification === 'function') showNotification('Live trip is on the map');
     }
@@ -13486,6 +13690,8 @@ async function rrSpecialStopSharing(opts) {
       rrSpecialShareState = null;
       rrSpecialShareQueue = [];
       rrSpecialPersistLocal(null);
+      try { localStorage.setItem('rrSpecialShareStopped', '1'); } catch (_) {}
+      try { rrSpecialShowResumeBanner(false); } catch (_) {}
       try { rrShowStopShare(false); } catch (_) {}
       if (st && db && st.uid) {
         try {
@@ -13518,7 +13724,7 @@ async function rrSpecialStopSharing(opts) {
 
     let rrSpecialDetailMarker = null;
 
-    function rrSpecialPaintDetailMarker(lat, lon) {
+    function rrSpecialPaintDetailMarker(lat, lon, heading) {
       try {
         if (!tripDetailMap || typeof L === 'undefined') return;
         if (!isFinite(lat) || !isFinite(lon)) return;
@@ -13526,7 +13732,7 @@ async function rrSpecialStopSharing(opts) {
           rrSpecialDetailMarker.setLatLng([lat, lon]);
         } else {
           rrSpecialDetailMarker = L.marker([lat, lon], {
-            icon: rrSpecialCreateIcon(d.heading),
+            icon: rrSpecialCreateIcon(heading),
             zIndexOffset: 2000,
             keyboard: false
           }).addTo(tripDetailMap);
@@ -13550,7 +13756,7 @@ async function rrSpecialStopSharing(opts) {
         rrSpecialSetShareStatus('Sign in to share location.', true);
         return;
       }
-      if (!data || !(data.specialMove === true || data.specialMove === 'true')) {
+      if (!data || !(typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true'))) {
         rrSpecialSetShareStatus('Mark this trip as a Special move first.', true);
         return;
       }
@@ -13857,6 +14063,10 @@ async function rrSpecialStopSharing(opts) {
           try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
           const tripId = tripDetailOpenId;
           const data = tripId ? tripLogDataById[tripId] : null;
+          if (rrSpecialShareState && rrSpecialShareState.tripId === tripId && Date.now() < Number(rrSpecialShareState.expiresAt)) {
+            try { rrSpecialResumeSharing(true); } catch (e) { console.warn('[special-share] resume failed', e); }
+            return;
+          }
           // Fire immediately from the gesture; rrSpecialStartSharing requests geo sync before any await when possible.
           try { rrSpecialStartSharing(tripId, data); } catch (e) {
             console.warn('[special-share] start failed', e);
@@ -13885,12 +14095,231 @@ async function rrSpecialStopSharing(opts) {
       }
     }
 
-    // Resume share after reload if still within window (user must re-grant geo via gesture — we only restore UI state, not auto-watch)
-    function rrSpecialRestoreHint() {
-      const local = rrSpecialLoadLocal();
-      if (!local) return;
-      // Do not auto-start watch without gesture; clear stale local if expired handled in load
+    // ---- Resume an active share after reload (RR special-move reload fix) ----
+    // The share doc stays active across reloads; only Stop, 5h expiry or trip end end it.
+    function rrSpecialShowResumeBanner(on, msg) {
+      let el = document.getElementById('rr-special-resume');
+      if (!on) {
+        if (el) el.style.display = 'none';
+        return;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'rr-special-resume';
+        el.setAttribute('role', 'alert');
+        el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:10060;display:flex;flex-direction:column;gap:8px;background:#07093e;color:#fff;padding:12px 14px;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.4);font:600 14px/1.35 sans-serif;max-width:520px;margin:0 auto;';
+        el.innerHTML = '<span id="rr-special-resume-text"></span>' +
+          '<button type="button" id="rr-special-resume-btn" style="background:#b00020;color:#fff;border:0;border-radius:999px;padding:12px 16px;font:800 16px/1 sans-serif;cursor:pointer;">Tap to resume sharing</button>';
+        (document.body || document.documentElement).appendChild(el);
+        el.querySelector('#rr-special-resume-btn').addEventListener('click', function(ev) {
+          try { ev.preventDefault(); ev.stopPropagation(); } catch (_) {}
+          rrSpecialResumeSharing(true);
+        });
+      }
+      const t = el.querySelector('#rr-special-resume-text');
+      if (t) t.textContent = msg || '';
+      el.style.display = 'flex';
     }
+
+    function rrSpecialNeedResume(msg) {
+      const st = rrSpecialShareState;
+      if (!st) return;
+      st.resumeNeeded = true;
+      const title = String(st.title || 'Special move');
+      rrSpecialShowResumeBanner(true, 'Sharing · ' + title + ' — location paused after reload.' + (msg ? (' ' + msg) : ''));
+      rrSpecialSetShareStatus('Sharing is still on, but location paused after reload. Tap to resume sharing.', true);
+      rrSpecialUpdateShareButtons();
+    }
+
+    function rrSpecialRefreshLiveUi() {
+      try { if (typeof tripListLiveTick === 'function') tripListLiveTick(); } catch (_) {}
+      try { if (tripLiveActiveId) tripLiveTick(); } catch (_) {}
+      try {
+        if (tripDetailOpenId && tripLogDataById[tripDetailOpenId]) rrSpecialPaintDetailShare(tripDetailOpenId, tripLogDataById[tripDetailOpenId]);
+      } catch (_) {}
+    }
+
+    function rrSpecialResumeSharing(fromGesture) {
+      const st = rrSpecialShareState;
+      if (!st || !navigator.geolocation) {
+        if (st) rrSpecialNeedResume('Location is not available in this browser.');
+        return;
+      }
+      if (Date.now() >= Number(st.expiresAt)) {
+        rrSpecialStopSharing({ reason: 'expired' });
+        return;
+      }
+      if (rrSpecialShareWatchId != null && !fromGesture) return;
+      const geoOpts = { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 };
+      let gotFix = false;
+      let forced = false;
+      function ok(pos) {
+        if (!rrSpecialShareState || rrSpecialShareState !== st) return;
+        gotFix = true;
+        if (st.resumeNeeded) {
+          st.resumeNeeded = false;
+          rrSpecialShowResumeBanner(false);
+        }
+        const c = pos && pos.coords;
+        if (!c) return;
+        try { rrSpecialPaintDetailMarker(Number(c.latitude), Number(c.longitude), c.heading); } catch (_) {}
+        const force = !forced;
+        forced = true;
+        rrSpecialWriteShare(c, { force: force }).then(function() {
+          try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+        }).catch(function(e) { console.warn('[special-share] resume write', e); });
+        rrSpecialUpdateShareButtons();
+        if (!st.offline) rrSpecialStatusLine();
+      }
+      function err(e) {
+        if (!rrSpecialShareState || rrSpecialShareState !== st) return;
+        console.warn('[special-share] resume geo error', e);
+        if (e && e.code === 1) {
+          // Needs a tap (iOS) or permission was revoked. Keep the share doc active.
+          if (rrSpecialShareWatchId != null) {
+            try { navigator.geolocation.clearWatch(rrSpecialShareWatchId); } catch (_) {}
+            rrSpecialShareWatchId = null;
+          }
+          rrSpecialNeedResume(fromGesture ? 'Allow location for RailroadRadar in Settings, then tap again.' : '');
+          return;
+        }
+        rrSpecialStatusLine('GPS blip — still sharing, waiting for a fix…');
+      }
+      function arm() {
+        if (rrSpecialShareWatchId != null || !rrSpecialShareState) return;
+        try {
+          rrSpecialShareWatchId = navigator.geolocation.watchPosition(ok, err, geoOpts);
+        } catch (e) {
+          console.warn('[special-share] resume watch failed', e);
+          rrSpecialNeedResume('');
+        }
+      }
+      if (fromGesture) {
+        if (rrSpecialShareWatchId != null) {
+          try { navigator.geolocation.clearWatch(rrSpecialShareWatchId); } catch (_) {}
+          rrSpecialShareWatchId = null;
+        }
+        try {
+          navigator.geolocation.getCurrentPosition(function(p) { ok(p); arm(); }, function(e) {
+            err(e);
+            if (!(e && e.code === 1)) arm();
+          }, geoOpts);
+        } catch (e) {
+          rrSpecialNeedResume('');
+        }
+      } else {
+        arm();
+        // No fix soon after a reload usually means iOS wants a gesture.
+        setTimeout(function() {
+          if (rrSpecialShareState === st && !gotFix) rrSpecialNeedResume('');
+        }, 12000);
+      }
+      try { rrSpecialBindOnlineFlush(); } catch (_) {}
+      if (!st._expiryTimer) {
+        st._expiryTimer = setTimeout(function() {
+          if (rrSpecialShareState === st) rrSpecialStopSharing({ reason: 'expired' });
+        }, Math.max(0, Number(st.expiresAt) - Date.now()) + 500);
+      }
+      rrSpecialUpdateShareButtons();
+    }
+
+    async function rrSpecialRestoreForUser(user) {
+      if (!user || !db || rrSpecialShareState) return null;
+      const local = rrSpecialLoadLocal();
+      let cand = (local && local.uid === user.uid) ? Object.assign({}, local) : null;
+      let docRead = false;
+      let docData = null;
+      try {
+        const snap = await db.collection('specialMoveShares').doc(user.uid).get();
+        docRead = true;
+        docData = snap.exists ? (snap.data() || {}) : null;
+      } catch (e) {
+        console.warn('[special-share] restore read failed (using local state)', e);
+      }
+      const now = Date.now();
+      if (docRead) {
+        const live = !!(docData && docData.active === true && Number(docData.expiresAt) > now && docData.tripId);
+        if (!live) {
+          // Stopped/expired elsewhere: drop stale local state.
+          if (cand) rrSpecialPersistLocal(null);
+          return null;
+        }
+        if (!cand || cand.tripId !== docData.tripId) cand = { uid: user.uid, tripId: docData.tripId };
+        cand.title = docData.title || cand.title;
+        cand.startedAt = Number(docData.startedAt) || cand.startedAt || now;
+        cand.expiresAt = Number(docData.expiresAt);
+        cand.updatedAt = Number(docData.updatedAt) || cand.updatedAt;
+        if (docData.lat != null) cand.lastLat = Number(docData.lat);
+        if (docData.lon != null) cand.lastLon = Number(docData.lon);
+        cand.displayName = docData.displayName;
+        cand.heading = docData.heading;
+      }
+      if (!cand || !cand.tripId || !(Number(cand.expiresAt) > now)) return null;
+      // The share must belong to one of this user's special-move trips.
+      let trip = tripLogDataById[cand.tripId] || null;
+      if (!trip) {
+        try {
+          const ts = await db.collection('tripLogs').doc(cand.tripId).get();
+          if (ts.exists) trip = ts.data() || null;
+        } catch (_) {}
+      }
+      if (!trip || trip.userId !== user.uid || !rrTripIsSpecialMove(trip)) return null;
+      if (rrSpecialShareState) return null;
+      rrSpecialShareState = {
+        uid: user.uid,
+        tripId: cand.tripId,
+        title: String(cand.title || trip.trainTitle || 'Special move').slice(0, 80),
+        startedAt: Number(cand.startedAt) || now,
+        expiresAt: Number(cand.expiresAt),
+        lastWriteAt: Number(cand.updatedAt) || Number(cand.startedAt) || now,
+        lastLat: cand.lastLat != null ? Number(cand.lastLat) : null,
+        lastLon: cand.lastLon != null ? Number(cand.lastLon) : null,
+        offline: false,
+        restored: true
+      };
+      rrSpecialPersistLocal(rrSpecialShareState);
+      // Keep the map pin with its Last ping label until a new fix arrives.
+      try {
+        if (rrSpecialShareState.lastLat != null && rrSpecialShareState.lastLon != null) {
+          const pinDoc = {
+            uid: user.uid, active: true, title: rrSpecialShareState.title,
+            displayName: cand.displayName || rrSpecialFirstName(user),
+            lat: rrSpecialShareState.lastLat, lon: rrSpecialShareState.lastLon, heading: cand.heading,
+            expiresAt: rrSpecialShareState.expiresAt, updatedAt: rrSpecialShareState.lastWriteAt
+          };
+          let pinTries = 0;
+          (function pin() {
+            if (!rrSpecialShareState) return;
+            if (window.rrMainMap) { try { rrSpecialApplyDocs([pinDoc]); } catch (_) {} return; }
+            if (++pinTries < 20) setTimeout(pin, 1000);
+          })();
+          rrSpecialPaintDetailMarker(rrSpecialShareState.lastLat, rrSpecialShareState.lastLon, cand.heading);
+        }
+      } catch (_) {}
+      try { rrShowStopShare(true); } catch (_) {}
+      rrSpecialResumeSharing(false);
+      rrSpecialRefreshLiveUi();
+      return rrSpecialShareState;
+    }
+
+    function rrSpecialRestoreHint() {
+      if (rrSpecialRestoreHint._started) return;
+      rrSpecialRestoreHint._started = true;
+      let tries = 0;
+      const timer = setInterval(function() {
+        tries += 1;
+        if (rrSpecialShareState || tries > 120) { clearInterval(timer); return; }
+        const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
+        if (!user || !user.uid || !db) return;
+        clearInterval(timer);
+        rrSpecialRestoreForUser(user).catch(function(e) { console.warn('[special-share] restore failed', e); });
+      }, 1000);
+    }
+    try {
+      Object.defineProperty(window, 'rrSpecialShareState', { configurable: true, get: function() { return rrSpecialShareState; } });
+    } catch (_) {}
+    window.rrSpecialWriteShare = rrSpecialWriteShare;
+    window.rrSpecialResumeSharing = rrSpecialResumeSharing;
 
     window.rrSpecialStartMapListener = rrSpecialStartMapListener;
     window.rrSpecialStopSharing = rrSpecialStopSharing;
@@ -25380,6 +25809,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const need = Object.create(null);
               function note(data) {
                 if (!data) return;
+                // Special moves never need GTFS vehicle polls
+                if (typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(data) : (data.specialMove === true || data.specialMove === 'true')) return;
                 if (typeof tripIsInProgressLight === 'function' && !tripIsInProgressLight(data)) return;
                 const segs = (Array.isArray(data.segments) && data.segments.length) ? data.segments : [data];
                 for (let i = 0; i < segs.length; i++) {
@@ -25917,21 +26348,27 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       var title = ((document.getElementById('trip-log-train-title') || {}).value || 'Live trip').trim().slice(0, 80);
       var icon = ((document.getElementById('trip-log-live-icon') || {}).value || '/assets/hsp46.png');
       var go = function() { location.href = '/live/user.html?uid=' + encodeURIComponent(user.uid); };
-      try { if (typeof saveTripLog === 'function') saveTripLog(); } catch (e) {}
+      var savedTripId = null;
       var finish = function(pos) {
         var now = Date.now();
-        var share = { uid: user.uid, tripId: 'live-' + now, title: title, icon: icon, startedAt: now, expiresAt: now + 5 * 60 * 60 * 1000, updatedAt: now };
+        var cur = window.rrSpecialShareState;
+        var share = { uid: user.uid, tripId: savedTripId, title: title, icon: icon, startedAt: (cur && cur.startedAt) || now, expiresAt: (cur && cur.expiresAt) || (now + 5 * 60 * 60 * 1000), updatedAt: now };
         if (pos && pos.coords) { share.lastLat = pos.coords.latitude; share.lastLon = pos.coords.longitude; }
         try { localStorage.removeItem('rrSpecialShareStopped'); localStorage.setItem('rrSpecialMoveShareV1', JSON.stringify(share)); } catch (e) {}
         var db = window.db || (firebase.firestore && firebase.firestore());
         if (!db || !pos || !pos.coords) { go(); return; }
         db.collection('specialMoveShares').doc(user.uid).set({
           uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, icon: icon, active: true,
-          lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: now, expiresAt: share.expiresAt, updatedAt: now
+          lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: share.startedAt, expiresAt: share.expiresAt, updatedAt: now
         }, { merge: true }).then(go).catch(go);
       };
-      if (!navigator.geolocation) finish(null);
-      else navigator.geolocation.getCurrentPosition(finish, function() { finish(null); }, { enableHighAccuracy: true, timeout: 8000 });
+      // Save the trip first (it must exist with its stations), then share under its real id.
+      Promise.resolve(typeof saveTripLog === 'function' ? saveTripLog() : null).then(function(id) {
+        if (!id) return; // save failed or was blocked; the form shows why
+        savedTripId = id;
+        if (!navigator.geolocation) finish(null);
+        else navigator.geolocation.getCurrentPosition(finish, function() { finish(null); }, { enableHighAccuracy: true, timeout: 8000 });
+      }).catch(function(e) { console.warn('[go-live] save failed', e); });
     });
 </script>
 <script src="/assets/js/site-nav.js" defer></script>
