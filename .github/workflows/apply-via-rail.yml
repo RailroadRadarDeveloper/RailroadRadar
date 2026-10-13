@@ -1,0 +1,41 @@
+name: Apply VIA Rail labeling
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/via-rail.*.b64'
+      - '.github/workflows/apply-via-rail.yml'
+permissions:
+  contents: write
+concurrency:
+  group: apply-via-rail
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Rejoin, verify, apply, clean up
+        run: |
+          set -eu
+          if [ ! -f scripts/via-rail.index.patch.gz.b64 ]; then echo already applied; exit 0; fi
+          echo "a8919db9f7b617d75ccf4b7aa182d197a015ed396855255ee1335d5ee8113f90  index.html" | sha256sum -c -
+          echo "88278dc066ea78656fff3eb1ba598f5782b6610330c360270fbe97096cc25ef5  stationaudio/index.html" | sha256sum -c -
+          tr -d ' \n\r' < scripts/via-rail.index.patch.gz.b64 > /tmp/a.b64
+          tr -d ' \n\r' < scripts/via-rail.stationaudio.patch.gz.b64 > /tmp/b.b64
+          echo "eb859310dd1a1377aa90a97328e1aa3b2a11a41c71df57488f215995dad10e0f  /tmp/a.b64" | sha256sum -c -
+          echo "9e4e41f9817f63dece53fb7f74f68aa471c85c32f6f860771ef99b195f4e9871  /tmp/b.b64" | sha256sum -c -
+          base64 -d /tmp/a.b64 | gunzip > /tmp/a.patch
+          base64 -d /tmp/b.b64 | gunzip > /tmp/b.patch
+          patch --no-backup-if-mismatch index.html /tmp/a.patch
+          patch --no-backup-if-mismatch stationaudio/index.html /tmp/b.patch
+          echo "d0e162848d68e6c3bf6753029993320dbbb913d54acf66375ebac7fa251b9106  index.html" | sha256sum -c -
+          echo "dff88f4a4a4c6235ab4389dbf74f2bc8d5ce578688d2d88769f24dc596ddfc99  stationaudio/index.html" | sha256sum -c -
+          git rm -q scripts/via-rail.index.patch.gz.b64 scripts/via-rail.stationaudio.patch.gz.b64 .github/workflows/apply-via-rail.yml
+          git config user.name "RailroadRadar"
+          git config user.email "67028963+RailroadRadarDeveloper@users.noreply.github.com"
+          git add index.html stationaudio/index.html
+          git commit -m "Show VIA Rail trains as VIA Rail, not Amtrak"
+          git push origin HEAD:main
