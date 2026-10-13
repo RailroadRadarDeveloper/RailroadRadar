@@ -18470,6 +18470,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let showAmtrak = true;
       // VIA Rail trains arrive in the Amtraker feed (train numbers 'v1', provider 'Via'); own toggle.
       let showVia = true;
+      let rrViaShapesLoaded = false;
       try { showVia = localStorage.getItem('rr_showVia') !== '0'; } catch (_) {}
       function rrIsViaTrain(t) {
         if (!t) return false;
@@ -21979,6 +21980,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agency === 'njt') return showNjt;
         if (agency === 'ctrail') return showCtrail;
         if (agency === 'marc') return showMarc;
+        if (agency === 'via') return !!showVia;
         return true;
       }
       function updateGtfsShapeVisibility() {
@@ -21991,16 +21993,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else { if (map.hasLayer(grp)) map.removeLayer(grp); }
         });
       }
-      async function loadStaticGtfsShapes() {
-        const agencies = [
+      async function loadStaticGtfsShapes(onlyIds) {
+        let agencies = [
           { id: 'mbta', file: rrAssetUrl('/assets/shapes/mbta.json'), fallback: '#800080' },
           { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
           { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
           { id: 'amtrak', file: rrAssetUrl('/assets/shapes/amtrak.json'), fallback: '#003366' },
           { id: 'njt', file: rrAssetUrl('/assets/shapes/njt.json'), fallback: '#FF671F' },
           { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: '#EA0D2A' },
-          { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' }
+          { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' },
+          // VIA Rail (yellow, same as the VIA badge); precomputed from VIA's GTFS shapes.txt
+          { id: 'via', file: rrAssetUrl('/assets/shapes/via.json'), fallback: VIA_COLOR }
         ].filter(function(ag) {
+          if (Array.isArray(onlyIds) && onlyIds.indexOf(ag.id) < 0) return false;
+          if (ag.id === 'via') return !!showVia && !rrViaShapesLoaded;
           if (ag.id === 'mbta') return !!showMbta;
           if (ag.id === 'mnr') return !!showMnr;
           if (ag.id === 'lirr') return !!showLirr;
@@ -22011,6 +22017,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return true;
         });
         let totalRoutes = 0, totalPolys = 0;
+        if (agencies.some(function(ag) { return ag.id === 'via'; })) rrViaShapesLoaded = true;
         for (const ag of agencies) {
           try {
             const res = await fetch(ag.file);
@@ -22049,6 +22056,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             console.log('%c[Shapes] ' + ag.id.toUpperCase() + ': ' + routes.length + ' routes, ' + agencyPolys + ' polylines', 'color:#27ae60');
           } catch (e) {
             console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
+            if (ag.id === 'via') rrViaShapesLoaded = false;
           }
         }
         console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
@@ -25620,6 +25628,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           showVia = e.target.checked;
           try { localStorage.setItem('rr_showVia', showVia ? '1' : '0'); } catch (_) {}
           updateAmtrakVisibility();
+          try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
+          // Lazy: VIA lines are fetched only once VIA is switched on
+          if (showVia && !rrViaShapesLoaded) { try { loadStaticGtfsShapes(['via']); } catch (_) {} }
           if (showVia) { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
           else if (!showAmtrak) stopRailPoll('amtrak');
         });
