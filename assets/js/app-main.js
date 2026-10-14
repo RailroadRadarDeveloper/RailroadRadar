@@ -560,6 +560,12 @@
         : 'This account is banned and cannot use the map.';
       try { localStorage.setItem('rrBannedLock', msg); } catch (_) {}
       document.documentElement.classList.add('rr-banned');
+      try {
+        if (!/^\/unavailable\.html$/.test(location.pathname)) {
+          location.replace('/unavailable.html');
+          return;
+        }
+      } catch (_) {}
       const mapEl = document.getElementById('map');
       if (mapEl) mapEl.style.display = 'none';
       const loading = document.getElementById('loading-screen');

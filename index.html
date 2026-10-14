@@ -192,6 +192,7 @@
     var s = document.createElement('style');
     s.textContent = 'html.rr-banned #map, html.rr-banned #loading-screen { display:none !important; } html.rr-banned .header { display:flex !important; z-index:100000 !important; }';
     document.documentElement.appendChild(s);
+    if (location.pathname !== '/unavailable.html') location.replace('/unavailable.html');
   } catch (e) {}
 })();
 </script>
@@ -973,7 +974,7 @@
   <!-- Jotform scripts (unchanged) -->
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
   <script src="/assets/js/trip-stations.js"></script>
-  <script src="/assets/js/app-main.js?v=494515fc91"></script>
+  <script src="/assets/js/app-main.js?v=1f4084d8a9"></script>
   <script>
     try {
       if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {
