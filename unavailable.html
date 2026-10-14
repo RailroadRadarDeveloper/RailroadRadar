@@ -173,6 +173,8 @@
     .rr-appeal-msg { margin-top: 10px; font-size: 14px; color: #a8c0e0; min-height: 1em; }
     .btn[disabled] { opacity: 0.6; cursor: default; }
     .btn[hidden] { display: none !important; }
+    .rr-appeal-denied { max-width: 520px; margin: 4px auto 0; font-size: 17px; font-weight: 600; line-height: 1.45; color: #ffffff; white-space: pre-wrap; word-break: break-word; }
+    .rr-appeal-denied[hidden] { display: none !important; }
   </style>
 <script>
 (function () {
@@ -204,6 +206,7 @@
       <a href="/" class="btn btn-primary" id="rr-retry">Try again</a>
       <button type="button" class="btn btn-primary" id="rr-appeal-btn" hidden>Appeal</button>
     </div>
+    <p class="rr-appeal-denied" id="rr-appeal-denied" hidden></p>
     <form class="rr-appeal" id="rr-appeal" hidden novalidate>
       <label for="rr-appeal-text">Explain why your account should be restored</label>
       <textarea id="rr-appeal-text" maxlength="2000" placeholder="Write your appeal here"></textarea>
@@ -289,6 +292,34 @@
           msg.textContent = 'Could not submit your appeal. Check your connection and try again.';
         });
       });
+      // Show the admin's decision on this account's appeal, if any.
+      function fmtWhen(ts) {
+        var d = new Date(ts);
+        if (isNaN(d)) return null;
+        var date = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        var time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        return date + ' at ' + time;
+      }
+      if (uid) {
+        fetch(API + DOCS + '/appealStatus/' + encodeURIComponent(uid) + '?key=' + KEY, { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            var f = (d && d.fields) || {};
+            var st = f.status && f.status.stringValue;
+            if (st === 'denied') {
+              var when = f.createdAt && f.createdAt.timestampValue ? fmtWhen(f.createdAt.timestampValue) : null;
+              var why = (f.denyReason && f.denyReason.stringValue) || '';
+              var line = document.getElementById('rr-appeal-denied');
+              line.textContent = 'Your appeal' + (when ? (' submitted on ' + when) : '') + ' was denied' + (why ? (': ' + why) : '.');
+              line.hidden = false;
+              btn.hidden = true;
+              form.hidden = true;
+              try { localStorage.setItem(sentKey(), '1'); } catch (e) {}
+            } else if (st === 'open') {
+              markSent('');
+            }
+          }).catch(function () {});
+      }
       // If an admin has since unbanned this account, drop the lock and go back to the map.
       if (uid) {
         fetch(API + DOCS + '/unbanned/' + encodeURIComponent(uid) + '?key=' + KEY, { cache: 'no-store' })

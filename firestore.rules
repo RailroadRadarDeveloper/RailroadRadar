@@ -297,6 +297,18 @@ service cloud.firestore {
       allow create, update, delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
     }
 
+    // Appeal decision visible to the signed-out appellant by uid (status, dates, deny reason only).
+    match /appealStatus/{uid} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
+      allow create, update: if (isBootstrapAdmin() || adminHasPerm('banUsers'))
+        && request.resource.data.keys().hasOnly(['status', 'createdAt', 'denyReason', 'decidedAt'])
+        && request.resource.data.status in ['open', 'approved', 'denied']
+        && (!('denyReason' in request.resource.data)
+            || (request.resource.data.denyReason is string && request.resource.data.denyReason.size() <= 1000));
+    }
+
     match /pressReleases/{id} {
       allow read: if true;
       allow create, update, delete: if isAdmin();

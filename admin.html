@@ -1466,7 +1466,8 @@
           ' · <span class="rr-badge' + (isOpen ? '' : (st === 'denied' ? ' banned' : '')) + '">' + escapeHtmlLite(st) + '</span></div>' +
           '<div class="meta">Ban reason: ' + escapeHtmlLite(a.reason || '—') +
           '<br>Submitted ' + escapeHtmlLite(formatAdminWhen(a.createdAt)) +
-          (a.reviewedByEmail ? ('<br>Reviewed by ' + escapeHtmlLite(a.reviewedByEmail)) : '') + '</div>' +
+          (a.reviewedByEmail ? ('<br>Reviewed by ' + escapeHtmlLite(a.reviewedByEmail)) : '') +
+          (a.denyReason ? ('<br>Denial reason: ' + escapeHtmlLite(a.denyReason)) : '') + '</div>' +
           '<div style="margin-top:6px;white-space:pre-wrap;word-break:break-word;">' + escapeHtmlLite(a.message || '') + '</div>' +
           (isOpen ? ('<div class="rr-lightbox-actions" style="margin-top:8px;">' +
             '<button type="button" class="rr-btn secondary" data-appeal-approve="' + escapeHtmlLite(a.id) + '">Unban</button>' +
@@ -1484,14 +1485,33 @@
           if (!window.confirm('Unban "' + (appeal.email || appeal.uid || id) + '" and approve the appeal?')) return;
           const ok = await adminUnbanUser(appeal.uid || id, { skipConfirm: true, email: normalizeEmail(appeal.email || '') });
           if (!ok) return;
-        } else if (!window.confirm('Deny the appeal from "' + (appeal.email || appeal.uid || id) + '"?')) {
-          return;
         }
-        await db.collection('banAppeals').doc(id).update({
+        let denyReason = '';
+        if (decision === 'denied') {
+          const input = window.prompt('Reason for denying the appeal from "' + (appeal.email || appeal.uid || id) + '" (shown to the user, max 1000 characters):', '');
+          if (input === null) return;
+          denyReason = String(input).trim();
+          if (!denyReason) { setAdminError('A denial reason is required.'); return; }
+          if (denyReason.length > 1000) { setAdminError('Denial reason must be 1000 characters or fewer.'); return; }
+        }
+        const reviewer = (user && (normalizeEmail(user.email) || user.email)) || null;
+        const update = {
           status: decision,
           reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          reviewedByEmail: (user && (normalizeEmail(user.email) || user.email)) || null
-        });
+          reviewedBy: reviewer,
+          reviewedByEmail: reviewer
+        };
+        if (decision === 'denied') update.denyReason = denyReason;
+        await db.collection('banAppeals').doc(id).update(update);
+        // Public-by-uid decision the signed-out appellant can read on the banned page.
+        const statusDoc = {
+          status: decision,
+          createdAt: appeal.createdAt || null,
+          decidedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (decision === 'denied') statusDoc.denyReason = denyReason;
+        await db.collection('appealStatus').doc(appeal.uid || id).set(statusDoc);
+        setAdminError('');
         showNotification(decision === 'approved' ? 'Appeal approved' : 'Appeal denied');
         try { await logUserAction('admin_appeal_' + decision, (decision === 'approved' ? 'Approved' : 'Denied') + ' appeal ' + id); } catch (_) {}
         await loadAdminAppeals();
