@@ -192,7 +192,7 @@
     var s = document.createElement('style');
     s.textContent = 'html.rr-banned #map, html.rr-banned #loading-screen { display:none !important; } html.rr-banned .header { display:flex !important; z-index:100000 !important; }';
     document.documentElement.appendChild(s);
-    if (location.pathname !== '/unavailable.html') location.replace('/unavailable.html?reason=banned');
+    if (location.pathname !== '/unavailable.html' && !/[?&]recheck=1(&|$)/.test(location.search)) location.replace('/unavailable.html?reason=banned');
   } catch (e) {}
 })();
 </script>
@@ -205,6 +205,7 @@
     <div style="max-width:420px;width:100%;text-align:center;">
       <h2 style="margin:0 0 10px;font-size:22px;">Account banned</h2>
       <p id="rr-banned-reason" style="margin:0;font-size:15px;line-height:1.45;color:#d7d9ee;">This account cannot use RailroadRadar.</p>
+      <button type="button" class="header-auth-btn" id="rr-banned-signin" hidden style="margin-top:18px;font-size:14px;">Sign in again</button>
     </div>
   </div>
         <div class="header">
@@ -974,7 +975,7 @@
   <!-- Jotform scripts (unchanged) -->
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
   <script src="/assets/js/trip-stations.js"></script>
-  <script src="/assets/js/app-main.js?v=e104f0c423"></script>
+  <script src="/assets/js/app-main.js?v=8910051f87"></script>
   <script>
     try {
       if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {

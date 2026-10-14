@@ -207,6 +207,7 @@
     <div class="btn-row">
       <a href="/" class="btn btn-primary" id="rr-retry">Try again</a>
       <button type="button" class="btn btn-primary" id="rr-appeal-btn" hidden>Appeal</button>
+      <a href="/?recheck=1" class="btn btn-primary" id="rr-signin-again" hidden>Sign in again</a>
     </div>
     <p class="rr-appeal-denied" id="rr-appeal-denied" hidden></p>
     <p class="rr-appeal-final" id="rr-appeal-final" hidden>This decision is final, and further appeals will not be reviewed.</p>
@@ -238,6 +239,7 @@
       if (!info.reason) sub.style.display = 'none';
       var retry = document.getElementById('rr-retry');
       retry.hidden = true; retry.style.display = 'none';
+      document.getElementById('rr-signin-again').hidden = false;
       var btn = document.getElementById('rr-appeal-btn');
       var form = document.getElementById('rr-appeal');
       var text = document.getElementById('rr-appeal-text');
