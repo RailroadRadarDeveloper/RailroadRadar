@@ -100,7 +100,9 @@
         else { marker.setLatLng(ll); marker.setIcon(icon(d.heading, d.icon)); }
         if (!marker._rrFollowed) { map.setView(ll, 14); marker._rrFollowed = true; }
       }, function() {
-        document.getElementById('status').textContent = 'Could not load this tracker';
+        // Expired or stopped shares are no longer readable.
+        document.getElementById('status').textContent = 'Tracker is not live';
+        if (marker) { map.removeLayer(marker); marker = null; }
       });
     }
   </script>

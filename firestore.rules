@@ -97,7 +97,9 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.reportedByUid == request.auth.uid
         && !isBanned() && verifiedEmail();
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin()
+        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
     }
 
     match /reportHold/{uid} {
@@ -193,7 +195,8 @@ service cloud.firestore {
     match /tripLogs/{id} {
       allow read: if isAdmin()
         || (activeUser() && resource.data.userId == request.auth.uid)
-        || exists(/databases/$(database)/documents/publicProfiles/$(resource.data.userId));
+        || (resource.data.hiddenPublic == false
+            && exists(/databases/$(database)/documents/publicProfiles/$(resource.data.userId)));
       allow create: if signedIn()
         && !isBanned() && verifiedEmail()
         && request.resource.data.userId == request.auth.uid
@@ -242,13 +245,25 @@ service cloud.firestore {
     }
 
 
+    // Live location shares: public only while unexpired. Queries must filter expireAt > now.
+    // expireAt (timestamp) also drives the Firestore TTL policy that deletes old shares.
     match /specialMoveShares/{uid} {
-      allow read: if true;
+      // Firestore can't check request.time against each doc in a list query, so listing is limited to
+      // active shares (query must filter active == true); single gets also require an unexpired share.
+      // Expired-but-active leftovers are removed by the sharer's client and the TTL policy on expireAt.
+      allow get: if (activeUser() && request.auth.uid == uid)
+        || (resource.data.active == true
+            && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
+      allow list: if resource.data.active == true;
       allow create, update: if activeUser()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.lat is number
         && request.resource.data.lon is number
+        && request.resource.data.expireAt is timestamp
+        && request.resource.data.expireAt <= request.time + duration.value(6, 'h')
+        && (!('recent' in request.resource.data)
+            || (request.resource.data.recent is list && request.resource.data.recent.size() <= 10))
         && iconIsAsset(request.resource.data);
       allow delete: if activeUser() && request.auth.uid == uid;
     }
@@ -263,7 +278,8 @@ service cloud.firestore {
         || (activeUser() && request.auth.uid == uid);
       allow create, update: if activeUser() && request.auth.uid == uid
         && request.resource.data.uid == uid;
-      allow delete: if isBootstrapAdmin() || isAdmin();
+      allow delete: if isBootstrapAdmin() || isAdmin()
+        || (activeUser() && request.auth.uid == uid);
     }
 
     // Ban appeals: banned users are signed out, so create is open but tightly validated.
@@ -290,19 +306,22 @@ service cloud.firestore {
     }
 
     // Unban markers: lets a signed-out, formerly banned browser learn it may clear its lock.
-    // Only reveals that a given uid was unbanned (get by id, no listing).
-    match /unbanned/{uid} {
-      allow get: if true;
+    // Keyed by a random status token (>= 32 chars) stored only in the admin-only ban doc
+    // and the banned user's browser, so ban history can't be looked up by uid.
+    match /unbanned/{token} {
+      allow get: if token.size() >= 32;
       allow list: if isAdmin();
-      allow create, update, delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
+      allow delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
+      allow create, update: if (isBootstrapAdmin() || adminHasPerm('banUsers')) && token.size() >= 32;
     }
 
-    // Appeal decision visible to the signed-out appellant by uid (status, dates, deny reason only).
-    match /appealStatus/{uid} {
-      allow get: if true;
+    // Appeal decision visible to the signed-out appellant by status token (status, dates, deny reason only).
+    match /appealStatus/{token} {
+      allow get: if token.size() >= 32;
       allow list: if isAdmin();
       allow delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
       allow create, update: if (isBootstrapAdmin() || adminHasPerm('banUsers'))
+        && token.size() >= 32
         && request.resource.data.keys().hasOnly(['status', 'createdAt', 'denyReason', 'decidedAt'])
         && request.resource.data.status in ['open', 'approved', 'denied']
         && (!('denyReason' in request.resource.data)
@@ -322,7 +341,12 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 2000;
+        && request.resource.data.text.size() <= 2000
+        && !('email' in request.resource.data)
+        && (!('displayName' in request.resource.data)
+            || (request.resource.data.displayName is string
+                && request.resource.data.displayName.size() <= 80
+                && !request.resource.data.displayName.matches('.*@.*')));
       allow delete: if request.auth != null && (
         (activeUser() && request.auth.uid == resource.data.uid) || isAdmin()
       );
