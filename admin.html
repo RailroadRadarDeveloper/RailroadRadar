@@ -939,7 +939,52 @@
       if (currentAdminPerms) {
         scheduleAuditLogMidnightPurge();
         purgeExpiredAuditLog(false);
+        rrPurgeExpiredShares().catch(function(e) { console.warn('[shares] cleanup failed', e); });
+        rrScrubCommentEmails().catch(function(e) { console.warn('[comments] scrub failed', e); });
       }
+    }
+    // No Firestore TTL on the free plan, so admins delete expired live-location shares here.
+    async function rrPurgeExpiredShares() {
+      if (!db) return 0;
+      const now = Date.now();
+      const STALE_MS = 6 * 60 * 60 * 1000;
+      const snap = await db.collection('specialMoveShares').get();
+      let deleted = 0;
+      for (const d of snap.docs) {
+        const x = d.data() || {};
+        let expired;
+        if (x.expireAt && typeof x.expireAt.toMillis === 'function') expired = x.expireAt.toMillis() < now;
+        else if (typeof x.expiresAt === 'number') expired = x.expiresAt < now;
+        else {
+          const u = Number(x.updatedAt) || ((x.updatedAt && typeof x.updatedAt.toMillis === 'function') ? x.updatedAt.toMillis() : 0);
+          expired = !u || u < now - STALE_MS;
+        }
+        if (!expired) continue;
+        try { await d.ref.delete(); deleted++; } catch (e) { console.warn('[shares] delete ' + d.id, e); }
+      }
+      if (deleted) console.info('[shares] deleted ' + deleted + ' expired live share(s)');
+      return deleted;
+    }
+    // One-time scrub: older press comments stored the commenter's email.
+    async function rrScrubCommentEmails() {
+      if (!db) return 0;
+      try { if (localStorage.getItem('rr_comment_scrub_done') === '1') return 0; } catch (_) {}
+      let fixed = 0, failed = 0;
+      const rel = await db.collection('pressReleases').get();
+      for (const r of rel.docs) {
+        const cs = await r.ref.collection('comments').get();
+        for (const c of cs.docs) {
+          const x = c.data() || {};
+          const badName = typeof x.displayName === 'string' && x.displayName.indexOf('@') !== -1;
+          if (!('email' in x) && !badName) continue;
+          const patch = { email: firebase.firestore.FieldValue.delete() };
+          if (badName) patch.displayName = 'RailroadRadar user';
+          try { await c.ref.update(patch); fixed++; } catch (e) { failed++; console.warn('[comments] scrub ' + c.id, e); }
+        }
+      }
+      if (!failed) { try { localStorage.setItem('rr_comment_scrub_done', '1'); } catch (_) {} }
+      if (fixed) console.info('[comments] removed email from ' + fixed + ' comment(s)');
+      return fixed;
     }
     function updateAdminChrome(user) {
       const admin = !!(user && isAdminUser(user));

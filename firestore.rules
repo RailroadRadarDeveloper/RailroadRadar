@@ -251,10 +251,11 @@ service cloud.firestore {
       // Firestore can't check request.time against each doc in a list query, so listing is limited to
       // active shares (query must filter active == true); single gets also require an unexpired share.
       // Expired-but-active leftovers are removed by the sharer's client and the TTL policy on expireAt.
-      allow get: if (activeUser() && request.auth.uid == uid)
+      allow get: if isAdmin()
+        || (activeUser() && request.auth.uid == uid)
         || (resource.data.active == true
             && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
-      allow list: if resource.data.active == true;
+      allow list: if isAdmin() || resource.data.active == true;
       allow create, update: if activeUser()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
@@ -265,7 +266,8 @@ service cloud.firestore {
         && (!('recent' in request.resource.data)
             || (request.resource.data.recent is list && request.resource.data.recent.size() <= 10))
         && iconIsAsset(request.resource.data);
-      allow delete: if activeUser() && request.auth.uid == uid;
+      // Admins clean up expired shares (no TTL on the free plan).
+      allow delete: if (activeUser() && request.auth.uid == uid) || isAdmin();
     }
 
     match /tracksideFavorites/{id} {
@@ -342,6 +344,15 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 2000
+        && !('email' in request.resource.data)
+        && (!('displayName' in request.resource.data)
+            || (request.resource.data.displayName is string
+                && request.resource.data.displayName.size() <= 80
+                && !request.resource.data.displayName.matches('.*@.*')));
+      // Admin-only scrub of legacy comments: may only drop the email field and replace an
+      // email-looking displayName; nothing else can change.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'displayName'])
         && !('email' in request.resource.data)
         && (!('displayName' in request.resource.data)
             || (request.resource.data.displayName is string
