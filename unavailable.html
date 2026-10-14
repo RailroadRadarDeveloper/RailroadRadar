@@ -173,7 +173,7 @@
     .rr-appeal-msg { margin-top: 10px; font-size: 14px; color: #a8c0e0; min-height: 1em; }
     .btn[disabled] { opacity: 0.6; cursor: default; }
     .btn[hidden] { display: none !important; }
-    .rr-appeal-denied { max-width: 520px; margin: 4px auto 0; font-size: 17px; font-weight: 600; line-height: 1.45; color: #ffffff; white-space: pre-wrap; word-break: break-word; }
+    .rr-appeal-denied { max-width: 520px; margin: 0 auto; font-size: 18px; font-weight: 400; line-height: 1.5; color: #a8c0e0; letter-spacing: 0.3px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; word-break: break-word; }
     .rr-appeal-denied[hidden] { display: none !important; }
     .rr-appeal-final { max-width: 520px; margin: 10px auto 0; font-size: 15px; line-height: 1.45; color: #a8c0e0; }
     .rr-appeal-final[hidden] { display: none !important; }
@@ -313,9 +313,13 @@
               var when = f.createdAt && f.createdAt.timestampValue ? fmtWhen(f.createdAt.timestampValue) : null;
               var why = (f.denyReason && f.denyReason.stringValue) || '';
               var line = document.getElementById('rr-appeal-denied');
-              line.textContent = 'Your appeal' + (when ? (' submitted on ' + when) : '') + ' was denied' + (why ? (': ' + why) : '.');
+              why = why.trim();
+              if (why && !/[.!?]$/.test(why)) why += '.';
+              line.textContent = 'Your appeal' + (when ? (' submitted on ' + when) : '') + ' was denied' + (why ? (': ' + why) : '.') +
+                ' ' + document.getElementById('rr-appeal-final').textContent;
               line.hidden = false;
-              document.getElementById('rr-appeal-final').hidden = false;
+              sub.hidden = true; sub.style.display = 'none';
+              document.getElementById('rr-unavail-title').style.marginBottom = '18px';
               btn.hidden = true;
               form.hidden = true;
               try { localStorage.setItem(sentKey(), '1'); } catch (e) {}
