@@ -8151,27 +8151,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     }
 
     
-    function rrIsSafariAuthRedirectBroken() {
-      // Cross-origin authDomain (*.firebaseapp.com) + Safari/iOS ITP blocks the
-      // storage handoff that getRedirectResult needs. Prefer popup (Firebase Option 2).
-      // Marker: rrAuthSafariItp
-      try {
-        const ua = navigator.userAgent || '';
-        const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        if (isIOS) return true;
-        const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|Android/i.test(ua);
-        return !!isSafari;
-      } catch (_) { return false; }
-    }
-    function rrPreferRedirectSignIn() {
-      try {
-        // Safari / iOS: redirect is broken without same-origin /__/auth proxy.
-        if (rrIsSafariAuthRedirectBroken()) return false;
-        const ua = navigator.userAgent || '';
-        return /Android|Mobile|webOS/i.test(ua);
-      } catch (_) { return false; }
-    }
     let rrSignInBusy = false;
     async function signInWithGoogle() {
       if (!auth) {
@@ -8182,21 +8161,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       rrSignInBusy = true;
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        const beginRedirect = async function() {
-          try { sessionStorage.setItem('rrAuthRedirect', '1'); } catch (_) {}
-          try {
-            const btn = document.getElementById('mytrips-guest-signin');
-            if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Signing in…';
-          } catch (_) {}
-          try {
-            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-          } catch (_) {}
-          await auth.signInWithRedirect(provider);
-        };
-        if (rrPreferRedirectSignIn()) {
-          await beginRedirect();
-          return;
-        }
+        // Popup only: authDomain is on firebaseapp.com, and browsers that partition storage by site
+        // (Chrome, Firefox, Safari) lose a redirect sign-in on the way back, so the page reloads signed out.
         try {
           const cred = await auth.signInWithPopup(provider);
           if (cred && cred.user) {
@@ -8209,17 +8175,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (popupErr) {
           const code = popupErr && popupErr.code;
           if (code === 'auth/popup-blocked') {
-            if (rrIsSafariAuthRedirectBroken()) {
-              // Redirect fallback would silently fail on Safari/iOS (ITP + cross-origin authDomain).
-              showNotification('Allow popups for railroadradar.com, then tap Continue with Google again.', 'error');
-              try {
-                const btn = document.getElementById('mytrips-guest-signin');
-                if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Continue with Google';
-              } catch (_) {}
-              return;
-            }
-            showNotification('Popup blocked — redirecting to Google sign-in…');
-            await beginRedirect();
+            showNotification('Allow popups for railroadradar.com, then sign in again.', 'error');
             return;
           }
           if (code === 'auth/cancelled-popup-request') {
