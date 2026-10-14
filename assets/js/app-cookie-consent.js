@@ -31,6 +31,7 @@
 
       function applyClarity(on) {
         if (on && typeof window.__rrLoadClarity === 'function') window.__rrLoadClarity();
+        if (on && typeof window.__rrLoadBetterStack === 'function') window.__rrLoadBetterStack();
       }
 
       function openModal() {

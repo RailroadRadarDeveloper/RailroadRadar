@@ -43,7 +43,7 @@
     // Effective dates of /policies/terms-of-use/ and /policies/privacy/. Raising either one
     // asks every signed-in user to agree again.
     const RR_TERMS_VERSION = '2026-10-13';
-    const RR_PRIVACY_VERSION = '2026-10-13';
+    const RR_PRIVACY_VERSION = '2026-10-14';
     let currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null, publicProfile: false, username: '' };
     function rrLegalIsCurrent(s) {
       return !!(s && s.legalAccepted
@@ -591,6 +591,8 @@
           uid: String((user && user.uid) || ban.uid || ''),
           email: String((user && user.email) || ban.email || '').trim().toLowerCase(),
           reason: ban.reason ? String(ban.reason).slice(0, 1000) : '',
+          // Random token (set by admins) that keys the public unban/appeal status docs.
+          token: (typeof ban.statusToken === 'string' && ban.statusToken.length >= 32) ? ban.statusToken : '',
           at: Date.now()
         }));
       } catch (_) {}
@@ -5653,6 +5655,13 @@ function closeTripDetailView(opts) {
         const snap = await q.get();
         const docs = snap.docs || [];
         renderTripLogRows(docs, !reset);
+        // Public profile queries only match trips with an explicit hiddenPublic flag; set it on older trips.
+        docs.forEach(function(d) {
+          const data = d.data() || {};
+          if (typeof data.hiddenPublic !== 'boolean') {
+            d.ref.update({ hiddenPublic: false }).catch(function(e) { console.warn('[trip-log] visibility backfill', e); });
+          }
+        });
         tripLogLastDoc = docs.length ? docs[docs.length - 1] : tripLogLastDoc;
         tripLogHasMore = docs.length >= TRIP_LOG_PAGE_SIZE;
         if (moreBtn) moreBtn.hidden = !tripLogHasMore;
@@ -5914,6 +5923,8 @@ function closeTripDetailView(opts) {
           if (oldData) next = applyTripMilesToStats(next, oldData, -1);
           next = applyTripMilesToStats(next, payload, 1);
           const write = Object.assign({ userId: uid }, payload);
+          // Editing must not un-hide a trip the user hid from their public profile.
+          if (oldData && oldData.hiddenPublic === true) write.hiddenPublic = true;
           if (editingId) write.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
           else write.createdAt = firebase.firestore.FieldValue.serverTimestamp();
           tx.set(tripRef, write, { merge: !!editingId });
@@ -6483,12 +6494,6 @@ function rrSpecialSyncTitleWrap() {
           rrSpecialStatusLine('Signed out — buffering until you sign in again');
           return false;
         }
-        const recentSrc = rrSpecialShareQueue.length
-          ? rrSpecialShareQueue.slice(-RR_SPECIAL_SHARE_QUEUE_MAX)
-          : [ping];
-        const recent = recentSrc.map(function(p) {
-          return { lat: p.lat, lon: p.lon, at: p.at };
-        });
         const doc = {
           uid: st.uid,
           displayName: rrSpecialFirstName(user),
@@ -6500,9 +6505,12 @@ function rrSpecialSyncTitleWrap() {
           speed: ping.speed,
           startedAt: st.startedAt,
           expiresAt: st.expiresAt, // unchanged across reconnects
+          // Timestamp copy for rules and the Firestore TTL policy (auto-delete after expiry).
+          expireAt: firebase.firestore.Timestamp.fromMillis(Number(st.expiresAt)),
           updatedAt: now,
           active: true,
-          recent: recent
+          // Older builds stored a trail of past positions; the map never used it.
+          recent: firebase.firestore.FieldValue.delete()
         };
         await db.collection('specialMoveShares').doc(st.uid).set(doc, { merge: true });
         st.lastWriteAt = now;
@@ -6640,6 +6648,7 @@ function rrSpecialSyncTitleWrap() {
         lon: Number(fix.lon),
         startedAt: startedAt,
         expiresAt: expiresAt,
+        expireAt: firebase.firestore.Timestamp.fromMillis(Number(expiresAt)),
         updatedAt: startedAt
       }, { merge: true });
       try {
@@ -7265,6 +7274,10 @@ async function rrSpecialStopSharing(opts) {
         if (!live) {
           // Stopped/expired elsewhere: drop stale local state.
           if (cand) rrSpecialPersistLocal(null);
+          // Remove a leftover expired share so its last position is not kept.
+          if (docData) {
+            try { await db.collection('specialMoveShares').doc(user.uid).delete(); } catch (_) {}
+          }
           return null;
         }
         if (!cand || cand.tripId !== docData.tripId) cand = { uid: user.uid, tripId: docData.tripId };
@@ -8042,11 +8055,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       try {
         if (typeof betterstack !== 'function') return;
         if (!user) return;
-        betterstack('user', {
-          id: user.uid || '',
-          email: user.email || '',
-          username: user.displayName || user.email || ''
-        });
+        // uid only: no email or name goes to Better Stack.
+        betterstack('user', { id: user.uid || '' });
       } catch (_) {}
     }
 
@@ -8224,6 +8234,63 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
     }
 
+    // Delete everything this user can delete client-side. Each step is independent so one
+    // failure (e.g. older rules) does not stop the rest.
+    async function rrDeleteOwnData(uid) {
+      const failed = [];
+      async function step(name, fn) {
+        try { await fn(); } catch (e) { failed.push(name); console.warn('[delete-account] ' + name, e); }
+      }
+      async function deleteQuery(q) {
+        for (let i = 0; i < 40; i++) {
+          const snap = await q.limit(200).get();
+          if (snap.empty) return;
+          const batch = db.batch();
+          snap.forEach(function(d) { batch.delete(d.ref); });
+          await batch.commit();
+          if (snap.size < 200) return;
+        }
+      }
+      await step('specialMoveShares', function() { return db.collection('specialMoveShares').doc(uid).delete(); });
+      await step('usernames', async function() {
+        const names = new Set();
+        try {
+          const prof = await db.collection('publicProfiles').doc(uid).get();
+          if (prof.exists && prof.data().username) names.add(String(prof.data().username).toLowerCase());
+        } catch (_) {}
+        try {
+          const st = await db.collection('userSettings').doc(uid).get();
+          if (st.exists && st.data().username) names.add(String(st.data().username).toLowerCase());
+        } catch (_) {}
+        if (currentUserSettings && currentUserSettings.username) names.add(String(currentUserSettings.username).toLowerCase());
+        for (const n of names) {
+          const ref = db.collection('usernames').doc(n);
+          const snap = await ref.get();
+          if (snap.exists && (snap.data() || {}).uid === uid) await ref.delete();
+        }
+      });
+      await step('publicProfiles', function() { return db.collection('publicProfiles').doc(uid).delete(); });
+      await step('tripLogs', function() { return deleteQuery(db.collection('tripLogs').where('userId', '==', uid)); });
+      await step('pendingReports', function() { return deleteQuery(db.collection('pendingReports').where('reportedByUid', '==', uid)); });
+      await step('pressComments', async function() {
+        const rel = await db.collection('pressReleases').get();
+        for (const d of rel.docs) {
+          await deleteQuery(d.ref.collection('comments').where('uid', '==', uid));
+        }
+      });
+      await step('accounts', async function() {
+        try {
+          await db.collection('accounts').doc(uid).delete();
+        } catch (e) {
+          // Older rules only let admins delete; overwrite so no email or name is left.
+          await db.collection('accounts').doc(uid).set({ uid: uid, deleted: true });
+        }
+      });
+      await step('userSettings', function() { return db.collection('userSettings').doc(uid).delete(); });
+      if (failed.length) console.warn('[delete-account] could not delete: ' + failed.join(', '));
+      return failed;
+    }
+
     async function deleteAccount() {
       if (!auth || !auth.currentUser) {
         showNotification('Sign in first to delete your account.', 'error');
@@ -8232,13 +8299,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const ok = window.confirm('Permanently delete your RailroadRadar account? This cannot be undone.');
       if (!ok) return;
       const user = auth.currentUser;
-      try { await logUserAction('delete_account', 'Account deleted', user); } catch (_) {}
+      // uid only in the log entry (no email or name).
+      try { await logUserAction('delete_account', 'Account deleted', { uid: user.uid }); } catch (_) {}
       try {
-        if (db && user.uid) {
-          try { await db.collection('accounts').doc(user.uid).delete(); } catch (_) {}
-          try { await db.collection('userSettings').doc(user.uid).delete(); } catch (_) {}
-        }
-      } catch (_) {}
+        if (db && user.uid) await rrDeleteOwnData(user.uid);
+      } catch (e) { console.warn('[Auth] data cleanup incomplete', e); }
       try {
         await user.delete();
         showNotification('Account deleted');

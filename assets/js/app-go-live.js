@@ -24,7 +24,7 @@
         if (!db || !pos || !pos.coords) { go(); return; }
         db.collection('specialMoveShares').doc(user.uid).set({
           uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, icon: icon, active: true,
-          lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: share.startedAt, expiresAt: share.expiresAt, updatedAt: now
+          lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, startedAt: share.startedAt, expiresAt: share.expiresAt, expireAt: firebase.firestore.Timestamp.fromMillis(Number(share.expiresAt)), updatedAt: now
         }, { merge: true }).then(go).catch(go);
       };
       // Save the trip first (it must exist with its stations), then share under its real id.
