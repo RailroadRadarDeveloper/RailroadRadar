@@ -315,8 +315,16 @@
               var line = document.getElementById('rr-appeal-denied');
               why = why.trim();
               if (why && !/[.!?]$/.test(why)) why += '.';
-              line.textContent = 'Your appeal' + (when ? (' submitted on ' + when) : '') + ' was denied' + (why ? (': ' + why) : '.') +
-                ' ' + document.getElementById('rr-appeal-final').textContent;
+              line.textContent = '';
+              var l1 = document.createElement('span');
+              l1.style.display = 'block';
+              l1.textContent = 'Your appeal' + (when ? (' submitted on ' + when) : '') + ' was denied' + (why ? (': ' + why) : '.');
+              var l2 = document.createElement('span');
+              l2.style.display = 'block';
+              l2.style.marginTop = '8px';
+              l2.textContent = document.getElementById('rr-appeal-final').textContent;
+              line.appendChild(l1);
+              line.appendChild(l2);
               line.hidden = false;
               sub.hidden = true; sub.style.display = 'none';
               document.getElementById('rr-unavail-title').style.marginBottom = '18px';
