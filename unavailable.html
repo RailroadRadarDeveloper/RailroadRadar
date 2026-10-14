@@ -230,6 +230,7 @@
       var info = {};
       try { info = JSON.parse(localStorage.getItem('rrBanInfo') || '{}') || {}; } catch (e) { info = {}; }
       var uid = String(info.uid || '').slice(0, 128);
+      var token = String(info.token || '');
       document.title = 'Account disabled | RailroadRadar';
       document.getElementById('rr-unavail-title').textContent = 'Your account has been disabled.';
       var sub = document.getElementById('rr-unavail-sub');
@@ -256,7 +257,7 @@
       var already = false;
       try { already = !!(uid && localStorage.getItem(sentKey())); } catch (e) {}
       if (already) markSent('');
-      if (!uid) { btn.disabled = true; btn.title = 'Sign in again to file an appeal.'; }
+      if (!uid || token.length < 32) { btn.disabled = true; btn.title = 'Sign in again to file an appeal.'; }
       btn.addEventListener('click', function () {
         if (btn.disabled) return;
         form.hidden = !form.hidden;
@@ -267,10 +268,10 @@
         e.preventDefault();
         var body = text.value.trim().slice(0, MAX);
         if (!body) { msg.textContent = 'Please write your appeal first.'; return; }
-        if (!uid) { msg.textContent = 'We could not identify your account. Sign in again to appeal.'; return; }
+        if (!uid || token.length < 32) { msg.textContent = 'We could not identify your account. Sign in again to appeal.'; return; }
         submit.disabled = true;
         msg.textContent = 'Submitting…';
-        var fields = { uid: { stringValue: uid }, message: { stringValue: body }, status: { stringValue: 'open' } };
+        var fields = { uid: { stringValue: uid }, message: { stringValue: body }, status: { stringValue: 'open' }, token: { stringValue: token } };
         var email = String(info.email || '').trim().toLowerCase().slice(0, 320);
         if (email) fields.email = { stringValue: email };
         if (info.reason) fields.reason = { stringValue: String(info.reason).slice(0, 1000) };
@@ -303,7 +304,6 @@
         var time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         return date + ' at ' + time;
       }
-      var token = String(info.token || '');
       if (token.length >= 32) {
         fetch(API + DOCS + '/appealStatus/' + encodeURIComponent(token) + '?key=' + KEY, { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : null; })
