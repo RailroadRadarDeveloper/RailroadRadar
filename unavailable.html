@@ -158,7 +158,30 @@
         font-size: 16px;
       }
     }
+    html.rr-ban-variant #rr-status-line, html.rr-ban-variant #rr-incident { display: none !important; }
+    .rr-appeal { width: 100%; max-width: 520px; margin: 20px auto 0; text-align: left; }
+    .rr-appeal[hidden] { display: none !important; }
+    .rr-appeal label { display: block; font-size: 15px; font-weight: 600; color: #a8c0e0; margin: 0 0 8px; }
+    .rr-appeal textarea {
+      width: 100%; min-height: 140px; resize: vertical; padding: 12px 14px;
+      font: 15px/1.45 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff;
+      background: rgba(255,255,255,0.06); border: 1px solid #a8c0e0; border-radius: 4px; outline: none;
+    }
+    .rr-appeal textarea:focus { border-color: #fff; }
+    .rr-appeal-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; }
+    .rr-appeal-count { font-size: 13px; color: #7a9bb8; }
+    .rr-appeal-msg { margin-top: 10px; font-size: 14px; color: #a8c0e0; min-height: 1em; }
+    .btn[disabled] { opacity: 0.6; cursor: default; }
+    .btn[hidden] { display: none !important; }
   </style>
+<script>
+(function () {
+  try {
+    var banned = /(?:^|[?&])reason=banned(?:&|$)/.test(location.search) || !!localStorage.getItem('rrBannedLock');
+    if (banned) document.documentElement.classList.add('rr-ban-variant');
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
   <div class="header">
@@ -168,10 +191,10 @@
   </div>
 
   <div class="main">
-    <p class="error-message">
+    <p class="error-message" id="rr-unavail-title">
       RailroadRadar is currently unavailable.
     </p>
-    <div class="error-code-line">We are working to resolve this and apologize for the inconvenience.</div>
+    <div class="error-code-line" id="rr-unavail-sub">We are working to resolve this and apologize for the inconvenience.</div>
     <style>#rr-status-line[hidden]{display:none!important}.rr-site-nav,.rr-page-menu{display:none!important}.header{background:transparent!important;box-shadow:none!important;border:0!important}</style>
     <div class="rr-status-badge" id="rr-status-line" hidden style="margin:4px 0 24px;display:flex;justify-content:center;align-items:center;gap:10px;color:#fff;font-size:18px;font-weight:600;">
       <img id="rr-status-check" src="data:image/png;base64,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" alt="" width="22" height="22" hidden>
@@ -179,7 +202,108 @@
     </div>
     <div class="btn-row">
       <a href="/" class="btn btn-primary" id="rr-retry">Try again</a>
+      <button type="button" class="btn btn-primary" id="rr-appeal-btn" hidden>Appeal</button>
     </div>
+    <form class="rr-appeal" id="rr-appeal" hidden novalidate>
+      <label for="rr-appeal-text">Explain why your account should be restored</label>
+      <textarea id="rr-appeal-text" maxlength="2000" placeholder="Write your appeal here"></textarea>
+      <div class="rr-appeal-foot">
+        <span class="rr-appeal-count" id="rr-appeal-count">0 / 2000</span>
+        <button type="submit" class="btn btn-primary" id="rr-appeal-submit">Submit</button>
+      </div>
+      <div class="rr-appeal-msg" id="rr-appeal-msg" role="status"></div>
+    </form>
+    <script>
+    (function () {
+      var root = document.documentElement;
+      if (!root.classList.contains('rr-ban-variant')) return;
+      var KEY = 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs';
+      var DOCS = 'projects/railroadradar-accounts/databases/(default)/documents';
+      var API = 'https://firestore.googleapis.com/v1/';
+      var MAX = 2000;
+      var info = {};
+      try { info = JSON.parse(localStorage.getItem('rrBanInfo') || '{}') || {}; } catch (e) { info = {}; }
+      var uid = String(info.uid || '').slice(0, 128);
+      document.title = 'Account disabled | RailroadRadar';
+      document.getElementById('rr-unavail-title').textContent = 'Your account has been disabled.';
+      var sub = document.getElementById('rr-unavail-sub');
+      sub.textContent = info.reason ? ('Reason: ' + info.reason) : '';
+      sub.hidden = !info.reason;
+      if (!info.reason) sub.style.display = 'none';
+      var retry = document.getElementById('rr-retry');
+      retry.hidden = true; retry.style.display = 'none';
+      var btn = document.getElementById('rr-appeal-btn');
+      var form = document.getElementById('rr-appeal');
+      var text = document.getElementById('rr-appeal-text');
+      var count = document.getElementById('rr-appeal-count');
+      var submit = document.getElementById('rr-appeal-submit');
+      var msg = document.getElementById('rr-appeal-msg');
+      btn.hidden = false;
+      function sentKey() { return 'rrAppealSent:' + uid; }
+      function markSent(note) {
+        try { localStorage.setItem(sentKey(), '1'); } catch (e) {}
+        form.hidden = true;
+        btn.textContent = 'Appeal submitted';
+        btn.disabled = true;
+        if (note) { msg.textContent = note; }
+      }
+      var already = false;
+      try { already = !!(uid && localStorage.getItem(sentKey())); } catch (e) {}
+      if (already) markSent('');
+      if (!uid) { btn.disabled = true; btn.title = 'Sign in again to file an appeal.'; }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        form.hidden = !form.hidden;
+        if (!form.hidden) text.focus();
+      });
+      text.addEventListener('input', function () { count.textContent = text.value.length + ' / ' + MAX; });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var body = text.value.trim().slice(0, MAX);
+        if (!body) { msg.textContent = 'Please write your appeal first.'; return; }
+        if (!uid) { msg.textContent = 'We could not identify your account. Sign in again to appeal.'; return; }
+        submit.disabled = true;
+        msg.textContent = 'Submitting…';
+        var fields = { uid: { stringValue: uid }, message: { stringValue: body }, status: { stringValue: 'open' } };
+        var email = String(info.email || '').trim().toLowerCase().slice(0, 320);
+        if (email) fields.email = { stringValue: email };
+        if (info.reason) fields.reason = { stringValue: String(info.reason).slice(0, 1000) };
+        fetch(API + DOCS + ':commit?key=' + KEY, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ writes: [{
+            update: { name: DOCS + '/banAppeals/' + encodeURIComponent(uid), fields: fields },
+            updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+            currentDocument: { exists: false }
+          }] })
+        }).then(function (r) {
+          if (r.ok) return markSent('Appeal submitted. We will review it.');
+          return r.json().catch(function () { return {}; }).then(function (d) {
+            var st = ((d && d.error) || {}).status || '';
+            if (st === 'ALREADY_EXISTS' || st === 'FAILED_PRECONDITION') return markSent('An appeal for this account was already submitted.');
+            submit.disabled = false;
+            msg.textContent = 'Could not submit your appeal. Please try again later.';
+          });
+        }).catch(function () {
+          submit.disabled = false;
+          msg.textContent = 'Could not submit your appeal. Check your connection and try again.';
+        });
+      });
+      // If an admin has since unbanned this account, drop the lock and go back to the map.
+      if (uid) {
+        fetch(API + DOCS + '/unbanned/' + encodeURIComponent(uid) + '?key=' + KEY, { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            var ts = d && d.fields && d.fields.unbannedAt && d.fields.unbannedAt.timestampValue;
+            var t = ts ? Date.parse(ts) : NaN;
+            if (!isNaN(t) && (!info.at || t > Number(info.at))) {
+              try { localStorage.removeItem('rrBannedLock'); localStorage.removeItem('rrBanInfo'); localStorage.removeItem(sentKey()); } catch (e) {}
+              location.replace('/');
+            }
+          }).catch(function () {});
+      }
+    })();
+    </script>
     <div id="rr-incident" hidden style="max-width:520px;margin:20px auto 0;padding:12px 16px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;text-align:left;color:#fff;font-size:15px;line-height:1.45;">
       <div id="rr-incident-title" style="font-weight:700;margin-bottom:4px;"></div>
       <div id="rr-incident-msg"></div>

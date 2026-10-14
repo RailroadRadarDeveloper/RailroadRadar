@@ -562,7 +562,7 @@
       document.documentElement.classList.add('rr-banned');
       try {
         if (!/^\/unavailable\.html$/.test(location.pathname)) {
-          location.replace('/unavailable.html');
+          location.replace('/unavailable.html?reason=banned');
           return;
         }
       } catch (_) {}
@@ -584,13 +584,29 @@
         if (msg) showBannedScreen(msg.replace(/^This account is banned\. Reason: /, '') === msg ? '' : msg.replace(/^This account is banned\. Reason: /, ''));
       } catch (_) {}
     })();
+    // Keep who was banned so /unavailable.html can file an appeal after sign-out.
+    function rrRememberBan(user, ban) {
+      try {
+        localStorage.setItem('rrBanInfo', JSON.stringify({
+          uid: String((user && user.uid) || ban.uid || ''),
+          email: String((user && user.email) || ban.email || '').trim().toLowerCase(),
+          reason: ban.reason ? String(ban.reason).slice(0, 1000) : '',
+          at: Date.now()
+        }));
+      } catch (_) {}
+      return ban;
+    }
+    function rrClearBanLock() {
+      try { localStorage.removeItem('rrBannedLock'); localStorage.removeItem('rrBanInfo'); } catch (_) {}
+      document.documentElement.classList.remove('rr-banned');
+    }
     async function checkUserBanned(user) {
       // After rules: non-admins may only read bannedUsers/{ownUid}. Do not query by email.
       if (!db || !user) return null;
       const uid = user.uid;
       try {
         const byUid = await db.collection('bannedUsers').doc(uid).get();
-        if (byUid.exists) return Object.assign({ id: byUid.id }, byUid.data() || {});
+        if (byUid.exists) return rrRememberBan(user, Object.assign({ id: byUid.id }, byUid.data() || {}));
       } catch (err) {
         console.warn('[bannedUsers] check failed', err);
       }
@@ -598,7 +614,7 @@
         const email = String(user.email || '').trim().toLowerCase();
         if (email && user.emailVerified) {
           const byEmail = await db.collection('bannedEmails').doc(email).get();
-          if (byEmail.exists) return Object.assign({ id: byEmail.id, email: email }, byEmail.data() || {});
+          if (byEmail.exists) return rrRememberBan(user, Object.assign({ id: byEmail.id, email: email }, byEmail.data() || {}));
         }
       } catch (err) {
         console.warn('[bannedEmails] check failed', err);
@@ -8514,6 +8530,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   return;
                 }
               }
+              // Signed in and not banned: drop any stale lock from an earlier ban.
+              if (typeof rrClearBanLock === 'function') rrClearBanLock();
             } catch (banErr) { console.warn('[bannedUsers] auth check', banErr); }
             if (typeof hideMyTripsGuestHome === 'function') hideMyTripsGuestHome();
             if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage() && typeof openTripLogModal === 'function') {
