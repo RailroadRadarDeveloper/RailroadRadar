@@ -868,7 +868,14 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
           const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).limit(50).get();
           trips = tripSnap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
           trips.sort(function (a, b) { return tripStartMs(b) - tripStartMs(a); });
-        } catch (e2) { trips = []; }
+        } catch (e2) {
+          // Current rules only allow public reads of trips explicitly marked visible.
+          try {
+            const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).where('hiddenPublic', '==', false).limit(50).get();
+            trips = tripSnap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
+            trips.sort(function (a, b) { return tripStartMs(b) - tripStartMs(a); });
+          } catch (e3) { trips = []; }
+        }
       }
       renderProfile(profile, trips);
     }

@@ -192,7 +192,7 @@
       b[t].l=+new Date;
       var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
       s.src='https://betterstack.net/b.js?t='+r;
-      (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
+      /* Better Stack loads only after analytics consent (same choice as Clarity). */var rrBsLoad=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};b.__rrLoadBetterStack=rrBsLoad;try{var rrC=localStorage.getItem('rr_cookie_consent'),rrP=localStorage.getItem('rr_cookie_prefs'),rrOk=rrC==='accepted';if(rrP){try{var rrQ=JSON.parse(rrP);if(rrQ&&rrQ.decided)rrOk=!!rrQ.clarity;}catch(_){}}if(rrOk)rrBsLoad();}catch(_){}
     }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
     betterstack('init', { environment: 'production' });
   </script>
