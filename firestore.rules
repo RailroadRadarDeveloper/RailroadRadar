@@ -44,11 +44,25 @@ service cloud.firestore {
       return authEmailLower() != '';
     }
 
+    // Raw token email, lowercased like bannedEmails doc ids. Verification is not required here:
+    // matching an unverified address can only restrict the caller, never grant access.
+    function tokenEmailLower() {
+      return signedIn() && request.auth.token.email is string
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
     function isBanned() {
       return signedIn() && (
         exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid))
-        || (verifiedEmail() && exists(/databases/$(database)/documents/bannedEmails/$(authEmailLower())))
+        || (tokenEmailLower() != ''
+            && exists(/databases/$(database)/documents/bannedEmails/$(tokenEmailLower())))
       );
+    }
+
+    // Signed in and not banned: required for every user-side write and private read.
+    function activeUser() {
+      return signedIn() && !isBanned();
     }
 
     match /pairings/{leadCar} {
@@ -63,7 +77,7 @@ service cloud.firestore {
         && request.resource.data.engine.size() <= 64
         && request.resource.data.keys().hasAll(['leadCar', 'engine', 'reportedByUid', 'updatedAt'])
         && request.resource.data.reportedByUid == request.auth.uid;
-      allow delete: if signedIn()
+      allow delete: if activeUser()
         && resource.data.reportedByUid == request.auth.uid;
     }
 
@@ -74,12 +88,12 @@ service cloud.firestore {
         && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
       allow delete: if isBootstrapAdmin()
         || adminHasPerm('deleteReports')
-        || (signedIn() && resource.data.reportedByUid == request.auth.uid);
+        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
     }
 
     match /pendingReports/{id} {
       allow read: if isAdmin()
-        || (signedIn() && resource.data.reportedByUid == request.auth.uid);
+        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.reportedByUid == request.auth.uid
         && !isBanned() && verifiedEmail();
@@ -88,7 +102,7 @@ service cloud.firestore {
 
     match /reportHold/{uid} {
       allow read: if isAdmin()
-        || (signedIn() && request.auth.uid == uid);
+        || (activeUser() && request.auth.uid == uid);
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
 
@@ -99,12 +113,12 @@ service cloud.firestore {
         && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
       allow delete: if isBootstrapAdmin()
         || adminHasPerm('deleteReports')
-        || (signedIn() && resource.data.reportedByUid == request.auth.uid);
+        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
     }
 
     match /actionLog/{id} {
       allow read: if isAdmin();
-      allow create: if signedIn()
+      allow create: if activeUser()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasAll(['action', 'uid', 'at']);
       allow update: if false;
@@ -112,7 +126,7 @@ service cloud.firestore {
     }
 
     match /userSettings/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read, write: if activeUser() && request.auth.uid == uid;
     }
 
     match /bannedUsers/{id} {
@@ -149,36 +163,36 @@ service cloud.firestore {
     // Username claims for public profiles (doc id = lowercased username)
     match /usernames/{name} {
       allow read: if true;
-      allow create: if signedIn()
+      allow create: if activeUser()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.username is string
         && name == request.resource.data.username.lower();
-      allow update: if signedIn()
+      allow update: if activeUser()
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.username is string
         && name == request.resource.data.username.lower();
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if activeUser() && resource.data.uid == request.auth.uid;
     }
 
     // Lean public card only (no email). Written when user opts in / updates profile.
     match /publicProfiles/{uid} {
       allow read: if true;
-      allow create, update: if signedIn()
+      allow create, update: if activeUser()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.username is string
         && request.resource.data.keys().hasAll(['uid', 'username', 'displayName', 'photoURL'])
         && (request.resource.data.displayName == null || request.resource.data.displayName is string)
         && (request.resource.data.photoURL == null || request.resource.data.photoURL is string);
-      allow delete: if signedIn() && request.auth.uid == uid;
+      allow delete: if activeUser() && request.auth.uid == uid;
     }
 
     // Trip log: lean per-trip docs (+ optional segments[]) + summary on userSettings/{uid}.tripLogStats
     // Public read only when that user's publicProfiles/{uid} exists (opt-out removes the doc).
     match /tripLogs/{id} {
       allow read: if isAdmin()
-        || (signedIn() && resource.data.userId == request.auth.uid)
+        || (activeUser() && resource.data.userId == request.auth.uid)
         || exists(/databases/$(database)/documents/publicProfiles/$(resource.data.userId));
       allow create: if signedIn()
         && !isBanned() && verifiedEmail()
@@ -196,11 +210,11 @@ service cloud.firestore {
             || request.resource.data.endTime is string
             || request.resource.data.endTime == null)
         && iconIsAsset(request.resource.data);
-      allow update: if signedIn()
+      allow update: if activeUser()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
         && iconIsAsset(request.resource.data);
-      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if activeUser() && resource.data.userId == request.auth.uid;
     }
 
 
@@ -230,13 +244,13 @@ service cloud.firestore {
 
     match /specialMoveShares/{uid} {
       allow read: if true;
-      allow create, update: if signedIn()
+      allow create, update: if activeUser()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.lat is number
         && request.resource.data.lon is number
         && iconIsAsset(request.resource.data);
-      allow delete: if signedIn() && request.auth.uid == uid;
+      allow delete: if activeUser() && request.auth.uid == uid;
     }
 
     match /tracksideFavorites/{id} {
@@ -246,10 +260,41 @@ service cloud.firestore {
     match /accounts/{uid} {
       // Admins list all; each user may read/write only their own mirror doc
       allow read: if isAdmin()
-        || (signedIn() && request.auth.uid == uid);
-      allow create, update: if signedIn() && request.auth.uid == uid
+        || (activeUser() && request.auth.uid == uid);
+      allow create, update: if activeUser() && request.auth.uid == uid
         && request.resource.data.uid == uid;
       allow delete: if isBootstrapAdmin() || isAdmin();
+    }
+
+    // Ban appeals: banned users are signed out, so create is open but tightly validated.
+    // Doc id = the banned uid, so each uid gets exactly one appeal (create only, no overwrite).
+    match /banAppeals/{uid} {
+      allow create: if uid.size() > 0 && uid.size() <= 128
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'reason', 'message', 'createdAt', 'status'])
+        && request.resource.data.keys().hasAll(['uid', 'message', 'createdAt', 'status'])
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 2000
+        && (!('email' in request.resource.data)
+            || (request.resource.data.email is string && request.resource.data.email.size() <= 320))
+        && (!('reason' in request.resource.data)
+            || (request.resource.data.reason is string && request.resource.data.reason.size() <= 1000))
+        && (exists(/databases/$(database)/documents/bannedUsers/$(uid))
+            || ('email' in request.resource.data
+                && request.resource.data.email.size() > 0
+                && exists(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email))));
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Unban markers: lets a signed-out, formerly banned browser learn it may clear its lock.
+    // Only reveals that a given uid was unbanned (get by id, no listing).
+    match /unbanned/{uid} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update, delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
     }
 
     match /pressReleases/{id} {
@@ -267,7 +312,7 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 2000;
       allow delete: if request.auth != null && (
-        request.auth.uid == resource.data.uid || isAdmin()
+        (activeUser() && request.auth.uid == resource.data.uid) || isAdmin()
       );
     }
   }

@@ -598,6 +598,12 @@
             <div id="admin-bans-list" style="margin-top:10px;"></div>
             <p class="rr-modal-hint" id="admin-bans-status"></p>
           </div>
+          <div class="rr-lightbox-section">
+            <h3>Appeals</h3>
+            <button type="button" class="rr-btn secondary" id="admin-appeals-refresh">Refresh</button>
+            <div id="admin-appeals-list" style="margin-top:10px;"></div>
+            <p class="rr-modal-hint" id="admin-appeals-status"></p>
+          </div>
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-admins" data-admin-pane="admins">
@@ -1112,6 +1118,7 @@
       } else if (tab === 'bans') {
         if (!perms.banUsers) { setAdminError('Missing banUsers permission.'); return; }
         await loadAdminBans();
+        await loadAdminAppeals();
       } else if (tab === 'admins') {
         if (!perms.manageAdmins) { setAdminError('Missing manageAdmins permission.'); return; }
         await loadAdminAdmins();
@@ -1372,6 +1379,7 @@
             bannedByUid: user.uid
           }, { merge: true });
         }
+        try { await db.collection('unbanned').doc(docId).delete(); } catch (_) {}
         showNotification('User banned');
         try { await logUserAction('admin_ban', 'Banned ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-ban-email');
@@ -1387,23 +1395,108 @@
         setAdminError((e && e.message) || String(e));
       }
     }
-    async function adminUnbanUser(docId) {
-      if (!docId || !db) return;
+    async function adminUnbanUser(docId, opts) {
+      opts = opts || {};
+      if (!docId || !db) return false;
       if (!(currentAdminPerms && currentAdminPerms.banUsers) && !isBootstrapAdmin((currentUser || {}).email)) {
         setAdminError('Missing banUsers permission.');
-        return;
+        return false;
       }
-      if (!window.confirm('Unban user "' + docId + '"?')) return;
+      if (!opts.skipConfirm && !window.confirm('Unban user "' + docId + '"?')) return false;
       try {
         const banned = await db.collection('bannedUsers').doc(docId).get();
         const bannedEmail = banned.exists ? String((banned.data() || {}).email || '').trim().toLowerCase() : '';
         await db.collection('bannedUsers').doc(docId).delete();
         if (bannedEmail) await db.collection('bannedEmails').doc(bannedEmail).delete();
+        if (opts.email && opts.email !== bannedEmail) {
+          try { await db.collection('bannedEmails').doc(opts.email).delete(); } catch (_) {}
+        }
+        // Marker read by the signed-out browser so it can clear its ban lock.
+        try {
+          await db.collection('unbanned').doc(docId).set({
+            uid: docId,
+            unbannedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (mErr) { console.warn('[admin] unbanned marker failed', mErr); }
         showNotification('User unbanned');
         try { await logUserAction('admin_unban', 'Unbanned ' + docId); } catch (_) {}
         await loadAdminBans();
+        return true;
       } catch (e) {
         console.error('[admin] unban failed', e);
+        setAdminError((e && e.message) || String(e));
+        return false;
+      }
+    }
+    let adminAppealsCache = [];
+    async function loadAdminAppeals() {
+      const list = document.getElementById('admin-appeals-list');
+      const status = document.getElementById('admin-appeals-status');
+      if (status) status.textContent = 'Loading appeals…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('banAppeals').get();
+        const rows = [];
+        snap.forEach(function(doc) { rows.push(Object.assign({ id: doc.id }, doc.data() || {})); });
+        rows.sort(function(a, b) {
+          const ta = (a.createdAt && a.createdAt.seconds) ? a.createdAt.seconds : 0;
+          const tb = (b.createdAt && b.createdAt.seconds) ? b.createdAt.seconds : 0;
+          return tb - ta;
+        });
+        adminAppealsCache = rows;
+        renderAdminAppeals(rows);
+        const open = rows.filter(function(a) { return (a.status || 'open') === 'open'; }).length;
+        if (status) status.textContent = rows.length + ' appeal(s), ' + open + ' open';
+      } catch (e) {
+        console.error('[admin] appeals load failed', e);
+        if (status) status.textContent = 'Failed to load appeals.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminAppeals(rows) {
+      const list = document.getElementById('admin-appeals-list');
+      if (!list) return;
+      if (!rows.length) { list.innerHTML = '<p class="rr-modal-hint">No appeals.</p>'; return; }
+      list.innerHTML = rows.map(function(a) {
+        const st = String(a.status || 'open');
+        const isOpen = st === 'open';
+        return '<div class="rr-admin-card" data-appeal-card="' + escapeHtmlLite(a.id) + '">' +
+          '<div><strong>' + escapeHtmlLite(a.email || '(no email)') + '</strong>' +
+          ' · <code>' + escapeHtmlLite(a.uid || a.id) + '</code>' +
+          ' · <span class="rr-badge' + (isOpen ? '' : (st === 'denied' ? ' banned' : '')) + '">' + escapeHtmlLite(st) + '</span></div>' +
+          '<div class="meta">Ban reason: ' + escapeHtmlLite(a.reason || '—') +
+          '<br>Submitted ' + escapeHtmlLite(formatAdminWhen(a.createdAt)) +
+          (a.reviewedByEmail ? ('<br>Reviewed by ' + escapeHtmlLite(a.reviewedByEmail)) : '') + '</div>' +
+          '<div style="margin-top:6px;white-space:pre-wrap;word-break:break-word;">' + escapeHtmlLite(a.message || '') + '</div>' +
+          (isOpen ? ('<div class="rr-lightbox-actions" style="margin-top:8px;">' +
+            '<button type="button" class="rr-btn secondary" data-appeal-approve="' + escapeHtmlLite(a.id) + '">Unban</button>' +
+            '<button type="button" class="rr-btn danger" data-appeal-deny="' + escapeHtmlLite(a.id) + '">Deny</button>' +
+            '</div>') : '') +
+          '</div>';
+      }).join('');
+    }
+    async function adminResolveAppeal(id, decision) {
+      if (!id || !db) return;
+      const user = currentUser || (auth && auth.currentUser);
+      const appeal = adminAppealsCache.find(function(a) { return a.id === id; }) || { id: id };
+      try {
+        if (decision === 'approved') {
+          if (!window.confirm('Unban "' + (appeal.email || appeal.uid || id) + '" and approve the appeal?')) return;
+          const ok = await adminUnbanUser(appeal.uid || id, { skipConfirm: true, email: normalizeEmail(appeal.email || '') });
+          if (!ok) return;
+        } else if (!window.confirm('Deny the appeal from "' + (appeal.email || appeal.uid || id) + '"?')) {
+          return;
+        }
+        await db.collection('banAppeals').doc(id).update({
+          status: decision,
+          reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          reviewedByEmail: (user && (normalizeEmail(user.email) || user.email)) || null
+        });
+        showNotification(decision === 'approved' ? 'Appeal approved' : 'Appeal denied');
+        try { await logUserAction('admin_appeal_' + decision, (decision === 'approved' ? 'Approved' : 'Denied') + ' appeal ' + id); } catch (_) {}
+        await loadAdminAppeals();
+      } catch (e) {
+        console.error('[admin] appeal update failed', e);
         setAdminError((e && e.message) || String(e));
       }
     }
@@ -2733,6 +2826,17 @@
           const btn = e.target.closest('[data-admin-del-report]');
           if (!btn) return;
           adminDeleteReport(btn.getAttribute('data-admin-del-report'));
+        });
+      }
+      const appealsRefresh = document.getElementById('admin-appeals-refresh');
+      if (appealsRefresh) appealsRefresh.addEventListener('click', loadAdminAppeals);
+      const appealsList = document.getElementById('admin-appeals-list');
+      if (appealsList) {
+        appealsList.addEventListener('click', function(e) {
+          const ap = e.target.closest('[data-appeal-approve]');
+          if (ap) return adminResolveAppeal(ap.getAttribute('data-appeal-approve'), 'approved');
+          const dn = e.target.closest('[data-appeal-deny]');
+          if (dn) return adminResolveAppeal(dn.getAttribute('data-appeal-deny'), 'denied');
         });
       }
       const bansList = document.getElementById('admin-bans-list');
