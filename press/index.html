@@ -23,7 +23,7 @@
   b[t].l=+new Date;
   var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
   s.src='https://betterstack.net/b.js?t='+r;
-  (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
+  /* Better Stack loads only after analytics consent (same choice as Clarity). */var rrBsLoad=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};b.__rrLoadBetterStack=rrBsLoad;try{var rrC=localStorage.getItem('rr_cookie_consent'),rrP=localStorage.getItem('rr_cookie_prefs'),rrOk=rrC==='accepted';if(rrP){try{var rrQ=JSON.parse(rrP);if(rrQ&&rrQ.decided)rrOk=!!rrQ.clarity;}catch(_){}}if(rrOk)rrBsLoad();}catch(_){}
 }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
 betterstack('init', { environment: 'production' });
 </script>
@@ -253,9 +253,11 @@ const nw=document.getElementById('nw');if(nw)nw.onclick=()=>{document.getElement
 try{const snap=await db.collection('pressReleases').orderBy('createdAt','desc').limit(50).get();if(snap.empty){document.getElementById('list').textContent='No press releases yet.';return;}
 document.getElementById('list').innerHTML=snap.docs.map(doc=>{const a=doc.data()||{},s=a.slug||doc.id,img=a.images&&a.images[0]&&a.images[0].url;return `<article class="card">${img?`<img class="thumb" src="${esc(img)}" alt="${esc(a.title||'Press image')}">`:''}<a class="t" href="/press/index.html?id=${encodeURIComponent(s)}">${esc(a.title||s)}</a><div class="meta">${esc(when(a.createdAt)||'Recently')}</div><div>${esc(String(a.body||'').slice(0,220))}${String(a.body||'').length>220?'…':''}</div></article>`;}).join('');
 }catch(e){document.getElementById('list').textContent='Could not load releases. Add Firestore rules for pressReleases.';}}
+function rrCommentName(n){n=String(n||'').trim();return(n&&n.indexOf('@')===-1)?n.slice(0,80):'RailroadRadar user';}
+async function rrCommentAuthorName(u){let n=String((u&&u.displayName)||'').trim();if(n&&n.indexOf('@')===-1)return n.slice(0,80);try{const s=await db.collection('userSettings').doc(u.uid).get();const un=s.exists?String((s.data()||{}).username||'').trim():'';if(un&&un.indexOf('@')===-1)return un.slice(0,80);}catch(_){}return 'RailroadRadar user';}
 async function comments(slug){const box=document.getElementById('clist');if(!box)return;const snap=await db.collection('pressReleases').doc(slug).collection('comments').orderBy('createdAt','asc').limit(200).get();
 if(snap.empty){box.innerHTML='<p class="empty">No comments yet.</p>';return;}
-box.innerHTML=snap.docs.map(d=>{const c=d.data()||{};const can=user&&(user.uid===c.uid||isAdmin(user));return `<div class="comment"><b>${esc(c.displayName||'User')}</b> <span class="meta">${esc(when(c.createdAt))}</span><div>${esc(c.text||'')}</div>${can?`<button class="btn sec" data-x="${esc(d.id)}">Delete</button>`:''}</div>`;}).join('');
+box.innerHTML=snap.docs.map(d=>{const c=d.data()||{};/* never show an email, even on older comments */const can=user&&(user.uid===c.uid||isAdmin(user));return `<div class="comment"><b>${esc(rrCommentName(c.displayName))}</b> <span class="meta">${esc(when(c.createdAt))}</span><div>${esc(c.text||'')}</div>${can?`<button class="btn sec" data-x="${esc(d.id)}">Delete</button>`:''}</div>`;}).join('');
 box.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{await db.collection('pressReleases').doc(slug).collection('comments').doc(b.getAttribute('data-x')).delete();comments(slug);});}
 async function article(slug){if(window.speechSynthesis)window.speechSynthesis.cancel();speaking=false;
 const app=document.getElementById('app');const snap=await db.collection('pressReleases').doc(slug).get();
@@ -300,7 +302,7 @@ if(sh)sh.onclick=async()=>{const url=urlOf(slug);try{if(navigator.share){await n
 const dc=document.getElementById('dc');if(dc)dc.onclick=async()=>{dc.disabled=true;dc.textContent='Sending…';try{await notifyDiscord(slug);dc.textContent='Sent';setTimeout(()=>{dc.textContent='Send to Discord';dc.disabled=false;},1600);}catch(e){dc.textContent='Failed';dc.disabled=false;}};
 const ed=document.getElementById('ed');if(ed)ed.onclick=()=>{document.getElementById('slot').innerHTML=form(a);document.getElementById('pub').onclick=()=>save(slug);document.getElementById('can').onclick=()=>document.getElementById('slot').innerHTML='';};
 const del=document.getElementById('del');if(del)del.onclick=async()=>{if(confirm('Delete this press release?')){await db.collection('pressReleases').doc(slug).delete();location.href='/press/index.html';}};
-const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,email:user.email||'',displayName:user.displayName||user.email||'User',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
+const pc=document.getElementById('pc');if(pc)pc.onclick=async()=>{const text=(document.getElementById('ct').value||'').trim();if(!text)return;try{await db.collection('pressReleases').doc(slug).collection('comments').add({uid:user.uid,displayName:await rrCommentAuthorName(user),text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});document.getElementById('ct').value='';comments(slug);}catch(err){document.getElementById('cerr').textContent=err.message||'Could not comment';document.getElementById('cerr').className='err on';}};
 if(a.commentsEnabled)await comments(slug);}
 async function route(){const id=idFromLoc();if(id)await article(id);else await list();}
 firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();try{storage=firebase.storage();}catch(e){storage=null;}
@@ -320,7 +322,7 @@ function rrSaveCookies(on){
     localStorage.setItem('rr_cookie_consent', on?'accepted':'declined');
     localStorage.setItem('rr_cookie_prefs', JSON.stringify({decided:true,clarity:!!on,preferences:true,decidedAt:Date.now()}));
   }catch(e){}
-  if(on&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();
+  if(on&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(on&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();
 }
 function rrCookieBar(){
   const box=document.getElementById('rr-cookie');
@@ -328,7 +330,7 @@ function rrCookieBar(){
   const decided=rrCookieDecided();
   if(decided){
     box.hidden=true;box.classList.remove('on');
-    if(decided.clarity&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();
+    if(decided.clarity&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(decided.clarity&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();
     return;
   }
   box.hidden=false;box.classList.add('on');
@@ -343,7 +345,7 @@ document.getElementById('in').onclick=()=>auth.signInWithPopup(new firebase.auth
 document.getElementById('out').onclick=()=>auth.signOut();
 document.getElementById('pfp').onclick=e=>{e.stopPropagation();const m=document.getElementById('acct-menu');const open=!m.classList.contains('open');m.classList.toggle('open',open);document.getElementById('pfp').setAttribute('aria-expanded',open?'true':'false');};
 document.addEventListener('click',e=>{const m=document.getElementById('acct-menu');const b=document.getElementById('pfp');if(!m||!b)return;if(m.contains(e.target)||b.contains(e.target))return;m.classList.remove('open');b.setAttribute('aria-expanded','false');});
-auth.onAuthStateChanged(async u=>{user=u;header();try{if(typeof betterstack==='function'&&u)betterstack('user',{id:u.uid||'',email:u.email||'',username:u.displayName||u.email||''});}catch(e){}await refreshAdmin(u);await route();});
+auth.onAuthStateChanged(async u=>{user=u;header();try{if(typeof betterstack==='function'&&u)betterstack('user',{id:u.uid||''});}catch(e){}await refreshAdmin(u);await route();});
 </script>
 <script src="/assets/js/live-share-bar.js" defer></script>
 <script src="/assets/js/site-nav.js" defer></script>

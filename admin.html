@@ -452,7 +452,7 @@
       b[t].l=+new Date;
       var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
       s.src='https://betterstack.net/b.js?t='+r;
-      (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
+      /* Better Stack loads only after analytics consent (same choice as Clarity). */var rrBsLoad=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};b.__rrLoadBetterStack=rrBsLoad;try{var rrC=localStorage.getItem('rr_cookie_consent'),rrP=localStorage.getItem('rr_cookie_prefs'),rrOk=rrC==='accepted';if(rrP){try{var rrQ=JSON.parse(rrP);if(rrQ&&rrQ.decided)rrOk=!!rrQ.clarity;}catch(_){}}if(rrOk)rrBsLoad();}catch(_){}
     }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
     betterstack('init', { environment: 'production' });
   </script>
@@ -1293,6 +1293,7 @@
           }).join('');
         }
         if (status) status.textContent = rows.length + ' ban(s)';
+        try { await rrMigrateBanStatus(rows); } catch (e) { console.warn('[admin] ban status migration', e); }
       } catch (e) {
         console.error('[admin] bans load failed', e);
         if (status) status.textContent = 'Failed to load bans.';
@@ -1362,8 +1363,15 @@
           }
         }
         const docId = uid;
+        let statusToken = '';
+        try {
+          const prevBan = await db.collection('bannedUsers').doc(docId).get();
+          if (prevBan.exists) statusToken = String((prevBan.data() || {}).statusToken || '');
+        } catch (_) {}
+        if (statusToken.length < 32) statusToken = rrNewStatusToken();
         await db.collection('bannedUsers').doc(docId).set({
           uid: uid,
+          statusToken: statusToken,
           email: email || null,
           reason: reason || null,
           bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1374,12 +1382,13 @@
           await db.collection('bannedEmails').doc(email).set({
             email: email,
             uid: uid,
+            statusToken: statusToken,
             reason: reason || null,
             bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
             bannedByUid: user.uid
           }, { merge: true });
         }
-        try { await db.collection('unbanned').doc(docId).delete(); } catch (_) {}
+        try { await db.collection('unbanned').doc(statusToken).delete(); } catch (_) {}
         showNotification('User banned');
         try { await logUserAction('admin_ban', 'Banned ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-ban-email');
@@ -1406,18 +1415,27 @@
       try {
         const banned = await db.collection('bannedUsers').doc(docId).get();
         const bannedEmail = banned.exists ? String((banned.data() || {}).email || '').trim().toLowerCase() : '';
+        let statusToken = banned.exists ? String((banned.data() || {}).statusToken || '') : '';
+        if (statusToken.length < 32 && bannedEmail) {
+          try {
+            const be = await db.collection('bannedEmails').doc(bannedEmail).get();
+            if (be.exists) statusToken = String((be.data() || {}).statusToken || '');
+          } catch (_) {}
+        }
         await db.collection('bannedUsers').doc(docId).delete();
         if (bannedEmail) await db.collection('bannedEmails').doc(bannedEmail).delete();
         if (opts.email && opts.email !== bannedEmail) {
           try { await db.collection('bannedEmails').doc(opts.email).delete(); } catch (_) {}
         }
         // Marker read by the signed-out browser so it can clear its ban lock.
-        try {
-          await db.collection('unbanned').doc(docId).set({
-            uid: docId,
-            unbannedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        } catch (mErr) { console.warn('[admin] unbanned marker failed', mErr); }
+        // Keyed by the ban's random status token, never the uid.
+        if (statusToken.length >= 32) {
+          try {
+            await db.collection('unbanned').doc(statusToken).set({
+              unbannedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } catch (mErr) { console.warn('[admin] unbanned marker failed', mErr); }
+        }
         showNotification('User unbanned');
         try { await logUserAction('admin_unban', 'Unbanned ' + docId); } catch (_) {}
         await loadAdminBans();
@@ -1476,11 +1494,53 @@
           '</div>';
       }).join('');
     }
+    // Random, unguessable id for the public unban/appeal status docs (stored in the admin-only ban doc).
+    function rrNewStatusToken() {
+      const a = new Uint8Array(20);
+      (window.crypto || window.msCrypto).getRandomValues(a);
+      return 'st_' + Array.prototype.map.call(a, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    }
+    async function rrBanStatusToken(uid, email) {
+      try {
+        const b = await db.collection('bannedUsers').doc(uid).get();
+        const t = b.exists ? String((b.data() || {}).statusToken || '') : '';
+        if (t.length >= 32) return t;
+      } catch (_) {}
+      if (email) {
+        try {
+          const b = await db.collection('bannedEmails').doc(email).get();
+          const t = b.exists ? String((b.data() || {}).statusToken || '') : '';
+          if (t.length >= 32) return t;
+        } catch (_) {}
+      }
+      return '';
+    }
+    // Give older bans a status token, and remove the old uid-keyed status docs.
+    async function rrMigrateBanStatus(rows) {
+      for (const b of rows) {
+        if (String(b.statusToken || '').length >= 32) continue;
+        const t = rrNewStatusToken();
+        try {
+          await db.collection('bannedUsers').doc(b.id).set({ statusToken: t }, { merge: true });
+          if (b.email) await db.collection('bannedEmails').doc(normalizeEmail(b.email)).set({ statusToken: t }, { merge: true });
+          b.statusToken = t;
+        } catch (e) { console.warn('[admin] status token backfill', e); }
+      }
+      for (const col of ['unbanned', 'appealStatus']) {
+        try {
+          const snap = await db.collection(col).get();
+          for (const d of snap.docs) {
+            if (d.id.length < 32) { try { await d.ref.delete(); } catch (_) {} }
+          }
+        } catch (_) {}
+      }
+    }
     async function adminResolveAppeal(id, decision) {
       if (!id || !db) return;
       const user = currentUser || (auth && auth.currentUser);
       const appeal = adminAppealsCache.find(function(a) { return a.id === id; }) || { id: id };
       try {
+        const statusToken = await rrBanStatusToken(appeal.uid || id, normalizeEmail(appeal.email || ''));
         if (decision === 'approved') {
           if (!window.confirm('Unban "' + (appeal.email || appeal.uid || id) + '" and approve the appeal?')) return;
           const ok = await adminUnbanUser(appeal.uid || id, { skipConfirm: true, email: normalizeEmail(appeal.email || '') });
@@ -1510,7 +1570,8 @@
           decidedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (decision === 'denied') statusDoc.denyReason = denyReason;
-        await db.collection('appealStatus').doc(appeal.uid || id).set(statusDoc);
+        if (statusToken) await db.collection('appealStatus').doc(statusToken).set(statusDoc);
+        else console.warn('[admin] no status token for this ban; the user will not see the decision until they sign in again');
         setAdminError('');
         showNotification(decision === 'approved' ? 'Appeal approved' : 'Appeal denied');
         try { await logUserAction('admin_appeal_' + decision, (decision === 'approved' ? 'Approved' : 'Denied') + ' appeal ' + id); } catch (_) {}
@@ -3147,11 +3208,7 @@
       try {
         if (typeof betterstack !== 'function') return;
         if (!user) return;
-        betterstack('user', {
-          id: user.uid || '',
-          email: user.email || '',
-          username: user.displayName || user.email || ''
-        });
+        betterstack('user', { id: user.uid || '' });
       } catch (_) {}
     }
 

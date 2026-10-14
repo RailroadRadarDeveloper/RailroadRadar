@@ -303,8 +303,9 @@
         var time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         return date + ' at ' + time;
       }
-      if (uid) {
-        fetch(API + DOCS + '/appealStatus/' + encodeURIComponent(uid) + '?key=' + KEY, { cache: 'no-store' })
+      var token = String(info.token || '');
+      if (token.length >= 32) {
+        fetch(API + DOCS + '/appealStatus/' + encodeURIComponent(token) + '?key=' + KEY, { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (d) {
             var f = (d && d.fields) || {};
@@ -337,8 +338,8 @@
           }).catch(function () {});
       }
       // If an admin has since unbanned this account, drop the lock and go back to the map.
-      if (uid) {
-        fetch(API + DOCS + '/unbanned/' + encodeURIComponent(uid) + '?key=' + KEY, { cache: 'no-store' })
+      if (token.length >= 32) {
+        fetch(API + DOCS + '/unbanned/' + encodeURIComponent(token) + '?key=' + KEY, { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (d) {
             var ts = d && d.fields && d.fields.unbannedAt && d.fields.unbannedAt.timestampValue;
@@ -544,7 +545,7 @@
       if (!user || user.uid !== o.uid) return;
       firebase.firestore().collection('specialMoveShares').doc(user.uid).set({
         uid: user.uid, tripId: o.tripId, title: o.title || 'Live trip', active: true,
-        lat: coords.latitude, lon: coords.longitude, heading: coords.heading, speed: coords.speed, startedAt: o.startedAt, expiresAt: o.expiresAt, updatedAt: Date.now()
+        lat: coords.latitude, lon: coords.longitude, heading: coords.heading, speed: coords.speed, startedAt: o.startedAt, expiresAt: o.expiresAt, expireAt: firebase.firestore.Timestamp.fromMillis(Number(o.expiresAt)), updatedAt: Date.now()
       }, { merge: true });
     }).catch(function () {});
   }
