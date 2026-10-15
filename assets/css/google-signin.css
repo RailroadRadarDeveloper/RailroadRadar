@@ -50,6 +50,21 @@ button.gsi-btn[hidden], a.gsi-btn[hidden] { display: none !important; }
 .gsi-btn .gsi-icon svg { display: block; width: 20px; height: 20px; }
 .gsi-btn .gsi-text { font: inherit; color: inherit; position: relative; }
 .gsi-btn.gsi-block { display: flex; width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; }
+/* Theme by contrast: .gsi-light (Google light theme) on dark surfaces,
+   .gsi-dark (Google dark theme, also the default) on light surfaces. */
+button.gsi-btn.gsi-light, a.gsi-btn.gsi-light {
+  background: #FFFFFF !important;
+  border-color: #747775 !important;
+  color: #1F1F1F !important;
+}
+.gsi-btn.gsi-light::before { background: #303030; }
+.gsi-btn.gsi-light:focus-visible { outline-color: #0B57D0 !important; }
+button.gsi-btn.gsi-dark, a.gsi-btn.gsi-dark {
+  background: #131314 !important;
+  border-color: #8E918F !important;
+  color: #E3E3E3 !important;
+}
+.gsi-btn.gsi-dark::before { background: #FFFFFF; }
 /* Icon-only mode (a supported Google button mode) for tight headers on phones. */
 @media (max-width: 600px) {
   .gsi-btn.gsi-compact { width: 40px !important; min-width: 40px; padding: 0 !important; }
