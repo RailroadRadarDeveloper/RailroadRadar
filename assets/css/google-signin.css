@@ -1,5 +1,5 @@
 /* Sign in with Google button, dark theme, per developers.google.com/identity/branding-guidelines:
-   fill #131314, 1px #8E918F stroke, #E3E3E3 text, 13/18 medium, 32px tall, 18px G, 10px padding, 8px gap (all buttons), square corners (radius 0),
+   fill #131314, 1px #8E918F stroke, #E3E3E3 text, 13/18 medium, 32px tall, 18px G, 10px padding, 8px gap (all buttons), 4px radius,
    12px | 20px G | 10px | text | 12px. The G is the unaltered standard-color logo. */
 button.gsi-btn, a.gsi-btn {
   -webkit-appearance: none !important;
@@ -15,7 +15,7 @@ button.gsi-btn, a.gsi-btn {
   padding: 0 10px !important;
   background: #131314 !important;
   border: 1px solid #8E918F !important;
-  border-radius: 0 !important;
+  border-radius: 4px !important;
   box-shadow: none !important;
   color: #E3E3E3 !important;
   font-family: 'Google Sans', 'Roboto', arial, sans-serif !important;
@@ -44,8 +44,8 @@ button.gsi-btn[hidden], a.gsi-btn[hidden] { display: none !important; }
 .gsi-btn:hover::before { opacity: 0.08; }
 .gsi-btn:active::before, .gsi-btn:focus-visible::before { opacity: 0.12; }
 .gsi-btn:hover { box-shadow: 0 1px 2px 0 rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15) !important; }
-.gsi-btn:focus-visible { outline: 2px solid #A8C7FA !important; outline-offset: 2px; border-radius: 0 !important; }
-.gsi-btn::before { border-radius: 0; }
+.gsi-btn:focus-visible { outline: 2px solid #A8C7FA !important; outline-offset: 2px; border-radius: 4px !important; }
+.gsi-btn::before { border-radius: inherit; }
 .gsi-btn:disabled { cursor: default; opacity: 0.6; }
 .gsi-btn .gsi-icon { display: block; width: 18px; height: 18px; min-width: 18px; margin-right: 8px; }
 .gsi-btn .gsi-icon svg { display: block; width: 18px; height: 18px; }
