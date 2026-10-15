@@ -7493,7 +7493,7 @@ async function rrSpecialStopSharing(opts) {
       }
       try {
         const btn = document.getElementById('mytrips-guest-signin');
-        if (btn && btn.textContent === 'Signing in…') btn.textContent = 'Get Started';
+        const t = btn && (btn.querySelector('.gsi-text') || btn); if (t && t.textContent === 'Signing in…') t.textContent = 'Continue with Google';
       } catch (_) {}
     }
     function hideMyTripsGuestHome() {
@@ -7987,7 +7987,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           if (sessionStorage.getItem('rrAuthRedirect') === '1') {
             const btn = document.getElementById('mytrips-guest-signin');
-            if (btn) btn.textContent = 'Signing in…';
+            if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Signing in…';
           }
         } catch (_) {}
         rrWireEarlyAuth();
@@ -8007,7 +8007,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               rrSyncMyTripsAuthGate(null);
             try {
               if (typeof showNotification === 'function') {
-                showNotification('Sign-in did not complete. On Safari, allow popups and try Get Started again.', 'error');
+                showNotification('Sign-in did not complete. On Safari, allow popups and try Continue with Google again.', 'error');
               }
             } catch (_) {}
             } catch (_) {}
@@ -8186,7 +8186,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { sessionStorage.setItem('rrAuthRedirect', '1'); } catch (_) {}
           try {
             const btn = document.getElementById('mytrips-guest-signin');
-            if (btn) btn.textContent = 'Signing in…';
+            if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Signing in…';
           } catch (_) {}
           try {
             await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
@@ -8211,10 +8211,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (code === 'auth/popup-blocked') {
             if (rrIsSafariAuthRedirectBroken()) {
               // Redirect fallback would silently fail on Safari/iOS (ITP + cross-origin authDomain).
-              showNotification('Allow popups for railroadradar.com, then tap Get Started again.', 'error');
+              showNotification('Allow popups for railroadradar.com, then tap Continue with Google again.', 'error');
               try {
                 const btn = document.getElementById('mytrips-guest-signin');
-                if (btn) btn.textContent = 'Get Started';
+                if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Continue with Google';
               } catch (_) {}
               return;
             }
