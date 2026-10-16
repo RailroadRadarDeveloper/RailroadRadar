@@ -2880,6 +2880,32 @@
       cursor: pointer;
       margin: 0 0 8px;
     }
+    .trip-notify-row {
+      margin: 10px 0 12px;
+      padding: 10px 12px;
+      border: 1px solid #d8dce4;
+      border-radius: 8px;
+      background: #f7f8fb;
+    }
+    .trip-notify-row[hidden] { display: none !important; }
+    .trip-notify-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 750;
+      font-size: 14px;
+      color: #07093e;
+      cursor: pointer;
+      margin: 0 0 4px;
+    }
+    .trip-notify-hint, .trip-notify-status {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #5a6270;
+    }
+    .trip-notify-status:empty { display: none; }
+    .trip-notify-status { margin-top: 6px; color: #07093e; font-weight: 600; }
     .trip-public-hint {
       margin: 0 0 8px;
       font-size: 12px;

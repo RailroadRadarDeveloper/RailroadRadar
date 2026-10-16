@@ -138,7 +138,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=703782d65a">
+  <link rel="stylesheet" href="/assets/css/app.css?v=ff480aef15">
   <script>
     function rrIsMyTripsPage() {
       const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
@@ -591,6 +591,11 @@
             <div class="trip-log-stat-rails" id="trip-log-stat-rails" hidden></div>
           </div>
           <p class="trip-log-approx-note">Miles are approximate station-to-station estimates.</p>
+          <div class="trip-notify-row" id="trip-notify-row" hidden>
+            <label class="trip-notify-toggle"><input type="checkbox" id="trip-notify-toggle"> Boarding track alerts</label>
+            <p class="trip-notify-hint">Get a notification when your upcoming MBTA trip's train is boarding on its track. Works in desktop browsers and the Home Screen app, including when RailroadRadar is closed.</p>
+            <p class="trip-notify-status" id="trip-notify-status" aria-live="polite"></p>
+          </div>
           <div id="trip-nearby-banner" class="trip-nearby-banner" data-rr-nearby-trip="1" hidden aria-live="polite">
             <p class="trip-nearby-banner-text" id="trip-nearby-banner-text"></p>
             <div class="trip-nearby-banner-actions">
@@ -976,7 +981,8 @@
   <!-- Jotform scripts (unchanged) -->
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
   <script src="/assets/js/trip-stations.js"></script>
-  <script src="/assets/js/app-main.js?v=63396723a3"></script>
+  <script src="/assets/js/trip-notify.js?v=a335cb5240"></script>
+  <script src="/assets/js/app-main.js?v=b9143ec9ce"></script>
   <script>
     try {
       if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {
