@@ -1,0 +1,174 @@
+{
+ "recordedAt": "2026-10-15T22:57:45.135Z",
+ "expectedTrains": {
+  "MBTA": 38,
+  "Amtrak": 157,
+  "VIA Rail": 64,
+  "MNR": 215,
+  "LIRR": 150,
+  "NJT": 64,
+  "Metra": 183
+ },
+ "responses": {
+  "/api/amtrak/alerts": {
+   "status": 200,
+   "contentType": "application/octet-stream",
+   "file": "amtrak-alerts-c995fb8f.br"
+  },
+  "/api/amtrak/trains": {
+   "status": 200,
+   "contentType": "application/json",
+   "file": "amtrak-trains-9df790fe.br"
+  },
+  "/api/mbta/alerts?filter[route_type]=2&filter[trip]=FBWMLConstruction-859962-973,FBWMLConstruction-859926-871,FBWMLConstruction-859882-565,FBWMLConstruction-860194-1684,NorthBase-825749-371,FBWMLConstruction-859927-874,FBWMLConstruction-859850-2033,FBWMLConstruction-860174-767,FBWMLConstruction-859883-568,NorthBase-830357-69,FBWMLConstruction-859885-573,NorthBase-825780-431,NorthBase-830299-66,FBWMLConstruction-859853-2038,NorthBase-825751-375,NorthBase-825783-438,NorthBase-830287-173,FBWMLConstruction-859867-2092,FBWMLConstruction-859961-972,FBWMLConstruction-859794-1085,NorthBase-825782-435,FBWMLConstruction-860090-672,FBWMLConstruction-859852-2037,FBWMLConstruction-859924-867,NorthBase-825706-274,FBWMLConstruction-859884-571,FBWMLConstruction-860123-771,FBWMLConstruction-859925-870,NorthBase-825705-271,NorthBase-825748-370,NorthBase-825650-1270,FBWMLConstruction-859834-1983,FBWMLConstruction-859770-1035,FBWMLConstruction-860143-1770,FBWMLConstruction-859886-576,FBWMLConstruction-859771-1038,FBWMLConstruction-860270-673,FBWMLConstruction-859811-1574&filter[route]=CR-Providence,CR-Providence,CR-Worcester,CR-Fairmount,CR-Lowell,CR-Providence,CR-NewBedford,CR-Franklin,CR-Worcester,CR-Newburyport,CR-Worcester,CR-Fitchburg,CR-Newburyport,CR-NewBedford,CR-Lowell,CR-Fitchburg,CR-Newburyport,CR-NewBedford,CR-Providence,CR-Greenbush,CR-Fitchburg,CR-Needham,CR-NewBedford,CR-Providence,CR-Haverhill,CR-Worcester,CR-Franklin,CR-Providence,CR-Haverhill,CR-Lowell,CR-Haverhill,CR-NewBedford,CR-Kingston,CR-Franklin,CR-Worcester,CR-Kingston,CR-Needham,CR-Worcester": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-alerts-bb657c36.br"
+  },
+  "/api/mbta/predictions?filter[trip]=FBWMLConstruction-859962-973,FBWMLConstruction-859926-871,FBWMLConstruction-859882-565,FBWMLConstruction-860194-1684,NorthBase-825749-371,FBWMLConstruction-859927-874,FBWMLConstruction-859850-2033,FBWMLConstruction-860174-767,FBWMLConstruction-859883-568,NorthBase-830357-69,FBWMLConstruction-859885-573,NorthBase-825780-431,NorthBase-830299-66,FBWMLConstruction-859853-2038,NorthBase-825751-375,NorthBase-825783-438,NorthBase-830287-173,FBWMLConstruction-859867-2092,FBWMLConstruction-859961-972,FBWMLConstruction-859794-1085,NorthBase-825782-435,FBWMLConstruction-860090-672,FBWMLConstruction-859852-2037,FBWMLConstruction-859924-867,NorthBase-825706-274,FBWMLConstruction-859884-571,FBWMLConstruction-860123-771,FBWMLConstruction-859925-870,NorthBase-825705-271,NorthBase-825748-370,NorthBase-825650-1270,FBWMLConstruction-859834-1983,FBWMLConstruction-859770-1035,FBWMLConstruction-860143-1770,FBWMLConstruction-859886-576,FBWMLConstruction-859771-1038,FBWMLConstruction-860270-673,FBWMLConstruction-859811-1574&include=schedule": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-predictions-ca9c3eee.br"
+  },
+  "/api/mbta/predictions?filter[trip]=NorthBase-825749-371": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-predictions-896cd8cb.br"
+  },
+  "/api/mbta/routes?filter[type]=2": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-routes-7bb84b44.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Fairmount&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-b665c86a.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Fitchburg&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-9bfd35cd.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Foxboro&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-083ff9b4.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Franklin&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-a122c2e8.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Greenbush&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-8c61af19.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Haverhill&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-17f9cbc2.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Kingston&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-b1c3ac3a.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Lowell&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-aef4792f.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Needham&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-ba2e821e.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-NewBedford&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-d36a2327.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Newburyport&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-15280985.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Providence&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-fed367ae.br"
+  },
+  "/api/mbta/schedules?filter[date]=2026-10-15&filter[route]=CR-Worcester&include=trip,stop,route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-77e83f80.br"
+  },
+  "/api/mbta/schedules?filter[trip]=NorthBase-825749-371&filter[date]=2026-10-15&include=stop": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-schedules-646f9720.br"
+  },
+  "/api/mbta/stops?filter[route_type]=2&include=route": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-stops-870bf8da.br"
+  },
+  "/api/mbta/stops?filter[route_type]=2&page[limit]=200&page[offset]=200": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-stops-f6269e7b.br"
+  },
+  "/api/mbta/stops?filter[route_type]=2&page[limit]=200": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-stops-402be9d8.br"
+  },
+  "/api/mbta/vehicles?filter[route_type]=2&include=trip,route,stop": {
+   "status": 200,
+   "contentType": "application/vnd.api+json; charset=utf-8",
+   "file": "mbta-vehicles-8cea39a8.br"
+  },
+  "/api/metra/alerts": {
+   "status": 200,
+   "contentType": "application/octet-stream",
+   "file": "metra-alerts-9831623b.br"
+  },
+  "/api/metra/positions": {
+   "status": 200,
+   "contentType": "application/octet-stream",
+   "file": "metra-positions-2fd482cd.br"
+  },
+  "/api/metra/tripupdates": {
+   "status": 200,
+   "contentType": "application/octet-stream",
+   "file": "metra-tripupdates-ec013067.br"
+  },
+  "/api/mta/alerts": {
+   "status": 200,
+   "contentType": "application/x-protobuf",
+   "file": "mta-alerts-08887103.br"
+  },
+  "/api/mta/lirr": {
+   "status": 200,
+   "contentType": "application/octet-stream",
+   "file": "mta-lirr-05616ad8.br"
+  },
+  "/api/mta/mnr": {
+   "status": 200,
+   "contentType": "application/x-protobuf",
+   "file": "mta-mnr-9057909f.br"
+  },
+  "/api/njt/stops?train=53": {
+   "status": 200,
+   "contentType": "application/json",
+   "file": "njt-stops-1e38c859.br"
+  },
+  "/api/njt/vehicles": {
+   "status": 200,
+   "contentType": "application/json",
+   "file": "njt-vehicles-7e9dbd8b.br"
+  }
+ }
+}

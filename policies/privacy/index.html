@@ -188,12 +188,6 @@
       gap: 8px;
       margin: 12px 0 4px;
     }
-    .updated {
-      font-weight: 700;
-      background: rgba(255, 214, 10, 0.55);
-      border-radius: 3px;
-      padding: 0 2px;
-    }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -318,7 +312,7 @@
           <span class="pill">Effective October 14, 2026</span>
         </div>
         <div class="note">
-          <p><strong>Last updated October 14, 2026.</strong> Updated text is highlighted below. What changed:</p>
+          <p><strong>Last updated October 14, 2026.</strong> What changed:</p>
           <ul>
             <li><a href="#collect">Information we collect</a>: we now describe MyTrips trip logs, public profiles and usernames, live location sharing, press-release comments, and ban appeals.</li>
             <li><a href="#cookies">Cookies</a>: Better Stack monitoring now loads only if you allow analytics, and receives only your account ID.</li>
@@ -348,19 +342,19 @@
           <li><strong>Notification and interest settings.</strong> You may tell us which railroads or units you follow and whether you want alerts when a watched unit goes live or when a new report is posted.</li>
           <li><strong>Optional contact for future alerts.</strong> Some screens mention vehicle or SMS alerts. If those features are enabled and you submit a vehicle ID or phone number, we will use that information only to send the alerts you requested.</li>
           <li><strong>Questions you type in search (“Ask”).</strong> If you enter a question, we send the question plus a short snapshot of matching live-train facts to our Ask endpoint so we can answer in plain language.</li>
-          <li><strong class="updated"><strong>MyTrips trip logs.</strong> If you log trips, we store each trip’s railroad, train number, origin and destination stations, times, distance, optional notes, rolling stock, and route segments. Your trips are private unless you publish a public profile. With a public profile, your trips are visible to anyone with your profile link, except trips you mark Hidden.</strong></li>
-          <li><strong class="updated"><strong>Public profile and username.</strong> If you publish a MyTrips profile, your username, display name, and Google profile photo are public, and your username is linked to your account ID. Your email is never shown. You can remove the profile at any time, which hides your trips from the public again.</strong></li>
-          <li><strong class="updated"><strong>Live location sharing (special moves).</strong> If you start a live share, your device sends its precise location, heading, and speed to our database repeatedly while the share is active, with your first name, trip title, and account ID. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any leftover copy is automatically deleted by the database shortly after it expires.</strong></li>
-          <li><strong class="updated"><strong>Press-release comments.</strong> Comments on press releases are public and show your Google display name or username (never your email), with the text and time.</strong></li>
-          <li><strong class="updated"><strong>Ban appeals.</strong> If your account is disabled and you appeal, we store your appeal message, account ID, email, the ban reason, and the time, so administrators can review it. Only administrators can read appeals.</strong></li>
+          <li><strong>MyTrips trip logs.</strong> If you log trips, we store each trip’s railroad, train number, origin and destination stations, times, distance, optional notes, rolling stock, and route segments. Your trips are private unless you publish a public profile. With a public profile, your trips are visible to anyone with your profile link, except trips you mark Hidden.</li>
+          <li><strong>Public profile and username.</strong> If you publish a MyTrips profile, your username, display name, and Google profile photo are public, and your username is linked to your account ID. Your email is never shown. You can remove the profile at any time, which hides your trips from the public again.</li>
+          <li><strong>Live location sharing (special moves).</strong> If you start a live share, your device sends its precise location, heading, and speed to our database repeatedly while the share is active, with your first name, trip title, and account ID. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any leftover copy is automatically deleted by the database shortly after it expires.</li>
+          <li><strong>Press-release comments.</strong> Comments on press releases are public and show your Google display name or username (never your email), with the text and time.</li>
+          <li><strong>Ban appeals.</strong> If your account is disabled and you appeal, we store your appeal message, account ID, email, the ban reason, and the time, so administrators can review it. Only administrators can read appeals.</li>
           <li><strong>Messages you send us.</strong> If you email us, we keep the contents of that correspondence.</li>
         </ul>
 
         <h3>2.2 Information collected automatically</h3>
         <ul>
-          <li><strong>Technical and log data.</strong> Servers and content-delivery networks may record IP address, browser type, device type, pages requested, referring URL, date and time, and similar diagnostic data needed to operate and secure the Service. <strong class="updated">Live train data, trip lookups, and Ask questions go through our own proxy servers (Cloudflare Workers at railroadradar-proxy.railroadradar.workers.dev), which receive your IP address and the request.</strong></li>
+          <li><strong>Technical and log data.</strong> Servers and content-delivery networks may record IP address, browser type, device type, pages requested, referring URL, date and time, and similar diagnostic data needed to operate and secure the Service. Live train data, trip lookups, and Ask questions go through our own proxy servers (Cloudflare Workers at railroadradar-proxy.railroadradar.workers.dev), which receive your IP address and the request.</li>
           <li><strong>Map usage.</strong> The live map loads tiles and geographic data from map providers. Those providers may receive your IP address and the map area you view.</li>
-          <li><strong>Approximate or precise location (optional).</strong> If you allow location access, your browser can share coordinates with RailroadRadar so we can center the map on you and list nearby trains. That calculation runs in your browser<strong class="updated">, unless you choose to start a live location share (see section 2.1)</strong>. You can deny or later revoke location permission in your device or browser settings. We do not require location to use the map.</li>
+          <li><strong>Approximate or precise location (optional).</strong> If you allow location access, your browser can share coordinates with RailroadRadar so we can center the map on you and list nearby trains. That calculation runs in your browser, unless you choose to start a live location share (see section 2.1). You can deny or later revoke location permission in your device or browser settings. We do not require location to use the map.</li>
           <li><strong>Local device storage.</strong> The Service stores preferences on your device (for example cookie consent, map theme, whether train labels or clusters are shown, which railroads are visible, and notification choices).</li>
           <li><strong>Service worker / installed app.</strong> If you install RailroadRadar on your home screen or allow a service worker, your browser may cache map assets for offline or faster loading and may deliver notifications you enabled.</li>
         </ul>
@@ -408,9 +402,9 @@
               <td>Yes. Decline or uncheck Analytics. Clarity is not loaded until you allow it.</td>
             </tr>
             <tr>
-              <td><strong class="updated">Analytics — Better Stack</strong></td>
-              <td><strong class="updated">If allowed, loads Better Stack monitoring (betterstack.net) to report errors and page performance. If you are signed in, it receives only your account ID, not your email or name.</strong></td>
-              <td><strong class="updated">Yes. It uses the same Analytics choice as Clarity and is not loaded until you allow it.</strong></td>
+              <td>Analytics — Better Stack</td>
+              <td>If allowed, loads Better Stack monitoring (betterstack.net) to report errors and page performance. If you are signed in, it receives only your account ID, not your email or name.</td>
+              <td>Yes. It uses the same Analytics choice as Clarity and is not loaded until you allow it.</td>
             </tr>
             <tr>
               <td><strong>Preferences — saved settings</strong></td>
@@ -434,8 +428,8 @@
           <li>We create an account record keyed to your Google user ID and store your email and display name so administrators can moderate the community.</li>
           <li>Public train-report documents store your user ID, the label you chose, whether you are a verified reporter, and the pairing or comment itself. They are written so that email and raw Google name are not published on the map.</li>
           <li>A separate admin-only audit record may keep fuller contributor identity (including email and Google display name) so we can investigate abuse, duplicate reports, or mistakes.</li>
-          <li>Pending reports, report holds, ban records, verified-reporter flags, and an action log may be stored for safety and operations. <strong class="updated">The action log records your account ID, email, and the action, and is kept for 7 days.</strong></li>
-          <li><strong class="updated">You may delete your account from the account menu. Deleting removes your sign-in account, account and settings records, public profile and username, trip logs, any live location share, pending reports, and your press-release comments. Public train reports you already submitted stay on trains with the label they were posted under, and the admin-only audit copy of your reports and any ban or appeal records are kept for moderation; email railroadradar@gmail.com and we will delete or anonymize those on request where we can.</strong></li>
+          <li>Pending reports, report holds, ban records, verified-reporter flags, and an action log may be stored for safety and operations. The action log records your account ID, email, and the action, and is kept for 7 days.</li>
+          <li>You may delete your account from the account menu. Deleting removes your sign-in account, account and settings records, public profile and username, trip logs, any live location share, pending reports, and your press-release comments. Public train reports you already submitted stay on trains with the label they were posted under, and the admin-only audit copy of your reports and any ban or appeal records are kept for moderation; email railroadradar@gmail.com and we will delete or anonymize those on request where we can.</li>
         </ul>
         <p>RailroadRadar is in active development (beta). Features, stored fields, and retention periods may change as we improve moderation.</p>
 
@@ -446,11 +440,11 @@
         <h2 id="share">7. When we share information</h2>
         <p>We share personal information only as follows:</p>
         <ul>
-          <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups)<strong class="updated">, Cloudflare (our proxy servers),</strong> and, if you consent, Microsoft (Clarity)<strong class="updated"> and Better Stack</strong>.</li>
+          <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups), Cloudflare (our proxy servers), and, if you consent, Microsoft (Clarity) and Better Stack.</li>
           <li>Map and library providers that receive technical data when your browser requests map tiles, map code, or other assets (for example Mapbox, OpenStreetMap contributors, and public CDNs that serve mapping libraries).</li>
           <li>Transit agencies and public data sources, indirectly: we request their public feeds; we do not send them your account profile in those requests.</li>
           <li>The public, for report content and the reporter label you chose. Do not put information in a comment that you do not want others to see.</li>
-          <li><strong class="updated">The public, for your public profile and its visible trips, your press-release comments, and your live location while you are sharing it.</strong></li>
+          <li>The public, for your public profile and its visible trips, your press-release comments, and your live location while you are sharing it.</li>
           <li>Other users who view a train page or popup that includes community reports.</li>
           <li>Legal and safety: if we believe disclosure is required by law, court order, or to prevent harm, fraud, or abuse.</li>
           <li>Business transfer: if RailroadRadar is transferred or reorganized, account and report data may move with the Service under this Policy or a successor notice.</li>
@@ -463,9 +457,9 @@
           <li><strong>Google Firebase Authentication and Cloud Firestore</strong> — account sign-in and database for reports, settings, and moderation. Google’s terms and privacy policy apply to Google’s processing.</li>
           <li><strong>Google Sign-In</strong> — you authenticate with Google; we never receive your Google password.</li>
           <li><strong>Microsoft Clarity</strong> — optional analytics and session insights, loaded only after consent.</li>
-          <li><strong class="updated"><strong>Better Stack</strong> — optional error and performance monitoring, loaded only after consent; receives only your account ID if signed in.</strong></li>
-          <li><strong class="updated"><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, and Ask; they see your IP address and requests.</strong></li>
-          <li><strong class="updated"><strong>Discord</strong> — when we publish a press release, its title and link may be posted to our Discord server through a webhook. No visitor or account data is sent.</strong></li>
+          <li><strong>Better Stack</strong> — optional error and performance monitoring, loaded only after consent; receives only your account ID if signed in.</li>
+          <li><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, and Ask; they see your IP address and requests.</li>
+          <li><strong>Discord</strong> — when we publish a press release, its title and link may be posted to our Discord server through a webhook. No visitor or account data is sent.</li>
           <li><strong>Mapbox / OpenStreetMap / Leaflet</strong> — map display.</li>
           <li><strong>Public CDNs</strong> (for example unpkg and jsDelivr) — mapping and data libraries.</li>
           <li><strong>Transit open-data APIs</strong> operated by the agencies listed in section 2.3.</li>
@@ -476,10 +470,10 @@
         <ul>
           <li><strong>Account and settings data:</strong> for as long as your account exists, and a short period afterward if needed to complete deletion or resolve a dispute.</li>
           <li><strong>Train reports and audit logs:</strong> for as long as they remain useful to show current or recent pairings and to moderate the community. Older operational reports may be overwritten when a new pairing is submitted for the same train or vehicle.</li>
-          <li><strong class="updated"><strong>Trip logs, public profile, and username:</strong> until you delete them or your account.</strong></li>
-          <li><strong class="updated"><strong>Live location shares:</strong> deleted when the share ends (when you stop it, or after at most 5 hours); leftover copies are deleted automatically shortly after they expire.</strong></li>
-          <li><strong class="updated"><strong>Action log:</strong> 7 days.</strong></li>
-          <li><strong class="updated"><strong>Ban appeals:</strong> while the ban and its review are relevant, and as long as needed to protect the Service.</strong></li>
+          <li><strong>Trip logs, public profile, and username:</strong> until you delete them or your account.</li>
+          <li><strong>Live location shares:</strong> deleted when the share ends (when you stop it, or after at most 5 hours); leftover copies are deleted automatically shortly after they expire.</li>
+          <li><strong>Action log:</strong> 7 days.</li>
+          <li><strong>Ban appeals:</strong> while the ban and its review are relevant, and as long as needed to protect the Service.</li>
           <li><strong>Cookie consent and local preferences:</strong> until you clear site data or change the setting.</li>
           <li><strong>Server and security logs:</strong> typically a short operational period unless needed for an investigation.</li>
           <li><strong>Clarity analytics:</strong> according to Microsoft’s retention settings for our project, and only if you allowed Clarity.</li>
@@ -497,12 +491,12 @@
         <ul>
           <li>Use the map without creating an account.</li>
           <li>Refuse or later revoke location permission.</li>
-          <li>Accept, reject, or change cookie / <strong class="updated">analytics (Clarity and Better Stack)</strong> preferences via the cookie banner and preference dialog.</li>
-          <li><strong class="updated">Hide individual trips from your public profile, remove your public profile, or stop a live location share at any time.</strong></li>
+          <li>Accept, reject, or change cookie / analytics (Clarity and Better Stack) preferences via the cookie banner and preference dialog.</li>
+          <li>Hide individual trips from your public profile, remove your public profile, or stop a live location share at any time.</li>
           <li>Change how your name appears on reports, or switch to Anonymous.</li>
           <li>Turn notifications off.</li>
           <li>Sign out, or delete your account from the account menu.</li>
-          <li>Email us to request access to, correction of, or deletion of personal information we hold about you<strong class="updated">, including a copy of your data (we do not yet offer a self-service export)</strong>.</li>
+          <li>Email us to request access to, correction of, or deletion of personal information we hold about you, including a copy of your data (we do not yet offer a self-service export).</li>
         </ul>
         <p>Depending on where you live (including California and other U.S. states with privacy laws, and the EEA/UK if GDPR applies to a particular request), you may also have the right to know what we collect, request a copy, request correction or deletion, opt out of “sale” or “sharing” of personal information, and appeal a denied request where the law provides an appeal.</p>
         <p>We do not sell or share personal information as those terms are commonly defined for advertising. If that changes, we will update this Policy and provide a required opt-out. We will not discriminate against you for exercising privacy rights. We may need to verify your request (for example by confirming control of the email on the account).</p>
