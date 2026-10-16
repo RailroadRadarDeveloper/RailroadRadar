@@ -8343,6 +8343,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       });
       await step('userSettings', function() { return db.collection('userSettings').doc(uid).delete(); });
+      // Reports stay public under the label they were posted with, so only the Google photo and any
+      // legacy name or email come off. Not counted as a failure: the policy does not promise it.
+      try {
+        const fvDelete = firebase.firestore.FieldValue.delete();
+        const scrub = { reportedByPhotoURL: null, reportedByEmail: fvDelete, reportedByName: fvDelete, firstReportedByEmail: fvDelete, firstReportedByName: fvDelete };
+        const snap = await db.collection('trainReports').where('reportedByUid', '==', uid).get();
+        const refs = snap.docs.filter(function(d) {
+          const r = d.data();
+          return r.reportedByPhotoURL || r.reportedByEmail || r.reportedByName || r.firstReportedByEmail || r.firstReportedByName;
+        }).map(function(d) { return d.ref; });
+        for (let i = 0; i < refs.length; i += 200) {
+          const batch = db.batch();
+          refs.slice(i, i + 200).forEach(function(ref) { batch.update(ref, scrub); });
+          await batch.commit();
+        }
+      } catch (e) { console.warn('[delete-account] trainReports', e); }
       if (failed.length) console.warn('[delete-account] could not delete: ' + failed.join(', '));
       return failed;
     }
@@ -8352,32 +8368,51 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         showNotification('Sign in first to delete your account.', 'error');
         return;
       }
-      const ok = window.confirm('Permanently delete your RailroadRadar account? This cannot be undone.');
-      if (!ok) return;
       const user = auth.currentUser;
+      // Deleting the sign-in account needs a recent sign-in. Get it before any data is removed, so a
+      // cancelled or failed popup leaves everything as it was. The popup opens straight from the click:
+      // browsers block it if a confirm() stayed open for more than a few seconds first.
+      try {
+        await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+      } catch (e) {
+        const code = e && e.code;
+        if (code === 'auth/popup-blocked') {
+          showNotification('Allow popups for railroadradar.com, then try again. Your account was not deleted.', 'error');
+        } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          showNotification('Account not deleted', 'error');
+        } else if (code === 'auth/user-mismatch') {
+          showNotification('That is a different Google account. Your account was not deleted.', 'error');
+        } else {
+          console.error('[Auth] Re-auth for delete failed', e);
+          showNotification('Could not confirm your sign-in, so your account was not deleted: ' + (e.message || e), 'error');
+        }
+        return;
+      }
+      const reauthAt = Date.now();
+      if (!window.confirm('Permanently delete your RailroadRadar account? This cannot be undone.')) {
+        showNotification('Account not deleted', 'error');
+        return;
+      }
+      // Firebase only deletes the sign-in account within 5 minutes of signing in, and by then the data would be gone.
+      if (Date.now() - reauthAt > 4 * 60 * 1000) {
+        showNotification('That took too long to confirm, so your account was not deleted. Try again.', 'error');
+        return;
+      }
+      await rrSpecialStopSharing({ silent: true });
+      const failed = await rrDeleteOwnData(user.uid);
+      // Keep the sign-in account so the person can try again; once it is gone, nothing left can be deleted by them.
+      if (failed.length) {
+        showNotification('Some of your data could not be deleted, so your account was kept. Try again, or email railroadradar@gmail.com.', 'error');
+        return;
+      }
       // uid only in the log entry (no email or name).
       try { await logUserAction('delete_account', 'Account deleted', { uid: user.uid }); } catch (_) {}
-      try {
-        if (db && user.uid) await rrDeleteOwnData(user.uid);
-      } catch (e) { console.warn('[Auth] data cleanup incomplete', e); }
       try {
         await user.delete();
         showNotification('Account deleted');
       } catch (e) {
-        if (e && e.code === 'auth/requires-recent-login') {
-          try {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            await user.reauthenticateWithPopup(provider);
-            await auth.currentUser.delete();
-            showNotification('Account deleted');
-          } catch (e2) {
-            console.error('[Auth] Delete after reauth failed', e2);
-            showNotification('Could not delete account: ' + (e2.message || e2), 'error');
-          }
-        } else {
-          console.error('[Auth] Delete failed', e);
-          showNotification('Could not delete account: ' + (e.message || e), 'error');
-        }
+        console.error('[Auth] Delete failed', e);
+        showNotification('Your data was deleted, but your sign-in account was not. Try Delete account again.', 'error');
       }
     }
 
