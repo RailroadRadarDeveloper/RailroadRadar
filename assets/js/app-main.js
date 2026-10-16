@@ -5825,9 +5825,9 @@ function closeTripDetailView(opts) {
           miles: Number(miles) || 0
         };
         if (isSpecialSeg && !arriveIso) segOut.openEnded = true;
-        if (specialOpts && specialOpts.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
-          segOut.liveLat = Number(window.rrSpecialLastFix.lat);
-          segOut.liveLon = Number(window.rrSpecialLastFix.lon);
+        if (isSpecialSeg && specialOpts.liveFix) {
+          segOut.liveLat = Number(specialOpts.liveFix.lat);
+          segOut.liveLon = Number(specialOpts.liveFix.lon);
         }
         if (isSpecialSeg) {
           segOut.specialMove = true;
@@ -5942,12 +5942,27 @@ function closeTripDetailView(opts) {
         } catch (_) {}
         return;
       }
-      if (specialFields.specialMove) {
+      const saveBtns = [document.getElementById('trip-log-save'), document.getElementById('trip-log-go-live')];
+      function setSaveDisabled(on) { saveBtns.forEach(function(b) { if (b) b.disabled = on; }); }
+      if (specialFields.specialMove && tripLogEditingId) {
+        // An edit keeps the position saved with the trip.
+        const savedSegs = (tripLogDataById[tripLogEditingId] || {}).segments || [];
+        const saved = savedSegs.find(function(s) { return s && s.liveLat != null && s.liveLon != null; });
+        specialFields.liveFix = saved ? { lat: saved.liveLat, lon: saved.liveLon } : null;
+      }
+      if (specialFields.specialMove && !tripLogEditingId) {
+        // The browser's timeout only starts once the prompt is answered, so this can wait a long time.
+        const locEl = document.getElementById('trip-special-loc');
+        if (locEl) locEl.textContent = 'Waiting for location. Answer the location prompt to continue.';
+        setSaveDisabled(true);
         try {
           window.rrSpecialLastFix = await rrSpecialRequireLocation();
+          specialFields.liveFix = window.rrSpecialLastFix;
         } catch (locErr) {
           setTripLogError((locErr && locErr.message) || 'Location is required before this trip can be created.');
           return;
+        } finally {
+          setSaveDisabled(false);
         }
       }
       let payload;
@@ -5957,8 +5972,7 @@ function closeTripDetailView(opts) {
         setTripLogError(String((ve && ve.message) || ve));
         return;
       }
-      const saveBtn = document.getElementById('trip-log-save');
-      if (saveBtn) saveBtn.disabled = true;
+      setSaveDisabled(true);
       try {
         const uid = saveUser.uid;
         const editingId = tripLogEditingId;
@@ -5983,9 +5997,20 @@ function closeTripDetailView(opts) {
         });
         try { await logUserAction('trip_log_save', payload.railroad + ' ' + payload.trainNumber); } catch (_) {}
         if (typeof showNotification === 'function') showNotification(editingId ? 'Trip updated' : 'Trip saved');
-        if (payload && payload.specialMove && window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) {
+        const share = rrSpecialShareState;
+        if (editingId && payload.specialMove && share && share.tripId === editingId && share.title !== payload.trainTitle) {
+          // A rename reaches the live map; the share's position and expiry stay as they are.
+          share.title = payload.trainTitle;
+          rrSpecialPersistLocal(share);
           try {
-            await rrSpecialPublishLiveTrip(tripRef.id, payload.trainTitle || payload.trainNumber || 'Live trip', window.rrSpecialLastFix);
+            await db.collection('specialMoveShares').doc(share.uid).set({ title: share.title }, { merge: true });
+          } catch (renameErr) {
+            console.warn('[live-trip] share rename', renameErr);
+          }
+        }
+        if (!editingId && payload.specialMove && specialFields.liveFix) {
+          try {
+            await rrSpecialPublishLiveTrip(tripRef.id, payload.trainTitle || payload.trainNumber || 'Live trip', specialFields.liveFix);
           } catch (shareErr) {
             console.warn('[live-trip] map publish', shareErr);
             setTripLogError('Trip saved, but it could not be placed on the map yet.');
@@ -6013,7 +6038,7 @@ function closeTripDetailView(opts) {
         setTripLogError('Could not save trip. ' + String((e && e.message) || e));
         return null;
       } finally {
-        if (saveBtn) saveBtn.disabled = false;
+        setSaveDisabled(false);
       }
     }
 
@@ -6271,12 +6296,8 @@ function closeTripDetailView(opts) {
           window.rrSpecialLastFix = fix;
           const el = document.getElementById('trip-special-loc');
           if (el) el.textContent = 'Location allowed.';
-          const saveBtn = document.getElementById('trip-log-save');
-          if (saveBtn) saveBtn.disabled = false;
           resolve(fix);
         }, function(err) {
-          const saveBtn = document.getElementById('trip-log-save');
-          if (saveBtn) saveBtn.disabled = true;
           const el = document.getElementById('trip-special-loc');
           if (el) el.textContent = (err && err.code === 1)
             ? 'Location is required. Allow location to create this trip.'
@@ -6295,9 +6316,12 @@ function rrSpecialSyncTitleWrap() {
       wrap.hidden = !on;
       if (block) block.classList.toggle('is-on', on);
       document.body.classList.toggle('trip-form-special', on);
-      if (on) {
-        const saveBtn = document.getElementById('trip-log-save');
-        if (saveBtn && !(window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null)) saveBtn.disabled = true;
+      // Editing shows "Update trip" instead of GO LIVE, so an edit never starts a share.
+      document.body.classList.toggle('trip-form-editing', !!tripLogEditingId);
+      const locHint = document.getElementById('trip-special-loc');
+      if (locHint) locHint.hidden = !!tripLogEditingId;
+      // Only a new special move needs location; editing one never shares.
+      if (on && !tripLogEditingId) {
         if (!cb.dataset.locAsked) {
           cb.dataset.locAsked = '1';
           try { rrSpecialRequireLocation().catch(function() {}); } catch (_) {}
