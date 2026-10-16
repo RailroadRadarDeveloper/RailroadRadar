@@ -6,7 +6,7 @@
   <title>Admin Dashboard | RailroadRadar</title>
   <meta name="theme-color" content="#07093e">
   <meta name="robots" content="noindex,nofollow">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=606377646c">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
@@ -772,6 +772,7 @@
     };
 
     const AUDIT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+    const AUDIT_LOG_TZ = 'America/New_York';
 
     function rrAssetUrl(url) {
       const u = String(url == null ? '' : url).trim();
@@ -2283,6 +2284,8 @@
             legalAccepted: d.legalAccepted === true || legal.legalAccepted === true,
             legalAcceptedAt: d.legalAcceptedAt || legal.legalAcceptedAt || null,
             legalVersion: d.legalVersion || legal.legalVersion || null,
+            termsVersion: d.termsVersion || null,
+            privacyVersion: d.privacyVersion || null,
             cookieConsent: d.cookieConsent || legal.cookieConsent || null,
             cookieClarity: d.cookieClarity === true || legal.cookieClarity === true,
             cookiePreferences: (d.cookiePreferences !== undefined ? d.cookiePreferences !== false : (legal.cookiePreferences !== false)),
@@ -2330,8 +2333,10 @@
     function formatAdminLegalCell(a) {
       if (a && a.legalAccepted) {
         const when = a.legalAcceptedAt ? formatAdminWhen(a.legalAcceptedAt) : '';
-        const ver = a.legalVersion ? String(a.legalVersion) : RR_LEGAL_VERSION;
-        const extra = when && when !== '—' ? when : (ver ? ('v ' + ver) : '');
+        const ver = a.termsVersion || a.privacyVersion
+          ? ('Terms ' + (a.termsVersion || '?') + ', Privacy ' + (a.privacyVersion || '?'))
+          : (a.legalVersion ? String(a.legalVersion) : '');
+        const extra = when && when !== '—' ? when : (ver ? ((a.termsVersion || a.privacyVersion ? '' : 'v ') + ver) : '');
         return '<span class="rr-badge verified" title="Agreed to Terms of Use and Privacy Policy' + (ver ? (' (' + escapeHtmlLite(ver) + ')') : '') + (when && when !== '—' ? (' on ' + escapeHtmlLite(when)) : '') + '">Accepted</span>' +
           (extra ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(extra) + '</div>') : '');
       }
