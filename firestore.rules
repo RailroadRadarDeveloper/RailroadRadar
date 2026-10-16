@@ -23,21 +23,25 @@ service cloud.firestore {
       return /databases/$(database)/documents/admins/$(authEmailLower());
     }
 
+    function adminPerms() {
+      return get(adminDocPath()).data.get('perms', {});
+    }
+
+    // Same test as the admin page: an admins doc with every perm off is not an admin.
     function isAdmin() {
       return isBootstrapAdmin()
-        || (signedIn() && exists(adminDocPath()));
+        || (verifiedEmail() && exists(adminDocPath()) && adminPerms().values().hasAny([true]));
+    }
+
+    function adminHasPerm(perm) {
+      return isBootstrapAdmin()
+        || (verifiedEmail() && exists(adminDocPath()) && adminPerms().get(perm, false) == true);
     }
 
     // Train icons are drawn into the page, so only plain /assets/ image paths are allowed.
     function iconIsAsset(data) {
       return !('icon' in data)
         || (data.icon is string && data.icon.matches('/assets/[A-Za-z0-9-]+[.]png'));
-    }
-
-    function adminHasPerm(perm) {
-      return isBootstrapAdmin()
-        || (isAdmin()
-            && get(adminDocPath()).data.perms[perm] == true);
     }
 
     function verifiedEmail() {
@@ -60,75 +64,317 @@ service cloud.firestore {
       );
     }
 
-    // Signed in and not banned: required for every user-side write and private read.
+    // Signed in with a verified email and not banned: required for every user-side write and private read.
     function activeUser() {
-      return signedIn() && !isBanned();
+      return signedIn() && verifiedEmail() && !isBanned();
     }
 
-    match /pairings/{leadCar} {
-      allow read: if true;
-      allow create, update: if signedIn()
-        && verifiedEmail()
-        && !isBanned()
-        && request.resource.data.leadCar == leadCar
-        && request.resource.data.leadCar is string
-        && request.resource.data.leadCar.size() <= 64
-        && request.resource.data.engine is string
-        && request.resource.data.engine.size() <= 64
-        && request.resource.data.keys().hasAll(['leadCar', 'engine', 'reportedByUid', 'updatedAt'])
-        && request.resource.data.reportedByUid == request.auth.uid;
-      allow delete: if activeUser()
-        && resource.data.reportedByUid == request.auth.uid;
+    function isVerifiedReporter() {
+      return exists(/databases/$(database)/documents/verifiedReporters/$(request.auth.uid));
     }
 
+    // A held user's reports must go through pendingReports for an admin to approve.
+    function isReportHeld() {
+      return exists(/databases/$(database)/documents/reportHold/$(request.auth.uid))
+        && get(/databases/$(database)/documents/reportHold/$(request.auth.uid)).data.get('required', true) != false;
+    }
+
+    function textOk(v, max) {
+      return v == null || v.size() <= max;
+    }
+
+    // Fails on anything but a string, so a list or map cannot pass a length check.
+    function strOk(v, max) {
+      return v == null || (v is string && v.size() <= max);
+    }
+
+    function displayModeOk(v) {
+      return v in ['first_initial', 'full_name', 'anonymous', 'custom'];
+    }
+
+    // Contributor entries drive the weekly leaderboard. full=true is the admin-only audit shape.
+    // Rules stop evaluating after 1000 expressions, so these checks are kept short: a wrong
+    // type on a field that is read makes the evaluation error, which denies the write.
+    // The caller's own new entry: their uid, their verified email, a current timestamp.
+    function myContributorOk(c, full) {
+      return c.keys().hasOnly(full
+          ? ['uid', 'email', 'name', 'label', 'displayMode', 'at', 'verified']
+          : ['uid', 'label', 'displayMode', 'at', 'verified'])
+        && c.uid == request.auth.uid
+        && c.label.matches('.{0,120}') && displayModeOk(c.displayMode)
+        && math.abs(c.at - request.time.toMillis()) < 3600000
+        && (c.verified == false || (c.verified == true && isVerifiedReporter()))
+        && (!full || (textOk(c.email, 200) && textOk(c.name, 200)
+            && (c.email == null || c.email.lower() == authEmailLower())));
+    }
+
+    // Other people's entries may not be changed, removed, or reordered. A write either leaves
+    // the list alone (it is then not in the affected keys) or appends exactly one entry of the caller's.
+    function contributorsAppendOk(next, prev, full) {
+      return contributorsAppendChecks(next, prev.get('contributors', []), full);
+    }
+
+    function contributorsAppendChecks(next, old, full) {
+      return next.size() <= 500 && (old.size() == 0
+        ? (next.size() == 1 && myContributorOk(next[0], full))
+        : (next.size() == old.size() + 1
+            && next[0:old.size()] == old
+            && myContributorOk(next[old.size()], full)));
+    }
+
+    function iconUrlOk(v) {
+      return v == null || v.matches('/assets/[A-Za-z0-9-]+[.]png');
+    }
+
+    // customLoco and specialOverride are not type-checked: for five locomotives that would go
+    // over the expression limit on the longest report path.
+    function locomotiveOk(l) {
+      return l.keys().hasOnly(['locomotiveId', 'unitName', 'locoType', 'locoIconUrl', 'specialOverride', 'customLoco'])
+        && l.locomotiveId.matches('.{0,64}') && l.unitName.matches('.{0,120}') && l.locoType.matches('.{0,32}')
+        && iconUrlOk(l.locoIconUrl);
+    }
+
+    function locomotivesOk(v) {
+      return v == null || (v.size() <= 5
+        && (v.size() < 1 || locomotiveOk(v[0]))
+        && (v.size() < 2 || locomotiveOk(v[1]))
+        && (v.size() < 3 || locomotiveOk(v[2]))
+        && (v.size() < 4 || locomotiveOk(v[3]))
+        && (v.size() < 5 || locomotiveOk(v[4])));
+    }
+
+    // Field types and sizes shared by trainReports and pendingReports. The client writes the
+    // fields read without get() on every submission; a missing or mistyped one denies the write.
+    // The verified badge is drawn from reportedByVerified and contributors[].verified, so both
+    // need a verifiedReporters doc. Emails are not allowed at all: an admin's email shows the admin badge.
+    function reportFieldsOk(d) {
+      return d.reportedByUid == request.auth.uid
+        && d.agency.matches('[a-z]{2,16}')
+        && strOk(d.trainNumber, 64)
+        && strOk(d.vehicleId, 64)
+        && strOk(d.serviceDate, 10)
+        && d.unitName.matches('.{0,120}')
+        && d.comment.matches('(?s).{0,280}')
+        && d.reportedByLabel.matches('.{0,120}')
+        && displayModeOk(d.reportedByDisplayMode)
+        && d.locomotiveId2.matches('.{0,64}')
+        && d.unitName2.matches('.{0,120}')
+        && d.locoType2.matches('.{0,32}')
+        && strOk(d.get('locomotiveId', null), 64)
+        && strOk(d.get('locoType', null), 32)
+        && d.get('specialOverride', false) is bool
+        && (d.reportedByPhotoURL == null
+            || (d.reportedByPhotoURL.size() <= 500
+                && d.reportedByPhotoURL.matches('https://lh[0-9]+[.]googleusercontent[.]com/.*')))
+        && (d.reportedByVerified == false || (d.reportedByVerified == true && isVerifiedReporter()))
+        && iconUrlOk(d.get('locoIconUrl', null))
+        && iconUrlOk(d.locoIconUrl2)
+        && locomotivesOk(d.locomotives)
+        && !d.keys().hasAny(['reportedByEmail', 'reportedByName', 'firstReportedByEmail', 'firstReportedByName']);
+    }
+
+    function reportWritableKeys() {
+      return [
+        'agency', 'trainNumber', 'vehicleId', 'unitName', 'serviceDate',
+        'reportedByUid', 'reportedByDisplayMode', 'reportedByLabel', 'reportedByPhotoURL',
+        'reportedByVerified', 'contributors', 'updatedAt', 'comment',
+        'reportedByEmail', 'reportedByName', 'firstReportedByEmail', 'firstReportedByName',
+        'firstReportedByUid', 'firstReportedByDisplayMode', 'firstReportedByLabel',
+        'locomotives', 'locomotiveId', 'locomotiveId2', 'unitName2',
+        'locoType', 'locoType2', 'locoIconUrl', 'locoIconUrl2', 'specialOverride'
+      ];
+    }
+
+    function reportCreateOk(id) {
+      return reportCreateChecks(id, request.resource.data);
+    }
+
+    function reportCreateChecks(id, d) {
+      return reportFieldsOk(d)
+        && d.keys().hasOnly(reportWritableKeys().concat(['createdAt']))
+        && id.matches(d.agency + '_.*')
+        && d.createdAt == request.time
+        && d.updatedAt == request.time
+        && d.firstReportedByUid == request.auth.uid
+        && d.firstReportedByLabel.matches('.{0,120}')
+        && d.firstReportedByDisplayMode.matches('.{0,16}')
+        && contributorsAppendOk(d.get('contributors', null), {}, false);
+    }
+
+    // The client rewrites the report fields on every submission (latest report wins) and adds
+    // the reporter to contributors. Identity, first-reporter and contributor history are not rewritable.
+    function reportUpdateOk() {
+      return reportUpdateChecks(request.resource.data, resource.data, request.resource.data.diff(resource.data).affectedKeys());
+    }
+
+    function reportUpdateChecks(d, o, changed) {
+      return reportFieldsOk(d)
+        && changed.hasOnly(reportWritableKeys())
+        && d.agency == o.agency
+        && d.updatedAt == request.time
+        && (!changed.hasAny(['firstReportedByUid', 'firstReportedByLabel', 'firstReportedByDisplayMode'])
+            || (!('firstReportedByUid' in o)
+                && d.firstReportedByUid == o.get('reportedByUid', request.auth.uid)
+                && d.firstReportedByLabel.matches('.{0,120}')
+                && d.get('firstReportedByDisplayMode', '').matches('.{0,16}')))
+        && (!changed.hasAny(['contributors'])
+            || contributorsAppendOk(d.get('contributors', null), o, false));
+    }
+
+    // Account deletion takes the photo and any legacy name or email off the person's own latest reports.
+    function reportScrubOk() {
+      return resource.data.reportedByUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'reportedByPhotoURL', 'reportedByEmail', 'reportedByName', 'firstReportedByEmail', 'firstReportedByName'
+        ])
+        && request.resource.data.get('reportedByPhotoURL', null) == null
+        && !request.resource.data.keys().hasAny(['reportedByEmail', 'reportedByName', 'firstReportedByEmail', 'firstReportedByName']);
+    }
+
+    // Held users write their whole report here; a resubmission replaces their earlier one.
+    function pendingWriteOk(id) {
+      return pendingWriteChecks(id, request.resource.data);
+    }
+
+    function pendingWriteChecks(id, d) {
+      return reportFieldsOk(d)
+        && d.keys().hasOnly(reportWritableKeys().concat(['createdAt', 'status', 'submittedAt']))
+        && id.matches(d.agency + '_.*')
+        && d.status == 'pending'
+        && d.submittedAt == request.time
+        && d.updatedAt == request.time
+        && (!('createdAt' in d) || d.createdAt == request.time)
+        && (!('firstReportedByUid' in d)
+            || d.firstReportedByUid in [request.auth.uid, pendingBase(id).get('reportedByUid', '')])
+        && (!('contributors' in d) || contributorsAppendOk(d.contributors, pendingBase(id), false));
+    }
+
+    function pendingBase(id) {
+      return exists(/databases/$(database)/documents/trainReports/$(id))
+        ? get(/databases/$(database)/documents/trainReports/$(id)).data
+        : {};
+    }
+
+    function auditFieldsOk(d) {
+      return d.reportedByUid == request.auth.uid
+        && textOk(d.get('reportedByEmail', null), 200)
+        && (d.get('reportedByEmail', null) == null || d.reportedByEmail.lower() == authEmailLower())
+        && textOk(d.get('reportedByName', null), 200)
+        && textOk(d.get('reportedByLabel', null), 120)
+        && displayModeOk(d.get('reportedByDisplayMode', 'first_initial'))
+        && textOk(d.get('agency', null), 16)
+        && textOk(d.get('vehicleId', null), 64)
+        && textOk(d.get('trainNumber', null), 64)
+        && textOk(d.get('serviceDate', null), 10)
+        && d.updatedAt == request.time;
+    }
+
+    function auditWritableKeys() {
+      return [
+        'reportedByUid', 'reportedByEmail', 'reportedByName', 'reportedByLabel', 'reportedByDisplayMode',
+        'agency', 'vehicleId', 'trainNumber', 'serviceDate', 'contributors', 'updatedAt', 'createdAt'
+      ];
+    }
+
+    // Non-admins cannot read the audit, so the client appends its own entry with arrayUnion
+    // and the earlier reporters' entries stay as they were.
+    function auditCreateOk(id) {
+      return auditFieldsOk(request.resource.data)
+        && existsAfter(/databases/$(database)/documents/trainReports/$(id))
+        && request.resource.data.keys().hasOnly(auditWritableKeys())
+        && request.resource.data.get('createdAt', request.time) == request.time
+        && (!('contributors' in request.resource.data)
+            || contributorsAppendChecks(request.resource.data.contributors, [], true));
+    }
+
+    function auditUpdateOk() {
+      return auditUpdateChecks(request.resource.data.diff(resource.data).affectedKeys());
+    }
+
+    function auditUpdateChecks(changed) {
+      return auditFieldsOk(request.resource.data)
+        && changed.hasOnly(auditWritableKeys())
+        && (!changed.hasAny(['createdAt'])
+            || (!('createdAt' in resource.data) && request.resource.data.createdAt == request.time))
+        && (!changed.hasAny(['contributors'])
+            || contributorsAppendOk(request.resource.data.contributors, resource.data, true));
+    }
+
+
+    // reportedByUid is whoever reported last, so it does not make the report theirs to delete.
     match /trainReports/{id} {
       allow read: if true;
-      allow create, update: if signedIn()
+      allow create: if signedIn()
         && !isBanned() && verifiedEmail()
-        && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
-      allow delete: if isBootstrapAdmin()
-        || adminHasPerm('deleteReports')
-        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
+        && ((!isReportHeld() && reportCreateOk(id)) || adminHasPerm('viewReports'));
+      allow update: if signedIn()
+        && !isBanned() && verifiedEmail()
+        && ((!isReportHeld() && reportUpdateOk()) || reportScrubOk() || adminHasPerm('viewReports'));
+      allow delete: if adminHasPerm('deleteReports');
     }
 
     match /pendingReports/{id} {
-      allow read: if isAdmin()
+      allow read: if adminHasPerm('viewReports')
         || (activeUser() && resource.data.reportedByUid == request.auth.uid);
       allow create: if signedIn()
-        && request.resource.data.reportedByUid == request.auth.uid
-        && !isBanned() && verifiedEmail();
-      allow update: if isAdmin();
-      allow delete: if isAdmin()
+        && !isBanned() && verifiedEmail()
+        && isReportHeld()
+        && pendingWriteOk(id);
+      allow update: if adminHasPerm('viewReports')
+        || (signedIn()
+            && !isBanned() && verifiedEmail()
+            && resource.data.reportedByUid == request.auth.uid
+            && isReportHeld()
+            && pendingWriteOk(id));
+      allow delete: if adminHasPerm('viewReports')
         || (activeUser() && resource.data.reportedByUid == request.auth.uid);
     }
 
     match /reportHold/{uid} {
       allow read: if isAdmin()
         || (activeUser() && request.auth.uid == uid);
-      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+      allow create, update, delete: if adminHasPerm('viewReports');
     }
 
     match /reportAudit/{id} {
-      allow read: if isAdmin();
-      allow create, update: if signedIn()
+      allow read: if adminHasPerm('viewReports');
+      allow create: if signedIn()
         && !isBanned() && verifiedEmail()
-        && (request.resource.data.reportedByUid == request.auth.uid || isAdmin());
-      allow delete: if isBootstrapAdmin()
-        || adminHasPerm('deleteReports')
-        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
+        && ((!isReportHeld() && auditCreateOk(id)) || adminHasPerm('viewReports'));
+      allow update: if signedIn()
+        && !isBanned() && verifiedEmail()
+        && ((!isReportHeld() && auditUpdateOk()) || adminHasPerm('viewReports'));
+      allow delete: if adminHasPerm('deleteReports');
     }
 
     match /actionLog/{id} {
-      allow read: if isAdmin();
+      allow read: if adminHasPerm('viewReports');
       allow create: if activeUser()
+        && request.resource.data.keys().hasAll(['action', 'uid', 'at'])
+        && request.resource.data.keys().hasOnly(['action', 'detail', 'uid', 'email', 'label', 'at', 'expireAt'])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasAll(['action', 'uid', 'at']);
+        && request.resource.data.action is string
+        && request.resource.data.action.size() <= 64
+        && textOk(request.resource.data.get('detail', null), 400)
+        && textOk(request.resource.data.get('label', null), 200)
+        && (request.resource.data.get('email', null) == null
+            || request.resource.data.email == tokenEmailLower())
+        && request.resource.data.at == request.time
+        && (!('expireAt' in request.resource.data) || request.resource.data.expireAt is timestamp);
       allow update: if false;
       allow delete: if isBootstrapAdmin();
     }
 
+    // Owner-only settings. The fields people type, and lists, are bounded.
     match /userSettings/{uid} {
-      allow read, write: if activeUser() && request.auth.uid == uid;
+      allow read, delete: if activeUser() && request.auth.uid == uid;
+      allow create, update: if activeUser() && request.auth.uid == uid
+        && request.resource.data.keys().size() <= 50
+        && textOk(request.resource.data.get('reportCustomLabel', null), 120)
+        && textOk(request.resource.data.get('username', null), 24)
+        && textOk(request.resource.data.get('displayName', null), 200)
+        && textOk(request.resource.data.get('email', null), 320)
+        && textOk(request.resource.data.get('interestedRailroads', null), 50);
     }
 
     match /bannedUsers/{id} {
@@ -157,27 +403,37 @@ service cloud.firestore {
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
 
+    // Public so everyone sees the checkmarks, so it holds no email or name.
     match /verifiedReporters/{uid} {
-      allow read: if true; // show checkmarks on others' names
-      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+      allow read: if true;
+      allow create, update: if (isBootstrapAdmin() || isAdmin())
+        && request.resource.data.keys().hasOnly(['uid', 'verifiedAt', 'verifiedByUid'])
+        && request.resource.data.uid == uid;
+      allow delete: if isBootstrapAdmin() || isAdmin();
+    }
+
+    // Format and reserved names match the account settings form.
+    function usernameOk(name, d) {
+      return d.keys().hasOnly(['uid', 'username', 'updatedAt'])
+        && d.uid == request.auth.uid
+        && d.username is string
+        && d.username.matches('[A-Za-z0-9_]{3,24}')
+        && name == d.username.lower()
+        && !(name in ['admin', 'api', 'assets', 'mytrips', 'press', 'policies', 'user', 'users', 'www', 'index', 'login', 'auth', 'null', 'undefined']);
     }
 
     // Username claims for public profiles (doc id = lowercased username)
     match /usernames/{name} {
       allow read: if true;
-      allow create: if activeUser()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.username is string
-        && name == request.resource.data.username.lower();
+      allow create: if activeUser() && usernameOk(name, request.resource.data);
       allow update: if activeUser()
         && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.username is string
-        && name == request.resource.data.username.lower();
+        && usernameOk(name, request.resource.data);
       allow delete: if activeUser() && resource.data.uid == request.auth.uid;
     }
 
-    // Lean public card only (no email). Written when user opts in / updates profile.
+    // Lean public card only (no email). Written when user opts in / updates profile, in the
+    // same batch as the username claim it shows.
     match /publicProfiles/{uid} {
       allow read: if true;
       allow create, update: if activeUser()
@@ -185,13 +441,27 @@ service cloud.firestore {
         && request.resource.data.uid == uid
         && request.resource.data.username is string
         && request.resource.data.keys().hasAll(['uid', 'username', 'displayName', 'photoURL'])
-        && (request.resource.data.displayName == null || request.resource.data.displayName is string)
-        && (request.resource.data.photoURL == null || request.resource.data.photoURL is string);
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'displayName', 'photoURL', 'updatedAt'])
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username.lower())).data.uid == uid
+        && textOk(request.resource.data.displayName, 200)
+        && (request.resource.data.photoURL == null
+            || (request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 500
+                && request.resource.data.photoURL.matches('https://lh[0-9]+[.]googleusercontent[.]com/.*')));
       allow delete: if activeUser() && request.auth.uid == uid;
     }
 
+    function tripSizesOk(d) {
+      return d.keys().size() <= 40
+        && textOk(d.get('notes', null), 2000)
+        && textOk(d.get('rollingStock', null), 200)
+        && textOk(d.get('trainTitle', null), 200)
+        && textOk(d.get('segments', null), 10)
+        && iconIsAsset(d);
+    }
+
     // Trip log: lean per-trip docs (+ optional segments[]) + summary on userSettings/{uid}.tripLogStats
-    // Public read only when that user's publicProfiles/{uid} exists (opt-out removes the doc).
+    // Public read only when that user's publicProfiles/{uid} exists (opt-out removes the doc)
+    // and the trip is not hidden. Public list queries must filter on hiddenPublic == false.
     match /tripLogs/{id} {
       allow read: if isAdmin()
         || (activeUser() && resource.data.userId == request.auth.uid)
@@ -207,23 +477,30 @@ service cloud.firestore {
         && request.resource.data.railroad is string
         && request.resource.data.trainNumber is string
         && request.resource.data.miles is number
+        && request.resource.data.hiddenPublic is bool
         && (!('segments' in request.resource.data)
             || request.resource.data.segments is list)
         && (!('endTime' in request.resource.data)
             || request.resource.data.endTime is string
             || request.resource.data.endTime == null)
-        && iconIsAsset(request.resource.data);
+        && tripSizesOk(request.resource.data);
+      allow update: if isBootstrapAdmin()
+        && !('hiddenPublic' in resource.data)
+        && request.resource.data.hiddenPublic == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenPublic']);
       allow update: if activeUser()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
-        && iconIsAsset(request.resource.data);
+        && (!('hiddenPublic' in request.resource.data) || request.resource.data.hiddenPublic is bool)
+        && tripSizesOk(request.resource.data);
       allow delete: if activeUser() && resource.data.userId == request.auth.uid;
     }
 
-
     // Shared lean cache of observed/past stop departure times for live train popups.
     // Public read, signed-in write: values are derived from public GTFS/realtime feeds (not PII).
-    // Schema-validated; size-capped. Admins may delete stale docs.
+    // Size-capped. The stop entries themselves are not checked: even a one-field check on each of
+    // 80 stops goes over the 1000-expression limit, so the client cleans them when it reads them.
+    // Admins may delete stale docs.
     match /trainStopActuals/{id} {
       allow read: if true;
       allow create, update: if signedIn()
@@ -232,41 +509,50 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll([
           'agency', 'trainNumber', 'serviceDate', 'stops', 'updatedAt', 'updatedByUid'
         ])
+        && request.resource.data.keys().hasOnly([
+          'agency', 'trainNumber', 'serviceDate', 'stops', 'updatedAt', 'updatedByUid', 'expiresAt'
+        ])
         && request.resource.data.updatedByUid == request.auth.uid
         && request.resource.data.agency is string
         && request.resource.data.trainNumber is string
         && request.resource.data.serviceDate is string
-        && request.resource.data.stops is list
-        && request.resource.data.stops.size() <= 80
         && request.resource.data.agency.size() <= 32
         && request.resource.data.trainNumber.size() <= 64
-        && request.resource.data.serviceDate.size() <= 16;
+        && request.resource.data.serviceDate.size() <= 16
+        && request.resource.data.stops is list
+        && request.resource.data.stops.size() <= 80;
       allow delete: if isBootstrapAdmin() || isAdmin();
     }
 
 
-    // Live location shares: public only while unexpired. Queries must filter expireAt > now.
+    // Live location shares: public only while unexpired. Rules can only check a list query's
+    // filters, so it must filter active == true and expireAt after a time no earlier than ten
+    // minutes ago (the slack allows for a client clock that runs a little behind).
     // expireAt (timestamp) also drives the Firestore TTL policy that deletes old shares.
     match /specialMoveShares/{uid} {
-      // Firestore can't check request.time against each doc in a list query, so listing is limited to
-      // active shares (query must filter active == true); single gets also require an unexpired share.
-      // Expired-but-active leftovers are removed by the sharer's client and the TTL policy on expireAt.
       allow get: if isAdmin()
         || (activeUser() && request.auth.uid == uid)
         || (resource.data.active == true
             && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
-      allow list: if isAdmin() || resource.data.active == true;
+      allow list: if isAdmin()
+        || (resource.data.active == true
+            && resource.data.expireAt > request.time - duration.value(10, 'm'));
       allow create, update: if activeUser()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'tripId', 'title', 'icon', 'active', 'lat', 'lon',
+          'heading', 'speed', 'startedAt', 'expiresAt', 'expireAt', 'updatedAt', 'recent'])
+        && strOk(request.resource.data.get('tripId', null), 128)
         && request.resource.data.lat is number
         && request.resource.data.lon is number
         && request.resource.data.expireAt is timestamp
         && request.resource.data.expireAt <= request.time + duration.value(6, 'h')
         && (!('recent' in request.resource.data)
             || (request.resource.data.recent is list && request.resource.data.recent.size() <= 10))
+        && strOk(request.resource.data.get('displayName', null), 80)
+        && strOk(request.resource.data.get('title', null), 120)
         && iconIsAsset(request.resource.data);
-      // Admins clean up expired shares (no TTL on the free plan).
+      // Admins clean up expired shares in case no TTL policy is set.
       allow delete: if (activeUser() && request.auth.uid == uid) || isAdmin();
     }
 
@@ -279,17 +565,26 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (activeUser() && request.auth.uid == uid);
       allow create, update: if activeUser() && request.auth.uid == uid
-        && request.resource.data.uid == uid;
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().size() <= 50
+        && request.resource.data.get('email', null) in [null, authEmailLower()]
+        && strOk(request.resource.data.get('displayName', null), 200)
+        && strOk(request.resource.data.get('photoURL', null), 500)
+        && textOk(request.resource.data.get('interestedRailroads', null), 50);
       allow delete: if isBootstrapAdmin() || isAdmin()
         || (activeUser() && request.auth.uid == uid);
     }
 
-    // Ban appeals: banned users are signed out, so create is open but tightly validated.
+    // Ban appeals: banned users are signed out, so create needs no sign-in. Instead it must carry
+    // the ban's status token, which only the banned account and admins can read from the ban doc.
+    // Without it anyone could file appeals for other accounts or test whether an email is banned.
     // Doc id = the banned uid, so each uid gets exactly one appeal (create only, no overwrite).
     match /banAppeals/{uid} {
       allow create: if uid.size() > 0 && uid.size() <= 128
-        && request.resource.data.keys().hasOnly(['uid', 'email', 'reason', 'message', 'createdAt', 'status'])
-        && request.resource.data.keys().hasAll(['uid', 'message', 'createdAt', 'status'])
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'reason', 'message', 'createdAt', 'status', 'token'])
+        && request.resource.data.keys().hasAll(['uid', 'message', 'createdAt', 'status', 'token'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() >= 32
         && request.resource.data.uid == uid
         && request.resource.data.status == 'open'
         && request.resource.data.createdAt == request.time
@@ -300,11 +595,14 @@ service cloud.firestore {
             || (request.resource.data.email is string && request.resource.data.email.size() <= 320))
         && (!('reason' in request.resource.data)
             || (request.resource.data.reason is string && request.resource.data.reason.size() <= 1000))
-        && (exists(/databases/$(database)/documents/bannedUsers/$(uid))
+        && ((exists(/databases/$(database)/documents/bannedUsers/$(uid))
+              && get(/databases/$(database)/documents/bannedUsers/$(uid)).data.get('statusToken', '') == request.resource.data.token)
             || ('email' in request.resource.data
                 && request.resource.data.email.size() > 0
-                && exists(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email))));
-      allow read, update, delete: if isAdmin();
+                && exists(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email))
+                && get(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email)).data.get('statusToken', '') == request.resource.data.token
+                && get(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email)).data.get('uid', uid) == uid));
+      allow read, update, delete: if adminHasPerm('banUsers');
     }
 
     // Unban markers: lets a signed-out, formerly banned browser learn it may clear its lock.
@@ -312,7 +610,7 @@ service cloud.firestore {
     // and the banned user's browser, so ban history can't be looked up by uid.
     match /unbanned/{token} {
       allow get: if token.size() >= 32;
-      allow list: if isAdmin();
+      allow list: if adminHasPerm('banUsers');
       allow delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
       allow create, update: if (isBootstrapAdmin() || adminHasPerm('banUsers')) && token.size() >= 32;
     }
@@ -320,7 +618,7 @@ service cloud.firestore {
     // Appeal decision visible to the signed-out appellant by status token (status, dates, deny reason only).
     match /appealStatus/{token} {
       allow get: if token.size() >= 32;
-      allow list: if isAdmin();
+      allow list: if adminHasPerm('banUsers');
       allow delete: if isBootstrapAdmin() || adminHasPerm('banUsers');
       allow create, update: if (isBootstrapAdmin() || adminHasPerm('banUsers'))
         && token.size() >= 32
@@ -340,15 +638,17 @@ service cloud.firestore {
       allow create: if request.auth != null
         && verifiedEmail()
         && !isBanned()
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'text', 'createdAt'])
         && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 2000
-        && !('email' in request.resource.data)
         && (!('displayName' in request.resource.data)
             || (request.resource.data.displayName is string
                 && request.resource.data.displayName.size() <= 80
-                && !request.resource.data.displayName.matches('.*@.*')));
+                && !request.resource.data.displayName.matches('.*@.*')))
+        && get(/databases/$(database)/documents/pressReleases/$(id)).data.get('commentsEnabled', false) == true;
       // Admin-only scrub of legacy comments: may only drop the email field and replace an
       // email-looking displayName; nothing else can change.
       allow update: if isAdmin()
