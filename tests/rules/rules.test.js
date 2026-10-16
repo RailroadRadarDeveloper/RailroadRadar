@@ -41,7 +41,7 @@ const stopActuals = (uid, extra) => ({
 });
 const share = (uid, extra) => ({ uid, lat: 42.3, lon: -71.1, expireAt: hoursFromNow(1), active: true, ...extra });
 const profile = (uid, extra) => ({ uid, username: 'Alice', displayName: 'Alice', photoURL: null, ...extra });
-const appeal = (uid, extra) => ({ uid, message: 'please', createdAt: now(), status: 'open', ...extra });
+const appeal = (uid, extra) => ({ uid, message: 'please', createdAt: now(), status: 'open', token: TOKEN, ...extra });
 const comment = (uid, extra) => ({ uid, text: 'Nice', displayName: 'Alice', ...extra });
 
 before(async () => {
@@ -59,8 +59,8 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const b = ctx.firestore().batch();
     const set = (p, d) => b.set(ctx.firestore().doc(p), d);
-    set('bannedUsers/banned', { uid: 'banned' });
-    set('bannedEmails/bm@example.com', { email: 'bm@example.com' });
+    set('bannedUsers/banned', { uid: 'banned', statusToken: TOKEN });
+    set('bannedEmails/bm@example.com', { email: 'bm@example.com', uid: 'someone', statusToken: TOKEN });
     set('admins/admin@example.com', { perms: { viewReports: true, banUsers: true, manageAdmins: true, deleteReports: true } });
     set('admins/viewer@example.com', { perms: { viewReports: true, banUsers: false, manageAdmins: false, deleteReports: false } });
     set('reportHold/alice', { required: true });
@@ -351,11 +351,16 @@ describe('banAppeals', () => {
     await ok(anon().doc('banAppeals/someone').set(appeal('someone', { email: 'bm@example.com' })));
     await no(anon().doc('banAppeals/banned').set(appeal('banned', { message: 'again' })));
   });
-  it('denies appeals for users who are not banned or that break the schema', async () => {
+  it('denies appeals without the ban token, for users who are not banned, or that break the schema', async () => {
     await no(anon().doc('banAppeals/alice').set(appeal('alice')));
     await no(anon().doc('banAppeals/banned').set(appeal('banned', { status: 'approved' })));
     await no(anon().doc('banAppeals/banned').set(appeal('banned', { extra: 1 })));
     await no(anon().doc('banAppeals/banned').set(appeal('banned', { message: 'x'.repeat(2001) })));
+    const noToken = appeal('banned');
+    delete noToken.token;
+    await no(anon().doc('banAppeals/banned').set(noToken));
+    await no(anon().doc('banAppeals/banned').set(appeal('banned', { token: 'b'.repeat(32) })));
+    await no(anon().doc('banAppeals/other').set(appeal('other', { email: 'bm@example.com' })));
   });
   it('only admins read', async () => {
     await no(anon().doc('banAppeals/banned').get());
