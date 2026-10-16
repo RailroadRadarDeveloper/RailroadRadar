@@ -1966,7 +1966,7 @@
 
     function rrTripShapesAssetUrl(agency) {
       const ag = String(agency || '').toLowerCase();
-      if (['mnr', 'lirr', 'amtrak', 'ctrail', 'njt', 'marc'].indexOf(ag) < 0) return null;
+      if (['mnr', 'lirr', 'amtrak', 'ctrail', 'njt', 'marc', 'mbta'].indexOf(ag) < 0) return null;
       return '/assets/shapes/' + ag + '.json';
     }
 
@@ -2011,7 +2011,7 @@
             const polys = [];
             while (url) {
               const sr = await fetch(url);
-              if (!sr.ok) break;
+              if (!sr.ok) throw new Error('HTTP ' + sr.status);
               const sd = await sr.json();
               (sd.data || []).forEach(function(s) {
                 const enc = s.attributes && s.attributes.polyline;
@@ -2047,12 +2047,16 @@
           return rrGetCachedTripPolylines(ag, lid);
         } catch (e) {
           console.warn('[TripMiles] shape load failed', ag, lid, e && e.message ? e.message : e);
+          delete window.RR_TRIP_SHAPES_PROMISES[key];
           return null;
         }
       })().then(function(result) {
-        try {
-          if (typeof updateTripMilesPreview === 'function') updateTripMilesPreview();
-        } catch (_) {}
+        // A failed load must not refresh the preview: it would request the shapes again and loop.
+        if (result) {
+          try {
+            if (typeof updateTripMilesPreview === 'function') updateTripMilesPreview();
+          } catch (_) {}
+        }
         return result;
       });
 
