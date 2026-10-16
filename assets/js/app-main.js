@@ -12209,9 +12209,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     async function rrRecordMbtaMapActuals(vehicles) {
       if (!auth || !auth.currentUser || !db || !vehicles || !vehicles.length) return;
       if (typeof apiUrl !== 'function') return;
+      const tripIds = vehicles.map(function(v) {
+        return v && v.relationships && v.relationships.trip && v.relationships.trip.data && v.relationships.trip.data.id;
+      }).filter(Boolean);
+      if (!tripIds.length) return;
       let pred;
       try {
-        const res = await fetch(apiUrl('/api/mbta/predictions?filter[route_type]=2&include=stop&page[limit]=1000'));
+        // MBTA refuses filter[route_type] on its own, so ask for the trips on the map.
+        const res = await fetch(apiUrl('/api/mbta/predictions?filter[trip]=' + tripIds.join(',') + '&include=stop'));
         if (!res.ok) return;
         pred = await res.json();
       } catch (_) { return; }
