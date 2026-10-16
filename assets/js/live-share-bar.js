@@ -39,9 +39,15 @@
     }
     window.__rrLiveWatch = 0;
   }
+  // Pages offset their content by this so the fixed bar does not cover it.
+  function reserve() {
+    var el = document.getElementById('rr-live-bar');
+    document.documentElement.style.setProperty('--rr-live-bar-h', el && !el.hidden ? el.offsetHeight + 'px' : '0px');
+  }
   function hide() {
     var el = document.getElementById('rr-live-bar');
     if (el) el.hidden = true;
+    reserve();
   }
   function endShare() {
     try {
@@ -67,7 +73,7 @@
     if (!document.getElementById('rr-live-bar-css')) {
       var css = document.createElement('style');
       css.id = 'rr-live-bar-css';
-      css.textContent = '#rr-live-bar{position:fixed;top:60px;left:0;right:0;z-index:10040;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#b00020;color:#fff;padding:10px 16px;font:700 14px/1.3 sans-serif}#rr-live-bar[hidden]{display:none!important}#rr-live-bar .rr-live-actions{display:flex;gap:8px}#rr-live-bar button{background:#fff;color:#b00020;border:0;border-radius:999px;padding:6px 12px;font-weight:800;cursor:pointer}';
+      css.textContent = '#rr-live-bar{position:fixed;top:60px;left:0;right:0;z-index:10040;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#b00020;color:#fff;padding:8px 16px;font:700 14px/1.3 sans-serif}#rr-live-bar[hidden]{display:none!important}#rr-live-bar-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rr-live-bar .rr-live-actions{display:flex;gap:8px}#rr-live-bar button{background:#fff;color:#b00020;border:0;border-radius:999px;padding:4px 12px;font-weight:800;white-space:nowrap;cursor:pointer}@media(max-width:600px){#rr-live-bar{gap:8px;padding:5px 10px;font-size:12px}#rr-live-bar .rr-live-actions{gap:6px}#rr-live-bar button{padding:3px 10px;font-size:12px}}';
       document.head.appendChild(css);
     }
     el = document.createElement('div');
@@ -79,7 +85,8 @@
     else document.body.appendChild(el);
     el.querySelector('#rr-live-bar-resume').addEventListener('click', function () {
       var o = read();
-      if (o) startWatch(o);
+      if (window.rrSpecialShareState && typeof rrSpecialResumeSharing === 'function') rrSpecialResumeSharing(true);
+      else if (o) startWatch(o);
     });
     el.querySelector('#rr-live-bar-stop').addEventListener('click', function (e) {
       e.preventDefault();
@@ -92,13 +99,17 @@
     if (stopped() || !o) { hide(); return; }
     var el = ensureBar();
     var resume = el.querySelector('#rr-live-bar-resume');
-    var live = !!window.__rrLiveWatch;
+    // On the map the page runs its own watch and tracks the last write; elsewhere this script does.
+    var st = window.rrSpecialShareState;
+    var live = st ? (!st.resumeNeeded && !!window.rrSpecialShareWatching()) : !!window.__rrLiveWatch;
     if (resume) resume.hidden = live;
-    var ago = o.updatedAt ? Math.max(0, Math.round((Date.now() - Number(o.updatedAt)) / 1000)) : 0;
+    var last = st ? st.lastWriteAt : o.updatedAt;
+    var ago = last ? Math.max(0, Math.round((Date.now() - Number(last)) / 1000)) : 0;
     el.querySelector('#rr-live-bar-text').textContent = live
-      ? ('Sharing location on the live map \u00b7 ' + (ago >= 10 ? ('updated ' + ago + 's ago') : 'live') + ' \u00b7 ' + leftLabel(o))
+      ? ('Sharing live' + (ago >= 10 ? (' \u00b7 updated ' + ago + 's ago') : '') + ' \u00b7 ' + leftLabel(o))
       : ('Sharing paused \u00b7 ' + leftLabel(o));
     el.hidden = false;
+    reserve();
   }
   function loadFirebase() {
     if (window.firebase && firebase.firestore) return Promise.resolve();
@@ -218,5 +229,6 @@
     show(read());
   };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
+  window.addEventListener('resize', reserve);
   setInterval(tick, 2000);
 })();

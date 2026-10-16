@@ -6731,12 +6731,6 @@ function rrSpecialSyncTitleWrap() {
           try { rrSpecialClearDetailMarker(); } catch (_) {}
     }
 
-    function rrShowStopShare(on) {
-      const btn = document.getElementById('rr-stop-share');
-      if (!btn) return;
-      btn.hidden = !on;
-      btn.style.display = on ? 'inline-flex' : 'none';
-    }
     async function rrSpecialPublishLiveTrip(tripId, title, fix) {
       const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
       if (!user || !db || !fix || fix.lat == null) return;
@@ -6778,16 +6772,13 @@ function rrSpecialSyncTitleWrap() {
         try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
         try { rrSpecialResumeSharing(false); } catch (_) {}
       }
-      rrShowStopShare(true);
       if (typeof showNotification === 'function') showNotification('Live trip is on the map');
     }
     document.addEventListener('click', function(ev) {
-      const btn = ev.target && ev.target.closest && ev.target.closest('#rr-stop-share, #trip-detail-stop-share');
+      const btn = ev.target && ev.target.closest && ev.target.closest('#trip-detail-stop-share');
       if (!btn) return;
       ev.preventDefault();
-      Promise.resolve(typeof rrSpecialStopSharing === 'function' ? rrSpecialStopSharing() : null).then(function() {
-        rrShowStopShare(false);
-      }).catch(function() { rrShowStopShare(false); });
+      if (typeof rrSpecialStopSharing === 'function') rrSpecialStopSharing();
     });
 async function rrSpecialStopSharing(opts) {
       opts = opts || {};
@@ -6799,7 +6790,6 @@ async function rrSpecialStopSharing(opts) {
       try { localStorage.setItem('rrSpecialShareStopped', '1'); } catch (_) {}
       try { rrSpecialShowResumeBanner(false); } catch (_) {}
       try { rrSpecialSetSelfDoc(null); } catch (_) {}
-      try { rrShowStopShare(false); } catch (_) {}
       if (st && db && st.uid) {
         try {
           await db.collection('specialMoveShares').doc(st.uid).delete();
@@ -7448,7 +7438,6 @@ async function rrSpecialStopSharing(opts) {
           rrSpecialPaintDetailMarker(rrSpecialShareState.lastLat, rrSpecialShareState.lastLon, cand.heading);
         }
       } catch (_) {}
-      try { rrShowStopShare(true); } catch (_) {}
       rrSpecialResumeSharing(false);
       rrSpecialRefreshLiveUi();
       return rrSpecialShareState;
@@ -7475,6 +7464,7 @@ async function rrSpecialStopSharing(opts) {
 
     window.rrSpecialStartMapListener = rrSpecialStartMapListener;
     window.rrSpecialStopSharing = rrSpecialStopSharing;
+    window.rrSpecialShareWatching = function() { return rrSpecialShareWatchId != null; };
 
 
     function rrAuthUser() {
