@@ -8,7 +8,7 @@ Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC
 python3 -m http.server 8000
 ```
 
-Then open http://localhost:8000.
+Then open http://localhost:8000. This uses the real database. To test with test accounts and a local database instead, see [dev/README.md](dev/README.md).
 
 ## Checks
 
