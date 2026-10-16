@@ -16039,6 +16039,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             pushItem(vid, m);
           });
         }
+        if (showMarc) {
+          Object.keys(marcMarkers).forEach(function(vid) {
+            const m = marcMarkers[vid];
+            const info = marcTrainInfo[vid] || {};
+            const special = getSpecialForVehicle('marc', null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
         return items;
       }
       // Group markers that are within LABEL_CLUSTER_PX of each other (screen space)
@@ -16152,6 +16161,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         unbindIfNotInView(lirrMarkers);
         unbindIfNotInView(metraMarkers);
         unbindIfNotInView(njtMarkers);
+        unbindIfNotInView(marcMarkers);
         applyTrainLabelCollision(inView, shouldShowLabels);
       }
       function updateTrainLabelsVisibilityNow() {
@@ -16189,6 +16199,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         unbindOutside(lirrMarkers);
         unbindOutside(metraMarkers);
         unbindOutside(njtMarkers);
+        unbindOutside(marcMarkers);
 
         const groups = groupOverlappingTrains(inView);
         const soloLabelItems = [];
@@ -18524,6 +18535,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         cycleDict(mnrMarkers);
         cycleDict(lirrMarkers);
         cycleDict(metraMarkers);
+        cycleDict(njtMarkers);
+        cycleDict(marcMarkers);
       }
       document.getElementById('show-stations').addEventListener('change', e => {
         showStations = e.target.checked;
