@@ -733,6 +733,7 @@
           <div class="rr-admin-toolbar">
             <input type="search" id="admin-trips-search" placeholder="Filter by email, uid, railroad, train, station…" aria-label="Filter trip logs" style="flex:1; min-width:180px;">
             <button type="button" class="rr-btn secondary" id="admin-trips-refresh">Refresh</button>
+            <button type="button" class="rr-btn secondary" id="admin-trips-backfill">Fill missing hiddenPublic</button>
           </div>
           <div class="rr-admin-table-wrap">
             <table class="rr-admin-table" id="admin-trips-table">
@@ -1688,6 +1689,24 @@
         snap.forEach(function(doc) {
           rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
         });
+        // verifiedReporters is public, so names and emails come from the admin-only accounts mirror.
+        // Older docs that still carry them are rewritten without them.
+        await Promise.all(rows.map(async function(v) {
+          if (v.email !== undefined || v.displayName !== undefined || v.verifiedByEmail !== undefined) {
+            try {
+              await db.collection('verifiedReporters').doc(v.id).set({ uid: v.uid || v.id, verifiedAt: v.verifiedAt || null, verifiedByUid: v.verifiedByUid || null });
+            } catch (scrubErr) {
+              console.warn('[admin] verified scrub ' + v.id, scrubErr);
+            }
+          }
+          const ids = [v.id, v.verifiedByUid].filter(Boolean);
+          const accts = await Promise.all(ids.map(function(id) {
+            return db.collection('accounts').doc(String(id)).get().then(function(d) { return d.exists ? (d.data() || {}) : {}; }, function() { return {}; });
+          }));
+          v.email = accts[0].email || v.email || null;
+          v.displayName = accts[0].displayName || v.displayName || null;
+          v.verifiedByEmail = (accts[1] || {}).email || v.verifiedByEmail || null;
+        }));
         rows.sort(function(a, b) {
           const ta = (a.verifiedAt && a.verifiedAt.seconds) ? a.verifiedAt.seconds : 0;
           const tb = (b.verifiedAt && b.verifiedAt.seconds) ? b.verifiedAt.seconds : 0;
@@ -1738,27 +1757,11 @@
           setAdminError('Could not resolve UID from reports. Enter the Firebase UID explicitly.');
           return;
         }
-        let displayName = null;
-        const hit = adminReportsCache.find(function(r) { return r.reportedByUid === uid; });
-        if (hit && hit.reportedByName) displayName = String(hit.reportedByName).trim() || null;
-        if (!displayName) {
-          try {
-            const asnap = await db.collection('reportAudit').where('reportedByUid', '==', uid).limit(1).get();
-            if (!asnap.empty) {
-              const n = (asnap.docs[0].data() || {}).reportedByName;
-              if (n) displayName = String(n).trim() || null;
-              if (!email) email = normalizeEmail((asnap.docs[0].data() || {}).reportedByEmail);
-            }
-          } catch (_) { /* ignore */ }
-        }
         await db.collection('verifiedReporters').doc(uid).set({
           uid: uid,
-          email: email || null,
-          displayName: displayName,
           verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          verifiedByEmail: normalizeEmail(user.email) || user.email || null,
           verifiedByUid: user.uid
-        }, { merge: true });
+        });
         showNotification('Reporter verified');
         try { await logUserAction('admin_verify', 'Verified ' + (email || uid)); } catch (_) {}
         const emailEl = document.getElementById('admin-verified-email');
@@ -2255,39 +2258,11 @@
         } catch (admErr) {
           console.warn('[admin] accounts admin cache failed', admErr);
         }
-        const legalByUid = {};
-        try {
-          const settingsSnap = await db.collection('userSettings').get();
-          settingsSnap.forEach(function(doc) {
-            const d = doc.data() || {};
-            legalByUid[String(doc.id)] = {
-              legalAccepted: d.legalAccepted === true,
-              legalAcceptedAt: d.legalAcceptedAt || null,
-              legalVersion: d.legalVersion || null,
-              cookieConsent: d.cookieConsent || null,
-              cookieClarity: d.cookieClarity === true,
-              cookiePreferences: d.cookiePreferences !== false,
-              cookieDecidedAt: d.cookieDecidedAt || null
-            };
-          });
-        } catch (setErr) {
-          console.warn('[admin] userSettings legal load failed', setErr);
-        }
+        // Legal and cookie choices are mirrored onto accounts; userSettings is private to each user.
         const snap = await db.collection('accounts').get();
         const rows = [];
         snap.forEach(function(doc) {
-          const d = doc.data() || {};
-          const uid = String(d.uid || doc.id || '');
-          const legal = legalByUid[uid] || legalByUid[String(doc.id)] || {};
-          rows.push(Object.assign({ id: doc.id }, d, {
-            legalAccepted: d.legalAccepted === true || legal.legalAccepted === true,
-            legalAcceptedAt: d.legalAcceptedAt || legal.legalAcceptedAt || null,
-            legalVersion: d.legalVersion || legal.legalVersion || null,
-            cookieConsent: d.cookieConsent || legal.cookieConsent || null,
-            cookieClarity: d.cookieClarity === true || legal.cookieClarity === true,
-            cookiePreferences: (d.cookiePreferences !== undefined ? d.cookiePreferences !== false : (legal.cookiePreferences !== false)),
-            cookieDecidedAt: d.cookieDecidedAt || legal.cookieDecidedAt || null
-          }));
+          rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
         });
         const deduped = dedupeAdminAccountRows(rows);
         adminAccountsCache = deduped.kept;
@@ -2512,6 +2487,33 @@
     }
 
 
+    async function adminBackfillTripHiddenPublic() {
+      if (!db) return;
+      const user = currentUser || (auth && auth.currentUser) || {};
+      if (!isBootstrapAdmin(user.email)) {
+        setAdminError('Only bootstrap admins can run this.');
+        return;
+      }
+      const btn = document.getElementById('admin-trips-backfill');
+      const status = document.getElementById('admin-trips-status');
+      if (btn) btn.disabled = true;
+      if (status) status.textContent = 'Updating trip logs...';
+      try {
+        const snap = await db.collection('tripLogs').get();
+        const missing = snap.docs.filter(function(doc) { return (doc.data() || {}).hiddenPublic === undefined; });
+        for (let i = 0; i < missing.length; i += 400) {
+          const batch = db.batch();
+          missing.slice(i, i + 400).forEach(function(doc) { batch.update(doc.ref, { hiddenPublic: false }); });
+          await batch.commit();
+        }
+        if (status) status.textContent = 'Set hiddenPublic on ' + missing.length + ' of ' + snap.size + ' trip log(s).';
+      } catch (e) {
+        console.error('[admin] hiddenPublic backfill failed', e);
+        if (status) status.textContent = 'Backfill failed: ' + ((e && e.message) || String(e));
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
     async function adminToggleReportHold(uid, email, currentlyHeld) {
       if (!uid || !db) return;
       setAdminError('');
@@ -2752,16 +2754,60 @@
         delete data.submittedAt;
         data.approvedAt = firebase.firestore.FieldValue.serverTimestamp();
         data.approvedByUid = ((currentUser || {}).uid) || null;
-        await db.collection('trainReports').doc(docId).set(data, { merge: true });
+        const reportRef = db.collection('trainReports').doc(docId);
+        const current = await reportRef.get();
+        const mine = (Array.isArray(row.contributors) ? row.contributors : []).filter(function(c) {
+          return c && c.uid === row.reportedByUid;
+        })[0] || null;
+        if (current.exists) {
+          // The pending copy was taken before later reports, so keep the report's own history
+          // and only add the held user to it.
+          const cur = current.data() || {};
+          const contributors = Array.isArray(cur.contributors) ? cur.contributors.slice() : [];
+          if (mine && !contributors.some(function(c) { return c && c.uid === mine.uid; })) contributors.push(mine);
+          if (contributors.length) data.contributors = contributors;
+          else delete data.contributors;
+          if (cur.firstReportedByUid) {
+            delete data.firstReportedByUid;
+            delete data.firstReportedByLabel;
+            delete data.firstReportedByDisplayMode;
+          }
+          delete data.createdAt;
+        }
+        await reportRef.set(data, { merge: true });
         try {
-          await db.collection('reportAudit').doc(docId).set({
-            reportedByUid: data.reportedByUid || null,
-            reportedByEmail: data.reportedByEmail || null,
-            reportedByName: data.reportedByName || null,
+          // Pending reports carry no email, so the audit entry takes it from the admin-only account mirror.
+          const acct = await db.collection('accounts').doc(String(row.reportedByUid || '')).get();
+          const a = acct.exists ? (acct.data() || {}) : {};
+          const audit = {
+            reportedByUid: row.reportedByUid || null,
+            reportedByEmail: a.email || null,
+            reportedByName: a.displayName || null,
+            reportedByLabel: row.reportedByLabel || null,
+            reportedByDisplayMode: row.reportedByDisplayMode || 'first_initial',
+            agency: row.agency || null,
+            vehicleId: row.vehicleId || null,
+            trainNumber: row.agency === 'mbta' ? null : (row.trainNumber || null),
+            serviceDate: row.serviceDate || null,
             approvedByUid: ((currentUser || {}).uid) || null,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch (_) {}
+          };
+          if (mine) {
+            audit.contributors = firebase.firestore.FieldValue.arrayUnion({
+              uid: mine.uid,
+              email: a.email || null,
+              name: a.displayName || null,
+              label: mine.label || '',
+              displayMode: mine.displayMode || 'first_initial',
+              at: mine.at != null ? mine.at : Date.now(),
+              verified: !!mine.verified
+            });
+          }
+          if (!current.exists) audit.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          await db.collection('reportAudit').doc(docId).set(audit, { merge: true });
+        } catch (auditErr) {
+          console.warn('[admin] approve audit write failed', auditErr);
+        }
         await db.collection('pendingReports').doc(docId).delete();
         showNotification('Report approved');
         try { await logUserAction('admin_approve_report', 'Approved pending report ' + docId); } catch (_) {}
@@ -2865,6 +2911,8 @@
       const tripsRefresh = document.getElementById('admin-trips-refresh');
       const tripsSearch = document.getElementById('admin-trips-search');
       if (tripsRefresh) tripsRefresh.addEventListener('click', loadAdminTrips);
+      const tripsBackfill = document.getElementById('admin-trips-backfill');
+      if (tripsBackfill) tripsBackfill.addEventListener('click', adminBackfillTripHiddenPublic);
       if (tripsSearch) tripsSearch.addEventListener('input', renderAdminTrips);
       const accountsTbody = document.getElementById('admin-accounts-tbody');
       if (accountsTbody) {
