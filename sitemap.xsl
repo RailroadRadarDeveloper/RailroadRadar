@@ -25,7 +25,7 @@
       </head>
       <body>
         <main>
-          <a href="/"><img class="logo" src="/assets/logo-halloween.png?v=oct" alt="RailroadRadar"/></a>
+          <a href="/"><img class="logo" src="/assets/logo.png" alt="RailroadRadar"/></a>
           <h1>Sitemap</h1>
           <p>Public pages on RailroadRadar.</p>
           <ul>
