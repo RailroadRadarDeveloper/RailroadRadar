@@ -217,22 +217,30 @@
         return false;
       }
       const status = cookieConsentStatusFromPrefs(prefs);
-      const decidedAt = prefs.decidedAt || new Date().toISOString();
+      const decidedAt = prefs.decidedAt || (currentUserSettings && currentUserSettings.cookieDecidedAt) || new Date().toISOString();
       const payload = {
         cookieConsent: status,
         cookieClarity: !!prefs.clarity,
         cookiePreferences: prefs.preferences !== false,
         cookieDecidedAt: decidedAt
       };
-      try {
-        await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
-      } catch (err) {
-        console.warn('[cookies] accounts persist failed', err);
+      const differs = function(stored) {
+        return !stored || Object.keys(payload).some(function(k) { return stored[k] !== payload[k]; });
+      };
+      if (differs(accountDocCache)) {
+        try {
+          await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
+          accountDocCache = Object.assign(accountDocCache || {}, payload);
+        } catch (err) {
+          console.warn('[cookies] accounts persist failed', err);
+        }
       }
-      try {
-        await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
-      } catch (err) {
-        console.warn('[cookies] userSettings persist failed', err);
+      if (differs(currentUserSettings)) {
+        try {
+          await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
+        } catch (err) {
+          console.warn('[cookies] userSettings persist failed', err);
+        }
       }
       currentUserSettings = currentUserSettings || {};
       currentUserSettings.cookieConsent = status;
@@ -243,6 +251,8 @@
       return true;
     }
     window.persistCookieConsentToAccount = persistCookieConsentToAccount;
+    let accountDocCache = null;
+    const ACCOUNT_LOGIN_STAMP_MS = 24 * 60 * 60 * 1000;
     async function upsertAccountMirror(user) {
       if (!db || !user || !user.uid) return;
       const uid = String(user.uid);
@@ -271,15 +281,25 @@
           payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
           if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
         }
-        let exists = false;
+        let stored = null;
         try {
           const snap = await ref.get();
-          exists = !!(snap && snap.exists);
+          stored = snap && snap.exists ? (snap.data() || {}) : null;
         } catch (readErr) {
-          exists = false;
+          stored = null;
         }
-        if (!exists) payload.createdAt = ts;
+        accountDocCache = stored;
+        const loginAt = stored && stored.lastLoginAt;
+        const loginMs = loginAt && typeof loginAt.toMillis === 'function' ? loginAt.toMillis() : 0;
+        const loginFresh = Date.now() - loginMs < ACCOUNT_LOGIN_STAMP_MS;
+        const changed = !stored || Object.keys(payload).some(function(k) {
+          return k !== 'lastLoginAt' && stored[k] !== payload[k];
+        });
+        if (!changed && loginFresh) return;
+        if (loginFresh) delete payload.lastLoginAt;
+        if (!stored) payload.createdAt = ts;
         await ref.set(payload, { merge: true });
+        accountDocCache = Object.assign({}, stored, payload);
       } catch (err) {
         console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
       }
@@ -8701,11 +8721,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
         try {
           // Redirect may already be consumed by rrWireEarlyAuth; still safe to call.
-          auth.getRedirectResult().then(function(cred) {
-            if (cred && cred.user && typeof upsertAccountMirror === 'function') {
-              upsertAccountMirror(cred.user).catch(function() {});
-            }
-          }).catch(function(e) { console.warn('[Auth] redirect result', e); });
+          auth.getRedirectResult().catch(function(e) { console.warn('[Auth] redirect result', e); });
         } catch (e) { console.warn('[Auth] redirect hook', e); }
         auth.onAuthStateChanged(async function(user) {
           if (!user && auth && auth.currentUser) user = auth.currentUser;
@@ -8778,6 +8794,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
           } else {
             currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
+            accountDocCache = null;
             currentAdminPerms = null;
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
@@ -11403,30 +11420,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }));
         return rows;
       }
-      async function loadSavedWeekWinner(weekId) {
-        if (!db || !weekId) return null;
-        try {
-          const snap = await db.collection('leaderboardWeeks').doc(weekId).get();
-          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {});
-        } catch (_) {}
-        return null;
-      }
-      async function saveWeekWinner(weekId, winner) {
-        if (!db || !weekId || !winner) return winner;
-        try {
-          const ref = db.collection('leaderboardWeeks').doc(weekId);
-          const snap = await ref.get();
-          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {}, winner);
-          await ref.set({
-            weekId: weekId, uid: winner.uid || null, name: winner.name || '',
-            photoURL: winner.photoURL || null, reports: winner.reports || 0, points: winner.points || 0,
-            savedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch (err) {
-          console.warn('[leaderboard] save winner skipped', err && err.message ? err.message : err);
-        }
-        return winner;
-      }
       async function renderWeeklyLeaderboard() {
         const listEl = document.getElementById('weekly-leaderboard-list');
         const emptyEl = document.getElementById('weekly-leaderboard-empty');
@@ -11456,13 +11449,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const last = buildWeeklyLeaderboardRows(-1);
         await hydrateLeaderboardPhotos(last.rows);
-        let winner = last.rows[0] || null;
-        const saved = await loadSavedWeekWinner(last.week.weekId);
-        if (saved && saved.uid) {
-          winner = { uid: saved.uid, name: saved.name || (winner && winner.name) || 'Anonymous', photoURL: saved.photoURL || (winner && winner.photoURL) || '', reports: Number(saved.reports) || (winner && winner.reports) || 0, points: Number(saved.points) || (winner && winner.points) || 0 };
-        } else if (winner) {
-          await saveWeekWinner(last.week.weekId, winner);
-        }
+        const winner = last.rows[0] || null;
         if (winner && winner.reports > 0) {
           if (winWrap) winWrap.hidden = false;
           if (winPhoto) winPhoto.innerHTML = rrLbPhotoHtml(winner.photoURL, winner.name, 'rr-lb-winner-photo');
