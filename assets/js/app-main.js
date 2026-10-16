@@ -11804,7 +11804,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           upsertAgencyStationDot('amtrak', id, s.name || s.code || id, lat, lon);
         });
       }
-      function extractTrackNumber(platformName, platformDesc) {
+      function extractTrackNumber(platformName, platformDesc, platformCode) {
+        if (platformCode != null && String(platformCode).trim()) return String(platformCode).trim();
         if (platformDesc) {
           const m = platformDesc.match(/track\s+(\d+)/i) || platformDesc.match(/platform\s+(\d+)/i);
           if (m) return m[1];
@@ -11814,6 +11815,41 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (m) return m[1];
         }
         return null;
+      }
+      // MBTA hub terminals: the schedule only names the station (NEC-2287 / BNT-0000); the live
+      // prediction moves to a track child (NEC-2287-11) once the track is assigned (~5-15 min out).
+      const RR_MBTA_HUB_PARENT = { 'NEC-2287': 'place-sstat', 'BNT-0000': 'place-north' };
+      const RR_HUB_TRACK_KEEP_MS = 2 * 60 * 1000;
+      const rrHubTrackMemo = {};
+      function rrMbtaStopBase(id) {
+        const m = String(id || '').match(/^([A-Z]{2,4}-\d{4})(?:-\d{2})?$/);
+        return m ? m[1] : String(id || '');
+      }
+      function rrIsMbtaHubStop(id) { return !!RR_MBTA_HUB_PARENT[rrMbtaStopBase(id)]; }
+      function rrStopTrack(stopInfo) {
+        const a = stopInfo && stopInfo.attributes;
+        if (!a) return null;
+        return extractTrackNumber(a.name, a.description, a.platform_code);
+      }
+      // Remember an assigned hub track and keep showing it ~2 min after departure,
+      // when the prediction drops back to the station-level stop.
+      function rrHubTrack(tripId, stopId, track, depTime) {
+        if (!tripId || !rrIsMbtaHubStop(stopId)) return track || null;
+        const key = tripId + '|' + rrMbtaStopBase(stopId);
+        const now = Date.now();
+        if (track) {
+          rrHubTrackMemo[key] = { track: String(track), dep: depTime ? depTime.getTime() : now };
+          return track;
+        }
+        const m = rrHubTrackMemo[key];
+        if (m && now <= Math.max(m.dep, depTime ? depTime.getTime() : 0) + RR_HUB_TRACK_KEEP_MS) return m.track;
+        if (m && now > m.dep + RR_HUB_TRACK_KEEP_MS) delete rrHubTrackMemo[key];
+        return null;
+      }
+      function rrTrackBadgeHtml(track, tbd) {
+        if (track) return `<span class="track-badge">Track ${track}</span>`;
+        if (tbd) return `<span class="track-badge track-tbd">Track TBD</span>`;
+        return '';
       }
       function extractTrainNumber(tripId) {
         if (!tripId) return null;
@@ -12074,7 +12110,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const dates = [];
           if (serviceDate) dates.push(String(serviceDate));
           [nyYmd(_now), nyYmd(new Date(_now.getTime() + 24*60*60*1000)), nyYmd(new Date(_now.getTime() - 24*60*60*1000))].forEach(dt => { if (dates.indexOf(dt) === -1) dates.push(dt); });
-          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}`), { signal: controller.signal });
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}&include=stop`), { signal: controller.signal });
           let schedData = { data: [], included: [] };
           for (const dt of dates) {
             const schedRes = await fetch(apiUrl('/api/mbta' + `/schedules?filter[trip]=${encodeURIComponent(tripId)}&filter[date]=${encodeURIComponent(dt)}&include=stop`), { signal: controller.signal });
@@ -12090,15 +12126,23 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const stopId = s.relationships.stop.data.id;
               const stopInfo = schedData.included.find(i => i.type === "stop" && i.id === stopId);
               const schedTime = s.attributes.departure_time ? new Date(s.attributes.departure_time) : (s.attributes.arrival_time ? new Date(s.attributes.arrival_time) : null);
-              const pred = predData.data.find(p => p.relationships.stop.data.id === stopId);
+              const predList = (predData && predData.data) || [];
+              const pred = predList.find(p => p.relationships.stop.data && p.relationships.stop.data.id === stopId)
+                || predList.find(p => p.relationships.stop.data && rrMbtaStopBase(p.relationships.stop.data.id) === rrMbtaStopBase(stopId));
+              const predStopId = pred && pred.relationships.stop.data ? pred.relationships.stop.data.id : null;
+              const predStopInfo = predStopId ? ((predData.included || []).find(i => i.type === "stop" && i.id === predStopId) || null) : null;
               const predTime = pred ? (pred.attributes.departure_time ? new Date(pred.attributes.departure_time) : (pred.attributes.arrival_time ? new Date(pred.attributes.arrival_time) : null)) : null;
               let delay = null, status = "Scheduled", isLive = !!predTime;
               if (predTime && schedTime) {
                 delay = (predTime - schedTime) / 60000;
                 status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
               }
-              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              let track = rrStopTrack(predStopInfo) || rrStopTrack(stopInfo);
+              const isHub = rrIsMbtaHubStop(stopId);
+              const hubDeparts = isHub && !!(s.attributes.departure_time || (pred && pred.attributes.departure_time));
+              if (hubDeparts) track = rrHubTrack(tripId, stopId, track, predTime || schedTime);
               const isCompleted = (predTime || schedTime) ? (predTime || schedTime) < now : false;
+              const trackTbd = hubDeparts && !track && !isCompleted;
               if (isCompleted) status = "Passed";
               return {
                 id: stopId,
@@ -12109,6 +12153,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 delayStatus: status,
                 isLive,
                 trackNumber: track,
+                trackTbd,
                 formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
                 formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
                 formattedActualTime: isCompleted && predTime
@@ -12163,7 +12208,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const endDay = nyYmd(horizon);
           if (dates.indexOf(endDay) === -1) dates.push(endDay);
           const stopQ = stationIds.join(',');
-          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${stopQ}&include=trip,route,schedule,stop&sort=departure_time`));
+          // Hub track children only show up when querying the parent station.
+          const predStops = [];
+          stationIds.forEach(id => { const p = RR_MBTA_HUB_PARENT[rrMbtaStopBase(id)] || id; if (predStops.indexOf(p) === -1) predStops.push(p); });
+          const hubQuery = predStops.some(p => p.indexOf('place-') === 0);
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${predStops.join(',')}${hubQuery ? '&filter[route_type]=2' : ''}&include=trip,route,schedule,stop&sort=departure_time`));
           const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time`))));
           const predData = await predRes.json();
           const schedData = { data: [], included: [] };
@@ -12180,17 +12229,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             predData.data.forEach(p => {
               if (!p.attributes.departure_time) return;
               const depTime = new Date(p.attributes.departure_time);
-              if (depTime < now || depTime > horizon) return;
               const tripId = p.relationships.trip.data?.id;
               const stopId = p.relationships.stop.data?.id;
-              const tKey = `${tripId}-${stopId}`;
+              const hubKeep = rrIsMbtaHubStop(stopId) && depTime < now && (now - depTime) <= RR_HUB_TRACK_KEEP_MS && !!rrHubTrack(tripId, stopId, null, depTime);
+              if ((depTime < now && !hubKeep) || depTime > horizon) return;
+              const tKey = `${tripId}-${rrMbtaStopBase(stopId)}`;
               if (!tripId || processed.has(tKey)) return;
               processed.add(tKey);
               const tripInfo = predData.included?.find(i => i.type === "trip" && i.id === tripId);
               const routeInfo = predData.included?.find(i => i.type === "route" && i.id === p.relationships.route.data?.id);
               const stopInfo = predData.included?.find(i => i.type === "stop" && i.id === stopId);
-              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
-              const sched = predData.included?.find(i => i.type === "schedule" && i.relationships.trip.data?.id === tripId && i.relationships.stop.data?.id === stopId);
+              const isHub = rrIsMbtaHubStop(stopId);
+              const track = isHub ? rrHubTrack(tripId, stopId, rrStopTrack(stopInfo), depTime) : rrStopTrack(stopInfo);
+              const schedRelId = p.relationships.schedule && p.relationships.schedule.data && p.relationships.schedule.data.id;
+              const sched = predData.included?.find(i => i.type === "schedule" && ((schedRelId && i.id === schedRelId) || (i.relationships.trip.data?.id === tripId && rrMbtaStopBase(i.relationships.stop.data?.id) === rrMbtaStopBase(stopId))));
               let schedDep = null, delay = null, status = "On Time";
               if (sched?.attributes.departure_time) {
                 schedDep = new Date(sched.attributes.departure_time);
@@ -12199,10 +12251,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               }
               const mins = Math.floor((depTime - now) / 60000);
               if (mins > 0 && mins < 60) status = `in ${mins} min`;
+              if (hubKeep) status = 'Departed';
               departures.push({
                 tripId, routeId: p.relationships.route.data?.id, stopId,
                 stopName: stopInfo?.attributes.name || "Unknown",
                 trackNumber: track,
+                trackTbd: isHub && !track,
                 routeName: routeInfo?.attributes.long_name || "Unknown",
                 destination: tripInfo?.attributes.headsign || "Unknown",
                 scheduledDeparture: schedDep || depTime,
@@ -12221,13 +12275,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (depTime < now || depTime > horizon) return;
               const tripId = s.relationships.trip.data?.id;
               const stopId = s.relationships.stop.data?.id;
-              const tKey = `${tripId}-${stopId}`;
+              const tKey = `${tripId}-${rrMbtaStopBase(stopId)}`;
               if (!tripId || processed.has(tKey)) return;
               processed.add(tKey);
               const tripInfo = schedData.included?.find(i => i.type === "trip" && i.id === tripId);
               const routeInfo = schedData.included?.find(i => i.type === "route" && i.id === s.relationships.route.data?.id);
               const stopInfo = schedData.included?.find(i => i.type === "stop" && i.id === stopId);
-              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const isHub = rrIsMbtaHubStop(stopId);
+              const track = isHub ? rrHubTrack(tripId, stopId, null, depTime) : rrStopTrack(stopInfo);
               const isLive = liveTrainTrips.has(tripId);
               const mins = Math.floor((depTime - now) / 60000);
               let status = (mins > 0 && mins < 60) ? `in ${mins} min` : "Scheduled";
@@ -12235,6 +12290,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 tripId, routeId: s.relationships.route.data?.id, stopId,
                 stopName: stopInfo?.attributes.name || "Unknown",
                 trackNumber: track,
+                trackTbd: isHub && !track,
                 routeName: routeInfo?.attributes.long_name || "Unknown",
                 destination: tripInfo?.attributes.headsign || "Unknown",
                 scheduledDeparture: depTime,
@@ -12303,7 +12359,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               disp = pred || 'On time';
               statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             }
-            const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
+            const track = rrTrackBadgeHtml(stop.trackNumber, stop.trackTbd);
             const done = stop.isCompleted ? `<img src="/assets/icons/completed.png" class="checkmark">` : '';
             let mileageInfo = '';
             if (stop.cumulativeMiles != null) {
@@ -15010,7 +15066,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             m.on('popupopen', async () => {
               const deps = await getStationDepartures(g.stopIds);
               m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
+              // South/North Station: tracks are assigned only minutes ahead, so refresh while open.
+              if (g.stopIds.some(rrIsMbtaHubStop)) {
+                if (m._rrHubTimer) clearInterval(m._rrHubTimer);
+                m._rrHubTimer = setInterval(async () => {
+                  if (!m.isPopupOpen()) { clearInterval(m._rrHubTimer); m._rrHubTimer = null; return; }
+                  delete stationDeparturesCache[g.stopIds.slice().sort().join('-')];
+                  const fresh = await getStationDepartures(g.stopIds.slice());
+                  if (m.isPopupOpen()) m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, fresh, n));
+                }, 45000);
+              }
             });
+            m.on('popupclose', () => { if (m._rrHubTimer) { clearInterval(m._rrHubTimer); m._rrHubTimer = null; } });
             stationMarkers[g.stopIds[0]] = m;
             if (showStations) m.addTo(map);
           }
@@ -15038,7 +15105,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
               const live = d.isLive ? `<span class="live-indicator"><img src="/assets/icons/live.png" class="live-train-icon"></span>` : '';
               const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
-              const trk = d.trackNumber ? `<span class="track-badge">Track ${d.trackNumber}</span>` : '';
+              const trk = rrTrackBadgeHtml(d.trackNumber, d.trackTbd);
               const svcDate = ((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
               return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\'")}', '${d.destination.replace(/'/g,"\'")}', '${svcDate}')" style="cursor:pointer">
                 <span class="departure-time">${d.formattedScheduledTime}</span>
@@ -15283,7 +15350,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (r) rname = r.attributes.long_name || "Unknown";
               if (stopId) {
                 const s = data.included.find(i => i.type === "stop" && i.id === stopId);
-                if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = extractTrackNumber(s.attributes.name, s.attributes.description); }
+                if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = rrStopTrack(s); }
               }
             }
             // === CAPEFLYER DETECTION (robust) ===
@@ -15659,6 +15726,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="train-popup-footer">${logTripBtn}${shareBtn}</div>
             </div>
           `).openOn(map);
+          // Trips through South/North Station: refresh stops (live time + track) while open.
+          if ((stops || []).some(st => rrIsMbtaHubStop(st.id))) {
+            const schedPopup = map._popup;
+            if (window.__rrTripHubTimer) clearInterval(window.__rrTripHubTimer);
+            window.__rrTripHubTimer = setInterval(async () => {
+              if (!schedPopup || !map.hasLayer(schedPopup)) { clearInterval(window.__rrTripHubTimer); window.__rrTripHubTimer = null; return; }
+              Object.keys(tripStopsCache).forEach(k => { if (k.indexOf(String(tid) + '|') === 0) delete tripStopsCache[k]; });
+              const fresh = await getTripStops(tid, serviceDate);
+              const el = schedPopup.getElement && schedPopup.getElement();
+              const wrap = el && el.querySelector('.stops-wrapper');
+              if (wrap && fresh && fresh.length) wrap.innerHTML = buildStopsHtml(fresh);
+            }, 45000);
+          }
         } catch (e) { showNotification('Could not load schedule.', 'error'); }
       };
       function updateStationVisibility() {

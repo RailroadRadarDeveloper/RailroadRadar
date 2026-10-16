@@ -1748,6 +1748,12 @@
       border-radius: 0;
       margin-left: 5px;
     }
+    .track-badge.track-tbd {
+      background-color: transparent;
+      color: #5b6275;
+      border: 1px dashed #8a90a2;
+      font-weight: 600;
+    }
     .disclaimer {
       margin-top: 15px;
       padding-top: 15px;

@@ -284,12 +284,16 @@ service cloud.firestore {
         || (activeUser() && request.auth.uid == uid);
     }
 
-    // Ban appeals: banned users are signed out, so create is open but tightly validated.
+    // Ban appeals: banned users are signed out, so create needs no sign-in. Instead it must carry
+    // the ban's status token, which only the banned account and admins can read from the ban doc.
+    // Without it anyone could file appeals for other accounts or test whether an email is banned.
     // Doc id = the banned uid, so each uid gets exactly one appeal (create only, no overwrite).
     match /banAppeals/{uid} {
       allow create: if uid.size() > 0 && uid.size() <= 128
-        && request.resource.data.keys().hasOnly(['uid', 'email', 'reason', 'message', 'createdAt', 'status'])
-        && request.resource.data.keys().hasAll(['uid', 'message', 'createdAt', 'status'])
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'reason', 'message', 'createdAt', 'status', 'token'])
+        && request.resource.data.keys().hasAll(['uid', 'message', 'createdAt', 'status', 'token'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() >= 32
         && request.resource.data.uid == uid
         && request.resource.data.status == 'open'
         && request.resource.data.createdAt == request.time
@@ -300,10 +304,13 @@ service cloud.firestore {
             || (request.resource.data.email is string && request.resource.data.email.size() <= 320))
         && (!('reason' in request.resource.data)
             || (request.resource.data.reason is string && request.resource.data.reason.size() <= 1000))
-        && (exists(/databases/$(database)/documents/bannedUsers/$(uid))
+        && ((exists(/databases/$(database)/documents/bannedUsers/$(uid))
+              && get(/databases/$(database)/documents/bannedUsers/$(uid)).data.get('statusToken', '') == request.resource.data.token)
             || ('email' in request.resource.data
                 && request.resource.data.email.size() > 0
-                && exists(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email))));
+                && exists(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email))
+                && get(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email)).data.get('statusToken', '') == request.resource.data.token
+                && get(/databases/$(database)/documents/bannedEmails/$(request.resource.data.email)).data.get('uid', uid) == uid));
       allow read, update, delete: if isAdmin();
     }
 
