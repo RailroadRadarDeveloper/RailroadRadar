@@ -245,7 +245,7 @@ async function ups(slug,files){const out=[];if(!files||!files.length)return out;
 async function save(slug0){const title=document.getElementById('t').value.trim(),body=document.getElementById('b').value.trim();if(!title||!body){document.getElementById('ce').textContent='Title and body are required.';document.getElementById('ce').className='err on';return;}
 let slug=slug0||slugify(title);if(!slug0){const ex=await db.collection('pressReleases').doc(slug).get();if(ex.exists)slug+='-'+Date.now().toString(36);}
 try{let images=document.getElementById('u').value.split('\n').map(s=>s.trim()).filter(Boolean).map(url=>({url,name:''}));images=images.concat(await ups(slug,document.getElementById('f').files));
-const payload={slug,title,body,images,commentsEnabled:!!document.getElementById('k').checked,published:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),authorUid:user.uid,authorEmail:user.email||'',authorName:user.displayName||user.email||'RailroadRadar'};
+const payload={slug,title,body,images,commentsEnabled:!!document.getElementById('k').checked,published:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),authorUid:user.uid,authorName:user.displayName||'RailroadRadar'};
 if(!slug0)payload.createdAt=firebase.firestore.FieldValue.serverTimestamp();
 await db.collection('pressReleases').doc(slug).set(payload,{merge:true});if(!slug0)await notifyDiscord(slug).catch(()=>{});location.href='/press/index.html?id='+encodeURIComponent(slug);
 }catch(err){document.getElementById('ce').textContent=err.message||'Publish failed. Add Firestore/Storage rules for pressReleases.';document.getElementById('ce').className='err on';}}
