@@ -17838,7 +17838,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (/\bfrom\b.+\bto\b/i.test(q) || /\bto\b.+\bfrom\b/i.test(q)) return true;
         return q.split(/\s+/).filter(Boolean).length >= 3;
       }
-      let askTimer = null;
       let askSeq = 0;
       function renderAskCard(results, state, text) {
         let card = results.querySelector('.search-ask-card');
@@ -18308,6 +18307,23 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         return { answer: answer, rows: cards.slice(0, 6) };
       }
+      async function polishAskAnswer(raw, rows, results, seq) {
+        const facts = rows.map(function(r) {
+          return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
+        }).join('\n');
+        const res = await fetch(apiUrl('/api/ask'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (seq !== askSeq) return;
+        const polished = data && data.answer ? String(data.answer).trim() : '';
+        if (res.ok && polished && askFactsGrounded(polished, rows)) {
+          renderAskCard(results, 'ok', polished);
+          renderAskTrainCards(results, rows);
+        }
+      }
       async function askRailroadRadar(raw, results) {
         const seq = ++askSeq;
         renderAskCard(results, 'loading', 'Looking at live trains…');
@@ -18319,22 +18335,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             renderAskCard(results, 'ok', fromTo.answer);
             renderAskTrainCards(results, fromTo.rows || []);
             if (!(fromTo.rows || []).length) return;
-            const facts = (fromTo.rows || []).map(function(r) {
-              return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
-            }).join('\n');
             try {
-              const res = await fetch(apiUrl('/api/ask'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
-              });
-              const data = await res.json().catch(function() { return {}; });
-              if (seq !== askSeq) return;
-              const polished = data && data.answer ? String(data.answer).trim() : '';
-              if (res.ok && polished && askFactsGrounded(polished, fromTo.rows)) {
-                renderAskCard(results, 'ok', polished);
-                renderAskTrainCards(results, fromTo.rows);
-              }
+              await polishAskAnswer(raw, fromTo.rows, results, seq);
             } catch (_) {}
             return;
           }
@@ -18344,25 +18346,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           renderAskCard(results, 'ok', fact);
           renderAskTrainCards(results, matched);
           if (!matched.length) return;
-          const facts = matched.map(function(r) {
-            return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
-          }).join('\n');
-          const res = await fetch(apiUrl('/api/ask'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              question: raw,
-              context: facts,
-              mode: 'polish'
-            })
-          });
-          const data = await res.json().catch(function() { return {}; });
-          if (seq !== askSeq) return;
-          const polished = data && data.answer ? String(data.answer).trim() : '';
-          if (res.ok && polished && askFactsGrounded(polished, matched)) {
-            renderAskCard(results, 'ok', polished);
-            renderAskTrainCards(results, matched);
-          }
+          await polishAskAnswer(raw, matched, results, seq);
         } catch (_) {
           if (seq !== askSeq) return;
           try {
@@ -18392,17 +18376,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               searchStations(q, results);
             }
           } catch (_) {}
-          const shouldAsk = asking || results.children.length === 0;
-          if (shouldAsk) {
-            if (askTimer) clearTimeout(askTimer);
-            askSeq += 1;
-            if (immediate) {
-              askRailroadRadar(raw, results);
-            } else {
-              askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 3000);
-            }
-          } else if (results.children.length === 0) {
-            results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${escapeHtmlLite(q)}</strong>"</div>`;
+          askSeq += 1;
+          const noLocal = results.children.length === 0;
+          if (immediate) {
+            if (asking || noLocal) askRailroadRadar(raw, results);
+          } else if (noLocal) {
+            results.innerHTML = '<div class="search-no-results">No trains or stations match. Press Enter to ask.</div>';
+          } else if (asking) {
+            const hint = document.createElement('div');
+            hint.className = 'search-no-results';
+            hint.textContent = 'Press Enter to ask this question.';
+            results.appendChild(hint);
           }
         }
         searchInput.addEventListener('input', () => { runSearchAndAsk(false); });
