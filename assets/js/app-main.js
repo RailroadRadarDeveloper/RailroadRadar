@@ -9883,7 +9883,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } else if (!hasUnit && rosterSelf) {
           body = '<div class="loco-report-label">Special unit</div><div class="loco-report-unit">' + escFn((vid + ' ' + (rosterSelf.name || '')).trim()) + '</div>';
         } else if (!hasUnit) {
-          body = '<div class="loco-report-label">Reported unit</div><div class="loco-report-unit is-empty">None yet</div>';
+          body = '<div class="loco-report-label">Reported unit</div><div class="loco-report-unit is-empty">' + (window.__rrTrainReportsLoadedAt ? 'None yet' : 'Checking reports...') + '</div>';
         } else {
           const unit = formatTrainReportLocoLabel(rep);
           const whenTs = rep.updatedAt || rep.createdAt;
@@ -11843,25 +11843,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       startLoadingTips();
       setLoadingProgress(8, 'Starting...');
-      await withTimeout(loadSpecialIcons(), 500, 'loadSpecialIcons');
+      loadSpecialIcons();
       setLoadingProgress(18, 'Ready for reports...');
       wireAuthUI();
       wireReportTrainUI();
       wireSpecialsBoardUI();
       wireWeeklyLeaderboardUI();
-      setLoadingProgress(20, 'Loading train reports...');
-      await withTimeout(loadTrainReports(), 5000, 'loadTrainReports');
-      setInterval(loadTrainReports, 7 * 60 * 1000);
-      setLoadingProgress(22, 'Loading special locomotives...');
-      await withTimeout(loadSpecialUnitsFromFirestore(), 5000, 'loadSpecialUnitsFromFirestore');
-      setInterval(function() {
-        loadSpecialUnitsFromFirestore().catch(function() {});
-      }, 7 * 60 * 1000);
-      setLoadingProgress(23, 'Loading verified reporters...');
-      await withTimeout(loadVerifiedReporters(), 5000, 'loadVerifiedReporters');
-      setInterval(function() {
-        loadVerifiedReporters().catch(function() {});
-      }, 7 * 60 * 1000);
+      // Train fetches don't wait for these. Markers built before they finish are rebuilt by refetching, which the browser usually serves from cache (the Worker sends max-age 15 to 30 s on feeds).
+      Promise.allSettled([loadTrainReports(), loadSpecialUnitsFromFirestore(), loadVerifiedReporters()]).then(function() {
+        [[markers, fetchTrains], [amtrakMarkers, fetchAmtrakTrains], [mnrMarkers, fetchMnrTrains], [lirrMarkers, fetchLirrTrains],
+         [metraMarkers, fetchMetraTrains], [njtMarkers, fetchNjtTrains], [marcMarkers, fetchMarcTrains]].forEach(function(pair) {
+          if (Object.keys(pair[0]).length) pair[1]();
+        });
+      });
+      rrLivePoll(loadTrainReports, 7 * 60 * 1000);
+      rrLivePoll(loadSpecialUnitsFromFirestore, 7 * 60 * 1000);
+      rrLivePoll(loadVerifiedReporters, 7 * 60 * 1000);
       // Hundreds of station dots as separate images made panning and zooming slow, so they are
       // drawn on one canvas in their own pane, above route lines and below trains.
       map.createPane('rrStations').style.zIndex = 450;
