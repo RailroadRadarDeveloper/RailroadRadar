@@ -217,22 +217,30 @@
         return false;
       }
       const status = cookieConsentStatusFromPrefs(prefs);
-      const decidedAt = prefs.decidedAt || new Date().toISOString();
+      const decidedAt = prefs.decidedAt || (currentUserSettings && currentUserSettings.cookieDecidedAt) || new Date().toISOString();
       const payload = {
         cookieConsent: status,
         cookieClarity: !!prefs.clarity,
         cookiePreferences: prefs.preferences !== false,
         cookieDecidedAt: decidedAt
       };
-      try {
-        await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
-      } catch (err) {
-        console.warn('[cookies] accounts persist failed', err);
+      const differs = function(stored) {
+        return !stored || Object.keys(payload).some(function(k) { return stored[k] !== payload[k]; });
+      };
+      if (differs(accountDocCache)) {
+        try {
+          await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
+          accountDocCache = Object.assign(accountDocCache || {}, payload);
+        } catch (err) {
+          console.warn('[cookies] accounts persist failed', err);
+        }
       }
-      try {
-        await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
-      } catch (err) {
-        console.warn('[cookies] userSettings persist failed', err);
+      if (differs(currentUserSettings)) {
+        try {
+          await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
+        } catch (err) {
+          console.warn('[cookies] userSettings persist failed', err);
+        }
       }
       currentUserSettings = currentUserSettings || {};
       currentUserSettings.cookieConsent = status;
@@ -243,6 +251,8 @@
       return true;
     }
     window.persistCookieConsentToAccount = persistCookieConsentToAccount;
+    let accountDocCache = null;
+    const ACCOUNT_LOGIN_STAMP_MS = 24 * 60 * 60 * 1000;
     async function upsertAccountMirror(user) {
       if (!db || !user || !user.uid) return;
       const uid = String(user.uid);
@@ -271,15 +281,25 @@
           payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
           if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
         }
-        let exists = false;
+        let stored = null;
         try {
           const snap = await ref.get();
-          exists = !!(snap && snap.exists);
+          stored = snap && snap.exists ? (snap.data() || {}) : null;
         } catch (readErr) {
-          exists = false;
+          stored = null;
         }
-        if (!exists) payload.createdAt = ts;
+        accountDocCache = stored;
+        const loginAt = stored && stored.lastLoginAt;
+        const loginMs = loginAt && typeof loginAt.toMillis === 'function' ? loginAt.toMillis() : 0;
+        const loginFresh = Date.now() - loginMs < ACCOUNT_LOGIN_STAMP_MS;
+        const changed = !stored || Object.keys(payload).some(function(k) {
+          return k !== 'lastLoginAt' && stored[k] !== payload[k];
+        });
+        if (!changed && loginFresh) return;
+        if (loginFresh) delete payload.lastLoginAt;
+        if (!stored) payload.createdAt = ts;
         await ref.set(payload, { merge: true });
+        accountDocCache = Object.assign({}, stored, payload);
       } catch (err) {
         console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
       }
@@ -8713,11 +8733,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
         try {
           // Redirect may already be consumed by rrWireEarlyAuth; still safe to call.
-          auth.getRedirectResult().then(function(cred) {
-            if (cred && cred.user && typeof upsertAccountMirror === 'function') {
-              upsertAccountMirror(cred.user).catch(function() {});
-            }
-          }).catch(function(e) { console.warn('[Auth] redirect result', e); });
+          auth.getRedirectResult().catch(function(e) { console.warn('[Auth] redirect result', e); });
         } catch (e) { console.warn('[Auth] redirect hook', e); }
         auth.onAuthStateChanged(async function(user) {
           if (!user && auth && auth.currentUser) user = auth.currentUser;
@@ -8790,6 +8806,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
           } else {
             currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
+            accountDocCache = null;
             currentAdminPerms = null;
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
