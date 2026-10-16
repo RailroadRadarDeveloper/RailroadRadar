@@ -597,11 +597,19 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
         try {
           if (ag === 'mbta') {
             if (!lid) return null;
+            try {
+              if (!(window.RR_TRIP_SHAPES.mbta && Object.keys(window.RR_TRIP_SHAPES.mbta).length)) {
+                const res = await fetch('/assets/shapes/mbta.json');
+                if (res.ok) rrRegisterTripShapes('mbta', ((await res.json()) || {}).routes);
+              }
+              const cached = rrGetCachedTripPolylines('mbta', lid);
+              if (cached && cached.length) return cached;
+            } catch (_) {}
             let url = rrTripMbtaShapesUrl(lid);
             const polys = [];
             while (url) {
               const sr = await fetch(url);
-              if (!sr.ok) break;
+              if (!sr.ok) throw new Error('HTTP ' + sr.status);
               const sd = await sr.json();
               (sd.data || []).forEach(function (s) {
                 const enc = s.attributes && s.attributes.polyline;
@@ -621,11 +629,14 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
           }
           const url = '/assets/shapes/' + ag + '.json';
           const res = await fetch(url);
-          if (!res.ok) return null;
+          if (!res.ok) throw new Error('HTTP ' + res.status);
           const data = await res.json();
           if (data && data.routes) rrRegisterTripShapes(ag, data.routes);
           return lid ? rrGetCachedTripPolylines(ag, lid) : null;
-        } catch (_) { return null; }
+        } catch (_) {
+          delete window.RR_TRIP_SHAPES_PROMISES[key];
+          return null;
+        }
       })();
       window.RR_TRIP_SHAPES_PROMISES[key] = p;
       return p;
