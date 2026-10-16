@@ -11676,6 +11676,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // VIA Rail trains arrive in the Amtraker feed (train numbers 'v1', provider 'Via'); own toggle.
       let showVia = true;
       try { showVia = localStorage.getItem('rr_showVia') !== '0'; } catch (_) {}
+      // A share link to a VIA train shows it even if the visitor turned the layer off; the saved choice is not touched.
+      try {
+        const rrShareQ = new URLSearchParams(location.search);
+        const rrShareSpecRaw = rrShareQ.get('train') || rrShareQ.get('t') || rrShareQ.get('focus') || '';
+        if (/(^|[:|/])v\d/i.test(rrShareSpecRaw)) showVia = true;
+      } catch (_) {}
       function rrIsViaTrain(t) {
         if (!t) return false;
         if (t.isVia === true) return true;
@@ -16253,7 +16259,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             res.push({
               agency: rowVia ? 'VIA Rail' : 'Amtrak', agencyColor: rowVia ? VIA_COLOR : '#003087', id: vid, markerMap: amtrakMarkers,
               routeName: t.routeName || (rowVia ? 'VIA Rail' : 'Amtrak'), trainNum: rowVia ? ('VIA ' + rrViaDisplayNum(t)) : num, dest: t.destName || t.destCode || '—',
-              vehicleLabel: t.trainID || num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
+              vehicleLabel: t.trainID || num, shareNum: num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
               statusClass: statusClass, statusText: statusRaw,
               hasAlert: hasAlert, lat: t.lat, lng: (t.lng != null ? t.lng : t.lon),
               matchFields: [vid, num, t.trainID, t.routeName, t.destName, t.destCode, t.origName, t.origCode]
@@ -16525,7 +16531,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         for (let i = 0; i < rows.length; i++) {
           const r = rows[i];
           const a = rrNormShareAgency(r.agency);
-          const ids = [r.id, r.trainNum, r.vehicleLabel].map(rrNormShareId);
+          const ids = [r.id, r.trainNum, r.vehicleLabel, r.shareNum].map(rrNormShareId);
           const hit = ids.some(function(x) {
             if (!x) return false;
             if (x === wantId) return true;
