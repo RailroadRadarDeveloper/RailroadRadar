@@ -773,6 +773,7 @@
     };
 
     const AUDIT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+    const AUDIT_LOG_TZ = 'America/New_York';
 
     function rrAssetUrl(url) {
       const u = String(url == null ? '' : url).trim();
@@ -2305,8 +2306,10 @@
     function formatAdminLegalCell(a) {
       if (a && a.legalAccepted) {
         const when = a.legalAcceptedAt ? formatAdminWhen(a.legalAcceptedAt) : '';
-        const ver = a.legalVersion ? String(a.legalVersion) : RR_LEGAL_VERSION;
-        const extra = when && when !== '—' ? when : (ver ? ('v ' + ver) : '');
+        const ver = a.termsVersion || a.privacyVersion
+          ? ('Terms ' + (a.termsVersion || '?') + ', Privacy ' + (a.privacyVersion || '?'))
+          : (a.legalVersion ? String(a.legalVersion) : '');
+        const extra = when && when !== '—' ? when : (ver ? ((a.termsVersion || a.privacyVersion ? '' : 'v ') + ver) : '');
         return '<span class="rr-badge verified" title="Agreed to Terms of Use and Privacy Policy' + (ver ? (' (' + escapeHtmlLite(ver) + ')') : '') + (when && when !== '—' ? (' on ' + escapeHtmlLite(when)) : '') + '">Accepted</span>' +
           (extra ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(extra) + '</div>') : '');
       }
