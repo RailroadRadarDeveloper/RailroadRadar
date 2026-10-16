@@ -799,7 +799,6 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
       const name = profile.displayName || profile.username || 'Railfan';
       document.title = name + ' | MyTrips';
       window.__rrProfileShare = location.href.split('#')[0];
-      trips = (trips || []).filter(function (t) { return !t.hiddenPublic; });
       const upcoming = trips.filter(function (t) { return tripStartMs(t) >= Date.now(); }).sort(function (a, b) { return tripStartMs(a) - tripStartMs(b); });
       const past = trips.filter(function (t) { return tripStartMs(t) < Date.now(); });
       const photo = profile.photoURL
@@ -861,21 +860,14 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
       if (!profile.username) profile.username = unameData.username || username;
       let trips = [];
       try {
-        const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).orderBy('startTime', 'desc').limit(50).get();
+        const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).where('hiddenPublic', '==', false).orderBy('startTime', 'desc').limit(50).get();
         trips = tripSnap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
       } catch (e) {
         try {
-          const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).limit(50).get();
+          const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).where('hiddenPublic', '==', false).limit(50).get();
           trips = tripSnap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
           trips.sort(function (a, b) { return tripStartMs(b) - tripStartMs(a); });
-        } catch (e2) {
-          // Current rules only allow public reads of trips explicitly marked visible.
-          try {
-            const tripSnap = await db.collection('tripLogs').where('userId', '==', uid).where('hiddenPublic', '==', false).limit(50).get();
-            trips = tripSnap.docs.map(function (doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
-            trips.sort(function (a, b) { return tripStartMs(b) - tripStartMs(a); });
-          } catch (e3) { trips = []; }
-        }
+        } catch (e2) { trips = []; }
       }
       renderProfile(profile, trips);
     }
@@ -884,5 +876,6 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
   </script>
 <script src="/assets/js/live-share-bar.js" defer></script>
 <script src="/assets/js/site-nav.js" defer></script>
+<script src="/assets/js/trip-notify.js?v=a335cb5240"></script>
 </body>
 </html>
