@@ -11632,7 +11632,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const vehicleUrl = apiUrl('/api/mbta/vehicles?filter[route_type]=2&include=trip,route,stop');
       const routesUrl = apiUrl('/api/mbta/routes?filter[type]=2');
       const stopsUrl = apiUrl('/api/mbta/stops?filter[route_type]=2&include=route');
-      const scheduleUrl = apiUrl('/api/mbta/schedules');
       const alertsUrl = apiUrl('/api/mbta/alerts?filter[route_type]=2');
       const amtrakUrl = apiUrl('/api/amtrak/trains');
       // ==================== DETAILED FETCH LOGGING ====================
@@ -11658,7 +11657,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const stationDeparturesCache = {};
       const liveTrainTrips = new Set();
       const stationsByName = {};
-      let schedules = {};
       let highlightedMarker = null;
       let showStations = true;
       let showTrainLabels = true;   // Default ON
@@ -15593,84 +15591,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           updateTrainLabelsVisibility();
         }
       }
-      async function fetchSchedules() {
-        if (!showMbta) return;
-        try {
-          const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-          // MBTA rejects filter[route_type] alone on /schedules — must use filter[route]
-          let crRouteIds = Object.keys(routeColors).filter(function(id) {
-            return id && id !== 'CapeFlyer' && String(id).indexOf('CR-') === 0;
-          });
-          if (!crRouteIds.length) {
-            try {
-              const rr = await fetch(routesUrl);
-              const rd = await rr.json();
-              (rd.data || []).forEach(function(rt) {
-                if (rt && rt.id) {
-                  crRouteIds.push(rt.id);
-                  if (!routeColors[rt.id]) routeColors[rt.id] = '#' + (rt.attributes && rt.attributes.color ? rt.attributes.color : '800080');
-                }
-              });
-            } catch (_) {}
-          }
-          if (!crRouteIds.length) {
-            crRouteIds = ['CR-Fairmount','CR-NewBedford','CR-Fitchburg','CR-Worcester','CR-Franklin','CR-Greenbush','CR-Haverhill','CR-Kingston','CR-Lowell','CR-Needham','CR-Newburyport','CR-Providence','CR-Foxboro'];
-          }
-          schedules = {};
-          let totalRows = 0;
-          // Fetch per-route (full-day multi-route payloads can be huge); merge by train number
-          const CONCURRENCY = 4;
-          async function fetchOneRoute(rid) {
-            const url = scheduleUrl + '?filter[date]=' + encodeURIComponent(today) + '&filter[route]=' + encodeURIComponent(rid) + '&include=trip,stop,route';
-            const res = await fetch(url);
-            if (!res.ok) {
-              console.warn('[Schedules] route', rid, 'HTTP', res.status);
-              return [];
-            }
-            const data = await res.json();
-            return { data: data.data || [], included: data.included || [] };
-          }
-          for (let i = 0; i < crRouteIds.length; i += CONCURRENCY) {
-            const batch = crRouteIds.slice(i, i + CONCURRENCY);
-            const results = await Promise.all(batch.map(function(rid) {
-              return fetchOneRoute(rid).catch(function(e) {
-                console.warn('[Schedules] route failed', rid, e && e.message);
-                return { data: [], included: [] };
-              });
-            }));
-            results.forEach(function(pack) {
-              if (!pack || !pack.data) return;
-              const included = pack.included || [];
-              pack.data.forEach(function(s) {
-                const tid = s.relationships && s.relationships.trip && s.relationships.trip.data && s.relationships.trip.data.id;
-                if (!tid) return;
-                const num = extractTrainNumber(tid);
-                if (!num) return;
-                if (!schedules[num]) schedules[num] = [];
-                const sid = s.relationships && s.relationships.stop && s.relationships.stop.data && s.relationships.stop.data.id;
-                const stop = included.find(function(i) { return i.type === 'stop' && i.id === sid; });
-                schedules[num].push({
-                  stopName: (stop && stop.attributes && stop.attributes.name) || 'Unknown',
-                  arrTime: s.attributes && s.attributes.arrival_time ? new Date(s.attributes.arrival_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—',
-                  depTime: s.attributes && s.attributes.departure_time ? new Date(s.attributes.departure_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—',
-                  sequence: (s.attributes && s.attributes.stop_sequence) || 0
-                });
-                totalRows++;
-              });
-            });
-          }
-          Object.keys(schedules).forEach(function(k) {
-            schedules[k].sort(function(a,b) { return a.sequence - b.sequence; });
-          });
-          console.log('%c[Schedules] Loaded ' + totalRows + ' rows for ' + Object.keys(schedules).length + ' trains across ' + crRouteIds.length + ' routes', 'color:#27ae60');
-          if (typeof FetchStats !== 'undefined' && FetchStats.end) {
-            /* no-op: keep console above as primary success log */
-          }
-        } catch (e) {
-          console.error("Schedules error", e);
-          schedules = {};
-        }
-      }
       function createTrainPopupContent(vid, tid, rid, rname, dest, status, sname, dstatus, delay, stops = null, track = null, mph = null, hasAlert = false) {
         let txt = status === "INCOMING_AT" ? `Arriving at ${sname}` : status === "STOPPED_AT" ? `Stopped at ${sname}` : `On the way to ${sname}`;
         let statusPillClass = (delay === null || Math.abs(delay) <= 5) ? "status-on-time" 
@@ -18731,9 +18651,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else stopRailPoll('njt');
         if (showMarc) startRailPoll('marc', fetchMarcTrains, 30000);
         else stopRailPoll('marc');
-        // MBTA schedules only when MBTA is enabled
-        if (showMbta) startRailPoll('schedules', fetchSchedules, 300000);
-        else stopRailPoll('schedules');
       }
       function persistMapRailPrefsFromFlags() {
         setMapRailPrefs({
@@ -18770,7 +18687,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else if (agency === 'metra') stopRailPoll('metra');
           else if (agency === 'njt') stopRailPoll('njt');
           else if (agency === 'marc') stopRailPoll('marc');
-          if (agency === 'mbta') stopRailPoll('schedules');
         }
       }
       function reopenMapRailPicker() {
@@ -18995,7 +18911,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         Object.keys(stationDeparturesCache).forEach(k => delete stationDeparturesCache[k]);
         if (showMbta) {
           await fetchTrains();
-          await fetchSchedules();
         }
         if (showAmtrak) await fetchAmtrakTrains();
         if (showMnr) await fetchMnrTrains();
@@ -19352,7 +19267,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           hideLoadingScreen();
           try { rrWireTrainShare(); } catch (_) {}
         }
-        // Background: schedules + enabled agencies only (do not block overlay)
+        // Background: route shapes only (do not block overlay)
         try {
           if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
             // Route shapes stay off on /mytrips. In-progress vehicles: rrEnsureMyTripsLiveFeeds.
@@ -19360,7 +19275,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const bg = [];
             // Shapes are non-blocking for map usability; parallelized inside fetchRouteShapes.
             bg.push(withTimeout(fetchRouteShapes(), 60000, 'fetchRouteShapes'));
-            if (showMbta) bg.push(withTimeout(fetchSchedules(), 60000, 'fetchSchedules'));
             // Live agencies already fetched on first paint; polls keep them fresh.
             if (bg.length) await Promise.allSettled(bg);
           }
