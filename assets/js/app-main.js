@@ -16909,6 +16909,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const mapEl = document.getElementById('map');
         document.documentElement.classList.add('rr-train-page');
         document.documentElement.classList.remove('rr-train-page-waiting');
+        // Seasonal (Halloween) logo is for the live map only; train pages get the normal logo
+        try {
+          document.querySelectorAll('img[src*="logo-halloween"]').forEach(function(img) { img.src = '/assets/logo.png'; });
+        } catch (_) {}
         const pageEl = document.getElementById('rr-train-page');
         if (pageEl) pageEl.hidden = false;
         if (status) status.textContent = (page.rname ? page.rname + ' ' : '') + (page.tid || '') + (page.dest ? (' to ' + page.dest) : '');
