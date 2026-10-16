@@ -10,9 +10,13 @@
     header { height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; background: #07093e; position: relative; z-index: 10000; }
     header a { color: #fff; font-weight: 800; text-decoration: none; display: flex; align-items: center; }
     header img { height: 40px; width: auto; display: block; }
-    #rr-live-bar, #live-share-banner { position: fixed; top: 60px; left: 0; right: 0; z-index: 10040; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #b00020; color: #fff; padding: 10px 16px; font: 700 14px/1.3 sans-serif; }
-    #live-stats { position: fixed; top: 104px; left: 0; right: 0; z-index: 9000; display: flex; gap: 18px; padding: 10px 16px; background: #07093e; color: #fff; font-size: 14px; font-weight: 700; }
-    #map { position: fixed; top: 148px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
+    #live-share-banner { position: fixed; top: 60px; left: 0; right: 0; z-index: 10040; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #b00020; color: #fff; padding: 10px 16px; font: 700 14px/1.3 sans-serif; }
+    #live-share-banner[hidden] { display: none; }
+    #live-share-banner button { background: #fff; color: #b00020; border: 0; border-radius: 999px; padding: 6px 12px; font-weight: 800; cursor: pointer; }
+    #live-stats { position: fixed; top: 60px; left: 0; right: 0; z-index: 9000; display: flex; gap: 18px; padding: 10px 16px; background: #07093e; color: #fff; font-size: 14px; font-weight: 700; }
+    #map { position: fixed; top: 104px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
+    body:has(#live-share-banner:not([hidden]), #rr-live-bar:not([hidden])) #live-stats { top: 104px; }
+    body:has(#live-share-banner:not([hidden]), #rr-live-bar:not([hidden])) #map { top: 148px; }
     #status { font-size: 14px; }
     .rr-live-train { background: transparent !important; border: 0 !important; }
   </style>
@@ -22,7 +26,7 @@
     <a href="/"><img src="/assets/logo.png" alt="RailroadRadar"></a>
     <span id="status">Loading tracker</span>
   </header>
-  <div id="live-share-banner">Sharing live location <button type="button" id="live-share-stop" style="background:#fff;color:#b00020;border:0;border-radius:999px;padding:6px 10px;font-weight:800;">Stop sharing</button></div>
+  <div id="live-share-banner" hidden>Sharing live location <button type="button" id="live-share-stop">Stop sharing</button></div>
   <div id="live-stats"><span id="live-speed">Speed --</span><span id="live-place">Location --</span></div>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -46,12 +50,18 @@
     }).addTo(map);
     var marker = null;
 
+    // Shown only to the sharer opening their own link on a device that is not publishing the share
+    // (the site-wide bar from live-share-bar.js covers the device that is).
+    var shareIsLive = false;
+    function updateStopBanner() {
+      var user = firebase.auth().currentUser;
+      var localBar = document.getElementById('rr-live-bar');
+      document.getElementById('live-share-banner').hidden = !(shareIsLive && user && user.uid === uid && !(localBar && !localBar.hidden));
+    }
+    firebase.auth().onAuthStateChanged(updateStopBanner);
+    setInterval(updateStopBanner, 2000);
     document.getElementById('live-share-stop').onclick = function() {
-      try { localStorage.setItem('rrSpecialShareStopped', '1'); localStorage.removeItem('rrSpecialMoveShareV1'); } catch (e) {}
-      document.getElementById('live-share-banner').hidden = true;
-      if (window.firebase && firebase.auth && firebase.auth().currentUser) {
-        firebase.firestore().collection('specialMoveShares').doc(firebase.auth().currentUser.uid).delete();
-      }
+      firebase.firestore().collection('specialMoveShares').doc(uid).delete();
     };
 
     var placeKey = '';
@@ -82,6 +92,8 @@
       firebase.firestore().collection('specialMoveShares').doc(uid).onSnapshot(function(doc) {
         var d = doc.exists ? (doc.data() || {}) : null;
         var live = d && d.active === true && Number(d.expiresAt) > Date.now() && isFinite(Number(d.lat)) && isFinite(Number(d.lon));
+        shareIsLive = !!live;
+        updateStopBanner();
         if (!live) {
           document.getElementById('status').textContent = 'Tracker is not live';
           if (marker) { map.removeLayer(marker); marker = null; }
@@ -101,6 +113,8 @@
         if (!marker._rrFollowed) { map.setView(ll, 14); marker._rrFollowed = true; }
       }, function() {
         // Expired or stopped shares are no longer readable.
+        shareIsLive = false;
+        updateStopBanner();
         document.getElementById('status').textContent = 'Tracker is not live';
         if (marker) { map.removeLayer(marker); marker = null; }
       });
