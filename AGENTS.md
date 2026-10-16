@@ -28,6 +28,10 @@ Open http://localhost:8000. Google sign-in only works on `localhost`, not `127.0
 
 Don't put test checkboxes in a PR. Do the tests, or say in the PR that you couldn't.
 
+### Automated checks
+
+The checks in `tests/` run on every pull request. Run them before committing; the commands are under "Checks" in README.md. After changing a file that a page loads with `?v=`, set that `?v=` to the value the static check prints.
+
 ## Code
 
 - Match the style of the file you're in.
