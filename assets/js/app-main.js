@@ -2451,14 +2451,7 @@ function tripCardStationDotIcon() {
     }
 
         
-    function rrLiveTripPoint(data) {
-      if (!data) return null;
-      if (data.liveLat != null && data.liveLon != null) return [Number(data.liveLat), Number(data.liveLon)];
-      const segs = Array.isArray(data.segments) ? data.segments : [];
-      for (let i = 0; i < segs.length; i++) {
-        const s = segs[i] || {};
-        if (s.liveLat != null && s.liveLon != null) return [Number(s.liveLat), Number(s.liveLon)];
-      }
+    function rrLiveTripPoint() {
       if (window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) return [Number(window.rrSpecialLastFix.lat), Number(window.rrSpecialLastFix.lon)];
       return null;
     }
@@ -2488,7 +2481,7 @@ function tripCardStationDotIcon() {
       const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
       if (!hasAny) {
         el.classList.remove('is-loading');
-        const livePt = rrLiveTripPoint(data);
+        const livePt = rrLiveTripPoint();
         if (data && data.specialMove && livePt) {
           try {
             const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
@@ -5832,10 +5825,6 @@ function closeTripDetailView(opts) {
           miles: Number(miles) || 0
         };
         if (isSpecialSeg && !arriveIso) segOut.openEnded = true;
-        if (isSpecialSeg && specialOpts.liveFix) {
-          segOut.liveLat = Number(specialOpts.liveFix.lat);
-          segOut.liveLon = Number(specialOpts.liveFix.lon);
-        }
         if (isSpecialSeg) {
           segOut.specialMove = true;
           // Strip live vehicle id — otherwise list/detail can re-attach to the scheduled train
@@ -5950,12 +5939,6 @@ function closeTripDetailView(opts) {
       }
       const saveBtns = [document.getElementById('trip-log-save'), document.getElementById('trip-log-go-live')];
       function setSaveDisabled(on) { saveBtns.forEach(function(b) { if (b) b.disabled = on; }); }
-      if (specialFields.specialMove && tripLogEditingId) {
-        // An edit keeps the position saved with the trip.
-        const savedSegs = (tripLogDataById[tripLogEditingId] || {}).segments || [];
-        const saved = savedSegs.find(function(s) { return s && s.liveLat != null && s.liveLon != null; });
-        specialFields.liveFix = saved ? { lat: saved.liveLat, lon: saved.liveLon } : null;
-      }
       if (specialFields.specialMove && !tripLogEditingId) {
         // The browser's timeout only starts once the prompt is answered, so this can wait a long time.
         const locEl = document.getElementById('trip-special-loc');
