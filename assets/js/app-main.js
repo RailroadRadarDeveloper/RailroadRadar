@@ -11739,7 +11739,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let showAmtrak = true;
       // VIA Rail trains arrive in the Amtraker feed (train numbers 'v1', provider 'Via'); own toggle.
       let showVia = true;
-      let rrViaShapesLoaded = false;
       try { showVia = localStorage.getItem('rr_showVia') !== '0'; } catch (_) {}
       // A share link to a VIA train shows it even if the visitor turned the layer off; the saved choice is not touched.
       try {
@@ -15249,8 +15248,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       }
 
+      let mbtaStationsRequested = false;
       async function fetchStations() {
-        if (!showMbta) return;
+        if (!showMbta) {
+          if (showMnr || showLirr || showMetra) plotStaticAgencyStationDots();
+          return;
+        }
+        if (mbtaStationsRequested) return;
+        mbtaStationsRequested = true;
         try {
           const res = await fetch(stopsUrl);
           const data = await res.json();
@@ -15307,7 +15312,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             stationMarkers[g.stopIds[0]] = m;
             if (showStations) m.addTo(map);
           }
-        } catch (e) { console.error("Stations error", e); }
+        } catch (e) { mbtaStationsRequested = false; console.error("Stations error", e); }
         plotStaticAgencyStationDots();
       }
       let amtrakAllTrains = [];
@@ -15380,8 +15385,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else { if (map.hasLayer(grp)) map.removeLayer(grp); }
         });
       }
-      async function loadStaticGtfsShapes(onlyIds) {
-        let agencies = [
+      const gtfsShapesRequested = {};
+      async function loadStaticGtfsShapes() {
+        const agencies = [
           { id: 'mbta', file: rrAssetUrl('/assets/shapes/mbta.json'), fallback: '#800080' },
           { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
           { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
@@ -15392,8 +15398,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // VIA Rail (yellow, same as the VIA badge); precomputed from VIA's GTFS shapes.txt
           { id: 'via', file: rrAssetUrl('/assets/shapes/via.json'), fallback: VIA_COLOR }
         ].filter(function(ag) {
-          if (Array.isArray(onlyIds) && onlyIds.indexOf(ag.id) < 0) return false;
-          if (ag.id === 'via') return !!showVia && !rrViaShapesLoaded;
+          if (gtfsShapesRequested[ag.id]) return false;
+          if (ag.id === 'via') return !!showVia;
           if (ag.id === 'mbta') return !!showMbta;
           if (ag.id === 'mnr') return !!showMnr;
           if (ag.id === 'lirr') return !!showLirr;
@@ -15403,14 +15409,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (ag.id === 'marc') return !!showMarc;
           return true;
         });
-        let totalRoutes = 0, totalPolys = 0;
-        if (agencies.some(function(ag) { return ag.id === 'via'; })) rrViaShapesLoaded = true;
-        for (const ag of agencies) {
+        agencies.forEach(function(ag) { gtfsShapesRequested[ag.id] = true; });
+        const loaded = await Promise.all(agencies.map(async function(ag) {
           try {
             const res = await fetch(ag.file);
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            const data = await res.json();
-            const routes = (data && data.routes) || [];
+            return await res.json();
+          } catch (e) {
+            delete gtfsShapesRequested[ag.id];
+            console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
+            return null;
+          }
+        }));
+        let totalRoutes = 0, totalPolys = 0;
+        // Files arrive in any order; adding layers in list order keeps the stacking stable.
+        agencies.forEach(function(ag, i) {
+          const data = loaded[i];
+          if (!data) return;
+          try {
+            const routes = data.routes || [];
             try {
               if (typeof rrRegisterTripShapes === 'function') rrRegisterTripShapes(ag.id, routes);
               else if (typeof window.rrRegisterTripShapes === 'function') window.rrRegisterTripShapes(ag.id, routes);
@@ -15442,11 +15459,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             totalPolys += agencyPolys;
             console.log('%c[Shapes] ' + ag.id.toUpperCase() + ': ' + routes.length + ' routes, ' + agencyPolys + ' polylines', 'color:#27ae60');
           } catch (e) {
+            delete gtfsShapesRequested[ag.id];
             console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
-            if (ag.id === 'via') rrViaShapesLoaded = false;
           }
-        }
-        console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
+        });
+        if (agencies.length) console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
         return { routes: totalRoutes, polylines: totalPolys };
       }
 
@@ -18757,9 +18774,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           marc: !!showMarc
         });
       }
+      function loadEnabledRailStatic() {
+        loadStaticGtfsShapes();
+        fetchStations();
+      }
       function onMapRailToggle(agency, enabled) {
         persistMapRailPrefsFromFlags();
         if (enabled) {
+          loadEnabledRailStatic();
           try {
             if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, 60000); fetchTrains(); }
             else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
@@ -18835,6 +18857,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           window._rrRailPickerOnGo = null;
           applyMapRailPrefs(prefs);
           startEnabledRailPolls();
+          loadEnabledRailStatic();
           try {
             if (prefs.mbta) fetchTrains();
             if (prefs.amtrak) fetchAmtrakTrains();
@@ -18946,7 +18969,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           updateAmtrakVisibility();
           try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
           // Lazy: VIA lines are fetched only once VIA is switched on
-          if (showVia && !rrViaShapesLoaded) { try { loadStaticGtfsShapes(['via']); } catch (_) {} }
+          if (showVia) loadStaticGtfsShapes();
           if (showVia) { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
           else if (!showAmtrak) stopRailPoll('amtrak');
         });
@@ -19333,10 +19356,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             // so splash is not blocked on the MBTA shapes waterfall / large amtrak.json.
             setLoadingProgress(35, 'Loading live trains...');
             const firstPaint = [];
-            if (showMbta) {
-              firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
-              firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
-            }
+            firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
+            if (showMbta) firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
             if (showAmtrak) firstPaint.push(withTimeout(fetchAmtrakTrains(), 12000, 'fetchAmtrakTrains'));
             if (showMnr) firstPaint.push(withTimeout(fetchMnrTrains(), 10000, 'fetchMnrTrains'));
             if (showLirr) firstPaint.push(withTimeout(fetchLirrTrains(), 10000, 'fetchLirrTrains'));
