@@ -19200,7 +19200,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (showMetra) firstPaint.push(withTimeout(fetchMetraTrains(), 10000, 'fetchMetraTrains'));
             if (showNjt) firstPaint.push(withTimeout(fetchNjtTrains(), 10000, 'fetchNjtTrains'));
             if (showMarc) firstPaint.push(withTimeout(fetchMarcTrains(), 10000, 'fetchMarcTrains'));
-            if (firstPaint.length) await Promise.allSettled(firstPaint);
+            // Wait at most 3 s: one slow feed (often Metra) used to hold the splash for up to 12 s.
+            // Feeds that answer later still add their trains to the map.
+            if (firstPaint.length) {
+              await Promise.race([
+                Promise.allSettled(firstPaint),
+                new Promise(function(resolve) { setTimeout(resolve, 3000); })
+              ]);
+            }
             setLoadingProgress(85, 'Map ready — loading route lines...');
             setupSearch();
           }
