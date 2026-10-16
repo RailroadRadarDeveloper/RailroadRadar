@@ -1403,8 +1403,17 @@
       return R * c;
     }
 
+    // Bump when the stats shape or counting rules change: every stored doc with an older version is rebuilt once.
+    const TRIP_LOG_STATS_VERSION = 2;
+
     function tripLogEmptyStats() {
-      return { tripCount: 0, totalMiles: 0, byRailroad: {}, lastTripAt: null };
+      return { version: TRIP_LOG_STATS_VERSION, tripCount: 0, totalMiles: 0, byRailroad: {} };
+    }
+
+    function tripLogStatsUsable(raw) {
+      return !!raw && typeof raw === 'object' && raw.version === TRIP_LOG_STATS_VERSION &&
+        isFinite(raw.tripCount) && isFinite(raw.totalMiles) &&
+        !!raw.byRailroad && typeof raw.byRailroad === 'object';
     }
 
     function normalizeTripLogStats(raw) {
@@ -1413,7 +1422,6 @@
       base.tripCount = Number(raw.tripCount) || 0;
       base.totalMiles = Number(raw.totalMiles) || 0;
       base.byRailroad = (raw.byRailroad && typeof raw.byRailroad === 'object') ? raw.byRailroad : {};
-      base.lastTripAt = raw.lastTripAt || null;
       return base;
     }
 
@@ -1987,7 +1995,7 @@
 
     function rrTripShapesAssetUrl(agency) {
       const ag = String(agency || '').toLowerCase();
-      if (['mnr', 'lirr', 'amtrak', 'ctrail', 'njt', 'marc'].indexOf(ag) < 0) return null;
+      if (['mnr', 'lirr', 'amtrak', 'ctrail', 'njt', 'marc', 'mbta'].indexOf(ag) < 0) return null;
       return '/assets/shapes/' + ag + '.json';
     }
 
@@ -2032,7 +2040,7 @@
             const polys = [];
             while (url) {
               const sr = await fetch(url);
-              if (!sr.ok) break;
+              if (!sr.ok) throw new Error('HTTP ' + sr.status);
               const sd = await sr.json();
               (sd.data || []).forEach(function(s) {
                 const enc = s.attributes && s.attributes.polyline;
@@ -2068,12 +2076,16 @@
           return rrGetCachedTripPolylines(ag, lid);
         } catch (e) {
           console.warn('[TripMiles] shape load failed', ag, lid, e && e.message ? e.message : e);
+          delete window.RR_TRIP_SHAPES_PROMISES[key];
           return null;
         }
       })().then(function(result) {
-        try {
-          if (typeof updateTripMilesPreview === 'function') updateTripMilesPreview();
-        } catch (_) {}
+        // A failed load must not refresh the preview: it would request the shapes again and loop.
+        if (result) {
+          try {
+            if (typeof updateTripMilesPreview === 'function') updateTripMilesPreview();
+          } catch (_) {}
+        }
         return result;
       });
 
@@ -2439,14 +2451,7 @@ function tripCardStationDotIcon() {
     }
 
         
-    function rrLiveTripPoint(data) {
-      if (!data) return null;
-      if (data.liveLat != null && data.liveLon != null) return [Number(data.liveLat), Number(data.liveLon)];
-      const segs = Array.isArray(data.segments) ? data.segments : [];
-      for (let i = 0; i < segs.length; i++) {
-        const s = segs[i] || {};
-        if (s.liveLat != null && s.liveLon != null) return [Number(s.liveLat), Number(s.liveLon)];
-      }
+    function rrLiveTripPoint() {
       if (window.rrSpecialLastFix && window.rrSpecialLastFix.lat != null) return [Number(window.rrSpecialLastFix.lat), Number(window.rrSpecialLastFix.lon)];
       return null;
     }
@@ -2476,7 +2481,7 @@ function tripCardStationDotIcon() {
       const hasAny = segs.some(function(g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
       if (!hasAny) {
         el.classList.remove('is-loading');
-        const livePt = rrLiveTripPoint(data);
+        const livePt = rrLiveTripPoint();
         if (data && data.specialMove && livePt) {
           try {
             const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
@@ -4923,7 +4928,6 @@ function closeTripDetailView(opts) {
         const count = Number(row.count) || 0;
         const miles = Number(row.miles) || 0;
         if (count <= 0 && miles <= 0) return;
-        // Prefer trip count (fixes Amtrak-as-top when only MBTA trips remain with stale miles)
         if (count > topCount || (count === topCount && miles > topMiles)) {
           topCount = count;
           topMiles = miles;
@@ -4988,7 +4992,6 @@ function closeTripDetailView(opts) {
       return {
         railroad: data.railroad,
         miles: Number(data.miles) || 0,
-        startTime: data.startTime || null,
         segments: Array.isArray(data.segments) && data.segments.length
           ? data.segments
           : [{ railroad: data.railroad, miles: Number(data.miles) || 0 }]
@@ -4997,37 +5000,17 @@ function closeTripDetailView(opts) {
 
     function computeTripLogStatsFromTrips(trips) {
       let stats = tripLogEmptyStats();
-      let lastAt = null;
       (trips || []).forEach(function(trip) {
-        const payload = tripPayloadForStats(trip);
-        stats = applyTripMilesToStats(stats, payload, 1);
-        const st = payload.startTime || null;
-        if (st && (!lastAt || String(st) > String(lastAt))) lastAt = st;
+        stats = applyTripMilesToStats(stats, tripPayloadForStats(trip), 1);
       });
-      stats.lastTripAt = lastAt;
-      return normalizeTripLogStats(stats);
+      return stats;
     }
 
-    function tripLogStatsLookStale(cached, rebuilt) {
-      const a = normalizeTripLogStats(cached);
-      const b = normalizeTripLogStats(rebuilt);
-      if ((Number(a.tripCount) || 0) !== (Number(b.tripCount) || 0)) return true;
-      if (Math.abs((Number(a.totalMiles) || 0) - (Number(b.totalMiles) || 0)) > 0.2) return true;
-      const ak = Object.keys(a.byRailroad || {}).sort().join(',');
-      const bk = Object.keys(b.byRailroad || {}).sort().join(',');
-      if (ak !== bk) return true;
-      for (const k of Object.keys(b.byRailroad || {})) {
-        const ar = a.byRailroad[k] || {};
-        const br = b.byRailroad[k] || {};
-        if ((Number(ar.count) || 0) !== (Number(br.count) || 0)) return true;
-        if (Math.abs((Number(ar.miles) || 0) - (Number(br.miles) || 0)) > 0.2) return true;
-      }
-      return false;
-    }
-
+    // complete is false when a page limit cut the list short.
     async function fetchAllUserTripLogs(uid) {
       const out = [];
       let last = null;
+      let complete = false;
       for (let page = 0; page < 40; page++) {
         let q = db.collection('tripLogs')
           .where('userId', '==', uid)
@@ -5040,76 +5023,57 @@ function closeTripDetailView(opts) {
         } catch (e) {
           // Fallback without order if composite index missing
           snap = await db.collection('tripLogs').where('userId', '==', uid).limit(500).get();
-          snap.docs.forEach(function(doc) {
-            out.push(Object.assign({ id: doc.id }, doc.data() || {}));
-          });
-          return out;
+          return {
+            trips: snap.docs.map(function(doc) { return Object.assign({ id: doc.id }, doc.data() || {}); }),
+            complete: snap.docs.length < 500
+          };
         }
         const docs = snap.docs || [];
         docs.forEach(function(doc) {
           out.push(Object.assign({ id: doc.id }, doc.data() || {}));
         });
-        if (docs.length < 100) break;
+        if (docs.length < 100) { complete = true; break; }
         last = docs[docs.length - 1];
       }
-      return out;
+      return { trips: out, complete: complete };
     }
 
-    async function rebuildTripLogStatsFromTrips(uid, opts) {
-      opts = opts || {};
-      const trips = await fetchAllUserTripLogs(uid);
-      const next = computeTripLogStatsFromTrips(trips);
-      if (opts.persist !== false) {
-        await db.collection('userSettings').doc(uid).set({
-          tripLogStats: next,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+    async function rebuildTripLogStatsFromTrips(uid, settingsExist) {
+      const all = await fetchAllUserTripLogs(uid);
+      const next = computeTripLogStatsFromTrips(all.trips);
+      // A cut-off list would be stored as the truth and incremented from then on, so it is only shown.
+      if (all.complete) {
+        const ref = db.collection('userSettings').doc(uid);
+        const fields = { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        // A merge write to a doc that isn't in the local cache makes reads return only the merged fields until
+        // the server confirms it, which hid the Terms agreement from the sign-in check. update() doesn't.
+        if (settingsExist) await ref.update(fields);
+        else await ref.set(fields, { merge: true });
       }
       paintTripLogStats(next);
       return next;
     }
 
     async function ensureTripLogStats(opts) {
-      opts = opts || {};
       const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
       if (!db || !user) {
         paintTripLogStats(tripLogEmptyStats());
         return tripLogEmptyStats();
       }
       try {
-        if (opts.force) {
-          return await rebuildTripLogStatsFromTrips(user.uid);
-        }
         const snap = await db.collection('userSettings').doc(user.uid).get();
-        const data = snap.exists ? (snap.data() || {}) : {};
-        const cached = normalizeTripLogStats(data.tripLogStats);
-        // Always reconcile against tripLogs so delete/save drift cannot leave Amtrak-as-top etc.
-        const trips = await fetchAllUserTripLogs(user.uid);
-        const rebuilt = computeTripLogStatsFromTrips(trips);
-        if (tripLogStatsLookStale(cached, rebuilt)) {
-          await db.collection('userSettings').doc(user.uid).set({
-            tripLogStats: rebuilt,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          paintTripLogStats(rebuilt);
-          return rebuilt;
+        const stored = snap.exists ? (snap.data() || {}).tripLogStats : null;
+        if (!(opts && opts.force) && tripLogStatsUsable(stored)) {
+          const stats = normalizeTripLogStats(stored);
+          paintTripLogStats(stats);
+          return stats;
         }
-        paintTripLogStats(cached);
-        return cached;
+        return await rebuildTripLogStatsFromTrips(user.uid, snap.exists);
       } catch (e) {
         console.warn('[trip-log] ensureTripLogStats failed', e);
-        try {
-          return await rebuildTripLogStatsFromTrips(user.uid);
-        } catch (e2) {
-          console.warn('[trip-log] rebuild failed', e2);
-          paintTripLogStats(tripLogEmptyStats());
-          return tripLogEmptyStats();
-        }
+        paintTripLogStats(tripLogEmptyStats());
+        return tripLogEmptyStats();
       }
-    }
-
-    async function loadTripLogStatsFromServer() {
-      return ensureTripLogStats({});
     }
 
     function switchTripLogTab(tab) {
@@ -5861,10 +5825,6 @@ function closeTripDetailView(opts) {
           miles: Number(miles) || 0
         };
         if (isSpecialSeg && !arriveIso) segOut.openEnded = true;
-        if (isSpecialSeg && specialOpts.liveFix) {
-          segOut.liveLat = Number(specialOpts.liveFix.lat);
-          segOut.liveLon = Number(specialOpts.liveFix.lon);
-        }
         if (isSpecialSeg) {
           segOut.specialMove = true;
           // Strip live vehicle id — otherwise list/detail can re-attach to the scheduled train
@@ -5934,7 +5894,6 @@ function closeTripDetailView(opts) {
       next.tripCount = Math.max(0, (Number(next.tripCount) || 0) + dir);
       next.totalMiles = Math.max(0, Math.round(((Number(next.totalMiles) || 0) + dir * (Number(payload.miles) || 0)) * 10) / 10);
       next.byRailroad = by;
-      if (dir > 0 && payload.startTime) next.lastTripAt = payload.startTime;
       return next;
     }
 
@@ -5980,12 +5939,6 @@ function closeTripDetailView(opts) {
       }
       const saveBtns = [document.getElementById('trip-log-save'), document.getElementById('trip-log-go-live')];
       function setSaveDisabled(on) { saveBtns.forEach(function(b) { if (b) b.disabled = on; }); }
-      if (specialFields.specialMove && tripLogEditingId) {
-        // An edit keeps the position saved with the trip.
-        const savedSegs = (tripLogDataById[tripLogEditingId] || {}).segments || [];
-        const saved = savedSegs.find(function(s) { return s && s.liveLat != null && s.liveLon != null; });
-        specialFields.liveFix = saved ? { lat: saved.liveLat, lon: saved.liveLon } : null;
-      }
       if (specialFields.specialMove && !tripLogEditingId) {
         // The browser's timeout only starts once the prompt is answered, so this can wait a long time.
         const locEl = document.getElementById('trip-special-loc');
@@ -6012,16 +5965,19 @@ function closeTripDetailView(opts) {
       try {
         const uid = saveUser.uid;
         const editingId = tripLogEditingId;
-        const oldData = editingId ? (tripLogDataById[editingId] || {}) : null;
         const tripRef = editingId ? db.collection('tripLogs').doc(editingId) : db.collection('tripLogs').doc();
         const settingsRef = db.collection('userSettings').doc(uid);
-        await db.runTransaction(async function(tx) {
+        // The old values come from the stored trip, not the list cache, which can be stale or missing.
+        const next = await db.runTransaction(async function(tx) {
+          const oldSnap = editingId ? await tx.get(tripRef) : null;
           const settingsSnap = await tx.get(settingsRef);
-          const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
-          const stats = normalizeTripLogStats(settingsData.tripLogStats);
-          let next = stats;
-          if (oldData) next = applyTripMilesToStats(next, oldData, -1);
-          next = applyTripMilesToStats(next, payload, 1);
+          const stored = settingsSnap.exists ? (settingsSnap.data() || {}).tripLogStats : null;
+          let stats = null;
+          if (tripLogStatsUsable(stored)) {
+            stats = normalizeTripLogStats(stored);
+            if (oldSnap && oldSnap.exists) stats = applyTripMilesToStats(stats, tripPayloadForStats(oldSnap.data()), -1);
+            stats = applyTripMilesToStats(stats, tripPayloadForStats(payload), 1);
+          }
           const write = Object.assign({ userId: uid }, payload);
           if (editingId) write.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
           else {
@@ -6029,7 +5985,8 @@ function closeTripDetailView(opts) {
             write.hiddenPublic = false;
           }
           tx.set(tripRef, write, { merge: !!editingId });
-          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          if (stats) tx.update(settingsRef, { tripLogStats: stats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          return stats;
         });
         try { await logUserAction('trip_log_save', payload.railroad + ' ' + payload.trainNumber); } catch (_) {}
         if (typeof showNotification === 'function') showNotification(editingId ? 'Trip updated' : 'Trip saved');
@@ -6053,8 +6010,8 @@ function closeTripDetailView(opts) {
           }
         }
         resetTripLogForm(payload.railroad);
-        try { await ensureTripLogStats({ force: true }); }
-        catch (_) { await loadTripLogStatsFromServer(); }
+        if (next) paintTripLogStats(next);
+        else await ensureTripLogStats();
         switchTripLogTab('list');
         return tripRef.id;
       } catch (e) {
@@ -6091,34 +6048,22 @@ function closeTripDetailView(opts) {
         const uid = currentUser.uid;
         const tripRef = db.collection('tripLogs').doc(tripId);
         const settingsRef = db.collection('userSettings').doc(uid);
-        await db.runTransaction(async function(tx) {
+        const next = await db.runTransaction(async function(tx) {
           const tripSnap = await tx.get(tripRef);
           if (!tripSnap.exists) throw new Error('Trip not found');
           const trip = tripSnap.data() || {};
           if (trip.userId !== uid) throw new Error('Not your trip');
           const settingsSnap = await tx.get(settingsRef);
           const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
-          const stats = normalizeTripLogStats(settingsData.tripLogStats);
-          const payload = {
-            railroad: trip.railroad,
-            miles: Number(trip.miles) || 0,
-            startTime: trip.startTime || null,
-            segments: Array.isArray(trip.segments) && trip.segments.length
-              ? trip.segments
-              : [{ railroad: trip.railroad, miles: Number(trip.miles) || 0 }]
-          };
-          const next = applyTripMilesToStats(stats, payload, -1);
-          next.lastTripAt = stats.lastTripAt || null;
           tx.delete(tripRef);
-          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          if (!tripLogStatsUsable(settingsData.tripLogStats)) return null;
+          const stats = applyTripMilesToStats(normalizeTripLogStats(settingsData.tripLogStats), tripPayloadForStats(trip), -1);
+          tx.update(settingsRef, { tripLogStats: stats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          return stats;
         });
         if (typeof showNotification === 'function') showNotification('Trip deleted');
-        // Rebuild from tripLogs so public profile + stats stay correct after delete
-        try {
-          const u = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
-          if (u) await ensureTripLogStats({ force: true });
-          else await loadTripLogStatsFromServer();
-        } catch (_) { await loadTripLogStatsFromServer(); }
+        if (next) paintTripLogStats(next);
+        else await ensureTripLogStats();
         await loadTripLogList(true);
       } catch (e) {
         console.warn('[trip-log] delete failed', e);
@@ -7552,7 +7497,7 @@ async function rrSpecialStopSharing(opts) {
       switchTripLogTab(defaultTab);
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
-      await loadTripLogStatsFromServer();
+      await ensureTripLogStats();
       // Do not auto-request geolocation here (no user gesture). Nearby can use
       // an already-known fix; Share location is the gesture that prompts on /mytrips.
       try {
@@ -7814,7 +7759,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       if (moreBtn) moreBtn.addEventListener('click', function() { loadTripLogList(false); });
       const refreshBtn = document.getElementById('trip-log-refresh');
       if (refreshBtn) refreshBtn.addEventListener('click', function() {
-        ensureTripLogStats({ force: true }).catch(function() { loadTripLogStatsFromServer(); });
+        ensureTripLogStats({ force: true });
         loadTripLogList(true);
       });
       const list = document.getElementById('trip-log-list');
@@ -14679,6 +14624,32 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (minutes < -5) return { minutes: minutes, text: 'Early', pill: 'status-on-time' };
         return { minutes: minutes, text: 'On Time', pill: 'status-on-time' };
       }
+      // NJT timestamps look like "15-Oct-2026 06:47:00 PM". Parsed as if they were UTC; the caller decides the zone.
+      function njtStampAsUtcMs(text) {
+        const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/i.exec(String(text || '').trim());
+        if (!m) return NaN;
+        const mon = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(m[2].toLowerCase());
+        if (mon < 0) return NaN;
+        const hour = (Number(m[4]) % 12) + (m[7].toUpperCase() === 'PM' ? 12 : 0);
+        return Date.UTC(Number(m[3]), mon, Number(m[1]), hour, Number(m[5]), Number(m[6]));
+      }
+      const NJT_ET_PARTS = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: 'numeric',
+        day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'
+      });
+      function njtEasternOffsetMs(utcMs) {
+        const p = {};
+        NJT_ET_PARTS.formatToParts(new Date(utcMs)).forEach(function(x) { p[x.type] = Number(x.value); });
+        return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - utcMs;
+      }
+      // Feed times without a zone (vehicle LAST_MODIFIED) are Eastern. The offset is looked up twice so the
+      // hours around a DST change resolve correctly.
+      function njtEasternMs(text) {
+        const asUtc = njtStampAsUtcMs(text);
+        if (!isFinite(asUtc)) return NaN;
+        const guess = asUtc - njtEasternOffsetMs(asUtc);
+        return asUtc - njtEasternOffsetMs(guess);
+      }
       function njtParseTrain(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const trainNum = String(njtPick(raw, ['ID', 'id', 'trainId', 'TRAIN_ID', 'trainNum'])).trim();
@@ -14689,7 +14660,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const lineRaw = njtPick(raw, ['LINECODE', 'lineCode', 'TRAIN_LINE', 'line', 'LINE']);
         const line = njtLineInfo(lineRaw);
         const nextStop = String(njtPick(raw, ['NEXT_STOP', 'nextStop', 'NEXTSTOP']) || '—');
-        const dest = String(njtPick(raw, ['DESTINATION', 'destination', 'destName']) || nextStop || '—');
         const direction = String(njtPick(raw, ['DIRECTION', 'direction']) || '');
         const delay = njtDelayParts(njtPick(raw, ['SEC_LATE', 'secLate', 'delaySeconds']));
         const lastModified = njtPick(raw, ['LAST_MODIFIED', 'lastModified', 'GPSTIME']);
@@ -14702,13 +14672,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           routeColor: line.color,
           lat: lat,
           lng: lng,
-          destName: dest,
+          destName: '',
           currentStopName: nextStop,
           direction: direction,
           statusText: delay.text,
           statusPillClass: delay.pill,
           delayMinutes: delay.minutes,
           lastModified: lastModified || '',
+          lastModifiedMs: njtEasternMs(lastModified),
           schedDep: schedDep || '',
           stops: Array.isArray(raw.stops) ? raw.stops : (Array.isArray(raw.STOPS) ? raw.STOPS : []),
           hasAlert: !!raw.hasAlert,
@@ -14727,24 +14698,35 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function njtNormalizeStops(payload, fallbackDest) {
         const rawStops = payload && (payload.stops || payload.STOPS || (payload.data && payload.data.stops));
-        const dest = String((payload && (payload.destination || payload.DESTINATION)) || fallbackDest || '—');
-        if (!Array.isArray(rawStops) || !rawStops.length) return { dest: dest, stops: [] };
+        const payloadDest = String((payload && (payload.destination || payload.DESTINATION)) || fallbackDest || '');
+        if (!Array.isArray(rawStops) || !rawStops.length) return { dest: payloadDest, stops: [] };
         const stops = rawStops.map(function(st, idx) {
           const name = String(njtPick(st, ['STATIONNAME', 'stationName', 'name', 'STOP_NAME']) || 'Stop');
           const departed = String(njtPick(st, ['DEPARTED', 'departed']) || '').toUpperCase() === 'YES';
-          const status = String(njtPick(st, ['STOP_STATUS', 'status']) || '');
-          const time = String(njtPick(st, ['TIME', 'DEP_TIME', 'time']) || '');
+          // TIME is the live estimate (the actual time once departed), DEP_TIME the schedule. Both are
+          // Eastern without a zone, so the zone comes from TIME_UTC_FORMAT, which is the same instant in UTC.
+          const naiveTime = njtStampAsUtcMs(njtPick(st, ['TIME', 'time']));
+          const utcTime = njtStampAsUtcMs(njtPick(st, ['TIME_UTC_FORMAT']));
+          const zoneShift = isFinite(utcTime) && isFinite(naiveTime) ? utcTime - naiveTime : NaN;
+          const predictedMs = isFinite(utcTime) ? utcTime : njtEasternMs(njtPick(st, ['TIME', 'time']));
+          const naiveSched = njtStampAsUtcMs(njtPick(st, ['DEP_TIME']));
+          const scheduledMs = isFinite(naiveSched) && isFinite(zoneShift) ? naiveSched + zoneShift : (njtEasternMs(njtPick(st, ['DEP_TIME'])) || predictedMs);
+          const predictedOk = isFinite(predictedMs);
+          const scheduledOk = isFinite(scheduledMs);
           return {
             name: name,
-            time: time,
-            departed: departed,
-            status: status,
+            formattedScheduledTime: scheduledOk ? rrClockTime(new Date(scheduledMs)) : '',
+            formattedPredictedTime: predictedOk ? rrClockTime(new Date(predictedMs)) : '',
+            formattedActualTime: departed && predictedOk ? rrClockTime(new Date(predictedMs)) : '',
+            predictedTime: predictedOk ? predictedMs : null,
+            delayMinutes: predictedOk && scheduledOk ? Math.round((predictedMs - scheduledMs) / 60000) : 0,
+            isCompleted: departed,
             seq: idx,
             lat: null,
             lng: null
           };
         });
-        return { dest: dest, stops: stops };
+        return { dest: stops[stops.length - 1].name, stops: stops };
       }
       async function fetchNjtStopList(trainNum) {
         const id = String(trainNum || '').trim();
@@ -14788,7 +14770,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function createNjtPopupContent(vid, info) {
         const num = info.trainNum || String(vid).replace(/^njt-/, '');
         const route = info.routeName || 'NJ Transit';
-        const dest = info.destName || '—';
+        const dest = info.destName || '';
         const status = info.statusText || 'Live';
         const statusPillClass = info.statusPillClass || 'status-scheduled';
         const lastSeenTime = njtLastSeen[vid]
@@ -14808,7 +14790,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '<div class="no-departures">No stop data</div>';
         let statusDesc = info.currentStopName && info.currentStopName !== '—'
           ? ('On the way to ' + info.currentStopName)
-          : ('On the way to ' + dest);
+          : '';
         const dirHtml = info.direction
           ? ('<div class="info-item"><span class="info-label">Direction</span><span class="info-value">' + escapeHtmlLite(info.direction) + '</span></div>')
           : '';
@@ -14819,8 +14801,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${njtBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
-                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
+                ${dest ? '<span style="color:#ffffff; font-weight:500; font-style:italic;">to</span><span style="font-weight:700; color:#ffffff; font-style:italic;">' + escapeHtmlLite(dest) + '</span>' : ''}
                 ${alertIcon}
               </div>
             </div>
@@ -14909,7 +14890,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (njtStopsCache[info.trainNum].dest) info.destName = njtStopsCache[info.trainNum].dest;
             }
             njtTrainInfo[vid] = info;
-            njtLastSeen[vid] = rrSeenMs(raw.timestamp || raw.updatedAt || raw.updated || raw.lastUpdated, now);
+            njtLastSeen[vid] = isFinite(info.lastModifiedMs) ? info.lastModifiedMs : now;
             const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
             const icon = createNjtIcon(njtLocoType, info.trainNum);
             const labelInfo = buildCyclingTrainInfo({
@@ -17859,7 +17840,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (/\bfrom\b.+\bto\b/i.test(q) || /\bto\b.+\bfrom\b/i.test(q)) return true;
         return q.split(/\s+/).filter(Boolean).length >= 3;
       }
-      let askTimer = null;
       let askSeq = 0;
       function renderAskCard(results, state, text) {
         let card = results.querySelector('.search-ask-card');
@@ -18329,6 +18309,23 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         return { answer: answer, rows: cards.slice(0, 6) };
       }
+      async function polishAskAnswer(raw, rows, results, seq) {
+        const facts = rows.map(function(r) {
+          return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
+        }).join('\n');
+        const res = await fetch(apiUrl('/api/ask'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (seq !== askSeq) return;
+        const polished = data && data.answer ? String(data.answer).trim() : '';
+        if (res.ok && polished && askFactsGrounded(polished, rows)) {
+          renderAskCard(results, 'ok', polished);
+          renderAskTrainCards(results, rows);
+        }
+      }
       async function askRailroadRadar(raw, results) {
         const seq = ++askSeq;
         renderAskCard(results, 'loading', 'Looking at live trains…');
@@ -18340,22 +18337,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             renderAskCard(results, 'ok', fromTo.answer);
             renderAskTrainCards(results, fromTo.rows || []);
             if (!(fromTo.rows || []).length) return;
-            const facts = (fromTo.rows || []).map(function(r) {
-              return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
-            }).join('\n');
             try {
-              const res = await fetch(apiUrl('/api/ask'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
-              });
-              const data = await res.json().catch(function() { return {}; });
-              if (seq !== askSeq) return;
-              const polished = data && data.answer ? String(data.answer).trim() : '';
-              if (res.ok && polished && askFactsGrounded(polished, fromTo.rows)) {
-                renderAskCard(results, 'ok', polished);
-                renderAskTrainCards(results, fromTo.rows);
-              }
+              await polishAskAnswer(raw, fromTo.rows, results, seq);
             } catch (_) {}
             return;
           }
@@ -18365,25 +18348,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           renderAskCard(results, 'ok', fact);
           renderAskTrainCards(results, matched);
           if (!matched.length) return;
-          const facts = matched.map(function(r) {
-            return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
-          }).join('\n');
-          const res = await fetch(apiUrl('/api/ask'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              question: raw,
-              context: facts,
-              mode: 'polish'
-            })
-          });
-          const data = await res.json().catch(function() { return {}; });
-          if (seq !== askSeq) return;
-          const polished = data && data.answer ? String(data.answer).trim() : '';
-          if (res.ok && polished && askFactsGrounded(polished, matched)) {
-            renderAskCard(results, 'ok', polished);
-            renderAskTrainCards(results, matched);
-          }
+          await polishAskAnswer(raw, matched, results, seq);
         } catch (_) {
           if (seq !== askSeq) return;
           try {
@@ -18413,17 +18378,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               searchStations(q, results);
             }
           } catch (_) {}
-          const shouldAsk = asking || results.children.length === 0;
-          if (shouldAsk) {
-            if (askTimer) clearTimeout(askTimer);
-            askSeq += 1;
-            if (immediate) {
-              askRailroadRadar(raw, results);
-            } else {
-              askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 3000);
-            }
-          } else if (results.children.length === 0) {
-            results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${escapeHtmlLite(q)}</strong>"</div>`;
+          askSeq += 1;
+          const noLocal = results.children.length === 0;
+          if (immediate) {
+            if (asking || noLocal) askRailroadRadar(raw, results);
+          } else if (noLocal) {
+            results.innerHTML = '<div class="search-no-results">No trains or stations match. Press Enter to ask.</div>';
+          } else if (asking) {
+            const hint = document.createElement('div');
+            hint.className = 'search-no-results';
+            hint.textContent = 'Press Enter to ask this question.';
+            results.appendChild(hint);
           }
         }
         searchInput.addEventListener('input', () => { runSearchAndAsk(false); });
