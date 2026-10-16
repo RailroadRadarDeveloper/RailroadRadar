@@ -2026,6 +2026,12 @@
        width: 32px !important;
        height: 32px !important;
      }
+     /* Leaflet sets the margins from the 44px icon's anchor, which leaves a 32px icon off center. */
+     .leaflet-marker-icon.train-icon,
+     .leaflet-marker-icon.amtrak-nec-icon {
+       margin-left: -16px !important;
+       margin-top: -16px !important;
+     }
    }
    .header-logo {
      height: 40px !important;
