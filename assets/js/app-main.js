@@ -14666,6 +14666,32 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (minutes < -5) return { minutes: minutes, text: 'Early', pill: 'status-on-time' };
         return { minutes: minutes, text: 'On Time', pill: 'status-on-time' };
       }
+      // NJT timestamps look like "15-Oct-2026 06:47:00 PM". Parsed as if they were UTC; the caller decides the zone.
+      function njtStampAsUtcMs(text) {
+        const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/i.exec(String(text || '').trim());
+        if (!m) return NaN;
+        const mon = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(m[2].toLowerCase());
+        if (mon < 0) return NaN;
+        const hour = (Number(m[4]) % 12) + (m[7].toUpperCase() === 'PM' ? 12 : 0);
+        return Date.UTC(Number(m[3]), mon, Number(m[1]), hour, Number(m[5]), Number(m[6]));
+      }
+      const NJT_ET_PARTS = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: 'numeric',
+        day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'
+      });
+      function njtEasternOffsetMs(utcMs) {
+        const p = {};
+        NJT_ET_PARTS.formatToParts(new Date(utcMs)).forEach(function(x) { p[x.type] = Number(x.value); });
+        return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - utcMs;
+      }
+      // Feed times without a zone (vehicle LAST_MODIFIED) are Eastern. The offset is looked up twice so the
+      // hours around a DST change resolve correctly.
+      function njtEasternMs(text) {
+        const asUtc = njtStampAsUtcMs(text);
+        if (!isFinite(asUtc)) return NaN;
+        const guess = asUtc - njtEasternOffsetMs(asUtc);
+        return asUtc - njtEasternOffsetMs(guess);
+      }
       function njtParseTrain(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const trainNum = String(njtPick(raw, ['ID', 'id', 'trainId', 'TRAIN_ID', 'trainNum'])).trim();
@@ -14676,7 +14702,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const lineRaw = njtPick(raw, ['LINECODE', 'lineCode', 'TRAIN_LINE', 'line', 'LINE']);
         const line = njtLineInfo(lineRaw);
         const nextStop = String(njtPick(raw, ['NEXT_STOP', 'nextStop', 'NEXTSTOP']) || '—');
-        const dest = String(njtPick(raw, ['DESTINATION', 'destination', 'destName']) || nextStop || '—');
         const direction = String(njtPick(raw, ['DIRECTION', 'direction']) || '');
         const delay = njtDelayParts(njtPick(raw, ['SEC_LATE', 'secLate', 'delaySeconds']));
         const lastModified = njtPick(raw, ['LAST_MODIFIED', 'lastModified', 'GPSTIME']);
@@ -14689,13 +14714,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           routeColor: line.color,
           lat: lat,
           lng: lng,
-          destName: dest,
+          destName: '',
           currentStopName: nextStop,
           direction: direction,
           statusText: delay.text,
           statusPillClass: delay.pill,
           delayMinutes: delay.minutes,
           lastModified: lastModified || '',
+          lastModifiedMs: njtEasternMs(lastModified),
           schedDep: schedDep || '',
           stops: Array.isArray(raw.stops) ? raw.stops : (Array.isArray(raw.STOPS) ? raw.STOPS : []),
           hasAlert: !!raw.hasAlert,
@@ -14714,24 +14740,35 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function njtNormalizeStops(payload, fallbackDest) {
         const rawStops = payload && (payload.stops || payload.STOPS || (payload.data && payload.data.stops));
-        const dest = String((payload && (payload.destination || payload.DESTINATION)) || fallbackDest || '—');
-        if (!Array.isArray(rawStops) || !rawStops.length) return { dest: dest, stops: [] };
+        const payloadDest = String((payload && (payload.destination || payload.DESTINATION)) || fallbackDest || '');
+        if (!Array.isArray(rawStops) || !rawStops.length) return { dest: payloadDest, stops: [] };
         const stops = rawStops.map(function(st, idx) {
           const name = String(njtPick(st, ['STATIONNAME', 'stationName', 'name', 'STOP_NAME']) || 'Stop');
           const departed = String(njtPick(st, ['DEPARTED', 'departed']) || '').toUpperCase() === 'YES';
-          const status = String(njtPick(st, ['STOP_STATUS', 'status']) || '');
-          const time = String(njtPick(st, ['TIME', 'DEP_TIME', 'time']) || '');
+          // TIME is the live estimate (the actual time once departed), DEP_TIME the schedule. Both are
+          // Eastern without a zone, so the zone comes from TIME_UTC_FORMAT, which is the same instant in UTC.
+          const naiveTime = njtStampAsUtcMs(njtPick(st, ['TIME', 'time']));
+          const utcTime = njtStampAsUtcMs(njtPick(st, ['TIME_UTC_FORMAT']));
+          const zoneShift = isFinite(utcTime) && isFinite(naiveTime) ? utcTime - naiveTime : NaN;
+          const predictedMs = isFinite(utcTime) ? utcTime : njtEasternMs(njtPick(st, ['TIME', 'time']));
+          const naiveSched = njtStampAsUtcMs(njtPick(st, ['DEP_TIME']));
+          const scheduledMs = isFinite(naiveSched) && isFinite(zoneShift) ? naiveSched + zoneShift : (njtEasternMs(njtPick(st, ['DEP_TIME'])) || predictedMs);
+          const predictedOk = isFinite(predictedMs);
+          const scheduledOk = isFinite(scheduledMs);
           return {
             name: name,
-            time: time,
-            departed: departed,
-            status: status,
+            formattedScheduledTime: scheduledOk ? rrClockTime(new Date(scheduledMs)) : '',
+            formattedPredictedTime: predictedOk ? rrClockTime(new Date(predictedMs)) : '',
+            formattedActualTime: departed && predictedOk ? rrClockTime(new Date(predictedMs)) : '',
+            predictedTime: predictedOk ? predictedMs : null,
+            delayMinutes: predictedOk && scheduledOk ? Math.round((predictedMs - scheduledMs) / 60000) : 0,
+            isCompleted: departed,
             seq: idx,
             lat: null,
             lng: null
           };
         });
-        return { dest: dest, stops: stops };
+        return { dest: stops[stops.length - 1].name, stops: stops };
       }
       async function fetchNjtStopList(trainNum) {
         const id = String(trainNum || '').trim();
@@ -14775,7 +14812,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function createNjtPopupContent(vid, info) {
         const num = info.trainNum || String(vid).replace(/^njt-/, '');
         const route = info.routeName || 'NJ Transit';
-        const dest = info.destName || '—';
+        const dest = info.destName || '';
         const status = info.statusText || 'Live';
         const statusPillClass = info.statusPillClass || 'status-scheduled';
         const lastSeenTime = njtLastSeen[vid]
@@ -14795,7 +14832,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '<div class="no-departures">No stop data</div>';
         let statusDesc = info.currentStopName && info.currentStopName !== '—'
           ? ('On the way to ' + info.currentStopName)
-          : ('On the way to ' + dest);
+          : '';
         const dirHtml = info.direction
           ? ('<div class="info-item"><span class="info-label">Direction</span><span class="info-value">' + escapeHtmlLite(info.direction) + '</span></div>')
           : '';
@@ -14806,8 +14843,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${njtBadge}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
-                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
+                ${dest ? '<span style="color:#ffffff; font-weight:500; font-style:italic;">to</span><span style="font-weight:700; color:#ffffff; font-style:italic;">' + escapeHtmlLite(dest) + '</span>' : ''}
                 ${alertIcon}
               </div>
             </div>
@@ -14896,7 +14932,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (njtStopsCache[info.trainNum].dest) info.destName = njtStopsCache[info.trainNum].dest;
             }
             njtTrainInfo[vid] = info;
-            njtLastSeen[vid] = rrSeenMs(raw.timestamp || raw.updatedAt || raw.updated || raw.lastUpdated, now);
+            njtLastSeen[vid] = isFinite(info.lastModifiedMs) ? info.lastModifiedMs : now;
             const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
             const icon = createNjtIcon(njtLocoType, info.trainNum);
             const labelInfo = buildCyclingTrainInfo({
