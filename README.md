@@ -29,4 +29,4 @@ GitHub Pages publishes `main` as it is whenever it changes.
 
 `mytrips/index.html` is a symlink to `index.html`. MyTrips is the same page, switched on by the URL, so edit `index.html` only.
 
-`firestore.rules`, `storage.rules`, and `workers/` aren't part of the website. Rules changes go live from the Firebase console, and the files in `workers/` are pasted into the `railroadradar-proxy` Worker.
+`firestore.rules`, `storage.rules`, and `workers/` aren't part of the website. Rules changes go live from the Firebase console. `workers/railroadradar-proxy.js` is the Worker's full source, and a change to it goes live when the whole file is pasted into the `railroadradar-proxy` Worker.
