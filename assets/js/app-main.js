@@ -9444,7 +9444,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           return null;
         }
-        if (a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'njt') {
+        if (a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'njt' || a === 'metra' || a === 'marc') {
           let rep = null;
           if (tn && activeTrainNumberReports[a]) {
             rep = activeTrainNumberReports[a][tn] || activeTrainNumberReports[a][tnAlt] || null;
@@ -10701,10 +10701,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch(_){}
           try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch(_){}
           try { if (typeof fetchLirrTrains === 'function') fetchLirrTrains(); } catch(_){}
+          try { if (typeof fetchMetraTrains === 'function') fetchMetraTrains(); } catch(_){}
+          try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch(_){}
+          try { if (typeof fetchMarcTrains === 'function') fetchMarcTrains(); } catch(_){}
           try { if (typeof updateTrainVisibility === 'function') updateTrainVisibility(); } catch(_){}
           try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch(_){}
           try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch(_){}
           try { if (typeof updateLirrVisibility === 'function') updateLirrVisibility(); } catch(_){}
+          try { if (typeof updateMetraVisibility === 'function') updateMetraVisibility(); } catch(_){}
+          try { if (typeof updateNjtVisibility === 'function') updateNjtVisibility(); } catch(_){}
+          try { if (typeof updateMarcVisibility === 'function') updateMarcVisibility(); } catch(_){}
         } catch (e) {
           console.error('[trainReports] Submit failed', e);
           const code = (e && e.code) || '';
@@ -10937,6 +10943,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
         try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
         try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
+        try { if (typeof marcMarkers !== 'undefined' && marcMarkers) dicts.push(marcMarkers); } catch (_) {}
         let found = null;
         const keys = [vid, tn, (a + '-' + vid), (a + '-' + tn)].filter(Boolean);
         dicts.forEach(function(dict) {
@@ -14308,9 +14315,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       window.refreshMetraTrain = async function() { return fetchMetraTrains(); };
       function updateMetraVisibility() {
-        Object.values(metraMarkers).forEach(function(m) {
-          if (showMetra) map.addLayer(m);
-          else map.removeLayer(m);
+        Object.keys(metraMarkers).forEach(function(vid) {
+          const m = metraMarkers[vid];
+          const info = metraTrainInfo[vid] || {};
+          const special = getSpecialForVehicle('metra', info.vehicleId || null, info.trainNum);
+          if (showMetra && (!showOnlySpecial || !!special)) map.addLayer(m);
+          else if (map.hasLayer(m)) map.removeLayer(m);
         });
         if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
       }
@@ -14758,9 +14768,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (vid) hydrateNjtPopupStops(vid);
       };
       function updateNjtVisibility() {
-        Object.values(njtMarkers).forEach(function(m) {
-          if (showNjt) map.addLayer(m);
-          else map.removeLayer(m);
+        Object.keys(njtMarkers).forEach(function(vid) {
+          const m = njtMarkers[vid];
+          const info = njtTrainInfo[vid] || {};
+          const special = getSpecialForVehicle('njt', null, info.trainNum);
+          if (showNjt && (!showOnlySpecial || !!special)) map.addLayer(m);
+          else if (map.hasLayer(m)) map.removeLayer(m);
         });
         if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
       }
@@ -14975,8 +14988,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
       function updateMarcVisibility() {
-        Object.values(marcMarkers).forEach(function(m) {
-          if (showMarc) map.addLayer(m); else map.removeLayer(m);
+        Object.keys(marcMarkers).forEach(function(vid) {
+          const m = marcMarkers[vid];
+          const info = marcTrainInfo[vid] || {};
+          const special = getSpecialForVehicle('marc', null, info.trainNum);
+          if (showMarc && (!showOnlySpecial || !!special)) map.addLayer(m);
+          else if (map.hasLayer(m)) map.removeLayer(m);
         });
       }
       function marcParseJoined(vehicleEntity, tripUpdate, usedTrainNums) {
@@ -16610,6 +16627,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         sweep(lirrMarkers);
         sweep(metraMarkers);
         sweep(njtMarkers);
+        sweep(marcMarkers);
         Object.keys(stationMarkers || {}).forEach(function(key) {
           const m = stationMarkers[key];
           try { if (m && map.hasLayer(m)) map.removeLayer(m); } catch (_) {}
@@ -18797,6 +18815,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (typeof updateLirrVisibility === 'function') updateLirrVisibility();
         if (typeof updateMetraVisibility === 'function') updateMetraVisibility();
         if (typeof updateNjtVisibility === 'function') updateNjtVisibility();
+        if (typeof updateMarcVisibility === 'function') updateMarcVisibility();
         safeStorage.set('rr_showOnlySpecial', e.target.checked);
       });
       document.getElementById('show-mbta').addEventListener('change', e => {
