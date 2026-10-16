@@ -1231,9 +1231,8 @@
         return 60 * 60 * 1000;
       }
     }
-    // The rules only let bootstrap admins delete actionLog docs.
     async function purgeExpiredAuditLog(force) {
-      if (!db || !(currentAdminPerms && currentAdminPerms._bootstrap)) return { deleted: 0 };
+      if (!db) return { deleted: 0 };
       const today = rrEasternDateKey();
       try {
         if (!force && localStorage.getItem('rr_audit_purged_on') === today) return { deleted: 0, skipped: true };
@@ -1258,8 +1257,7 @@
       return { deleted: deleted };
     }
     function scheduleAuditLogMidnightPurge() {
-      clearTimeout(window._rrAuditPurgeTimer);
-      if (!(currentAdminPerms && currentAdminPerms._bootstrap)) return;
+      if (window._rrAuditPurgeTimer) clearTimeout(window._rrAuditPurgeTimer);
       const wait = Math.min(rrMsUntilEasternMidnight(), 2147483647);
       window._rrAuditPurgeTimer = setTimeout(function() {
         purgeExpiredAuditLog(true).finally(scheduleAuditLogMidnightPurge);
@@ -8798,7 +8796,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           } else {
             currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
             currentAdminPerms = null;
-            clearTimeout(window._rrAuditPurgeTimer);
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
             closeInterestRailroadsModal(true);
@@ -16929,6 +16926,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const mapEl = document.getElementById('map');
         document.documentElement.classList.add('rr-train-page');
         document.documentElement.classList.remove('rr-train-page-waiting');
+        // Seasonal (Halloween) logo is for the live map only; train pages get the normal logo
+        try {
+          document.querySelectorAll('img[src*="logo-halloween"]').forEach(function(img) { img.src = '/assets/logo.png'; });
+        } catch (_) {}
         const pageEl = document.getElementById('rr-train-page');
         if (pageEl) pageEl.hidden = false;
         if (status) status.textContent = (page.rname ? page.rname + ' ' : '') + (page.tid || '') + (page.dest ? (' to ' + page.dest) : '');
