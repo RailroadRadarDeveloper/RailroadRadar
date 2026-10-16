@@ -63,20 +63,16 @@
     return m ? m[1] : null;
   }
 
-  async function show(item, track, headsign) {
-    var dest = headsign || item.destName || '';
-    var line = item.lineName || 'Train';
-    var body = line + ' ' + item.train + ' (' + fmtTime(item.dep) + ')' + (dest ? ' to ' + dest : '');
-    var title = 'Boarding on track ' + track;
-    var opts = { body: body, tag: 'rr-trip-' + item.key, icon: '/assets/icons/icon-192.png', timestamp: Date.now(), data: { url: '/mytrips/' } };
+  async function notify(title, body, tag, maxAgeMs) {
+    var opts = { body: body, tag: tag, icon: '/assets/icons/icon-192.png', timestamp: Date.now(), data: { url: '/mytrips/' } };
     if (!isMobileDevice()) opts.requireInteraction = true; // desktop: stay until dismissed
-    if (await pushAlreadyShown(opts.tag)) return true;
+    if (await pushAlreadyShown(tag, maxAgeMs)) return true;
     try {
       var reg = await navigator.serviceWorker.getRegistration('/');
       if (!reg) { await navigator.serviceWorker.register('/sw.js'); reg = await navigator.serviceWorker.ready; }
       if (reg && reg.showNotification) {
         try { await reg.showNotification(title, opts); }
-        catch (_) { await reg.showNotification(title, { body: body, tag: opts.tag }); }
+        catch (_) { await reg.showNotification(title, { body: body, tag: tag }); }
         return true;
       }
     } catch (_) {}
@@ -85,13 +81,20 @@
   }
 
   // The service worker records each boarding push it shows (sw.js), so the page never repeats it.
-  async function pushAlreadyShown(tag) {
+  // maxAgeMs: for repeating alerts (delay updates), only a push shown that recently counts.
+  async function pushAlreadyShown(tag, maxAgeMs) {
     try {
       if (window.caches) {
         var c = await caches.open(FIRED_CACHE);
-        if (await c.match('/__rr-trip-fired/' + encodeURIComponent(tag))) return true;
+        var hit = await c.match('/__rr-trip-fired/' + encodeURIComponent(tag));
+        if (hit) {
+          if (!maxAgeMs) return true;
+          var at = Number(await hit.text()) || 0;
+          if (Date.now() - at < maxAgeMs) return true;
+        }
       }
     } catch (_) {}
+    if (maxAgeMs) return false;
     try {
       var reg = await navigator.serviceWorker.getRegistration('/');
       if (reg && reg.getNotifications) {
@@ -131,8 +134,12 @@
       var sub = await pushSubscription(on);
       if (!sub) return;
       var f = fired();
-      var trips = on ? readJson(K_Q, []).filter(function (it) { return !f[it.key]; }).map(function (it) {
-        return { tripKey: it.key, trainNum: it.train, line: it.lineName || '', depTimeISO: new Date(it.dep).toISOString(), originStopId: it.originId, destination: it.destName || '' };
+      // Flags tell the worker which alerts this page already showed, so the push doesn't repeat them.
+      var trips = on ? readJson(K_Q, []).filter(function (it) { return !(f[it.key] && f[it.key + '-30']) && !f[it.key + '-cx']; }).map(function (it) {
+        var t = { tripKey: it.key, trainNum: it.train, line: it.lineName || '', depTimeISO: new Date(it.dep).toISOString(), originStopId: it.originId, originName: it.originName || '', destination: it.destName || '' };
+        if (f[it.key]) t.boardingSent = f[it.key];
+        if (f[it.key + '-30']) t.headsUpSent = f[it.key + '-30'];
+        return t;
       }) : [];
       var sig = sub.endpoint + '|' + JSON.stringify(trips);
       if (!force && ls(K_POSTED) === sig) return; // unchanged: no KV write on the worker
@@ -146,33 +153,100 @@
     } catch (e) { console.warn('[trip-notify] server sync', e); }
   }
 
+  var HEADSUP_MS = 30 * 60 * 1000;
+  var LATE_MIN = 5;
+  var LATE_EVERY_MS = 10 * 60 * 1000;
+  var SKIP_EFFECTS = { ELEVATOR_CLOSURE: 1, ESCALATOR_CLOSURE: 1, ACCESS_ISSUE: 1, PARKING_CLOSURE: 1, PARKING_ISSUE: 1, BIKE_ISSUE: 1, FACILITY_ISSUE: 1, AMBER_ALERT: 1 };
+  async function alertHeaders(routeId, tripId) {
+    if (!routeId) return [];
+    try {
+      var res = await fetch(API + '/api/mbta/alerts?filter[route]=' + encodeURIComponent(routeId) + '&filter[datetime]=NOW', { cache: 'no-store' });
+      if (!res.ok) return [];
+      var out = [];
+      ((await res.json()).data || []).forEach(function (al) {
+        var a = al.attributes || {};
+        if (SKIP_EFFECTS[a.effect]) return;
+        var hits = (a.informed_entity || []).some(function (e) { return e && (e.trip === tripId || (e.route === routeId && !e.trip && !e.stop)); });
+        if (!hits) return;
+        var h = String(a.short_header || a.header || '').replace(/\s+/g, ' ').trim();
+        if (h && out.indexOf(h) === -1) out.push(h.length > 120 ? h.slice(0, 117) + '\u2026' : h);
+      });
+      return out.slice(0, 2);
+    } catch (_) { return []; }
+  }
+
   async function checkItem(item, now) {
+    var f = fired();
+    if (f[item.key + '-cx']) return;
     var url = API + '/api/mbta/predictions?filter[stop]=' + encodeURIComponent(item.originId) +
-      '&filter[route_type]=2&include=stop,trip&page[limit]=100';
+      '&filter[route_type]=2&include=stop,trip,schedule&page[limit]=150';
     var res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return;
     var j = await res.json();
     var inc = {};
     (j.included || []).forEach(function (x) { inc[x.type + ':' + x.id] = x; });
-    var rows = j.data || [];
-    for (var i = 0; i < rows.length; i++) {
-      var p = rows[i];
-      if (!p.attributes || !p.attributes.departure_time) continue;
-      var tr = p.relationships && p.relationships.trip && p.relationships.trip.data;
+    var hit = null, best = Infinity;
+    (j.data || []).forEach(function (p) {
+      var a = p.attributes || {}, rel = p.relationships || {};
+      var tr = rel.trip && rel.trip.data;
       var trip = tr ? inc['trip:' + tr.id] : null;
       var name = trip && trip.attributes ? String(trip.attributes.name || '') : '';
-      if (!name || name !== String(item.train)) continue; // exact train number, no substring matches
-      var depMs = Date.parse(p.attributes.departure_time);
-      if (Math.abs(depMs - item.dep) > 3 * 3600000) continue; // same day's run only
-      var st = p.relationships.stop && p.relationships.stop.data;
-      var track = trackOf(st ? inc['stop:' + st.id] : null);
-      if (!track) return; // not assigned yet; try again next poll
-      if (fired()[item.key]) return;
-      markFired(item.key);
-      await show(item, track, trip.attributes.headsign);
-      syncServer(); // drop this trip from the worker's list so it isn't pushed again
+      if (!name || name !== String(item.train)) return; // exact train number, no substring matches
+      var sc = rel.schedule && rel.schedule.data ? inc['schedule:' + rel.schedule.data.id] : null;
+      var sched = sc && sc.attributes && sc.attributes.departure_time ? Date.parse(sc.attributes.departure_time) : 0;
+      var sr = String(a.schedule_relationship || '').toUpperCase();
+      var cancelled = sr === 'CANCELLED' || sr === 'SKIPPED';
+      if (!a.departure_time && !cancelled) return;
+      var dep = a.departure_time ? Date.parse(a.departure_time) : 0;
+      var diff = Math.abs((dep || sched || item.dep) - item.dep);
+      if (diff > 3 * 3600000 || diff >= best) return; // same day's run only
+      best = diff;
+      var st = rel.stop && rel.stop.data;
+      var stopRec = st ? inc['stop:' + st.id] : null;
+      hit = { dep: dep, sched: sched, cancelled: cancelled, track: trackOf(stopRec), headsign: trip.attributes.headsign || '',
+        tripId: tr.id, routeId: rel.route && rel.route.data ? rel.route.data.id : '', stopName: stopRec && stopRec.attributes ? stopRec.attributes.name || '' : '' };
+    });
+    var line = item.lineName || 'Train';
+    var dest = (hit && hit.headsign) || item.destName || '';
+    var origin = item.originName || (hit && hit.stopName) || '';
+    var toDest = dest ? ' to ' + dest : '';
+    var fromOrigin = origin ? ' from ' + origin : '';
+    var base = 'rr-trip-' + item.key;
+    var flagsChanged = false;
+    if (hit && hit.cancelled) {
+      markFired(item.key + '-cx');
+      await notify('Train cancelled', line + ' ' + item.train + toDest + fromOrigin + ' has been cancelled', base + '-cx');
+      syncServer();
       return;
     }
+    var sched = (hit && hit.sched) || item.dep;
+    var pred = (hit && hit.dep) || 0;
+    var lateMin = pred && sched ? Math.round((pred - sched) / 60000) : 0;
+    var leaves = pred || sched;
+    var gone = hit ? (pred && pred < now - 60000) : now > sched + 120000;
+    f = fired();
+    if (!f[item.key + '-30'] && !gone && sched - now <= HEADSUP_MS && (hit || sched - now <= 15 * 60000)) {
+      var mins = Math.max(1, Math.round((leaves - now) / 60000));
+      var body = lateMin >= LATE_MIN
+        ? line + ' ' + item.train + toDest + ' is expected to depart ' + lateMin + ' min late at ' + fmtTime(pred) + fromOrigin
+        : line + ' ' + item.train + toDest + ' is expected to depart On Time at ' + fmtTime(sched) + fromOrigin;
+      markFired(item.key + '-30');
+      if (lateMin >= LATE_MIN) markFired(item.key + '-late');
+      await notify('Departing in ' + mins + ' min', body, base + '-30');
+      flagsChanged = true;
+    } else if (f[item.key + '-30'] && hit && pred > now && lateMin >= LATE_MIN && (!f[item.key + '-late'] || now - f[item.key + '-late'] >= LATE_EVERY_MS - 30000)) {
+      var alerts = await alertHeaders(hit.routeId, hit.tripId);
+      markFired(item.key + '-late');
+      await notify('Running ' + lateMin + ' min late',
+        line + ' ' + item.train + toDest + ' is now ' + lateMin + ' min late, expected at ' + fmtTime(pred) + fromOrigin + (alerts.length ? '. ' + alerts.join(' \u00b7 ') : ''),
+        base + '-late', LATE_EVERY_MS - 30000);
+    }
+    if (!fired()[item.key] && hit && hit.track && !gone) {
+      markFired(item.key);
+      await notify('Boarding on track ' + hit.track, line + ' ' + item.train + ' (' + fmtTime(item.dep) + ')' + toDest, base);
+      flagsChanged = true;
+    }
+    if (flagsChanged) syncServer(); // tell the worker so its push doesn't repeat these
   }
 
   async function tick() {
@@ -181,7 +255,8 @@
     var now = Date.now();
     var q = readJson(K_Q, []);
     var due = q.filter(function (it) {
-      return it && it.railroad === 'mbta' && it.originId && it.train && !fired()[it.key] &&
+      var f = fired();
+      return it && it.railroad === 'mbta' && it.originId && it.train && !f[it.key + '-cx'] &&
         it.dep - now <= BEFORE_MS && now - it.dep <= AFTER_MS;
     });
     for (var i = 0; i < due.length && i < 3; i++) {
@@ -195,7 +270,7 @@
   }
   function stop() { if (timer) { clearInterval(timer); timer = null; } }
 
-  // Items: [{ key, railroad, lineName, train, dep (ms), originId (place-*), destName }]
+  // Items: [{ key, railroad, lineName, train, dep (ms), originId (place-*), originName, destName }]
   function setTrips(items) {
     var now = Date.now();
     var clean = (items || []).filter(function (it) {
