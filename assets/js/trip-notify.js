@@ -200,7 +200,7 @@
       all[item.key] = seen; ls(K_ALERTS, JSON.stringify(all));
       var tag = 'rr-trip-' + item.key + '-alert-' + al.id;
       // A changed alert must show again, so only a push shown within the last 2 min counts as a duplicate.
-      await notify('MBTA alert \u00b7 ' + line + ' ' + item.train, al.header, tag, prev ? 120000 : 0);
+      await notify(line + ' ' + item.train, al.header, tag, prev ? 120000 : 0);
     }
     Object.keys(all).forEach(function (k) {
       var s2 = all[k], newest = 0;
