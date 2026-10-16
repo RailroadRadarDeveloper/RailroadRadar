@@ -5830,7 +5830,6 @@ function closeTripDetailView(opts) {
         startTime: startIso,
         startTimeMs: startMs,
         endTime: endIso,
-        hiddenPublic: false,
         notes: notes || null,
         rollingStock: rollingStock || null,
         miles: Math.round(totalMiles * 10) / 10,
@@ -5941,10 +5940,11 @@ function closeTripDetailView(opts) {
           if (oldData) next = applyTripMilesToStats(next, oldData, -1);
           next = applyTripMilesToStats(next, payload, 1);
           const write = Object.assign({ userId: uid }, payload);
-          // Editing must not un-hide a trip the user hid from their public profile.
-          if (oldData && oldData.hiddenPublic === true) write.hiddenPublic = true;
           if (editingId) write.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-          else write.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          else {
+            write.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            write.hiddenPublic = false;
+          }
           tx.set(tripRef, write, { merge: !!editingId });
           tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
         });
@@ -7051,9 +7051,9 @@ async function rrSpecialStopSharing(opts) {
       });
     }
 
-    // One realtime listener, only where the main map is shown. The query MUST keep
-    // where('active','==',true): rules only allow reading active shares, so an
-    // unfiltered list query is denied.
+    // One realtime listener, only where the main map is shown. The rules list only active shares
+    // whose expireAt is after a recent bound, so the query must filter on both or it is denied.
+    // The bound is five minutes back to allow for a slow clock.
     function rrSpecialStartMapListener() {
       if (rrSpecialShareMapStarted) return;
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no main map on /mytrips
@@ -7070,6 +7070,7 @@ async function rrSpecialStopSharing(opts) {
       try {
         rrSpecialShareUnsub = db.collection('specialMoveShares')
           .where('active', '==', true)
+          .where('expireAt', '>', firebase.firestore.Timestamp.fromMillis(Date.now() - 5 * 60 * 1000))
           .onSnapshot(function(snap) {
             S._errors = 0;
             try { rrSpecialApplyDocs(snap.docs || []); } catch (e) {
@@ -9753,7 +9754,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const locos = normalizeReportLocomotives(rep);
           const first = locos[0] || {};
           const reportVid = a === 'mbta' ? (vid || String(rep.vehicleId || '').trim()) : (first.locomotiveId || String(rep.vehicleId || '').trim());
-          await submitTrainReport({
+          const saved = await submitTrainReport({
             agency: a,
             trainNumber: tn || rep.trainNumber || null,
             vehicleId: reportVid,
@@ -9767,7 +9768,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             locomotives: locos.length ? locos : undefined,
             comment: rep.comment || ''
           });
-          showNotification('Locomotive confirmed');
+          showNotification((saved && saved.pending) ? 'Confirmation sent for approval' : 'Locomotive confirmed');
           await loadTrainReports();
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch (_) {}
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch (_) {}
@@ -9885,116 +9886,42 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           at: Date.now(),
           verified: !!reporterVerified
         };
-        function toPublicContributor(c) {
-          if (!c) return null;
-          return {
-            uid: c.uid || '',
-            label: c.label || '',
-            displayMode: c.displayMode || 'first_initial',
-            at: (c.at != null ? c.at : null),
-            verified: !!c.verified
-          };
-        }
         let contributors = [];
-        let contributorsFull = [];
+        let keepContributors = false;
+        let auditAddsEntry = !existing.exists;
         let seedFirstReporter = false;
-        // Load existing admin audit for full contributor history (best-effort)
-        let prevAudit = null;
-        try {
-          const auditExisting = await db.collection('reportAudit').doc(docId).get();
-          if (auditExisting.exists) prevAudit = auditExisting.data() || {};
-        } catch (auditReadErr) {
-          console.warn('[trainReports] reportAudit read failed', auditReadErr);
-        }
+        let firstFromPrev = null;
         if (!existing.exists) {
           contributors = [currentContributorPublic];
-          contributorsFull = [currentContributorFull];
           seedFirstReporter = true;
         } else {
           const prev = existing.data() || {};
-          if (Array.isArray(prev.contributors) && prev.contributors.length) {
-            contributors = prev.contributors.map(toPublicContributor).filter(Boolean);
-          } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
-            contributors = [toPublicContributor({
-              uid: prev.reportedByUid || '',
-              label: prev.reportedByLabel || '',
-              displayMode: prev.reportedByDisplayMode || 'first_initial',
-              at: null
-            })];
-            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
+          const prevHasContributors = Array.isArray(prev.contributors) && prev.contributors.length > 0;
+          // Stored entries are copied as they are: the rules only allow appending to the list.
+          if (prevHasContributors) {
+            contributors = prev.contributors.slice();
           } else {
             contributors = [];
             seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
-          }
-          if (prevAudit && Array.isArray(prevAudit.contributors) && prevAudit.contributors.length) {
-            contributorsFull = prevAudit.contributors.slice();
-          } else if (Array.isArray(prev.contributors) && prev.contributors.length) {
-            // Legacy: public docs may still hold email/name until overwritten
-            contributorsFull = prev.contributors.map(function(c) {
-              return {
-                uid: (c && c.uid) || '',
-                email: (c && c.email) || null,
-                name: (c && c.name) || null,
-                label: (c && c.label) || '',
-                displayMode: (c && c.displayMode) || 'first_initial',
-                at: (c && c.at != null) ? c.at : null,
-                verified: !!(c && c.verified)
-              };
-            });
-          } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
-            contributorsFull = [{
-              uid: prev.reportedByUid || '',
-              email: prev.reportedByEmail || null,
-              name: prev.reportedByName || null,
-              label: prev.reportedByLabel || '',
-              displayMode: prev.reportedByDisplayMode || 'first_initial',
-              at: null,
-              verified: !!prev.reportedByVerified
-            }];
-          } else {
-            contributorsFull = [];
+            // The rules credit an older report's own reporter as its first one.
+            if (prev.reportedByUid) {
+              firstFromPrev = { uid: prev.reportedByUid, label: prev.reportedByLabel || '', displayMode: prev.reportedByDisplayMode || 'first_initial' };
+            }
           }
           const already = contributors.some(function(c) { return c && c.uid === user.uid; });
-          if (!already) {
+          auditAddsEntry = !already && contributors.length < 500;
+          if (already || contributors.length >= 500) {
+            keepContributors = true;
+          } else {
             contributors.push(currentContributorPublic);
-          } else {
-            contributors = contributors.map(function(c) {
-              if (!c || c.uid !== user.uid) return c;
-              return {
-                uid: c.uid,
-                label: reportedByLabel,
-                displayMode: reportedByDisplayMode,
-                at: (c.at != null ? c.at : Date.now()),
-                verified: !!reporterVerified
-              };
-            });
-          }
-          const alreadyFull = contributorsFull.some(function(c) { return c && c.uid === user.uid; });
-          if (!alreadyFull) {
-            contributorsFull.push(currentContributorFull);
-          } else {
-            contributorsFull = contributorsFull.map(function(c) {
-              if (!c || c.uid !== user.uid) return c;
-              return {
-                uid: c.uid,
-                email: reportedByEmail,
-                name: reportedByName,
-                label: reportedByLabel,
-                displayMode: reportedByDisplayMode,
-                at: (c.at != null ? c.at : Date.now()),
-                verified: !!reporterVerified
-              };
-            });
-          }
-          if (!contributors.length) {
-            contributors = [currentContributorPublic];
-            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
-          }
-          if (!contributorsFull.length) {
-            contributorsFull = [currentContributorFull];
           }
         }
-        const firstC = contributors[0] || currentContributorPublic;
+        const firstC = firstFromPrev || contributors[0] || currentContributorPublic;
+        // The rules only accept /assets/ icons on reports.
+        function assetIconOrNull(url) {
+          const p = rrAssetPath(url);
+          return /^\/assets\/[A-Za-z0-9-]+[.]png$/.test(p) ? p : null;
+        }
         const fvDelete = firebase.firestore.FieldValue.delete();
         const data = {
           agency: agency,
@@ -10007,7 +9934,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           reportedByLabel: reportedByLabel,
           reportedByPhotoURL: user.photoURL || null,
           reportedByVerified: !!reporterVerified,
-          contributors: contributors,
           updatedAt: now,
           comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
           // Scrub legacy PII from public trainReports on every republish
@@ -10016,6 +9942,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           firstReportedByEmail: fvDelete,
           firstReportedByName: fvDelete
         };
+        if (!keepContributors) data.contributors = contributors;
         if (seedFirstReporter) {
           data.firstReportedByUid = firstC.uid || user.uid;
           data.firstReportedByDisplayMode = firstC.displayMode || reportedByDisplayMode;
@@ -10025,10 +9952,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (locosPayload && locosPayload.length) {
           data.locomotives = locosPayload.slice(0, 5).map(function(L) {
             return {
-              locomotiveId: L.locomotiveId != null ? String(L.locomotiveId).trim() : null,
-              unitName: L.unitName || null,
-              locoType: L.locoType ? String(L.locoType) : null,
-              locoIconUrl: L.locoIconUrl || null,
+              locomotiveId: L.locomotiveId != null ? String(L.locomotiveId).trim() : '',
+              unitName: L.unitName || '',
+              locoType: L.locoType ? String(L.locoType) : '',
+              locoIconUrl: assetIconOrNull(L.locoIconUrl),
               specialOverride: !!L.specialOverride,
               customLoco: !!L.customLoco
             };
@@ -10036,45 +9963,58 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Keep legacy single/dual fields in sync with first/second for older readers
           const L0 = data.locomotives[0];
           const L1 = data.locomotives[1];
-          data.locomotiveId2 = L1 ? L1.locomotiveId : null;
-          data.unitName2 = L1 ? L1.unitName : null;
-          data.locoType2 = L1 ? L1.locoType : null;
+          data.locomotiveId2 = L1 ? L1.locomotiveId : '';
+          data.unitName2 = L1 ? L1.unitName : '';
+          data.locoType2 = L1 ? L1.locoType : '';
           data.locoIconUrl2 = L1 ? L1.locoIconUrl : null;
         } else {
           data.locomotives = null;
-          data.locomotiveId2 = null;
-          data.unitName2 = null;
-          data.locoType2 = null;
+          data.locomotiveId2 = '';
+          data.unitName2 = '';
+          data.locoType2 = '';
           data.locoIconUrl2 = null;
         }
         if (agency === 'mbta') {
-          data.locomotiveId = locomotiveId || null;
+          data.locomotiveId = locomotiveId;
           const rosterSpecial = !!(payload.specialOverride) || (!!(locomotiveId && rosterEntry('mbta', locomotiveId)) && !payload.customLoco);
           if (rosterSpecial && !payload.customLoco) {
             // Roster special: do not force HSP-46 type/icon (would override specialIcons[locomotiveId])
             data.specialOverride = true;
-            data.locoType = payload.locoType ? String(payload.locoType) : null;
-            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || (data.locoType && MBTA_LOCO_TYPES[data.locoType]) || null, data.locoType);
+            data.locoType = payload.locoType ? String(payload.locoType) : '';
+            data.locoIconUrl = assetIconOrNull(resolveMbtaLocoIconUrl(payload.locoIconUrl || (data.locoType && MBTA_LOCO_TYPES[data.locoType]) || null, data.locoType));
             if (!payload.locoIconUrl && !data.locoType) data.locoIconUrl = null;
           } else if (payload.locoType) {
             data.specialOverride = false;
             data.locoType = String(payload.locoType);
-            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || MBTA_LOCO_TYPES['HSP-46'], data.locoType);
+            data.locoIconUrl = assetIconOrNull(resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || MBTA_LOCO_TYPES['HSP-46'], data.locoType));
           } else {
             data.specialOverride = false;
-            data.locoType = null;
-            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES['HSP-46'], data.locoType);
+            data.locoType = '';
+            data.locoIconUrl = assetIconOrNull(resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES['HSP-46'], data.locoType));
           }
         } else if (payload.locoType) {
           data.locoType = String(payload.locoType);
-          data.locoIconUrl = payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || null;
+          data.locoIconUrl = assetIconOrNull(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || null);
+        } else if (existing.exists && (existing.data() || {}).locoIconUrl && !assetIconOrNull(existing.data().locoIconUrl)) {
+          data.locoIconUrl = null;
         }
         if (!existing.exists) data.createdAt = now;
         const needsHold = await userNeedsReportApproval(user.uid);
         if (needsHold) {
-          data.status = 'pending';
-          data.submittedAt = now;
-          await db.collection('pendingReports').doc(docId).set(data, { merge: true });
+          // A pending doc holds one person's whole submission, so a resubmission replaces it.
+          const pendingData = Object.assign({}, data, { status: 'pending', submittedAt: now });
+          delete pendingData.reportedByEmail;
+          delete pendingData.reportedByName;
+          delete pendingData.firstReportedByEmail;
+          delete pendingData.firstReportedByName;
+          try {
+            await db.collection('pendingReports').doc(docId).set(pendingData);
+          } catch (pendingErr) {
+            if (pendingErr && pendingErr.code === 'permission-denied') {
+              throw new Error('Your report could not be sent for approval. If someone else\'s report for this train is already waiting, try again after it has been reviewed.');
+            }
+            throw pendingErr;
+          }
           try {
             if (typeof window.logUserAction === 'function') {
               await window.logUserAction('submit_report_pending', (agency + ' ' + (trainNumber || vehicleId) + ' held for approval').trim());
@@ -10134,12 +10074,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             vehicleId: vehicleId,
             trainNumber: agency === 'mbta' ? null : trainNumber,
             serviceDate: serviceDate,
-            contributors: contributorsFull,
             updatedAt: now
           };
-          if (!existing.exists || !(prevAudit && prevAudit.createdAt)) {
-            auditPayload.createdAt = (prevAudit && prevAudit.createdAt) ? prevAudit.createdAt : now;
-          }
+          // arrayUnion appends without reading the doc, which non-admins cannot do.
+          if (auditAddsEntry) auditPayload.contributors = firebase.firestore.FieldValue.arrayUnion(currentContributorFull);
+          if (!existing.exists) auditPayload.createdAt = now;
           await db.collection('reportAudit').doc(docId).set(auditPayload, { merge: true });
         } catch (auditWriteErr) {
           console.warn('[trainReports] reportAudit write failed', auditWriteErr);
@@ -10603,8 +10542,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           console.error('[trainReports] Submit failed', e);
           const code = (e && e.code) || '';
           let msg = (e && e.message) || String(e);
-          if (/permission-denied/i.test(code) || /permission/i.test(msg)) {
-            msg = 'Firestore blocked the write. Update security rules for trainReports (see SETUP.md), then try again.';
+          if (/permission-denied/i.test(code)) {
+            msg = 'Your report could not be saved. Reload the page and try again.';
           }
           setErr(msg);
           showNotification(msg, 'error');
@@ -11917,6 +11856,26 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       return [String(agency || 'mbta').toLowerCase(), String(serviceDate || rrStopServiceDate()), String(trainNumber || '').replace(/[^A-Za-z0-9_-]/g, '')].slice(0, 140).join('_');
     }
     const rrStopActualMem = {};
+    // Any signed-in user can write these docs and the rules cannot check each stop, while the
+    // times end up in popup HTML, so only plain short time strings are kept.
+    function rrSafeStopTime(v) {
+      return (typeof v === 'string' && v.length <= 24 && !/[<>&"']/.test(v)) ? v : null;
+    }
+    function rrCleanStoredStops(stops) {
+      if (!Array.isArray(stops)) return [];
+      return stops.slice(0, 80).map(function(s) {
+        s = s || {};
+        return {
+          name: String(s.name || '').slice(0, 120),
+          stopId: String(s.stopId || '').slice(0, 64),
+          scheduled: rrSafeStopTime(s.scheduled),
+          predicted: rrSafeStopTime(s.predicted),
+          actual: rrSafeStopTime(s.actual),
+          completed: !!s.completed,
+          delayMinutes: Number(s.delayMinutes) || 0
+        };
+      });
+    }
     async function rrLoadStopActuals(agency, trainNumber, serviceDate) {
       const id = rrStopActualDocId(agency, trainNumber, serviceDate);
       if (rrStopActualMem[id] && (Date.now() - (rrStopActualMem[id]._at || 0)) < 60000) return rrStopActualMem[id];
@@ -11931,7 +11890,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else if (data.expiresAt) exp = new Date(data.expiresAt).getTime();
         } catch (_) {}
         if (exp && exp < Date.now()) return null;
-        rrStopActualMem[id] = Object.assign({ _at: Date.now() }, data);
+        rrStopActualMem[id] = Object.assign({ _at: Date.now() }, data, { stops: rrCleanStoredStops(data.stops) });
         return rrStopActualMem[id];
       } catch (e) {
         console.warn('[stopActuals] load failed', e && e.message);
