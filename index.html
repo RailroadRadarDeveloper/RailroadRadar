@@ -5,7 +5,7 @@
   <script id="rr-boot-failsafe">
   /* Critical-error failsafe: only sends visitors to /unavailable.html when the app never
      finished booting AND (an error happened before boot, or a core script failed to load).
-     Errors after window.__rrBootReady is set are ignored entirely. */
+     Errors and unhandled rejections after window.__rrBootReady is set are ignored entirely. */
   (function () {
     if (window.__rrBootFailsafe) return;
     window.__rrBootFailsafe = true;
@@ -23,6 +23,11 @@
       for (var i = 0; i < CORE.globals.length; i++) if (typeof window[CORE.globals[i]] === 'undefined') return true;
       return false;
     }
+    function isPageCode(f) {
+      f = String(f);
+      if (f.indexOf(location.origin) !== 0) return false; /* third-party scripts */
+      return !/\/assets\/js\/(live-share-bar|site-nav)\.js/.test(f);
+    }
     window.__rrMarkBootReady = function () { window.__rrBootReady = true; };
     window.addEventListener('error', function (e) {
       if (window.__rrBootReady || done) return;
@@ -32,11 +37,21 @@
         return;
       }
       if (!e || !e.filename) return; /* cross-origin "Script error." / extensions */
-      var f = String(e.filename);
-      if (f.indexOf(location.origin) !== 0) return; /* third-party scripts */
-      if (/\/assets\/js\/(live-share-bar|site-nav)\.js/.test(f)) return;
+      if (!isPageCode(e.filename)) return;
       bootError = bootError || String(e.message || 'error');
     }, true);
+    /* A throw inside the async startup handler is a rejection, not an error event. Only rejections
+       with a frame in our own code count, so Firebase and extension rejections are ignored. A throw
+       inside Leaflet still has our call site in its stack. */
+    window.addEventListener('unhandledrejection', function (e) {
+      if (window.__rrBootReady || done) return;
+      var r = e && e.reason;
+      if (!r || typeof r.stack !== 'string') return;
+      if (/Failed to fetch|NetworkError|Load failed|AbortError/.test(r.name + ' ' + r.message)) return;
+      var urls = r.stack.replace(String(r.message), '').match(/https?:\/\/[^\s)]+/g) || [];
+      if (!urls.some(isPageCode)) return;
+      bootError = bootError || String(r.message || 'unhandled rejection');
+    });
     function check(final) {
       if (window.__rrBootReady || done) return;
       if (bootError || (final && coreMissing())) {
