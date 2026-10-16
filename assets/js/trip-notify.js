@@ -66,8 +66,8 @@
   async function show(item, track, headsign) {
     var dest = headsign || item.destName || '';
     var line = item.lineName || 'Train';
-    var body = line + ' ' + item.train + ' (' + fmtTime(item.dep) + ')' + (dest ? ' to ' + dest : '') + ' is boarding on track ' + track;
-    var title = 'Track ' + track + ' · ' + line + ' ' + item.train;
+    var body = line + ' ' + item.train + ' (' + fmtTime(item.dep) + ')' + (dest ? ' to ' + dest : '');
+    var title = 'Boarding on track ' + track;
     var opts = { body: body, tag: 'rr-trip-' + item.key, icon: '/assets/icons/icon-192.png', timestamp: Date.now(), data: { url: '/mytrips/' } };
     if (!isMobileDevice()) opts.requireInteraction = true; // desktop: stay until dismissed
     if (await pushAlreadyShown(opts.tag)) return true;
