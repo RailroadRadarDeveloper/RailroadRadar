@@ -11437,30 +11437,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }));
         return rows;
       }
-      async function loadSavedWeekWinner(weekId) {
-        if (!db || !weekId) return null;
-        try {
-          const snap = await db.collection('leaderboardWeeks').doc(weekId).get();
-          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {});
-        } catch (_) {}
-        return null;
-      }
-      async function saveWeekWinner(weekId, winner) {
-        if (!db || !weekId || !winner) return winner;
-        try {
-          const ref = db.collection('leaderboardWeeks').doc(weekId);
-          const snap = await ref.get();
-          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {}, winner);
-          await ref.set({
-            weekId: weekId, uid: winner.uid || null, name: winner.name || '',
-            photoURL: winner.photoURL || null, reports: winner.reports || 0, points: winner.points || 0,
-            savedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch (err) {
-          console.warn('[leaderboard] save winner skipped', err && err.message ? err.message : err);
-        }
-        return winner;
-      }
       async function renderWeeklyLeaderboard() {
         const listEl = document.getElementById('weekly-leaderboard-list');
         const emptyEl = document.getElementById('weekly-leaderboard-empty');
@@ -11490,13 +11466,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const last = buildWeeklyLeaderboardRows(-1);
         await hydrateLeaderboardPhotos(last.rows);
-        let winner = last.rows[0] || null;
-        const saved = await loadSavedWeekWinner(last.week.weekId);
-        if (saved && saved.uid) {
-          winner = { uid: saved.uid, name: saved.name || (winner && winner.name) || 'Anonymous', photoURL: saved.photoURL || (winner && winner.photoURL) || '', reports: Number(saved.reports) || (winner && winner.reports) || 0, points: Number(saved.points) || (winner && winner.points) || 0 };
-        } else if (winner) {
-          await saveWeekWinner(last.week.weekId, winner);
-        }
+        const winner = last.rows[0] || null;
         if (winner && winner.reports > 0) {
           if (winWrap) winWrap.hidden = false;
           if (winPhoto) winPhoto.innerHTML = rrLbPhotoHtml(winner.photoURL, winner.name, 'rr-lb-winner-photo');
