@@ -1,0 +1,9 @@
+{
+  "alice": { "email": "alice@example.com", "name": "Alice Rider", "setup": true, "username": "alicerider" },
+  "bob": { "email": "bob@example.com", "name": "Bob Railfan", "setup": true, "verified": true },
+  "newbie": { "email": "newbie@example.com", "name": "New Visitor", "setup": false },
+  "mod": { "email": "mod@example.com", "name": "Mod Admin", "setup": true, "admin": { "viewReports": true, "deleteReports": true, "banUsers": true, "manageAdmins": true } },
+  "owner": { "email": "railroadradar@gmail.com", "name": "Owner (bootstrap admin)", "setup": true },
+  "held": { "email": "held@example.com", "name": "Held Reporter", "setup": true, "held": true },
+  "banned": { "email": "banned@example.com", "name": "Banned User", "setup": true, "banned": true }
+}
