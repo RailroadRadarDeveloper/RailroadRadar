@@ -153,6 +153,10 @@
     } catch (e) { console.warn('[trip-notify] server sync', e); }
   }
 
+  function fmtDelay(min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return h ? h + ' hr' + (m ? ' ' + m + ' min' : '') : m + ' min';
+  }
   var HEADSUP_MS = 30 * 60 * 1000;
   var LATE_MIN = 5;
   var LATE_EVERY_MS = 10 * 60 * 1000;
@@ -237,8 +241,8 @@
     } else if (f[item.key + '-30'] && hit && pred > now && lateMin >= LATE_MIN && (!f[item.key + '-late'] || now - f[item.key + '-late'] >= LATE_EVERY_MS - 30000)) {
       var alerts = await alertHeaders(hit.routeId, hit.tripId);
       markFired(item.key + '-late');
-      await notify('Running ' + lateMin + ' min late',
-        line + ' ' + item.train + toDest + ' is now ' + lateMin + ' min late, expected at ' + fmtTime(pred) + fromOrigin + (alerts.length ? '. ' + alerts.join(' \u00b7 ') : ''),
+      await notify(line + ' ' + item.train + ' is delayed by ' + fmtDelay(lateMin),
+        'Now expected to depart ' + (origin ? origin + ' ' : '') + 'at ' + fmtTime(pred) + (alerts.length ? '\n' + alerts.join('\n') : ''),
         base + '-late', LATE_EVERY_MS - 30000);
     }
     if (!fired()[item.key] && hit && hit.track && !gone) {
