@@ -5734,7 +5734,8 @@ function closeTripDetailView(opts) {
           const dep = Date.parse(seg.departTime || '');
           const origin = tripMbtaCanonicalStationId(seg.originStationId || '');
           if (!id || !train || !isFinite(dep) || origin.indexOf('place-') !== 0) return;
-          items.push({ key: id + '-' + i, railroad: 'mbta', lineName: String(seg.lineName || '').trim(), train: train, dep: dep, originId: origin, originName: String(seg.originName || '').trim(), destName: String(seg.destName || '').trim() });
+          items.push({ key: id + '-' + i, railroad: 'mbta', lineName: String(seg.lineName || '').trim(), train: train, dep: dep, originId: origin, originName: String(seg.originName || '').trim(), destName: String(seg.destName || '').trim(),
+            arr: Date.parse(seg.arriveTime || '') || 0, routeId: /^CR-/.test(String(seg.lineId || '')) ? String(seg.lineId) : '' });
         });
       });
       window.rrTripNotify.setTrips(items);
