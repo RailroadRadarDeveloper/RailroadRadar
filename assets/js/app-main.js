@@ -15535,7 +15535,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               markers[vid].setLatLng([lat, lng]);
               markers[vid].setIcon(createTrainIcon(delay, vid));
               updated++;
-              if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
+              if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, displayRouteName, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
               markers[vid]._info = [
                 rname || 'Unknown',
                 (extractTrainNumber(tripId) || tripId || '—') + ' to ' + (head || '—'),
@@ -15550,12 +15550,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const m = L.marker([lat, lng], { icon });
               m.bindPopup(createTrainPopupContent(vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert), rrPopupOpts());
               m.on('popupopen', async () => {
-                updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert);
-                const stops = await getTripStops(tripId).catch(() => []);
-                updateTrainPopupContent(m, vid, tripId, routeId, rname, head, status, sname, dstatus, delay, stops, track, mph, al.hasAlert);
+                // Read trainInfo on every call: later polls replace it, and this handler outlives the poll that made the marker.
+                const show = stops => {
+                  const t = trainInfo[vid];
+                  updateTrainPopupContent(m, vid, t.tripId, t.routeId, t.routeName, t.destination, t.status, t.stopName, t.delayStatus, t.delayMinutes, stops, t.trackNumber, t.speedMph, t.hasAlert);
+                };
+                show(null);
+                const tripIdNow = trainInfo[vid].tripId;
+                const stops = await getTripStops(tripIdNow).catch(() => []);
+                // The 12-minute expiry may have removed the marker while stops loaded.
+                if (markers[vid] !== m || !trainInfo[vid]) return;
+                show(stops);
                 try {
                   const svc = rrStopServiceDate();
-                  const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId || '');
+                  const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripIdNow) : '') || String(tripIdNow || '');
                   rrSaveStopActuals('mbta', tnum, svc, stops);
                 } catch (_) {}
               });
