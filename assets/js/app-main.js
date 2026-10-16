@@ -17122,7 +17122,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const id = (r.rep && r.rep.id) ? r.rep.id : (r.agency + '|' + r.locoId + '|' + r.trainNumber + '|' + (r.ms || 0));
             const k = 'rep|' + id + '|' + String(r.locoId || '');
             const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
-            const who = r.reporter ? (' · ' + r.reporter) : '';
+            const who = r.reporter ? (' reported by ' + r.reporter) : '';
             if (!rrNotifyEventAllowed(prefs, r.agency, r.locoId)) return;
             events[k] = {
               type: 'report',
@@ -17142,7 +17142,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const k = 'rep|' + id + '|' + String(locoId || '');
               if (events[k]) return;
               const train = r.trainNumber ? (' train ' + r.trainNumber) : '';
-              const who = r.reporter ? (' · ' + r.reporter) : '';
+              const who = r.reporter ? (' reported by ' + r.reporter) : '';
               events[k] = {
                 type: 'report',
                 title: 'New report: ' + (r.locoTxt || locoId || 'unit'),
