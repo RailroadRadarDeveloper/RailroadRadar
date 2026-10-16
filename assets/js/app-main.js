@@ -9487,33 +9487,33 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         each(typeof markers !== 'undefined' ? markers : null, function(vid) {
           const info = (typeof trainInfo !== 'undefined' && trainInfo[vid]) || {};
-          markers[vid].setIcon(createTrainIcon(info.delayMinutes, vid));
+          rrSetMarkerIcon(markers[vid], createTrainIcon(info.delayMinutes, vid));
         });
         each(typeof amtrakMarkers !== 'undefined' ? amtrakMarkers : null, function(vid) {
           const info = (typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) || {};
-          amtrakMarkers[vid].setIcon(createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
+          rrSetMarkerIcon(amtrakMarkers[vid], createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
         });
         each(typeof mnrMarkers !== 'undefined' ? mnrMarkers : null, function(vid) {
           const info = (typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) || {};
-          mnrMarkers[vid].setIcon(createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
+          rrSetMarkerIcon(mnrMarkers[vid], createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
         });
         each(typeof lirrMarkers !== 'undefined' ? lirrMarkers : null, function(vid) {
           const info = (typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) || {};
-          lirrMarkers[vid].setIcon(createLirrIcon(info.trainNum));
+          rrSetMarkerIcon(lirrMarkers[vid], createLirrIcon(info.trainNum));
         });
         each(typeof njtMarkers !== 'undefined' ? njtMarkers : null, function(vid) {
           const info = (typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) || {};
           const special = getSpecialForVehicle('njt', null, info.trainNum);
           const locoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
-          njtMarkers[vid].setIcon(createNjtIcon(locoType, info.trainNum));
+          rrSetMarkerIcon(njtMarkers[vid], createNjtIcon(locoType, info.trainNum));
         });
         each(typeof metraMarkers !== 'undefined' ? metraMarkers : null, function(vid) {
           const info = (typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) || {};
-          metraMarkers[vid].setIcon(createMetraIcon(info.trainNum));
+          rrSetMarkerIcon(metraMarkers[vid], createMetraIcon(info.trainNum));
         });
         each(typeof marcMarkers !== 'undefined' ? marcMarkers : null, function(vid) {
           const info = (typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) || {};
-          marcMarkers[vid].setIcon(createMarcIcon(info.trainNum));
+          rrSetMarkerIcon(marcMarkers[vid], createMarcIcon(info.trainNum));
         });
       }
       function rrReportIconUrl(agency, vehicleId, trainNumber) {
@@ -11538,6 +11538,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         specialIcons = {};
         console.log('%c[SpecialIcons] Apps Script icon feed disabled — using roster + local HSP/F40 assets', 'color:#27ae60');
       }
+      // setIcon replaces the marker's DOM node, so skip it unless the icon options differ.
+      function rrSetMarkerIcon(m, icon) {
+        const cur = m.options.icon;
+        if (cur === icon || JSON.stringify(cur.options) === JSON.stringify(icon.options)) return;
+        m.setIcon(icon);
+      }
+      // Popups bound with a function are built from the latest data when opened; an open one is rebuilt in place.
+      function rrRefreshOpenPopup(m) {
+        if (m.isPopupOpen()) m.getPopup().update();
+      }
       function createTrainIcon(delayMinutes, vehicleId) {
         const delayKey = (delayMinutes === null || delayMinutes <= 5) ? 'onTime'
                        : (delayMinutes <= 15) ? 'delayed'
@@ -12745,8 +12755,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Prefer live Amtrak departed stamps; Firebase fills gaps for already-passed stops missing times
           rrSaveStopActuals('amtrak', num, svc, stops);
           if (amtrakMarkers[vid] && amtrakMarkers[vid].isPopupOpen && amtrakMarkers[vid].isPopupOpen()) {
-            const info = amtrakTrainInfo[vid] || t;
-            amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
             amtrakMarkers[vid].getPopup().update();
             scrollStopsListToNextStop(amtrakMarkers[vid].getPopup());
           }
@@ -13018,10 +13026,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (!amtrakAllTrains) amtrakAllTrains = [];
               const isVia = rrIsViaTrain(t);
               // VIA trains stay out of Amtrak lookups (My Trips, station dots, actuals)
-              if (!isVia) {
-                amtrakAllTrains.push(t);
-                try { harvestAmtrakStationDots(t); } catch (_) {}
-              }
+              if (!isVia) amtrakAllTrains.push(t);
               if (!t || t.lat == null || t.lon == null) { skipped++; return; }
               const trainNum = t.trainNum || t.trainNumRaw || k;
               const vid = 'amtrak-' + (t.trainID || trainNum);
@@ -13040,7 +13045,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 isVia: isVia
               });
               amtrakTrainInfo[vid] = info;
-              if (!isVia) { try { harvestAmtrakStationDots(t); } catch (_) {} }
               const icon = createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t);
               const amtrakLabelInfo = buildCyclingTrainInfo({
                 route: info.routeName || (isVia ? 'VIA Rail' : 'Amtrak'),
@@ -13052,17 +13056,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               });
               if (amtrakMarkers[vid]) {
                 amtrakMarkers[vid].setLatLng([lat, lng]);
-                amtrakMarkers[vid].setIcon(icon);
-                if (amtrakMarkers[vid].getPopup()) {
-                  amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
-                } else {
-                  amtrakMarkers[vid].bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
-                }
+                rrSetMarkerIcon(amtrakMarkers[vid], icon);
+                rrRefreshOpenPopup(amtrakMarkers[vid]);
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
                 updated++;
               } else {
                 const m = L.marker([lat, lng], { icon: icon });
-                m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+                m.bindPopup(function() { return createAmtrakPopupContent(vid, amtrakTrainInfo[vid]); }, rrPopupOpts());
               m.on('popupopen', function() {
                 if (isVia) return;
                 try { rrHydrateAmtrakStopActuals(vid, amtrakTrainInfo[vid] || info); } catch (_) {}
@@ -13693,15 +13693,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (mnrMarkers[vid]) {
               mnrMarkers[vid].setLatLng([info.lat, info.lng]);
-              mnrMarkers[vid].setIcon(icon);
-              if (mnrMarkers[vid].getPopup()) {
-                mnrMarkers[vid].setPopupContent(createMnrPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(mnrMarkers[vid], icon);
+              rrRefreshOpenPopup(mnrMarkers[vid]);
               applyCyclingLabel(mnrMarkers[vid], mnrLabelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createMnrPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createMnrPopupContent(vid, mnrTrainInfo[vid]); }, rrPopupOpts());
               applyCyclingLabel(m, mnrLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -14118,15 +14116,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (lirrMarkers[vid]) {
               lirrMarkers[vid].setLatLng([info.lat, info.lng]);
-              lirrMarkers[vid].setIcon(icon);
-              if (lirrMarkers[vid].getPopup()) {
-                lirrMarkers[vid].setPopupContent(createLirrPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(lirrMarkers[vid], icon);
+              rrRefreshOpenPopup(lirrMarkers[vid]);
               applyCyclingLabel(lirrMarkers[vid], lirrLabelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createLirrPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createLirrPopupContent(vid, lirrTrainInfo[vid]); }, rrPopupOpts());
               applyCyclingLabel(m, lirrLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -14488,15 +14484,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (metraMarkers[vid]) {
               metraMarkers[vid].setLatLng([info.lat, info.lng]);
-              metraMarkers[vid].setIcon(icon);
-              if (metraMarkers[vid].getPopup()) {
-                metraMarkers[vid].setPopupContent(createMetraPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(metraMarkers[vid], icon);
+              rrRefreshOpenPopup(metraMarkers[vid]);
               applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createMetraPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createMetraPopupContent(vid, metraTrainInfo[vid]); }, rrPopupOpts());
               applyCyclingLabel(m, metraLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -14776,7 +14770,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         info.stops = stops;
         if (stops.length) info.destName = stops[stops.length - 1].name || info.destName;
         const m = njtMarkers[vid];
-        if (m && m.getPopup()) m.setPopupContent(createNjtPopupContent(vid, info));
+        if (m) rrRefreshOpenPopup(m);
       }
       window.refreshNjtTrain = async function(vid) {
         if (vid && njtTrainInfo[vid] && njtTrainInfo[vid].trainNum) {
@@ -14828,15 +14822,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (njtMarkers[vid]) {
               njtMarkers[vid].setLatLng([info.lat, info.lng]);
-              njtMarkers[vid].setIcon(icon);
-              if (njtMarkers[vid].getPopup()) {
-                njtMarkers[vid].setPopupContent(createNjtPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(njtMarkers[vid], icon);
+              rrRefreshOpenPopup(njtMarkers[vid]);
               applyCyclingLabel(njtMarkers[vid], labelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createNjtPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createNjtPopupContent(vid, njtTrainInfo[vid]); }, rrPopupOpts());
               m.on('popupopen', function() { hydrateNjtPopupStops(vid); });
               applyCyclingLabel(m, labelInfo, true);
               const zoom = map.getZoom();
@@ -15503,7 +15495,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             };
             if (markers[vid]) {
               markers[vid].setLatLng([lat, lng]);
-              markers[vid].setIcon(createTrainIcon(delay, vid));
+              rrSetMarkerIcon(markers[vid], createTrainIcon(delay, vid));
               updated++;
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, rname, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
               markers[vid]._info = [
@@ -16639,7 +16631,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           console.warn('[share] popup html', e);
         }
         const m = r.markerMap && r.markerMap[vid];
-        if (m && m.getPopup()) return m.getPopup().getContent() || '';
+        if (m && m.getPopup()) {
+          // Popups are built when opened, so the content may still be the builder function.
+          const c = m.getPopup().getContent();
+          return (typeof c === 'function' ? c(m) : c) || '';
+        }
         return '';
       }
       function rrNormRouteName(s) {
