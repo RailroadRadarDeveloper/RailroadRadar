@@ -4186,6 +4186,8 @@ function closeTripDetailView(opts) {
           trainExtraMode: !!prev.trainExtraMode,
           scheduleStops: prev.scheduleStops || null,
           useFullStationList: !!prev.useFullStationList,
+          keptStations: prev.keptStations || [],
+          keptLine: prev.keptLine || null,
           scheduleRowName: prev.scheduleRowName || '',
           scheduleRowDest: prev.scheduleRowDest || ''
         }));
@@ -4465,10 +4467,13 @@ function closeTripDetailView(opts) {
       const rr = String(seg.railroad || '').toLowerCase();
       const lineId = String(seg.lineId || '');
       const sched = Array.isArray(seg.scheduleStops) ? seg.scheduleStops : null;
-      if (sched && sched.length && !seg.useFullStationList) {
-        return sched.slice();
-      }
-      return lineId ? getTripLogStationsForLine(rr, lineId) : [];
+      const base = (sched && sched.length && !seg.useFullStationList)
+        ? sched.slice()
+        : (lineId ? getTripLogStationsForLine(rr, lineId) : []);
+      const kept = (seg.keptStations || []).filter(function(k) {
+        return !base.some(function(s) { return String(s.id) === String(k.id); });
+      });
+      return base.concat(kept);
     }
 
     function tripDestStationsForSegment(seg, originId) {
@@ -4487,6 +4492,7 @@ function closeTripDetailView(opts) {
       if (!sid) return false;
       if (stationOnLine(seg.railroad, seg.lineId, sid)) return true;
       if (Array.isArray(seg.scheduleStops) && seg.scheduleStops.some(function(s) { return String(s.id) === sid; })) return true;
+      if ((seg.keptStations || []).some(function(s) { return String(s.id) === sid; })) return true;
       return false;
     }
 
@@ -4503,6 +4509,8 @@ function closeTripDetailView(opts) {
         trainExtraMode: false,
         scheduleStops: null,
         useFullStationList: false,
+        keptStations: [],
+        keptLine: null,
         scheduleRowName: '',
         scheduleRowDest: ''
       }, partial || {});
@@ -4625,6 +4633,7 @@ function closeTripDetailView(opts) {
       ensureTripSegmentsState();
       root.innerHTML = tripLogSegmentsState.map(function(seg, idx) {
         const lines = getTripLogLines(seg.railroad);
+        if (seg.keptLine && !lines.some(function(l) { return String(l.id) === String(seg.keptLine.id); })) lines.push(seg.keptLine);
         let lineId = seg.lineId;
         if (lineId && !lines.some(function(l) { return String(l.id) === String(lineId); })) lineId = '';
         if (!lineId && lines.length === 1) lineId = lines[0].id;
@@ -4788,6 +4797,8 @@ function closeTripDetailView(opts) {
         seg.trainExtraMode = false;
         seg.scheduleStops = null;
         seg.useFullStationList = false;
+        seg.keptStations = [];
+        seg.keptLine = null;
         seg.scheduleRowName = '';
         seg.scheduleRowDest = '';
         const lines = getTripLogLines(seg.railroad);
@@ -4795,6 +4806,8 @@ function closeTripDetailView(opts) {
       } else if (field === 'line') {
         seg.originId = '';
         seg.destId = '';
+        seg.keptStations = [];
+        seg.keptLine = null;
         seg.trainNumber = '';
         // Manual line change: keep schedule stops only if still relevant; allow full line list
         if (seg.scheduleStops && seg.scheduleStops.length) {
@@ -5815,7 +5828,7 @@ function closeTripDetailView(opts) {
         const segOut = {
           railroad: rr,
           lineId: lineId,
-          lineName: lineId ? lineNameFor(rr, lineId) : '',
+          lineName: lineId ? ((seg.keptLine && String(seg.keptLine.id) === lineId) ? seg.keptLine.name : lineNameFor(rr, lineId)) : '',
           originStationId: originCanon,
           originName: origin ? String(origin.name || originCanon) : '',
           destStationId: destCanon,
@@ -6200,13 +6213,18 @@ function closeTripDetailView(opts) {
         return;
       }
       tripLogEditingId = id;
+      // Rebuilds the form from the old DOM, so it has to run before the segments are set.
+      try { rrSpecialFillFormFields(data); } catch (_) {}
       const rawSegs = (Array.isArray(data.segments) && data.segments.length)
         ? data.segments
         : [{
             railroad: data.railroad,
             lineId: data.lineId || '',
+            lineName: data.lineName,
             originStationId: data.originStationId,
+            originName: data.originName,
             destStationId: data.destStationId,
+            destName: data.destName,
             trainNumber: data.trainNumber,
             departTime: data.startTime || data.departTime,
             arriveTime: data.endTime || data.arriveTime,
@@ -6220,6 +6238,10 @@ function closeTripDetailView(opts) {
           oid = tripMbtaCanonicalStationId(oid) || oid;
           did = tripMbtaCanonicalStationId(did) || did;
         }
+        // Trips logged from a popup or with no line can hold stations the line list doesn't have.
+        const kept = [];
+        if (oid) kept.push({ id: oid, name: s.originName || oid });
+        if (did) kept.push({ id: did, name: s.destName || did });
         return emptyTripSegment({
           railroad: rr,
           lineId: String(s.lineId || ''),
@@ -6228,16 +6250,18 @@ function closeTripDetailView(opts) {
           trainNumber: String(s.trainNumber || '').trim(),
           vehicleId: String(s.vehicleId || '').trim(),
           departTime: isoToLocalInput(s.departTime) || '',
-          arriveTime: isoToLocalInput(s.arriveTime) || '',
+          // Open-ended trips store arrive = depart; showing it would turn openEnded off on save.
+          arriveTime: s.openEnded === true ? '' : (isoToLocalInput(s.arriveTime) || ''),
           trainExtraMode: true,
-          useFullStationList: true
+          useFullStationList: true,
+          keptStations: kept,
+          keptLine: s.lineId ? { id: String(s.lineId), name: s.lineName || String(s.lineId) } : null
         });
       });
       const notesEl = document.getElementById('trip-log-notes');
       if (notesEl) notesEl.value = data.notes || '';
       const stockEl = document.getElementById('trip-log-rolling-stock');
       if (stockEl) stockEl.value = data.rollingStock || '';
-      try { rrSpecialFillFormFields(data); } catch (_) {}
       const saveLbl = document.getElementById('trip-log-save');
       if (saveLbl) saveLbl.textContent = 'Update trip';
       const cancelBtn = document.getElementById('trip-log-cancel-edit');
@@ -7487,7 +7511,8 @@ async function rrSpecialStopSharing(opts) {
       try { if (typeof closeAccountSettingsLightbox === 'function') closeAccountSettingsLightbox(); } catch (_) {}
       const modal = document.getElementById('trip-log-modal');
       if (!modal) return;
-      const pending = tripConsumePendingLogTrip() || tripPrefillFromQuery();
+      // Editing keeps its own segments; the ?logtrip= link is still in the URL while editing.
+      const pending = tripLogEditingId ? null : (tripConsumePendingLogTrip() || tripPrefillFromQuery());
       if (pending) {
         applyTripLogPrefill(pending);
       } else {
