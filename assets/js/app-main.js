@@ -1251,8 +1251,9 @@
         return 60 * 60 * 1000;
       }
     }
+    // The rules only let bootstrap admins delete actionLog docs.
     async function purgeExpiredAuditLog(force) {
-      if (!db) return { deleted: 0 };
+      if (!db || !(currentAdminPerms && currentAdminPerms._bootstrap)) return { deleted: 0 };
       const today = rrEasternDateKey();
       try {
         if (!force && localStorage.getItem('rr_audit_purged_on') === today) return { deleted: 0, skipped: true };
@@ -1277,7 +1278,8 @@
       return { deleted: deleted };
     }
     function scheduleAuditLogMidnightPurge() {
-      if (window._rrAuditPurgeTimer) clearTimeout(window._rrAuditPurgeTimer);
+      clearTimeout(window._rrAuditPurgeTimer);
+      if (!(currentAdminPerms && currentAdminPerms._bootstrap)) return;
       const wait = Math.min(rrMsUntilEasternMidnight(), 2147483647);
       window._rrAuditPurgeTimer = setTimeout(function() {
         purgeExpiredAuditLog(true).finally(scheduleAuditLogMidnightPurge);
@@ -8704,6 +8706,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
             accountDocCache = null;
             currentAdminPerms = null;
+            clearTimeout(window._rrAuditPurgeTimer);
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
             closeInterestRailroadsModal(true);
