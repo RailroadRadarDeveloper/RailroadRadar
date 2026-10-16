@@ -11655,6 +11655,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       };
       const markers = {};
+      const RR_MARKER_STALE_MS = 12 * 60 * 1000;
+      const rrFeedOkAt = {};
       const trainLastSeen = {};
       const routeLines = {};
       const routeColors = {};
@@ -13104,6 +13106,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               delete amtrakLastSeen[vid];
             }
           });
+          rrFeedOkAt.amtrak = Date.now();
           try {
             (amtrakAllTrains || []).forEach(function(tr) { harvestAmtrakStationDots(tr); });
             if (typeof updateStationVisibility === 'function') updateStationVisibility();
@@ -13130,6 +13133,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
         } catch (e) {
           FetchStats.error('Amtrak', e);
+          rrFeedFailed('amtrak', amtrakMarkers, amtrakLastSeen, [amtrakTrainInfo]);
           console.warn('%c[Amtrak] Amtraker fetch failed', 'color:#f39c12', e);
         }
       }
@@ -13735,6 +13739,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               delete mnrLastSeen[vid];
             }
           });
+          rrFeedOkAt.mnr = Date.now();
           FetchStats.end(stat, {
             entities: entities.length,
             created: created,
@@ -13746,6 +13751,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
         } catch (e) {
           FetchStats.error('Metro-North', e);
+          rrFeedFailed('mnr', mnrMarkers, mnrLastSeen, [mnrTrainInfo]);
           console.warn('%c[Metro-North] GTFS-RT fetch failed', 'color:#f39c12', e);
         }
       }
@@ -14160,6 +14166,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               delete lirrLastSeen[vid];
             }
           });
+          rrFeedOkAt.lirr = Date.now();
           FetchStats.end(stat, {
             entities: rawEntities.length,
             merged: entities.length,
@@ -14172,6 +14179,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
         } catch (e) {
           FetchStats.error('LIRR', e);
+          rrFeedFailed('lirr', lirrMarkers, lirrLastSeen, [lirrTrainInfo]);
           console.warn('%c[LIRR] GTFS-RT fetch failed', 'color:#f39c12', e);
         }
       }
@@ -14533,6 +14541,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               delete metraLastSeen[vid];
             }
           });
+          rrFeedOkAt.metra = Date.now();
           FetchStats.end(stat, {
             positions: posEntities.length,
             tripupdates: (tuFeed.entity || []).length,
@@ -14547,6 +14556,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
         } catch (e) {
           FetchStats.error('Metra', e);
+          rrFeedFailed('metra', metraMarkers, metraLastSeen, [metraTrainInfo]);
           console.warn('%c[Metra] GTFS-RT fetch failed', 'color:#f39c12', e);
         }
       }
@@ -14877,6 +14887,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               delete njtLastSeen[vid];
             }
           });
+          rrFeedOkAt.njt = Date.now();
           FetchStats.end(stat, {
             rows: rows.length,
             created: created,
@@ -14888,6 +14899,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
         } catch (e) {
           FetchStats.error('NJ Transit', e);
+          rrFeedFailed('njt', njtMarkers, njtLastSeen, [njtTrainInfo]);
           console.warn('%c[NJT] vehicle fetch failed — Worker /api/njt/* not deployed yet?', 'color:#f39c12', e);
         }
       }
@@ -15160,11 +15172,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               delete marcLastSeen[vid];
             }
           });
+          rrFeedOkAt.marc = Date.now();
           FetchStats.end(stat, { joined: joined, gpsOnly: gpsOnly, created: created, updated: updated, skipped: skipped, active: Object.keys(marcMarkers).length });
           updateMarcVisibility();
           if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
         } catch (e) {
           FetchStats.error('MARC', e);
+          rrFeedFailed('marc', marcMarkers, marcLastSeen, [marcTrainInfo]);
           console.warn('%c[MARC] GTFS-RT fetch failed \u2014 add /api/marc/* to railroadradar-proxy', 'color:#f39c12', e);
         }
       }
@@ -16792,6 +16806,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           escapeHtmlLite(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
       }
 
+
+      // A failing feed keeps its last trains for 12 minutes, then they are cleared.
+      function rrFeedFailed(key, markers, lastSeen, infos) {
+        if (Date.now() - (rrFeedOkAt[key] || 0) <= RR_MARKER_STALE_MS) return;
+        Object.keys(markers).forEach(function(vid) {
+          map.removeLayer(markers[vid]);
+          delete markers[vid];
+          delete lastSeen[vid];
+          infos.forEach(function(info) { delete info[vid]; });
+        });
+        updateTrainLabelsVisibility();
+      }
 
       function rrSeenMs(raw, fallback) {
         if (raw == null || raw === '') return fallback;
