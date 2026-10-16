@@ -1288,7 +1288,7 @@
       if (!id) return '';
       const label = TRIP_LOG_RAIL_LABELS[id] || id.toUpperCase();
       const color = tripRailColor(id);
-      return '<span class="trip-rail-badge" data-railroad="' + id + '" style="--rr-trip-rail:' + color + ';background:' + color + '">' +
+      return '<span class="trip-rail-badge" data-railroad="' + escapeTripOpt(id) + '" style="--rr-trip-rail:' + color + ';background:' + color + '">' +
         label.replace(/</g, '&lt;') + '</span>';
     }
     function tripRailIdsFromData(data) {
@@ -4691,7 +4691,7 @@ function closeTripDetailView(opts) {
         const trainPh = specialMode ? 'Optional if map title is set' : 'e.g. 2150';
         const specialCls = specialMode ? ' trip-seg-special-mode' : '';
         return (
-          '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + String(seg.railroad || '').toLowerCase() + '" style="--rr-trip-rail:' + segRailColor + '">' +
+          '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + escapeTripOpt(String(seg.railroad || '').toLowerCase()) + '" style="--rr-trip-rail:' + segRailColor + '">' +
             '<div class="trip-segment-head">' +
               '<div class="trip-segment-title">' + (tripLogSegmentsState.length > 1 ? ('Train ' + (idx + 1)) : 'Trip') + '</div>' +
               removeBtn +
@@ -6111,8 +6111,10 @@ function closeTripDetailView(opts) {
         if (!raw) return null;
         const parts = String(raw).split(/[:|/]/);
         if (parts.length < 2) return null;
+        const railroad = tripNormalizeAgency(parts[0]);
+        if (!TRIP_LOG_RAIL_LABELS[railroad]) return null;
         return {
-          railroad: tripNormalizeAgency(parts[0]),
+          railroad: railroad,
           trainNumber: parts.slice(1).join(':'),
           lineName: '',
           originName: '',
@@ -9806,12 +9808,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           actionsHtml =
             '<div class="loco-report-stale-ask">Older than a week. Still this unit?</div>' +
             '<div class="loco-report-actions">' +
-              '<button type="button" class="popup-action-btn update-pairing-btn confirm-pairing-btn" onclick="' + confirmClick + '">Yes</button>' +
-              '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + onclick + '">Change</button>' +
+              '<button type="button" class="popup-action-btn update-pairing-btn confirm-pairing-btn" onclick="' + escapeHtmlLite(confirmClick) + '">Yes</button>' +
+              '<button type="button" class="popup-action-btn update-pairing-btn change-pairing-btn" onclick="' + escapeHtmlLite(onclick) + '">Change</button>' +
             '</div>';
         } else {
           const label = hasUnit ? 'Update' : 'Report unit';
-          actionsHtml = '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + onclick + '">' + label + '</button>';
+          actionsHtml = '<button type="button" class="popup-action-btn update-pairing-btn" onclick="' + escapeHtmlLite(onclick) + '">' + label + '</button>';
         }
         return '<div class="loco-report-block' + (stale ? ' is-stale' : '') + '">' +
           '<div class="loco-report-text">' + body + '</div>' +
@@ -10190,7 +10192,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const isMbta = agency === 'mbta';
         let html = '<option value="">' + (isMbta ? '— Optional special locomotive —' : '— Select from roster —') + '</option>';
         html += units.map(function(u) {
-          return '<option value="' + u.id + '"' + (selected === u.id ? ' selected' : '') + '>' + u.id + ' — ' + u.name + '</option>';
+          return '<option value="' + escapeHtmlLite(u.id) + '"' + (selected === u.id ? ' selected' : '') + '>' + escapeHtmlLite(u.id + ' — ' + u.name) + '</option>';
         }).join('');
         return html;
       }
@@ -11874,7 +11876,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return null;
       }
       function rrTrackBadgeHtml(track, tbd) {
-        if (track) return `<span class="track-badge">Track ${track}</span>`;
+        if (track) return `<span class="track-badge">Track ${escapeHtmlLite(track)}</span>`;
         if (tbd) return `<span class="track-badge track-tbd">Track TBD</span>`;
         return '';
       }
@@ -12392,19 +12394,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             } else if (!stop.predictedTime) {
               cls = 'status-scheduled';
               disp = 'Scheduled';
-              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+              statusHtml = `<span class="stop-status ${cls}">${escapeHtmlLite(disp)}</span>`;
             } else if (stop.delayMinutes > 15) {
               cls = 'status-very-delayed';
               disp = pred ? pred : 'Delayed';
-              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+              statusHtml = `<span class="stop-status ${cls}">${escapeHtmlLite(disp)}</span>`;
             } else if (stop.delayMinutes > 5) {
               cls = 'status-delayed';
               disp = pred ? pred : 'Delayed';
-              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+              statusHtml = `<span class="stop-status ${cls}">${escapeHtmlLite(disp)}</span>`;
             } else {
               cls = 'status-on-time';
               disp = pred || 'On time';
-              statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
+              statusHtml = `<span class="stop-status ${cls}">${escapeHtmlLite(disp)}</span>`;
             }
             const track = rrTrackBadgeHtml(stop.trackNumber, stop.trackTbd);
             const done = stop.isCompleted ? `<img src="/assets/icons/completed.png" class="checkmark">` : '';
@@ -12425,9 +12427,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (stop.isCompleted && actualTime) {
               const late = rrMinutesLate(schedTime, actualTime);
               const box = late == null ? 'status-on-time' : late > 15 ? 'status-very-delayed' : late > 5 ? 'status-delayed' : 'status-on-time';
-              statusHtml = `<span class="stop-status ${box}">${actualTime}</span>`;
+              statusHtml = `<span class="stop-status ${box}">${escapeHtmlLite(actualTime)}</span>`;
             }
-            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${leftTime}</span><span class="stop-name">${stop.name} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
+            return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${escapeHtmlLite(leftTime)}</span><span class="stop-name">${escapeHtmlLite(stop.name)} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
           }).join('')
         }</ul></div>`;
       }
@@ -12834,7 +12836,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '';
         const amtrakSpecial = isViaPopup ? null : (getSpecialForVehicle('amtrak', (t.specialUnit && t.specialUnit.vehicleId) || null, num) || t.specialUnit || null);
         const amtrakPairingBlock = isViaPopup ? '' : buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial });
-        const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshAmtrakTrain('${vid}')">Refresh</button>`;
+        const refreshBtn = `<button class="popup-action-btn refresh-btn" data-vid="${escapeHtmlLite(vid)}" onclick="refreshAmtrakTrain(this.dataset.vid)">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('amtrak', vid, num);
         const logTripBtn = isViaPopup ? '' : rrLogTripBtnHtml('amtrak', vid, num);
         const amtrakLat = parseFloat(t.lat);
@@ -12851,30 +12853,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${ctrailBadge}
                 ${amtrakBadge}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dispNum}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dispNum)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${amtrakAlertIcon}
               </div>
             </div>
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${txt}</p>
-                <span class="status-pill ${statusPillClass}">${status}</span>
+                <p class="status-desc" style="margin:0;">${escapeHtmlLite(txt)}</p>
+                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(status)}</span>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Train</span>
-                  <span class="info-value">${isViaPopup ? ('VIA ' + dispNum) : num}</span>
+                  <span class="info-value">${escapeHtmlLite(isViaPopup ? ('VIA ' + dispNum) : num)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Line</span>
-                  <span class="info-value">${route || '—'}</span>
+                  <span class="info-value">${escapeHtmlLite(route || '—')}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Heading</span>
-                  <span class="info-value">${heading}</span>
+                  <span class="info-value">${escapeHtmlLite(heading)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Speed</span>
@@ -12883,7 +12885,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               </div>
               ${al}
               <div class="meta-row">
-                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+                ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${amtrakPairingBlock}
               <div class="stops-wrapper">
@@ -12996,7 +12998,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 const zoom = map.getZoom();
                 if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
                   m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label', opacity: 1 });
-                  if (m._info.length) m.getTooltip().setContent(m._info[0]);
+                  if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
                 }
                 amtrakMarkers[vid] = m;
                 const _as = isVia ? null : (specialUnit || getSpecialForVehicle('amtrak', null, trainNum));
@@ -13438,7 +13440,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const mnrBadge = '<span class="cape-badge" style="background:#0039A6;">Metro-North</span>';
         const mnrSpecial = getSpecialForVehicle('mnr', null, num) || info.specialUnit || null;
         const mnrPairingBlock = buildLocoReportPairingBlockHtml('mnr', { trainNumber: num, special: mnrSpecial });
-        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMnrTrain(\'' + vid + '\')">Refresh</button>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" data-vid="' + escapeHtmlLite(vid) + '" onclick="refreshMnrTrain(this.dataset.vid)">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('mnr', vid, num);
         const logTripBtn = rrLogTripBtnHtml('mnr', vid, num);
         const hasAlert = !!info.hasAlert;
@@ -13455,40 +13457,40 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>')
           : '';
         const trackHtml = track
-          ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + track + '</span></div>')
-          : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>');
+          ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + escapeHtmlLite(track) + '</span></div>')
+          : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + escapeHtmlLite(status) + '</span></div>');
         return `
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${mnrBadge}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${statusDesc}</p>
-                <span class="status-pill ${statusPillClass}">${status}</span>
+                <p class="status-desc" style="margin:0;">${escapeHtmlLite(statusDesc)}</p>
+                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(status)}</span>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Train</span>
-                  <span class="info-value">${num}</span>
+                  <span class="info-value">${escapeHtmlLite(num)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Route</span>
-                  <span class="info-value">${route}</span>
+                  <span class="info-value">${escapeHtmlLite(route)}</span>
                 </div>
                 ${trackHtml}
                 ${speedHtml}
               </div>
               ${al}
               <div class="meta-row">
-                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+                ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${mnrPairingBlock}
               <div class="stops-wrapper">
@@ -13631,7 +13633,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
                 m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+                if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               mnrMarkers[vid] = m;
               if (showMnr) m.addTo(map);
@@ -13854,7 +13856,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const lirrBadge = '<span class="cape-badge" style="background:#0039A6;">LIRR</span>';
         const lirrSpecial = getSpecialForVehicle('lirr', null, num) || info.specialUnit || null;
         const lirrPairingBlock = buildLocoReportPairingBlockHtml('lirr', { trainNumber: num, special: lirrSpecial });
-        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshLirrTrain(\'' + vid + '\')">Refresh</button>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" data-vid="' + escapeHtmlLite(vid) + '" onclick="refreshLirrTrain(this.dataset.vid)">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('lirr', vid, num);
         const logTripBtn = rrLogTripBtnHtml('lirr', vid, num);
         const hasAlert = !!info.hasAlert;
@@ -13871,40 +13873,40 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>')
           : '';
         const trackHtml = track
-          ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + track + '</span></div>')
-          : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>');
+          ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + escapeHtmlLite(track) + '</span></div>')
+          : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + escapeHtmlLite(status) + '</span></div>');
         return `
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${lirrBadge}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${statusDesc}</p>
-                <span class="status-pill ${statusPillClass}">${status}</span>
+                <p class="status-desc" style="margin:0;">${escapeHtmlLite(statusDesc)}</p>
+                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(status)}</span>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Train</span>
-                  <span class="info-value">${num}</span>
+                  <span class="info-value">${escapeHtmlLite(num)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Route</span>
-                  <span class="info-value">${route}</span>
+                  <span class="info-value">${escapeHtmlLite(route)}</span>
                 </div>
                 ${trackHtml}
                 ${speedHtml}
               </div>
               ${al}
               <div class="meta-row">
-                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+                ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${lirrPairingBlock}
               <div class="stops-wrapper">
@@ -14056,7 +14058,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
                 m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+                if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               lirrMarkers[vid] = m;
               if (showLirr) m.addTo(map);
@@ -14197,7 +14199,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '—';
         const metraBadge = '<span class="cape-badge" style="background:#0055A4;">Metra</span>';
         const metraSpecial = getSpecialForVehicle('metra', info.vehicleId || null, num) || info.specialUnit || null;
-        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMetraTrain(\'' + vid + '\')">Refresh</button>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" data-vid="' + escapeHtmlLite(vid) + '" onclick="refreshMetraTrain(this.dataset.vid)">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('metra', vid, num);
         const logTripBtn = rrLogTripBtnHtml('metra', vid, num);
         const hasAlert = !!info.hasAlert;
@@ -14218,36 +14220,36 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${metraBadge}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${statusDesc}</p>
-                <span class="status-pill ${statusPillClass}">${status}</span>
+                <p class="status-desc" style="margin:0;">${escapeHtmlLite(statusDesc)}</p>
+                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(status)}</span>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Train</span>
-                  <span class="info-value">${num}</span>
+                  <span class="info-value">${escapeHtmlLite(num)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Route</span>
-                  <span class="info-value">${route}</span>
+                  <span class="info-value">${escapeHtmlLite(route)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Status</span>
-                  <span class="info-value">${status}</span>
+                  <span class="info-value">${escapeHtmlLite(status)}</span>
                 </div>
                 ${speedHtml}
               </div>
               ${al}
               <div class="meta-row">
-                ${origin} → ${dest} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
+                ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               <div class="stops-wrapper">
                 ${stopsHtml}
@@ -14426,7 +14428,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
                 m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+                if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               metraMarkers[vid] = m;
               if (showMetra) m.addTo(map);
@@ -14631,7 +14633,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const njtBadge = '<span class="cape-badge" style="background:' + NJT_COLOR + ';">NJ Transit</span>';
         const njtSpecial = getSpecialForVehicle('njt', null, num) || info.specialUnit || null;
         const njtPairingBlock = buildLocoReportPairingBlockHtml('njt', { trainNumber: num, special: njtSpecial });
-        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshNjtTrain(\'' + vid + '\')">Refresh</button>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" data-vid="' + escapeHtmlLite(vid) + '" onclick="refreshNjtTrain(this.dataset.vid)">Refresh</button>';
         const shareBtn = rrShareTrainBtnHtml('njt', vid, num);
         const logTripBtn = rrLogTripBtnHtml('njt', vid, num);
         const hasAlert = !!info.hasAlert;
@@ -14644,37 +14646,37 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ? ('On the way to ' + info.currentStopName)
           : ('On the way to ' + dest);
         const dirHtml = info.direction
-          ? ('<div class="info-item"><span class="info-label">Direction</span><span class="info-value">' + info.direction + '</span></div>')
+          ? ('<div class="info-item"><span class="info-label">Direction</span><span class="info-value">' + escapeHtmlLite(info.direction) + '</span></div>')
           : '';
         return `
           <div class="train-popup">
             <div class="train-popup-header">
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${njtBadge}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${route}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${num}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
               </div>
             </div>
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${statusDesc}</p>
-                <span class="status-pill ${statusPillClass}">${status}</span>
+                <p class="status-desc" style="margin:0;">${escapeHtmlLite(statusDesc)}</p>
+                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(status)}</span>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Train</span>
-                  <span class="info-value">${num}</span>
+                  <span class="info-value">${escapeHtmlLite(num)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Route</span>
-                  <span class="info-value">${route}</span>
+                  <span class="info-value">${escapeHtmlLite(route)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Next</span>
-                  <span class="info-value">${info.currentStopName || '—'}</span>
+                  <span class="info-value">${escapeHtmlLite(info.currentStopName || '—')}</span>
                 </div>
                 ${dirHtml}
               </div>
@@ -14767,7 +14769,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
                 m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-                if (m._info.length) m.getTooltip().setContent(m._info[0]);
+                if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               njtMarkers[vid] = m;
               if (showNjt) m.addTo(map);
@@ -14901,7 +14903,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
         const lastSeenTime = marcLastSeen[vid] ? rrClockTime(new Date(marcLastSeen[vid])) : '\u2014';
         const badge = '<span class="cape-badge" style="background:#FF8000;">MARC</span>';
-        const refreshBtn = '<button class="popup-action-btn refresh-btn" onclick="refreshMarcTrain(\'' + vid + '\')">Refresh</button>';
+        const refreshBtn = '<button class="popup-action-btn refresh-btn" data-vid="' + escapeHtmlLite(vid) + '" onclick="refreshMarcTrain(this.dataset.vid)">Refresh</button>';
         const shareBtn = (typeof rrShareTrainBtnHtml === 'function') ? rrShareTrainBtnHtml('marc', vid, num) : '';
         const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('marc', vid, num) : '';
         const hasAlert = !!info.hasAlert;
@@ -14914,16 +14916,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
         const speedHtml = speed != null ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>') : '';
         return '<div class="train-popup"><div class="train-popup-header"><div>' + badge +
-          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + route + '</span> ' +
-          '<span style="font-weight:700;color:#fff;font-style:italic;">' + num + '</span> ' +
+          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + escapeHtmlLite(route) + '</span> ' +
+          '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(num) + '</span> ' +
           '<span style="color:#fff;font-style:italic;">to</span> ' +
-          '<span style="font-weight:700;color:#fff;font-style:italic;">' + dest + '</span>' + alertIcon +
+          '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(dest) + '</span>' + alertIcon +
           '</div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;">' +
-          '<p class="status-desc" style="margin:0;">' + statusDesc + '</p><span class="status-pill ' + statusPillClass + '">' + status + '</span></div>' +
-          '<div class="info-grid"><div class="info-item"><span class="info-label">Train</span><span class="info-value">' + num + '</span></div>' +
-          '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + route + '</span></div>' +
-          '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + status + '</span></div>' + speedHtml + '</div>' +
-          al + '<div class="meta-row">' + origin + ' \u2192 ' + dest + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
+          '<p class="status-desc" style="margin:0;">' + escapeHtmlLite(statusDesc) + '</p><span class="status-pill ' + statusPillClass + '">' + escapeHtmlLite(status) + '</span></div>' +
+          '<div class="info-grid"><div class="info-item"><span class="info-label">Train</span><span class="info-value">' + escapeHtmlLite(num) + '</span></div>' +
+          '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + escapeHtmlLite(route) + '</span></div>' +
+          '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + escapeHtmlLite(status) + '</span></div>' + speedHtml + '</div>' +
+          al + '<div class="meta-row">' + escapeHtmlLite(origin) + ' \u2192 ' + escapeHtmlLite(dest) + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
           ((typeof buildLocoReportPairingBlockHtml==='function') ? buildLocoReportPairingBlockHtml('mbta', { trainNumber: (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid }) : '') + '<div class="stops-wrapper">' + stopsHtml + '</div>' + '</div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
       }
       window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
@@ -15109,7 +15111,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const n = g.stopIds.length;
             g.lat /= n; g.lng /= n;
             const m = createStationDot(g.lat, g.lng);
-            m.bindPopup(`<div class="station-popup"><h3>${g.name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
+            m.bindPopup(`<div class="station-popup"><h3>${escapeHtmlLite(g.name)} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
             m.on('popupopen', async () => {
               const deps = await getStationDepartures(g.stopIds);
               m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
@@ -15151,26 +15153,26 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             deps.map(d => {
               let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
               const live = d.isLive ? `<span class="live-indicator"><img src="/assets/icons/live.png" class="live-train-icon"></span>` : '';
-              const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
+              const plat = (n > 1 && d.stopName !== name) ? `<small>(${escapeHtmlLite(d.stopName)})</small>` : '';
               const trk = rrTrackBadgeHtml(d.trackNumber, d.trackTbd);
               const svcDate = ((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
-              return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\'")}', '${d.destination.replace(/'/g,"\'")}', '${svcDate}')" style="cursor:pointer">
+              return `<li data-trip="${escapeHtmlLite(d.tripId)}" data-route="${escapeHtmlLite(d.routeName)}" data-dest="${escapeHtmlLite(d.destination)}" data-date="${svcDate}" onclick="openTrainSchedule(this.dataset.trip, this.dataset.route, this.dataset.dest, this.dataset.date)" style="cursor:pointer">
                 <span class="departure-time">${d.formattedScheduledTime}</span>
-                <span class="departure-destination"><small>${d.agency === 'amtrak' ? 'Amtrak' : 'MBTA'}</small> ${d.destination || d.routeName} ${plat} ${trk} ${live}</span>
+                <span class="departure-destination"><small>${d.agency === 'amtrak' ? 'Amtrak' : 'MBTA'}</small> ${escapeHtmlLite(d.destination || d.routeName)} ${plat} ${trk} ${live}</span>
                 <span class="departure-status ${cls}">${d.status}</span>
               </li>`;
             }).join('')
           }</ul></div>`;
         }
         const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
-        return `<div class="station-popup"><h3>${name} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3>${n>1 ? `<p><strong>Platforms:</strong> ${n}</p>` : ''}${html}<button class="refresh-button" onclick="refreshStationDepartures('${idsStr}', 'mbta')">Refresh</button></div>`;
+        return `<div class="station-popup"><h3>${escapeHtmlLite(name)} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3>${n>1 ? `<p><strong>Platforms:</strong> ${n}</p>` : ''}${html}<button class="refresh-button" data-ids="${escapeHtmlLite(idsStr)}" onclick="refreshStationDepartures(this.dataset.ids, 'mbta')">Refresh</button></div>`;
       }
       window.refreshStationDepartures = async function(idsStr, type) {
         const ids = idsStr.split(',');
         const m = stationMarkers[ids[0]];
         if (m && m.isPopupOpen()) {
           const nm = stationInfo[ids[0]].name;
-          m.getPopup().setContent(`<div class="station-popup"><h3>${nm}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading...</div></div>`);
+          m.getPopup().setContent(`<div class="station-popup"><h3>${escapeHtmlLite(nm)}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading...</div></div>`);
           delete stationDeparturesCache[ids.sort().join('-')];
           const deps = await getStationDepartures(ids);
           m.getPopup().setContent(createStationPopupContent(nm, ids, deps, ids.length));
@@ -15439,7 +15441,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 dstatus || 'Scheduled',
                 'Next: ' + (sname || '—')
               ];
-              if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(markers[vid]._info[markers[vid]._infoIndex % markers[vid]._info.length]);
+              if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(escapeHtmlLite(markers[vid]._info[markers[vid]._infoIndex % markers[vid]._info.length]));
             } else {
               const icon = createTrainIcon(delay, vid);
               const m = L.marker([lat, lng], { icon });
@@ -15467,7 +15469,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
                 m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-                m.getTooltip().setContent(m._info[0]);
+                m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               markers[vid] = m;
               m.addTo(map);
@@ -15617,7 +15619,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '';
         const mbtaSpecial = getSpecialForVehicle('mbta', vid, extractTrainNumber(tid) || null);
         const mbtaPairingBlock = buildLocoReportPairingBlockHtml('mbta', { vehicleId: vid });
-        const refreshBtn = `<button class="popup-action-btn refresh-btn" onclick="refreshTrainStops('${tid}', '${vid}')">Refresh</button>`;
+        const refreshBtn = `<button class="popup-action-btn refresh-btn" data-tid="${escapeHtmlLite(tid)}" data-vid="${escapeHtmlLite(vid)}" onclick="refreshTrainStops(this.dataset.tid, this.dataset.vid)">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
         const logTripBtn = rrLogTripBtnHtml('mbta', vid, extractTrainNumber(tid) || tid);
         return `
@@ -15626,30 +15628,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${capeBadge}
                 <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rname}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${extractTrainNumber(tid) || tid}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(rname)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(extractTrainNumber(tid) || tid)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${hasAlert ? `<img src="/assets/icons/alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">` : ''}
               </div>
             </div>
             <div class="train-popup-body">
               <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${txt}</p>
-                <span class="status-pill ${statusPillClass}">${dstatus}</span>
+                <p class="status-desc" style="margin:0;">${escapeHtmlLite(txt)}</p>
+                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(dstatus)}</span>
               </div>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Vehicle</span>
-                  <span class="info-value">${vid}</span>
+                  <span class="info-value">${escapeHtmlLite(vid)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Line</span>
-                  <span class="info-value">${rname || '—'}</span>
+                  <span class="info-value">${escapeHtmlLite(rname || '—')}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Track</span>
-                  <span class="info-value">${trk}</span>
+                  <span class="info-value">${escapeHtmlLite(trk)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Speed</span>
@@ -15753,10 +15755,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="train-popup-header">
                 <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                   <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${rname || 'Trip'}</span>
-                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${(typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(rname || 'Trip')}</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite((typeof extractTrainNumber==='function' && extractTrainNumber(tid)) || tid)}</span>
                   <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${dest || '—'}</span>
+                  <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest || '—')}</span>
                 </div>
               </div>
               <div class="train-popup-body">
@@ -15765,8 +15767,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   <span class="status-pill status-scheduled">Scheduled</span>
                 </div>
                 <div class="info-grid">
-                  <div class="info-item"><span class="info-label">Line</span><span class="info-value">${rname || '—'}</span></div>
-                  <div class="info-item"><span class="info-label">Route</span><span class="info-value">${rname || '—'}</span></div>
+                  <div class="info-item"><span class="info-label">Line</span><span class="info-value">${escapeHtmlLite(rname || '—')}</span></div>
+                  <div class="info-item"><span class="info-label">Route</span><span class="info-value">${escapeHtmlLite(rname || '—')}</span></div>
                 </div>
                 <div class="stops-wrapper">${buildStopsHtml(stops)}</div>
               </div>
@@ -15862,7 +15864,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         marker._info = infoArr && infoArr.length ? infoArr : [];
         if (isNew || marker._infoIndex == null) marker._infoIndex = 0;
         if (marker.getTooltip() && marker._info.length) {
-          marker.getTooltip().setContent(marker._info[marker._infoIndex % marker._info.length]);
+          marker.getTooltip().setContent(escapeHtmlLite(marker._info[marker._infoIndex % marker._info.length]));
         }
       }
 
@@ -15988,7 +15990,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         if (m._info && m._info.length && m.getTooltip()) {
           var idx = (typeof m._infoIndex === 'number' ? m._infoIndex : 0) % m._info.length;
-          m.getTooltip().setContent(m._info[idx]);
+          m.getTooltip().setContent(escapeHtmlLite(m._info[idx]));
         }
       }
       // Hide labels whose boxes collide; show them again when they have room.
@@ -16350,13 +16352,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return url;
       }
       function rrShareTrainBtnHtml(agency, vid, trainNum, serviceDate) {
-        const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+        const esc = function(s) { return escapeHtmlLite(String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")); };
         return '<button type="button" class="popup-action-btn share-btn" onclick="shareTrainLink(\'' +
           esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\',\'' + esc(serviceDate || '') + '\')">Share</button>';
       }
       /* Trip log from live */
       function rrLogTripBtnHtml(agency, vid, trainNum) {
-        const esc = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+        const esc = function(s) { return escapeHtmlLite(String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")); };
         return '<button type="button" class="popup-action-btn log-trip-btn" onclick="logTripFromLive(\'' +
           esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Log this ride</button>';
       }
@@ -16736,12 +16738,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const logTripBtn = (typeof rrLogTripBtnHtml === 'function') ? rrLogTripBtnHtml('mbta', page.tid, (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid) : '';
         const stopsHtml = (typeof buildStopsHtml === 'function') ? buildStopsHtml(page.stops || []) : '';
         return '<div class="train-popup"><div class="train-popup-header"><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:14.5px;line-height:1.25;color:#ffffff;font-style:italic;letter-spacing:0;word-spacing:-0.06em;"><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
-          String(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
-          String((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;margin:0 2px;">to</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
-          String(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
-          String(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Line</span><span class="info-value">' +
-          String(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
-          String(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
+          escapeHtmlLite(page.rname || 'Trip') + '</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          escapeHtmlLite((typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid || '') + '</span><span style="color:#ffffff;font-weight:500;font-style:italic;margin:0 2px;">to</span><span style="font-weight:700;color:#ffffff;font-style:italic;">' +
+          escapeHtmlLite(page.dest || '—') + '</span></div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;"><p class="status-desc" style="margin:0;">' +
+          escapeHtmlLite(page.departsMsg || 'Scheduled') + '</p><span class="status-pill status-scheduled">Scheduled</span></div><div class="info-grid"><div class="info-item"><span class="info-label">Line</span><span class="info-value">' +
+          escapeHtmlLite(page.rname || '—') + '</span></div><div class="info-item"><span class="info-label">From</span><span class="info-value">' +
+          escapeHtmlLite(page.origin || '—') + '</span></div></div><div class="stops-wrapper">' + stopsHtml + '</div></div><div class="train-popup-footer">' + logTripBtn + shareBtn + '</div></div>';
       }
 
 
@@ -17337,7 +17339,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (picked[key]) return;
           const pretty = (typeof agencyPrettyName === 'function') ? agencyPrettyName(agency) : agency.toUpperCase();
           const name = u.name && u.name !== id ? (' · ' + u.name) : '';
-          html += '<option value="' + key.replace(/"/g, '') + '">' + pretty + ' ' + id + name + '</option>';
+          html += '<option value="' + key.replace(/"/g, '') + '">' + escapeHtmlLite(pretty + ' ' + id + name) + '</option>';
         });
         sel.innerHTML = html;
         sel.value = '';
@@ -18261,7 +18263,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               askTimer = setTimeout(function() { askRailroadRadar(raw, results); }, 3000);
             }
           } else if (results.children.length === 0) {
-            results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${q}</strong>"</div>`;
+            results.innerHTML = `<div class="search-no-results">No trains or stations match "<strong>${escapeHtmlLite(q)}</strong>"</div>`;
           }
         }
         searchInput.addEventListener('input', () => { runSearchAndAsk(false); });
@@ -18386,7 +18388,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (!tip || !tip.options || !tip.options.permanent) return;
             if (!m._info || !m._info.length) return;
             m._infoIndex = ((m._infoIndex || 0) + 1) % m._info.length;
-            tip.setContent(m._info[m._infoIndex]);
+            tip.setContent(escapeHtmlLite(m._info[m._infoIndex]));
           });
         }
         cycleDict(markers);
@@ -19059,9 +19061,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const distStr = item.distance < 1
             ? (item.distance * 5280).toFixed(0) + ' ft'
             : item.distance.toFixed(1) + ' mi';
-          html += '<div class="closest-train-item" data-vid="' + item.vid + '">';
-          html += '<div class="ct-route">' + (t.routeName || 'Unknown') + ' to ' + (t.destination || '—') + '</div>';
-          html += '<div class="ct-meta">Vehicle ' + item.vid + ' · ' + Math.round(t.speedMph || 0) + ' mph · <span class="ct-dist">' + distStr + ' away</span></div>';
+          html += '<div class="closest-train-item" data-vid="' + escapeHtmlLite(item.vid) + '">';
+          html += '<div class="ct-route">' + escapeHtmlLite(t.routeName || 'Unknown') + ' to ' + escapeHtmlLite(t.destination || '—') + '</div>';
+          html += '<div class="ct-meta">Vehicle ' + escapeHtmlLite(item.vid) + ' · ' + Math.round(t.speedMph || 0) + ' mph · <span class="ct-dist">' + distStr + ' away</span></div>';
           html += '</div>';
         });
         container.innerHTML = html;
@@ -19518,8 +19520,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const train = v.trainNumber || v.vid || '?';
         const distFt = Math.round((v.distanceMiles || 0) * 5280);
         const distLabel = distFt < 1000 ? (distFt + ' ft away') : ((v.distanceMiles || 0).toFixed(2) + ' mi away');
-        return 'Are you traveling on ' + rail + ', ' + line + ', train ' + train + '?' +
-          '<span class="trip-nearby-banner-meta">' + distLabel + (v.destName ? (' · to ' + v.destName) : '') + '</span>';
+        return escapeHtmlLite('Are you traveling on ' + rail + ', ' + line + ', train ' + train + '?') +
+          '<span class="trip-nearby-banner-meta">' + distLabel + (v.destName ? (' · to ' + escapeHtmlLite(v.destName)) : '') + '</span>';
       }
 
       function rrHideNearbyTripBanner() {
