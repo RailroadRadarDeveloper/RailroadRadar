@@ -6057,5 +6057,5 @@
     html.rr-mytrips-page #trip-log-live { display: inline-flex; align-items: center; min-height: 36px; }
     .trip-log-empty-live { margin-left: 8px; background: #fff !important; color: #07093e !important; border: 1px solid #07093e !important; }
 
-#trip-log-go-live{background:#b00020;color:#fff;border:0;font-weight:800;letter-spacing:.04em}#trip-log-go-live[hidden]{display:none!important}body.trip-form-special #trip-log-save{display:none!important}body.trip-form-special #trip-log-go-live{display:inline-flex!important}
+#trip-log-go-live{background:#b00020;color:#fff;border:0;font-weight:800;letter-spacing:.04em}#trip-log-go-live[hidden]{display:none!important}body.trip-form-special:not(.trip-form-editing) #trip-log-save{display:none!important}body.trip-form-special:not(.trip-form-editing) #trip-log-go-live{display:inline-flex!important}
   
