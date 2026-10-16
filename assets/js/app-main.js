@@ -5080,6 +5080,7 @@ function closeTripDetailView(opts) {
 
     function switchTripLogTab(tab) {
       const name = tab === 'list' ? 'list' : 'log';
+      if (name === 'list' && tripLogEditingId) resetTripLogForm();
       document.querySelectorAll('.trip-log-tab').forEach(function(btn) {
         btn.classList.toggle('active', btn.getAttribute('data-trip-tab') === name);
       });
@@ -5991,19 +5992,7 @@ function closeTripDetailView(opts) {
             setTripLogError('Trip saved, but it could not be placed on the map yet.');
           }
         }
-        tripLogEditingId = null;
-        const saveLbl = document.getElementById('trip-log-save');
-        if (saveLbl) saveLbl.textContent = 'Save trip';
-        const notesEl = document.getElementById('trip-log-notes');
-        if (notesEl) notesEl.value = '';
-        const stockEl = document.getElementById('trip-log-rolling-stock');
-        if (stockEl) stockEl.value = '';
-        try { rrSpecialClearFormFields(); } catch (_) {}
-        tripLogSegmentsState = [emptyTripSegment({
-          railroad: payload.railroad || 'mbta',
-          departTime: defaultTripStartLocalValue()
-        })];
-        renderTripSegmentsForm();
+        resetTripLogForm(payload.railroad);
         try { await ensureTripLogStats({ force: true }); }
         catch (_) { await loadTripLogStatsFromServer(); }
         switchTripLogTab('list');
@@ -6015,6 +6004,24 @@ function closeTripDetailView(opts) {
       } finally {
         if (saveBtn) saveBtn.disabled = false;
       }
+    }
+
+    function resetTripLogForm(railroad) {
+      tripLogEditingId = null;
+      const saveLbl = document.getElementById('trip-log-save');
+      if (saveLbl) saveLbl.textContent = 'Save trip';
+      const cancelBtn = document.getElementById('trip-log-cancel-edit');
+      if (cancelBtn) cancelBtn.hidden = true;
+      const notesEl = document.getElementById('trip-log-notes');
+      if (notesEl) notesEl.value = '';
+      const stockEl = document.getElementById('trip-log-rolling-stock');
+      if (stockEl) stockEl.value = '';
+      try { rrSpecialClearFormFields(); } catch (_) {}
+      tripLogSegmentsState = [emptyTripSegment({
+        railroad: railroad || 'mbta',
+        departTime: defaultTripStartLocalValue()
+      })];
+      renderTripSegmentsForm();
     }
 
     async function deleteTripLog(tripId) {
@@ -6205,6 +6212,8 @@ function closeTripDetailView(opts) {
       try { rrSpecialFillFormFields(data); } catch (_) {}
       const saveLbl = document.getElementById('trip-log-save');
       if (saveLbl) saveLbl.textContent = 'Update trip';
+      const cancelBtn = document.getElementById('trip-log-cancel-edit');
+      if (cancelBtn) cancelBtn.hidden = false;
       await openTripLogModal(null, { tab: 'log', forceModal: true });
       renderTripSegmentsForm();
     }
@@ -7478,6 +7487,7 @@ async function rrSpecialStopSharing(opts) {
     }
 
     function closeTripLogModal() {
+      if (tripLogEditingId) resetTripLogForm();
       if (rrIsMyTripsPage()) {
         rrGoHomeFromMyTrips();
         return;
@@ -7692,6 +7702,8 @@ async function rrSpecialStopSharing(opts) {
       if (saveBtn) saveBtn.addEventListener('click', saveTripLog);
       try { rrSpecialBindUi(); } catch (_) {}
       try { rrSpecialRestoreHint(); } catch (_) {}
+      const cancelEdit = document.getElementById('trip-log-cancel-edit');
+      if (cancelEdit) cancelEdit.addEventListener('click', function() { switchTripLogTab('list'); });
       const gotoList = document.getElementById('trip-log-goto-list');
       if (gotoList) gotoList.addEventListener('click', function() { switchTripLogTab('list'); });
       const primaryLog = document.getElementById('trip-log-primary-log');
@@ -8695,6 +8707,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
             closeInterestRailroadsModal(true);
+            if (tripLogEditingId) resetTripLogForm();
             try { rrSyncMyTripsAuthGate(null); } catch (_) {}
           }
         });
