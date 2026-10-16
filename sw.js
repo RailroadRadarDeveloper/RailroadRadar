@@ -1,7 +1,7 @@
 /* RailroadRadar service worker — home-screen notifications */
 /* Failsafe: cached "currently unavailable" page for failed / 5xx navigations. */
 var RR_SW_VERSION = 'rr-sw-v2';
-var RR_FAILSAFE_CACHE = 'rr-failsafe-v30';
+var RR_FAILSAFE_CACHE = 'rr-failsafe-v31';
 var RR_UNAVAILABLE_URL = '/unavailable.html';
 
 self.addEventListener('install', function (e) {
@@ -84,10 +84,18 @@ function rrShow(title, data) {
   });
 }
 
+// Boarding-track pushes (tag rr-trip-*) are recorded so an open page doesn't show the same alert again.
+function rrMarkTripFired(tag) {
+  if (!tag || String(tag).indexOf('rr-trip-') !== 0) return Promise.resolve();
+  return caches.open('rr-trip-fired').then(function (c) {
+    return c.put('/__rr-trip-fired/' + encodeURIComponent(tag), new Response(String(Date.now())));
+  }).catch(function () {});
+}
+
 self.addEventListener('push', function (event) {
   var data = rrPushPayload(event);
   var title = data.title || 'RailroadRadar';
-  event.waitUntil(rrShow(title, data));
+  event.waitUntil(Promise.all([rrShow(title, data), rrMarkTripFired(data.tag)]));
 });
 
 self.addEventListener('notificationclick', function (event) {

@@ -8,6 +8,8 @@
   var K_ON = 'rr_trip_notify_on';
   var K_Q = 'rr_trip_notify_q';
   var K_FIRED = 'rr_trip_notify_fired';
+  var K_POSTED = 'rr_trip_notify_posted';
+  var FIRED_CACHE = 'rr-trip-fired';
   var POLL_MS = 45000;
   var BEFORE_MS = 35 * 60 * 1000;   // start watching 35 min before departure
   var AFTER_MS = 20 * 60 * 1000;    // keep watching up to 20 min after (late trains)
@@ -68,6 +70,7 @@
     var title = 'Track ' + track + ' · ' + line + ' ' + item.train;
     var opts = { body: body, tag: 'rr-trip-' + item.key, icon: '/assets/icons/icon-192.png', timestamp: Date.now(), data: { url: '/mytrips/' } };
     if (!isMobileDevice()) opts.requireInteraction = true; // desktop: stay until dismissed
+    if (await pushAlreadyShown(opts.tag)) return true;
     try {
       var reg = await navigator.serviceWorker.getRegistration('/');
       if (!reg) { await navigator.serviceWorker.register('/sw.js'); reg = await navigator.serviceWorker.ready; }
@@ -79,6 +82,68 @@
     } catch (_) {}
     try { new Notification(title, opts); return true; } catch (_) {}
     return false;
+  }
+
+  // The service worker records each boarding push it shows (sw.js), so the page never repeats it.
+  async function pushAlreadyShown(tag) {
+    try {
+      if (window.caches) {
+        var c = await caches.open(FIRED_CACHE);
+        if (await c.match('/__rr-trip-fired/' + encodeURIComponent(tag))) return true;
+      }
+    } catch (_) {}
+    try {
+      var reg = await navigator.serviceWorker.getRegistration('/');
+      if (reg && reg.getNotifications) {
+        var open = await reg.getNotifications({ tag: tag });
+        if (open && open.length) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // ---- Background delivery: hand upcoming trips to the proxy worker, which sends a Web Push
+  // from its cron when the track is assigned (works with the site closed).
+  function b64uToBytes(s) {
+    var pad = '='.repeat((4 - (s.length % 4)) % 4);
+    var bin = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  async function pushSubscription(create) {
+    if (!('PushManager' in window)) return null;
+    var reg = await navigator.serviceWorker.getRegistration('/');
+    if (!reg) { await navigator.serviceWorker.register('/sw.js'); reg = await navigator.serviceWorker.ready; }
+    if (!reg || !reg.pushManager) return null;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub || !create) return sub;
+    var v = await fetch(API + '/api/push/vapid');
+    if (!v.ok) return null;
+    var key = (await v.json() || {}).publicKey;
+    if (!key) return null;
+    // Only creates the browser subscription; special-unit alerts stay off unless chosen in their own settings.
+    return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(key) });
+  }
+  async function syncServer(force) {
+    try {
+      var on = enabled();
+      var sub = await pushSubscription(on);
+      if (!sub) return;
+      var f = fired();
+      var trips = on ? readJson(K_Q, []).filter(function (it) { return !f[it.key]; }).map(function (it) {
+        return { tripKey: it.key, trainNum: it.train, line: it.lineName || '', depTimeISO: new Date(it.dep).toISOString(), originStopId: it.originId, destination: it.destName || '' };
+      }) : [];
+      var sig = sub.endpoint + '|' + JSON.stringify(trips);
+      if (!force && ls(K_POSTED) === sig) return; // unchanged: no KV write on the worker
+      var json = sub.toJSON ? sub.toJSON() : sub;
+      var res = await fetch(API + '/api/push/trips', {
+        method: trips.length ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: { endpoint: json.endpoint, keys: json.keys }, trips: trips })
+      });
+      if (res.ok) ls(K_POSTED, sig);
+    } catch (e) { console.warn('[trip-notify] server sync', e); }
   }
 
   async function checkItem(item, now) {
@@ -105,6 +170,7 @@
       if (fired()[item.key]) return;
       markFired(item.key);
       await show(item, track, trip.attributes.headsign);
+      syncServer(); // drop this trip from the worker's list so it isn't pushed again
       return;
     }
   }
@@ -136,17 +202,19 @@
       return it && it.key && it.railroad === 'mbta' && it.train && it.originId && isFinite(it.dep) && it.dep > now - AFTER_MS && it.dep < now + 7 * 86400000;
     }).slice(0, 20);
     ls(K_Q, JSON.stringify(clean));
+    syncServer();
   }
-  function clearTrips() { ls(K_Q, null); }
+  function clearTrips() { ls(K_Q, null); syncServer(); }
 
   async function setEnabled(on) {
-    if (!on) { ls(K_ON, '0'); stop(); return { on: false }; }
+    if (!on) { ls(K_ON, '0'); stop(); syncServer(true); return { on: false }; }
     if (!supported()) return { on: false, reason: 'unsupported' };
     var perm = Notification.permission;
     if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (_) {} }
     if (perm !== 'granted') { ls(K_ON, '0'); return { on: false, reason: perm === 'denied' ? 'denied' : 'dismissed' }; }
     try { if (!(await navigator.serviceWorker.getRegistration('/'))) await navigator.serviceWorker.register('/sw.js'); } catch (_) {}
     ls(K_ON, '1'); start();
+    syncServer(true);
     return { on: true };
   }
 
@@ -171,7 +239,7 @@
       var r = await setEnabled(box.checked);
       box.checked = !!r.on;
       box.disabled = false;
-      if (r.on) say('On. You\'ll get an alert when your MBTA train is boarding on its track, while RailroadRadar is open.');
+      if (r.on) say('On. You\'ll get an alert when your MBTA train is boarding on its track, while RailroadRadar is open, and with it closed where this browser supports push.');
       else if (r.reason === 'denied') say('Notifications are blocked for this site. Allow them in your browser settings, then try again.');
       else if (r.reason === 'dismissed') say('Notifications were not allowed.');
       else say('');
