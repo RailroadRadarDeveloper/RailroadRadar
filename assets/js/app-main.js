@@ -6273,8 +6273,11 @@ function closeTripDetailView(opts) {
 
 
     const RR_SPECIAL_SHARE_MAX_MS = 5 * 60 * 60 * 1000;
-    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 5000; // every write is a read for each viewer
+    // Every write is a read for each viewer: while moving, write at most every MIN_INTERVAL once the
+    // position has changed by MOVE_M; while still, only a heartbeat. The heartbeat is far below STALE.
+    const RR_SPECIAL_SHARE_MIN_INTERVAL_MS = 5000;
     const RR_SPECIAL_SHARE_MOVE_M = 20;
+    const RR_SPECIAL_SHARE_HEARTBEAT_MS = 60 * 1000;
     // Keep markers through remote/dead zones; show "last ping X min ago" instead of dropping ASAP.
     const RR_SPECIAL_SHARE_STALE_MS = 30 * 60 * 1000;
     const RR_SPECIAL_SHARE_QUEUE_MAX = 12;
@@ -6673,8 +6676,9 @@ function rrSpecialSyncTitleWrap() {
       const moved = (st.lastLat != null && st.lastLon != null)
         ? rrSpecialHaversineM(st.lastLat, st.lastLon, lat, lon)
         : 9999;
-      const due = !st.lastWriteAt || (now - st.lastWriteAt) >= RR_SPECIAL_SHARE_MIN_INTERVAL_MS;
-      const shouldSend = !!(opts.force || due || moved >= RR_SPECIAL_SHARE_MOVE_M || st.offline || rrSpecialShareQueue.length);
+      const sinceWrite = st.lastWriteAt ? now - st.lastWriteAt : Infinity;
+      const movedDue = moved >= RR_SPECIAL_SHARE_MOVE_M && sinceWrite >= RR_SPECIAL_SHARE_MIN_INTERVAL_MS;
+      const shouldSend = !!(opts.force || movedDue || sinceWrite >= RR_SPECIAL_SHARE_HEARTBEAT_MS || st.offline || rrSpecialShareQueue.length);
       if (!shouldSend) return;
       // Update local last fix even when offline so throttle still works after reconnect.
       st.lastLat = lat;
