@@ -5673,6 +5673,7 @@ function closeTripDetailView(opts) {
         const snap = await q.get();
         const docs = snap.docs || [];
         renderTripLogRows(docs, !reset);
+        if (reset) { try { rrTripNotifySyncDocs(docs); } catch (_) {} }
         // Public profile queries only match trips with an explicit hiddenPublic flag; set it on older trips.
         docs.forEach(function(d) {
           const data = d.data() || {};
@@ -5704,6 +5705,38 @@ function closeTripDetailView(opts) {
         setTripLogSkeletons(false);
         tripLogLoading = false;
       }
+    }
+
+    // Feed upcoming MBTA segments to the boarding-track alert watcher (assets/js/trip-notify.js).
+    function rrTripNotifySyncDocs(docs) {
+      if (!window.rrTripNotify) return;
+      const items = [];
+      (docs || []).forEach(function(d) {
+        const data = (d && typeof d.data === 'function') ? (d.data() || {}) : (d || {});
+        const id = d && d.id;
+        const segs = Array.isArray(data.segments) && data.segments.length ? data.segments : [data];
+        segs.forEach(function(seg, i) {
+          if (!seg || String(seg.railroad || '').toLowerCase() !== 'mbta' || seg.specialMove) return;
+          const train = String(seg.trainNumber || '').trim();
+          const dep = Date.parse(seg.departTime || '');
+          const origin = tripMbtaCanonicalStationId(seg.originStationId || '');
+          if (!id || !train || !isFinite(dep) || origin.indexOf('place-') !== 0) return;
+          items.push({ key: id + '-' + i, railroad: 'mbta', lineName: String(seg.lineName || '').trim(), train: train, dep: dep, originId: origin, destName: String(seg.destName || '').trim() });
+        });
+      });
+      window.rrTripNotify.setTrips(items);
+    }
+    let rrTripNotifyLastFetch = 0;
+    async function rrTripNotifyOnAuth(user) {
+      if (!window.rrTripNotify) return;
+      if (!user) { window.rrTripNotify.clearTrips(); return; }
+      if (!window.rrTripNotify.wantsOn() || !db) return;
+      if (Date.now() - rrTripNotifyLastFetch < 10 * 60 * 1000) return;
+      rrTripNotifyLastFetch = Date.now();
+      try {
+        const snap = await db.collection('tripLogs').where('userId', '==', user.uid).orderBy('startTime', 'desc').limit(10).get();
+        rrTripNotifySyncDocs(snap.docs || []);
+      } catch (e) { console.warn('[trip-notify] trips', e); }
     }
 
     function setTripLogError(msg) {
@@ -8080,6 +8113,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     }
 
     function updateHeaderAuthUI(user) {
+      try { rrTripNotifyOnAuth(user); } catch (_) {}
       const btnIn = document.getElementById('btn-google-signin');
       const userWrap = document.getElementById('header-auth-user');
       const avatar = document.getElementById('header-user-avatar');
