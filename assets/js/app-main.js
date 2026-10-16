@@ -1403,8 +1403,17 @@
       return R * c;
     }
 
+    // Bump when the stats shape or counting rules change: every stored doc with an older version is rebuilt once.
+    const TRIP_LOG_STATS_VERSION = 2;
+
     function tripLogEmptyStats() {
-      return { tripCount: 0, totalMiles: 0, byRailroad: {}, lastTripAt: null };
+      return { version: TRIP_LOG_STATS_VERSION, tripCount: 0, totalMiles: 0, byRailroad: {} };
+    }
+
+    function tripLogStatsUsable(raw) {
+      return !!raw && typeof raw === 'object' && raw.version === TRIP_LOG_STATS_VERSION &&
+        isFinite(raw.tripCount) && isFinite(raw.totalMiles) &&
+        !!raw.byRailroad && typeof raw.byRailroad === 'object';
     }
 
     function normalizeTripLogStats(raw) {
@@ -1413,7 +1422,6 @@
       base.tripCount = Number(raw.tripCount) || 0;
       base.totalMiles = Number(raw.totalMiles) || 0;
       base.byRailroad = (raw.byRailroad && typeof raw.byRailroad === 'object') ? raw.byRailroad : {};
-      base.lastTripAt = raw.lastTripAt || null;
       return base;
     }
 
@@ -4920,7 +4928,6 @@ function closeTripDetailView(opts) {
         const count = Number(row.count) || 0;
         const miles = Number(row.miles) || 0;
         if (count <= 0 && miles <= 0) return;
-        // Prefer trip count (fixes Amtrak-as-top when only MBTA trips remain with stale miles)
         if (count > topCount || (count === topCount && miles > topMiles)) {
           topCount = count;
           topMiles = miles;
@@ -4985,7 +4992,6 @@ function closeTripDetailView(opts) {
       return {
         railroad: data.railroad,
         miles: Number(data.miles) || 0,
-        startTime: data.startTime || null,
         segments: Array.isArray(data.segments) && data.segments.length
           ? data.segments
           : [{ railroad: data.railroad, miles: Number(data.miles) || 0 }]
@@ -4994,37 +5000,17 @@ function closeTripDetailView(opts) {
 
     function computeTripLogStatsFromTrips(trips) {
       let stats = tripLogEmptyStats();
-      let lastAt = null;
       (trips || []).forEach(function(trip) {
-        const payload = tripPayloadForStats(trip);
-        stats = applyTripMilesToStats(stats, payload, 1);
-        const st = payload.startTime || null;
-        if (st && (!lastAt || String(st) > String(lastAt))) lastAt = st;
+        stats = applyTripMilesToStats(stats, tripPayloadForStats(trip), 1);
       });
-      stats.lastTripAt = lastAt;
-      return normalizeTripLogStats(stats);
+      return stats;
     }
 
-    function tripLogStatsLookStale(cached, rebuilt) {
-      const a = normalizeTripLogStats(cached);
-      const b = normalizeTripLogStats(rebuilt);
-      if ((Number(a.tripCount) || 0) !== (Number(b.tripCount) || 0)) return true;
-      if (Math.abs((Number(a.totalMiles) || 0) - (Number(b.totalMiles) || 0)) > 0.2) return true;
-      const ak = Object.keys(a.byRailroad || {}).sort().join(',');
-      const bk = Object.keys(b.byRailroad || {}).sort().join(',');
-      if (ak !== bk) return true;
-      for (const k of Object.keys(b.byRailroad || {})) {
-        const ar = a.byRailroad[k] || {};
-        const br = b.byRailroad[k] || {};
-        if ((Number(ar.count) || 0) !== (Number(br.count) || 0)) return true;
-        if (Math.abs((Number(ar.miles) || 0) - (Number(br.miles) || 0)) > 0.2) return true;
-      }
-      return false;
-    }
-
+    // complete is false when a page limit cut the list short.
     async function fetchAllUserTripLogs(uid) {
       const out = [];
       let last = null;
+      let complete = false;
       for (let page = 0; page < 40; page++) {
         let q = db.collection('tripLogs')
           .where('userId', '==', uid)
@@ -5037,76 +5023,57 @@ function closeTripDetailView(opts) {
         } catch (e) {
           // Fallback without order if composite index missing
           snap = await db.collection('tripLogs').where('userId', '==', uid).limit(500).get();
-          snap.docs.forEach(function(doc) {
-            out.push(Object.assign({ id: doc.id }, doc.data() || {}));
-          });
-          return out;
+          return {
+            trips: snap.docs.map(function(doc) { return Object.assign({ id: doc.id }, doc.data() || {}); }),
+            complete: snap.docs.length < 500
+          };
         }
         const docs = snap.docs || [];
         docs.forEach(function(doc) {
           out.push(Object.assign({ id: doc.id }, doc.data() || {}));
         });
-        if (docs.length < 100) break;
+        if (docs.length < 100) { complete = true; break; }
         last = docs[docs.length - 1];
       }
-      return out;
+      return { trips: out, complete: complete };
     }
 
-    async function rebuildTripLogStatsFromTrips(uid, opts) {
-      opts = opts || {};
-      const trips = await fetchAllUserTripLogs(uid);
-      const next = computeTripLogStatsFromTrips(trips);
-      if (opts.persist !== false) {
-        await db.collection('userSettings').doc(uid).set({
-          tripLogStats: next,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+    async function rebuildTripLogStatsFromTrips(uid, settingsExist) {
+      const all = await fetchAllUserTripLogs(uid);
+      const next = computeTripLogStatsFromTrips(all.trips);
+      // A cut-off list would be stored as the truth and incremented from then on, so it is only shown.
+      if (all.complete) {
+        const ref = db.collection('userSettings').doc(uid);
+        const fields = { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        // A merge write to a doc that isn't in the local cache makes reads return only the merged fields until
+        // the server confirms it, which hid the Terms agreement from the sign-in check. update() doesn't.
+        if (settingsExist) await ref.update(fields);
+        else await ref.set(fields, { merge: true });
       }
       paintTripLogStats(next);
       return next;
     }
 
     async function ensureTripLogStats(opts) {
-      opts = opts || {};
       const user = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
       if (!db || !user) {
         paintTripLogStats(tripLogEmptyStats());
         return tripLogEmptyStats();
       }
       try {
-        if (opts.force) {
-          return await rebuildTripLogStatsFromTrips(user.uid);
-        }
         const snap = await db.collection('userSettings').doc(user.uid).get();
-        const data = snap.exists ? (snap.data() || {}) : {};
-        const cached = normalizeTripLogStats(data.tripLogStats);
-        // Always reconcile against tripLogs so delete/save drift cannot leave Amtrak-as-top etc.
-        const trips = await fetchAllUserTripLogs(user.uid);
-        const rebuilt = computeTripLogStatsFromTrips(trips);
-        if (tripLogStatsLookStale(cached, rebuilt)) {
-          await db.collection('userSettings').doc(user.uid).set({
-            tripLogStats: rebuilt,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          paintTripLogStats(rebuilt);
-          return rebuilt;
+        const stored = snap.exists ? (snap.data() || {}).tripLogStats : null;
+        if (!(opts && opts.force) && tripLogStatsUsable(stored)) {
+          const stats = normalizeTripLogStats(stored);
+          paintTripLogStats(stats);
+          return stats;
         }
-        paintTripLogStats(cached);
-        return cached;
+        return await rebuildTripLogStatsFromTrips(user.uid, snap.exists);
       } catch (e) {
         console.warn('[trip-log] ensureTripLogStats failed', e);
-        try {
-          return await rebuildTripLogStatsFromTrips(user.uid);
-        } catch (e2) {
-          console.warn('[trip-log] rebuild failed', e2);
-          paintTripLogStats(tripLogEmptyStats());
-          return tripLogEmptyStats();
-        }
+        paintTripLogStats(tripLogEmptyStats());
+        return tripLogEmptyStats();
       }
-    }
-
-    async function loadTripLogStatsFromServer() {
-      return ensureTripLogStats({});
     }
 
     function switchTripLogTab(tab) {
@@ -5927,7 +5894,6 @@ function closeTripDetailView(opts) {
       next.tripCount = Math.max(0, (Number(next.tripCount) || 0) + dir);
       next.totalMiles = Math.max(0, Math.round(((Number(next.totalMiles) || 0) + dir * (Number(payload.miles) || 0)) * 10) / 10);
       next.byRailroad = by;
-      if (dir > 0 && payload.startTime) next.lastTripAt = payload.startTime;
       return next;
     }
 
@@ -5999,16 +5965,19 @@ function closeTripDetailView(opts) {
       try {
         const uid = saveUser.uid;
         const editingId = tripLogEditingId;
-        const oldData = editingId ? (tripLogDataById[editingId] || {}) : null;
         const tripRef = editingId ? db.collection('tripLogs').doc(editingId) : db.collection('tripLogs').doc();
         const settingsRef = db.collection('userSettings').doc(uid);
-        await db.runTransaction(async function(tx) {
+        // The old values come from the stored trip, not the list cache, which can be stale or missing.
+        const next = await db.runTransaction(async function(tx) {
+          const oldSnap = editingId ? await tx.get(tripRef) : null;
           const settingsSnap = await tx.get(settingsRef);
-          const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
-          const stats = normalizeTripLogStats(settingsData.tripLogStats);
-          let next = stats;
-          if (oldData) next = applyTripMilesToStats(next, oldData, -1);
-          next = applyTripMilesToStats(next, payload, 1);
+          const stored = settingsSnap.exists ? (settingsSnap.data() || {}).tripLogStats : null;
+          let stats = null;
+          if (tripLogStatsUsable(stored)) {
+            stats = normalizeTripLogStats(stored);
+            if (oldSnap && oldSnap.exists) stats = applyTripMilesToStats(stats, tripPayloadForStats(oldSnap.data()), -1);
+            stats = applyTripMilesToStats(stats, tripPayloadForStats(payload), 1);
+          }
           const write = Object.assign({ userId: uid }, payload);
           if (editingId) write.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
           else {
@@ -6016,7 +5985,8 @@ function closeTripDetailView(opts) {
             write.hiddenPublic = false;
           }
           tx.set(tripRef, write, { merge: !!editingId });
-          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          if (stats) tx.update(settingsRef, { tripLogStats: stats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          return stats;
         });
         try { await logUserAction('trip_log_save', payload.railroad + ' ' + payload.trainNumber); } catch (_) {}
         if (typeof showNotification === 'function') showNotification(editingId ? 'Trip updated' : 'Trip saved');
@@ -6040,8 +6010,8 @@ function closeTripDetailView(opts) {
           }
         }
         resetTripLogForm(payload.railroad);
-        try { await ensureTripLogStats({ force: true }); }
-        catch (_) { await loadTripLogStatsFromServer(); }
+        if (next) paintTripLogStats(next);
+        else await ensureTripLogStats();
         switchTripLogTab('list');
         return tripRef.id;
       } catch (e) {
@@ -6078,34 +6048,22 @@ function closeTripDetailView(opts) {
         const uid = currentUser.uid;
         const tripRef = db.collection('tripLogs').doc(tripId);
         const settingsRef = db.collection('userSettings').doc(uid);
-        await db.runTransaction(async function(tx) {
+        const next = await db.runTransaction(async function(tx) {
           const tripSnap = await tx.get(tripRef);
           if (!tripSnap.exists) throw new Error('Trip not found');
           const trip = tripSnap.data() || {};
           if (trip.userId !== uid) throw new Error('Not your trip');
           const settingsSnap = await tx.get(settingsRef);
           const settingsData = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
-          const stats = normalizeTripLogStats(settingsData.tripLogStats);
-          const payload = {
-            railroad: trip.railroad,
-            miles: Number(trip.miles) || 0,
-            startTime: trip.startTime || null,
-            segments: Array.isArray(trip.segments) && trip.segments.length
-              ? trip.segments
-              : [{ railroad: trip.railroad, miles: Number(trip.miles) || 0 }]
-          };
-          const next = applyTripMilesToStats(stats, payload, -1);
-          next.lastTripAt = stats.lastTripAt || null;
           tx.delete(tripRef);
-          tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          if (!tripLogStatsUsable(settingsData.tripLogStats)) return null;
+          const stats = applyTripMilesToStats(normalizeTripLogStats(settingsData.tripLogStats), tripPayloadForStats(trip), -1);
+          tx.update(settingsRef, { tripLogStats: stats, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          return stats;
         });
         if (typeof showNotification === 'function') showNotification('Trip deleted');
-        // Rebuild from tripLogs so public profile + stats stay correct after delete
-        try {
-          const u = (typeof rrAuthUser === 'function') ? rrAuthUser() : currentUser;
-          if (u) await ensureTripLogStats({ force: true });
-          else await loadTripLogStatsFromServer();
-        } catch (_) { await loadTripLogStatsFromServer(); }
+        if (next) paintTripLogStats(next);
+        else await ensureTripLogStats();
         await loadTripLogList(true);
       } catch (e) {
         console.warn('[trip-log] delete failed', e);
@@ -7529,7 +7487,7 @@ async function rrSpecialStopSharing(opts) {
       switchTripLogTab(defaultTab);
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
-      await loadTripLogStatsFromServer();
+      await ensureTripLogStats();
       // Do not auto-request geolocation here (no user gesture). Nearby can use
       // an already-known fix; Share location is the gesture that prompts on /mytrips.
       try {
@@ -7791,7 +7749,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       if (moreBtn) moreBtn.addEventListener('click', function() { loadTripLogList(false); });
       const refreshBtn = document.getElementById('trip-log-refresh');
       if (refreshBtn) refreshBtn.addEventListener('click', function() {
-        ensureTripLogStats({ force: true }).catch(function() { loadTripLogStatsFromServer(); });
+        ensureTripLogStats({ force: true });
         loadTripLogList(true);
       });
       const list = document.getElementById('trip-log-list');
