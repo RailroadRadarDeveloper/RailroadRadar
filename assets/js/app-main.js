@@ -217,22 +217,30 @@
         return false;
       }
       const status = cookieConsentStatusFromPrefs(prefs);
-      const decidedAt = prefs.decidedAt || new Date().toISOString();
+      const decidedAt = prefs.decidedAt || (currentUserSettings && currentUserSettings.cookieDecidedAt) || new Date().toISOString();
       const payload = {
         cookieConsent: status,
         cookieClarity: !!prefs.clarity,
         cookiePreferences: prefs.preferences !== false,
         cookieDecidedAt: decidedAt
       };
-      try {
-        await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
-      } catch (err) {
-        console.warn('[cookies] accounts persist failed', err);
+      const differs = function(stored) {
+        return !stored || Object.keys(payload).some(function(k) { return stored[k] !== payload[k]; });
+      };
+      if (differs(accountDocCache)) {
+        try {
+          await db.collection('accounts').doc(u.uid).set(payload, { merge: true });
+          accountDocCache = Object.assign(accountDocCache || {}, payload);
+        } catch (err) {
+          console.warn('[cookies] accounts persist failed', err);
+        }
       }
-      try {
-        await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
-      } catch (err) {
-        console.warn('[cookies] userSettings persist failed', err);
+      if (differs(currentUserSettings)) {
+        try {
+          await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
+        } catch (err) {
+          console.warn('[cookies] userSettings persist failed', err);
+        }
       }
       currentUserSettings = currentUserSettings || {};
       currentUserSettings.cookieConsent = status;
@@ -243,6 +251,8 @@
       return true;
     }
     window.persistCookieConsentToAccount = persistCookieConsentToAccount;
+    let accountDocCache = null;
+    const ACCOUNT_LOGIN_STAMP_MS = 24 * 60 * 60 * 1000;
     async function upsertAccountMirror(user) {
       if (!db || !user || !user.uid) return;
       const uid = String(user.uid);
@@ -271,15 +281,25 @@
           payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
           if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
         }
-        let exists = false;
+        let stored = null;
         try {
           const snap = await ref.get();
-          exists = !!(snap && snap.exists);
+          stored = snap && snap.exists ? (snap.data() || {}) : null;
         } catch (readErr) {
-          exists = false;
+          stored = null;
         }
-        if (!exists) payload.createdAt = ts;
+        accountDocCache = stored;
+        const loginAt = stored && stored.lastLoginAt;
+        const loginMs = loginAt && typeof loginAt.toMillis === 'function' ? loginAt.toMillis() : 0;
+        const loginFresh = Date.now() - loginMs < ACCOUNT_LOGIN_STAMP_MS;
+        const changed = !stored || Object.keys(payload).some(function(k) {
+          return k !== 'lastLoginAt' && stored[k] !== payload[k];
+        });
+        if (!changed && loginFresh) return;
+        if (loginFresh) delete payload.lastLoginAt;
+        if (!stored) payload.createdAt = ts;
         await ref.set(payload, { merge: true });
+        accountDocCache = Object.assign({}, stored, payload);
       } catch (err) {
         console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
       }
@@ -920,9 +940,10 @@
         if (status) status.textContent = 'Add a username in Account settings first.';
         const toggle = document.getElementById('trip-public-make-toggle');
         if (toggle) toggle.checked = false;
-        if (typeof openAccountSettings === 'function') {
-          try { openAccountSettings(); } catch (_) {}
-        }
+        openAccountSettingsLightbox().then(function() {
+          const field = document.getElementById('account-username');
+          if (field) field.focus();
+        });
         return false;
       }
       if (status) { status.textContent = wantPublic ? 'Publishing…' : 'Updating…'; status.dataset.keep = '1'; }
@@ -8717,11 +8738,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { if (typeof rrWireEarlyAuth === 'function') rrWireEarlyAuth(); } catch (_) {}
         try {
           // Redirect may already be consumed by rrWireEarlyAuth; still safe to call.
-          auth.getRedirectResult().then(function(cred) {
-            if (cred && cred.user && typeof upsertAccountMirror === 'function') {
-              upsertAccountMirror(cred.user).catch(function() {});
-            }
-          }).catch(function(e) { console.warn('[Auth] redirect result', e); });
+          auth.getRedirectResult().catch(function(e) { console.warn('[Auth] redirect result', e); });
         } catch (e) { console.warn('[Auth] redirect hook', e); }
         auth.onAuthStateChanged(async function(user) {
           if (!user && auth && auth.currentUser) user = auth.currentUser;
@@ -8794,6 +8811,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
           } else {
             currentUserSettings = { reportDisplayMode: 'first_initial', reportCustomLabel: '', interestedRailroads: [], interestedRailroadsSet: false, reportStats: null, legalAccepted: false, termsVersion: null, privacyVersion: null };
+            accountDocCache = null;
             currentAdminPerms = null;
             closeAccountSettingsLightbox();
             closeLegalAcceptModal(true);
@@ -9133,12 +9151,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rebuildRosterIndexes() {
         ROSTER_IDS = new Set(SPECIAL_UNITS_ROSTER.map(u => String(u.id)));
       }
-      // Amtrak ALC-42 Phase VII art. Its file (assets/TrainIcons (16).png) was deleted from the
-      // repo on Oct 6 while the admin roster entry still points at it, so serve it inline.
-      const RR_ALC42_PHASE7_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABYCAMAAAByMgEaAAABgFBMVEUQKmlXLi6sq63XKSvj3d8NmOBUV12eLC+ampyknaGaXFscJjEhN1IxSmNnTDUlHSNdWV5ZXWbtOzsfN1UXdrDlTVLxWVkAcXFKUlztoqK/Pz8XGSHS0tUkKC28vMHhMzQxRFtTbIepq6+5x9DRw7rPz9OVPEHEu8J8jZi/v//rPDzRSkniRUQTgb5WNkB7e4l6iI6nV1eTc4C+vsLZPUbymgh/AAB+foJ6i5CqAFWSZySBf4G+vsK/wL+/wcPvTz/CtrzZg4P/v//AvsLMzMwAAAAJKk8rOEUHGjHsJSclKzMbJS4qMzs3RVETM1dKWGYOFBvV1NZMU1pFSlHKys0ECA4oRmu0trlONyocPGJlaG2QlJmnqKxvg5JtdHqHio5ZZW6NKy9rRy/3QkLxV1wAHkTlBxP///+Rm6aIEiP1NTT6+PSZpK1ufIo3JRnmFBno5+kMLFBvKjDOy8//AAAXNVp/f3+bmZukakMhP2M1UXRtWEuEVzqxKivkNTXw5td6/rtbAAAAgHRSTlMH/hj0//8U/lnb/hHU4//x6aAXnP/qBQJb/gSgnGn4XJX/lP//Yf755QSfWbD//xObBv+c/f8CvGgD/4By/5EQLpAEggoA/v7+/v7+/v7+/v78/v78/v3+/v3+/v7//v7+/v/9/v3/Av7/+v3+/f/+/tX/1AGwAmj///7///9w/t41SrgAAAnkSURBVHjanZiJd9pIEofB9oLBF05ix06cY3Jn7tmZ2fvelVq01LoBIUBgZ7xmsXGcncQZx5P4X99fdQsQPrL7th4PSa2qr6urS33ltIm8vkX/hcLGxsbq6v2VyuIiU7K4uLJacYarG4UCadzK2Gi5jL2m/fmz1UogBBlxJthYhMWZRVdRWf1sXapeBKxr33wYPGEWV2KwKTFUqWWx4uBDAcoXALe0a7ODWT4W81IACdSuTZqRG9vfG1Sr2yb/r2JuV6uDe2NCCrimfahC8hOAZWWtMg9mnjQ/wCQDSO1np6uCqOs5H6pZQk7F754sfG+qusfCyBHGJgUqCFL5nopkTvbfteoIIAISIdI+JNqoK4V8xzh/r7Svyd4E4PXrdcWkGJpTYpiWZRrGVBk3U8Dsegq4lTZgAshgADgnshvSMNwiwLgB1eq/R6Z89Mc/Bpj95vVrANbHDgBgpa0d5Y8KYkYQ1zEAUfgtAGkXKgAZI1a+kIJvACKygqIJgLoSHhx/eg4gApF+QrIXRNYDfFQTwKfH67IbLwCE6npmWhRElQaqCJ9Ipgmfy16YmV+7BIDGUv0UxLTtTEKmAGvzM3u5f5TmX2SCOLInddSvAKNkQpExBfhN6Ve5rcadCx6k6qahAJNsZFSUAdxpbOXChvXdOcAoXmiwmQFQC6Zj8MJq/Jj7sc3PNyF1gFspgI0doIEqAxhwALx2PgNgDuxVfZwzBUA+m6NGmdMeXALojb9DZCABuOVUWonygZ8H5CUgGgO2TQserFDU5aBoUkeyTqvTQKF0gCKSAUQEOMhnATJbBYZxLnzHcehT6CSdxFFjuyldez/tQQZQNC2fzHq+ZeHi+D6lso9vQz4hq30fmPOAYgbAfCkYt9IJgmqU18DHXYB3llW8GpBqYxCS0edyUKILfdYYmeRbMTsGFCXgyQRAfU9Ghmtx14hLQ9zyTinGPw1thurSCaAMwNNWeQLgeG9SRYbJ3CA8O4NpfHb2SLiMagfAsAxrDBiUD0q5t88+H4wKZpFo6RhqMCPwzs4Sw0jOzrzAZKORNQt48fmzt7m/fP3XH16SzEoAN1IAt4zuoxYeeetRgk9IAfBoRFSVtPjhs69ncnva1v7Z5ubai0H15SwaT02VEHTDqAdM/MjYcOm3MvuyOnixtrl5tP8YA8qeVmq0n4Zzc3Obm5sxc12EQOmqYUgODdxAOflg1FwWb24+gnr4tP20pM1gSFuq7+p23RkePJzb3/faDnddk7rSdcnKUFdJdXmvfbS/P/fwYOjUbX23vqQdE+CdrZPs6nr9k354dBR2AyOtkDyR8cc16NK7/id1XYltv1vS9gCo13Vm07Pi2A4gXjvmtVqaOfDbitve0cNnjq0sSbXJdAA0BdAZO0nfKBV4MgdHTLdWc7nfDece9ntjY7qpCxi8WyTAQhMA+gjxQv6kxi6ac+B5jW6r4YUHcHt3VDP9mgxzByhjgM16iS+YLl/rE8i74UF/mDHWVRWYepKesEcAmwBxv931RRqfNBgSkjFWb+y68LsH/R7D3eKCBKAXWK+xv9/2GVOVjMXOGKclTDjt/aM24pkCcgSwfQ850EoEq+tXC1B15g9b0A19ArwqEECvN/UTAQ8a/XbZZ/bV9rBh/i/brUfwNmB6cwyQQWj8sdUvr4HwEQfIfq3c74cNGcMRAFHUbRH04k75u1KFNXX7KsAJ65TWyp2kF8AeTX91LAFAUeegb/04GQr7I0EIOknspzmDlr9aUAC0pq6SmYb0jwAYTTu27KoTshh5QAXNpaat2omrfUUI0ly0T5pK45WWAuirJUiz+ZHq055QSspCAhZe6cZICFKHgm1fblqvj4yVugRoi5OSFALVk5OTJgk53SRLsoWxOaX6SstdBEjZHefxJJkvaulvrgT8byIBOe268X/LdemBCiJNgqq05l6lf/6FToCbaAI2AdaNL764QSsLHYAruhADnKFjqSduQGjCRhNuAvDG9v1l9guIjRlAN1h8RTKwmBs61ixLpMuXAx+ABQngv/teATAd6AaPr2iBSQDs/2yo3rC+X2b2G9mEN7q1HLEbKMQCCh64XHSGHSnpJb1nFprAjZU66fLIsmQMcgDQtIkUoSyBB6755Q+XyVredAlAOrpNE4+dAuxdlSU9mzLIsFj+5T8vkZd5hibsGgbrqVTblQBtfomyzF1xMXOvGLVdTOW9J8V/XZBi2aFlTs1dMblUh9nS/M2c9vY6PDDy1fcR264WXVP4rN9bWvKXBC23er0luewSvkhaWLCZZrG6zb58X80b5MF8AR7cB8CcHVTLcXUw4GYP4zYWOjQnY6WEFZu8xTxJi9DYjAaD2V65OiiaBHirSQBypPJ+2+kVixXL6nZ9MiDBNO+f7nD1CEbS6prBk2LeqWwXT018bSkAQUWaIoOpHiMI5GLKdaPT5R3I8nIUWWDQ2i/w4RqlOv3tGvp9ArzdEGy8Pw8C0w84ajZrtSiKfv75p592dqKfd2iSNmtYbRoBG23oTRGszpMHG72Edno+/RKf+4HlYl1cqx26hzsARIdRtLxTMwWr+cw34iRQq1k/GDoPJKAkMvt1CtsIEOV3ln8qR/koX16WAAdNyGzlLXFXArzpramLqCvATjTy4DQigIs0mD4YCWUQw6mdJaP4WQAYaPoIcHgYMAAsY3ofLDwJ8KYAAiMLACavEACECFE8tPipzxHHc4AjAsyU2OSIQQis8ngNHlROo3x+53AlfxihHzlfLrMaQi/8zL6OlSgG2oLcLss9hRQhsPvj0Sn2PW4UrRzu7LhYg0enjJaeYqRFpxxCbn2PZ1YrznkRSEFKBuQCHKghfaKyE2QBJKvasTqEKRQKG+R9Rpi5jPTlLmUwFozYB8ROgO2LSKtf2iiogzUCHNPNCjrPmT4pEHx8FoIh9B3tKLkME1bUt8nm5vgc6WZuYdGs8V633T446Pdb3W7Hj4dWEMhDOXmgMOy0/F7CWu12twfV67nCzexJ1rG2ymsBFpaNOc8LG57nxY3Ab7RafStpQeLE8+biVjvwGqEXspr1e+V35jCucMeNPe+g7YVYnoKBzd5cF2ZJAH/6LZSHQbsVhLjzfPfOJceBM7dj8gCAEDot7nt3EzzdDZy7YYhyrxE8BIDunNuXHkgCEIYhvMdfgwVe2CV3w7bVnfMabVo3h/0kJBUAFi7xYOGBR+ZkD6sG7Mmb0GtZideCd4hDtysBqwt7lzVBe3zkzUnxgqR9t9VQNBD8Rl+Ed0VjyOMjlB09hvJFwJ428/jx37/909bWt1urJUg4loPAt4KYlwKrsvXgwYM/zGiXeXBeZgpfzaTyVeFOENxe0G7fuaiWBexJ+dvM3t5FvY1f78lq957vPX+eff8f6So63UfgiakAAAAASUVORK5CYII=';
+      // The admin roster entry for the ALC-42 Phase VII still points at assets/TrainIcons (16).png,
+      // which was removed on Oct 6; its art now lives at assets/alc42-phase7.png.
       function rrSpecialUnitIconUrl(raw) {
         const u = (raw != null && String(raw).trim()) ? String(raw).trim() : null;
-        if (u && /TrainIcons(%20| )\(16\)\.png$/i.test(u)) return RR_ALC42_PHASE7_ICON;
+        if (u && /TrainIcons(%20| )\(16\)\.png$/i.test(u)) return '/assets/alc42-phase7.png';
         return u;
       }
       async function loadSpecialUnitsFromFirestore() {
@@ -9496,33 +9513,33 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         each(typeof markers !== 'undefined' ? markers : null, function(vid) {
           const info = (typeof trainInfo !== 'undefined' && trainInfo[vid]) || {};
-          markers[vid].setIcon(createTrainIcon(info.delayMinutes, vid));
+          rrSetMarkerIcon(markers[vid], createTrainIcon(info.delayMinutes, vid));
         });
         each(typeof amtrakMarkers !== 'undefined' ? amtrakMarkers : null, function(vid) {
           const info = (typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) || {};
-          amtrakMarkers[vid].setIcon(createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
+          rrSetMarkerIcon(amtrakMarkers[vid], createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
         });
         each(typeof mnrMarkers !== 'undefined' ? mnrMarkers : null, function(vid) {
           const info = (typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) || {};
-          mnrMarkers[vid].setIcon(createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
+          rrSetMarkerIcon(mnrMarkers[vid], createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
         });
         each(typeof lirrMarkers !== 'undefined' ? lirrMarkers : null, function(vid) {
           const info = (typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) || {};
-          lirrMarkers[vid].setIcon(createLirrIcon(info.trainNum));
+          rrSetMarkerIcon(lirrMarkers[vid], createLirrIcon(info.trainNum));
         });
         each(typeof njtMarkers !== 'undefined' ? njtMarkers : null, function(vid) {
           const info = (typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) || {};
           const special = getSpecialForVehicle('njt', null, info.trainNum);
           const locoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
-          njtMarkers[vid].setIcon(createNjtIcon(locoType, info.trainNum));
+          rrSetMarkerIcon(njtMarkers[vid], createNjtIcon(locoType, info.trainNum));
         });
         each(typeof metraMarkers !== 'undefined' ? metraMarkers : null, function(vid) {
           const info = (typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) || {};
-          metraMarkers[vid].setIcon(createMetraIcon(info.trainNum));
+          rrSetMarkerIcon(metraMarkers[vid], createMetraIcon(info.trainNum));
         });
         each(typeof marcMarkers !== 'undefined' ? marcMarkers : null, function(vid) {
           const info = (typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) || {};
-          marcMarkers[vid].setIcon(createMarcIcon(info.trainNum));
+          rrSetMarkerIcon(marcMarkers[vid], createMarcIcon(info.trainNum));
         });
       }
       function rrReportIconUrl(agency, vehicleId, trainNumber) {
@@ -9866,7 +9883,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } else if (!hasUnit && rosterSelf) {
           body = '<div class="loco-report-label">Special unit</div><div class="loco-report-unit">' + escFn((vid + ' ' + (rosterSelf.name || '')).trim()) + '</div>';
         } else if (!hasUnit) {
-          body = '<div class="loco-report-label">Reported unit</div><div class="loco-report-unit is-empty">None yet</div>';
+          body = '<div class="loco-report-label">Reported unit</div><div class="loco-report-unit is-empty">' + (window.__rrTrainReportsLoadedAt ? 'None yet' : 'Checking reports...') + '</div>';
         } else {
           const unit = formatTrainReportLocoLabel(rep);
           const whenTs = rep.updatedAt || rep.createdAt;
@@ -11420,30 +11437,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }));
         return rows;
       }
-      async function loadSavedWeekWinner(weekId) {
-        if (!db || !weekId) return null;
-        try {
-          const snap = await db.collection('leaderboardWeeks').doc(weekId).get();
-          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {});
-        } catch (_) {}
-        return null;
-      }
-      async function saveWeekWinner(weekId, winner) {
-        if (!db || !weekId || !winner) return winner;
-        try {
-          const ref = db.collection('leaderboardWeeks').doc(weekId);
-          const snap = await ref.get();
-          if (snap.exists) return Object.assign({ weekId: weekId }, snap.data() || {}, winner);
-          await ref.set({
-            weekId: weekId, uid: winner.uid || null, name: winner.name || '',
-            photoURL: winner.photoURL || null, reports: winner.reports || 0, points: winner.points || 0,
-            savedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch (err) {
-          console.warn('[leaderboard] save winner skipped', err && err.message ? err.message : err);
-        }
-        return winner;
-      }
       async function renderWeeklyLeaderboard() {
         const listEl = document.getElementById('weekly-leaderboard-list');
         const emptyEl = document.getElementById('weekly-leaderboard-empty');
@@ -11473,13 +11466,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const last = buildWeeklyLeaderboardRows(-1);
         await hydrateLeaderboardPhotos(last.rows);
-        let winner = last.rows[0] || null;
-        const saved = await loadSavedWeekWinner(last.week.weekId);
-        if (saved && saved.uid) {
-          winner = { uid: saved.uid, name: saved.name || (winner && winner.name) || 'Anonymous', photoURL: saved.photoURL || (winner && winner.photoURL) || '', reports: Number(saved.reports) || (winner && winner.reports) || 0, points: Number(saved.points) || (winner && winner.points) || 0 };
-        } else if (winner) {
-          await saveWeekWinner(last.week.weekId, winner);
-        }
+        const winner = last.rows[0] || null;
         if (winner && winner.reports > 0) {
           if (winWrap) winWrap.hidden = false;
           if (winPhoto) winPhoto.innerHTML = rrLbPhotoHtml(winner.photoURL, winner.name, 'rr-lb-winner-photo');
@@ -11614,6 +11601,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         specialIcons = {};
         console.log('%c[SpecialIcons] Apps Script icon feed disabled — using roster + local HSP/F40 assets', 'color:#27ae60');
       }
+      // setIcon replaces the marker's DOM node, so skip it unless the icon options differ.
+      function rrSetMarkerIcon(m, icon) {
+        const cur = m.options.icon;
+        if (cur === icon || JSON.stringify(cur.options) === JSON.stringify(icon.options)) return;
+        m.setIcon(icon);
+      }
+      // Popups bound with a function are built from the latest data when opened; an open one is rebuilt in place.
+      function rrRefreshOpenPopup(m) {
+        if (m.isPopupOpen()) m.getPopup().update();
+      }
       function createTrainIcon(delayMinutes, vehicleId) {
         const delayKey = (delayMinutes === null || delayMinutes <= 5) ? 'onTime'
                        : (delayMinutes <= 15) ? 'delayed'
@@ -11742,7 +11739,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let showAmtrak = true;
       // VIA Rail trains arrive in the Amtraker feed (train numbers 'v1', provider 'Via'); own toggle.
       let showVia = true;
-      let rrViaShapesLoaded = false;
       try { showVia = localStorage.getItem('rr_showVia') !== '0'; } catch (_) {}
       // A share link to a VIA train shows it even if the visitor turned the layer off; the saved choice is not touched.
       try {
@@ -11847,25 +11843,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       startLoadingTips();
       setLoadingProgress(8, 'Starting...');
-      await withTimeout(loadSpecialIcons(), 500, 'loadSpecialIcons');
+      loadSpecialIcons();
       setLoadingProgress(18, 'Ready for reports...');
       wireAuthUI();
       wireReportTrainUI();
       wireSpecialsBoardUI();
       wireWeeklyLeaderboardUI();
-      setLoadingProgress(20, 'Loading train reports...');
-      await withTimeout(loadTrainReports(), 5000, 'loadTrainReports');
-      setInterval(loadTrainReports, 7 * 60 * 1000);
-      setLoadingProgress(22, 'Loading special locomotives...');
-      await withTimeout(loadSpecialUnitsFromFirestore(), 5000, 'loadSpecialUnitsFromFirestore');
-      setInterval(function() {
-        loadSpecialUnitsFromFirestore().catch(function() {});
-      }, 7 * 60 * 1000);
-      setLoadingProgress(23, 'Loading verified reporters...');
-      await withTimeout(loadVerifiedReporters(), 5000, 'loadVerifiedReporters');
-      setInterval(function() {
-        loadVerifiedReporters().catch(function() {});
-      }, 7 * 60 * 1000);
+      // Train fetches don't wait for these. Markers built before they finish are rebuilt by refetching, which the browser usually serves from cache (the Worker sends max-age 15 to 30 s on feeds).
+      Promise.allSettled([loadTrainReports(), loadSpecialUnitsFromFirestore(), loadVerifiedReporters()]).then(function() {
+        [[markers, fetchTrains], [amtrakMarkers, fetchAmtrakTrains], [mnrMarkers, fetchMnrTrains], [lirrMarkers, fetchLirrTrains],
+         [metraMarkers, fetchMetraTrains], [njtMarkers, fetchNjtTrains], [marcMarkers, fetchMarcTrains]].forEach(function(pair) {
+          if (Object.keys(pair[0]).length) pair[1]();
+        });
+      });
+      rrLivePoll(loadTrainReports, 7 * 60 * 1000);
+      rrLivePoll(loadSpecialUnitsFromFirestore, 7 * 60 * 1000);
+      rrLivePoll(loadVerifiedReporters, 7 * 60 * 1000);
       // Hundreds of station dots as separate images made panning and zooming slow, so they are
       // drawn on one canvas in their own pane, above route lines and below trains.
       map.createPane('rrStations').style.zIndex = 450;
@@ -12164,6 +12157,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       return stops;
     }
+    // Only completed flags and actual times are read back, so predictions and delays do not count as new information.
+    function rrStopActualsAddInfo(storedStops, newStops) {
+      if (!Array.isArray(storedStops)) return true;
+      const byId = {};
+      storedStops.forEach(function(s) { if (s) byId[s.stopId || s.name] = s; });
+      return newStops.some(function(n) {
+        const o = byId[n.stopId || n.name];
+        if (!o) return true;
+        return (n.completed && !o.completed) || (n.actual && n.actual !== o.actual);
+      });
+    }
     function rrSaveStopActuals(agency, trainNumber, serviceDate, stops) {
       if (typeof db === 'undefined' || !db || !stops || !stops.length) return;
       // Firestore only accepts stop actuals from signed-in users.
@@ -12183,6 +12187,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           delayMinutes: Number(s.delayMinutes) || 0
         };
       });
+      // A stored copy newer than this is trusted, so repeated popups and refreshes by many visitors do not rewrite it.
+      const stored = rrStopActualMem[id];
+      if (stored && (Date.now() - (stored._at || 0)) < 180000 && !rrStopActualsAddInfo(stored.stops, payloadStops)) return;
       const last = stops[stops.length - 1] || {};
       const lastDate = last.scheduledTime || last.predictedTime || last.actualTime || Date.now();
       const lastMs = (lastDate && lastDate.getTime) ? lastDate.getTime() : Number(lastDate) || Date.now();
@@ -12196,9 +12203,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         expiresAt: firebase.firestore.Timestamp.fromMillis(expires),
         stops: payloadStops
       };
-      db.collection('trainStopActuals').doc(id).set(doc, { merge: true }).then(function() {
-        rrStopActualMem[id] = Object.assign({ _at: Date.now(), stops: payloadStops }, doc);
-      }).catch(function(e) {
+      // Set before the write resolves so calls made while it is in flight are skipped too.
+      const previous = rrStopActualMem[id];
+      rrStopActualMem[id] = Object.assign({ _at: Date.now(), stops: payloadStops }, doc);
+      db.collection('trainStopActuals').doc(id).set(doc, { merge: true }).catch(function(e) {
+        if (previous) rrStopActualMem[id] = previous; else delete rrStopActualMem[id];
         console.warn('[stopActuals] save failed', e && e.message);
       });
     }
@@ -12206,9 +12215,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     async function rrRecordMbtaMapActuals(vehicles) {
       if (!auth || !auth.currentUser || !db || !vehicles || !vehicles.length) return;
       if (typeof apiUrl !== 'function') return;
+      const tripIds = vehicles.map(function(v) {
+        return v && v.relationships && v.relationships.trip && v.relationships.trip.data && v.relationships.trip.data.id;
+      }).filter(Boolean);
+      if (!tripIds.length) return;
       let pred;
       try {
-        const res = await fetch(apiUrl('/api/mbta/predictions?filter[route_type]=2&include=stop&page[limit]=1000'));
+        // MBTA refuses filter[route_type] on its own, so ask for the trips on the map.
+        const res = await fetch(apiUrl('/api/mbta/predictions?filter[trip]=' + tripIds.join(',') + '&include=stop'));
         if (!res.ok) return;
         pred = await res.json();
       } catch (_) { return; }
@@ -12827,8 +12841,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Prefer live Amtrak departed stamps; Firebase fills gaps for already-passed stops missing times
           rrSaveStopActuals('amtrak', num, svc, stops);
           if (amtrakMarkers[vid] && amtrakMarkers[vid].isPopupOpen && amtrakMarkers[vid].isPopupOpen()) {
-            const info = amtrakTrainInfo[vid] || t;
-            amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
             amtrakMarkers[vid].getPopup().update();
             scrollStopsListToNextStop(amtrakMarkers[vid].getPopup());
           }
@@ -13100,10 +13112,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (!amtrakAllTrains) amtrakAllTrains = [];
               const isVia = rrIsViaTrain(t);
               // VIA trains stay out of Amtrak lookups (My Trips, station dots, actuals)
-              if (!isVia) {
-                amtrakAllTrains.push(t);
-                try { harvestAmtrakStationDots(t); } catch (_) {}
-              }
+              if (!isVia) amtrakAllTrains.push(t);
               if (!t || t.lat == null || t.lon == null) { skipped++; return; }
               const trainNum = t.trainNum || t.trainNumRaw || k;
               const vid = 'amtrak-' + (t.trainID || trainNum);
@@ -13122,7 +13131,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 isVia: isVia
               });
               amtrakTrainInfo[vid] = info;
-              if (!isVia) { try { harvestAmtrakStationDots(t); } catch (_) {} }
               const icon = createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t);
               const amtrakLabelInfo = buildCyclingTrainInfo({
                 route: info.routeName || (isVia ? 'VIA Rail' : 'Amtrak'),
@@ -13134,17 +13142,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               });
               if (amtrakMarkers[vid]) {
                 amtrakMarkers[vid].setLatLng([lat, lng]);
-                amtrakMarkers[vid].setIcon(icon);
-                if (amtrakMarkers[vid].getPopup()) {
-                  amtrakMarkers[vid].setPopupContent(createAmtrakPopupContent(vid, info));
-                } else {
-                  amtrakMarkers[vid].bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
-                }
+                rrSetMarkerIcon(amtrakMarkers[vid], icon);
+                rrRefreshOpenPopup(amtrakMarkers[vid]);
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
                 updated++;
               } else {
                 const m = L.marker([lat, lng], { icon: icon });
-                m.bindPopup(createAmtrakPopupContent(vid, info), rrPopupOpts());
+                m.bindPopup(function() { return createAmtrakPopupContent(vid, amtrakTrainInfo[vid]); }, rrPopupOpts());
               m.on('popupopen', function() {
                 if (isVia) return;
                 try { rrHydrateAmtrakStopActuals(vid, amtrakTrainInfo[vid] || info); } catch (_) {}
@@ -13777,15 +13781,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (mnrMarkers[vid]) {
               mnrMarkers[vid].setLatLng([info.lat, info.lng]);
-              mnrMarkers[vid].setIcon(icon);
-              if (mnrMarkers[vid].getPopup()) {
-                mnrMarkers[vid].setPopupContent(createMnrPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(mnrMarkers[vid], icon);
+              rrRefreshOpenPopup(mnrMarkers[vid]);
               applyCyclingLabel(mnrMarkers[vid], mnrLabelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createMnrPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createMnrPopupContent(vid, mnrTrainInfo[vid]); }, rrPopupOpts());
               applyCyclingLabel(m, mnrLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -14204,15 +14206,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (lirrMarkers[vid]) {
               lirrMarkers[vid].setLatLng([info.lat, info.lng]);
-              lirrMarkers[vid].setIcon(icon);
-              if (lirrMarkers[vid].getPopup()) {
-                lirrMarkers[vid].setPopupContent(createLirrPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(lirrMarkers[vid], icon);
+              rrRefreshOpenPopup(lirrMarkers[vid]);
               applyCyclingLabel(lirrMarkers[vid], lirrLabelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createLirrPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createLirrPopupContent(vid, lirrTrainInfo[vid]); }, rrPopupOpts());
               applyCyclingLabel(m, lirrLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -14579,15 +14579,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (metraMarkers[vid]) {
               metraMarkers[vid].setLatLng([info.lat, info.lng]);
-              metraMarkers[vid].setIcon(icon);
-              if (metraMarkers[vid].getPopup()) {
-                metraMarkers[vid].setPopupContent(createMetraPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(metraMarkers[vid], icon);
+              rrRefreshOpenPopup(metraMarkers[vid]);
               applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createMetraPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createMetraPopupContent(vid, metraTrainInfo[vid]); }, rrPopupOpts());
               applyCyclingLabel(m, metraLabelInfo, true);
               const zoom = map.getZoom();
               if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
@@ -14869,7 +14867,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         info.stops = stops;
         if (stops.length) info.destName = stops[stops.length - 1].name || info.destName;
         const m = njtMarkers[vid];
-        if (m && m.getPopup()) m.setPopupContent(createNjtPopupContent(vid, info));
+        if (m) rrRefreshOpenPopup(m);
       }
       window.refreshNjtTrain = async function(vid) {
         if (vid && njtTrainInfo[vid] && njtTrainInfo[vid].trainNum) {
@@ -14924,15 +14922,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             });
             if (njtMarkers[vid]) {
               njtMarkers[vid].setLatLng([info.lat, info.lng]);
-              njtMarkers[vid].setIcon(icon);
-              if (njtMarkers[vid].getPopup()) {
-                njtMarkers[vid].setPopupContent(createNjtPopupContent(vid, info));
-              }
+              rrSetMarkerIcon(njtMarkers[vid], icon);
+              rrRefreshOpenPopup(njtMarkers[vid]);
               applyCyclingLabel(njtMarkers[vid], labelInfo, false);
               updated++;
             } else {
               const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(createNjtPopupContent(vid, info), rrPopupOpts());
+              m.bindPopup(function() { return createNjtPopupContent(vid, njtTrainInfo[vid]); }, rrPopupOpts());
               m.on('popupopen', function() { hydrateNjtPopupStops(vid); });
               applyCyclingLabel(m, labelInfo, true);
               const zoom = map.getZoom();
@@ -15249,8 +15245,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       }
 
+      let mbtaStationsRequested = false;
       async function fetchStations() {
-        if (!showMbta) return;
+        if (!showMbta) {
+          if (showMnr || showLirr || showMetra) plotStaticAgencyStationDots();
+          return;
+        }
+        if (mbtaStationsRequested) return;
+        mbtaStationsRequested = true;
         try {
           const res = await fetch(stopsUrl);
           const data = await res.json();
@@ -15307,7 +15309,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             stationMarkers[g.stopIds[0]] = m;
             if (showStations) m.addTo(map);
           }
-        } catch (e) { console.error("Stations error", e); }
+        } catch (e) { mbtaStationsRequested = false; console.error("Stations error", e); }
         plotStaticAgencyStationDots();
       }
       let amtrakAllTrains = [];
@@ -15380,8 +15382,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else { if (map.hasLayer(grp)) map.removeLayer(grp); }
         });
       }
-      async function loadStaticGtfsShapes(onlyIds) {
-        let agencies = [
+      const gtfsShapesRequested = {};
+      async function loadStaticGtfsShapes() {
+        const agencies = [
           { id: 'mbta', file: rrAssetUrl('/assets/shapes/mbta.json'), fallback: '#800080' },
           { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
           { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
@@ -15392,8 +15395,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // VIA Rail (yellow, same as the VIA badge); precomputed from VIA's GTFS shapes.txt
           { id: 'via', file: rrAssetUrl('/assets/shapes/via.json'), fallback: VIA_COLOR }
         ].filter(function(ag) {
-          if (Array.isArray(onlyIds) && onlyIds.indexOf(ag.id) < 0) return false;
-          if (ag.id === 'via') return !!showVia && !rrViaShapesLoaded;
+          if (gtfsShapesRequested[ag.id]) return false;
+          if (ag.id === 'via') return !!showVia;
           if (ag.id === 'mbta') return !!showMbta;
           if (ag.id === 'mnr') return !!showMnr;
           if (ag.id === 'lirr') return !!showLirr;
@@ -15403,14 +15406,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (ag.id === 'marc') return !!showMarc;
           return true;
         });
-        let totalRoutes = 0, totalPolys = 0;
-        if (agencies.some(function(ag) { return ag.id === 'via'; })) rrViaShapesLoaded = true;
-        for (const ag of agencies) {
+        agencies.forEach(function(ag) { gtfsShapesRequested[ag.id] = true; });
+        const loaded = await Promise.all(agencies.map(async function(ag) {
           try {
             const res = await fetch(ag.file);
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            const data = await res.json();
-            const routes = (data && data.routes) || [];
+            return await res.json();
+          } catch (e) {
+            delete gtfsShapesRequested[ag.id];
+            console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
+            return null;
+          }
+        }));
+        let totalRoutes = 0, totalPolys = 0;
+        // Files arrive in any order; adding layers in list order keeps the stacking stable.
+        agencies.forEach(function(ag, i) {
+          const data = loaded[i];
+          if (!data) return;
+          try {
+            const routes = data.routes || [];
             try {
               if (typeof rrRegisterTripShapes === 'function') rrRegisterTripShapes(ag.id, routes);
               else if (typeof window.rrRegisterTripShapes === 'function') window.rrRegisterTripShapes(ag.id, routes);
@@ -15442,11 +15456,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             totalPolys += agencyPolys;
             console.log('%c[Shapes] ' + ag.id.toUpperCase() + ': ' + routes.length + ' routes, ' + agencyPolys + ' polylines', 'color:#27ae60');
           } catch (e) {
+            delete gtfsShapesRequested[ag.id];
             console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
-            if (ag.id === 'via') rrViaShapesLoaded = false;
           }
-        }
-        console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
+        });
+        if (agencies.length) console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
         return { routes: totalRoutes, polylines: totalPolys };
       }
 
@@ -15607,7 +15621,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             };
             if (markers[vid]) {
               markers[vid].setLatLng([lat, lng]);
-              markers[vid].setIcon(createTrainIcon(delay, vid));
+              rrSetMarkerIcon(markers[vid], createTrainIcon(delay, vid));
               updated++;
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, displayRouteName, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
               markers[vid]._info = [
@@ -16038,6 +16052,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             pushItem(vid, m);
           });
         }
+        if (showMarc) {
+          Object.keys(marcMarkers).forEach(function(vid) {
+            const m = marcMarkers[vid];
+            const info = marcTrainInfo[vid] || {};
+            const special = getSpecialForVehicle('marc', null, info.trainNum);
+            if (showOnlySpecial && !special) return;
+            pushItem(vid, m);
+          });
+        }
         return items;
       }
       // Group markers that are within LABEL_CLUSTER_PX of each other (screen space)
@@ -16151,6 +16174,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         unbindIfNotInView(lirrMarkers);
         unbindIfNotInView(metraMarkers);
         unbindIfNotInView(njtMarkers);
+        unbindIfNotInView(marcMarkers);
         applyTrainLabelCollision(inView, shouldShowLabels);
       }
       function updateTrainLabelsVisibilityNow() {
@@ -16188,6 +16212,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         unbindOutside(lirrMarkers);
         unbindOutside(metraMarkers);
         unbindOutside(njtMarkers);
+        unbindOutside(marcMarkers);
 
         const groups = groupOverlappingTrains(inView);
         const soloLabelItems = [];
@@ -16673,7 +16698,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           console.warn('[share] popup html', e);
         }
         const m = r.markerMap && r.markerMap[vid];
-        if (m && m.getPopup()) return m.getPopup().getContent() || '';
+        if (m && m.getPopup()) {
+          // Popups are built when opened, so the content may still be the builder function.
+          const c = m.getPopup().getContent();
+          return (typeof c === 'function' ? c(m) : c) || '';
+        }
         return '';
       }
       function rrNormRouteName(s) {
@@ -16915,6 +16944,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const mapEl = document.getElementById('map');
         document.documentElement.classList.add('rr-train-page');
         document.documentElement.classList.remove('rr-train-page-waiting');
+        // Seasonal (Halloween) logo is for the live map only; train pages get the normal logo
+        try {
+          document.querySelectorAll('img[src*="logo-halloween"]').forEach(function(img) { img.src = '/assets/logo.png'; });
+        } catch (_) {}
         const pageEl = document.getElementById('rr-train-page');
         if (pageEl) pageEl.hidden = false;
         if (status) status.textContent = (page.rname ? page.rname + ' ' : '') + (page.tid || '') + (page.dest ? (' to ' + page.dest) : '');
@@ -18523,6 +18556,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         cycleDict(mnrMarkers);
         cycleDict(lirrMarkers);
         cycleDict(metraMarkers);
+        cycleDict(njtMarkers);
+        cycleDict(marcMarkers);
       }
       document.getElementById('show-stations').addEventListener('change', e => {
         showStations = e.target.checked;
@@ -18553,6 +18588,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const RR_MAP_RAIL_KEY = 'rr_map_railroads';
       const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc'];
       const rrRailPollTimers = {};
+      const rrRailPolls = {};
       function defaultMapRailPrefs() {
         const o = {};
         RR_MAP_RAIL_IDS.forEach(function(id) { o[id] = true; });
@@ -18696,12 +18732,39 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (rrRailPollTimers[key]) {
           try { clearInterval(rrRailPollTimers[key]); } catch (_) {}
           delete rrRailPollTimers[key];
+          delete rrRailPolls[key];
         }
+      }
+      function runRailPoll(key) {
+        const poll = rrRailPolls[key];
+        poll.last = Date.now();
+        const p = poll.fn();
+        if (p && typeof p.then === 'function') {
+          poll.busy = true;
+          const done = function() { poll.busy = false; };
+          p.then(done, done);
+        }
+      }
+      function armRailPollTimer(key) {
+        rrRailPollTimers[key] = rrLivePoll(function() { runRailPoll(key); }, rrRailPolls[key].ms);
       }
       function startRailPoll(key, fn, ms) {
         if (rrRailPollTimers[key]) return;
-        rrRailPollTimers[key] = rrLivePoll(fn, ms);
+        rrRailPolls[key] = { fn: fn, ms: ms, last: Date.now(), busy: false };
+        armRailPollTimer(key);
       }
+      // Hidden tabs skip their ticks, so catch up on return. The timer is re-armed
+      // so the next tick is a full interval after the catch-up fetch.
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) return;
+        Object.keys(rrRailPolls).forEach(function(key) {
+          const poll = rrRailPolls[key];
+          if (poll.busy || Date.now() - poll.last < poll.ms) return;
+          clearInterval(rrRailPollTimers[key]);
+          armRailPollTimer(key);
+          runRailPoll(key);
+        });
+      });
       function startEnabledRailPolls() {
         if (showMbta) startRailPoll('mbta', fetchTrains, 60000);
         else stopRailPoll('mbta');
@@ -18730,9 +18793,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           marc: !!showMarc
         });
       }
+      function loadEnabledRailStatic() {
+        loadStaticGtfsShapes();
+        fetchStations();
+      }
       function onMapRailToggle(agency, enabled) {
         persistMapRailPrefsFromFlags();
         if (enabled) {
+          loadEnabledRailStatic();
           try {
             if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, 60000); fetchTrains(); }
             else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
@@ -18808,6 +18876,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           window._rrRailPickerOnGo = null;
           applyMapRailPrefs(prefs);
           startEnabledRailPolls();
+          loadEnabledRailStatic();
           try {
             if (prefs.mbta) fetchTrains();
             if (prefs.amtrak) fetchAmtrakTrains();
@@ -18919,7 +18988,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           updateAmtrakVisibility();
           try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
           // Lazy: VIA lines are fetched only once VIA is switched on
-          if (showVia && !rrViaShapesLoaded) { try { loadStaticGtfsShapes(['via']); } catch (_) {} }
+          if (showVia) loadStaticGtfsShapes();
           if (showVia) { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
           else if (!showAmtrak) stopRailPoll('amtrak');
         });
@@ -19306,10 +19375,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             // so splash is not blocked on the MBTA shapes waterfall / large amtrak.json.
             setLoadingProgress(35, 'Loading live trains...');
             const firstPaint = [];
-            if (showMbta) {
-              firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
-              firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
-            }
+            firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
+            if (showMbta) firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
             if (showAmtrak) firstPaint.push(withTimeout(fetchAmtrakTrains(), 12000, 'fetchAmtrakTrains'));
             if (showMnr) firstPaint.push(withTimeout(fetchMnrTrains(), 10000, 'fetchMnrTrains'));
             if (showLirr) firstPaint.push(withTimeout(fetchLirrTrains(), 10000, 'fetchLirrTrains'));
@@ -19723,16 +19790,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       };
 
-      // Ask for location when the map is ready — but NEVER on /mytrips without a gesture.
+      // Only resume the watch when permission was already granted, so no prompt appears without a tap.
       // Safari/iOS denies no-gesture geolocation (code 1) and that can poison Special-move Share.
-      try {
-        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-          // Wait for Share or another explicit action before asking for location.
-        } else {
-          startLocationWatch();
-        }
-      } catch (_) {
-        try { startLocationWatch(); } catch (__) {}
+      if (!(typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) && navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(res) {
+          if (res.state === 'granted') startLocationWatch();
+        }).catch(function() {});
       }
     });
     // Legacy email/password/2FA/account-settings code removed — Google Sign up / Log in only.
