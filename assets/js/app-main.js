@@ -13090,7 +13090,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 }
                 amtrakMarkers[vid] = m;
                 const _as = isVia ? null : (specialUnit || getSpecialForVehicle('amtrak', null, trainNum));
-                if ((isVia ? showVia : showAmtrak) && (!showOnlySpecial || _as)) m.addTo(map);
+                if ((isVia ? showVia : showAmtrak) && (!showOnlySpecial || _as) && rrOnlyTrainAllows(amtrakMarkers, vid)) m.addTo(map);
                 created++;
               }
               amtrakLastSeen[vid] = rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, now);
@@ -13724,7 +13724,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               mnrMarkers[vid] = m;
-              if (showMnr) m.addTo(map);
+              if (showMnr && rrOnlyTrainAllows(mnrMarkers, vid)) m.addTo(map);
               created++;
             }
           });
@@ -14149,7 +14149,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               lirrMarkers[vid] = m;
-              if (showLirr) m.addTo(map);
+              if (showLirr && rrOnlyTrainAllows(lirrMarkers, vid)) m.addTo(map);
               created++;
             }
           });
@@ -14522,7 +14522,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               metraMarkers[vid] = m;
-              if (showMetra) m.addTo(map);
+              if (showMetra && rrOnlyTrainAllows(metraMarkers, vid)) m.addTo(map);
               created++;
             }
           });
@@ -14866,7 +14866,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               njtMarkers[vid] = m;
-              if (showNjt) m.addTo(map);
+              if (showNjt && rrOnlyTrainAllows(njtMarkers, vid)) m.addTo(map);
               created++;
             }
           });
@@ -15149,7 +15149,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               m.bindPopup(createMarcPopupContent(vid, info), rrPopupOpts());
               if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(m, labelInfo, true);
               marcMarkers[vid] = m;
-              if (showMarc) m.addTo(map);
+              if (showMarc && rrOnlyTrainAllows(marcMarkers, vid)) m.addTo(map);
               created++;
             }
           });
@@ -15578,7 +15578,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
               }
               markers[vid] = m;
-              m.addTo(map);
+              if (rrOnlyTrainAllows(markers, vid)) m.addTo(map);
               created++;
             }
             trainLastSeen[vid] = rrSeenMs(v.attributes && v.attributes.updated_at, now);
@@ -16576,6 +16576,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let rrTrainPageSpec = null;
       let rrTrainPageStops = null;
       let rrTrainPageCentered = false;
+      let rrOnlyTrain = null;
+      function rrOnlyTrainAllows(markerMap, id) {
+        return !rrOnlyTrain || (rrOnlyTrain.markerMap === markerMap && rrOnlyTrain.id === String(id));
+      }
       function rrPopupHtmlForRow(r) {
         if (!r) return '';
         const vid = r.id;
@@ -16654,6 +16658,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!row || !map) return;
         const keepId = String(row.id);
         const keepMap = row.markerMap;
+        rrOnlyTrain = { id: keepId, markerMap: keepMap };
         function sweep(obj) {
           Object.keys(obj || {}).forEach(function(id) {
             const m = obj[id];
@@ -16973,6 +16978,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const card = document.getElementById('rr-train-page-card');
             if (status) status.textContent = 'That train is not live right now';
             if (card) card.innerHTML = '<p class="rr-modal-hint rr-train-page-empty">That train is not live right now. Open the full map to browse other trains.</p>';
+            rrApplyOnlyThisTrain({ id: '', markerMap: null });
             showNotification('That train is not live right now', 'error');
             return;
           }
