@@ -920,9 +920,10 @@
         if (status) status.textContent = 'Add a username in Account settings first.';
         const toggle = document.getElementById('trip-public-make-toggle');
         if (toggle) toggle.checked = false;
-        if (typeof openAccountSettings === 'function') {
-          try { openAccountSettings(); } catch (_) {}
-        }
+        openAccountSettingsLightbox().then(function() {
+          const field = document.getElementById('account-username');
+          if (field) field.focus();
+        });
         return false;
       }
       if (status) { status.textContent = wantPublic ? 'Publishing…' : 'Updating…'; status.dataset.keep = '1'; }
