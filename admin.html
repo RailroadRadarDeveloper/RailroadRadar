@@ -886,6 +886,7 @@
         console.warn('[admins] bootstrap upsert skipped', err && err.message ? err.message : err);
       }
     }
+    const ACCOUNT_LOGIN_STAMP_MS = 24 * 60 * 60 * 1000;
     async function upsertAccountMirror(user) {
       if (!db || !user || !user.uid) return;
       const uid = String(user.uid);
@@ -913,14 +914,22 @@
           payload.cookiePreferences = currentUserSettings.cookiePreferences !== false;
           if (currentUserSettings.cookieDecidedAt) payload.cookieDecidedAt = currentUserSettings.cookieDecidedAt;
         }
-        let exists = false;
+        let stored = null;
         try {
           const snap = await ref.get();
-          exists = !!(snap && snap.exists);
+          stored = snap && snap.exists ? (snap.data() || {}) : null;
         } catch (readErr) {
-          exists = false;
+          stored = null;
         }
-        if (!exists) payload.createdAt = ts;
+        const loginAt = stored && stored.lastLoginAt;
+        const loginMs = loginAt && typeof loginAt.toMillis === 'function' ? loginAt.toMillis() : 0;
+        const loginFresh = Date.now() - loginMs < ACCOUNT_LOGIN_STAMP_MS;
+        const changed = !stored || Object.keys(payload).some(function(k) {
+          return k !== 'lastLoginAt' && stored[k] !== payload[k];
+        });
+        if (!changed && loginFresh) return;
+        if (loginFresh) delete payload.lastLoginAt;
+        if (!stored) payload.createdAt = ts;
         await ref.set(payload, { merge: true });
       } catch (err) {
         console.warn('[accounts] mirror upsert skipped', err && err.message ? err.message : err);
