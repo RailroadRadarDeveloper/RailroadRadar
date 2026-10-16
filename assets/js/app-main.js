@@ -18588,7 +18588,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         el.setAttribute('aria-hidden', 'true');
       }
       function showRailPickerUi() {
-        try { setLoadingProgress(20, 'Choose railroads to load...'); } catch (_) {}
         const el = document.getElementById('rr-rail-picker');
         if (!el) return;
         el.hidden = false;
@@ -18597,68 +18596,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         el.classList.add('is-open');
         updateRailPickerGoEnabled();
       }
-      function promiseMapRailPrefs() {
-        return new Promise(function(resolve) {
-          if (rrIsShareDeepLink()) {
-            resolve(prefsForShareDeepLink());
-            return;
-          }
-          if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-            resolve(defaultMapRailPrefs());
-            return;
-          }
-          const saved = getMapRailPrefs();
-          const el = document.getElementById('rr-rail-picker');
-          if (saved || !el) {
-            resolve(saved || defaultMapRailPrefs());
-            return;
-          }
-          syncPickerDom(defaultMapRailPrefs());
-          showRailPickerUi();
-          const list = document.getElementById('rr-rail-picker-list');
-          const go = document.getElementById('rr-rail-picker-go');
-          const allBtn = document.getElementById('rr-rail-picker-all');
-          const clearBtn = document.getElementById('rr-rail-picker-clear');
-          const onChange = function() { updateRailPickerGoEnabled(); };
-          if (list && !list.getAttribute('data-wired')) {
-            list.setAttribute('data-wired', '1');
-            list.addEventListener('change', onChange);
-            // clicking the row label already toggles; also allow row click outside label padding
-          }
-          if (allBtn && !allBtn.getAttribute('data-wired')) {
-            allBtn.setAttribute('data-wired', '1');
-            allBtn.addEventListener('click', function() {
-              syncPickerDom(defaultMapRailPrefs());
-              updateRailPickerGoEnabled();
-            });
-          }
-          if (clearBtn && !clearBtn.getAttribute('data-wired')) {
-            clearBtn.setAttribute('data-wired', '1');
-            clearBtn.addEventListener('click', function() {
-              const empty = {};
-              RR_MAP_RAIL_IDS.forEach(function(id) { empty[id] = false; });
-              syncPickerDom(empty);
-              updateRailPickerGoEnabled();
-            });
-          }
-          window._rrRailPickerOnGo = function() {
-            const prefs = readPickerPrefsFromDom();
-            if (!RR_MAP_RAIL_IDS.some(function(id) { return !!prefs[id]; })) return;
-            setMapRailPrefs(prefs);
-            hideRailPicker();
-            window._rrRailPickerOnGo = null;
-            resolve(prefs);
-          };
-          if (go && !go.getAttribute('data-wired')) {
-            go.setAttribute('data-wired', '1');
-            go.addEventListener('click', function() {
-              try {
-                if (typeof window._rrRailPickerOnGo === 'function') window._rrRailPickerOnGo();
-              } catch (err) { console.warn('[rail-picker] go failed', err); }
-            });
-          }
-          updateRailPickerGoEnabled();
-        });
+      function initialMapRailPrefs() {
+        if (rrIsShareDeepLink()) return prefsForShareDeepLink();
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return defaultMapRailPrefs();
+        // Defaults are not saved here, so a visitor who never picks keeps following the default list.
+        return getMapRailPrefs() || defaultMapRailPrefs();
       }
       function stopRailPoll(key) {
         if (rrRailPollTimers[key]) {
@@ -19267,8 +19209,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             try { setupSearch(); } catch (_) {}
             try { window.rrEnsureMyTripsLiveFeeds(); } catch (_) {}
           } else {
-            // Ask which railroads to load (or apply saved / share-link prefs) before any agency fetches/polls.
-            const railPrefs = await promiseMapRailPrefs();
+            const railPrefs = initialMapRailPrefs();
             applyMapRailPrefs(railPrefs);
             startEnabledRailPolls();
             // First paint: live trains (+ MBTA stations) in parallel. Route shapes load in background
