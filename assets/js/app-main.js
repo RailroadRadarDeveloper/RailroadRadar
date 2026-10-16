@@ -9266,6 +9266,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       let trainReports = [];
       let allTrainReports = [];
+      let trainReportsBaseRows = [];
+      let trainReportsHistoryRows = [];
+      let trainReportsFullRows = [];
+      let trainReportsFullFetchedAt = 0;
+      let trainReportsHistoryFetchedAt = 0;
       let trainReportsById = {};
       let activeReportVehicleIds = new Set();
       let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} }; // agency -> reports
@@ -9952,6 +9957,31 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       }
       window.confirmStaleTrainReport = confirmStaleTrainReport;
+      function trainReportRows(snaps) {
+        const rows = [];
+        snaps.forEach(function(snap) {
+          snap.forEach(function(doc) {
+            rows.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          });
+        });
+        return rows;
+      }
+      function rebuildAllTrainReports() {
+        const byId = {};
+        const list = [];
+        trainReportsBaseRows.concat(trainReportsHistoryRows, trainReportsFullRows).forEach(function(rep) {
+          const prev = byId[rep.id];
+          if (!prev) {
+            byId[rep.id] = rep;
+            list.push(rep);
+          } else if (reportTimeMs(rep) > reportTimeMs(prev)) {
+            list[list.indexOf(prev)] = rep;
+            byId[rep.id] = rep;
+          }
+        });
+        allTrainReports = list;
+      }
+      // Reads only what the map and upcoming board need: today's dated reports, undated live MBTA pairings, and future-dated pairings.
       async function loadTrainReports() {
         if (!db) {
           trainReportsLoadFailed = true;
@@ -9959,15 +9989,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return;
         }
         try {
-          const snap = await db.collection('trainReports').get();
-          const rows = [];
-          snap.forEach(function(doc) {
-            const data = doc.data() || {};
-            rows.push(Object.assign({ id: doc.id }, data));
-          });
-          allTrainReports = rows;
+          const col = db.collection('trainReports');
+          const today = nyServiceDateToday();
+          const snaps = await Promise.all([
+            col.where('serviceDate', '==', today).get(),
+            col.where('serviceDate', '==', null).get(),
+            col.where('serviceDate', '>', today).get()
+          ]);
+          trainReportsBaseRows = trainReportRows(snaps);
+          rebuildAllTrainReports();
           // Map / live pairing index: today (and undated MBTA live docs); future kept only in allTrainReports
-          trainReports = rows.filter(function(rep) { return reportIsMapActive(rep); });
+          trainReports = trainReportsBaseRows.filter(function(rep) { return reportIsMapActive(rep); });
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = false;
           window.__rrTrainReportsLoadedAt = Date.now();
@@ -9979,9 +10011,44 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (e) {
           allTrainReports = [];
           trainReports = [];
+          trainReportsBaseRows = [];
+          trainReportsHistoryRows = [];
+          trainReportsFullRows = [];
+          trainReportsHistoryFetchedAt = 0;
+          trainReportsFullFetchedAt = 0;
           rebuildTrainReportIndexes();
           trainReportsLoadFailed = true;
           console.error('%c[trainReports] Load failed', 'color:#e74c3c', e);
+        }
+      }
+      // Reports from the previous Monday on, for the leaderboard and the board's Reports tab. A report can fall in the
+      // window by last update or by service date (pairings submitted ahead of time), so both are queried.
+      async function loadTrainReportHistory(force) {
+        if (!db) return;
+        if (!force && Date.now() - trainReportsHistoryFetchedAt < 60000) return;
+        try {
+          const col = db.collection('trainReports');
+          const win = rrWeekWindow(-1);
+          const snaps = await Promise.all([
+            col.where('updatedAt', '>=', new Date(win.startMs)).get(),
+            col.where('serviceDate', '>=', win.weekId).get()
+          ]);
+          trainReportsHistoryRows = trainReportRows(snaps);
+          trainReportsHistoryFetchedAt = Date.now();
+          rebuildAllTrainReports();
+          window.__rrTrainReportsLoadedAt = Date.now();
+        } catch (e) {
+          console.error('%c[trainReports] History load failed', 'color:#e74c3c', e);
+        }
+      }
+      async function loadAllTrainReports() {
+        if (!db || Date.now() - trainReportsFullFetchedAt < 60000) return;
+        try {
+          trainReportsFullRows = trainReportRows([await db.collection('trainReports').get()]);
+          trainReportsFullFetchedAt = Date.now();
+          rebuildAllTrainReports();
+        } catch (e) {
+          console.error('%c[trainReports] Full load failed', 'color:#e74c3c', e);
         }
       }
       function trainReportDocId(agency, trainNumber, vehicleId, serviceDate) {
@@ -10863,10 +10930,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         return rows;
       }
-      function collectBoardReports() {
-        const src = (typeof allTrainReports !== 'undefined' && allTrainReports && allTrainReports.length)
+      function collectBoardReports(onlyRows) {
+        const src = onlyRows || ((typeof allTrainReports !== 'undefined' && allTrainReports && allTrainReports.length)
           ? allTrainReports
-          : (typeof trainReports !== 'undefined' ? trainReports : []);
+          : (typeof trainReports !== 'undefined' ? trainReports : []));
         return src.filter(function(rep) {
           if (!rep) return false;
           return !isFutureServiceDate(rep.serviceDate);
@@ -11387,9 +11454,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const winWrap = document.getElementById('weekly-leaderboard-winner');
         const winText = document.getElementById('weekly-leaderboard-winner-text');
         const winPhoto = document.getElementById('weekly-leaderboard-winner-photo-slot');
-        if (typeof loadTrainReports === 'function') {
-          try { await loadTrainReports(); } catch (_) {}
-        }
+        await loadTrainReportHistory(true);
         const current = buildWeeklyLeaderboardRows(0);
         await hydrateLeaderboardPhotos(current.rows);
         if (rangeEl) rangeEl.textContent = 'This week \u00b7 ' + rrFmtWeekRange(current.week) + ' \u00b7 ' + ((typeof RR_POINTS_PER_REPORT === 'number') ? RR_POINTS_PER_REPORT : 5) + ' points per report';
@@ -11482,8 +11547,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function openSpecialsBoard() {
         renderSpecialsBoard();
-        renderReportsBoard();
         renderUpcomingBoard();
+        loadAllTrainReports().then(renderReportsBoard);
         const modal = document.getElementById('specials-board-modal');
         if (modal) {
           modal.classList.add('open');
@@ -17244,7 +17309,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           });
           const trains = rrNotifyNormList(prefs.trains);
           if (trains.length && typeof collectBoardReports === 'function') {
-            collectBoardReports().forEach(function(r) {
+            collectBoardReports(trainReportsBaseRows).forEach(function(r) {
               const locoId = r.locoId || r.vehicleId || '';
               if (!rrNotifyEventAllowed(prefs, r.agency, locoId)) return;
               const id = (r.rep && r.rep.id) ? r.rep.id : (r.agency + '|' + locoId + '|' + r.trainNumber + '|' + (r.ms || 0));
