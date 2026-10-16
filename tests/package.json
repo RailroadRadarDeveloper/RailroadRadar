@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "description": "Checks for the RailroadRadar site. Set SITE_DIR to test a folder other than this repo.",
+  "type": "module",
+  "scripts": {
+    "test": "npm run static && npm run smoke && npm run rules",
+    "static": "node static/check.js",
+    "smoke": "playwright test --config smoke/playwright.config.js",
+    "rules": "node rules/run.js",
+    "record": "node smoke/record.js"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@playwright/test": "1.63.0",
+    "firebase": "12.19.0",
+    "firebase-tools": "15.32.1"
+  }
+}

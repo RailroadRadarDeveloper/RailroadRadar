@@ -10,6 +10,19 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000.
 
+## Checks
+
+Every pull request runs three checks: every script parses and every `?v=` hash matches its file, every page loads without errors at desktop and phone width with recorded train data, and the Firestore rules allow and deny what they should. To run them yourself (Node 22, plus Java for the rules check):
+
+```sh
+npm --prefix tests ci && npm --prefix tests exec -- playwright install chromium
+npm --prefix tests test
+```
+
+`npm --prefix tests run static` (or `smoke`, `rules`) runs one check. `SITE_DIR=/path/to/folder` tests another folder. `npm --prefix tests run record` saves fresh responses from the live Worker for the smoke check to replay.
+
+After changing a file that a page loads with `?v=`, set that `?v=` to the value the static check prints.
+
 ## Deploy
 
 GitHub Pages publishes `main` as it is whenever it changes.
