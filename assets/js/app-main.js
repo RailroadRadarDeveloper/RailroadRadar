@@ -18571,6 +18571,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const RR_MAP_RAIL_KEY = 'rr_map_railroads';
       const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc'];
       const rrRailPollTimers = {};
+      const rrRailPolls = {};
       function defaultMapRailPrefs() {
         const o = {};
         RR_MAP_RAIL_IDS.forEach(function(id) { o[id] = true; });
@@ -18714,12 +18715,39 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (rrRailPollTimers[key]) {
           try { clearInterval(rrRailPollTimers[key]); } catch (_) {}
           delete rrRailPollTimers[key];
+          delete rrRailPolls[key];
         }
+      }
+      function runRailPoll(key) {
+        const poll = rrRailPolls[key];
+        poll.last = Date.now();
+        const p = poll.fn();
+        if (p && typeof p.then === 'function') {
+          poll.busy = true;
+          const done = function() { poll.busy = false; };
+          p.then(done, done);
+        }
+      }
+      function armRailPollTimer(key) {
+        rrRailPollTimers[key] = rrLivePoll(function() { runRailPoll(key); }, rrRailPolls[key].ms);
       }
       function startRailPoll(key, fn, ms) {
         if (rrRailPollTimers[key]) return;
-        rrRailPollTimers[key] = rrLivePoll(fn, ms);
+        rrRailPolls[key] = { fn: fn, ms: ms, last: Date.now(), busy: false };
+        armRailPollTimer(key);
       }
+      // Hidden tabs skip their ticks, so catch up on return. The timer is re-armed
+      // so the next tick is a full interval after the catch-up fetch.
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) return;
+        Object.keys(rrRailPolls).forEach(function(key) {
+          const poll = rrRailPolls[key];
+          if (poll.busy || Date.now() - poll.last < poll.ms) return;
+          clearInterval(rrRailPollTimers[key]);
+          armRailPollTimer(key);
+          runRailPoll(key);
+        });
+      });
       function startEnabledRailPolls() {
         if (showMbta) startRailPoll('mbta', fetchTrains, 60000);
         else stopRailPoll('mbta');
