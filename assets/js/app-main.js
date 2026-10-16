@@ -17012,6 +17012,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         rrStartTrainPage._started = true;
         let tries = 0;
+        let gaveUp = false;
         function attempt() {
           tries++;
           const ok = rrRenderTrainPage();
@@ -17022,6 +17023,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             return;
           }
           if (tries >= 25) {
+            gaveUp = true;
             const status = document.getElementById('rr-train-page-status');
             const card = document.getElementById('rr-train-page-card');
             if (status) status.textContent = 'That train is not live right now';
@@ -17033,12 +17035,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         attempt();
         setInterval(function() {
-          if (rrTrainPageSpec) rrRenderTrainPage();
+          if (!gaveUp || rrFindSharedTrain(spec)) rrRenderTrainPage();
         }, 5000);
       }
       function rrOpenSharedTrainOnFullMap(spec) {
         let tries = 0;
+        let userMoved = false;
+        ['pointerdown', 'wheel'].forEach(function(ev) {
+          map.getContainer().addEventListener(ev, function() { userMoved = true; }, { once: true });
+        });
         function attempt() {
+          if (userMoved) return;
           tries++;
           const row = rrFindSharedTrain(spec);
           if (row && row.markerMap && row.markerMap[row.id]) {
@@ -19370,7 +19377,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (bgErr) {
           console.error('[Init] Background load error', bgErr);
         }
-        try { rrWireTrainShare(); } catch (shareErr) { console.warn('[share] wire failed', shareErr); }
       })();
       const menuButton = document.getElementById('menu-button');
       const closePanel = document.getElementById('close-panel');
