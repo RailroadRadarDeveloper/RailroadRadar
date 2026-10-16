@@ -12134,6 +12134,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       return stops;
     }
+    // Only completed flags and actual times are read back, so predictions and delays do not count as new information.
+    function rrStopActualsAddInfo(storedStops, newStops) {
+      if (!Array.isArray(storedStops)) return true;
+      const byId = {};
+      storedStops.forEach(function(s) { if (s) byId[s.stopId || s.name] = s; });
+      return newStops.some(function(n) {
+        const o = byId[n.stopId || n.name];
+        if (!o) return true;
+        return (n.completed && !o.completed) || (n.actual && n.actual !== o.actual);
+      });
+    }
     function rrSaveStopActuals(agency, trainNumber, serviceDate, stops) {
       if (typeof db === 'undefined' || !db || !stops || !stops.length) return;
       // Firestore only accepts stop actuals from signed-in users.
@@ -12153,6 +12164,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           delayMinutes: Number(s.delayMinutes) || 0
         };
       });
+      // A stored copy newer than this is trusted, so repeated popups and refreshes by many visitors do not rewrite it.
+      const stored = rrStopActualMem[id];
+      if (stored && (Date.now() - (stored._at || 0)) < 180000 && !rrStopActualsAddInfo(stored.stops, payloadStops)) return;
       const last = stops[stops.length - 1] || {};
       const lastDate = last.scheduledTime || last.predictedTime || last.actualTime || Date.now();
       const lastMs = (lastDate && lastDate.getTime) ? lastDate.getTime() : Number(lastDate) || Date.now();
@@ -12166,9 +12180,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         expiresAt: firebase.firestore.Timestamp.fromMillis(expires),
         stops: payloadStops
       };
-      db.collection('trainStopActuals').doc(id).set(doc, { merge: true }).then(function() {
-        rrStopActualMem[id] = Object.assign({ _at: Date.now(), stops: payloadStops }, doc);
-      }).catch(function(e) {
+      // Set before the write resolves so calls made while it is in flight are skipped too.
+      const previous = rrStopActualMem[id];
+      rrStopActualMem[id] = Object.assign({ _at: Date.now(), stops: payloadStops }, doc);
+      db.collection('trainStopActuals').doc(id).set(doc, { merge: true }).catch(function(e) {
+        if (previous) rrStopActualMem[id] = previous; else delete rrStopActualMem[id];
         console.warn('[stopActuals] save failed', e && e.message);
       });
     }
