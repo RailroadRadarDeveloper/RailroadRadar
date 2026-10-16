@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Local Firebase emulators for testing RailroadRadar without the real database.",
+  "devDependencies": {
+    "firebase-tools": "15.32.1"
+  }
+}
