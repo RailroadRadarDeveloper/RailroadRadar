@@ -10,7 +10,7 @@
     if (window.__rrBootFailsafe) return;
     window.__rrBootFailsafe = true;
     window.__rrBootReady = false;
-    var CORE = { src: ["leaflet@1.9.4/dist/leaflet.js", "/assets/leaflet.rotatedMarker.js", "firebase-app-compat.js", "/assets/js/app-main.js"], globals: ["L", "firebase"] };
+    var CORE = { src: ["leaflet@1.9.4/dist/leaflet.js", "firebase-app-compat.js", "/assets/js/app-main.js"], globals: ["L", "firebase"] };
     var bootError = null;
     var done = false;
     var started = Date.now();
@@ -147,7 +147,6 @@
   </script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="/assets/leaflet.rotatedMarker.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
   <!-- Firebase compat SDKs (v10.14.0) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
