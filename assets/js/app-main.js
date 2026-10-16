@@ -19772,16 +19772,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       };
 
-      // Ask for location when the map is ready — but NEVER on /mytrips without a gesture.
+      // Only resume the watch when permission was already granted, so no prompt appears without a tap.
       // Safari/iOS denies no-gesture geolocation (code 1) and that can poison Special-move Share.
-      try {
-        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-          // Wait for Share or another explicit action before asking for location.
-        } else {
-          startLocationWatch();
-        }
-      } catch (_) {
-        try { startLocationWatch(); } catch (__) {}
+      if (!(typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) && navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(res) {
+          if (res.state === 'granted') startLocationWatch();
+        }).catch(function() {});
       }
     });
     // Legacy email/password/2FA/account-settings code removed — Google Sign up / Log in only.
