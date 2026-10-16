@@ -114,16 +114,37 @@
       .then(function () { return add('https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js'); })
       .then(function () { if (!firebase.apps.length) firebase.initializeApp(CFG); });
   }
+  // Every write is a read for each viewer, so write at most every WRITE_MIN_MS once the position moved
+  // WRITE_MOVE_M, or every WRITE_HEARTBEAT_MS while still (viewers drop a share after 30 minutes).
+  var WRITE_MIN_MS = 5000;
+  var WRITE_MOVE_M = 20;
+  var WRITE_HEARTBEAT_MS = 60000;
+  var lastSentAt = 0, lastSentLat = null, lastSentLon = null;
+  function metersBetween(lat1, lon1, lat2, lon2) {
+    var R = 6371000, rad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+  function writeDue(coords) {
+    var since = Date.now() - lastSentAt;
+    if (since >= WRITE_HEARTBEAT_MS) return true;
+    return since >= WRITE_MIN_MS && metersBetween(lastSentLat, lastSentLon, coords.latitude, coords.longitude) >= WRITE_MOVE_M;
+  }
   function publish(o, coords) {
     if (stopped()) return;
     if (typeof rrSpecialWriteShare === 'function' && window.rrSpecialShareState) {
       rrSpecialWriteShare(coords, { force: false });
       return;
     }
+    if (!writeDue(coords)) return;
     loadFirebase().then(function () {
       if (stopped()) return;
       var user = firebase.auth().currentUser;
       if (!user || user.uid !== o.uid) return;
+      lastSentAt = Date.now();
+      lastSentLat = coords.latitude;
+      lastSentLon = coords.longitude;
       firebase.firestore().collection('specialMoveShares').doc(user.uid).set({
         uid: user.uid, tripId: o.tripId, title: o.title || 'Live trip', active: true,
         lat: coords.latitude, lon: coords.longitude, heading: coords.heading, speed: coords.speed, startedAt: o.startedAt, expiresAt: o.expiresAt, expireAt: firebase.firestore.Timestamp.fromMillis(Number(o.expiresAt)), updatedAt: Date.now()
