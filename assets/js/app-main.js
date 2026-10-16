@@ -554,14 +554,18 @@
       paintAccountReportStats(stats);
     }
 
-    function showBannedScreen(reason) {
+    // Set by the "Sign in again" link on the ban page. A saved lock alone doesn't redirect then,
+    // so the person can sign in, and the lock clears if the account is no longer banned.
+    const rrBanRecheck = /[?&]recheck=1(&|$)/.test(location.search);
+    function showBannedScreen(reason, fromLock) {
       const msg = reason
         ? ('This account is banned. Reason: ' + reason)
         : 'This account is banned and cannot use the map.';
       try { localStorage.setItem('rrBannedLock', msg); } catch (_) {}
       document.documentElement.classList.add('rr-banned');
+      const recheck = !!fromLock && rrBanRecheck;
       try {
-        if (!/^\/unavailable\.html$/.test(location.pathname)) {
+        if (!recheck && !/^\/unavailable\.html$/.test(location.pathname)) {
           location.replace('/unavailable.html?reason=banned');
           return;
         }
@@ -573,6 +577,14 @@
       const wrap = document.getElementById('rr-banned-screen');
       const text = document.getElementById('rr-banned-reason');
       if (text) text.textContent = msg;
+      const signIn = document.getElementById('rr-banned-signin');
+      if (signIn) {
+        signIn.hidden = !recheck;
+        signIn.onclick = function() {
+          const btnIn = document.getElementById('btn-google-signin');
+          if (btnIn) btnIn.click();
+        };
+      }
       if (wrap) {
         wrap.hidden = false;
         wrap.style.display = 'flex';
@@ -581,7 +593,7 @@
     (function restoreBannedLock() {
       try {
         const msg = localStorage.getItem('rrBannedLock');
-        if (msg) showBannedScreen(msg.replace(/^This account is banned\. Reason: /, '') === msg ? '' : msg.replace(/^This account is banned\. Reason: /, ''));
+        if (msg) showBannedScreen(msg.replace(/^This account is banned\. Reason: /, '') === msg ? '' : msg.replace(/^This account is banned\. Reason: /, ''), true);
       } catch (_) {}
     })();
     // Keep who was banned so /unavailable.html can file an appeal after sign-out.
@@ -599,8 +611,14 @@
       return ban;
     }
     function rrClearBanLock() {
-      try { localStorage.removeItem('rrBannedLock'); localStorage.removeItem('rrBanInfo'); } catch (_) {}
+      let hadLock = false;
+      try {
+        hadLock = !!localStorage.getItem('rrBannedLock');
+        localStorage.removeItem('rrBannedLock'); localStorage.removeItem('rrBanInfo');
+      } catch (_) {}
       document.documentElement.classList.remove('rr-banned');
+      // The banned screen hid the map inline, so reload without ?recheck=1 to bring it back.
+      if (hadLock) location.replace(location.pathname);
     }
     async function checkUserBanned(user) {
       // After rules: non-admins may only read bannedUsers/{ownUid}. Do not query by email.
@@ -7475,7 +7493,7 @@ async function rrSpecialStopSharing(opts) {
       }
       try {
         const btn = document.getElementById('mytrips-guest-signin');
-        if (btn && btn.textContent === 'Signing in…') btn.textContent = 'Get Started';
+        const t = btn && (btn.querySelector('.gsi-text') || btn); if (t && t.textContent === 'Signing in…') t.textContent = 'Continue with Google';
       } catch (_) {}
     }
     function hideMyTripsGuestHome() {
@@ -7969,7 +7987,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           if (sessionStorage.getItem('rrAuthRedirect') === '1') {
             const btn = document.getElementById('mytrips-guest-signin');
-            if (btn) btn.textContent = 'Signing in…';
+            if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Signing in…';
           }
         } catch (_) {}
         rrWireEarlyAuth();
@@ -7989,7 +8007,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               rrSyncMyTripsAuthGate(null);
             try {
               if (typeof showNotification === 'function') {
-                showNotification('Sign-in did not complete. On Safari, allow popups and try Get Started again.', 'error');
+                showNotification('Sign-in did not complete. On Safari, allow popups and try Continue with Google again.', 'error');
               }
             } catch (_) {}
             } catch (_) {}
@@ -8168,7 +8186,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { sessionStorage.setItem('rrAuthRedirect', '1'); } catch (_) {}
           try {
             const btn = document.getElementById('mytrips-guest-signin');
-            if (btn) btn.textContent = 'Signing in…';
+            if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Signing in…';
           } catch (_) {}
           try {
             await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
@@ -8193,10 +8211,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (code === 'auth/popup-blocked') {
             if (rrIsSafariAuthRedirectBroken()) {
               // Redirect fallback would silently fail on Safari/iOS (ITP + cross-origin authDomain).
-              showNotification('Allow popups for railroadradar.com, then tap Get Started again.', 'error');
+              showNotification('Allow popups for railroadradar.com, then tap Continue with Google again.', 'error');
               try {
                 const btn = document.getElementById('mytrips-guest-signin');
-                if (btn) btn.textContent = 'Get Started';
+                if (btn) (btn.querySelector('.gsi-text') || btn).textContent = 'Continue with Google';
               } catch (_) {}
               return;
             }

@@ -1,0 +1,85 @@
+/* Sign in with Google button, dark theme, per developers.google.com/identity/branding-guidelines:
+   fill #131314, 1px #8E918F stroke, #E3E3E3 text, 13/18 medium, 32px tall, 18px G, 10px padding, 8px gap (all buttons), 4px radius,
+   12px | 20px G | 10px | text | 12px. The G is the unaltered standard-color logo. */
+button.gsi-btn, a.gsi-btn {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  box-sizing: border-box !important;
+  display: inline-flex;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-width: 400px;
+  margin: 0;
+  padding: 0 10px !important;
+  background: #131314 !important;
+  border: 1px solid #8E918F !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: #E3E3E3 !important;
+  font-family: 'Google Sans', 'Roboto', arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  letter-spacing: 0.25px !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  vertical-align: middle;
+  transition: background-color .218s, border-color .218s, box-shadow .218s;
+}
+button.gsi-btn[hidden], a.gsi-btn[hidden] { display: none !important; }
+.gsi-btn::before {
+  content: '' !important;
+  position: absolute; inset: 0;
+  background: #FFFFFF; opacity: 0;
+  transition: opacity .218s;
+  pointer-events: none;
+}
+.gsi-btn::after { content: none !important; }
+.gsi-btn:hover::before { opacity: 0.08; }
+.gsi-btn:active::before, .gsi-btn:focus-visible::before { opacity: 0.12; }
+.gsi-btn:hover { box-shadow: 0 1px 2px 0 rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15) !important; }
+.gsi-btn:focus-visible { outline: 2px solid #A8C7FA !important; outline-offset: 2px; border-radius: 4px !important; }
+.gsi-btn::before { border-radius: inherit; }
+.gsi-btn:disabled { cursor: default; opacity: 0.6; }
+.gsi-btn .gsi-icon { display: block; width: 18px; height: 18px; min-width: 18px; margin-right: 8px; }
+.gsi-btn .gsi-icon svg { display: block; width: 18px; height: 18px; }
+.gsi-btn .gsi-text { font: inherit; color: inherit; position: relative; }
+.gsi-btn.gsi-block { display: flex; width: -moz-fit-content; width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; }
+/* Theme by contrast: .gsi-light (Google light theme) on dark surfaces,
+   .gsi-dark (Google dark theme, also the default) on light surfaces. */
+button.gsi-btn.gsi-light, a.gsi-btn.gsi-light {
+  background: #FFFFFF !important;
+  border-color: #747775 !important;
+  color: #1F1F1F !important;
+}
+.gsi-btn.gsi-light::before { background: #303030; }
+.gsi-btn.gsi-light:focus-visible { outline-color: #0B57D0 !important; }
+button.gsi-btn.gsi-dark, a.gsi-btn.gsi-dark {
+  background: #131314 !important;
+  border-color: #8E918F !important;
+  color: #E3E3E3 !important;
+}
+.gsi-btn.gsi-dark::before { background: #FFFFFF; }
+/* Header size (.gsi-compact): 32px tall, 18px G, 13px text, 10px padding, 8px gap. */
+button.gsi-btn.gsi-compact, a.gsi-btn.gsi-compact {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  align-self: center;
+}
+.gsi-btn.gsi-compact .gsi-icon, .gsi-btn.gsi-compact .gsi-icon svg { width: 18px; height: 18px; min-width: 18px; }
+.gsi-btn.gsi-compact .gsi-icon { margin-right: 8px; }
+/* Icon-only mode (a supported Google button mode) for tight headers on phones. */
+@media (max-width: 600px) {
+  .gsi-btn.gsi-compact { width: 32px !important; min-width: 32px; padding: 0 !important; }
+  .gsi-btn.gsi-compact .gsi-icon { margin-right: 0; }
+  .gsi-btn.gsi-compact .gsi-text { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

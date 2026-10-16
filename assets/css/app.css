@@ -5575,16 +5575,7 @@
         padding: 6px 8px;
         font-size: 11px;
       }
-      /* Shorter login label on narrow screens */
-      #btn-google-signin {
-        font-size: 0;
-        padding: 6px 10px;
-      }
-      #btn-google-signin::after {
-        content: 'Log in';
-        font-size: 11px;
-        font-weight: 700;
-      }
+      /* Google sign-in button goes icon-only on narrow screens (google-signin.css) */
       #btn-report-train-header { font-size: 11px; padding: 6px 8px; }
       .header-user-avatar {
         width: 32px;
