@@ -21,6 +21,8 @@ const USERS = {
   admin: { email: 'admin@example.com' },
   viewer: { email: 'viewer@example.com' },
   fakeViewer: { email: 'viewer@example.com', email_verified: false },
+  noperms: { email: 'noperms@example.com' },
+  ver: { email: 'ver@example.com' },
   owner: { email: 'turokerr@gmail.com' },
   fakeOwner: { email: 'turokerr@gmail.com', email_verified: false }
 };
@@ -41,8 +43,23 @@ const stopActuals = (uid, extra) => ({
 });
 const share = (uid, extra) => ({ uid, lat: 42.3, lon: -71.1, expireAt: hoursFromNow(1), active: true, ...extra });
 const profile = (uid, extra) => ({ uid, username: 'Alice', displayName: 'Alice', photoURL: null, ...extra });
-const appeal = (uid, extra) => ({ uid, message: 'please', createdAt: now(), status: 'open', ...extra });
-const comment = (uid, extra) => ({ uid, text: 'Nice', displayName: 'Alice', ...extra });
+const appeal = (uid, extra) => ({ uid, message: 'please', createdAt: now(), status: 'open', token: TOKEN, ...extra });
+const comment = (uid, extra) => ({ uid, text: 'Nice', displayName: 'Alice', createdAt: now(), ...extra });
+// A report as the site writes it on first submission.
+const entry = (uid, extra) => ({ uid, label: 'A.', displayMode: 'first_initial', at: Date.now(), verified: false, ...extra });
+const report = (uid, extra) => ({
+  agency: 'mbta', trainNumber: null, vehicleId: '1700', unitName: '1036', serviceDate: null,
+  reportedByUid: uid, reportedByDisplayMode: 'first_initial', reportedByLabel: 'A.', reportedByPhotoURL: null,
+  reportedByVerified: false, contributors: [entry(uid)], updatedAt: now(), comment: '',
+  firstReportedByUid: uid, firstReportedByDisplayMode: 'first_initial', firstReportedByLabel: 'A.',
+  locomotives: null, locomotiveId2: '', unitName2: '', locoType2: '', locoIconUrl2: null,
+  locomotiveId: '1036', specialOverride: false, locoType: '', locoIconUrl: '/assets/hsp46.png', createdAt: now(), ...extra
+});
+const pending = (uid, extra) => {
+  const { createdAt, ...r } = report(uid);
+  return { ...r, status: 'pending', submittedAt: now(), ...extra };
+};
+const auditEntry = (uid, extra) => ({ uid, email: USERS[uid].email, name: 'N', label: 'A.', displayMode: 'first_initial', at: Date.now(), verified: false, ...extra });
 
 before(async () => {
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(':');
@@ -59,10 +76,12 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const b = ctx.firestore().batch();
     const set = (p, d) => b.set(ctx.firestore().doc(p), d);
-    set('bannedUsers/banned', { uid: 'banned' });
-    set('bannedEmails/bm@example.com', { email: 'bm@example.com' });
+    set('bannedUsers/banned', { uid: 'banned', statusToken: TOKEN });
+    set('bannedEmails/bm@example.com', { email: 'bm@example.com', uid: 'someone', statusToken: TOKEN });
     set('admins/admin@example.com', { perms: { viewReports: true, banUsers: true, manageAdmins: true, deleteReports: true } });
     set('admins/viewer@example.com', { perms: { viewReports: true, banUsers: false, manageAdmins: false, deleteReports: false } });
+    set('admins/noperms@example.com', { perms: { viewReports: false, banUsers: false, manageAdmins: false, deleteReports: false } });
+    set('verifiedReporters/ver', { uid: 'ver' });
     set('reportHold/alice', { required: true });
     set('pairings/1700', pairing('alice'));
     set('trainReports/r1', { reportedByUid: 'alice', trainNumber: '371' });
@@ -79,7 +98,8 @@ beforeEach(async () => {
     set('specialMoveShares/alice', share('alice'));
     set('specialMoveShares/bob', share('bob', { expireAt: hoursFromNow(-1) }));
     set('accounts/alice', { uid: 'alice' });
-    set('pressReleases/pr1', { title: 'News' });
+    set('pressReleases/pr1', { title: 'News', commentsEnabled: true });
+    set('pressReleases/pr2', { title: 'Closed', commentsEnabled: false });
     set('pressReleases/pr1/comments/c1', comment('alice', { email: 'alice@example.com', displayName: 'alice@example.com' }));
     await b.commit();
   });
@@ -91,6 +111,11 @@ describe('admin checks', () => {
     await no(as('fakeOwner').collection('admins').get());
   });
   it('an admin doc grants admin', () => ok(as('viewer').collection('admins').get()));
+  it('an admin doc with every perm off grants nothing', async () => {
+    await no(as('noperms').collection('admins').get());
+    await no(as('noperms').collection('accounts').get());
+    await no(as('noperms').doc('specialUnits/x').set({ a: 1 }));
+  });
   it('an admin doc does not count for an unverified email', async () => {
     await no(as('fakeViewer').collection('admins').get());
     await no(as('fakeViewer').doc('specialUnits/x').set({ a: 1 }));
@@ -98,24 +123,40 @@ describe('admin checks', () => {
 });
 
 describe('pairings', () => {
-  it('anyone can read', () => ok(anon().doc('pairings/1700').get()));
-  it('verified user writes own pairing', () => ok(as('bob').doc('pairings/1701').set(pairing('bob', { leadCar: '1701' }))));
-  it('denies a pairing filed under someone else', () => no(as('bob').doc('pairings/1701').set(pairing('alice', { leadCar: '1701' }))));
-  it('denies a leadCar that does not match the doc id', () => no(as('bob').doc('pairings/1701').set(pairing('bob'))));
-  it('denies an engine over 64 characters', () => no(as('bob').doc('pairings/1701').set(pairing('bob', { leadCar: '1701', engine: 'x'.repeat(65) }))));
-  it('denies unverified and banned users', async () => {
-    await no(as('unverified').doc('pairings/1701').set(pairing('unverified', { leadCar: '1701' })));
-    await no(as('banned').doc('pairings/1701').set(pairing('banned', { leadCar: '1701' })));
-  });
-  it('only the reporter deletes', async () => {
-    await no(as('bob').doc('pairings/1700').delete());
-    await ok(as('alice').doc('pairings/1700').delete());
+  // No page or Worker uses pairings, so the rules no longer have a match for it.
+  it('nobody reads or writes', async () => {
+    await no(anon().doc('pairings/1700').get());
+    await no(as('bob').doc('pairings/1701').set(pairing('bob', { leadCar: '1701' })));
+    await no(as('alice').doc('pairings/1700').delete());
   });
 });
 
 describe('trainReports', () => {
   it('anyone can read', () => ok(anon().doc('trainReports/r1').get()));
-  it('verified user writes own report', () => ok(as('bob').doc('trainReports/r2').set({ reportedByUid: 'bob' })));
+  it('verified user writes own report in the site\'s shape', async () => {
+    await ok(as('bob').doc('trainReports/mbta_1700').set(report('bob')));
+    await no(as('bob').doc('trainReports/r2').set({ reportedByUid: 'bob' }));
+  });
+  it('denies a doc id for another agency, extra fields, emails and outside icons', async () => {
+    await no(as('bob').doc('trainReports/amtrak_1700').set(report('bob')));
+    await no(as('bob').doc('trainReports/mbta_1700').set(report('bob', { extra: 1 })));
+    await no(as('bob').doc('trainReports/mbta_1700').set(report('bob', { reportedByEmail: 'bob@example.com' })));
+    await no(as('bob').doc('trainReports/mbta_1700').set(report('bob', { locoIconUrl: 'https://example.com/x.png' })));
+    await no(as('bob').doc('trainReports/mbta_1700').set(report('bob', { unitName: ['x'.repeat(200)] })));
+  });
+  it('the verified badge needs a verifiedReporters doc', async () => {
+    await no(as('bob').doc('trainReports/mbta_1700').set(report('bob', { reportedByVerified: true, contributors: [entry('bob', { verified: true })] })));
+    await ok(as('ver').doc('trainReports/mbta_1700').set(report('ver', { reportedByVerified: true, contributors: [entry('ver', { verified: true })] })));
+  });
+  it('a held user cannot write reports directly', () => no(as('alice').doc('trainReports/mbta_1700').set(report('alice'))));
+  it('a second reporter appends to contributors and cannot rewrite them', async () => {
+    await ok(as('bob').doc('trainReports/mbta_1700').set(report('bob')));
+    const { createdAt, firstReportedByUid, firstReportedByLabel, firstReportedByDisplayMode, ...base } = report('ver');
+    let first;
+    await env.withSecurityRulesDisabled(async (c) => { first = (await c.firestore().doc('trainReports/mbta_1700').get()).data().contributors; });
+    await no(as('ver').doc('trainReports/mbta_1700').set({ ...base, contributors: [entry('ver')] }, { merge: true }));
+    await ok(as('ver').doc('trainReports/mbta_1700').set({ ...base, contributors: [...first, entry('ver')] }, { merge: true }));
+  });
   it('denies a report filed under someone else', () => no(as('bob').doc('trainReports/r2').set({ reportedByUid: 'alice' })));
   it('admin may file for someone else', () => ok(as('viewer').doc('trainReports/r2').set({ reportedByUid: 'alice' })));
   it('denies anonymous, unverified, banned uid and banned email', async () => {
@@ -124,15 +165,14 @@ describe('trainReports', () => {
     await no(as('banned').doc('trainReports/r2').set({ reportedByUid: 'banned' }));
     await no(as('bannedMail').doc('trainReports/r2').set({ reportedByUid: 'bannedMail' }));
   });
-  it('delete: reporter or deleteReports admin only', async () => {
+  it('delete: deleteReports admin only', async () => {
     await no(as('bob').doc('trainReports/r1').delete());
     await no(as('viewer').doc('trainReports/r1').delete());
     await ok(as('admin').doc('trainReports/r1').delete());
   });
-  it('reporter deletes own report', () => ok(as('alice').doc('trainReports/r1').delete()));
-  // Main lets any verified user take over someone else's report. The fix/firestore-rules branch closes this
-  // and must drop the todo marker so the case fails the suite if the fix is ever undone.
-  it('denies taking over someone else\'s report or audit row', { todo: 'allowed by the current rules' }, async () => {
+  // reportedByUid is whoever confirmed the report last, so it does not make the report theirs to delete.
+  it('the last reporter cannot delete', () => no(as('alice').doc('trainReports/r1').delete()));
+  it('denies taking over someone else\'s report or audit row', async () => {
     await no(as('bob').doc('trainReports/r1').update({ reportedByUid: 'bob' }));
     await no(as('bob').doc('reportAudit/a1').update({ reportedByUid: 'bob' }));
   });
@@ -145,9 +185,17 @@ describe('pendingReports', () => {
     await no(as('bob').doc('pendingReports/p1').get());
     await no(anon().doc('pendingReports/p1').get());
   });
-  it('user creates own pending report', async () => {
-    await ok(as('bob').doc('pendingReports/p2').set({ reportedByUid: 'bob' }));
-    await no(as('bob').doc('pendingReports/p3').set({ reportedByUid: 'alice' }));
+  it('only a held user creates a pending report, in the site\'s shape', async () => {
+    await ok(as('alice').doc('pendingReports/mbta_1700').set(pending('alice')));
+    await no(as('alice').doc('pendingReports/mbta_1701').set({ reportedByUid: 'alice' }));
+    await no(as('bob').doc('pendingReports/mbta_1702').set(pending('bob')));
+    await no(as('alice').doc('pendingReports/mbta_1703').set(pending('bob')));
+  });
+  it('a held user replaces their own pending report, nobody else\'s', async () => {
+    await ok(as('alice').doc('pendingReports/mbta_1700').set(pending('alice')));
+    await ok(as('alice').doc('pendingReports/mbta_1700').set(pending('alice', { comment: 'second try' })));
+    await env.withSecurityRulesDisabled((c) => c.firestore().doc('reportHold/bob').set({ required: true }));
+    await no(as('bob').doc('pendingReports/mbta_1700').set(pending('bob')));
   });
   it('only admins update', async () => {
     await no(as('alice').doc('pendingReports/p1').update({ x: 1 }));
@@ -172,18 +220,27 @@ describe('reportAudit', () => {
     await no(as('alice').doc('reportAudit/a1').get());
     await ok(as('viewer').doc('reportAudit/a1').get());
   });
-  it('user writes own audit row', async () => {
-    await ok(as('bob').doc('reportAudit/a2').set({ reportedByUid: 'bob' }));
-    await no(as('bob').doc('reportAudit/a3').set({ reportedByUid: 'alice' }));
+  it('user appends own audit entry for an existing report', async () => {
+    const row = (uid, extra) => ({ reportedByUid: uid, reportedByEmail: USERS[uid].email, updatedAt: now(), contributors: FieldValue.arrayUnion(auditEntry(uid)), ...extra });
+    await ok(as('bob').doc('reportAudit/r1').set(row('bob')));
+    await no(as('bob').doc('reportAudit/r1').set(row('alice')));
+    await no(as('bob').doc('reportAudit/missing').set(row('bob')));
+    await no(as('bob').doc('reportAudit/r1').set(row('bob', { reportedByEmail: 'alice@example.com' })));
+    await no(as('bob').doc('reportAudit/r1').set(row('bob', { contributors: [auditEntry('bob')] })));
   });
 });
 
 describe('actionLog', () => {
   it('user creates own entry with action, uid and at', async () => {
-    await ok(as('bob').doc('actionLog/l2').set({ action: 'x', uid: 'bob', at: 1 }));
-    await no(as('bob').doc('actionLog/l3').set({ action: 'x', uid: 'alice', at: 1 }));
+    await ok(as('bob').doc('actionLog/l2').set({ action: 'x', uid: 'bob', at: now() }));
+    await no(as('bob').doc('actionLog/l3').set({ action: 'x', uid: 'alice', at: now() }));
     await no(as('bob').doc('actionLog/l4').set({ action: 'x', uid: 'bob' }));
-    await no(as('banned').doc('actionLog/l5').set({ action: 'x', uid: 'banned', at: 1 }));
+    await no(as('banned').doc('actionLog/l5').set({ action: 'x', uid: 'banned', at: now() }));
+  });
+  it('at must be the server time, and no other fields or emails', async () => {
+    await no(as('bob').doc('actionLog/l6').set({ action: 'x', uid: 'bob', at: 1 }));
+    await no(as('bob').doc('actionLog/l7').set({ action: 'x', uid: 'bob', at: now(), extra: 1 }));
+    await no(as('bob').doc('actionLog/l8').set({ action: 'x', uid: 'bob', at: now(), email: 'alice@example.com' }));
   });
   it('nobody updates, only the bootstrap admin deletes', async () => {
     await no(as('admin').doc('actionLog/l1').update({ at: 2 }));
@@ -243,7 +300,7 @@ describe('admins', () => {
 });
 
 describe('public admin-managed collections', () => {
-  for (const c of ['specialUnits', 'verifiedReporters', 'tracksideFavorites', 'pressReleases']) {
+  for (const c of ['specialUnits', 'tracksideFavorites', 'pressReleases']) {
     it(`${c}: anyone reads, only admins write`, async () => {
       await ok(anon().doc(`${c}/x`).get());
       await no(as('alice').doc(`${c}/x`).set({ a: 1 }));
@@ -252,11 +309,29 @@ describe('public admin-managed collections', () => {
   }
 });
 
+describe('verifiedReporters', () => {
+  // Public for the checkmarks, so it may not hold an email or name.
+  const v = (extra) => ({ uid: 'x', verifiedAt: now(), verifiedByUid: 'viewer', ...extra });
+  it('anyone reads, only admins write a uid-only doc', async () => {
+    await ok(anon().doc('verifiedReporters/x').get());
+    await no(as('alice').doc('verifiedReporters/x').set(v()));
+    await ok(as('viewer').doc('verifiedReporters/x').set(v()));
+    await no(as('viewer').doc('verifiedReporters/x').set(v({ email: 'x@example.com' })));
+    await no(as('viewer').doc('verifiedReporters/y').set(v()));
+  });
+});
+
 describe('usernames', () => {
   it('claim must match the lowercased name and own uid', async () => {
     await ok(as('bob').doc('usernames/bob').set({ uid: 'bob', username: 'Bob' }));
     await no(as('bob').doc('usernames/bobby').set({ uid: 'bob', username: 'Bob' }));
     await no(as('bob').doc('usernames/carol').set({ uid: 'alice', username: 'carol' }));
+  });
+  it('same format and reserved names as the settings form', async () => {
+    await no(as('bob').doc('usernames/admin').set({ uid: 'bob', username: 'admin' }));
+    await no(as('bob').doc('usernames/ab').set({ uid: 'bob', username: 'ab' }));
+    await no(as('bob').doc('usernames/bob-x').set({ uid: 'bob', username: 'bob-x' }));
+    await no(as('bob').doc('usernames/bobx').set({ uid: 'bob', username: 'bobx', extra: 1 }));
   });
   it('only the owner updates or releases a name', async () => {
     await no(as('bob').doc('usernames/alice').set({ uid: 'bob', username: 'alice' }));
@@ -267,23 +342,37 @@ describe('usernames', () => {
 
 describe('publicProfiles', () => {
   it('anyone reads', () => ok(anon().doc('publicProfiles/alice').get()));
-  it('owner writes a card with the required fields', async () => {
-    await ok(as('bob').doc('publicProfiles/bob').set(profile('bob', { username: 'bob' })));
+  it('owner writes a card for a username they claimed in the same batch', async () => {
+    const db = as('bob');
+    const b = db.batch();
+    b.set(db.doc('usernames/bob'), { uid: 'bob', username: 'bob' });
+    b.set(db.doc('publicProfiles/bob'), profile('bob', { username: 'bob' }));
+    await ok(b.commit());
     await no(as('bob').doc('publicProfiles/bob').set({ uid: 'bob', username: 'bob' }));
     await no(as('bob').doc('publicProfiles/alice').set(profile('alice')));
+  });
+  it('denies a card showing someone else\'s username or an outside photo', async () => {
+    await no(as('bob').doc('publicProfiles/bob').set(profile('bob', { username: 'Alice' })));
+    await no(as('alice').doc('publicProfiles/alice').set(profile('alice', { photoURL: 'https://example.com/me.png' })));
   });
   it('only the owner deletes a card', () => no(as('bob').doc('publicProfiles/alice').delete()));
 });
 
 describe('tripLogs', () => {
   it('create needs own uid, required fields and an /assets/ icon', async () => {
-    await ok(as('bob').doc('tripLogs/b1').set(trip('bob')));
-    await ok(as('bob').doc('tripLogs/b2').set(trip('bob', { icon: '/assets/hsp46.png' })));
-    await no(as('bob').doc('tripLogs/b3').set(trip('alice')));
-    await no(as('bob').doc('tripLogs/b4').set(trip('bob', { miles: '12' })));
-    await no(as('bob').doc('tripLogs/b5').set(trip('bob', { icon: 'https://example.com/x.png' })));
-    const { trainNumber, ...missing } = trip('bob');
+    await ok(as('bob').doc('tripLogs/b1').set(trip('bob', { hiddenPublic: false })));
+    await ok(as('bob').doc('tripLogs/b2').set(trip('bob', { hiddenPublic: true, icon: '/assets/hsp46.png' })));
+    await no(as('bob').doc('tripLogs/b7').set(trip('bob')));
+    await no(as('bob').doc('tripLogs/b8').set(trip('bob', { hiddenPublic: false, notes: 'x'.repeat(2001) })));
+    await no(as('bob').doc('tripLogs/b3').set(trip('alice', { hiddenPublic: false })));
+    await no(as('bob').doc('tripLogs/b4').set(trip('bob', { hiddenPublic: false, miles: '12' })));
+    await no(as('bob').doc('tripLogs/b5').set(trip('bob', { hiddenPublic: false, icon: 'https://example.com/x.png' })));
+    const { trainNumber, ...missing } = trip('bob', { hiddenPublic: false });
     await no(as('bob').doc('tripLogs/b6').set(missing));
+  });
+  it('a public profile query must filter on hiddenPublic', async () => {
+    await ok(anon().collection('tripLogs').where('userId', '==', 'alice').where('hiddenPublic', '==', false).get());
+    await no(anon().collection('tripLogs').where('userId', '==', 'alice').get());
   });
   it('public trips are readable only while the profile exists', async () => {
     await ok(anon().doc('tripLogs/alicePublic').get());
@@ -325,10 +414,15 @@ describe('specialMoveShares', () => {
     await no(anon().doc('specialMoveShares/bob').get());
     await ok(as('bob').doc('specialMoveShares/bob').get());
   });
-  it('listing requires the active filter', async () => {
-    await ok(anon().collection('specialMoveShares').where('active', '==', true).get());
+  it('listing requires the active filter and a recent expireAt bound', async () => {
+    const q = (backMin) => anon().collection('specialMoveShares').where('active', '==', true).where('expireAt', '>', Timestamp.fromMillis(Date.now() - backMin * 60e3));
+    const snap = await ok(q(5).get());
+    if (snap.docs.map((d) => d.id).join() !== 'alice') throw new Error('listed ' + snap.docs.map((d) => d.id).join());
+    await no(q(20).get());
+    await no(anon().collection('specialMoveShares').where('active', '==', true).get());
     await no(anon().collection('specialMoveShares').get());
   });
+  it('denies unknown fields on a share', () => no(as('bob').doc('specialMoveShares/bob').set(share('bob', { photoURL: 'https://example.com/x.png' }))));
   it('owner or admin deletes', async () => {
     await no(as('bob').doc('specialMoveShares/alice').delete());
     await ok(as('viewer').doc('specialMoveShares/bob').delete());
@@ -346,6 +440,12 @@ describe('accounts', () => {
 });
 
 describe('banAppeals', () => {
+  it('an appeal needs the ban\'s status token', async () => {
+    const { token, ...noToken } = appeal('banned');
+    await no(anon().doc('banAppeals/banned').set(noToken));
+    await no(anon().doc('banAppeals/banned').set(appeal('banned', { token: 'b'.repeat(32) })));
+    await no(anon().doc('banAppeals/other').set(appeal('other', { email: 'bm@example.com' })));
+  });
   it('a banned uid or email files one valid appeal while signed out', async () => {
     await ok(anon().doc('banAppeals/banned').set(appeal('banned')));
     await ok(anon().doc('banAppeals/someone').set(appeal('someone', { email: 'bm@example.com' })));
@@ -357,9 +457,11 @@ describe('banAppeals', () => {
     await no(anon().doc('banAppeals/banned').set(appeal('banned', { extra: 1 })));
     await no(anon().doc('banAppeals/banned').set(appeal('banned', { message: 'x'.repeat(2001) })));
   });
-  it('only admins read', async () => {
+  it('only banUsers admins read', async () => {
+    await env.withSecurityRulesDisabled((c) => c.firestore().doc('banAppeals/banned').set({ uid: 'banned', message: 'm', status: 'open' }));
     await no(anon().doc('banAppeals/banned').get());
-    await ok(as('viewer').doc('banAppeals/banned').get());
+    await no(as('viewer').doc('banAppeals/banned').get());
+    await ok(as('admin').doc('banAppeals/banned').get());
   });
 });
 
@@ -392,7 +494,10 @@ describe('press release comments', () => {
     await no(doc(as('bob')).set(comment('bob', { text: '' })));
     await no(doc(as('unverified')).set(comment('unverified')));
     await no(doc(as('banned')).set(comment('banned')));
+    await no(doc(as('bob')).set(comment('bob', { createdAt: Timestamp.fromMillis(1000) })));
+    await no(doc(as('bob')).set(comment('bob', { extra: 1 })));
   });
+  it('only on a release with comments enabled', () => no(as('bob').doc('pressReleases/pr2/comments/c3').set(comment('bob'))));
   it('admin scrub may only drop the email and fix the name', async () => {
     await ok(doc(as('viewer'), 'c1').update({ email: FieldValue.delete(), displayName: 'A.' }));
     await no(doc(as('viewer'), 'c1').update({ text: 'edited' }));
