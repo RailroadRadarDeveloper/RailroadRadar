@@ -5673,6 +5673,7 @@ function closeTripDetailView(opts) {
         const snap = await q.get();
         const docs = snap.docs || [];
         renderTripLogRows(docs, !reset);
+        if (reset) { try { rrTripNotifySyncDocs(docs); } catch (_) {} }
         // Public profile queries only match trips with an explicit hiddenPublic flag; set it on older trips.
         docs.forEach(function(d) {
           const data = d.data() || {};
@@ -5704,6 +5705,38 @@ function closeTripDetailView(opts) {
         setTripLogSkeletons(false);
         tripLogLoading = false;
       }
+    }
+
+    // Feed upcoming MBTA segments to the boarding-track alert watcher (assets/js/trip-notify.js).
+    function rrTripNotifySyncDocs(docs) {
+      if (!window.rrTripNotify) return;
+      const items = [];
+      (docs || []).forEach(function(d) {
+        const data = (d && typeof d.data === 'function') ? (d.data() || {}) : (d || {});
+        const id = d && d.id;
+        const segs = Array.isArray(data.segments) && data.segments.length ? data.segments : [data];
+        segs.forEach(function(seg, i) {
+          if (!seg || String(seg.railroad || '').toLowerCase() !== 'mbta' || seg.specialMove) return;
+          const train = String(seg.trainNumber || '').trim();
+          const dep = Date.parse(seg.departTime || '');
+          const origin = tripMbtaCanonicalStationId(seg.originStationId || '');
+          if (!id || !train || !isFinite(dep) || origin.indexOf('place-') !== 0) return;
+          items.push({ key: id + '-' + i, railroad: 'mbta', lineName: String(seg.lineName || '').trim(), train: train, dep: dep, originId: origin, destName: String(seg.destName || '').trim() });
+        });
+      });
+      window.rrTripNotify.setTrips(items);
+    }
+    let rrTripNotifyLastFetch = 0;
+    async function rrTripNotifyOnAuth(user) {
+      if (!window.rrTripNotify) return;
+      if (!user) { window.rrTripNotify.clearTrips(); return; }
+      if (!window.rrTripNotify.wantsOn() || !db) return;
+      if (Date.now() - rrTripNotifyLastFetch < 10 * 60 * 1000) return;
+      rrTripNotifyLastFetch = Date.now();
+      try {
+        const snap = await db.collection('tripLogs').where('userId', '==', user.uid).orderBy('startTime', 'desc').limit(10).get();
+        rrTripNotifySyncDocs(snap.docs || []);
+      } catch (e) { console.warn('[trip-notify] trips', e); }
     }
 
     function setTripLogError(msg) {
@@ -5830,7 +5863,6 @@ function closeTripDetailView(opts) {
         startTime: startIso,
         startTimeMs: startMs,
         endTime: endIso,
-        hiddenPublic: false,
         notes: notes || null,
         rollingStock: rollingStock || null,
         miles: Math.round(totalMiles * 10) / 10,
@@ -5941,10 +5973,11 @@ function closeTripDetailView(opts) {
           if (oldData) next = applyTripMilesToStats(next, oldData, -1);
           next = applyTripMilesToStats(next, payload, 1);
           const write = Object.assign({ userId: uid }, payload);
-          // Editing must not un-hide a trip the user hid from their public profile.
-          if (oldData && oldData.hiddenPublic === true) write.hiddenPublic = true;
           if (editingId) write.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-          else write.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          else {
+            write.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            write.hiddenPublic = false;
+          }
           tx.set(tripRef, write, { merge: !!editingId });
           tx.set(settingsRef, { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
         });
@@ -7051,9 +7084,9 @@ async function rrSpecialStopSharing(opts) {
       });
     }
 
-    // One realtime listener, only where the main map is shown. The query MUST keep
-    // where('active','==',true): rules only allow reading active shares, so an
-    // unfiltered list query is denied.
+    // One realtime listener, only where the main map is shown. The rules list only active shares
+    // whose expireAt is after a recent bound, so the query must filter on both or it is denied.
+    // The bound is five minutes back to allow for a slow clock.
     function rrSpecialStartMapListener() {
       if (rrSpecialShareMapStarted) return;
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return; // no main map on /mytrips
@@ -7070,6 +7103,7 @@ async function rrSpecialStopSharing(opts) {
       try {
         rrSpecialShareUnsub = db.collection('specialMoveShares')
           .where('active', '==', true)
+          .where('expireAt', '>', firebase.firestore.Timestamp.fromMillis(Date.now() - 5 * 60 * 1000))
           .onSnapshot(function(snap) {
             S._errors = 0;
             try { rrSpecialApplyDocs(snap.docs || []); } catch (e) {
@@ -8079,6 +8113,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
     }
 
     function updateHeaderAuthUI(user) {
+      try { rrTripNotifyOnAuth(user); } catch (_) {}
       const btnIn = document.getElementById('btn-google-signin');
       const userWrap = document.getElementById('header-auth-user');
       const avatar = document.getElementById('header-user-avatar');
@@ -9753,7 +9788,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const locos = normalizeReportLocomotives(rep);
           const first = locos[0] || {};
           const reportVid = a === 'mbta' ? (vid || String(rep.vehicleId || '').trim()) : (first.locomotiveId || String(rep.vehicleId || '').trim());
-          await submitTrainReport({
+          const saved = await submitTrainReport({
             agency: a,
             trainNumber: tn || rep.trainNumber || null,
             vehicleId: reportVid,
@@ -9767,7 +9802,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             locomotives: locos.length ? locos : undefined,
             comment: rep.comment || ''
           });
-          showNotification('Locomotive confirmed');
+          showNotification((saved && saved.pending) ? 'Confirmation sent for approval' : 'Locomotive confirmed');
           await loadTrainReports();
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch (_) {}
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch (_) {}
@@ -9885,116 +9920,42 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           at: Date.now(),
           verified: !!reporterVerified
         };
-        function toPublicContributor(c) {
-          if (!c) return null;
-          return {
-            uid: c.uid || '',
-            label: c.label || '',
-            displayMode: c.displayMode || 'first_initial',
-            at: (c.at != null ? c.at : null),
-            verified: !!c.verified
-          };
-        }
         let contributors = [];
-        let contributorsFull = [];
+        let keepContributors = false;
+        let auditAddsEntry = !existing.exists;
         let seedFirstReporter = false;
-        // Load existing admin audit for full contributor history (best-effort)
-        let prevAudit = null;
-        try {
-          const auditExisting = await db.collection('reportAudit').doc(docId).get();
-          if (auditExisting.exists) prevAudit = auditExisting.data() || {};
-        } catch (auditReadErr) {
-          console.warn('[trainReports] reportAudit read failed', auditReadErr);
-        }
+        let firstFromPrev = null;
         if (!existing.exists) {
           contributors = [currentContributorPublic];
-          contributorsFull = [currentContributorFull];
           seedFirstReporter = true;
         } else {
           const prev = existing.data() || {};
-          if (Array.isArray(prev.contributors) && prev.contributors.length) {
-            contributors = prev.contributors.map(toPublicContributor).filter(Boolean);
-          } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
-            contributors = [toPublicContributor({
-              uid: prev.reportedByUid || '',
-              label: prev.reportedByLabel || '',
-              displayMode: prev.reportedByDisplayMode || 'first_initial',
-              at: null
-            })];
-            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
+          const prevHasContributors = Array.isArray(prev.contributors) && prev.contributors.length > 0;
+          // Stored entries are copied as they are: the rules only allow appending to the list.
+          if (prevHasContributors) {
+            contributors = prev.contributors.slice();
           } else {
             contributors = [];
             seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
-          }
-          if (prevAudit && Array.isArray(prevAudit.contributors) && prevAudit.contributors.length) {
-            contributorsFull = prevAudit.contributors.slice();
-          } else if (Array.isArray(prev.contributors) && prev.contributors.length) {
-            // Legacy: public docs may still hold email/name until overwritten
-            contributorsFull = prev.contributors.map(function(c) {
-              return {
-                uid: (c && c.uid) || '',
-                email: (c && c.email) || null,
-                name: (c && c.name) || null,
-                label: (c && c.label) || '',
-                displayMode: (c && c.displayMode) || 'first_initial',
-                at: (c && c.at != null) ? c.at : null,
-                verified: !!(c && c.verified)
-              };
-            });
-          } else if (prev.reportedByUid || prev.reportedByLabel || prev.reportedByName || prev.reportedByEmail) {
-            contributorsFull = [{
-              uid: prev.reportedByUid || '',
-              email: prev.reportedByEmail || null,
-              name: prev.reportedByName || null,
-              label: prev.reportedByLabel || '',
-              displayMode: prev.reportedByDisplayMode || 'first_initial',
-              at: null,
-              verified: !!prev.reportedByVerified
-            }];
-          } else {
-            contributorsFull = [];
+            // The rules credit an older report's own reporter as its first one.
+            if (prev.reportedByUid) {
+              firstFromPrev = { uid: prev.reportedByUid, label: prev.reportedByLabel || '', displayMode: prev.reportedByDisplayMode || 'first_initial' };
+            }
           }
           const already = contributors.some(function(c) { return c && c.uid === user.uid; });
-          if (!already) {
+          auditAddsEntry = !already && contributors.length < 500;
+          if (already || contributors.length >= 500) {
+            keepContributors = true;
+          } else {
             contributors.push(currentContributorPublic);
-          } else {
-            contributors = contributors.map(function(c) {
-              if (!c || c.uid !== user.uid) return c;
-              return {
-                uid: c.uid,
-                label: reportedByLabel,
-                displayMode: reportedByDisplayMode,
-                at: (c.at != null ? c.at : Date.now()),
-                verified: !!reporterVerified
-              };
-            });
-          }
-          const alreadyFull = contributorsFull.some(function(c) { return c && c.uid === user.uid; });
-          if (!alreadyFull) {
-            contributorsFull.push(currentContributorFull);
-          } else {
-            contributorsFull = contributorsFull.map(function(c) {
-              if (!c || c.uid !== user.uid) return c;
-              return {
-                uid: c.uid,
-                email: reportedByEmail,
-                name: reportedByName,
-                label: reportedByLabel,
-                displayMode: reportedByDisplayMode,
-                at: (c.at != null ? c.at : Date.now()),
-                verified: !!reporterVerified
-              };
-            });
-          }
-          if (!contributors.length) {
-            contributors = [currentContributorPublic];
-            seedFirstReporter = !(prev.firstReportedByUid || prev.firstReportedByLabel);
-          }
-          if (!contributorsFull.length) {
-            contributorsFull = [currentContributorFull];
           }
         }
-        const firstC = contributors[0] || currentContributorPublic;
+        const firstC = firstFromPrev || contributors[0] || currentContributorPublic;
+        // The rules only accept /assets/ icons on reports.
+        function assetIconOrNull(url) {
+          const p = rrAssetPath(url);
+          return /^\/assets\/[A-Za-z0-9-]+[.]png$/.test(p) ? p : null;
+        }
         const fvDelete = firebase.firestore.FieldValue.delete();
         const data = {
           agency: agency,
@@ -10007,7 +9968,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           reportedByLabel: reportedByLabel,
           reportedByPhotoURL: user.photoURL || null,
           reportedByVerified: !!reporterVerified,
-          contributors: contributors,
           updatedAt: now,
           comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
           // Scrub legacy PII from public trainReports on every republish
@@ -10016,6 +9976,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           firstReportedByEmail: fvDelete,
           firstReportedByName: fvDelete
         };
+        if (!keepContributors) data.contributors = contributors;
         if (seedFirstReporter) {
           data.firstReportedByUid = firstC.uid || user.uid;
           data.firstReportedByDisplayMode = firstC.displayMode || reportedByDisplayMode;
@@ -10025,10 +9986,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (locosPayload && locosPayload.length) {
           data.locomotives = locosPayload.slice(0, 5).map(function(L) {
             return {
-              locomotiveId: L.locomotiveId != null ? String(L.locomotiveId).trim() : null,
-              unitName: L.unitName || null,
-              locoType: L.locoType ? String(L.locoType) : null,
-              locoIconUrl: L.locoIconUrl || null,
+              locomotiveId: L.locomotiveId != null ? String(L.locomotiveId).trim() : '',
+              unitName: L.unitName || '',
+              locoType: L.locoType ? String(L.locoType) : '',
+              locoIconUrl: assetIconOrNull(L.locoIconUrl),
               specialOverride: !!L.specialOverride,
               customLoco: !!L.customLoco
             };
@@ -10036,45 +9997,58 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Keep legacy single/dual fields in sync with first/second for older readers
           const L0 = data.locomotives[0];
           const L1 = data.locomotives[1];
-          data.locomotiveId2 = L1 ? L1.locomotiveId : null;
-          data.unitName2 = L1 ? L1.unitName : null;
-          data.locoType2 = L1 ? L1.locoType : null;
+          data.locomotiveId2 = L1 ? L1.locomotiveId : '';
+          data.unitName2 = L1 ? L1.unitName : '';
+          data.locoType2 = L1 ? L1.locoType : '';
           data.locoIconUrl2 = L1 ? L1.locoIconUrl : null;
         } else {
           data.locomotives = null;
-          data.locomotiveId2 = null;
-          data.unitName2 = null;
-          data.locoType2 = null;
+          data.locomotiveId2 = '';
+          data.unitName2 = '';
+          data.locoType2 = '';
           data.locoIconUrl2 = null;
         }
         if (agency === 'mbta') {
-          data.locomotiveId = locomotiveId || null;
+          data.locomotiveId = locomotiveId;
           const rosterSpecial = !!(payload.specialOverride) || (!!(locomotiveId && rosterEntry('mbta', locomotiveId)) && !payload.customLoco);
           if (rosterSpecial && !payload.customLoco) {
             // Roster special: do not force HSP-46 type/icon (would override specialIcons[locomotiveId])
             data.specialOverride = true;
-            data.locoType = payload.locoType ? String(payload.locoType) : null;
-            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || (data.locoType && MBTA_LOCO_TYPES[data.locoType]) || null, data.locoType);
+            data.locoType = payload.locoType ? String(payload.locoType) : '';
+            data.locoIconUrl = assetIconOrNull(resolveMbtaLocoIconUrl(payload.locoIconUrl || (data.locoType && MBTA_LOCO_TYPES[data.locoType]) || null, data.locoType));
             if (!payload.locoIconUrl && !data.locoType) data.locoIconUrl = null;
           } else if (payload.locoType) {
             data.specialOverride = false;
             data.locoType = String(payload.locoType);
-            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || MBTA_LOCO_TYPES['HSP-46'], data.locoType);
+            data.locoIconUrl = assetIconOrNull(resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || MBTA_LOCO_TYPES['HSP-46'], data.locoType));
           } else {
             data.specialOverride = false;
-            data.locoType = null;
-            data.locoIconUrl = resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES['HSP-46'], data.locoType);
+            data.locoType = '';
+            data.locoIconUrl = assetIconOrNull(resolveMbtaLocoIconUrl(payload.locoIconUrl || MBTA_LOCO_TYPES['HSP-46'], data.locoType));
           }
         } else if (payload.locoType) {
           data.locoType = String(payload.locoType);
-          data.locoIconUrl = payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || null;
+          data.locoIconUrl = assetIconOrNull(payload.locoIconUrl || MBTA_LOCO_TYPES[data.locoType] || null);
+        } else if (existing.exists && (existing.data() || {}).locoIconUrl && !assetIconOrNull(existing.data().locoIconUrl)) {
+          data.locoIconUrl = null;
         }
         if (!existing.exists) data.createdAt = now;
         const needsHold = await userNeedsReportApproval(user.uid);
         if (needsHold) {
-          data.status = 'pending';
-          data.submittedAt = now;
-          await db.collection('pendingReports').doc(docId).set(data, { merge: true });
+          // A pending doc holds one person's whole submission, so a resubmission replaces it.
+          const pendingData = Object.assign({}, data, { status: 'pending', submittedAt: now });
+          delete pendingData.reportedByEmail;
+          delete pendingData.reportedByName;
+          delete pendingData.firstReportedByEmail;
+          delete pendingData.firstReportedByName;
+          try {
+            await db.collection('pendingReports').doc(docId).set(pendingData);
+          } catch (pendingErr) {
+            if (pendingErr && pendingErr.code === 'permission-denied') {
+              throw new Error('Your report could not be sent for approval. If someone else\'s report for this train is already waiting, try again after it has been reviewed.');
+            }
+            throw pendingErr;
+          }
           try {
             if (typeof window.logUserAction === 'function') {
               await window.logUserAction('submit_report_pending', (agency + ' ' + (trainNumber || vehicleId) + ' held for approval').trim());
@@ -10134,12 +10108,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             vehicleId: vehicleId,
             trainNumber: agency === 'mbta' ? null : trainNumber,
             serviceDate: serviceDate,
-            contributors: contributorsFull,
             updatedAt: now
           };
-          if (!existing.exists || !(prevAudit && prevAudit.createdAt)) {
-            auditPayload.createdAt = (prevAudit && prevAudit.createdAt) ? prevAudit.createdAt : now;
-          }
+          // arrayUnion appends without reading the doc, which non-admins cannot do.
+          if (auditAddsEntry) auditPayload.contributors = firebase.firestore.FieldValue.arrayUnion(currentContributorFull);
+          if (!existing.exists) auditPayload.createdAt = now;
           await db.collection('reportAudit').doc(docId).set(auditPayload, { merge: true });
         } catch (auditWriteErr) {
           console.warn('[trainReports] reportAudit write failed', auditWriteErr);
@@ -10603,8 +10576,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           console.error('[trainReports] Submit failed', e);
           const code = (e && e.code) || '';
           let msg = (e && e.message) || String(e);
-          if (/permission-denied/i.test(code) || /permission/i.test(msg)) {
-            msg = 'Firestore blocked the write. Update security rules for trainReports (see SETUP.md), then try again.';
+          if (/permission-denied/i.test(code)) {
+            msg = 'Your report could not be saved. Reload the page and try again.';
           }
           setErr(msg);
           showNotification(msg, 'error');
@@ -11804,7 +11777,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           upsertAgencyStationDot('amtrak', id, s.name || s.code || id, lat, lon);
         });
       }
-      function extractTrackNumber(platformName, platformDesc) {
+      function extractTrackNumber(platformName, platformDesc, platformCode) {
+        if (platformCode != null && String(platformCode).trim()) return String(platformCode).trim();
         if (platformDesc) {
           const m = platformDesc.match(/track\s+(\d+)/i) || platformDesc.match(/platform\s+(\d+)/i);
           if (m) return m[1];
@@ -11814,6 +11788,41 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (m) return m[1];
         }
         return null;
+      }
+      // MBTA hub terminals: the schedule only names the station (NEC-2287 / BNT-0000); the live
+      // prediction moves to a track child (NEC-2287-11) once the track is assigned (~5-15 min out).
+      const RR_MBTA_HUB_PARENT = { 'NEC-2287': 'place-sstat', 'BNT-0000': 'place-north' };
+      const RR_HUB_TRACK_KEEP_MS = 2 * 60 * 1000;
+      const rrHubTrackMemo = {};
+      function rrMbtaStopBase(id) {
+        const m = String(id || '').match(/^([A-Z]{2,4}-\d{4})(?:-\d{2})?$/);
+        return m ? m[1] : String(id || '');
+      }
+      function rrIsMbtaHubStop(id) { return !!RR_MBTA_HUB_PARENT[rrMbtaStopBase(id)]; }
+      function rrStopTrack(stopInfo) {
+        const a = stopInfo && stopInfo.attributes;
+        if (!a) return null;
+        return extractTrackNumber(a.name, a.description, a.platform_code);
+      }
+      // Remember an assigned hub track and keep showing it ~2 min after departure,
+      // when the prediction drops back to the station-level stop.
+      function rrHubTrack(tripId, stopId, track, depTime) {
+        if (!tripId || !rrIsMbtaHubStop(stopId)) return track || null;
+        const key = tripId + '|' + rrMbtaStopBase(stopId);
+        const now = Date.now();
+        if (track) {
+          rrHubTrackMemo[key] = { track: String(track), dep: depTime ? depTime.getTime() : now };
+          return track;
+        }
+        const m = rrHubTrackMemo[key];
+        if (m && now <= Math.max(m.dep, depTime ? depTime.getTime() : 0) + RR_HUB_TRACK_KEEP_MS) return m.track;
+        if (m && now > m.dep + RR_HUB_TRACK_KEEP_MS) delete rrHubTrackMemo[key];
+        return null;
+      }
+      function rrTrackBadgeHtml(track, tbd) {
+        if (track) return `<span class="track-badge">Track ${track}</span>`;
+        if (tbd) return `<span class="track-badge track-tbd">Track TBD</span>`;
+        return '';
       }
       function extractTrainNumber(tripId) {
         if (!tripId) return null;
@@ -11881,6 +11890,26 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       return [String(agency || 'mbta').toLowerCase(), String(serviceDate || rrStopServiceDate()), String(trainNumber || '').replace(/[^A-Za-z0-9_-]/g, '')].slice(0, 140).join('_');
     }
     const rrStopActualMem = {};
+    // Any signed-in user can write these docs and the rules cannot check each stop, while the
+    // times end up in popup HTML, so only plain short time strings are kept.
+    function rrSafeStopTime(v) {
+      return (typeof v === 'string' && v.length <= 24 && !/[<>&"']/.test(v)) ? v : null;
+    }
+    function rrCleanStoredStops(stops) {
+      if (!Array.isArray(stops)) return [];
+      return stops.slice(0, 80).map(function(s) {
+        s = s || {};
+        return {
+          name: String(s.name || '').slice(0, 120),
+          stopId: String(s.stopId || '').slice(0, 64),
+          scheduled: rrSafeStopTime(s.scheduled),
+          predicted: rrSafeStopTime(s.predicted),
+          actual: rrSafeStopTime(s.actual),
+          completed: !!s.completed,
+          delayMinutes: Number(s.delayMinutes) || 0
+        };
+      });
+    }
     async function rrLoadStopActuals(agency, trainNumber, serviceDate) {
       const id = rrStopActualDocId(agency, trainNumber, serviceDate);
       if (rrStopActualMem[id] && (Date.now() - (rrStopActualMem[id]._at || 0)) < 60000) return rrStopActualMem[id];
@@ -11895,7 +11924,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else if (data.expiresAt) exp = new Date(data.expiresAt).getTime();
         } catch (_) {}
         if (exp && exp < Date.now()) return null;
-        rrStopActualMem[id] = Object.assign({ _at: Date.now() }, data);
+        rrStopActualMem[id] = Object.assign({ _at: Date.now() }, data, { stops: rrCleanStoredStops(data.stops) });
         return rrStopActualMem[id];
       } catch (e) {
         console.warn('[stopActuals] load failed', e && e.message);
@@ -12074,7 +12103,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const dates = [];
           if (serviceDate) dates.push(String(serviceDate));
           [nyYmd(_now), nyYmd(new Date(_now.getTime() + 24*60*60*1000)), nyYmd(new Date(_now.getTime() - 24*60*60*1000))].forEach(dt => { if (dates.indexOf(dt) === -1) dates.push(dt); });
-          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}`), { signal: controller.signal });
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[trip]=${tripId}&include=stop`), { signal: controller.signal });
           let schedData = { data: [], included: [] };
           for (const dt of dates) {
             const schedRes = await fetch(apiUrl('/api/mbta' + `/schedules?filter[trip]=${encodeURIComponent(tripId)}&filter[date]=${encodeURIComponent(dt)}&include=stop`), { signal: controller.signal });
@@ -12090,15 +12119,23 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const stopId = s.relationships.stop.data.id;
               const stopInfo = schedData.included.find(i => i.type === "stop" && i.id === stopId);
               const schedTime = s.attributes.departure_time ? new Date(s.attributes.departure_time) : (s.attributes.arrival_time ? new Date(s.attributes.arrival_time) : null);
-              const pred = predData.data.find(p => p.relationships.stop.data.id === stopId);
+              const predList = (predData && predData.data) || [];
+              const pred = predList.find(p => p.relationships.stop.data && p.relationships.stop.data.id === stopId)
+                || predList.find(p => p.relationships.stop.data && rrMbtaStopBase(p.relationships.stop.data.id) === rrMbtaStopBase(stopId));
+              const predStopId = pred && pred.relationships.stop.data ? pred.relationships.stop.data.id : null;
+              const predStopInfo = predStopId ? ((predData.included || []).find(i => i.type === "stop" && i.id === predStopId) || null) : null;
               const predTime = pred ? (pred.attributes.departure_time ? new Date(pred.attributes.departure_time) : (pred.attributes.arrival_time ? new Date(pred.attributes.arrival_time) : null)) : null;
               let delay = null, status = "Scheduled", isLive = !!predTime;
               if (predTime && schedTime) {
                 delay = (predTime - schedTime) / 60000;
                 status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
               }
-              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              let track = rrStopTrack(predStopInfo) || rrStopTrack(stopInfo);
+              const isHub = rrIsMbtaHubStop(stopId);
+              const hubDeparts = isHub && !!(s.attributes.departure_time || (pred && pred.attributes.departure_time));
+              if (hubDeparts) track = rrHubTrack(tripId, stopId, track, predTime || schedTime);
               const isCompleted = (predTime || schedTime) ? (predTime || schedTime) < now : false;
+              const trackTbd = hubDeparts && !track && !isCompleted;
               if (isCompleted) status = "Passed";
               return {
                 id: stopId,
@@ -12109,6 +12146,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 delayStatus: status,
                 isLive,
                 trackNumber: track,
+                trackTbd,
                 formattedScheduledTime: schedTime ? schedTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "—",
                 formattedPredictedTime: predTime ? predTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : null,
                 formattedActualTime: isCompleted && predTime
@@ -12163,7 +12201,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const endDay = nyYmd(horizon);
           if (dates.indexOf(endDay) === -1) dates.push(endDay);
           const stopQ = stationIds.join(',');
-          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${stopQ}&include=trip,route,schedule,stop&sort=departure_time`));
+          // Hub track children only show up when querying the parent station.
+          const predStops = [];
+          stationIds.forEach(id => { const p = RR_MBTA_HUB_PARENT[rrMbtaStopBase(id)] || id; if (predStops.indexOf(p) === -1) predStops.push(p); });
+          const hubQuery = predStops.some(p => p.indexOf('place-') === 0);
+          const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${predStops.join(',')}${hubQuery ? '&filter[route_type]=2' : ''}&include=trip,route,schedule,stop&sort=departure_time`));
           const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time`))));
           const predData = await predRes.json();
           const schedData = { data: [], included: [] };
@@ -12180,17 +12222,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             predData.data.forEach(p => {
               if (!p.attributes.departure_time) return;
               const depTime = new Date(p.attributes.departure_time);
-              if (depTime < now || depTime > horizon) return;
               const tripId = p.relationships.trip.data?.id;
               const stopId = p.relationships.stop.data?.id;
-              const tKey = `${tripId}-${stopId}`;
+              const hubKeep = rrIsMbtaHubStop(stopId) && depTime < now && (now - depTime) <= RR_HUB_TRACK_KEEP_MS && !!rrHubTrack(tripId, stopId, null, depTime);
+              if ((depTime < now && !hubKeep) || depTime > horizon) return;
+              const tKey = `${tripId}-${rrMbtaStopBase(stopId)}`;
               if (!tripId || processed.has(tKey)) return;
               processed.add(tKey);
               const tripInfo = predData.included?.find(i => i.type === "trip" && i.id === tripId);
               const routeInfo = predData.included?.find(i => i.type === "route" && i.id === p.relationships.route.data?.id);
               const stopInfo = predData.included?.find(i => i.type === "stop" && i.id === stopId);
-              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
-              const sched = predData.included?.find(i => i.type === "schedule" && i.relationships.trip.data?.id === tripId && i.relationships.stop.data?.id === stopId);
+              const isHub = rrIsMbtaHubStop(stopId);
+              const track = isHub ? rrHubTrack(tripId, stopId, rrStopTrack(stopInfo), depTime) : rrStopTrack(stopInfo);
+              const schedRelId = p.relationships.schedule && p.relationships.schedule.data && p.relationships.schedule.data.id;
+              const sched = predData.included?.find(i => i.type === "schedule" && ((schedRelId && i.id === schedRelId) || (i.relationships.trip.data?.id === tripId && rrMbtaStopBase(i.relationships.stop.data?.id) === rrMbtaStopBase(stopId))));
               let schedDep = null, delay = null, status = "On Time";
               if (sched?.attributes.departure_time) {
                 schedDep = new Date(sched.attributes.departure_time);
@@ -12199,10 +12244,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               }
               const mins = Math.floor((depTime - now) / 60000);
               if (mins > 0 && mins < 60) status = `in ${mins} min`;
+              if (hubKeep) status = 'Departed';
               departures.push({
                 tripId, routeId: p.relationships.route.data?.id, stopId,
                 stopName: stopInfo?.attributes.name || "Unknown",
                 trackNumber: track,
+                trackTbd: isHub && !track,
                 routeName: routeInfo?.attributes.long_name || "Unknown",
                 destination: tripInfo?.attributes.headsign || "Unknown",
                 scheduledDeparture: schedDep || depTime,
@@ -12221,13 +12268,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (depTime < now || depTime > horizon) return;
               const tripId = s.relationships.trip.data?.id;
               const stopId = s.relationships.stop.data?.id;
-              const tKey = `${tripId}-${stopId}`;
+              const tKey = `${tripId}-${rrMbtaStopBase(stopId)}`;
               if (!tripId || processed.has(tKey)) return;
               processed.add(tKey);
               const tripInfo = schedData.included?.find(i => i.type === "trip" && i.id === tripId);
               const routeInfo = schedData.included?.find(i => i.type === "route" && i.id === s.relationships.route.data?.id);
               const stopInfo = schedData.included?.find(i => i.type === "stop" && i.id === stopId);
-              const track = stopInfo ? extractTrackNumber(stopInfo.attributes.name, stopInfo.attributes.description) : null;
+              const isHub = rrIsMbtaHubStop(stopId);
+              const track = isHub ? rrHubTrack(tripId, stopId, null, depTime) : rrStopTrack(stopInfo);
               const isLive = liveTrainTrips.has(tripId);
               const mins = Math.floor((depTime - now) / 60000);
               let status = (mins > 0 && mins < 60) ? `in ${mins} min` : "Scheduled";
@@ -12235,6 +12283,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 tripId, routeId: s.relationships.route.data?.id, stopId,
                 stopName: stopInfo?.attributes.name || "Unknown",
                 trackNumber: track,
+                trackTbd: isHub && !track,
                 routeName: routeInfo?.attributes.long_name || "Unknown",
                 destination: tripInfo?.attributes.headsign || "Unknown",
                 scheduledDeparture: depTime,
@@ -12303,7 +12352,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               disp = pred || 'On time';
               statusHtml = `<span class="stop-status ${cls}">${disp}</span>`;
             }
-            const track = stop.trackNumber ? `<span class="track-badge">Track ${stop.trackNumber}</span>` : '';
+            const track = rrTrackBadgeHtml(stop.trackNumber, stop.trackTbd);
             const done = stop.isCompleted ? `<img src="/assets/icons/completed.png" class="checkmark">` : '';
             let mileageInfo = '';
             if (stop.cumulativeMiles != null) {
@@ -15010,7 +15059,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             m.on('popupopen', async () => {
               const deps = await getStationDepartures(g.stopIds);
               m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
+              // South/North Station: tracks are assigned only minutes ahead, so refresh while open.
+              if (g.stopIds.some(rrIsMbtaHubStop)) {
+                if (m._rrHubTimer) clearInterval(m._rrHubTimer);
+                m._rrHubTimer = setInterval(async () => {
+                  if (!m.isPopupOpen()) { clearInterval(m._rrHubTimer); m._rrHubTimer = null; return; }
+                  delete stationDeparturesCache[g.stopIds.slice().sort().join('-')];
+                  const fresh = await getStationDepartures(g.stopIds.slice());
+                  if (m.isPopupOpen()) m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, fresh, n));
+                }, 45000);
+              }
             });
+            m.on('popupclose', () => { if (m._rrHubTimer) { clearInterval(m._rrHubTimer); m._rrHubTimer = null; } });
             stationMarkers[g.stopIds[0]] = m;
             if (showStations) m.addTo(map);
           }
@@ -15038,7 +15098,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
               const live = d.isLive ? `<span class="live-indicator"><img src="/assets/icons/live.png" class="live-train-icon"></span>` : '';
               const plat = (n > 1 && d.stopName !== name) ? `<small>(${d.stopName})</small>` : '';
-              const trk = d.trackNumber ? `<span class="track-badge">Track ${d.trackNumber}</span>` : '';
+              const trk = rrTrackBadgeHtml(d.trackNumber, d.trackTbd);
               const svcDate = ((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
               return `<li onclick="openTrainSchedule('${d.tripId}', '${d.routeName.replace(/'/g,"\'")}', '${d.destination.replace(/'/g,"\'")}', '${svcDate}')" style="cursor:pointer">
                 <span class="departure-time">${d.formattedScheduledTime}</span>
@@ -15283,7 +15343,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (r) rname = r.attributes.long_name || "Unknown";
               if (stopId) {
                 const s = data.included.find(i => i.type === "stop" && i.id === stopId);
-                if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = extractTrackNumber(s.attributes.name, s.attributes.description); }
+                if (s?.attributes) { sname = s.attributes.name || "Unknown"; track = rrStopTrack(s); }
               }
             }
             // === CAPEFLYER DETECTION (robust) ===
@@ -15659,6 +15719,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div class="train-popup-footer">${logTripBtn}${shareBtn}</div>
             </div>
           `).openOn(map);
+          // Trips through South/North Station: refresh stops (live time + track) while open.
+          if ((stops || []).some(st => rrIsMbtaHubStop(st.id))) {
+            const schedPopup = map._popup;
+            if (window.__rrTripHubTimer) clearInterval(window.__rrTripHubTimer);
+            window.__rrTripHubTimer = setInterval(async () => {
+              if (!schedPopup || !map.hasLayer(schedPopup)) { clearInterval(window.__rrTripHubTimer); window.__rrTripHubTimer = null; return; }
+              Object.keys(tripStopsCache).forEach(k => { if (k.indexOf(String(tid) + '|') === 0) delete tripStopsCache[k]; });
+              const fresh = await getTripStops(tid, serviceDate);
+              const el = schedPopup.getElement && schedPopup.getElement();
+              const wrap = el && el.querySelector('.stops-wrapper');
+              if (wrap && fresh && fresh.length) wrap.innerHTML = buildStopsHtml(fresh);
+            }, 45000);
+          }
         } catch (e) { showNotification('Could not load schedule.', 'error'); }
       };
       function updateStationVisibility() {
