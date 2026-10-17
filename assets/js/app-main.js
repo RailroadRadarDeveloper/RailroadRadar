@@ -668,17 +668,43 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+    // Small public collections (verified reporters, special unit roster) are read on every page load and
+    // every 7 minutes. Keep the last copy in localStorage for the same 7 minutes so opening another page
+    // or tab inside that window reuses it instead of re-reading every document. admin.html clears these
+    // keys whenever it reloads them after an edit.
+    const RR_PUBLIC_CACHE_TTL_MS = 7 * 60 * 1000;
+    function rrPublicCacheGet(key, maxAgeMs) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        if (!o || !Array.isArray(o.rows) || !(Date.now() - Number(o.at || 0) < (maxAgeMs || RR_PUBLIC_CACHE_TTL_MS))) return null;
+        return o.rows;
+      } catch (_) { return null; }
+    }
+    function rrPublicCachePut(key, rows) {
+      try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), rows: rows })); } catch (_) {}
+    }
     let verifiedReporterUids = new Set();
-    async function loadVerifiedReporters() {
+    let verifiedReportersLoadedAt = 0;
+    async function loadVerifiedReporters(force) {
       if (!db) return;
       try {
-        const snap = await db.collection('verifiedReporters').get();
-        const next = new Set();
-        snap.forEach(function(doc) {
-          const data = doc.data() || {};
-          const uid = String(doc.id || data.uid || '').trim();
-          if (uid) next.add(uid);
-        });
+        // The 7-minute poll calls this with no argument; skip it when this tab already has a copy that fresh.
+        if (force !== true && verifiedReportersLoadedAt && Date.now() - verifiedReportersLoadedAt < RR_PUBLIC_CACHE_TTL_MS - 5000) return;
+        let rows = force === true ? null : rrPublicCacheGet('rrCacheVerifiedReporters');
+        if (!rows) {
+          const snap = await db.collection('verifiedReporters').get();
+          rows = [];
+          snap.forEach(function(doc) {
+            const data = doc.data() || {};
+            const uid = String(doc.id || data.uid || '').trim();
+            if (uid) rows.push(uid);
+          });
+          rrPublicCachePut('rrCacheVerifiedReporters', rows);
+        }
+        verifiedReportersLoadedAt = Date.now();
+        const next = new Set(rows.map(String));
         verifiedReporterUids = next;
         console.log('%c[verifiedReporters] Loaded ' + next.size + ' verified reporter(s)', 'color:#27ae60');
         const user = currentUser || (auth && auth.currentUser);
@@ -7187,6 +7213,31 @@ async function rrSpecialStopSharing(opts) {
         console.warn('[special-share] listener start failed', e);
         rrSpecialShareMapStarted = false;
       }
+      // A hidden tab keeps a listener billed for every location ping; detach after a minute hidden and
+      // re-attach (which re-reads the current shares) as soon as the tab is visible again.
+      if (!S._visBound) {
+        S._visBound = true;
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'hidden') {
+            clearTimeout(S._hideTimer);
+            S._hideTimer = setTimeout(function() {
+              S._hideTimer = null;
+              if (document.visibilityState !== 'hidden' || !rrSpecialShareUnsub) return;
+              try { rrSpecialShareUnsub(); } catch (_) {}
+              rrSpecialShareUnsub = null;
+              rrSpecialShareMapStarted = false;
+              S._paused = true;
+            }, 60000);
+          } else {
+            clearTimeout(S._hideTimer);
+            S._hideTimer = null;
+            if (S._paused) {
+              S._paused = false;
+              try { rrSpecialStartMapListener(); } catch (_) {}
+            }
+          }
+        });
+      }
       // Refresh Last ping labels / drop expired or stale pins between snapshots (one timer only)
       if (!S._timer) {
         try {
@@ -9100,10 +9151,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return;
         }
         try {
-          const snap = await db.collection('specialUnits').get();
+          let docs = (arguments[0] === true) ? null : rrPublicCacheGet('rrCacheSpecialUnits');
+          if (!docs) {
+            const fsSnap = await db.collection('specialUnits').get();
+            docs = [];
+            fsSnap.forEach(function(doc) {
+              const d = doc.data() || {};
+              docs.push({ agency: d.agency != null ? d.agency : '', id: d.id != null ? d.id : null, name: d.name || null, iconUrl: d.iconUrl != null ? d.iconUrl : null });
+            });
+            rrPublicCachePut('rrCacheSpecialUnits', docs);
+          }
+          const snap = { size: docs.length };
           const byKey = {};
-          snap.forEach(function(doc) {
-            const d = doc.data() || {};
+          docs.forEach(function(d) {
+            d = d || {};
             const agency = String(d.agency || '').toLowerCase().trim();
             const id = String(d.id != null ? d.id : '').trim();
             if (!agency || !id) return;
@@ -11362,15 +11423,35 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       async function hydrateLeaderboardPhotos(rows) {
         if (!db || !rows || !rows.length) return rows;
         const missing = rows.filter(function(r) { return r.uid && !r.photoURL; }).slice(0, 40);
+        // Opening or refreshing the leaderboard used to read up to 40 accounts docs each time. Keep what was
+        // found (or not found) for 30 minutes in this tab session.
+        let memo = {};
+        try { memo = JSON.parse(sessionStorage.getItem('rrLbAccountsMemo') || '{}') || {}; } catch (_) { memo = {}; }
+        const now = Date.now();
+        function applyAcct(r, d) {
+          if (!d) return;
+          if (d.photoURL) r.photoURL = d.photoURL;
+          if ((!r.name || r.name === 'Anonymous') && d.label) r.name = d.label;
+        }
+        let dirty = false;
         await Promise.all(missing.map(function(r) {
+          const hit = memo[r.uid];
+          if (hit && now - Number(hit.at || 0) < 30 * 60 * 1000) { applyAcct(r, hit.d); return null; }
           return db.collection('accounts').doc(r.uid).get().then(function(snap) {
+            let d = null;
             if (snap && snap.exists) {
-              const d = snap.data() || {};
-              if (d.photoURL) r.photoURL = d.photoURL;
-              if ((!r.name || r.name === 'Anonymous') && d.displayName) r.name = firstInitialLabel(d.displayName, d.email || '');
+              const raw = snap.data() || {};
+              d = { photoURL: raw.photoURL || null, label: raw.displayName ? firstInitialLabel(raw.displayName, raw.email || '') : null };
+              applyAcct(r, d);
             }
-          }).catch(function() {});
+            memo[r.uid] = { at: now, d: d };
+            dirty = true;
+          }).catch(function(err) {
+            // Non-admins may only read their own accounts doc; remember the refusal instead of asking again.
+            if (err && err.code === 'permission-denied') { memo[r.uid] = { at: now, d: null }; dirty = true; }
+          });
         }));
+        if (dirty) { try { sessionStorage.setItem('rrLbAccountsMemo', JSON.stringify(memo)); } catch (_) {} }
         return rows;
       }
       async function renderWeeklyLeaderboard() {
@@ -12053,20 +12134,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         };
       });
     }
-    async function rrLoadStopActuals(agency, trainNumber, serviceDate) {
+    // Docs found missing (or expired) are remembered too, so a train with no stored copy is not re-read on every refresh.
+    const rrStopActualMiss = {};
+    async function rrLoadStopActuals(agency, trainNumber, serviceDate, maxAgeMs) {
       const id = rrStopActualDocId(agency, trainNumber, serviceDate);
-      if (rrStopActualMem[id] && (Date.now() - (rrStopActualMem[id]._at || 0)) < 60000) return rrStopActualMem[id];
+      const ttl = Number(maxAgeMs) > 0 ? Number(maxAgeMs) : 60000;
+      if (rrStopActualMem[id] && (Date.now() - (rrStopActualMem[id]._at || 0)) < ttl) return rrStopActualMem[id];
+      if (!rrStopActualMem[id] && rrStopActualMiss[id] && (Date.now() - rrStopActualMiss[id]) < ttl) return null;
       if (typeof db === 'undefined' || !db) return null;
       try {
         const snap = await db.collection('trainStopActuals').doc(id).get();
-        if (!snap.exists) return null;
+        if (!snap.exists) { rrStopActualMiss[id] = Date.now(); return null; }
         const data = snap.data() || {};
         let exp = 0;
         try {
           if (data.expiresAt && typeof data.expiresAt.toMillis === 'function') exp = data.expiresAt.toMillis();
           else if (data.expiresAt) exp = new Date(data.expiresAt).getTime();
         } catch (_) {}
-        if (exp && exp < Date.now()) return null;
+        if (exp && exp < Date.now()) { rrStopActualMiss[id] = Date.now(); return null; }
+        delete rrStopActualMiss[id];
         rrStopActualMem[id] = Object.assign({ _at: Date.now() }, data, { stops: rrCleanStoredStops(data.stops) });
         return rrStopActualMem[id];
       } catch (e) {
@@ -12151,6 +12237,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       });
     }
 
+    function rrMbtaActualsMergeChanged(cached, passed) {
+      if (!cached) return true;
+      const stops = cached.stops || [];
+      return (passed || []).some(function(p) {
+        for (let n = 0; n < stops.length; n++) {
+          const s = stops[n];
+          if (String(s.stopId || '') === p.stopId || (p.name && String(s.name || '').toLowerCase() === p.name.toLowerCase())) return !s.actual;
+        }
+        return true;
+      });
+    }
     async function rrRecordMbtaMapActuals(vehicles) {
       if (!auth || !auth.currentUser || !db || !vehicles || !vehicles.length) return;
       if (typeof apiUrl !== 'function') return;
@@ -12192,7 +12289,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!tripId || seen[tripId] || !byTrip[tripId]) continue;
         seen[tripId] = true;
         const tnum = (typeof extractTrainNumber === 'function' ? extractTrainNumber(tripId) : '') || String(tripId);
-        const cached = await rrLoadStopActuals('mbta', tnum, svc);
+        // This runs for every MBTA trip with a passed stop on every 60 s map refresh. A copy up to 15 min old is
+        // enough to tell whether there is anything new; only when there is, re-read it fresh (60 s) before merging.
+        let cached = await rrLoadStopActuals('mbta', tnum, svc, 15 * 60 * 1000);
+        if (rrMbtaActualsMergeChanged(cached, byTrip[tripId])) cached = await rrLoadStopActuals('mbta', tnum, svc);
         const merged = ((cached && cached.stops) || []).map(function(s) { return Object.assign({}, s); });
         let changed = !cached;
         byTrip[tripId].forEach(function(p) {
