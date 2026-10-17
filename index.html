@@ -152,7 +152,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=34bd62cba2">
+  <link rel="stylesheet" href="/assets/css/app.css?v=d4cc840aab">
   <script>
     function rrIsMyTripsPage() {
       const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
@@ -235,7 +235,7 @@
 <div class="header-search-container">
         <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains, stations, or ask…" aria-label="Search for trains or stations">
         <!-- Search Type Menu -->
-        <div class="search-type-menu" id="search-type-menu">All ▼</div>
+        <div class="search-type-menu" id="search-type-menu" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Search filter">All</div>
         <div class="search-type-dropdown" id="search-type-dropdown">
           <div class="search-type-option active" data-type="all">All (Trains + Stations)</div>
           <div class="search-type-option" data-type="train">Trains only</div>
@@ -243,6 +243,7 @@
         </div>
         <div id="header-search-results" class="header-search-results"></div>
       </div>
+      <button type="button" class="header-auth-btn" id="btn-header-search" aria-label="Search" aria-expanded="false" title="Search"><svg viewBox="0 0 24 24" fill="none" stroke="#07093e" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
       <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
       <div class="header-tools">
         <button type="button" class="header-auth-btn" id="btn-header-tools" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
@@ -996,7 +997,7 @@
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
   <script src="/assets/js/trip-stations.js"></script>
   <script src="/assets/js/trip-notify.js?v=5357aa496b"></script>
-  <script src="/assets/js/app-main.js?v=756aae249c"></script>
+  <script src="/assets/js/app-main.js?v=5b0812a720"></script>
   <script>
     try {
       if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {

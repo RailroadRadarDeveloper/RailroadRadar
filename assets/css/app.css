@@ -6083,3 +6083,158 @@
 
 #trip-log-go-live{background:#b00020;color:#fff;border:0;font-weight:800;letter-spacing:.04em}#trip-log-go-live[hidden]{display:none!important}body.trip-form-special:not(.trip-form-editing) #trip-log-save{display:none!important}body.trip-form-special:not(.trip-form-editing) #trip-log-go-live{display:inline-flex!important}
   
+
+    /* ===== Header search bar (Oct 17): 32px controls, 4px radius, one font ===== */
+    :root { --rr-hdr-font: "Google Sans", Roboto, Arial, sans-serif; }
+    .header-right > .header-auth-btn,
+    .header-right #btn-header-tools,
+    #btn-header-search {
+      height: 32px;
+      box-sizing: border-box;
+      padding: 0 12px;
+      border-radius: 4px;
+      font-family: var(--rr-hdr-font);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-search-container {
+      width: auto;
+      flex: 1 1 260px;
+      min-width: 200px;
+      max-width: min(300px, 28vw);
+      height: 32px;
+    }
+    .header-search-input {
+      height: 32px;
+      box-sizing: border-box;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 0 74px 0 32px;
+      font-family: var(--rr-hdr-font);
+      font-size: 13px;
+      color: #1f1f1f;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5 21 21'/%3E%3C/svg%3E") no-repeat 10px center / 16px 16px;
+      outline: none;
+      text-overflow: ellipsis;
+    }
+    .header-search-input::placeholder { color: #5f6368; opacity: 1; }
+    .header-search-input:focus,
+    .header-search-input:focus-visible {
+      outline: none;
+      border-color: #8fd3ff;
+      box-shadow: 0 0 0 2px #8fd3ff;
+    }
+    .search-type-menu {
+      top: 1px;
+      bottom: 1px;
+      right: 1px;
+      transform: none;
+      height: auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px 0 10px;
+      background: transparent;
+      border: none;
+      border-left: 1px solid #dadce0;
+      border-radius: 0 3px 3px 0;
+      font-family: var(--rr-hdr-font);
+      font-size: 12px;
+      font-weight: 500;
+      color: #3c4043;
+    }
+    .search-type-menu::after {
+      content: "";
+      width: 12px;
+      height: 12px;
+      flex: 0 0 12px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%233c4043' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E") no-repeat center / 12px 12px;
+    }
+    .search-type-menu:hover { background: #f1f3f4; }
+    .search-type-dropdown {
+      top: calc(100% + 4px);
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+      font-family: var(--rr-hdr-font);
+      min-width: 170px;
+    }
+    .search-type-option { font-size: 13px; }
+    .header-search-results {
+      top: calc(100% + 6px);
+      left: auto;
+      right: 0;
+      width: max(100%, 380px);
+      max-width: calc(100vw - 16px);
+      box-sizing: border-box;
+      max-height: min(70vh, 560px);
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+      padding: 6px;
+      font-family: var(--rr-hdr-font);
+    }
+    .header-search-results .search-section-header { padding: 4px 6px 4px; }
+    .header-search-results .search-result { margin-bottom: 6px; }
+    .header-search-results .search-result-header { padding: 6px 10px; font-size: 13px; gap: 4px 6px; }
+    .header-search-results .search-result-header .route,
+    .header-search-results .search-result-header .dest {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .header-search-results .search-result-body { padding: 5px 10px; gap: 6px 10px; }
+    .header-search-results .search-result-meta { font-size: 12px; gap: 2px 10px; }
+    .header-search-results .search-status-pill { padding: 3px 8px; font-size: 11px; border-radius: 4px; }
+    .header-right #btn-header-search { display: none; }
+    #btn-header-search svg { width: 18px; height: 18px; display: block; }
+    html.rr-train-page #btn-header-search,
+    html.rr-mytrips-page #btn-header-search { display: none !important; }
+    @media (max-width: 820px) {
+      .header-right > .header-auth-btn,
+      .header-right #btn-header-tools { height: 32px; padding: 0 10px; font-size: 13px; }
+      .header-right #btn-header-search { display: inline-flex; width: 32px; padding: 0; }
+      html.rr-search-open #btn-header-search { box-shadow: 0 0 0 2px #8fd3ff; }
+      html.rr-search-open .header-search-container {
+        display: flex !important;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        height: auto;
+        padding: 8px;
+        box-sizing: border-box;
+        background: #07093e;
+        border-top: 1px solid rgba(255,255,255,0.12);
+        z-index: 10003;
+      }
+      html.rr-search-open .header-search-input { font-size: 16px; height: 36px; padding: 0 84px 0 34px; }
+      html.rr-search-open .search-type-menu { right: 9px; top: 9px; bottom: 9px; font-size: 13px; }
+      html.rr-search-open .search-type-dropdown.show { display: block !important; right: 8px; top: calc(100% - 4px); }
+      html.rr-search-open .header-search-results.active {
+        display: block !important;
+        position: fixed;
+        top: 112px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-width: none;
+        max-height: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        background: #f4f6f9;
+        padding: 8px;
+        overscroll-behavior: contain;
+      }
+    }

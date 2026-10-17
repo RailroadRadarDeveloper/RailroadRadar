@@ -16215,7 +16215,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           searchOptions.forEach(o => o.classList.remove('active'));
           option.classList.add('active');
           searchMode = option.dataset.type;
-          searchMenu.textContent = option.textContent + ' ▼';
+          searchMenu.textContent = ({ all: 'All', train: 'Trains', station: 'Stations' })[searchMode] || 'All';
           searchDropdown.classList.remove('show');
           if (searchMode === 'all') searchInput.placeholder = 'Search trains, stations, or ask…';
           else if (searchMode === 'train') searchInput.placeholder = 'Search trains...';
@@ -16229,6 +16229,42 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       document.addEventListener('click', () => {
         searchDropdown.classList.remove('show');
       });
+      searchMenu.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); searchMenu.click(); }
+      });
+      // Phone: magnifier button opens a full-width search row under the header
+      (function rrWirePhoneSearch() {
+        const btn = document.getElementById('btn-header-search');
+        if (!btn) return;
+        const root = document.documentElement;
+        function setOpen(open) {
+          root.classList.toggle('rr-search-open', !!open);
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if (open) {
+            try { searchInput.focus(); } catch (_) {}
+          } else {
+            try { searchInput.blur(); } catch (_) {}
+            const res = document.getElementById('header-search-results');
+            if (res) res.classList.remove('active');
+            searchDropdown.classList.remove('show');
+          }
+        }
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setOpen(!root.classList.contains('rr-search-open'));
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && root.classList.contains('rr-search-open')) setOpen(false);
+        });
+        const res = document.getElementById('header-search-results');
+        if (res) res.addEventListener('click', (e) => {
+          if (!root.classList.contains('rr-search-open')) return;
+          if (e.target && e.target.closest && e.target.closest('.search-result')) setTimeout(() => setOpen(false), 0);
+        });
+        window.addEventListener('resize', () => {
+          if (window.innerWidth > 820 && root.classList.contains('rr-search-open')) root.classList.remove('rr-search-open');
+        });
+      })();
 
       function delayStatusParts(delay, fallbackText, fallbackClass) {
         let statusClass = fallbackClass || 'status-on-time';
