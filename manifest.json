@@ -3,7 +3,7 @@
   "name": "RailroadRadar",
   "short_name": "RailroadRadar",
   "description": "Live train map and special unit reports",
-  "start_url": "/",
+  "start_url": "/map/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#07093e",
