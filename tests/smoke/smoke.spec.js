@@ -93,7 +93,7 @@ for (const url of pageUrls()) {
 
 test('map shows trains and popups for each railroad', async ({ page, baseURL }, info) => {
   watch(page, baseURL);
-  await page.goto('/');
+  await page.goto('/map/');
   await page.waitForFunction(() => window.rrMainMap && typeof window.rrCollectLiveTrainRows === 'function', null, { timeout: 30_000 });
 
   const countTrains = () => page.evaluate(() => {
@@ -134,5 +134,5 @@ test('map shows trains and popups for each railroad', async ({ page, baseURL }, 
     console.log(`${info.project.name} ${agency} popup: ${(await popup.innerText()).replace(/\s+/g, ' ').trim().slice(0, 160)}`);
   }
 
-  expect(realProblems(problems, '/')).toEqual([]);
+  expect(realProblems(problems, '/map/')).toEqual([]);
 });
