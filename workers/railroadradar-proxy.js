@@ -1,3 +1,7 @@
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+
+// worker.js
 var METRA_BASE = "https://gtfspublic.metrarr.com/gtfs/public";
 var MTA_BASE = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds";
 var MBTA_BASE = "https://api-v3.mbta.com";
@@ -30,7 +34,7 @@ function corsHeaders(request, env) {
   const acao = allow === "*" ? "*" : origin === allow ? allow : allow;
   const headers = {
     "Access-Control-Allow-Origin": acao,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400"
   };
@@ -38,6 +42,7 @@ function corsHeaders(request, env) {
     headers.Vary = "Origin";
   return headers;
 }
+__name(corsHeaders, "corsHeaders");
 async function handleAsk(request, env, cors) {
   const key = env.GROQ_API_KEY;
   if (!key)
@@ -83,6 +88,7 @@ async function handleAsk(request, env, cors) {
     answer = answer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
     return { ok: res.ok, status: res.status, data, answer };
   }
+  __name(callGroq, "callGroq");
   let first;
   try {
     first = await callGroq({ reasoning_effort: "low", include_reasoning: false });
@@ -104,12 +110,14 @@ async function handleAsk(request, env, cors) {
     answer: hitLimit ? "Too many questions just now. Wait a couple seconds and try again." : "I could not read the live map just then. Try once more."
   }, 200, cors);
 }
+__name(handleAsk, "handleAsk");
 function jsonResponse(obj, status, cors) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { ...cors, "Content-Type": "application/json" }
   });
 }
+__name(jsonResponse, "jsonResponse");
 async function proxyBinary(upstreamUrl, headers, cors, cacheTtl) {
   const ttl = cacheTtl || 15;
   const cacheKey = new Request(
@@ -164,6 +172,7 @@ async function proxyBinary(upstreamUrl, headers, cors, cacheTtl) {
     }
   });
 }
+__name(proxyBinary, "proxyBinary");
 async function njtReadCache(url) {
   try {
     const hit = await caches.default.match(new Request(url));
@@ -175,6 +184,7 @@ async function njtReadCache(url) {
     return null;
   }
 }
+__name(njtReadCache, "njtReadCache");
 async function njtWriteCache(url, body, maxAge) {
   try {
     await caches.default.put(
@@ -189,12 +199,14 @@ async function njtWriteCache(url, body, maxAge) {
   } catch (_) {
   }
 }
+__name(njtWriteCache, "njtWriteCache");
 async function njtDeleteCache(url) {
   try {
     await caches.default.delete(new Request(url));
   } catch (_) {
   }
 }
+__name(njtDeleteCache, "njtDeleteCache");
 function njtMultipartBody(fields) {
   const boundary = "----RRNjt" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   const chunks = [];
@@ -212,6 +224,7 @@ function njtMultipartBody(fields) {
     contentType: "multipart/form-data; boundary=" + boundary
   };
 }
+__name(njtMultipartBody, "njtMultipartBody");
 async function njtPostMultipart(method, fields) {
   const packed = njtMultipartBody(fields);
   const res = await fetch(NJT_BASE + "/" + method, {
@@ -225,6 +238,7 @@ async function njtPostMultipart(method, fields) {
   const text = await res.text();
   return { status: res.status, text };
 }
+__name(njtPostMultipart, "njtPostMultipart");
 async function njtGetToken(env) {
   if (env.NJT_TOKEN)
     return String(env.NJT_TOKEN);
@@ -250,6 +264,7 @@ async function njtGetToken(env) {
   await njtWriteCache(NJT_TOKEN_CACHE_URL, token, 60 * 60 * 12);
   return token;
 }
+__name(njtGetToken, "njtGetToken");
 async function njtPostJson(method, extra, env) {
   let token = await njtGetToken(env);
   let fields = Object.assign({ token }, extra || {});
@@ -262,6 +277,7 @@ async function njtPostJson(method, extra, env) {
   }
   return { status: out.status, text: out.text };
 }
+__name(njtPostJson, "njtPostJson");
 var FIRESTORE_REPORTS = "https://firestore.googleapis.com/v1/projects/railroadradar-accounts/databases/(default)/documents/trainReports?pageSize=300";
 var FIRESTORE_KEY = "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs";
 var SPECIAL_ROSTER = [
@@ -312,12 +328,14 @@ function b64urlToBytes(s) {
     out[i] = bin.charCodeAt(i);
   return out;
 }
+__name(b64urlToBytes, "b64urlToBytes");
 function bytesToB64url(bytes) {
   let s = "";
   for (let i = 0; i < bytes.length; i++)
     s += String.fromCharCode(bytes[i]);
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+__name(bytesToB64url, "bytesToB64url");
 function concatBytes(parts) {
   let n = 0;
   parts.forEach((p) => {
@@ -331,15 +349,18 @@ function concatBytes(parts) {
   });
   return out;
 }
+__name(concatBytes, "concatBytes");
 async function hmacSha256(keyBytes, data) {
   const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return new Uint8Array(await crypto.subtle.sign("HMAC", key, data));
 }
+__name(hmacSha256, "hmacSha256");
 async function hkdfExpand(prk, info, len) {
   const infoB = typeof info === "string" ? new TextEncoder().encode(info) : info;
   const t = await hmacSha256(prk, concatBytes([infoB, new Uint8Array([1])]));
   return t.slice(0, len);
 }
+__name(hkdfExpand, "hkdfExpand");
 function fsVal(node) {
   if (!node || typeof node !== "object")
     return null;
@@ -364,6 +385,7 @@ function fsVal(node) {
   }
   return null;
 }
+__name(fsVal, "fsVal");
 function fsDoc(doc) {
   const fields = doc && doc.fields || {};
   const out = { id: String(doc && doc.name || "").split("/").pop() };
@@ -372,6 +394,7 @@ function fsDoc(doc) {
   });
   return out;
 }
+__name(fsDoc, "fsDoc");
 function reportLocoIds(r) {
   const ids = [];
   function add(v) {
@@ -379,6 +402,7 @@ function reportLocoIds(r) {
     if (id && ids.indexOf(id) === -1)
       ids.push(id);
   }
+  __name(add, "add");
   if (Array.isArray(r.locomotives)) {
     r.locomotives.forEach((L) => {
       if (!L)
@@ -395,9 +419,11 @@ function reportLocoIds(r) {
     add(r.unitName);
   return ids;
 }
+__name(reportLocoIds, "reportLocoIds");
 function agencyPretty(a) {
   return { mbta: "MBTA", amtrak: "Amtrak", mnr: "Metro-North", lirr: "LIRR", metra: "Metra", njt: "NJ Transit" }[String(a || "").toLowerCase()] || String(a || "").toUpperCase();
 }
+__name(agencyPretty, "agencyPretty");
 async function importVapidKey(env) {
   const pub = b64urlToBytes(env.VAPID_PUBLIC_KEY || "");
   const d = env.VAPID_PRIVATE_KEY || "";
@@ -412,6 +438,7 @@ async function importVapidKey(env) {
   };
   return crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
 }
+__name(importVapidKey, "importVapidKey");
 async function vapidJwt(env, audience) {
   const key = await importVapidKey(env);
   const header = bytesToB64url(new TextEncoder().encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
@@ -423,6 +450,7 @@ async function vapidJwt(env, audience) {
   const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(header + "." + payload)));
   return header + "." + payload + "." + bytesToB64url(sig);
 }
+__name(vapidJwt, "vapidJwt");
 async function encryptWebPush(subscription, payload) {
   const uaPubRaw = b64urlToBytes(subscription.keys.p256dh);
   const auth = b64urlToBytes(subscription.keys.auth);
@@ -447,6 +475,7 @@ async function encryptWebPush(subscription, payload) {
   const rs = new Uint8Array([0, 0, 16, 0]);
   return concatBytes([salt, rs, new Uint8Array([asPubRaw.length]), asPubRaw, cipher]);
 }
+__name(encryptWebPush, "encryptWebPush");
 async function sendWebPush(env, subscription, data) {
   const endpoint = subscription.endpoint;
   const origin = new URL(endpoint).origin;
@@ -461,6 +490,7 @@ async function sendWebPush(env, subscription, data) {
   };
   return fetch(endpoint, { method: "POST", headers, body });
 }
+__name(sendWebPush, "sendWebPush");
 async function handlePushSubscribe(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
@@ -484,6 +514,7 @@ async function handlePushSubscribe(request, env, cors) {
   }));
   return jsonResponse({ ok: true }, 200, cors);
 }
+__name(handlePushSubscribe, "handlePushSubscribe");
 async function handlePushUnsubscribe(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
@@ -495,6 +526,7 @@ async function handlePushUnsubscribe(request, env, cors) {
   await env.PUSH_SUBS.delete("sub:" + id);
   return jsonResponse({ ok: true }, 200, cors);
 }
+__name(handlePushUnsubscribe, "handlePushUnsubscribe");
 async function listSubscriptions(env) {
   const out = [];
   if (!env.PUSH_SUBS)
@@ -515,6 +547,7 @@ async function listSubscriptions(env) {
   } while (cursor);
   return out;
 }
+__name(listSubscriptions, "listSubscriptions");
 function notifyPrefsMatchEvent(prefs, event) {
   prefs = prefs || {};
   const rails = Array.isArray(prefs.railroads) ? prefs.railroads : [];
@@ -539,6 +572,7 @@ function notifyPrefsMatchEvent(prefs, event) {
   }
   return true;
 }
+__name(notifyPrefsMatchEvent, "notifyPrefsMatchEvent");
 function collectExtraWatched(subs) {
   const ids = /* @__PURE__ */ new Set();
   const keys = /* @__PURE__ */ new Set();
@@ -560,6 +594,7 @@ function collectExtraWatched(subs) {
   });
   return { ids, keys };
 }
+__name(collectExtraWatched, "collectExtraWatched");
 function isWatchedUnit(agency, id, extra) {
   const a = String(agency || "").toLowerCase();
   const raw = String(id == null ? "" : id).trim();
@@ -572,6 +607,7 @@ function isWatchedUnit(agency, id, extra) {
   const idL = raw.toLowerCase();
   return !!(extra.ids.has(idL) || extra.keys.has(a + "|" + idL));
 }
+__name(isWatchedUnit, "isWatchedUnit");
 async function fanout(env, event) {
   const subs = await listSubscriptions(env);
   const kind = event.type;
@@ -591,6 +627,7 @@ async function fanout(env, event) {
     }
   }));
 }
+__name(fanout, "fanout");
 async function fetchAllReports() {
   const res = await fetch(FIRESTORE_REPORTS + "&key=" + FIRESTORE_KEY);
   if (!res.ok)
@@ -598,6 +635,7 @@ async function fetchAllReports() {
   const data = await res.json();
   return (data.documents || []).map(fsDoc);
 }
+__name(fetchAllReports, "fetchAllReports");
 function walkIds(obj, out) {
   if (obj == null)
     return;
@@ -614,6 +652,7 @@ function walkIds(obj, out) {
   if (typeof obj === "object")
     Object.keys(obj).forEach((k) => walkIds(obj[k], out));
 }
+__name(walkIds, "walkIds");
 async function fetchLiveSpecials(env, extra) {
   const live = {};
   extra = extra || { ids: /* @__PURE__ */ new Set(), keys: /* @__PURE__ */ new Set() };
@@ -673,6 +712,7 @@ async function fetchLiveSpecials(env, extra) {
   }
   return live;
 }
+__name(fetchLiveSpecials, "fetchLiveSpecials");
 async function scanAndNotify(env) {
   if (!env.PUSH_SUBS || !env.VAPID_PRIVATE_KEY)
     return;
@@ -691,7 +731,7 @@ async function scanAndNotify(env) {
       reportEvents[k] = {
         type: "report",
         title: "New report: " + (r.unitName || id),
-        body: (agencyPretty(r.agency) + (r.trainNumber ? " train " + r.trainNumber : "") + (r.reportedByLabel ? " \xB7 " + r.reportedByLabel : "")).trim(),
+        body: (agencyPretty(r.agency) + (r.trainNumber ? " train " + r.trainNumber : "") + (r.reportedByLabel ? " reported by " + r.reportedByLabel : "")).trim(),
         tag: k,
         agency,
         unitId: id
@@ -709,13 +749,373 @@ async function scanAndNotify(env) {
       fresh.push(liveEvents[k]);
   });
   const seeded = !Object.keys(prev.reports || {}).length && !Object.keys(prev.live || {}).length;
-  await env.PUSH_SUBS.put("notify:state", JSON.stringify({ reports: reportEvents, live: liveEvents, at: Date.now() }));
+  // Only write when the event set changed (free-plan KV allows 1,000 writes/day; cron runs 720x/day).
+  if (JSON.stringify({ reports: prev.reports || {}, live: prev.live || {} }) !== JSON.stringify({ reports: reportEvents, live: liveEvents })) {
+    await env.PUSH_SUBS.put("notify:state", JSON.stringify({ reports: reportEvents, live: liveEvents, at: Date.now() }));
+  }
   if (seeded)
     return;
   for (const evt of fresh.slice(0, 12)) {
     await fanout(env, evt);
   }
 }
+__name(scanAndNotify, "scanAndNotify");
+// ---- MyTrips boarding-track alerts (Web Push) ----
+// KV layout (PUSH_SUBS, keeps writes low on the free plan):
+//   "trips:<subId>"  -> { endpoint, keys, trips:[{k,train,line,dep,stop,dest,sent}], updatedAt }   (expires 1h after last trip)
+//   "trips:index"    -> { <subId>: { first, last } }   one read per cron run; written only when a list changes
+var TRIP_WATCH_BEFORE_MS = 35 * 60 * 1e3;
+var TRIP_WATCH_AFTER_MS = 20 * 60 * 1e3;
+var TRIP_MAX = 20;
+var PUSH_HOST_RE = /(^|\.)(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|push\.services\.mozilla\.com|web\.push\.apple\.com|notify\.windows\.com|push\.apple\.com)$/i;
+function tripSubId(endpoint) {
+  return bytesToB64url(new TextEncoder().encode(endpoint)).slice(0, 88);
+}
+__name(tripSubId, "tripSubId");
+function tripFmtEt(ms) {
+  try {
+    return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  } catch (_) {
+    return new Date(ms).toISOString().slice(11, 16) + " UTC";
+  }
+}
+__name(tripFmtEt, "tripFmtEt");
+async function tripIndexGet(env) {
+  try {
+    return JSON.parse(await env.PUSH_SUBS.get("trips:index") || "{}") || {};
+  } catch (_) {
+    return {};
+  }
+}
+__name(tripIndexGet, "tripIndexGet");
+function tripCleanList(list, now) {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(list) ? list : []).forEach((t) => {
+    if (!t || out.length >= TRIP_MAX) return;
+    const k = String(t.tripKey || "").slice(0, 80);
+    const train = String(t.trainNum || "").trim().slice(0, 12);
+    const stop = String(t.originStopId || t.parent || "").trim();
+    const dep = Date.parse(t.depTimeISO || "");
+    if (!k || !train || !/^place-[a-z0-9-]{2,40}$/i.test(stop) || !isFinite(dep)) return;
+    const arrIn = Date.parse(t.arrTimeISO || "");
+    const endIn = Math.max(isFinite(arrIn) && arrIn >= dep && arrIn - dep < 12 * 36e5 ? arrIn : 0, dep + 2 * 36e5);
+    if (endIn < now || dep > now + 7 * 864e5) return;
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({
+      k,
+      train,
+      line: String(t.line || "").trim().slice(0, 60),
+      dep,
+      stop,
+      dest: String(t.destination || "").trim().slice(0, 60),
+      origin: String(t.originName || "").trim().slice(0, 60),
+      arr: (() => {
+        const a = Date.parse(t.arrTimeISO || "");
+        return isFinite(a) && a >= dep && a - dep < 12 * 36e5 ? a : 0;
+      })(),
+      rid: /^CR-[A-Za-z]{2,30}$/.test(String(t.routeId || "")) ? String(t.routeId) : "",
+      // Alerts the open page already showed, so the cron doesn't repeat them.
+      sent: Number(t.boardingSent) || 0,
+      hs: Number(t.headsUpSent) || 0,
+      late: Number(t.lastLateSentAt) || 0,
+      cx: Number(t.cancelSent) || 0
+    });
+  });
+  return out;
+}
+__name(tripCleanList, "tripCleanList");
+async function handlePushTrips(request, env, cors) {
+  if (!env.PUSH_SUBS)
+    return jsonResponse({ error: "Push store missing" }, 500, cors);
+  const body = await request.json().catch(() => null);
+  const sub = body && body.subscription;
+  if (!sub || !sub.endpoint)
+    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
+  let host = "";
+  try {
+    const u = new URL(sub.endpoint);
+    if (u.protocol !== "https:") throw new Error("https");
+    host = u.hostname;
+  } catch (_) {
+    return jsonResponse({ error: "Invalid endpoint" }, 400, cors);
+  }
+  if (!PUSH_HOST_RE.test(host))
+    return jsonResponse({ error: "Unsupported push service" }, 400, cors);
+  const id = tripSubId(sub.endpoint);
+  const key = "trips:" + id;
+  const now = Date.now();
+  const del = request.method === "DELETE" || !body.trips || !body.trips.length;
+  const trips = del ? [] : tripCleanList(body.trips, now);
+  const index = await tripIndexGet(env);
+  if (!trips.length) {
+    await env.PUSH_SUBS.delete(key);
+    if (index[id]) {
+      delete index[id];
+      await env.PUSH_SUBS.put("trips:index", JSON.stringify(index));
+    }
+    return jsonResponse({ ok: true, trips: 0 }, 200, cors);
+  }
+  if (!sub.keys || !sub.keys.p256dh || !sub.keys.auth)
+    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
+  // Keep "sent" flags for trips the device sends again, so a re-sync never re-notifies.
+  let prevByKey = {};
+  try {
+    const prev = JSON.parse(await env.PUSH_SUBS.get(key) || "null");
+    (prev && prev.trips || []).forEach((t) => {
+      prevByKey[t.k] = t;
+    });
+  } catch (_) {
+  }
+  trips.forEach((t) => {
+    const p = prevByKey[t.k] || {};
+    ["sent", "hs", "late", "cx"].forEach((f) => {
+      const v = Math.max(Number(t[f]) || 0, Number(p[f]) || 0);
+      if (v) t[f] = v; else delete t[f];
+    });
+    if (p.al) t.al = p.al;
+    if (p.tid) t.tid = p.tid;
+    if (!t.rid && p.rid) t.rid = p.rid;
+    if (!t.arr) delete t.arr;
+    if (!t.rid) delete t.rid;
+  });
+  trips.sort((a, b) => a.dep - b.dep);
+  const first = trips[0].dep;
+  const last = trips.reduce((m, t) => Math.max(m, tripEnd(t)), 0);
+  const ttl = Math.max(120, Math.ceil((last + 36e5 - now) / 1e3));
+  await env.PUSH_SUBS.put(key, JSON.stringify({ endpoint: sub.endpoint, keys: sub.keys, trips, updatedAt: now }), { expirationTtl: ttl });
+  const old = index[id];
+  if (!old || old.first !== first || old.last !== last) {
+    index[id] = { first, last };
+    await env.PUSH_SUBS.put("trips:index", JSON.stringify(index));
+  }
+  return jsonResponse({ ok: true, trips: trips.length }, 200, cors);
+}
+__name(handlePushTrips, "handlePushTrips");
+function tripTrackOf(stop) {
+  const a = stop && stop.attributes || {};
+  if (a.platform_code != null && String(a.platform_code).trim()) return String(a.platform_code).trim();
+  const m = String(a.description || a.platform_name || "").match(/track\s+(\d+[A-Za-z]?)/i);
+  return m ? m[1] : null;
+}
+__name(tripTrackOf, "tripTrackOf");
+var TRIP_HEADSUP_MS = 30 * 60 * 1e3;
+function tripFmtDelay(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? h + " hr" + (m ? " " + m + " min" : "") : m + " min";
+}
+__name(tripFmtDelay, "tripFmtDelay");
+var TRIP_LATE_MIN = 5;
+var TRIP_LATE_EVERY_MS = 10 * 60 * 1e3;
+var TRIP_ALERT_SKIP_EFFECTS = /* @__PURE__ */ new Set(["ELEVATOR_CLOSURE", "ESCALATOR_CLOSURE", "ACCESS_ISSUE", "PARKING_CLOSURE", "PARKING_ISSUE", "BIKE_ISSUE", "FACILITY_ISSUE", "AMBER_ALERT"]);
+async function tripPredictions(env, stop, cache) {
+  if (cache[stop]) return cache[stop];
+  const url = MBTA_BASE + "/predictions?filter[stop]=" + encodeURIComponent(stop) + "&filter[route_type]=2&include=stop,trip,schedule&page[limit]=150";
+  const res = await fetch(url, { headers: env.MBTA_API_KEY ? { "x-api-key": env.MBTA_API_KEY } : {} });
+  const out = {};
+  if (res.ok) {
+    const j = await res.json();
+    const inc = {};
+    (j.included || []).forEach((x) => {
+      inc[x.type + ":" + x.id] = x;
+    });
+    (j.data || []).forEach((p) => {
+      const a = p.attributes || {};
+      const rel = p.relationships || {};
+      const tr = rel.trip && rel.trip.data;
+      const trip = tr ? inc["trip:" + tr.id] : null;
+      const name = trip && trip.attributes ? String(trip.attributes.name || "") : "";
+      if (!name) return;
+      const sc = rel.schedule && rel.schedule.data ? inc["schedule:" + rel.schedule.data.id] : null;
+      const sched = sc && sc.attributes && sc.attributes.departure_time ? Date.parse(sc.attributes.departure_time) : 0;
+      const sr = String(a.schedule_relationship || "").toUpperCase();
+      const cancelled = sr === "CANCELLED" || sr === "SKIPPED";
+      if (!a.departure_time && !cancelled) return;
+      const st = rel.stop && rel.stop.data;
+      const stopRec = st ? inc["stop:" + st.id] : null;
+      (out[name] = out[name] || []).push({
+        dep: a.departure_time ? Date.parse(a.departure_time) : 0,
+        sched,
+        cancelled,
+        track: tripTrackOf(stopRec),
+        headsign: trip.attributes.headsign || "",
+        tripId: tr.id,
+        routeId: rel.route && rel.route.data ? rel.route.data.id : "",
+        stopName: stopRec && stopRec.attributes ? stopRec.attributes.name || "" : ""
+      });
+    });
+  }
+  cache[stop] = out;
+  return out;
+}
+__name(tripPredictions, "tripPredictions");
+// Trip ends at its arrival (or 2 h after departure if the device didn't send one).
+function tripEnd(t) {
+  return Math.max(t.arr || 0, t.dep + 2 * 36e5);
+}
+__name(tripEnd, "tripEnd");
+function tripHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = h * 31 + str.charCodeAt(i) | 0;
+  return (h >>> 0).toString(36);
+}
+__name(tripHash, "tripHash");
+// Active MBTA alerts for this train or its whole line (facility alerts skipped).
+async function tripAlerts(env, routeId, tripId, cache) {
+  if (!routeId) return [];
+  if (!cache[routeId]) {
+    cache[routeId] = [];
+    try {
+      const res = await fetch(MBTA_BASE + "/alerts?filter[route]=" + encodeURIComponent(routeId) + "&filter[datetime]=NOW", { headers: env.MBTA_API_KEY ? { "x-api-key": env.MBTA_API_KEY } : {} });
+      if (res.ok) cache[routeId] = (await res.json()).data || [];
+    } catch (_) {
+    }
+  }
+  const out = [];
+  cache[routeId].forEach((al) => {
+    const a = al.attributes || {};
+    if (TRIP_ALERT_SKIP_EFFECTS.has(String(a.effect || ""))) return;
+    const ents = a.informed_entity || [];
+    const hits = ents.some((e) => e && (tripId && e.trip === tripId || e.route === routeId && !e.trip && !e.stop));
+    if (!hits) return;
+    const h = String(a.header || a.short_header || "").replace(/\s+/g, " ").trim();
+    if (!h) return;
+    out.push({ id: String(al.id), header: h.length > 240 ? h.slice(0, 237) + "\u2026" : h, hash: tripHash(h) });
+  });
+  return out;
+}
+__name(tripAlerts, "tripAlerts");
+// Builds the due alerts for one trip. Mutates t's flags (sent/hs/late/cx); returns [{title, body, tag}].
+async function tripEvents(env, t, now, predCache, alertCache) {
+  const evs = [];
+  if (t.cx || t.dep - TRIP_WATCH_BEFORE_MS > now || now > tripEnd(t)) return evs;
+  const line = t.line || "Train";
+  // MBTA service alerts: one notification per alert (re-sent once if its text changes), until the trip ends.
+  const routeId = t.rid || "";
+  if (routeId || t.tid) {
+    const list = await tripAlerts(env, routeId, t.tid || "", alertCache);
+    t.al = t.al || {};
+    for (const al of list) {
+      const prev = t.al[al.id];
+      if (prev && (prev.h === al.hash || prev.n >= 2)) continue;
+      t.al[al.id] = { h: al.hash, n: prev ? prev.n + 1 : 1 };
+      evs.push({ type: "trip", title: line + " " + t.train, body: al.header, tag: "rr-trip-" + t.k + "-alert-" + al.id, url: "/mytrips/" });
+    }
+    if (!Object.keys(t.al).length) delete t.al;
+  }
+  if (now - t.dep > TRIP_WATCH_AFTER_MS) return evs;
+  const preds = await tripPredictions(env, t.stop, predCache);
+  const rows = (preds[t.train] || []).filter((p) => Math.abs((p.dep || p.sched || t.dep) - t.dep) <= 3 * 36e5);
+  rows.sort((a, b) => Math.abs((a.dep || a.sched) - t.dep) - Math.abs((b.dep || b.sched) - t.dep));
+  const hit = rows[0] || null;
+  if (hit && hit.tripId && t.tid !== hit.tripId) t.tid = hit.tripId; // saved with the next write
+  if (hit && hit.routeId && !t.rid) t.rid = hit.routeId;
+  const dest = hit && hit.headsign || t.dest;
+  const origin = t.origin || hit && hit.stopName || "";
+  const toDest = dest ? " to " + dest : "";
+  const fromOrigin = origin ? " from " + origin : "";
+  if (hit && hit.cancelled) {
+    t.cx = now;
+    evs.push({ type: "trip", title: "Train cancelled", body: line + " " + t.train + toDest + fromOrigin + " has been cancelled", tag: "rr-trip-" + t.k + "-cx", url: "/mytrips/" });
+    return evs;
+  }
+  const sched = hit && hit.sched || t.dep;
+  const pred = hit && hit.dep || 0;
+  const lateMin = pred && sched ? Math.round((pred - sched) / 6e4) : 0;
+  const leaves = pred || sched;
+  const gone = hit ? pred && pred < now - 60 * 1e3 : now > sched + 2 * 60 * 1e3;
+  if (!t.hs && !gone && sched - now <= TRIP_HEADSUP_MS && (hit || sched - now <= 15 * 60 * 1e3)) {
+    const mins = Math.max(1, Math.round((leaves - now) / 6e4));
+    const body = lateMin >= TRIP_LATE_MIN
+      ? line + " " + t.train + toDest + " is expected to depart " + lateMin + " min late at " + tripFmtEt(pred) + fromOrigin
+      : line + " " + t.train + toDest + " is expected to depart On Time at " + tripFmtEt(sched) + fromOrigin;
+    evs.push({ type: "trip", title: "Departing in " + mins + " min", body, tag: "rr-trip-" + t.k + "-30", url: "/mytrips/" });
+    t.hs = now;
+    if (lateMin >= TRIP_LATE_MIN) t.late = now;
+  } else if (t.hs && hit && pred > now && lateMin >= TRIP_LATE_MIN && (!t.late || now - t.late >= TRIP_LATE_EVERY_MS - 30 * 1e3)) {
+    const body = "Now expected to depart " + (origin ? origin + " " : "") + "at " + tripFmtEt(pred);
+    evs.push({ type: "trip", title: line + " " + t.train + " is delayed by " + tripFmtDelay(lateMin), body, tag: "rr-trip-" + t.k + "-late", url: "/mytrips/" });
+    t.late = now;
+  }
+  if (!t.sent && hit && hit.track && !gone) {
+    t.sent = now;
+    evs.push({ type: "trip", title: "Boarding on track " + hit.track, body: line + " " + t.train + " (" + tripFmtEt(t.dep) + ")" + toDest, tag: "rr-trip-" + t.k, url: "/mytrips/" });
+  }
+  return evs;
+}
+__name(tripEvents, "tripEvents");
+async function scanTripAlerts(env, nowOverride) {
+  if (!env.PUSH_SUBS || !env.VAPID_PRIVATE_KEY)
+    return { checked: 0, sent: 0 };
+  const now = nowOverride || Date.now();
+  const index = await tripIndexGet(env);
+  const ids = Object.keys(index);
+  if (!ids.length) return { checked: 0, sent: 0 };
+  let indexDirty = false;
+  const due = [];
+  ids.forEach((id) => {
+    const e = index[id] || {};
+    if (!(e.last >= now - TRIP_WATCH_AFTER_MS)) {
+      delete index[id];
+      indexDirty = true;
+      return;
+    }
+    if (e.first - TRIP_WATCH_BEFORE_MS <= now) due.push(id);
+  });
+  const predCache = {};
+  const alertCache = {};
+  let checked = 0, sent = 0;
+  for (const id of due.slice(0, 50)) {
+    const key = "trips:" + id;
+    let rec = null;
+    try {
+      rec = JSON.parse(await env.PUSH_SUBS.get(key) || "null");
+    } catch (_) {
+    }
+    if (!rec || !rec.trips) {
+      delete index[id];
+      indexDirty = true;
+      continue;
+    }
+    let changed = false;
+    let gone = false;
+    for (const t of rec.trips) {
+      let evs = [];
+      try {
+        evs = await tripEvents(env, t, now, predCache, alertCache);
+      } catch (_) {
+        continue;
+      }
+      checked++;
+      for (const evt of evs) {
+        changed = true;
+        try {
+          const res = await sendWebPush(env, rec, evt);
+          if (res.status === 404 || res.status === 410) gone = true;
+          else sent++;
+        } catch (_) {
+        }
+        if (gone) break;
+      }
+      if (gone) break;
+    }
+    if (gone) {
+      await env.PUSH_SUBS.delete(key);
+      delete index[id];
+      indexDirty = true;
+    } else if (changed) {
+      // One write per device per run, only when an alert went out.
+      const last = rec.trips.reduce((m, t) => Math.max(m, tripEnd(t)), 0);
+      const ttl = Math.max(120, Math.ceil((last + 36e5 - now) / 1e3));
+      await env.PUSH_SUBS.put(key, JSON.stringify(rec), { expirationTtl: ttl });
+    }
+  }
+  if (indexDirty) await env.PUSH_SUBS.put("trips:index", JSON.stringify(index));
+  return { checked, sent };
+}
+__name(scanTripAlerts, "scanTripAlerts");
+
 var GTFS_ZIP_URLS = {
   amtrak: "https://content.amtrak.com/content/gtfs/GTFS.zip",
   mnr: "https://rrgtfsfeeds.s3.amazonaws.com/gtfsmnr.zip",
@@ -743,6 +1143,7 @@ var MBTA_CR_ROUTES = [
 function schedulesCacheUrl(kind, agency, date) {
   return "https://railroadradar.internal/schedules-v1/" + kind + "/" + agency + (date ? "/" + date : "");
 }
+__name(schedulesCacheUrl, "schedulesCacheUrl");
 async function cacheGetText(url) {
   try {
     const hit = await caches.default.match(new Request(url));
@@ -753,6 +1154,7 @@ async function cacheGetText(url) {
     return null;
   }
 }
+__name(cacheGetText, "cacheGetText");
 async function cachePutText(url, body, maxAge, contentType) {
   try {
     await caches.default.put(
@@ -767,6 +1169,7 @@ async function cachePutText(url, body, maxAge, contentType) {
   } catch (_) {
   }
 }
+__name(cachePutText, "cachePutText");
 async function cacheGetBuf(url) {
   try {
     const hit = await caches.default.match(new Request(url));
@@ -777,6 +1180,7 @@ async function cacheGetBuf(url) {
     return null;
   }
 }
+__name(cacheGetBuf, "cacheGetBuf");
 async function cachePutBuf(url, buf, maxAge) {
   try {
     await caches.default.put(
@@ -791,6 +1195,7 @@ async function cachePutBuf(url, buf, maxAge) {
   } catch (_) {
   }
 }
+__name(cachePutBuf, "cachePutBuf");
 function parseCsv(text) {
   const rows = [];
   let i = 0;
@@ -859,12 +1264,15 @@ function parseCsv(text) {
   }
   return out;
 }
+__name(parseCsv, "parseCsv");
 function u16(view, off) {
   return view.getUint16(off, true);
 }
+__name(u16, "u16");
 function u32(view, off) {
   return view.getUint32(off, true);
 }
+__name(u32, "u32");
 async function inflateRaw(bytes) {
   if (typeof DecompressionStream === "undefined") {
     throw new Error("DecompressionStream not available");
@@ -873,6 +1281,7 @@ async function inflateRaw(bytes) {
   const stream = new Blob([bytes]).stream().pipeThrough(ds);
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
+__name(inflateRaw, "inflateRaw");
 async function unzipNamedFiles(zipBuf, wantedNames) {
   const buf = zipBuf instanceof ArrayBuffer ? zipBuf : zipBuf.buffer;
   const view = new DataView(buf);
@@ -926,12 +1335,14 @@ async function unzipNamedFiles(zipBuf, wantedNames) {
   }
   return found;
 }
+__name(unzipNamedFiles, "unzipNamedFiles");
 function ymdToDateParts(ymd) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ""));
   if (!m)
     return null;
   return { y: +m[1], mo: +m[2], d: +m[3], compact: m[1] + m[2] + m[3] };
 }
+__name(ymdToDateParts, "ymdToDateParts");
 function weekdayField(ymd) {
   const p = ymdToDateParts(ymd);
   if (!p)
@@ -940,6 +1351,7 @@ function weekdayField(ymd) {
   const wd = dt.getUTCDay();
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][wd];
 }
+__name(weekdayField, "weekdayField");
 function serviceIdsForDate(calendarRows, calendarDateRows, ymd) {
   const p = ymdToDateParts(ymd);
   if (!p)
@@ -971,12 +1383,14 @@ function serviceIdsForDate(calendarRows, calendarDateRows, ymd) {
   });
   return active;
 }
+__name(serviceIdsForDate, "serviceIdsForDate");
 function naturalTrainSort(a, b) {
   return String(a.trainNumber || "").localeCompare(String(b.trainNumber || ""), void 0, {
     numeric: true,
     sensitivity: "base"
   });
 }
+__name(naturalTrainSort, "naturalTrainSort");
 function trainsFromGtfsFiles(files, agency, ymd) {
   const trips = parseCsv(files["trips.txt"] || "");
   const routes = parseCsv(files["routes.txt"] || "");
@@ -1016,6 +1430,7 @@ function trainsFromGtfsFiles(files, agency, ymd) {
     return byNum[k];
   }).sort(naturalTrainSort);
 }
+__name(trainsFromGtfsFiles, "trainsFromGtfsFiles");
 async function fetchGtfsZip(agency) {
   const cacheAgency = agency === "ctrail" ? "amtrak" : agency;
   const url = GTFS_ZIP_URLS[agency] || GTFS_ZIP_URLS[cacheAgency];
@@ -1032,6 +1447,7 @@ async function fetchGtfsZip(agency) {
   await cachePutBuf(cacheKey, buf, GTFS_CACHE_TTL_SEC);
   return buf;
 }
+__name(fetchGtfsZip, "fetchGtfsZip");
 async function schedulesFromStaticGtfs(agency, ymd) {
   const zipAgency = agency === "ctrail" ? "ctrail" : agency;
   const buf = await fetchGtfsZip(zipAgency);
@@ -1040,12 +1456,14 @@ async function schedulesFromStaticGtfs(agency, ymd) {
     throw new Error("trips.txt missing in GTFS for " + agency);
   return trainsFromGtfsFiles(files, agency, ymd);
 }
+__name(schedulesFromStaticGtfs, "schedulesFromStaticGtfs");
 function extractMbtaTrainNumber(tripId) {
   if (!tripId)
     return "";
   const parts = String(tripId).split("-");
   return parts.length > 2 ? parts[2] : String(tripId);
 }
+__name(extractMbtaTrainNumber, "extractMbtaTrainNumber");
 async function schedulesFromMbta(env, ymd) {
   const key = env.MBTA_API_KEY;
   if (!key)
@@ -1071,17 +1489,20 @@ async function schedulesFromMbta(env, ymd) {
       const tid = s.relationships && s.relationships.trip && s.relationships.trip.data && s.relationships.trip.data.id;
       if (!tid)
         return;
-      const num = extractMbtaTrainNumber(tid);
+      const trip = tripById[tid];
+      // Official MBTA train number (trip attributes.name); parse the trip ID only if it's blank.
+      const official = trip && trip.attributes ? String(trip.attributes.name || "").trim() : "";
+      const num = official || extractMbtaTrainNumber(tid);
       if (!num || byNum[num])
         return;
-      const trip = tripById[tid];
       const rid2 = s.relationships && s.relationships.route && s.relationships.route.data && s.relationships.route.data.id || trip && trip.relationships && trip.relationships.route && trip.relationships.route.data && trip.relationships.route.data.id || rid;
       const route = routeById[rid2];
       const name = route && route.attributes && (route.attributes.long_name || route.attributes.short_name) || rid2 || "MBTA";
-      const dest = trip && trip.attributes && (trip.attributes.headsign || trip.attributes.name) || "";
+      const dest = trip && trip.attributes && trip.attributes.headsign || "";
       byNum[num] = { trainNumber: num, name: String(name), dest: String(dest || "") };
     });
   }
+  __name(oneRoute, "oneRoute");
   for (let i = 0; i < MBTA_CR_ROUTES.length; i += CONCURRENCY) {
     const batch = MBTA_CR_ROUTES.slice(i, i + CONCURRENCY);
     await Promise.all(
@@ -1095,6 +1516,7 @@ async function schedulesFromMbta(env, ymd) {
     return byNum[k];
   }).sort(naturalTrainSort);
 }
+__name(schedulesFromMbta, "schedulesFromMbta");
 async function handleSchedules(request, env, cors) {
   const url = new URL(request.url);
   const agency = String(url.searchParams.get("agency") || "").toLowerCase().trim();
@@ -1136,6 +1558,7 @@ async function handleSchedules(request, env, cors) {
     }
   });
 }
+__name(handleSchedules, "handleSchedules");
 async function warmLiveCaches(env) {
   const cors = { "Access-Control-Allow-Origin": "*" };
   const jobs = [];
@@ -1171,290 +1594,13 @@ async function warmLiveCaches(env) {
   }
   await Promise.allSettled(jobs);
 }
-var PROJECT_ID = "railroadradar-accounts";
-var BOOTSTRAP_ADMIN_EMAILS = ["turokerr@gmail.com", "railroadradar@gmail.com"];
-var FIRESTORE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-var GOOGLE_JWKS = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
-var PRESS_CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type"
-};
-function b64urlBytes(s) {
-  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4));
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-}
-// Returns the token's claims if it is a valid Firebase ID token for this project, else null.
-async function verifyFirebaseIdToken(token) {
-  const parts = String(token || "").split(".");
-  if (parts.length !== 3)
-    return null;
-  const [h, p, sig] = parts;
-  const header = JSON.parse(new TextDecoder().decode(b64urlBytes(h)));
-  const claims = JSON.parse(new TextDecoder().decode(b64urlBytes(p)));
-  const now = Date.now() / 1e3;
-  if (header.alg !== "RS256" || claims.aud !== PROJECT_ID || claims.iss !== `https://securetoken.google.com/${PROJECT_ID}` || !claims.sub || claims.exp < now || claims.iat > now + 300)
-    return null;
-  const { keys } = await (await fetch(GOOGLE_JWKS, { cf: { cacheTtl: 3600 } })).json();
-  const jwk = keys.find((k) => k.kid === header.kid);
-  if (!jwk)
-    return null;
-  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
-  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64urlBytes(sig), new TextEncoder().encode(`${h}.${p}`));
-  return ok ? claims : null;
-}
-async function isPressAdmin(token, claims) {
-  const email = String(claims.email || "").toLowerCase();
-  if (!email || claims.email_verified !== true)
-    return false;
-  if (BOOTSTRAP_ADMIN_EMAILS.includes(email))
-    return true;
-  // Firestore rules let a signed-in user read their own admins/{email} doc.
-  const r = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, { headers: { Authorization: `Bearer ${token}` } });
-  return r.ok;
-}
-async function handlePressNotify(request, env) {
-  if (request.method === "OPTIONS")
-    return new Response(null, { status: 204, headers: PRESS_CORS });
-  const reply = (status, msg) => new Response(msg, { status, headers: PRESS_CORS });
-  if (request.method !== "POST")
-    return reply(405, "POST only");
-  const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-  const claims = await verifyFirebaseIdToken(token).catch(() => null);
-  if (!claims)
-    return reply(401, "Sign in again");
-  if (!await isPressAdmin(token, claims))
-    return reply(403, "Admins only");
-  const { slug } = await request.json().catch(() => ({}));
-  if (!slug || typeof slug !== "string")
-    return reply(400, "Missing slug");
-  const doc = await fetch(`${FIRESTORE}/pressReleases/${encodeURIComponent(slug)}`);
-  if (!doc.ok)
-    return reply(404, "No such press release");
-  const f = (await doc.json()).fields || {};
-  const title = String(f.title?.stringValue || "Press release").slice(0, 256);
-  const body = String(f.body?.stringValue || "").trim();
-  const image = f.images?.arrayValue?.values?.[0]?.mapValue?.fields?.url?.stringValue;
-  const url = `https://railroadradar.com/press/index.html?id=${encodeURIComponent(slug)}`;
-  // Discord caps an embed description at 4096 characters and a message at 10 embeds.
-  const chunks = [];
-  for (let i = 0; i < body.length && chunks.length < 10; i += 4096)
-    chunks.push(body.slice(i, i + 4096));
-  if (!chunks.length)
-    chunks.push("");
-  const embeds = chunks.map((description, i) => ({
-    title: i ? `${title} (cont.)`.slice(0, 256) : title,
-    url,
-    description,
-    color: 706304,
-    footer: { text: "RailroadRadar Press" },
-    timestamp: new Date().toISOString()
-  }));
-  if (image)
-    embeds[0].image = { url: image };
-  const sent = await fetch(env.DISCORD_PRESS_WEBHOOK, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "RailroadRadar", embeds })
-  });
-  return reply(sent.ok ? 204 : 502, sent.ok ? null : "Discord rejected the post");
-}
-// Stop actuals: writes passed-stop times with a service account, so they are recorded with the site closed.
-function b64url(input) {
-  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
-  let s = '';
-  bytes.forEach((b) => { s += String.fromCharCode(b); });
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function pemToDer(pem) {
-  const body = String(pem).replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s+/g, '');
-  const bin = atob(body);
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-}
-
-async function googleAccessToken(env) {
-  const sa = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT);
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim = b64url(JSON.stringify({
-    iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/datastore',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600
-  }));
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToDer(sa.private_key),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${header}.${claim}`));
-  const jwt = `${header}.${claim}.${b64url(sig)}`;
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
-  });
-  const data = await res.json();
-  if (!data.access_token) throw new Error('No access token');
-  return data.access_token;
-}
-
-function serviceDate() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
-}
-function clock(iso) {
-  return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit' });
-}
-function trainNumber(tripId) {
-  const parts = String(tripId || '').split('-').filter(Boolean);
-  for (let i = parts.length - 1; i >= 0; i--) {
-    if (/^\d+[A-Za-z]?$/.test(parts[i])) return parts[i].replace(/^0+(?=\d)/, '');
-  }
-  return String(tripId || '');
-}
-function docId(agency, date, number) {
-  return [agency, date, String(number).replace(/[^A-Za-z0-9_-]/g, '')].join('_').slice(0, 140);
-}
-function field(v) {
-  if (v == null) return { nullValue: null };
-  if (typeof v === 'string') return { stringValue: v };
-  if (typeof v === 'boolean') return { booleanValue: v };
-  if (typeof v === 'number') return { integerValue: String(Math.round(v)) };
-  return { stringValue: String(v) };
-}
-function stopFields(s) {
-  return {
-    mapValue: {
-      fields: {
-        name: field(s.name || ''),
-        stopId: field(s.stopId || ''),
-        scheduled: field(s.scheduled || null),
-        predicted: field(s.predicted || null),
-        actual: field(s.actual || null),
-        completed: field(!!s.completed),
-        delayMinutes: field(Number(s.delayMinutes) || 0)
-      }
-    }
-  };
-}
-function readStops(doc) {
-  const vals = doc && doc.fields && doc.fields.stops && doc.fields.stops.arrayValue && doc.fields.stops.arrayValue.values;
-  if (!vals) return [];
-  return vals.map((v) => {
-    const f = (v.mapValue && v.mapValue.fields) || {};
-    const str = (x) => (x && x.stringValue) || '';
-    return {
-      name: str(f.name),
-      stopId: str(f.stopId),
-      scheduled: str(f.scheduled) || null,
-      predicted: str(f.predicted) || null,
-      actual: str(f.actual) || null,
-      completed: !!(f.completed && f.completed.booleanValue),
-      delayMinutes: Number(f.delayMinutes && f.delayMinutes.integerValue) || 0
-    };
-  });
-}
-
-async function writeActuals(token, agency, number, date, stops) {
-  const id = docId(agency, date, number);
-  const expires = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
-  const body = {
-    fields: {
-      agency: field(agency),
-      trainNumber: field(String(number)),
-      serviceDate: field(date),
-      updatedAt: { timestampValue: new Date().toISOString() },
-      updatedByUid: field('stop-actuals-worker'),
-      expiresAt: { timestampValue: expires },
-      stops: { arrayValue: { values: stops.map(stopFields) } }
-    }
-  };
-  const res = await fetch(`${FIRESTORE}/trainStopActuals/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) console.warn('[stopActuals] write', agency, number, res.status);
-}
-
-async function recordMbta(token, date) {
-  // MBTA refuses filter[route_type] on its own.
-  const res = await fetch('https://api-v3.mbta.com/predictions?filter[route]=' + MBTA_CR_ROUTES.join(',') + '&include=stop&page[limit]=1000');
-  if (!res.ok) return;
-  const pred = await res.json();
-  const names = {};
-  (pred.included || []).forEach((inc) => { if (inc.type === 'stop') names[inc.id] = inc.attributes && inc.attributes.name; });
-  const byTrip = {};
-  const now = Date.now();
-  (pred.data || []).forEach((row) => {
-    const tripId = row.relationships && row.relationships.trip && row.relationships.trip.data && row.relationships.trip.data.id;
-    const stopId = row.relationships && row.relationships.stop && row.relationships.stop.data && row.relationships.stop.data.id;
-    const iso = row.attributes && (row.attributes.departure_time || row.attributes.arrival_time);
-    if (!tripId || !stopId || !iso || new Date(iso).getTime() > now) return;
-    (byTrip[tripId] = byTrip[tripId] || []).push({ stopId: String(stopId), name: names[stopId] || '', actual: clock(iso) });
-  });
-  for (const tripId of Object.keys(byTrip)) {
-    const number = trainNumber(tripId);
-    const id = docId('mbta', date, number);
-    const existing = await fetch(`${FIRESTORE}/trainStopActuals/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } });
-    const merged = existing.ok ? readStops(await existing.json()) : [];
-    let changed = !existing.ok;
-    byTrip[tripId].forEach((p) => {
-      const row = merged.find((s) => s.stopId === p.stopId || (p.name && s.name.toLowerCase() === p.name.toLowerCase()));
-      if (!row) { merged.push({ name: p.name, stopId: p.stopId, scheduled: null, predicted: p.actual, actual: p.actual, completed: true, delayMinutes: 0 }); changed = true; }
-      else if (!row.actual) { row.actual = p.actual; row.completed = true; row.predicted = row.predicted || p.actual; changed = true; }
-    });
-    if (changed) await writeActuals(token, 'mbta', number, date, merged);
-  }
-}
-
-async function recordAmtrak(token, date) {
-  const res = await fetch('https://api-v3.amtraker.com/v3/trains');
-  if (!res.ok) return;
-  const data = await res.json();
-  const trains = Array.isArray(data) ? data : Object.keys(data).map((k) => data[k]);
-  for (const tr of trains) {
-    if (!tr || !Array.isArray(tr.stations)) continue;
-    const number = tr.trainNum || tr.trainNumRaw;
-    if (!number) continue;
-    const passed = tr.stations.filter((s) => String(s.status || '').toLowerCase() === 'departed');
-    if (!passed.length) continue;
-    const id = docId('amtrak', date, number);
-    const existing = await fetch(`${FIRESTORE}/trainStopActuals/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } });
-    const merged = existing.ok ? readStops(await existing.json()) : [];
-    let changed = !existing.ok;
-    passed.forEach((s) => {
-      const name = s.name || s.stationName || s.code || '';
-      const iso = s.dep || s.arr;
-      const actual = iso ? clock(iso) : null;
-      if (!actual) return;
-      const row = merged.find((c) => c.name.toLowerCase() === String(name).toLowerCase());
-      if (!row) { merged.push({ name, stopId: s.code || '', scheduled: null, predicted: actual, actual, completed: true, delayMinutes: 0 }); changed = true; }
-      else if (!row.actual) { row.actual = actual; row.completed = true; changed = true; }
-    });
-    if (changed) await writeActuals(token, 'amtrak', number, date, merged);
-  }
-}
-
-async function recordStopActuals(env) {
-  if (!env.FIREBASE_SERVICE_ACCOUNT) return;
-  const token = await googleAccessToken(env);
-  const date = serviceDate();
-  await recordMbta(token, date);
-  await recordAmtrak(token, date);
-}
+__name(warmLiveCaches, "warmLiveCaches");
 var worker_default = {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
     const cors = corsHeaders(request, env);
-    // Before the shared OPTIONS reply, whose CORS headers don't allow the Authorization header this route needs.
-    if (path === "/api/press/notify")
-      return handlePressNotify(request, env);
+    if (path === "/api/press/notify") return handlePressNotify(request, env);
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors });
     }
@@ -1479,6 +1625,13 @@ var worker_default = {
         return jsonResponse({ error: "Unsubscribe failed" }, 500, cors);
       }
     }
+    if ((request.method === "POST" || request.method === "DELETE") && (path === "/api/push/trips" || path === "/push/trips")) {
+      try {
+        return await handlePushTrips(request, env, cors);
+      } catch (err) {
+        return jsonResponse({ error: "Trips save failed" }, 500, cors);
+      }
+    }
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405, headers: cors });
     }
@@ -1498,9 +1651,9 @@ var worker_default = {
             "/api/amtrak/trains",
             "/api/amtrak/alerts",
             "/api/ask",
-            "/api/press/notify",
             "/api/push/vapid",
             "/api/push/subscribe",
+            "/api/push/trips",
             "/api/njt/vehicles",
             "/api/njt/stops",
             "/api/njt/alerts",
@@ -1661,12 +1814,9 @@ var worker_default = {
         await scanAndNotify(env);
       } catch (_) {
       }
-      if (new Date(event.scheduledTime).getUTCMinutes() % 5 === 0) {
-        try {
-          await recordStopActuals(env);
-        } catch (e) {
-          console.warn("[stopActuals]", e && e.message);
-        }
+      try {
+        await scanTripAlerts(env);
+      } catch (_) {
       }
     })());
   }
@@ -1674,3 +1824,89 @@ var worker_default = {
 export {
   worker_default as default
 };
+//# sourceMappingURL=worker.js.map
+const PROJECT_ID = 'railroadradar-accounts';
+const BOOTSTRAP_ADMIN_EMAILS = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+const FIRESTORE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+const GOOGLE_JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+const PRESS_CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+};
+
+function b64urlBytes(s) {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+// Returns the token's claims if it is a valid Firebase ID token for this project, else null.
+async function verifyFirebaseIdToken(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) return null;
+  const [h, p, sig] = parts;
+  const header = JSON.parse(new TextDecoder().decode(b64urlBytes(h)));
+  const claims = JSON.parse(new TextDecoder().decode(b64urlBytes(p)));
+  const now = Date.now() / 1000;
+  if (header.alg !== 'RS256' || claims.aud !== PROJECT_ID
+    || claims.iss !== `https://securetoken.google.com/${PROJECT_ID}`
+    || !claims.sub || claims.exp < now || claims.iat > now + 300) return null;
+  const { keys } = await (await fetch(GOOGLE_JWKS, { cf: { cacheTtl: 3600 } })).json();
+  const jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) return null;
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(sig), new TextEncoder().encode(`${h}.${p}`));
+  return ok ? claims : null;
+}
+
+async function isPressAdmin(token, claims) {
+  const email = String(claims.email || '').toLowerCase();
+  if (!email || claims.email_verified !== true) return false;
+  if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return true;
+  // Firestore rules let a signed-in user read their own admins/{email} doc.
+  const r = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, { headers: { Authorization: `Bearer ${token}` } });
+  return r.ok;
+}
+
+async function handlePressNotify(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: PRESS_CORS });
+  const reply = (status, msg) => new Response(msg, { status, headers: PRESS_CORS });
+  if (request.method !== 'POST') return reply(405, 'POST only');
+
+  const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  const claims = await verifyFirebaseIdToken(token).catch(() => null);
+  if (!claims) return reply(401, 'Sign in again');
+  if (!(await isPressAdmin(token, claims))) return reply(403, 'Admins only');
+
+  const { slug } = await request.json().catch(() => ({}));
+  if (!slug || typeof slug !== 'string') return reply(400, 'Missing slug');
+  const doc = await fetch(`${FIRESTORE}/pressReleases/${encodeURIComponent(slug)}`);
+  if (!doc.ok) return reply(404, 'No such press release');
+  const f = (await doc.json()).fields || {};
+  const title = String(f.title?.stringValue || 'Press release').slice(0, 256);
+  const body = String(f.body?.stringValue || '').trim();
+  const image = f.images?.arrayValue?.values?.[0]?.mapValue?.fields?.url?.stringValue;
+  const url = `https://railroadradar.com/press/index.html?id=${encodeURIComponent(slug)}`;
+
+  // Discord caps an embed description at 4096 characters and a message at 10 embeds.
+  const chunks = [];
+  for (let i = 0; i < body.length && chunks.length < 10; i += 4096) chunks.push(body.slice(i, i + 4096));
+  if (!chunks.length) chunks.push('');
+  const embeds = chunks.map((description, i) => ({
+    title: i ? `${title} (cont.)`.slice(0, 256) : title,
+    url,
+    description,
+    color: 706304,
+    footer: { text: 'RailroadRadar Press' },
+    timestamp: new Date().toISOString(),
+  }));
+  if (image) embeds[0].image = { url: image };
+
+  const sent = await fetch(env.DISCORD_PRESS_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'RailroadRadar', embeds }),
+  });
+  return reply(sent.ok ? 204 : 502, sent.ok ? null : 'Discord rejected the post');
+}

@@ -4413,6 +4413,21 @@ function closeTripDetailView(opts) {
       }
       return changed;
     }
+    /* MBTA trip ID -> official train number (trip attributes.name), filled from any MBTA response with included trips.
+       Train numbers come from attributes.name first; parsing the trip ID is only the fallback. */
+    var rrMbtaTripNames = Object.create(null);
+    function rrNoteMbtaTrips(included) {
+      if (!Array.isArray(included)) return;
+      for (let i = 0; i < included.length; i++) {
+        const inc = included[i];
+        if (!inc || inc.type !== 'trip' || !inc.id) continue;
+        const nm = inc.attributes && inc.attributes.name != null ? String(inc.attributes.name).trim() : '';
+        if (nm) rrMbtaTripNames[inc.id] = nm;
+      }
+    }
+    function rrMbtaTripName(tripId) {
+      return tripId ? (rrMbtaTripNames[String(tripId)] || '') : '';
+    }
     function tripTrainNumMatch(hay, num) {
       const n = String(num || '').trim();
       const h = String(hay || '');
@@ -4466,11 +4481,18 @@ function closeTripDetailView(opts) {
           seq: Number(a.stop_sequence) || 0
         });
       });
+      rrNoteMbtaTrips(json.included);
       let picked = null;
+      // Official train number (attributes.name) first, then the older trip-ID / headsign matching.
       Object.keys(byTrip).forEach(function(tid) {
         if (picked) return;
         const attrs = trips[tid] || {};
-        if (tripTrainNumMatch(tid, num) || tripTrainNumMatch(attrs.name, num) || tripTrainNumMatch(attrs.headsign, num)) {
+        if (String(attrs.name || '').trim() === num) picked = byTrip[tid];
+      });
+      Object.keys(byTrip).forEach(function(tid) {
+        if (picked) return;
+        const attrs = trips[tid] || {};
+        if (tripTrainNumMatch(tid, num) || tripTrainNumMatch(attrs.headsign, num)) {
           picked = byTrip[tid];
         }
       });
@@ -11945,6 +11967,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function extractTrainNumber(tripId) {
         if (!tripId) return null;
         const raw = String(tripId).trim();
+        // Official MBTA train number (trip attributes.name) when we've seen this trip; else parse the ID.
+        const official = rrMbtaTripName(raw);
+        if (official) return official;
         const parts = raw.split('-').filter(Boolean);
         if (!parts.length) return raw;
         for (let i = parts.length - 1; i >= 0; i--) {
@@ -12347,12 +12372,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${predStops.join(',')}${hubQuery ? '&filter[route_type]=2' : ''}&include=trip,route,schedule,stop&sort=departure_time`));
           const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time`))));
           const predData = await predRes.json();
+          rrNoteMbtaTrips(predData && predData.included);
           const schedData = { data: [], included: [] };
           for (const r of schedResList) {
             try {
               const j = await r.json();
               if (j.data) schedData.data = schedData.data.concat(j.data);
-              if (j.included) schedData.included = schedData.included.concat(j.included);
+              if (j.included) { schedData.included = schedData.included.concat(j.included); rrNoteMbtaTrips(j.included); }
             } catch (e) {}
           }
           const departures = [];
@@ -15527,6 +15553,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const [onTime, alerts] = await Promise.all([getOnTimeStatus(tripIds), fetchTrainAlerts(tripIds, routeIds)]);
           const now = Date.now();
           Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
+          rrNoteMbtaTrips(data.included);
           data.data.forEach(v => {
             const vid = v.id, lat = v.attributes.latitude, lng = v.attributes.longitude, bearing = v.attributes.bearing;
             const status = v.attributes.current_status, tripId = v.relationships.trip.data?.id, routeId = v.relationships.route.data?.id;
