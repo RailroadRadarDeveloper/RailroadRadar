@@ -16232,6 +16232,62 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       searchMenu.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); searchMenu.click(); }
       });
+      // Desktop (>820px): the search box sits in the header itself, centered on the page between the
+      // logo/links and the right-hand buttons, shifting off-center only when there is not enough room.
+      (function rrWireCenteredSearch() {
+        const header = document.querySelector('.header');
+        const box = document.querySelector('.header-search-container');
+        const right = document.querySelector('.header-right');
+        if (!header || !box || !right) return;
+        if (box.parentNode !== header) header.insertBefore(box, right);
+        // Centered width wanted: up to 480px. Below 400px centered, Report then the page links move
+        // into Menu (site-nav.js). Below 300px centered, the box fills the free space off-center.
+        const GAP = 16, MAXW = 480, WANTW = 400, MINCENTERW = 300;
+        function edges() {
+          let left = 0;
+          header.querySelectorAll('.header-logo, .header-logo-picture, .rr-site-nav').forEach(function(el) {
+            if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') return;
+            const r = el.getBoundingClientRect();
+            if (r.width > 0) left = Math.max(left, r.right);
+          });
+          const rr = right.getBoundingClientRect();
+          const vw = header.getBoundingClientRect().width;
+          const l = left + GAP, rgt = rr.left - GAP, c = vw / 2;
+          return { left: l, right: rgt, c: c, centered: Math.max(0, 2 * Math.min(c - l, rgt - c)) };
+        }
+        function desktop() { return window.innerWidth > 820; }
+        window.rrSearchTooTight = function() {
+          if (!desktop() || !box.offsetParent) return false;
+          return Math.min(MAXW, edges().centered) < WANTW;
+        };
+        window.rrLayoutHeaderSearch = function() {
+          if (!desktop()) { box.style.removeProperty('left'); box.style.removeProperty('width'); return; }
+          const root = document.documentElement;
+          if (window.rrSearchTooTight()) {
+            root.classList.add('rr-report-in-menu');
+            if (window.rrSearchTooTight()) root.classList.add('rr-nav-in-menu');
+          }
+          const e = edges();
+          let w, x;
+          if (e.centered >= MINCENTERW) {
+            w = Math.min(MAXW, e.centered);
+            x = e.c - w / 2;
+          } else {
+            w = Math.min(MAXW, Math.max(0, e.right - e.left));
+            x = Math.max(e.left, Math.min(e.c - w / 2, e.right - w));
+          }
+          box.style.width = Math.round(w) + 'px';
+          box.style.left = Math.round(x) + 'px';
+        };
+        window.rrLayoutHeaderSearch();
+        try {
+          const ro = new ResizeObserver(function() { window.rrLayoutHeaderSearch(); });
+          ro.observe(header); ro.observe(right);
+          const nav = header.querySelector('.rr-site-nav'); if (nav) ro.observe(nav);
+        } catch (_) {}
+        window.addEventListener('resize', window.rrLayoutHeaderSearch);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(window.rrLayoutHeaderSearch).catch(function() {});
+      })();
       // Phone: magnifier button opens a full-width search row under the header
       (function rrWirePhoneSearch() {
         const btn = document.getElementById('btn-header-search');

@@ -108,11 +108,17 @@
       // When the header is too full, move Report a train into Menu, then the page links too.
       var nav = document.querySelector('.rr-site-nav');
       var root = document.documentElement;
-      var crowded = function () { return nav.scrollWidth > nav.clientWidth; };
+      var crowded = function () {
+        if (nav.scrollWidth > nav.clientWidth) return true;
+        // Map page: the centered search box also needs room between the logo/links and the buttons
+        try { if (typeof window.rrSearchTooTight === 'function' && window.rrSearchTooTight()) return true; } catch (_) {}
+        return false;
+      };
       var fit = new ResizeObserver(function () {
         root.classList.remove('rr-report-in-menu', 'rr-nav-in-menu');
         if (crowded()) root.classList.add('rr-report-in-menu');
         if (crowded()) root.classList.add('rr-nav-in-menu');
+        try { if (typeof window.rrLayoutHeaderSearch === 'function') window.rrLayoutHeaderSearch(); } catch (_) {}
       });
       fit.observe(document.querySelector('.header'));
       fit.observe(document.getElementById('header-auth'));

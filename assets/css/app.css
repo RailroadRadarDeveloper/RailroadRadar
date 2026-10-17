@@ -6238,3 +6238,23 @@
         overscroll-behavior: contain;
       }
     }
+
+    /* Desktop: search box centered in the header (left/width set by rrLayoutHeaderSearch) */
+    @media (min-width: 821px) {
+      .header-search-container {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        width: 440px;
+        max-width: none;
+        min-width: 0;
+        flex: none;
+        z-index: 10002;
+      }
+      .header-right { margin-left: auto; }
+      .header-search-results {
+        left: 0;
+        right: auto;
+        width: max(100%, 380px);
+      }
+    }
