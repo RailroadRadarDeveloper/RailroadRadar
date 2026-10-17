@@ -13,13 +13,24 @@
     if (path === '/' || path === '') return 'map';
     return '';
   }
-  /* Display theme: 'light' (default) or 'dark'. Stored in localStorage as rr_theme; only MyTrips has a dark style so far. */
+  /* Display theme: 'device' (default, follows prefers-color-scheme), 'light' or 'dark'.
+     Stored in localStorage as rr_theme (no value = device); only MyTrips has a dark style so far. */
   var THEME_KEY = 'rr_theme';
+  var darkMq = null;
+  try { darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null; } catch (_) {}
   function getTheme() {
-    try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch (_) { return 'light'; }
+    try {
+      var v = localStorage.getItem(THEME_KEY);
+      return v === 'dark' || v === 'light' ? v : 'device';
+    } catch (_) { return 'device'; }
+  }
+  function isDark(theme) {
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    return !!(darkMq && darkMq.matches);
   }
   function applyTheme(theme) {
-    document.documentElement.classList.toggle('rr-theme-dark', theme === 'dark');
+    document.documentElement.classList.toggle('rr-theme-dark', isDark(theme));
     document.querySelectorAll('.rr-theme-pick [data-rr-theme]').forEach(function (b) {
       var on = b.getAttribute('data-rr-theme') === theme;
       b.setAttribute('aria-checked', on ? 'true' : 'false');
@@ -27,10 +38,10 @@
     });
   }
   function setTheme(theme) {
-    theme = theme === 'dark' ? 'dark' : 'light';
+    theme = theme === 'dark' || theme === 'light' ? theme : 'device';
     try {
-      if (theme === 'dark') localStorage.setItem(THEME_KEY, 'dark');
-      else localStorage.removeItem(THEME_KEY);
+      if (theme === 'device') localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, theme);
     } catch (_) {}
     applyTheme(theme);
     try { window.dispatchEvent(new CustomEvent('rr-theme-change', { detail: { theme: theme } })); } catch (_) {}
@@ -42,6 +53,7 @@
     wrap.className = 'rr-theme-pick';
     wrap.innerHTML = '<span class="rr-theme-pick-label" id="rr-theme-label-' + Math.random().toString(36).slice(2, 7) + '">Theme</span>' +
       '<div class="rr-theme-pick-opts" role="radiogroup">' +
+      '<button type="button" role="radio" data-rr-theme="device">Device</button>' +
       '<button type="button" role="radio" data-rr-theme="light">Light</button>' +
       '<button type="button" role="radio" data-rr-theme="dark">Dark</button></div>';
     wrap.querySelector('.rr-theme-pick-opts').setAttribute('aria-labelledby', wrap.firstChild.id);
@@ -58,6 +70,12 @@
     applyTheme(getTheme());
   }
   window.addEventListener('storage', function (ev) { if (ev.key === THEME_KEY) applyTheme(getTheme()); });
+  // Device mode follows the OS setting live.
+  if (darkMq) {
+    var onOsTheme = function () { if (getTheme() === 'device') applyTheme('device'); };
+    if (darkMq.addEventListener) darkMq.addEventListener('change', onOsTheme);
+    else if (darkMq.addListener) darkMq.addListener(onOsTheme);
+  }
   function ensureStyle() {
     if (document.getElementById('rr-site-nav-style')) return;
     var style = document.createElement('style');
@@ -75,7 +93,7 @@
       '.rr-theme-pick:first-child{border-top:0;margin-top:0}',
       '.rr-theme-pick-label{color:rgba(255,255,255,.72);font:500 12px/1 "Google Sans",Roboto,Arial,sans-serif}',
       '.rr-theme-pick-opts{display:flex;border:1px solid rgba(255,255,255,.7);border-radius:4px;overflow:hidden}',
-      '.rr-theme-pick-opts button{flex:1;height:32px;margin:0;border:0;border-radius:0;background:transparent;color:#fff;font:600 13px/1 "Google Sans",Roboto,Arial,sans-serif;cursor:pointer;padding:0 12px}',
+      '.rr-theme-pick-opts button{flex:1;height:32px;margin:0;border:0;border-radius:0;background:transparent;color:#fff;font:600 13px/1 "Google Sans",Roboto,Arial,sans-serif;cursor:pointer;padding:0 10px;white-space:nowrap}',
       '.rr-theme-pick-opts button+button{border-left:1px solid rgba(255,255,255,.7)}',
       '.rr-theme-pick-opts button:hover{background:rgba(255,255,255,.1)}',
       '.rr-theme-pick-opts button.is-active{background:#fff;color:#07093e}',

@@ -158,8 +158,12 @@
       const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
       return /(^|\/)mytrips$/i.test(p);
     }
-    /* Display theme (Menu > Theme). Light is the default; applied before first paint. */
-    try { if (localStorage.getItem('rr_theme') === 'dark') document.documentElement.classList.add('rr-theme-dark'); } catch (_) {}
+    /* Display theme (Menu > Theme): 'device' (default, follows prefers-color-scheme), 'light' or 'dark'. Applied before first paint. */
+    try {
+      var rrThemePref = localStorage.getItem('rr_theme');
+      var rrThemeDark = rrThemePref === 'dark' || (rrThemePref !== 'light' && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches));
+      if (rrThemeDark) document.documentElement.classList.add('rr-theme-dark');
+    } catch (_) {}
     try {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         document.documentElement.classList.add('rr-mytrips-page');
@@ -1034,6 +1038,6 @@
 
 <script src="/assets/js/live-share-bar.js" defer></script>
 <script src="/assets/js/app-go-live.js?v=c938925f0c"></script>
-<script src="/assets/js/site-nav.js?v=146fb0df2a" defer></script>
+<script src="/assets/js/site-nav.js?v=dd2474a68b" defer></script>
 </body>
 </html>
