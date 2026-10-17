@@ -1,1045 +1,289 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script id="rr-boot-failsafe">
-  /* Critical-error failsafe: only sends visitors to /unavailable.html when the app never
-     finished booting AND (an error happened before boot, or a core script failed to load).
-     Errors and unhandled rejections after window.__rrBootReady is set are ignored entirely. */
-  (function () {
-    if (window.__rrBootFailsafe) return;
-    window.__rrBootFailsafe = true;
-    window.__rrBootReady = false;
-    var CORE = { src: ["leaflet@1.9.4/dist/leaflet.js", "firebase-app-compat.js", "/assets/js/app-main.js"], globals: ["L", "firebase"] };
-    var bootError = null;
-    var done = false;
-    var started = Date.now();
-    function isCoreSrc(src) {
-      src = String(src || '');
-      for (var i = 0; i < CORE.src.length; i++) if (src.indexOf(CORE.src[i]) !== -1) return true;
-      return false;
-    }
-    function coreMissing() {
-      for (var i = 0; i < CORE.globals.length; i++) if (typeof window[CORE.globals[i]] === 'undefined') return true;
-      return false;
-    }
-    function isPageCode(f) {
-      f = String(f);
-      if (f.indexOf(location.origin) !== 0) return false; /* third-party scripts */
-      return !/\/assets\/js\/(live-share-bar|site-nav)\.js/.test(f);
-    }
-    window.__rrMarkBootReady = function () { window.__rrBootReady = true; };
-    window.addEventListener('error', function (e) {
-      if (window.__rrBootReady || done) return;
-      var t = e && e.target;
-      if (t && t !== window && t.tagName === 'SCRIPT') {
-        if (isCoreSrc(t.src)) bootError = bootError || ('core script failed: ' + t.src);
-        return;
-      }
-      if (!e || !e.filename) return; /* cross-origin "Script error." / extensions */
-      if (!isPageCode(e.filename)) return;
-      bootError = bootError || String(e.message || 'error');
-    }, true);
-    /* A throw inside the async startup handler is a rejection, not an error event. Only rejections
-       with a frame in our own code count, so Firebase and extension rejections are ignored. A throw
-       inside Leaflet still has our call site in its stack. */
-    window.addEventListener('unhandledrejection', function (e) {
-      if (window.__rrBootReady || done) return;
-      var r = e && e.reason;
-      if (!r || typeof r.stack !== 'string') return;
-      if (/Failed to fetch|NetworkError|Load failed|AbortError/.test(r.name + ' ' + r.message)) return;
-      var urls = r.stack.replace(String(r.message), '').match(/https?:\/\/[^\s)]+/g) || [];
-      if (!urls.some(isPageCode)) return;
-      bootError = bootError || String(r.message || 'unhandled rejection');
-    });
-    function check(final) {
-      if (window.__rrBootReady || done) return;
-      if (bootError || (final && coreMissing())) {
-        done = true;
-        try { console.error('[RR boot failsafe]', bootError || 'core scripts missing'); } catch (_) {}
-        try { sessionStorage.setItem('rr-unavailable-from', location.pathname + location.search + location.hash); } catch (_) {}
-        location.replace('/unavailable.html');
-      }
-    }
-    function afterLoad() { setTimeout(function () { check(false); }, 3000); }
-    if (document.readyState === 'complete') afterLoad(); else window.addEventListener('load', afterLoad);
-    setTimeout(function () { check(true); }, 25000);
-  })();
-  </script>
-  <title>RailroadRadar</title>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
-  <link rel="canonical" href="https://railroadradar.com/">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="RailroadRadar">
-  <meta property="og:title" content="RailroadRadar">
-  <meta property="og:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
-  <meta property="og:url" content="https://railroadradar.com/">
-  <meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="RailroadRadar">
-  <meta name="twitter:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
-  <meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
-  <meta name="application-name" content="RailroadRadar">
-  <script type="application/ld+json">
-  {"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"RailroadRadar","url":"https://railroadradar.com/","description":"Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains."},{"@type":"Organization","name":"RailroadRadar","url":"https://railroadradar.com/","logo":"https://railroadradar.com/assets/icons/icon-512.png"}]}
-  </script>
-  <script>
-  (function () {
-    var path = location.pathname || '/';
-    if (path.indexOf('/mytrips') !== 0) return;
-    var title = 'MyTrips by RailroadRadar';
-    var desc = 'Log trains, keep your miles, and share trips with a public MyTrips page.';
-    var url = 'https://railroadradar.com/mytrips/';
-    document.title = title;
-    var d = document.querySelector('meta[name="description"]');
-    if (d) d.setAttribute('content', desc);
-    var c = document.querySelector('link[rel="canonical"]');
-    if (c) c.setAttribute('href', url);
-    function setMeta(sel, val) {
-      var m = document.querySelector(sel);
-      if (m) m.setAttribute('content', val);
-    }
-    setMeta('meta[property="og:title"]', title);
-    setMeta('meta[property="og:description"]', desc);
-    setMeta('meta[property="og:url"]', url);
-    setMeta('meta[name="twitter:title"]', title);
-    setMeta('meta[name="twitter:description"]', desc);
-    var seo = document.getElementById('rr-seo-title');
-    if (seo) seo.remove();
-  })();
-  </script>
-  <meta name="theme-color" content="#07093e">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="RailroadRadar">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
-  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/favicon-192.png?v=3">
-  <link rel="shortcut icon" href="/favicon.ico?v=3">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
-  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png?v=2">
-  <!-- Microsoft Clarity — loaded only after the visitor agrees in #rr-cookie-bar -->
-  <script>
-    window.__rrLoadClarity = function () {
-      if (window.__rrClarityLoaded) return;
-      window.__rrClarityLoaded = true;
-      (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "yie7bk3bns");
-    };
-    try {
-      var _rrConsent = localStorage.getItem('rr_cookie_consent');
-      var _rrPrefsRaw = localStorage.getItem('rr_cookie_prefs');
-      var _rrClarityOk = _rrConsent === 'accepted';
-      if (_rrPrefsRaw) {
-        try {
-          var _rrPrefs = JSON.parse(_rrPrefsRaw);
-          if (_rrPrefs && _rrPrefs.decided) _rrClarityOk = !!_rrPrefs.clarity;
-        } catch (_e) {}
-      }
-      if (_rrClarityOk) window.__rrLoadClarity();
-    } catch (_) {}
-  </script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
-  <!-- Firebase compat SDKs (v10.14.0) -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=d8e45a2a13">
-  <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=8931001a0d">
-  <script>
-    function rrIsMyTripsPage() {
-      const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
-      return /(^|\/)mytrips$/i.test(p);
-    }
-    /* Display theme (Menu > Theme): 'device' (default, follows prefers-color-scheme), 'light' or 'dark'. Applied before first paint. */
-    try {
-      var rrThemePref = localStorage.getItem('rr_theme');
-      var rrThemeDark = rrThemePref === 'dark' || (rrThemePref !== 'light' && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches));
-      if (rrThemeDark) document.documentElement.classList.add('rr-theme-dark');
-    } catch (_) {}
-    try {
-      if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
-        document.documentElement.classList.add('rr-mytrips-page');
-        document.title = 'MyTrips | RailroadRadar';
-        document.addEventListener('DOMContentLoaded', function() {
-          var img = document.querySelector('img.header-logo');
-          if (!img || img.getAttribute('data-mytrips-logo') === '1') return;
-          img.setAttribute('data-mytrips-logo', '1');
-          img.alt = 'MyTrips by RailroadRadar';
-          var pic = document.createElement('picture');
-          pic.className = 'header-logo-picture';
-          var wide = document.createElement('source');
-          wide.media = '(min-width: 768px)';
-          wide.srcset = '/assets/brand/mytrips-logo-wide.png';
-          img.src = '/assets/brand/mytrips-logo.png';
-          if (img.parentNode) {
-            img.parentNode.insertBefore(pic, img);
-            pic.appendChild(wide);
-            pic.appendChild(img);
-          }
-        });
-      }
-      var _rrShareQ = new URLSearchParams(location.search);
-      if (_rrShareQ.get('train') || _rrShareQ.get('t')) {
-        document.documentElement.classList.add('rr-train-page');
-      }
-    } catch (e) {}
-  </script>
-  <script>
-    !function(b,e,t,r){
-      b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
-      b[t].l=+new Date;
-      var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
-      s.src='https://betterstack.net/b.js?t='+r;
-      /* Better Stack loads only after analytics consent (same choice as Clarity). */var rrBsLoad=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};b.__rrLoadBetterStack=rrBsLoad;try{var rrC=localStorage.getItem('rr_cookie_consent'),rrP=localStorage.getItem('rr_cookie_prefs'),rrOk=rrC==='accepted';if(rrP){try{var rrQ=JSON.parse(rrP);if(rrQ&&rrQ.decided)rrOk=!!rrQ.clarity;}catch(_){}}if(rrOk)rrBsLoad();}catch(_){}
-    }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
-    betterstack('init', { environment: 'production' });
-  </script>
-    
+<meta charset="utf-8">
 <script>
-(function(){
-  try {
-    var msg = localStorage.getItem('rrBannedLock');
-    if (!msg) return;
-    document.documentElement.classList.add('rr-banned');
-    var s = document.createElement('style');
-    s.textContent = 'html.rr-banned #map, html.rr-banned #loading-screen { display:none !important; } html.rr-banned .header { display:flex !important; z-index:100000 !important; }';
-    document.documentElement.appendChild(s);
-    if (location.pathname !== '/unavailable.html' && !/[?&]recheck=1(&|$)/.test(location.search)) location.replace('/unavailable.html?reason=banned');
-  } catch (e) {}
-})();
+/* Old live map links lived at / (shared trains ?train= / ?t= / ?focus=, stops, special and live links, #hashes). Send them to /map/ before anything renders. */
+(function(){try{var s=location.search,h=location.hash;if(!s&&!h)return;var keep=/^(utm_[a-z]+|fbclid|gclid|msclkid|ref)$/i,go=!!h;if(s&&!go){new URLSearchParams(s).forEach(function(v,k){if(!keep.test(k))go=true;});}if(go)location.replace('/map/'+s+h);}catch(_){}})();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap"><link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07093e">
+<title>RailroadRadar | Live train map and trip log</title>
+<meta name="description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains, with MyTrips trip logs.">
+<link rel="canonical" href="https://railroadradar.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RailroadRadar">
+<meta property="og:title" content="RailroadRadar | Live train map and trip log">
+<meta property="og:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains, with MyTrips trip logs.">
+<meta property="og:url" content="https://railroadradar.com/">
+<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="RailroadRadar | Live train map and trip log">
+<meta name="twitter:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains, with MyTrips trip logs.">
+<meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<link rel="manifest" href="/manifest.json">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"RailroadRadar","url":"https://railroadradar.com/","description":"Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains."},{"@type":"Organization","name":"RailroadRadar","url":"https://railroadradar.com/","logo":"https://railroadradar.com/assets/icons/icon-512.png"}]}
+</script>
+<link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
+<script>
+(function(){try{var p=localStorage.getItem('rr_theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('rr-theme-dark');}catch(_){}})();
+</script>
+<script>
+!function(b,e,t,r){
+  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+  b[t].l=+new Date;
+  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+  s.src='https://betterstack.net/b.js?t='+r;
+  /* Better Stack loads only after analytics consent (same choice as Clarity). */
+  b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
+}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+betterstack('init', { environment: 'production' });
+window.__rrLoadClarity = function () {
+  if (window.__rrClarityLoaded) return;
+  window.__rrClarityLoaded = true;
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "yie7bk3bns");
+};
+/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the loaders above. */
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<link rel="preload" as="image" href="/assets/home/map-preview.svg" type="image/svg+xml" fetchpriority="high">
+<style>
+:root{
+  --navy:#07093e;
+  --font:"Google Sans",Roboto,Arial,sans-serif;
+  --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
+  --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
+  --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
+  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+}
+html.rr-theme-dark{
+  color-scheme:dark;
+  --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
+  --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
+  --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
+  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 13px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Header: same navy bar as MyTrips */
+.header{position:sticky;top:0;z-index:40;height:66px;background:var(--navy);display:flex;align-items:center;gap:10px;padding:0 16px}
+.header-logo-link{display:flex;align-items:center;flex:none}
+.header-logo{height:40px;width:auto;max-width:min(260px,52vw);display:block}
+.header .rr-site-nav{flex:1}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.header-tools{position:relative}
+.rr-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:4px;border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px/1 var(--font);text-decoration:none;white-space:nowrap;cursor:pointer}
+.rr-btn:hover{background:#dfe3f7;border-color:#dfe3f7}
+.rr-btn.small{height:32px;padding:0 12px}
+.rr-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+.rr-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#fff}
+#btn-header-tools{height:32px;padding:0 12px}
+.header-tools-panel .panel-link{display:block;color:#fff;text-decoration:none;font:700 13px/1 var(--font);padding:9px 10px;border-radius:4px;background:none;border:0;text-align:left;cursor:pointer;width:100%}
+.header-tools-panel .panel-link:hover{background:rgba(255,255,255,.14)}
+.header-tools-panel .panel-nav{display:none;flex-direction:column;gap:2px;padding-bottom:4px}
+html.rr-nav-in-menu .header .rr-site-nav{visibility:hidden}
+html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
+@media (max-width:980px){.header-tools-panel .panel-nav{display:flex}}
+@media (max-width:560px){.header{padding:0 12px}.header-logo{height:32px}}
+
+/* Banner: a wide navy band with the rail accents over a faded live map */
+.banner{position:relative;overflow:hidden;color:#fff;background-color:var(--navy);
+  background-image:url('/assets/brand/tracks-right-top.png'),url('/assets/brand/tracks-left-bottom.png'),
+    radial-gradient(ellipse 60% 70% at 50% 50%,rgba(7,9,62,.9) 0%,rgba(7,9,62,.78) 100%),url('/assets/home/map-preview.svg');
+  background-position:top -170px right -40px,left -90px bottom -64px,center,center 42%;
+  background-repeat:no-repeat;background-size:380px,600px,100% 100%,cover;
+  min-height:380px;display:flex;align-items:center;justify-content:center;padding:48px 24px;
+  border-bottom:1px solid rgba(255,255,255,.18)}
+.banner-inner{position:relative;z-index:1;width:min(760px,100%);text-align:center}
+.banner h1{margin:0 0 8px;color:#fff;font-size:clamp(30px,5.4vw,52px);line-height:1.1;font-weight:700;text-wrap:balance;text-shadow:0 2px 18px rgba(7,9,62,.6)}
+.banner-sub{margin:0 0 14px;color:#fff;font-size:clamp(20px,3vw,26px);line-height:1.25;font-weight:600;text-shadow:0 2px 14px rgba(7,9,62,.6)}
+.banner-lead{margin:0 auto 24px;max-width:34em;color:#c9d4ea;font-size:16px;line-height:1.5;text-wrap:balance}
+.hero-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.hero-points{list-style:none;margin:0 auto 24px;padding:0;width:min(420px,100%);color:#fff;font-weight:600;font-size:14px;line-height:1.55;text-align:left}
+.hero-points li{margin:0 0 8px;padding-left:18px;position:relative}
+.hero-points li::before{content:'';position:absolute;left:0;top:.55em;width:8px;height:8px;background:#fff;border-radius:50%}
+@media (max-width:859px){
+  .banner{min-height:300px;padding:40px 18px 56px;padding-bottom:88px;background-position:top -110px right -90px,left -60px bottom -20px,center,center 40%;background-size:240px,380px,100% 100%,cover}
+}
+@media (min-width:860px){.feature .hero-actions{justify-content:flex-start}}
+
+/* Lower section: continues the hero (navy, white type, green rail accent) */
+body{background:var(--navy)}
+.more{position:relative;overflow:hidden;background:var(--navy);color:#fff;padding:48px 18px 110px}
+.more .feature:last-child{margin-bottom:0}
+.more::after{content:'';position:absolute;right:-80px;bottom:-60px;width:min(720px,88vw);aspect-ratio:1279/427;background:url('/assets/brand/tracks-left-bottom.png') no-repeat center/contain;transform:scaleX(-1);pointer-events:none}
+.feature{position:relative;z-index:1;width:min(980px,100%);margin:0 auto 56px;display:flex;flex-direction:column;gap:24px;text-align:center}
+.feature h2{margin:0 0 10px;color:#fff;font-size:clamp(24px,4.6vw,32px);line-height:1.2;font-weight:700}
+.feature-lead{margin:0 auto 18px;max-width:30em;color:#c9d4ea;font-size:16px;line-height:1.5}
+.feature-media img{display:block;width:100%;height:auto;border-radius:4px;border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.feature-media.has-phone{position:relative;padding:0 0 48px}
+.feature-media img.feature-phone{position:absolute;right:-12px;bottom:0;width:28%;border:0;border-radius:0;box-shadow:none;filter:drop-shadow(0 18px 30px rgba(0,0,0,.4))}
+@media (max-width:859px){.feature-media img.feature-phone{right:-4px}}
+@media (max-width:859px){.more::after{right:-60px;bottom:-14px;width:min(560px,100vw)}}
+@media (max-width:560px){.footer-inner .copy{flex-basis:100%}}
+@media (min-width:860px){
+  .more{padding:72px 24px 170px}
+  .feature-media{flex:1 1 56%}
+  .feature{flex-direction:row;align-items:center;justify-content:space-between;gap:56px;text-align:left;margin-bottom:80px}
+  .feature.is-flip{flex-direction:row-reverse}
+  .feature-copy{flex:1 1 40%}
+  .feature-lead{margin-left:0}
+  .feature .hero-points{margin-left:0}
+}
+
+/* Footer */
+.footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
+.footer-inner{width:min(960px,100%);margin:0 auto;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px}
+.footer-inner a,.footer-inner button{color:#fff;text-decoration:none;font:500 13px/1.4 var(--font);background:none;border:0;padding:0;cursor:pointer}
+.footer-inner a:hover,.footer-inner button:hover{text-decoration:underline}
+.footer-inner .copy{color:rgba(255,255,255,.72);margin-right:auto}
+
+/* Cookie bar and preferences (same markup and script as the map) */
+#rr-cookie-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:10080;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 12px;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:460px}
+#rr-cookie-bar[hidden],#rr-cookie-modal[hidden]{display:none!important}
+#rr-cookie-bar p{margin:0;flex:1 1 240px;font-size:12px;line-height:1.4;color:#e8eaf2}
+#rr-cookie-bar a{color:#8fd3ff}
+.rr-cookie-actions{display:flex;gap:8px;flex-shrink:0}
+.rr-cookie-btn{height:32px;border:1px solid #fff;border-radius:4px;padding:0 12px;font:700 13px/1 var(--font);cursor:pointer;white-space:nowrap;background:#fff;color:var(--navy)}
+.rr-cookie-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+#rr-cookie-modal{position:fixed;inset:0;z-index:10085;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.rr-cookie-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.rr-cookie-modal-card{position:relative;z-index:1;width:100%;max-width:520px;max-height:min(80vh,640px);overflow:auto;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 16px 16px}
+.rr-cookie-modal-card h3{margin:0 0 8px;font-size:17px}
+.rr-cookie-modal-lead{margin:0 0 14px;font-size:13px;color:#c5c9d8}
+.rr-cookie-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
+.rr-cookie-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:4px;background:rgba(255,255,255,.04)}
+.rr-cookie-row-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rr-cookie-row-text span{font-size:12px;color:#c5c9d8}
+.rr-cookie-switch{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;font-size:11px;color:#c5c9d8;cursor:pointer}
+.rr-cookie-switch input{width:18px;height:18px;accent-color:#2ecc71}
+.rr-cookie-switch.is-locked{cursor:default;opacity:.85}
+.feature h2.feature-logo{margin:0 0 14px;line-height:0}
+.feature-logo img{height:40px;width:auto;max-width:100%;display:inline-block}
+.rr-cookie-modal-actions{display:flex;gap:8px;justify-content:flex-end}
+</style>
 </head>
 <body>
-<h1 id="rr-seo-title" class="rr-seo-title">RailroadRadar</h1>
-
-    <div id="rr-banned-screen" hidden style="display:none;position:fixed;top:60px;left:0;right:0;bottom:0;z-index:9000;background:#07093e;color:#fff;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">
-    <div style="max-width:420px;width:100%;text-align:center;">
-      <h2 style="margin:0 0 10px;font-size:22px;">Account banned</h2>
-      <p id="rr-banned-reason" style="margin:0;font-size:15px;line-height:1.45;color:#d7d9ee;">This account cannot use RailroadRadar.</p>
-      <button type="button" class="gsi-btn gsi-light" id="rr-banned-signin" hidden style="margin-top:18px;"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Sign in with Google</span></button>
-    </div>
-  </div>
-        <div class="header">
-    <img src="/assets/logo-halloween.png" alt="RailroadRadar" class="header-logo" data-rr-main-logo="1">
-    <nav class="rr-site-nav" aria-label="RailroadRadar">
-      <a href="/" data-nav="map">Live map</a>
-      <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
-      <a href="/favorites/" data-nav="favorites">Favorites</a>
-      <a href="/press/" data-nav="press">Press</a>
-    </nav>
-    <div class="header-center"></div>
-    <div class="header-right">
-<div class="header-search-container">
-        <input type="text" id="header-search-input" class="header-search-input" placeholder="Search trains, stations, or ask…" aria-label="Search for trains or stations">
-        <!-- Search Type Menu -->
-        <div class="search-type-menu" id="search-type-menu" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Search filter">All</div>
-        <div class="search-type-dropdown" id="search-type-dropdown">
-          <div class="search-type-option active" data-type="all">All (Trains + Stations)</div>
-          <div class="search-type-option" data-type="train">Trains only</div>
-          <div class="search-type-option" data-type="station">Stations only</div>
+<header class="header">
+  <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
+  <nav class="rr-site-nav" aria-label="RailroadRadar">
+    <a href="/map/" data-nav="map">Live map</a>
+    <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
+    <a href="/favorites/" data-nav="favorites">Favorites</a>
+    <a href="/press/" data-nav="press">Press</a>
+  </nav>
+  <div class="header-right">
+    <div class="header-tools">
+      <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
+      <div class="header-tools-panel" id="header-tools-panel" hidden>
+        <div class="panel-nav">
+          <a class="panel-link" href="/map/">Live map</a>
+          <a class="panel-link" href="/mytrips/">MyTrips</a>
+          <a class="panel-link" href="/favorites/">Favorites</a>
+          <a class="panel-link" href="/press/">Press</a>
         </div>
-        <div id="header-search-results" class="header-search-results"></div>
-      </div>
-      <button type="button" class="header-auth-btn" id="btn-header-search" aria-label="Search" aria-expanded="false" title="Search"><svg viewBox="0 0 24 24" fill="none" stroke="#07093e" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
-      <button type="button" class="header-auth-btn" id="btn-report-train-header">Report a train</button>
-      <div class="header-tools">
-        <button type="button" class="header-auth-btn" id="btn-header-tools" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
-        <div class="header-tools-panel" id="header-tools-panel" hidden>
-          <div class="rr-mobile-nav">
-            <a class="header-auth-btn" href="/">Live map</a>
-            <a class="header-auth-btn" href="/mytrips/">MyTrips</a>
-            <a class="header-auth-btn" href="/favorites/">Favorites</a>
-            <a class="header-auth-btn" href="/press/">Press</a>
-          </div>
-          <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
-          <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
-          <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
-            <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
-            <span class="header-leaderboard-label">Weekly Leaderboard</span>
-          </button>
-        </div>
-      </div>
-      <div class="header-auth" id="header-auth">
-        <button type="button" class="header-auth-btn gsi-btn gsi-light gsi-compact" id="btn-google-signin" aria-label="Sign in with Google"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Sign in with Google</span></button>
-        <div class="header-auth-user" id="header-auth-user" style="display:none;">
-          <img class="header-user-avatar" id="header-user-avatar" alt="Account" width="34" height="34" referrerpolicy="no-referrer">
-          <button type="button" class="header-auth-btn settings" id="btn-account-settings" aria-haspopup="true" aria-expanded="false"><span class="header-account-name-text" id="header-account-name-text">Account</span><span class="header-report-points" id="header-report-points" hidden title="Report points">0</span><img class="admin-badge-icon" id="header-admin-badge" src="/assets/admin-badge.png" alt="" title="Admin" width="18" height="18"></button>
-          <div class="header-account-menu" id="header-account-menu" style="display:none;" role="menu">
-            <div class="header-account-email" id="header-account-email"></div>
-            <a class="header-auth-btn" id="header-menu-mytrips" href="/mytrips/" role="menuitem">MyTrips</a>
-            <button type="button" class="header-auth-btn" id="header-menu-account-settings" role="menuitem">Account settings</button>
-            <button type="button" class="header-auth-btn" id="header-menu-cookie-settings" role="menuitem">Cookie settings</button>
-            <button type="button" class="header-auth-btn sign-out" id="btn-google-signout" role="menuitem">Sign out</button>
-          </div>
-        </div>
-      </div>
-      <button class="menu-button" id="menu-button" aria-label="Open menu" aria-expanded="false">
-        <img class="menu-button-icon" src="/assets/menu-gear.png" alt="" width="28" height="28">
-      </button>
-      <button type="button" class="header-admin-btn" id="btn-admin-header" title="Admin dashboard" aria-label="Admin dashboard">
-        <img src="/assets/icons/admin-dashboard.png" alt="" width="28" height="31">
-      </button>
-    </div>
-  </div>
-
-  <div id="offline-banner" class="offline-banner">
-    You're offline — live train data unavailable.
-    <a onclick="location.reload()">Retry</a>
-  </div>
-
-  <div id="map"></div>
-  <div id="rr-train-page" hidden>
-    <div id="rr-train-page-card"></div>
-    <div id="rr-train-page-map-slot" aria-label="Live map of this train"></div>
-    <div class="rr-train-page-toolbar">
-      <span id="rr-train-page-status">Loading train…</span>
-      <button type="button" id="rr-train-page-fullmap">Open full map</button>
-    </div>
-  </div>
-  <div id="rr-train-page-actions" hidden></div>
-  <!-- Loading Screen -->
-  <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #07093e; display: flex; align-items: center; justify-content: center; z-index: 100000; flex-direction: column; color: white; font-family: 'Segoe UI', sans-serif; transition: opacity 0.4s ease;">
-    <img src="/assets/logo-halloween.png" alt="RailroadRadar" data-rr-main-logo="1" style="height: 80px; margin-bottom: 30px; filter: brightness(1.1);">
-    <script>
-      (function() {
-        var end = new Date('2026-11-01T00:00:00-04:00');
-        if (Date.now() < end.getTime()) return;
-        document.querySelectorAll('[data-rr-main-logo]').forEach(function(img) {
-          img.src = '/assets/logo.png';
-        });
-      })();
-    </script>
-    <div style="width: 280px; height: 8px; background: rgba(255,255,255,0.18); border-radius: 4px; overflow: hidden; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.22);">
-      <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.35s ease;"></div>
-    </div>
-        <div id="loading-text" style="font-size: 15px; opacity: 0.9; max-width: 320px; text-align: center; padding: 0 16px; min-height: 42px; line-height: 1.35;"></div>
-    <script>
-      window.RR_LOADING_TIPS = window.RR_LOADING_TIPS || [
-        'Check the weekly leaderboard to see if you’re reporting the most!',
-        'Guys where is the Readville Switcher??',
-        'Worcester Line on time? Screenshot that.',
-        'Booking a ticket on the concert train.',
-        'Share a live trip with your family and friends using the share button on train pop-ups!'
-      ];
-      (function () {
-        var t = window.RR_LOADING_TIPS;
-        var el = document.getElementById('loading-text');
-        if (!el || !t || !t.length) return;
-        window.__rrLoadingTipIdx = Math.floor(Math.random() * t.length);
-        el.textContent = t[window.__rrLoadingTipIdx];
-      })();
-    </script>
-  </div>
-  <!-- Pre-load railroad picker -->
-  <div id="rr-rail-picker" hidden aria-hidden="true">
-    <div class="rr-rail-picker-backdrop" id="rr-rail-picker-backdrop"></div>
-    <div class="rr-rail-picker-card" role="dialog" aria-modal="true" aria-labelledby="rr-rail-picker-title">
-      <h3 id="rr-rail-picker-title">Which railroads do you want to see?</h3>
-      <p class="rr-rail-picker-lead">Pick what to load for a faster start. You can change this anytime in Settings.</p>
-      <ul class="rr-rail-picker-list" id="rr-rail-picker-list">
-        <li><label><input type="checkbox" data-rail="mbta" checked> <span>MBTA Commuter Rail</span></label></li>
-        <li><label><input type="checkbox" data-rail="amtrak" checked> <span>Amtrak</span></label></li>
-        <li><label><input type="checkbox" data-rail="mnr" checked> <span>Metro-North</span></label></li>
-        <li><label><input type="checkbox" data-rail="lirr" checked> <span>Long Island Rail Road</span></label></li>
-        <li><label><input type="checkbox" data-rail="metra" checked> <span>Metra</span></label></li>
-        <li><label><input type="checkbox" data-rail="njt" checked> <span>NJ Transit</span></label></li>
-        <li><label><input type="checkbox" data-rail="ctrail" checked> <span>CTrail</span></label></li>
-        <li><label><input type="checkbox" data-rail="marc" checked> <span>MARC (paused)</span></label></li>
-      </ul>
-      <div class="rr-rail-picker-actions">
-        <button type="button" id="rr-rail-picker-all">Select all</button>
-        <button type="button" id="rr-rail-picker-clear">Clear</button>
-        <span class="rr-rail-picker-spacer"></span>
-        <button type="button" id="rr-rail-picker-go">Show map</button>
+        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie settings</button>
       </div>
     </div>
-  </div>
-  <div class="overlay" id="overlay"></div>
-  <div class="control-panel" id="control-panel">
-    <button class="close-panel" id="close-panel" aria-label="Close menu">×</button>
-      <div class="toggle-section" style="margin-top:0; padding-top:0; border-top:none;">
-        <h3>Map Layers</h3>
-        <div class="map-theme-row">
-          <span class="map-theme-label">Map theme</span>
-          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-dark" value="dark"> Dark</label>
-          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-light" value="light" checked> Light</label>
-        </div>
-        <div><input type="checkbox" id="show-routes" checked><label for="show-routes">Show Routes</label></div>
-        <button type="button" id="btn-fullscreen" class="location-btn" style="margin-top:10px; width:100%;">Full screen</button>
-      </div>
-      <div class="toggle-section" id="settings-account-section">
-        <h3>Account</h3>
-        <div id="settings-account-signed-out">
-          <p class="rr-modal-hint">Sign in to report locomotives, log your trips, and choose which railroads you follow.</p>
-          <button type="button" id="btn-account-signin-panel" class="gsi-btn gsi-dark gsi-block"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Sign in with Google</span></button>
-        </div>
-        <div id="settings-account-signed-in" hidden>
-          <p class="settings-account-name" id="settings-account-name"></p>
-          <p class="settings-account-email" id="settings-account-email"></p>
-          <div class="settings-account-actions">
-            <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account settings</button>
-            <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn">Trip log</button>
-          </div>
-        </div>
-      </div>
-      <div class="toggle-section" id="settings-notifications-section">
-        <h3>Notifications</h3>
-        <p class="rr-modal-hint" style="margin-top:0;">On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.</p>
-        <p class="rr-modal-hint" id="notify-status"></p>
-        <div><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable notifications</label></div>
-        <div class="notify-subhead">When</div>
-        <div><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">A watched unit goes live</label></div>
-        <div><input type="checkbox" id="notify-special-report" checked><label for="notify-special-report">New report on a watched unit</label></div>
-        <div class="notify-subhead">Railroads</div>
-        <div class="notify-rail-list" id="notify-railroads"></div>
-        <p class="rr-modal-hint">Leave them all on for every railroad.</p>
-        <div class="notify-subhead">Locomotives</div>
-        <select id="notify-train-select" aria-label="Add a special unit">
-          <option value="">Specials — pick one to add</option>
-        </select>
-        <p class="rr-modal-hint" style="margin:4px 0 8px;">Or type any locomotive number:</p>
-        <div class="notify-loco-add">
-          <select id="notify-loco-agency" aria-label="Railroad for locomotive"></select>
-          <input type="text" id="notify-loco-number" placeholder="Loco number" maxlength="16" autocomplete="off" aria-label="Locomotive number">
-          <button type="button" id="notify-loco-add" class="notify-add-btn">Add</button>
-        </div>
-        <div class="notify-train-chips" id="notify-train-chips"></div>
-        <p class="rr-modal-hint" id="notify-train-hint">No locos picked means every special on the railroads above. Pick a special, or type any number.</p>
-        <div class="notify-save-row">
-          <button type="button" id="notify-save" class="cabcar-report-btn">Save</button>
-          <button type="button" id="notify-confirm" class="notify-confirm-btn" disabled>Confirm</button>
-        </div>
-        <p class="rr-modal-hint" id="notify-save-hint"></p>
-      </div>
-      <div class="toggle-section">
-        <h3>Markers</h3>
-        <div class="station-toggle">
-          <input type="checkbox" id="show-stations" checked>
-          <img src="/assets/station.png" class="station-icon" alt="Station">
-          <label for="show-stations">Show Stations</label>
-        </div>
-        <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
-        <div><input type="checkbox" id="show-clusters"><label for="show-clusters">Cluster Overlapping Trains</label></div>
-        <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
-        <div><input type="checkbox" id="show-mbta" checked><label for="show-mbta">Show MBTA Commuter Rail</label></div>
-        <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
-        <div><input type="checkbox" id="show-via" checked><label for="show-via">Show VIA Rail Trains</label></div>
-        <div><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North Trains</label></div>
-        <div><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR Trains</label></div>
-        <div><input type="checkbox" id="show-metra" checked><label for="show-metra">Show Metra Trains</label></div>
-        <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
-        <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
-        <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains (paused)</label></div>
-        <button type="button" id="rr-change-railroads">Change railroads…</button>
-      </div>
-      <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
-      <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
-      <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn" style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18" style="flex-shrink:0;">Weekly Leaderboard</button>
-      <button id="refresh-button" class="refresh-button">Refresh Data</button>
-      <div id="last-updated" class="last-updated">Last updated: Never</div>
-      <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.</p></div>
-      <div class="location-section">
-        <h3>My Location</h3>
-        <button id="location-btn" class="location-btn" onclick="requestUserLocation()">Show My Location</button>
-        <div id="location-status" class="location-status"></div>
-        <div id="closest-trains" class="closest-trains-list"></div>
-      </div>
-  </div>
-
-  <!-- Account Settings lightbox -->
-  <div class="rr-modal-backdrop" id="account-settings-modal" aria-hidden="true">
-    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="account-settings-title">
-      <div class="rr-modal-header">
-        <span id="account-settings-title">Account Settings</span>
-        <button type="button" class="rr-modal-close" id="account-settings-close" aria-label="Close">×</button>
-      </div>
-      <div class="rr-lightbox-body">
-        <div class="rr-lightbox-section">
-          <h3>Profile</h3>
-          <div class="rr-profile-row">
-            <img class="rr-profile-avatar" id="account-profile-avatar" alt="" width="64" height="64" referrerpolicy="no-referrer">
-            <div class="rr-profile-meta">
-              <div class="rr-profile-name-row">
-                <span id="account-profile-name">—</span>
-                <img class="admin-badge-icon" id="account-profile-admin-badge" src="/assets/admin-badge.png" alt="Admin" title="Admin" width="18" height="18">
-              </div>
-              <div class="rr-muted" id="account-profile-email">—</div>
-            </div>
-          </div>
-        </div>
-        <div class="rr-lightbox-section" id="account-report-stats-section">
-          <h3>Your reports</h3>
-          <div class="rr-report-stats">
-            <div class="rr-report-stat">
-              <span class="rr-report-stat-value" id="account-stat-trains">—</span>
-              <span class="rr-report-stat-label">trains reported</span>
-            </div>
-            <div class="rr-report-stat">
-              <span class="rr-report-stat-value" id="account-stat-loco">—</span>
-              <span class="rr-report-stat-label">most reported locomotive</span>
-            </div>
-          </div>
-          <p class="rr-modal-hint" id="account-stat-hint" style="margin-top:10px;">Saved to your account. Amtrak and other same-day reports still count after the service day ends.</p>
-        </div>
-        <div class="rr-lightbox-section">
-          <h3>How your reports are shown</h3>
-          <div class="rr-radio-row" id="account-display-mode-group">
-            <label><input type="radio" name="report-display-mode" value="first_initial" checked> First name + last initial (e.g. Arturo K.)</label>
-            <label><input type="radio" name="report-display-mode" value="full_name"> Full name</label>
-            <label><input type="radio" name="report-display-mode" value="anonymous"> Anonymous</label>
-            <label><input type="radio" name="report-display-mode" value="custom"> Custom label</label>
-          </div>
-          <label for="account-custom-label">Custom label</label>
-          <input type="text" id="account-custom-label" maxlength="40" placeholder="e.g. Railfan42" autocomplete="off">
-          <div class="rr-preview-box">Preview: <strong id="account-report-preview">by Anonymous</strong></div>
-          <div class="rr-modal-error" id="account-settings-error"></div>
-        </div>
-        <div class="rr-lightbox-section">
-          <h3>Railroads you follow</h3>
-          <p class="rr-modal-hint" style="margin-top:0;">Which railroads are you most interested in using RailroadRadar for? Select all that apply. Answering this helps us plan future updates.</p>
-          <div class="rr-interest-dropdown" id="account-interest-dropdown">
-            <button type="button" class="rr-interest-toggle" id="account-interest-toggle">Choose railroads</button>
-            <div class="rr-interest-menu rr-interest-list" id="account-interest-menu" hidden></div>
-          </div>
-          <div class="rr-interest-summary" id="account-interest-summary"></div>
-        </div>
-
-
-        <!-- /* Public profile settings */ -->
-        <div class="rr-lightbox-section" id="account-public-profile-section">
-          <h3>Username &amp; public profile</h3>
-          <p class="rr-modal-hint" style="margin-top:0;">Share a public page with your name, photo, and trip log. Email stays private.</p>
-          <label class="rr-checkbox-row" style="display:flex;align-items:center;gap:8px;font-weight:600;margin:8px 0;">
-            <input type="checkbox" id="account-public-profile-toggle"> Make my profile public
-          </label>
-          <label for="account-username">Username</label>
-          <input type="text" id="account-username" maxlength="24" placeholder="yourname" autocomplete="off" spellcheck="false">
-          <p class="rr-modal-hint" id="account-username-hint">railroadradar.com/user/yourname · 3–24 chars, letters, numbers, underscore</p>
-          <div id="account-public-link-row" style="display:none;margin-top:10px;">
-            <label for="account-public-link">Your public link</label>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input type="text" id="account-public-link" readonly style="flex:1;min-width:180px;">
-              <button type="button" class="rr-btn secondary" id="account-public-link-copy">Copy</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="rr-lightbox-section">
-          <div class="rr-lightbox-actions">
-            <button type="button" class="rr-btn" id="account-save-settings">Save settings</button>
-            <button type="button" class="rr-btn secondary" id="account-sign-out">Sign out</button>
-            <button type="button" class="rr-btn danger secondary" id="account-delete">Delete account</button>
-            <button type="button" class="rr-btn secondary" id="account-close-btn">Close</button>
-          </div>
-        </div>
-      </div>
+    <div class="header-auth" id="header-auth">
+      <a class="gsi-btn gsi-light gsi-compact" id="btn-google-signin" href="/mytrips/" aria-label="Sign in with Google"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Sign in with Google</span></a>
     </div>
   </div>
+</header>
 
+<main>
+  <section class="banner" aria-labelledby="banner-title">
+    <div class="banner-inner">
+      <h1 id="banner-title">Welcome to RailroadRadar</h1>
+      <p class="banner-sub">Riding trains can be fun.</p>
+      <p class="banner-lead">RailroadRadar takes live railroad data and integrates it with our tools to track trains and log your trips.</p>
+      <div class="hero-actions">
+        <a class="rr-btn" href="/map/">Open live map</a>
+        <a class="rr-btn secondary" href="/mytrips/">MyTrips</a>
+      </div>
+    </div>
+  </section>
 
-
-  <div id="mytrips-guest" class="mytrips-guest" hidden>
-    <div class="mytrips-guest-inner">
-      <div class="mytrips-guest-copy">
-        <img class="mytrips-guest-logo" loading="lazy" src="/assets/brand/mytrips-splash-logo.png" alt="MyTrips by RailroadRadar">
-        <h1>Your rides, in one place.</h1>
-        <p class="mytrips-guest-lead">Log trains, keep your miles, and share trips with a public MyTrips page.</p>
-        <ul class="mytrips-guest-points">
-          <li>Upcoming and past trips on one dashboard</li>
-          <li>Route maps, miles, and train stats on every card</li>
-          <li>Share a trip image or your public profile</li>
+  <section class="more" aria-label="What you can do">
+    <div class="feature">
+      <div class="feature-media"><img src="/assets/home/feature-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map" width="960" height="750" loading="lazy"></div>
+      <div class="feature-copy">
+        <h2>Live map</h2>
+        <p class="feature-lead">Every train we track, moving on one map, with its number and where it is headed.</p>
+        <ul class="hero-points">
+          <li>Tap a train for its route, stops and times</li>
+          <li>Search trains, stations and routes</li>
+          <li>Turn railroads on or off</li>
         </ul>
-        <div class="mytrips-guest-actions">
-          <button type="button" class="gsi-btn gsi-light mytrips-guest-signin" id="mytrips-guest-signin"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Continue with Google</span></button>
-        </div>
-      </div>
-      <div class="mytrips-guest-phone-wrap">
-        <img class="mytrips-guest-phone" loading="lazy" src="/assets/brand/mytrips-phone.png" alt="MyTrips phone preview">
+        <div class="hero-actions"><a class="rr-btn" href="/map/">Open live map</a></div>
       </div>
     </div>
-  </div>
-  <!-- Trip Log lightbox -->
-  <div class="rr-modal-backdrop" id="trip-log-modal" aria-hidden="true">
-    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="trip-log-title">
-      <div class="rr-modal-header">
-        <span id="trip-log-title">Trip log</span>
-        <div class="trip-log-page-actions">
-          <button type="button" class="rr-btn" id="trip-log-primary-log" hidden>Log a trip</button>
-          <button type="button" class="rr-btn secondary" id="trip-log-live" hidden>Create live trip</button>
-          <div class="trip-public-wrap" id="trip-public-wrap" hidden>
-            <button type="button" class="rr-btn secondary" id="trip-log-public-profile" aria-expanded="false" aria-controls="trip-public-panel">Public profile</button>
-            <div class="trip-public-panel" id="trip-public-panel" hidden role="dialog" aria-label="Public profile">
-              <p class="trip-public-lead">Share a warm public MyTrips page. Email stays private.</p>
-              <label class="trip-public-toggle">
-                <input type="checkbox" id="trip-public-make-toggle"> Make public
-              </label>
-              <p class="trip-public-hint" id="trip-public-hint">Set a username in Account settings first.</p>
-              <div class="trip-public-link-row" id="trip-public-link-row" hidden>
-                <a class="trip-public-link" id="trip-public-link" href="#" target="_blank" rel="noopener">Open your page</a>
-                <button type="button" class="rr-btn secondary trip-public-copy" id="trip-public-copy">Copy link</button>
-              </div>
-              <p class="trip-public-status" id="trip-public-status" aria-live="polite"></p>
-            </div>
-          </div>
-          <button type="button" class="rr-modal-close" id="trip-log-close" aria-label="Close">×</button>
-        </div>
-      </div>
-      <div class="rr-lightbox-body">
-        <div class="rr-lightbox-section" style="padding-top:0;">
-          <div class="trip-log-stats" id="trip-log-stats" aria-live="polite">
-            <div class="trip-log-stat trip-log-stat-main">
-              <span class="trip-log-stat-value" id="trip-log-stat-count">—</span>
-              <span class="trip-log-stat-label">Trips</span>
-            </div>
-            <div class="trip-log-stat trip-log-stat-main">
-              <span class="trip-log-stat-value" id="trip-log-stat-miles">—</span>
-              <span class="trip-log-stat-label">Miles</span>
-            </div>
-            <div class="trip-log-stat trip-log-stat-main">
-              <span class="trip-log-stat-value" id="trip-log-stat-top">—</span>
-              <span class="trip-log-stat-label">Top railroad</span>
-            </div>
-            <div class="trip-log-stat-rails" id="trip-log-stat-rails" hidden></div>
-          </div>
-          <p class="trip-log-approx-note">Miles are approximate station-to-station estimates.</p>
-          <div class="trip-notify-row" id="trip-notify-row" hidden>
-            <label class="trip-notify-toggle"><input type="checkbox" id="trip-notify-toggle"> Boarding track alerts</label>
-            <p class="trip-notify-hint">Get a notification when your upcoming MBTA trip's train is boarding on its track. Works in desktop browsers and the Home Screen app, including when RailroadRadar is closed.</p>
-            <p class="trip-notify-status" id="trip-notify-status" aria-live="polite"></p>
-          </div>
-          <div id="trip-nearby-banner" class="trip-nearby-banner" data-rr-nearby-trip="1" hidden aria-live="polite">
-            <p class="trip-nearby-banner-text" id="trip-nearby-banner-text"></p>
-            <div class="trip-nearby-banner-actions">
-              <button type="button" class="rr-btn" id="trip-nearby-log">Log this trip</button>
-              <button type="button" class="rr-btn secondary" id="trip-nearby-dismiss">Not now</button>
-            </div>
-          </div>
-        </div>
-        <div class="trip-log-tabs" role="tablist">
-          <button type="button" class="trip-log-tab active" data-trip-tab="log" id="trip-tab-log">Log a trip</button>
-          <button type="button" class="trip-log-tab" data-trip-tab="list" id="trip-tab-list">MyTrips</button>
-        </div>
-                <div class="trip-log-pane active" id="trip-pane-log" data-trip-pane="log">
-          <div class="rr-lightbox-section" style="border:none; padding:0; margin:0;">
-            <div class="trip-special-block" id="trip-special-block">
-              <label class="trip-special-toggle" for="trip-log-special-move">
-                <input type="checkbox" id="trip-log-special-move">
-                <span>Special move / extra</span>
-              </label>
-              <div id="trip-special-title-wrap" hidden>
-                <label for="trip-log-live-railroad">Railroad (optional)</label>
-                <select id="trip-log-live-railroad">
-                  <option value="">Optional</option>
-                  <option value="mbta">MBTA</option>
-                  <option value="amtrak">Amtrak</option>
-                  <option value="mnr">Metro-North</option>
-                  <option value="lirr">Long Island Rail Road</option>
-                  <option value="njt">NJ Transit</option>
-                  <option value="ctrail">CTrail</option>
-                  <option value="marc">MARC</option>
-                  <option value="other">Other</option>
-                </select>
-                
-                <label for="trip-log-live-icon">Icon</label>
-                <select id="trip-log-live-icon">
-                  <option value="/assets/hsp46.png">HSP46</option>
-                  <option value="/assets/f40ph.png">F40PH</option>
-                </select>
-                <label for="trip-log-train-title">Service name</label>
-                <input type="text" id="trip-log-train-title" maxlength="80" placeholder="Service name" autocomplete="off">
-                <p class="trip-special-loc" id="trip-special-loc">Location is requested when you check Special move.</p>
-              </div>
-            </div>
-            <div class="trip-log-segments" id="trip-log-segments"></div>
-            <button type="button" class="rr-btn secondary" id="trip-log-add-segment">Add another train</button>
-            <details class="trip-form-more">
-              <summary>Optional details</summary>
-              <label for="trip-log-rolling-stock">Rolling stock</label>
-              <input type="text" id="trip-log-rolling-stock" maxlength="64" placeholder="Loco or car number" autocomplete="off">
-              <label for="trip-log-notes">Notes</label>
-              <textarea id="trip-log-notes" maxlength="500" rows="2" placeholder="Anything else"></textarea>
-            </details>
-            <p class="rr-modal-hint" id="trip-log-miles-preview" style="margin-top:8px;">Estimated miles: —</p>
-            <div class="rr-modal-error" id="trip-log-error"></div>
-            <div class="rr-lightbox-actions" style="margin-top:12px;">
-              <button type="button" class="rr-btn" id="trip-log-save">Save trip</button>
-              <button type="button" class="rr-btn secondary" id="trip-log-cancel-edit" hidden>Cancel edit</button>
-              <button type="button" class="rr-btn" id="trip-log-go-live" hidden>Go live</button>
-              <button type="button" class="rr-btn secondary" id="trip-log-goto-list">View MyTrips</button>
-            </div>
-          </div>
-        </div>
-
-<div class="trip-log-pane" id="trip-pane-list" data-trip-pane="list">
-          <div class="trip-log-skeletons" id="trip-log-skeletons" hidden aria-hidden="true">
-            <div class="trip-log-skeleton" aria-hidden="true"><div class="trip-log-skel-line lg"></div><div class="trip-log-skel-line"></div><div class="trip-log-skel-line sm"></div><div class="trip-log-skel-map"></div></div>
-            <div class="trip-log-skeleton" aria-hidden="true"><div class="trip-log-skel-line lg"></div><div class="trip-log-skel-line"></div><div class="trip-log-skel-line sm"></div><div class="trip-log-skel-map"></div></div>
-            <div class="trip-log-skeleton" aria-hidden="true"><div class="trip-log-skel-line lg"></div><div class="trip-log-skel-line"></div><div class="trip-log-skel-line sm"></div><div class="trip-log-skel-map"></div></div>
-          </div>
-          <div class="trip-log-list" id="trip-log-list"></div>
-          <div class="trip-log-empty-card" id="trip-log-empty" hidden>
-            <p class="trip-log-empty-title">No trips yet</p>
-            <p class="trip-log-empty-copy">Log a ride to start your miles and see routes on the map.</p>
-            <button type="button" class="trip-log-empty-cta" id="trip-log-empty-cta">Log a trip</button>
-            <button type="button" class="trip-log-empty-cta trip-log-empty-live" id="trip-log-empty-live">Create live trip</button>
-          </div>
-          <p class="trip-log-status" id="trip-log-list-status"></p>
-          <div class="rr-lightbox-actions">
-            <button type="button" class="rr-btn secondary" id="trip-log-load-more" hidden>Load more</button>
-            <button type="button" class="rr-btn secondary" id="trip-log-refresh">Refresh</button>
-          </div>
-        </div>
+    <div class="feature is-flip">
+      <div class="feature-media has-phone"><img src="/assets/home/feature-mytrips.svg" alt="MyTrips with trip stats and a trip in progress" width="960" height="476" loading="lazy"><img class="feature-phone" src="/assets/brand/mytrips-phone.png" alt="MyTrips on a phone" width="645" height="800" loading="lazy"></div>
+      <div class="feature-copy">
+        <h2 class="feature-logo"><img src="/assets/brand/mytrips-logo-wide.png" alt="MyTrips" width="1280" height="182" loading="lazy"></h2>
+        <p class="feature-lead">Your rides, in one place. Sign in with Google to start logging.</p>
+        <ul class="hero-points">
+          <li>Log trips and keep your miles</li>
+          <li>Stats for your railroads, lines and stations</li>
+          <li>Boarding track alerts for upcoming MBTA trips</li>
+        </ul>
+        <div class="hero-actions"><a class="rr-btn" href="/mytrips/">Open MyTrips</a></div>
       </div>
     </div>
-  </div>
+  </section>
+</main>
 
-  <!-- Trip detail overlay (MyTrips click → beautiful full trip view) -->
-  <div id="trip-detail-overlay" class="trip-detail-overlay" aria-hidden="true" hidden>
-    <div id="trip-detail-map" class="trip-detail-map is-loading" role="img" aria-label="Trip route map"></div>
-    <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
-      <div class="trip-detail-accent" id="trip-detail-accent"></div>
-      <img class="trip-detail-share-logo" id="trip-detail-share-logo" alt="RailroadRadar" decoding="async" src="">
-      <button type="button" class="trip-detail-share-btn" id="trip-detail-share" aria-label="Share trip image" title="Share / download image">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-        </button>
-      <div class="trip-detail-toolbar">
-        <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
-      </div>
-      <div class="trip-detail-body">
-        <div class="trip-detail-badges" id="trip-detail-badges"></div>
-        <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
-        <p class="trip-detail-live" id="trip-detail-live" hidden></p>
-        <p class="trip-detail-line" id="trip-detail-line"></p>
-        <p class="trip-detail-when" id="trip-detail-when" hidden></p>
-        <p class="trip-detail-actual" id="trip-detail-actual" hidden></p>
-        <div class="trip-detail-special-share" id="trip-detail-special-share" hidden>
-          <p class="trip-detail-special-title" id="trip-detail-special-title">Share location on the live map</p>
-          <div class="trip-detail-special-actions">
-            <button type="button" class="rr-btn" id="trip-detail-share-loc">Share location</button>
-            <button type="button" class="rr-btn secondary" id="trip-detail-stop-share" hidden>Stop sharing</button>
-          </div>
-          <p class="trip-detail-share-status" id="trip-detail-share-status" aria-live="polite"></p>
-        </div>
-        <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
-        <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
-        <div class="trip-detail-segs" id="trip-detail-segs"></div>
-        <div class="trip-detail-facts" id="trip-detail-meta" aria-label="Trip facts"></div>
-        <p class="trip-detail-stock" id="trip-detail-stock" hidden></p>
-      </div>
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="copy">© 2026 RailroadRadar</span>
+    <a href="/policies/privacy/">Privacy Policy</a>
+    <a href="/policies/terms-of-use/">Terms of Use</a>
+    <a href="/sitemap/">Sitemap</a>
+    <button type="button" id="footer-cookie-settings">Cookie settings</button>
+  </div>
+</footer>
+
+<div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
+  <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></p>
+  <div class="rr-cookie-actions">
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+    <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
+  </div>
+</div>
+<div id="rr-cookie-modal" hidden aria-hidden="true">
+  <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
+  <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
+    <h3 id="rr-cookie-modal-title">Cookie preferences</h3>
+    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the page.</p>
+    <ul class="rr-cookie-list">
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
+        <label class="rr-cookie-switch is-locked"><input type="checkbox" id="rr-cookie-essential" checked disabled><span>Always on</span></label>
+      </li>
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Analytics</strong><span>Microsoft Clarity shows us how people use the site, using cookies from clarity.ms. Better Stack reports page errors and performance.</span></div>
+        <label class="rr-cookie-switch"><input type="checkbox" id="rr-cookie-clarity"><span>Allow</span></label>
+      </li>
+    </ul>
+    <div class="rr-cookie-modal-actions">
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
     </div>
   </div>
-
-  <!-- Admin Dashboard lightbox -->
-  <div class="rr-modal-backdrop" id="report-train-modal" aria-hidden="true">
-    <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="report-train-title">
-      <div class="rr-modal-header">
-        <span id="report-train-title">Report a train</span>
-        <button type="button" class="rr-modal-close" id="report-train-close" aria-label="Close">×</button>
-      </div>
-      <div class="rr-modal-body">
-        <label for="report-agency">Agency</label>
-        <select id="report-agency">
-          <option value="mbta">MBTA</option>
-          <option value="amtrak">Amtrak</option>
-          <option value="mnr">Metro-North</option>
-          <option value="lirr">LIRR</option>
-          <option value="njt">NJ Transit</option>
-              <option value="ctrail">CTrail</option>
-              <option value="marc">MARC</option>
-        </select>
-        <div id="report-service-date-wrap">
-          <label for="report-service-date">Service date</label>
-          <input type="date" id="report-service-date">
-        </div>
-        <div id="report-train-pick-row">
-          <div id="report-train-select-wrap">
-            <label for="report-train-select">Train</label>
-            <select id="report-train-select">
-              <option value="">Loading trains…</option>
-            </select>
-          </div>
-          <button type="button" id="report-train-extra-btn" aria-pressed="false">Extra / Not listed</button>
-        </div>
-        <div id="report-train-number-wrap" style="display:none;">
-          <label for="report-train-number">Train number</label>
-          <input type="text" id="report-train-number" placeholder="e.g. 2150" autocomplete="off">
-        </div>
-        <div id="report-mbta-vehicle-wrap" style="display:none;">
-          <label for="report-mbta-vehicle-id">Vehicle ID (from MBTA)</label>
-          <input type="text" id="report-mbta-vehicle-id" placeholder="MBTA API vehicle-id" autocomplete="off">
-        </div>
-        <div id="report-locos-list"></div>
-        <button type="button" class="rr-link-btn" id="report-add-loco-btn" style="margin:8px 0 4px; background:none; border:none; color:#07093e; text-decoration:underline; cursor:pointer; padding:0; font-size:13px;">+ Add another locomotive</button>
-        <p class="rr-modal-hint" id="report-train-hint">Pairs a locomotive to this vehicle ID until reported differently.</p>
-        <label for="report-comment">Comment (optional)</label>
-        <textarea id="report-comment" maxlength="280" placeholder="Anything else about this train…"></textarea>
-        <div class="rr-modal-error" id="report-train-error"></div>
-        <button type="button" class="cabcar-report-btn" id="report-train-submit">Submit report</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="rr-modal-backdrop" id="specials-board-modal" aria-hidden="true">
-    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="specials-board-title">
-      <div class="rr-modal-header">
-        <span id="specials-board-title">Specials & reports</span>
-        <button type="button" class="rr-modal-close" id="specials-board-close" aria-label="Close">×</button>
-      </div>
-      <div class="rr-lightbox-body">
-        <div class="rr-admin-tabs" role="tablist">
-          <button type="button" class="rr-admin-tab active" data-board-tab="specials" id="board-tab-specials">Active specials</button>
-          <button type="button" class="rr-admin-tab" data-board-tab="reports" id="board-tab-reports">Recent reports</button>
-          <button type="button" class="rr-admin-tab" data-board-tab="upcoming" id="board-tab-upcoming">Upcoming</button>
-        </div>
-        <div class="rr-admin-pane active" id="board-pane-specials" data-board-pane="specials">
-          <div class="rr-board-toolbar">
-            <select id="board-specials-agency" aria-label="Filter railroad">
-              <option value="all">All railroads</option>
-              <option value="mbta">MBTA</option>
-              <option value="amtrak">Amtrak</option>
-              <option value="mnr">Metro-North</option>
-              <option value="lirr">LIRR</option>
-              <option value="metra">Metra</option>
-              <option value="njt">NJ Transit</option>
-              <option value="ctrail">CTrail</option>
-              <option value="marc">MARC</option>
-            </select>
-            <select id="board-specials-sort" aria-label="Sort specials">
-              <option value="railroad">Sort by railroad</option>
-              <option value="newest">Newest first</option>
-              <option value="loco">Locomotive</option>
-            </select>
-          </div>
-          <div class="rr-board-list" id="board-specials-list"></div>
-          <p class="rr-board-empty" id="board-specials-empty" hidden>No active specials right now.</p>
-        </div>
-        <div class="rr-admin-pane" id="board-pane-reports" data-board-pane="reports">
-          <div class="rr-board-toolbar">
-            <input type="search" id="board-reports-search" placeholder="Search train, loco, reporter…" aria-label="Search reports">
-            <select id="board-reports-agency" aria-label="Filter railroad">
-              <option value="all">All railroads</option>
-              <option value="mbta">MBTA</option>
-              <option value="amtrak">Amtrak</option>
-              <option value="mnr">Metro-North</option>
-              <option value="lirr">LIRR</option>
-              <option value="metra">Metra</option>
-              <option value="njt">NJ Transit</option>
-              <option value="ctrail">CTrail</option>
-              <option value="marc">MARC</option>
-            </select>
-            <select id="board-reports-sort" aria-label="Sort reports">
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="railroad">Railroad</option>
-              <option value="loco">Locomotive</option>
-              <option value="train">Train number</option>
-              <option value="reporter">Reporter</option>
-            </select>
-          </div>
-          <div class="rr-board-list" id="board-reports-list"></div>
-          <p class="rr-board-empty" id="board-reports-empty" hidden>No reports yet.</p>
-        </div>
-        <div class="rr-admin-pane" id="board-pane-upcoming" data-board-pane="upcoming">
-          <div class="rr-board-toolbar">
-            <select id="board-upcoming-agency" aria-label="Filter railroad">
-              <option value="all">All railroads</option>
-              <option value="mbta">MBTA</option>
-              <option value="amtrak">Amtrak</option>
-              <option value="mnr">Metro-North</option>
-              <option value="lirr">LIRR</option>
-              <option value="metra">Metra</option>
-              <option value="njt">NJ Transit</option>
-              <option value="ctrail">CTrail</option>
-              <option value="marc">MARC</option>
-            </select>
-            <select id="board-upcoming-sort" aria-label="Sort upcoming">
-              <option value="date">Sort by date</option>
-              <option value="railroad">Railroad</option>
-              <option value="train">Train number</option>
-            </select>
-          </div>
-          <div class="rr-board-list" id="board-upcoming-list"></div>
-          <p class="rr-board-empty" id="board-upcoming-empty" hidden>No upcoming pairings yet. Report a train with a future service date.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="rr-modal-backdrop" id="weekly-leaderboard-modal" aria-hidden="true">
-    <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="weekly-leaderboard-title">
-      <div class="rr-modal-header">
-        <span id="weekly-leaderboard-title">Weekly Leaderboard</span>
-        <button type="button" class="rr-modal-close" id="weekly-leaderboard-close" aria-label="Close">×</button>
-      </div>
-      <div class="rr-lightbox-body">
-        <div class="rr-lb-winner" id="weekly-leaderboard-winner" hidden>
-          <div class="rr-lb-winner-trophy"><img src="/assets/icons/leaderboard-trophy.png?v=5" alt="" width="44" height="44"></div>
-          <div id="weekly-leaderboard-winner-photo-slot"></div>
-          <div class="rr-lb-winner-text" id="weekly-leaderboard-winner-text"></div>
-        </div>
-        <p class="rr-modal-hint" id="weekly-leaderboard-range" style="margin-top:0;"></p>
-        <div class="rr-lb-list" id="weekly-leaderboard-list"></div>
-        <p class="rr-lb-empty" id="weekly-leaderboard-empty" hidden>No train reports this week yet. Report a consist to get on the board.</p>
-        <p class="rr-lb-updated"><span id="weekly-leaderboard-updated">Updated at —</span> · <button type="button" class="rr-lb-refresh" id="weekly-leaderboard-refresh">Refresh</button></p>
-      </div>
-    </div>
-  </div>
-
-  <div class="rr-modal-backdrop signup-prompt-modal" id="signup-prompt-modal" aria-hidden="true">
-    <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="signup-prompt-title">
-      <div class="rr-modal-header">
-        <span id="signup-prompt-title">Sign up or log in</span>
-        <button type="button" class="rr-modal-close" id="signup-prompt-close" aria-label="Close">×</button>
-      </div>
-      <div class="rr-modal-body">
-        <p class="signup-prompt-sub"><strong>Sign in with Google to pair locomotives to live trains and share what you see.</strong></p>
-        <p class="signup-prompt-note">RailroadRadar is in beta, so you may run into a few bugs while we build a better experience. We collect your email so we can moderate reports and reach you about your account. We will never sell your information.</p>
-        <div class="rr-lightbox-actions signup-prompt-actions">
-          <button type="button" class="gsi-btn gsi-dark" id="signup-prompt-signin"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Continue with Google</span></button>
-        </div>
-        <p class="signup-prompt-legal">By continuing, you agree to the <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="rr-modal-backdrop" id="interest-railroads-modal" aria-hidden="true">
-    <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="interest-railroads-title">
-      <div class="rr-modal-header">
-        <span id="interest-railroads-title">Which railroads are you most interested in using RailroadRadar for?</span>
-      </div>
-      <div class="rr-modal-body">
-        <p class="signup-prompt-sub"><strong>Select all that apply.</strong> Answering this question helps with future updates. You must choose at least one before using RailroadRadar. You can change this later in Account Settings.</p>
-        <div class="rr-interest-list" id="interest-railroads-list"></div>
-        <div class="rr-modal-error" id="interest-railroads-error"></div>
-        <div class="rr-lightbox-actions signup-prompt-actions">
-          <button type="button" class="rr-btn" id="interest-railroads-save">Save</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="rr-modal-backdrop" id="legal-accept-modal" aria-hidden="true">
-    <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="legal-accept-title">
-      <div class="rr-modal-header">
-        <span id="legal-accept-title">Please agree to continue</span>
-      </div>
-      <div class="rr-modal-body">
-        <p class="signup-prompt-sub"><strong id="legal-accept-sub">You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.</strong></p>
-        <p class="signup-prompt-note">Review our <a href="/policies/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms of Use</a> and <a href="/policies/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
-        <div class="rr-modal-error" id="legal-accept-error"></div>
-        <div class="rr-lightbox-actions signup-prompt-actions">
-          <button type="button" class="rr-btn" id="legal-accept-confirm">I agree</button>
-          <button type="button" class="rr-btn secondary" id="legal-accept-signout">Sign out</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div id="notification" style="display:none; position:fixed; top:70px; left:50%; transform:translateX(-50%); background:#07093e; color:white; padding:12px 24px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:100000; font-size:14px; max-width:90%; text-align:center;">
-    <span id="notification-text"></span>
-  </div>
-  <div class="footer">
-    <div class="footer-left">
-      <span class="copyright">© 2026 RailroadRadar</span>
-      <span style="color:#4a6fa5;">|</span>
-      <a href="/policies/terms-of-use/" target="_blank">Terms of Use</a>
-      <a href="/press/">Press</a>
-      <a href="/policies/privacy/" target="_blank">Privacy Policy</a>
-      <button type="button" class="footer-link" id="footer-cookie-settings">Cookie settings</button>
-    </div>
-    <div></div>
-  </div>
-  <div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
-    <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies" target="_blank">Learn more</a></p>
-    <div class="rr-cookie-actions">
-      <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
-      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
-      <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
-    </div>
-  </div>
-  <div id="rr-cookie-modal" hidden aria-hidden="true">
-    <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
-    <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
-      <h3 id="rr-cookie-modal-title">Cookie preferences</h3>
-      <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the map.</p>
-      <ul class="rr-cookie-list">
-        <li class="rr-cookie-row">
-          <div class="rr-cookie-row-text">
-            <strong>Essential</strong>
-            <span>Keeps you signed in and remembers your map settings in this browser.</span>
-          </div>
-          <label class="rr-cookie-switch is-locked">
-            <input type="checkbox" id="rr-cookie-essential" checked disabled>
-            <span>Always on</span>
-          </label>
-        </li>
-        <li class="rr-cookie-row">
-          <div class="rr-cookie-row-text">
-            <strong>Analytics</strong>
-            <span>Microsoft Clarity shows us how people use the map, using cookies from clarity.ms. Better Stack reports page errors and performance.</span>
-          </div>
-          <label class="rr-cookie-switch">
-            <input type="checkbox" id="rr-cookie-clarity">
-            <span>Allow</span>
-          </label>
-        </li>
-      </ul>
-      <div class="rr-cookie-modal-actions">
-        <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
-        <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
-      </div>
-    </div>
-  </div>
-  <script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
-  <!-- Jotform scripts (unchanged) -->
-  <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
-  <script src="/assets/js/trip-stations.js"></script>
-  <script src="/assets/js/trip-notify.js?v=5357aa496b"></script>
-  <script src="/assets/js/app-main.js?v=4a498b3e35"></script>
-  <script src="/assets/js/mytrips-stats.js?v=e1c926b2af"></script>
-  <script>
-    try {
-      if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {
-        window.navigator.serviceWorker.register('/sw.js').then(function () {
-          return navigator.serviceWorker.ready;
-        }).catch(function () {});
-      }
-    } catch (e) {
-      // Service workers unavailable (sandboxed iframe, private mode, etc.)
-    }
-  </script>
-
-<script id="rr-login-direct">
-(function() {
-  function go(e) {
-    var t = e.target && e.target.closest && e.target.closest('#btn-google-signin, #signup-prompt-signin, #btn-account-signin-panel, #mytrips-guest-signin');
-    if (!t) return;
-    e.preventDefault();
-    e.stopPropagation();
-    // The sign-up / log-in buttons open the prompt; only its Continue button and the MyTrips
-    // splash go straight to Google, which keeps the popup inside the click.
-    if (t.id === 'signup-prompt-signin') beginGoogleSignInWithLegal();
-    else if (t.id === 'mytrips-guest-signin') signInWithGoogle();
-    else requestGoogleSignIn();
-  }
-  document.addEventListener('click', go, true);
-})();
-</script>
-
-
-
-
-<script src="/assets/js/live-share-bar.js" defer></script>
-<script src="/assets/js/app-go-live.js?v=c938925f0c"></script>
-<script src="/assets/js/site-nav.js?v=dd2474a68b" defer></script>
+</div>
+<script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
+<script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 </body>
 </html>
