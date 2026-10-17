@@ -2035,6 +2035,9 @@
         }
       }
       if (chosen == null || !isFinite(chosen)) return null;
+      // Unordered station lists with branches (Amtrak Northeast Regional takes in the Springfield
+      // and Virginia stations) can zigzag; a chain far longer than the straight line is not a route.
+      if (chosen > od * 1.6 + 8) return null;
       return Math.round(chosen * 10) / 10;
     }
 
@@ -6023,6 +6026,19 @@ function closeTripDetailView(opts) {
         } finally {
           setSaveDisabled(false);
         }
+      }
+      // Miles follow the track shape only once it has loaded; wait briefly so a quick Save does not
+      // fall back to the station-chain estimate. Save stays disabled meanwhile so it can't run twice.
+      setSaveDisabled(true);
+      try {
+        await Promise.race([
+          Promise.all((tripLogSegmentsState || []).map(function(sg) {
+            return (sg && sg.railroad && sg.lineId) ? ensureTripShapesForMiles(sg.railroad, sg.lineId) : null;
+          })),
+          new Promise(function(r) { setTimeout(r, 4000); })
+        ]);
+      } catch (_) {} finally {
+        setSaveDisabled(false);
       }
       let payload;
       try {

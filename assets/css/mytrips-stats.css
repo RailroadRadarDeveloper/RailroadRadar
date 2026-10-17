@@ -1,0 +1,137 @@
+/* ===== My Trips: More stats panel (Exploring map and line diagrams, three small cards) ===== */
+html.rr-mytrips-page .trip-log-stat-more { grid-column: 1 / -1; border-top: 1px solid var(--mt-line); padding: 6px 10px; display: flex; }
+html.rr-mytrips-page .tms-toggle {
+  height: 32px; padding: 0 8px; border: none; border-radius: 4px; background: transparent; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; font: 600 13px/1 var(--mt-font); color: var(--mt-navy);
+}
+html.rr-mytrips-page .tms-toggle:hover { background: rgba(7,9,62,.06); }
+html.rr-mytrips-page .tms-toggle:focus-visible { outline: 2px solid #8fd3ff; outline-offset: 1px; }
+html.rr-mytrips-page .tms-toggle svg { width: 14px; height: 14px; transition: transform .15s; }
+html.rr-mytrips-page .tms-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+html.rr-mytrips-page .trip-more-stats { margin: 0 0 16px; font-family: var(--mt-font); font-size: 13px; color: var(--mt-ink); }
+html.rr-mytrips-page .trip-more-stats[hidden] { display: none !important; }
+html.rr-mytrips-page .tms-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+html.rr-mytrips-page .tms-card {
+  display: flex; flex-direction: column; min-width: 0; padding: 18px 20px;
+  background: var(--mt-surface, #fff); border: 1px solid var(--mt-line); border-radius: 4px;
+}
+/* one muted label style everywhere */
+html.rr-mytrips-page .tms-label, html.rr-mytrips-page .tms-k, html.rr-mytrips-page .tms-big-label {
+  margin: 0; font-size: 13px; font-weight: 400; line-height: 18px; color: var(--mt-muted); text-transform: none; letter-spacing: 0;
+}
+html.rr-mytrips-page .tms-head { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 6px; margin: 6px 0 16px; }
+html.rr-mytrips-page .tms-big { font-size: 24px; font-weight: 700; line-height: 30px; color: var(--mt-navy); }
+html.rr-mytrips-page .tms-facts { display: flex; flex-direction: column; gap: 12px; }
+html.rr-mytrips-page .tms-fact { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; }
+html.rr-mytrips-page .tms-v { font-weight: 600; color: var(--mt-ink); text-align: right; line-height: 18px; }
+html.rr-mytrips-page .tms-sub { grid-column: 1 / -1; color: var(--mt-ink); line-height: 18px; }
+html.rr-mytrips-page .tms-prog-top { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; line-height: 18px; }
+html.rr-mytrips-page .tms-prog-name { color: var(--mt-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.rr-mytrips-page .tms-prog-top .tms-k { white-space: nowrap; }
+html.rr-mytrips-page .tms-bar { height: 3px; border-radius: 4px; background: var(--mt-line); overflow: hidden; }
+html.rr-mytrips-page .tms-bar > span { display: block; height: 100%; background: var(--mt-navy); border-radius: 4px; }
+html.rr-mytrips-page .tms-mini-h { margin-bottom: -4px; }
+/* light chart: pale bars, only the busiest month labelled */
+html.rr-mytrips-page .tms-chart-wrap { display: flex; flex-direction: column; gap: 6px; }
+html.rr-mytrips-page .tms-chart { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; height: 52px; align-items: end; }
+html.rr-mytrips-page .tms-col { position: relative; height: 100%; display: flex; align-items: flex-end; }
+html.rr-mytrips-page .tms-col-bar { width: 100%; background: rgba(7,9,62,.16); border-radius: 2px 2px 0 0; }
+html.rr-mytrips-page .tms-col.is-max .tms-col-bar { background: var(--mt-navy); }
+html.rr-mytrips-page .tms-col-n { position: absolute; left: 50%; top: -16px; transform: translateX(-50%); white-space: nowrap; font-size: 12px; line-height: 14px; color: var(--mt-muted); }
+html.rr-mytrips-page .tms-chart { margin-top: 14px; }
+html.rr-mytrips-page .tms-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--mt-faint); border-top: 1px solid var(--mt-line); padding-top: 4px; }
+/* earned milestones tucked away */
+html.rr-mytrips-page .tms-earned summary { cursor: pointer; color: var(--mt-navy); font-weight: 600; line-height: 18px; list-style: none; width: max-content; }
+html.rr-mytrips-page .tms-earned summary::-webkit-details-marker { display: none; }
+html.rr-mytrips-page .tms-earned summary::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
+html.rr-mytrips-page .tms-earned[open] summary { margin-bottom: 8px; }
+html.rr-mytrips-page .tms-earned[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+html.rr-mytrips-page .tms-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+html.rr-mytrips-page .tms-chip { height: 24px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 4px; background: var(--mt-bg); color: var(--mt-ink); font-size: 12px; white-space: nowrap; }
+html.rr-mytrips-page .tms-empty { margin: 0; padding: 16px 20px; background: var(--mt-surface, #fff); border: 1px solid var(--mt-line); border-radius: 4px; color: var(--mt-muted); }
+html.rr-mytrips-page .tms-note { margin: 10px 2px 0; font-size: 12px; line-height: 16px; color: var(--mt-muted); }
+@media (max-width: 640px) {
+  html.rr-mytrips-page .tms-grid { grid-template-columns: 1fr; gap: 10px; }
+  html.rr-mytrips-page .tms-card { padding: 16px; }
+}
+/* dark */
+html.rr-mytrips-page.rr-theme-dark .tms-toggle, html.rr-mytrips-page.rr-theme-dark .tms-earned summary { color: var(--mt-ink); }
+html.rr-mytrips-page.rr-theme-dark .tms-toggle:hover { background: rgba(255,255,255,.08); }
+html.rr-mytrips-page.rr-theme-dark .tms-big { color: var(--mt-ink); }
+html.rr-mytrips-page.rr-theme-dark .tms-bar { background: rgba(255,255,255,.12); }
+html.rr-mytrips-page.rr-theme-dark .tms-bar > span, html.rr-mytrips-page.rr-theme-dark .tms-col.is-max .tms-col-bar { background: #8fd3ff; }
+html.rr-mytrips-page.rr-theme-dark .tms-col-bar { background: rgba(143,211,255,.28); }
+html.rr-mytrips-page.rr-theme-dark .tms-chip { background: var(--mt-surface-2, #0f1446); }
+
+/* v3 layout: Exploring full width, three smaller cards below */
+html.rr-mytrips-page .tms-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+html.rr-mytrips-page .tms-row3 .tms-card { padding: 16px 18px; }
+html.rr-mytrips-page .tms-row3 .tms-big { font-size: 20px; line-height: 26px; }
+html.rr-mytrips-page .tms-row3 .tms-head { margin: 4px 0 14px; }
+html.rr-mytrips-page .tms-explore { padding: 18px 20px 20px; }
+html.rr-mytrips-page .tms-explore-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+html.rr-mytrips-page .tms-explore-head .tms-head { margin: 6px 0 0; }
+html.rr-mytrips-page .tms-legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--mt-muted); line-height: 18px; }
+html.rr-mytrips-page .tms-legend span { display: inline-flex; align-items: center; gap: 6px; }
+html.rr-mytrips-page .tms-key { display: inline-block; border-radius: 50%; box-sizing: border-box; }
+html.rr-mytrips-page .tms-key.is-end { width: 11px; height: 11px; background: var(--mt-navy); box-shadow: 0 0 0 2px var(--mt-surface, #fff), 0 0 0 3px var(--mt-line); }
+html.rr-mytrips-page .tms-key.is-not { width: 7px; height: 7px; border: 1.5px solid var(--mt-faint); background: transparent; }
+html.rr-mytrips-page .tms-explore-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+html.rr-mytrips-page .tms-map-wrap { position: sticky; top: 72px; }
+html.rr-mytrips-page .tms-map { height: 380px; border-radius: 4px; border: 1px solid var(--mt-line); background: var(--mt-bg); z-index: 0; }
+html.rr-mytrips-page .tms-map .leaflet-control-zoom a { width: 28px; height: 28px; line-height: 28px; font: 600 15px/28px var(--mt-font); color: var(--mt-navy); }
+html.rr-mytrips-page .tms-map .leaflet-control-zoom { border: 1px solid var(--mt-line); border-radius: 4px; box-shadow: none; overflow: hidden; }
+html.rr-mytrips-page .tms-map .leaflet-tooltip { font: 600 12px/16px var(--mt-font); color: var(--mt-ink); border-radius: 4px; border: 1px solid var(--mt-line); box-shadow: none; padding: 3px 7px; }
+html.rr-mytrips-page .tms-linelist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+html.rr-mytrips-page .tms-lineitem + .tms-lineitem { border-top: 1px solid var(--mt-line); }
+html.rr-mytrips-page .tms-linebtn { all: unset; box-sizing: border-box; display: block; width: 100%; padding: 12px 0; cursor: pointer; font: 13px/18px var(--mt-font); }
+html.rr-mytrips-page .tms-lineitem:first-child .tms-linebtn { padding-top: 2px; }
+html.rr-mytrips-page .tms-linebtn:focus-visible { outline: 2px solid #8fd3ff; outline-offset: 2px; border-radius: 4px; }
+html.rr-mytrips-page .tms-linebtn .tms-prog-top .tms-k { display: inline-flex; align-items: center; gap: 6px; }
+html.rr-mytrips-page .tms-linebtn .tms-bar { display: block; }
+html.rr-mytrips-page .tms-linebtn .tms-bar > span { background: var(--tms-rail, var(--mt-navy)); }
+html.rr-mytrips-page .tms-chev { width: 14px; height: 14px; color: var(--mt-faint); transition: transform .15s; }
+html.rr-mytrips-page .tms-linebtn[aria-expanded="true"] .tms-chev { transform: rotate(180deg); }
+html.rr-mytrips-page .tms-linebtn:hover .tms-prog-name { color: var(--mt-navy); text-decoration: underline; text-underline-offset: 2px; }
+html.rr-mytrips-page .tms-linebody { padding: 2px 0 14px; }
+html.rr-mytrips-page .tms-linebody[hidden] { display: none !important; }
+html.rr-mytrips-page .tms-branch-h { margin: 10px 0 4px 22px; color: var(--mt-muted); line-height: 18px; }
+/* line diagram: a rail-coloured line with a dot per station */
+html.rr-mytrips-page .tms-diagram, html.rr-mytrips-page .tms-fold-list { list-style: none; margin: 0; padding: 0; }
+html.rr-mytrips-page .tms-st { position: relative; display: flex; align-items: center; min-height: 24px; padding-left: 22px; line-height: 18px; }
+html.rr-mytrips-page .tms-st::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--tms-rail); opacity: .3; }
+html.rr-mytrips-page .tms-diagram > .tms-st:first-child::before { top: 50%; }
+html.rr-mytrips-page .tms-diagram > .tms-st:last-child::before { bottom: 50%; }
+html.rr-mytrips-page .tms-fold-list .tms-st::before { top: 0 !important; bottom: 0 !important; }
+html.rr-mytrips-page .tms-dot { position: absolute; left: 7px; top: 12px; transform: translate(-50%, -50%); border-radius: 50%; box-sizing: border-box; }
+html.rr-mytrips-page .tms-st.is-end .tms-dot { width: 12px; height: 12px; background: var(--tms-rail); box-shadow: 0 0 0 2px var(--mt-surface, #fff); }
+html.rr-mytrips-page .tms-st.is-not .tms-dot { width: 8px; height: 8px; border: 1.5px solid var(--mt-faint); background: var(--mt-surface, #fff); }
+html.rr-mytrips-page .tms-st.is-end .tms-st-name { color: var(--mt-ink); font-weight: 600; }
+html.rr-mytrips-page .tms-st.is-not .tms-st-name { color: var(--mt-faint); }
+html.rr-mytrips-page .tms-st.is-fold { display: block; padding-left: 0; }
+html.rr-mytrips-page .tms-st.is-fold::before { left: 6px; background-image: repeating-linear-gradient(to bottom, var(--tms-rail) 0 3px, transparent 3px 6px); background-color: transparent; }
+html.rr-mytrips-page .tms-st.is-fold.is-open::before { display: none; }
+html.rr-mytrips-page .tms-fold { all: unset; cursor: pointer; display: block; margin-left: 22px; padding: 3px 0; line-height: 18px; color: var(--mt-muted); }
+html.rr-mytrips-page .tms-fold:hover { color: var(--mt-navy); text-decoration: underline; text-underline-offset: 2px; }
+html.rr-mytrips-page .tms-fold:focus-visible { outline: 2px solid #8fd3ff; outline-offset: 2px; border-radius: 4px; }
+html.rr-mytrips-page .tms-more-lines { all: unset; cursor: pointer; margin-top: 4px; padding: 7px 0; font: 600 13px/18px var(--mt-font); color: var(--mt-navy); }
+html.rr-mytrips-page .tms-more-lines:hover { text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 900px) {
+  html.rr-mytrips-page .tms-row3 { grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
+  html.rr-mytrips-page .tms-explore-body { grid-template-columns: 1fr; gap: 16px; }
+  html.rr-mytrips-page .tms-map-wrap { position: static; }
+  html.rr-mytrips-page .tms-map { height: 240px; }
+}
+@media (max-width: 640px) { html.rr-mytrips-page .tms-explore { padding: 16px; } html.rr-mytrips-page .tms-legend { gap: 12px; } }
+html.rr-mytrips-page.rr-theme-dark .tms-linebtn:hover .tms-prog-name, html.rr-mytrips-page.rr-theme-dark .tms-fold:hover, html.rr-mytrips-page.rr-theme-dark .tms-more-lines { color: var(--mt-ink); }
+html.rr-mytrips-page.rr-theme-dark .tms-map { border-color: var(--mt-line); }
+html.rr-mytrips-page.rr-theme-dark .tms-map .leaflet-control-zoom a { background: #151a52; color: var(--mt-ink); border-color: var(--mt-line); }
+html.rr-mytrips-page.rr-theme-dark .tms-map .leaflet-tooltip { background: #151a52; color: var(--mt-ink); border-color: var(--mt-line); }
+html.rr-mytrips-page.rr-theme-dark .tms-map .leaflet-tile-pane { filter: brightness(.8) saturate(.85); }
+html.rr-mytrips-page .tms-map .tms-map-all { height: 28px; padding: 0 10px; border: 1px solid var(--mt-line); border-radius: 4px; background: #fff; color: var(--mt-navy); font: 600 12px/26px var(--mt-font); cursor: pointer; margin: 0 0 10px 10px; }
+html.rr-mytrips-page .tms-map .tms-map-all:hover { background: #f3f4f8; }
+html.rr-mytrips-page.rr-theme-dark .tms-map .tms-map-all { background: #151a52; color: var(--mt-ink); }
+@media (max-width: 900px) { html.rr-mytrips-page .tms-map { height: 260px; } }
+html.rr-mytrips-page .tms-map .leaflet-control-container { display: block !important; }
+html.rr-mytrips-page.rr-theme-dark .tms-key.is-end { background: #8fd3ff; box-shadow: 0 0 0 2px var(--mt-surface, #151a52), 0 0 0 3px var(--mt-line); }
