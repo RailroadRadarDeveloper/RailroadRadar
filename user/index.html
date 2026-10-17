@@ -115,7 +115,7 @@
         <img class="wordmark" src="/assets/brand/mytrips-logo.png" alt="MyTrips by RailroadRadar">
       </picture>
     </a>
-    <a class="hb" href="/">Live map</a>
+    <a class="hb" href="/map/">Live map</a>
   </div>
   <div class="wrap" id="app">
     <div class="state" id="state-loading">
@@ -174,7 +174,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
     function showState(title, body) {
       document.getElementById('app').innerHTML =
         '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(body) + '</p>' +
-        '<p><a class="hb" href="/">Back to live map</a></p></div>';
+        '<p><a class="hb" href="/map/">Back to live map</a></p></div>';
     }
     function railLabel(rr) {
       const id = String(rr || '').toLowerCase();
@@ -886,7 +886,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
   })();
   </script>
 <script src="/assets/js/live-share-bar.js" defer></script>
-<script src="/assets/js/site-nav.js" defer></script>
+<script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 <script src="/assets/js/trip-notify.js?v=5357aa496b"></script>
 </body>
 </html>

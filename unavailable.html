@@ -205,9 +205,9 @@
       <a id="rr-status-text" href="https://railroadradar.betteruptime.com/" target="_blank" rel="noopener" style="color:#fff;text-decoration:none;"></a>
     </div>
     <div class="btn-row">
-      <a href="/" class="btn btn-primary" id="rr-retry">Try again</a>
+      <a href="/map/" class="btn btn-primary" id="rr-retry">Try again</a>
       <button type="button" class="btn btn-primary" id="rr-appeal-btn" hidden>Appeal</button>
-      <a href="/?recheck=1" class="btn btn-primary" id="rr-signin-again" hidden>Sign in again</a>
+      <a href="/map/?recheck=1" class="btn btn-primary" id="rr-signin-again" hidden>Sign in again</a>
     </div>
     <p class="rr-appeal-denied" id="rr-appeal-denied" hidden></p>
     <p class="rr-appeal-final" id="rr-appeal-final" hidden>This decision is final, and further appeals will not be reviewed.</p>
@@ -348,7 +348,7 @@
             var t = ts ? Date.parse(ts) : NaN;
             if (!isNaN(t) && (!info.at || t > Number(info.at))) {
               try { localStorage.removeItem('rrBannedLock'); localStorage.removeItem('rrBanInfo'); localStorage.removeItem(sentKey()); } catch (e) {}
-              location.replace('/');
+              location.replace('/map/');
             }
           }).catch(function () {});
       }
@@ -403,7 +403,7 @@
   </div>
 <script>
   (function () {
-    var target = '/';
+    var target = '/map/';
     try {
       var from = sessionStorage.getItem('rr-unavailable-from');
       if (from && from.charAt(0) === '/' && from.charAt(1) !== '/' && from.indexOf('/unavailable') !== 0) target = from;
@@ -646,7 +646,7 @@
 <script>
 (function () {
   var links = [
-    { id: 'map', href: '/', label: 'Live map' },
+    { id: 'map', href: '/map/', label: 'Live map' },
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
     { id: 'favorites', href: '/favorites/', label: 'Favorites' },
     { id: 'press', href: '/press/', label: 'Press' }
@@ -656,7 +656,7 @@
     if (path.indexOf('/mytrips') === 0 || document.documentElement.classList.contains('rr-mytrips-page')) return 'mytrips';
     if (path.indexOf('/favorites') === 0) return 'favorites';
     if (path.indexOf('/press') === 0) return 'press';
-    if (path === '/' || path === '') return 'map';
+    if (path.indexOf('/map/') === 0 || path === '/map') return 'map';
     return '';
   }
   function ensureStyle() {

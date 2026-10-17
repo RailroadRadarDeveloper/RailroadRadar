@@ -487,14 +487,14 @@
   <div class="rr-gate" id="gate-forbidden" style="display:none;">
     <h1>Access denied</h1>
     <p>You do not have permission to access this page.</p>
-    <a class="rr-btn secondary" href="/" style="display:inline-block;text-decoration:none;">Back to map</a>
+    <a class="rr-btn secondary" href="/map/" style="display:inline-block;text-decoration:none;">Back to map</a>
   </div>
 
   <div class="rr-admin-shell" id="admin-dashboard" aria-hidden="true">
     <div class="rr-lightbox" role="main" aria-labelledby="admin-dashboard-title">
       <div class="rr-modal-header">
         <span id="admin-dashboard-title">Admin Dashboard</span>
-        <a class="rr-modal-close" id="admin-dashboard-close" href="/" aria-label="Back to map">×</a>
+        <a class="rr-modal-close" id="admin-dashboard-close" href="/map/" aria-label="Back to map">×</a>
       </div>
       <div class="rr-admin-tabs" role="tablist">
         <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
@@ -3303,7 +3303,7 @@
       switchAdminTab(first);
       await loadAdminTab(first);
     }
-    function closeAdminDashboard() { window.location.href = '/'; }
+    function closeAdminDashboard() { window.location.href = '/map/'; }
     function showGate(which) {
       const dash = document.getElementById('admin-dashboard');
       if (dash) { dash.classList.remove('is-open'); dash.setAttribute('aria-hidden', 'true'); }
@@ -3380,6 +3380,6 @@
 
   </script>
 <script src="/assets/js/live-share-bar.js" defer></script>
-<script src="/assets/js/site-nav.js" defer></script>
+<script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 </body>
 </html>
