@@ -1306,12 +1306,27 @@
       const id = String(rr || '').toLowerCase();
       return TRIP_LOG_RAIL_COLORS[id] || '#07093e';
     }
+    /* Lighter tints of the rail colours for the My Trips dark theme (readable on #151a52). */
+    const TRIP_LOG_RAIL_COLORS_DARK = {
+      mbta: '#c862b4',
+      amtrak: '#4fa3d9',
+      mnr: '#ff5570',
+      lirr: '#5b8cf0',
+      njt: '#ff8a4d',
+      metra: '#5596e6',
+      marc: '#ff9a3d',
+      ctrail: '#5a92cc'
+    };
+    function tripRailColorDark(rr) {
+      const id = String(rr || '').toLowerCase();
+      return TRIP_LOG_RAIL_COLORS_DARK[id] || '#aab0d4';
+    }
     function tripRailBadgeHtml(rr) {
       const id = String(rr || '').toLowerCase();
       if (!id) return '';
       const label = TRIP_LOG_RAIL_LABELS[id] || id.toUpperCase();
       const color = tripRailColor(id);
-      return '<span class="trip-rail-badge" data-railroad="' + escapeTripOpt(id) + '" style="--rr-trip-rail:' + color + ';background:' + color + '">' +
+      return '<span class="trip-rail-badge" data-railroad="' + escapeTripOpt(id) + '" style="--rr-trip-rail:' + color + ';--rr-trip-rail-dk:' + tripRailColorDark(id) + ';background:' + color + '">' +
         label.replace(/</g, '&lt;') + '</span>';
     }
     function tripRailIdsFromData(data) {
@@ -1340,6 +1355,7 @@
       const dual = ids.length >= 2;
       const c2 = dual ? tripRailColor(ids[1]) : '';
       try { el.style.setProperty('--rr-trip-rail', c1); } catch (_) {}
+      try { el.style.setProperty('--rr-trip-rail-dk', ids.length ? tripRailColorDark(ids[0]) : '#aab0d4'); } catch (_) {}
       if (dual) {
         try { el.style.setProperty('--rr-trip-rail-2', c2); } catch (_) {}
         el.setAttribute('data-rail-dual', '1');
@@ -1356,6 +1372,7 @@
     function tripClearRailAccentVars(el) {
       if (!el) return;
       try { el.style.removeProperty('--rr-trip-rail'); } catch (_) {}
+      try { el.style.removeProperty('--rr-trip-rail-dk'); } catch (_) {}
       try { el.style.removeProperty('--rr-trip-rail-2'); } catch (_) {}
       el.removeAttribute('data-rail-accent');
       el.removeAttribute('data-rail-dual');
@@ -3030,6 +3047,7 @@ function tripCardStationDotIcon() {
           const card = document.createElement('div');
           card.className = 'trip-detail-seg';
           card.style.setProperty('--rr-trip-rail', color);
+          card.style.setProperty('--rr-trip-rail-dk', tripRailColorDark(rr));
           const top = document.createElement('div');
           top.className = 'trip-detail-seg-top';
           top.innerHTML = tripRailBadgeHtml(rr) +
@@ -4728,7 +4746,7 @@ function closeTripDetailView(opts) {
         const trainPh = specialMode ? 'Optional if map title is set' : 'e.g. 2150';
         const specialCls = specialMode ? ' trip-seg-special-mode' : '';
         return (
-          '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + escapeTripOpt(String(seg.railroad || '').toLowerCase()) + '" style="--rr-trip-rail:' + segRailColor + '">' +
+          '<div class="trip-segment' + specialCls + '" data-seg-index="' + idx + '" data-rail-accent="' + escapeTripOpt(String(seg.railroad || '').toLowerCase()) + '" style="--rr-trip-rail:' + segRailColor + ';--rr-trip-rail-dk:' + tripRailColorDark(seg.railroad) + '">' +
             '<div class="trip-segment-head">' +
               '<div class="trip-segment-title">' + (tripLogSegmentsState.length > 1 ? ('Train ' + (idx + 1)) : 'Trip') + '</div>' +
               removeBtn +
@@ -4952,9 +4970,11 @@ function closeTripDetailView(opts) {
         if (!topId) {
           t.textContent = '—';
           t.style.color = '';
+          try { t.style.removeProperty('--rr-trip-rail-dk'); } catch (_) {}
         } else {
           t.textContent = TRIP_LOG_RAIL_LABELS[topId] || topId.toUpperCase();
           t.style.color = tripRailColor(topId);
+          try { t.style.setProperty('--rr-trip-rail-dk', tripRailColorDark(topId)); } catch (_) {}
         }
       }
       if (rails) {
@@ -4980,7 +5000,7 @@ function closeTripDetailView(opts) {
             const miles = Number(row.miles) || 0;
             const color = tripRailColor(k);
             return '<span class="trip-log-rail-chip">' +
-              '<span class="trip-log-rail-chip-dot" style="background:' + color + '"></span>' +
+              '<span class="trip-log-rail-chip-dot" style="background:' + color + ';--rr-trip-rail-dk:' + tripRailColorDark(k) + '"></span>' +
               '<span>' + label + '</span>' +
               '<span class="trip-log-rail-chip-meta">' + count + (miles > 0 ? (' · ' + formatTripMiles(miles)) : '') + '</span>' +
               '</span>';
@@ -5301,7 +5321,7 @@ function closeTripDetailView(opts) {
         }
         return el;
       }
-      const inprogress = makeSection('trip-log-inprogress', 'In Progress', 'trip-log-inprogress-rows');
+      const inprogress = makeSection('trip-log-inprogress', 'In progress', 'trip-log-inprogress-rows');
       const upcoming = makeSection('trip-log-upcoming', 'Upcoming trips', 'trip-log-upcoming-rows');
       const past = makeSection('trip-log-past', 'Past trips', 'trip-log-past-rows');
       list.appendChild(inprogress);
@@ -5552,7 +5572,7 @@ function closeTripDetailView(opts) {
             if (line) bits.push(String(line).replace(/</g, '&lt;'));
             if (tn) bits.push(String(tn).replace(/</g, '&lt;'));
             bits.push(odHtml);
-            return '<span class="trip-seg-chip" style="--rr-trip-rail:' + tripRailColor(rr) + '">' +
+            return '<span class="trip-seg-chip" style="--rr-trip-rail:' + tripRailColor(rr) + ';--rr-trip-rail-dk:' + tripRailColorDark(rr) + '">' +
               tripRailBadgeHtml(rr) +
               '<span>' + String(i + 1) + '. ' + bits.join(' · ') + '</span></span>';
           }).join('') + '</div>';

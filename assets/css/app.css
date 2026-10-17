@@ -6258,3 +6258,497 @@
         width: max(100%, 380px);
       }
     }
+
+/* ===== MyTrips redesign (Oct 17): light theme (default) =====
+   One font (header stack), 13px base, 4px corners on every button/field, pills only for status chips,
+   36px main / 32px small buttons, navy filled + outlined, white cards with a rail-color left bar. */
+html.rr-mytrips-page {
+  --mt-navy: #07093e;
+  --mt-ink: #1a1f2e;
+  --mt-muted: #5f6673;
+  --mt-faint: #8a919c;
+  --mt-line: #e3e6eb;
+  --mt-field: #c5cad3;
+  --mt-bg: #f5f6f8;
+  --mt-font: "Google Sans", Roboto, Arial, sans-serif;
+}
+html.rr-mytrips-page body { background: var(--mt-bg) !important; }
+html.rr-mytrips-page #trip-log-modal,
+html.rr-mytrips-page #trip-log-modal * { font-family: var(--mt-font) !important; letter-spacing: 0 !important; }
+html.rr-mytrips-page #trip-log-modal { background: var(--mt-bg) !important; }
+html.rr-mytrips-page #trip-log-modal .rr-modal {
+  background: transparent !important; box-shadow: none !important; border: none !important;
+  max-width: 960px !important; width: 100% !important; margin: 0 auto !important; padding: 0 20px 40px !important;
+  box-sizing: border-box; color: var(--mt-ink); font-size: 13px;
+}
+/* ---------- page header ---------- */
+html.rr-mytrips-page #trip-log-modal .rr-modal-header {
+  display: flex !important; align-items: center !important; justify-content: space-between; gap: 12px;
+  padding: 22px 0 16px !important; border: none !important; background: transparent !important; flex-wrap: wrap;
+}
+html.rr-mytrips-page #trip-log-title { font-size: 24px !important; font-weight: 700 !important; color: var(--mt-navy) !important; }
+html.rr-mytrips-page .trip-log-page-actions { display: flex !important; gap: 8px !important; align-items: center; flex-wrap: wrap; }
+/* ---------- buttons: one system ---------- */
+html.rr-mytrips-page #trip-log-modal .rr-btn,
+html.rr-mytrips-page #trip-log-modal #trip-log-public-profile,
+html.rr-mytrips-page #trip-log-modal .trip-log-empty-cta,
+html.rr-mytrips-page #trip-log-modal #trip-log-primary-log {
+  height: 36px !important; min-height: 36px !important; padding: 0 14px !important; box-sizing: border-box !important;
+  border-radius: 4px !important; font-size: 13px !important; font-weight: 600 !important; line-height: 1 !important;
+  text-transform: none !important; display: inline-flex !important; align-items: center; justify-content: center;
+  border: 1px solid var(--mt-navy) !important; background: var(--mt-navy) !important; color: #fff !important;
+  box-shadow: none !important; transform: none !important; white-space: nowrap; cursor: pointer;
+}
+html.rr-mytrips-page #trip-log-modal .rr-btn.secondary,
+html.rr-mytrips-page #trip-log-modal #trip-log-public-profile,
+html.rr-mytrips-page #trip-log-modal .trip-log-empty-cta.trip-log-empty-live {
+  background: #fff !important; color: var(--mt-navy) !important;
+}
+html.rr-mytrips-page #trip-log-modal .rr-btn:hover { filter: none !important; background: #1b1f5c !important; }
+html.rr-mytrips-page #trip-log-modal .rr-btn.secondary:hover,
+html.rr-mytrips-page #trip-log-modal #trip-log-public-profile:hover { background: #eef0f6 !important; }
+html.rr-mytrips-page #trip-log-modal .rr-btn:focus-visible,
+html.rr-mytrips-page #trip-log-modal button:focus-visible,
+html.rr-mytrips-page #trip-log-modal a:focus-visible { outline: 2px solid #8fd3ff !important; outline-offset: 1px; }
+html.rr-mytrips-page #trip-log-modal .trip-public-copy { height: 32px !important; min-height: 32px !important; font-size: 12px !important; padding: 0 10px !important; }
+html.rr-mytrips-page .trip-public-panel { border-radius: 4px !important; border: 1px solid var(--mt-line) !important; box-shadow: 0 8px 24px rgba(15,23,42,.14) !important; }
+/* ---------- stats ---------- */
+html.rr-mytrips-page #trip-log-modal .rr-lightbox-body { padding: 0 !important; background: transparent !important; }
+html.rr-mytrips-page #trip-log-modal .rr-lightbox-section { padding: 0 !important; border: none !important; margin: 0 !important; }
+html.rr-mytrips-page .trip-log-stats {
+  display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 0 !important;
+  background: #fff; border: 1px solid var(--mt-line); border-radius: 4px; padding: 0 !important; margin: 0 0 12px !important;
+}
+html.rr-mytrips-page .trip-log-stat {
+  background: transparent !important; border: none !important; border-radius: 0 !important; box-shadow: none !important;
+  padding: 14px 16px !important; display: flex !important; flex-direction: column !important; align-items: flex-start !important;
+  border-left: 1px solid var(--mt-line) !important; min-height: 0 !important;
+}
+html.rr-mytrips-page .trip-log-stat:first-child { border-left: none !important; }
+html.rr-mytrips-page .trip-log-stat-value { font-size: 22px !important; font-weight: 700 !important; color: var(--mt-navy); line-height: 1.15 !important; order: 0; }
+html.rr-mytrips-page .trip-log-stat-label { font-size: 12px !important; font-weight: 500 !important; color: var(--mt-muted) !important; text-transform: none !important; margin-top: 2px; order: 1; }
+html.rr-mytrips-page .trip-log-stat-rails {
+  grid-column: 1 / -1; display: flex !important; gap: 6px !important; flex-wrap: wrap;
+  padding: 10px 16px !important; border-top: 1px solid var(--mt-line); margin: 0 !important;
+}
+html.rr-mytrips-page .trip-log-rail-chip {
+  border-radius: 4px !important; background: var(--mt-bg) !important; border: 1px solid var(--mt-line) !important;
+  padding: 3px 8px !important; font-size: 12px !important; font-weight: 600 !important; color: var(--mt-ink) !important; gap: 6px !important;
+}
+html.rr-mytrips-page .trip-log-rail-chip-meta { color: var(--mt-muted) !important; font-weight: 500 !important; }
+/* ---------- boarding alerts ---------- */
+html.rr-mytrips-page .trip-notify-row {
+  background: #fff !important; border: 1px solid var(--mt-line) !important; border-radius: 4px !important;
+  padding: 10px 14px !important; margin: 0 0 12px !important; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px;
+}
+html.rr-mytrips-page .trip-notify-toggle { font-size: 13px !important; font-weight: 600 !important; color: var(--mt-ink) !important; display: inline-flex !important; gap: 8px; align-items: center; }
+html.rr-mytrips-page .trip-notify-toggle input { width: 16px; height: 16px; accent-color: var(--mt-navy); margin: 0; }
+html.rr-mytrips-page .trip-notify-hint { font-size: 12px !important; color: var(--mt-muted) !important; margin: 0 !important; flex: 1 1 320px; line-height: 1.4; }
+html.rr-mytrips-page .trip-nearby-banner { border-radius: 4px !important; }
+/* ---------- tabs: segmented control ---------- */
+html.rr-mytrips-page .trip-log-tabs {
+  display: inline-flex !important; gap: 0 !important; padding: 0 !important; margin: 4px 0 14px !important;
+  background: #fff !important; border: 1px solid var(--mt-field) !important; border-radius: 4px !important; overflow: hidden; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-log-tab {
+  height: 34px !important; padding: 0 16px !important; border: none !important; border-radius: 0 !important;
+  background: transparent !important; color: var(--mt-navy) !important; font-size: 13px !important; font-weight: 600 !important; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-log-tab + .trip-log-tab { border-left: 1px solid var(--mt-field) !important; }
+html.rr-mytrips-page .trip-log-tab.active { background: var(--mt-navy) !important; color: #fff !important; }
+html.rr-mytrips-page #trip-log-modal hr, html.rr-mytrips-page .trip-log-divider { display: none !important; }
+/* ---------- dashboard strip ---------- */
+html.rr-mytrips-page .trip-dash-bar {
+  display: flex !important; align-items: center; gap: 4px 16px !important; flex-wrap: wrap;
+  background: transparent !important; border: none !important; padding: 0 !important; margin: 0 0 6px !important; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-dash-stat {
+  background: none !important; border: none !important; padding: 0 !important; border-radius: 0 !important;
+  font-size: 12px !important; font-weight: 500 !important; color: var(--mt-muted) !important;
+}
+html.rr-mytrips-page .trip-dash-filter { margin-left: auto !important; width: auto !important; min-width: 150px; height: 32px !important; }
+/* ---------- fields ---------- */
+html.rr-mytrips-page #trip-log-modal select,
+html.rr-mytrips-page #trip-log-modal input[type="text"],
+html.rr-mytrips-page #trip-log-modal input[type="datetime-local"],
+html.rr-mytrips-page #trip-log-modal textarea {
+  height: 36px; min-height: 36px; box-sizing: border-box !important; border: 1px solid var(--mt-field) !important; border-radius: 4px !important;
+  background-color: #fff !important; color: var(--mt-ink) !important; font-size: 13px !important; padding: 0 10px !important; box-shadow: none !important; width: 100%;
+}
+html.rr-mytrips-page #trip-log-modal textarea { height: auto; padding: 8px 10px !important; }
+html.rr-mytrips-page #trip-log-modal select:focus,
+html.rr-mytrips-page #trip-log-modal input:focus,
+html.rr-mytrips-page #trip-log-modal textarea:focus { outline: none !important; border-color: var(--mt-navy) !important; box-shadow: 0 0 0 2px #8fd3ff !important; }
+html.rr-mytrips-page #trip-log-modal label { font-size: 12px !important; font-weight: 600 !important; color: var(--mt-muted) !important; text-transform: none !important; margin: 0 0 4px !important; display: block; }
+/* ---------- sections ---------- */
+html.rr-mytrips-page .trip-log-section { margin: 18px 0 0 !important; }
+html.rr-mytrips-page .trip-log-section-title {
+  font-size: 15px !important; font-weight: 700 !important; color: var(--mt-navy) !important; margin: 0 0 8px !important;
+  text-transform: none !important; letter-spacing: 0 !important;
+}
+html.rr-mytrips-page .trip-log-section-rows { display: flex !important; flex-direction: column; gap: 10px !important; }
+/* ---------- trip cards ---------- */
+html.rr-mytrips-page .trip-log-row,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] {
+  position: relative; display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-areas: "top map" "route map" "meta map" "facts map" "live map" "actual map" "actions map";
+  grid-template-rows: auto auto auto auto auto auto 1fr;
+  column-gap: 16px; align-items: start;
+  background: #fff !important; color: var(--mt-ink) !important;
+  border: 1px solid var(--mt-line) !important; border-left: 4px solid var(--rr-trip-rail, var(--mt-navy)) !important;
+  border-radius: 4px !important; padding: 12px 12px 12px 14px !important; margin: 0 !important;
+  box-shadow: none !important; transform: none !important;
+}
+html.rr-mytrips-page .trip-log-row:hover,
+html.rr-mytrips-page .trip-log-row[data-rail-accent]:hover { border-color: #c9ced8 !important; border-left-color: var(--rr-trip-rail, var(--mt-navy)) !important; box-shadow: 0 2px 8px rgba(15,23,42,.08) !important; transform: none !important; }
+html.rr-mytrips-page .trip-log-row-top { grid-area: top; display: flex !important; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 !important; padding: 0 !important; }
+html.rr-mytrips-page .trip-log-row-rail { display: inline-flex !important; gap: 6px; align-items: center; color: var(--mt-ink) !important; margin: 0 !important; }
+html.rr-mytrips-page .trip-rail-badge {
+  border-radius: 4px !important; height: 22px; display: inline-flex !important; align-items: center; padding: 0 7px !important;
+  font-size: 11px !important; font-weight: 700 !important; color: #fff !important; border: none !important; box-shadow: none !important; font-style: normal !important;
+}
+html.rr-mytrips-page .trip-log-row .trip-train-chip,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-train-chip {
+  border-radius: 4px !important; height: 22px; display: inline-flex !important; align-items: center; padding: 0 7px !important;
+  background: #fff !important; color: var(--mt-navy) !important; border: 1px solid var(--mt-field) !important;
+  font-size: 12px !important; font-weight: 600 !important; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-log-row-relative,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-relative {
+  margin: 0 !important; padding: 0 !important; background: none !important; border: none !important; border-radius: 0 !important;
+  font-size: 12px !important; font-weight: 500 !important; color: var(--mt-muted) !important; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-soon-chip {
+  border-radius: 999px !important; background: #e6f4ea !important; color: #146c2e !important; border: 1px solid #b7dfc2 !important;
+  font-size: 11px !important; font-weight: 600 !important; padding: 2px 8px !important; height: auto !important; margin: 0 !important; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-log-row-route,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-route {
+  grid-area: route; margin: 8px 0 2px !important; font-size: 17px !important; font-weight: 700 !important; color: var(--mt-navy) !important; line-height: 1.25 !important;
+}
+html.rr-mytrips-page .trip-log-row .trip-route-to { color: var(--mt-faint) !important; font-weight: 500 !important; font-size: 14px !important; }
+html.rr-mytrips-page .trip-log-row .trip-route-station { color: var(--mt-navy) !important; }
+html.rr-mytrips-page .trip-log-row-meta,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-meta { grid-area: meta; margin: 0 !important; font-size: 12px !important; color: var(--mt-muted) !important; font-weight: 500 !important; }
+html.rr-mytrips-page .trip-log-row-facts { grid-area: facts; display: flex; gap: 10px; margin: 2px 0 0 !important; }
+html.rr-mytrips-page .trip-log-row-miles,
+html.rr-mytrips-page .trip-log-row-stock,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-miles,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-stock { font-size: 12px !important; color: var(--mt-faint) !important; font-weight: 500 !important; }
+/* live status keeps the left lateness bar */
+html.rr-mytrips-page .trip-log-row .trip-log-row-live,
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live {
+  grid-area: live; margin: 8px 0 0 !important; padding: 2px 0 2px 8px !important; background: none !important;
+  border: none !important; border-left: 3px solid #c5cad3 !important; border-radius: 0 !important;
+  color: var(--mt-ink) !important; font-size: 13px !important; font-style: normal !important;
+}
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"] { border-left-color: #1a7f37 !important; }
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"] { border-left-color: #e8a317 !important; }
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] { border-left-color: #d93025 !important; }
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="miss"],
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="done"] { border-left: none !important; padding-left: 0 !important; color: var(--mt-muted) !important; font-weight: 500 !important; font-style: italic !important; }
+html.rr-mytrips-page .trip-log-row-live-late { font-weight: 600 !important; }
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"] .trip-log-row-live-late { color: #b06000 !important; }
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] .trip-log-row-live-late { color: #b3261e !important; }
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"] .trip-log-row-live-late { color: #146c2e !important; }
+html.rr-mytrips-page .trip-log-row-live-place { color: var(--mt-muted) !important; font-size: 12px !important; font-style: normal !important; opacity: 1 !important; }
+html.rr-mytrips-page .trip-log-row-actual { grid-area: actual; font-size: 12px !important; color: var(--mt-muted) !important; }
+/* map: right column on desktop */
+html.rr-mytrips-page .trip-log-row-map {
+  grid-area: map; height: 100% !important; min-height: 150px; max-height: 190px; width: 100% !important; margin: 0 !important;
+  border-radius: 4px !important; border: 1px solid var(--mt-line) !important; box-shadow: none !important; background: #eef0f3 !important;
+}
+/* actions: one quiet row at the bottom of the text column */
+html.rr-mytrips-page .trip-log-row-actions {
+  grid-area: actions; position: static !important; display: flex !important; align-items: center; gap: 4px !important;
+  margin: 12px 0 0 !important; padding: 0 !important; align-self: end; flex-wrap: wrap;
+}
+html.rr-mytrips-page .trip-log-row-actions > * {
+  height: 32px !important; min-height: 32px !important; box-sizing: border-box !important; border-radius: 4px !important;
+  font-size: 12px !important; font-weight: 600 !important; text-transform: none !important; line-height: 1 !important;
+  display: inline-flex !important; align-items: center; justify-content: center; padding: 0 10px !important; width: auto !important;
+  background: #fff !important; color: var(--mt-navy) !important; border: 1px solid var(--mt-field) !important; box-shadow: none !important;
+  text-decoration: none !important; white-space: nowrap; margin: 0 !important; opacity: 1 !important; font-style: normal !important;
+}
+html.rr-mytrips-page .trip-log-row-actions > .trip-track-btn { background: var(--mt-navy) !important; border-color: var(--mt-navy) !important; color: #fff !important; }
+html.rr-mytrips-page .trip-log-row-actions > .trip-edit-btn,
+html.rr-mytrips-page .trip-log-row-actions > .danger { width: 32px !important; padding: 0 !important; color: var(--mt-muted) !important; }
+html.rr-mytrips-page .trip-log-row-actions > .trip-edit-btn { margin-left: auto !important; }
+html.rr-mytrips-page .trip-log-row-actions > .danger:hover { color: #b3261e !important; border-color: #e7b4b0 !important; background: #fdf1f0 !important; }
+html.rr-mytrips-page .trip-log-row-actions > :not(.trip-track-btn):hover { background: #eef0f6 !important; }
+html.rr-mytrips-page .trip-log-row-actions svg { width: 15px; height: 15px; }
+/* empty + footer */
+html.rr-mytrips-page .trip-log-empty-card { background: #fff !important; border: 1px dashed var(--mt-field) !important; border-radius: 4px !important; }
+html.rr-mytrips-page #trip-log-modal .rr-lightbox-actions { display: flex !important; gap: 8px !important; flex-wrap: wrap; margin-top: 14px !important; padding: 0 !important; border: none !important; }
+html.rr-mytrips-page .trip-log-status { font-size: 12px !important; color: var(--mt-muted) !important; }
+/* ---------- log form ---------- */
+html.rr-mytrips-page #trip-pane-log > .rr-lightbox-section {
+  background: #fff !important; border: 1px solid var(--mt-line) !important; border-radius: 4px !important; padding: 16px !important;
+}
+html.rr-mytrips-page .trip-special-block { border-radius: 4px !important; border: 1px solid var(--mt-line) !important; background: var(--mt-bg) !important; padding: 10px 12px !important; margin: 0 0 12px !important; }
+html.rr-mytrips-page .trip-special-toggle { font-size: 13px !important; font-weight: 600 !important; color: var(--mt-ink) !important; text-transform: none !important; display: inline-flex !important; gap: 8px; align-items: center; margin: 0 !important; }
+html.rr-mytrips-page .trip-special-toggle input { width: 16px !important; height: 16px !important; accent-color: var(--mt-navy) !important; }
+html.rr-mytrips-page .trip-special-hint { font-size: 12px !important; color: var(--mt-muted) !important; }
+html.rr-mytrips-page .trip-segment,
+html.rr-mytrips-page .trip-segment[data-rail-accent] {
+  background: #fff !important; border: 1px solid var(--mt-line) !important; border-left: 4px solid var(--rr-trip-rail, var(--mt-navy)) !important;
+  border-radius: 4px !important; padding: 12px 14px !important; box-shadow: none !important; margin: 0 0 10px !important;
+}
+html.rr-mytrips-page .trip-segment-head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px !important; }
+html.rr-mytrips-page .trip-segment-title { font-size: 14px !important; font-weight: 700 !important; color: var(--mt-navy) !important; text-transform: none !important; }
+html.rr-mytrips-page .trip-seg-grid, html.rr-mytrips-page .trip-segment-times { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px 12px !important; margin: 0 0 10px !important; }
+html.rr-mytrips-page .trip-seg-train-pick-row { display: grid !important; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin: 0 0 4px !important; }
+html.rr-mytrips-page .trip-seg-extra-btn,
+html.rr-mytrips-page .trip-segment-remove {
+  height: 36px !important; border-radius: 4px !important; padding: 0 12px !important; font-size: 13px !important; font-weight: 600 !important;
+  background: #fff !important; color: var(--mt-navy) !important; border: 1px solid var(--mt-navy) !important; text-transform: none !important; box-shadow: none !important;
+}
+html.rr-mytrips-page .trip-seg-extra-btn.active { background: var(--mt-navy) !important; color: #fff !important; }
+html.rr-mytrips-page .trip-segment-remove { height: 32px !important; font-size: 12px !important; color: #b3261e !important; border-color: #e7b4b0 !important; }
+html.rr-mytrips-page .trip-seg-train-hint { font-size: 12px !important; color: var(--mt-faint) !important; margin: 0 0 10px !important; }
+html.rr-mytrips-page .trip-form-more { border: 1px solid var(--mt-line) !important; border-radius: 4px !important; padding: 0 12px !important; margin: 10px 0 0 !important; background: #fff !important; }
+html.rr-mytrips-page .trip-form-more > summary { height: 36px; display: flex; align-items: center; font-size: 13px !important; font-weight: 600 !important; color: var(--mt-navy) !important; cursor: pointer; }
+html.rr-mytrips-page .trip-form-more[open] { padding-bottom: 12px !important; }
+html.rr-mytrips-page #trip-log-miles-preview { font-size: 12px !important; color: var(--mt-muted) !important; }
+html.rr-mytrips-page #trip-log-add-segment { margin-top: 2px !important; }
+/* ---------- phone ---------- */
+@media (max-width: 640px) {
+  html.rr-mytrips-page #trip-log-modal .rr-modal { padding: 0 12px 28px !important; }
+  html.rr-mytrips-page #trip-log-modal .rr-modal-header { padding: 14px 0 12px !important; }
+  html.rr-mytrips-page #trip-log-title { font-size: 20px !important; }
+  html.rr-mytrips-page .trip-log-page-actions { width: 100%; display: grid !important; grid-template-columns: 1fr 1fr; }
+  html.rr-mytrips-page .trip-public-wrap { grid-column: 1 / -1; }
+  html.rr-mytrips-page .trip-public-wrap > #trip-log-public-profile { width: 100% !important; }
+  html.rr-mytrips-page .trip-log-stat { padding: 10px 12px !important; }
+  html.rr-mytrips-page .trip-log-stat-value { font-size: 18px !important; }
+  html.rr-mytrips-page .trip-log-stat-rails { padding: 8px 12px !important; }
+  html.rr-mytrips-page .trip-notify-hint { flex-basis: 100%; }
+  html.rr-mytrips-page .trip-log-tabs { display: flex !important; width: 100%; }
+  html.rr-mytrips-page .trip-log-tab { flex: 1; }
+  html.rr-mytrips-page .trip-dash-filter { margin-left: 0 !important; width: 100% !important; }
+  html.rr-mytrips-page .trip-log-row,
+  html.rr-mytrips-page .trip-log-row[data-rail-accent] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "top" "route" "meta" "facts" "live" "actual" "map" "actions";
+    grid-template-rows: none;
+    padding: 10px 10px 10px 12px !important;
+  }
+  html.rr-mytrips-page .trip-log-row-route,
+  html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-log-row-route { font-size: 16px !important; margin-top: 6px !important; }
+  html.rr-mytrips-page .trip-log-row-map { height: 92px !important; min-height: 0; margin-top: 8px !important; }
+  html.rr-mytrips-page .trip-log-row-actions { margin-top: 8px !important; }
+  html.rr-mytrips-page .trip-log-row-actions > * { padding: 0 8px !important; }
+  html.rr-mytrips-page .trip-seg-grid, html.rr-mytrips-page .trip-segment-times { grid-template-columns: 1fr; }
+  html.rr-mytrips-page #trip-pane-log > .rr-lightbox-section { padding: 12px !important; }
+}
+html.rr-mytrips-page .trip-log-row[data-rail-accent] .trip-rail-badge { background: var(--rr-trip-rail, var(--mt-navy)) !important; border: none !important; }
+/* the display rules above must not reveal hidden elements */
+html.rr-mytrips-page #trip-log-modal [hidden] { display: none !important; }
+html.rr-mytrips-page #trip-log-modal #trip-log-primary-log[hidden],
+html.rr-mytrips-page #trip-log-modal .rr-btn[hidden] { display: none !important; }
+/* parity with today: Create live trip stays visible on the Log tab */
+html.rr-mytrips-page #trip-log-modal #trip-log-live[hidden] { display: inline-flex !important; }
+
+/* ===== MyTrips redesign (Oct 17): dark theme, html.rr-theme-dark (Menu > Theme), My Trips only ===== */
+html.rr-mytrips-page.rr-theme-dark {
+  color-scheme: dark;
+  --mt-bg: #0b0b3b;          /* page */
+  --mt-surface: #151a52;     /* cards */
+  --mt-surface-2: #0f1446;   /* fields, inset rows */
+  --mt-hover: #1d2362;
+  --mt-line: #2a3172;        /* card borders */
+  --mt-field: #646cb5;       /* field / outline borders, >=3:1 on surface */
+  --mt-ink: #eef0fa;         /* primary text */
+  --mt-muted: #aab0d4;       /* secondary text */
+  --mt-faint: #8a90bd;       /* tertiary text */
+  --mt-light: #ffffff;       /* light primary button */
+  --mt-focus: #8fd3ff;
+}
+
+/* rail colours: lighter tints from TRIP_LOG_RAIL_COLORS_DARK (app-main sets --rr-trip-rail-dk) */
+html.rr-mytrips-page.rr-theme-dark [data-rail-accent],
+html.rr-mytrips-page.rr-theme-dark .trip-segment,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-seg,
+html.rr-mytrips-page.rr-theme-dark .trip-seg-chip { --mt-rail: var(--rr-trip-rail-dk, #aab0d4); }
+html.rr-mytrips-page.rr-theme-dark .trip-rail-badge { background: var(--rr-trip-rail-dk, #aab0d4) !important; color: #0b0b3b !important; border: none !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-rail-chip-dot { background: var(--rr-trip-rail-dk, #aab0d4) !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-stat-top { color: var(--mt-ink); }
+html.rr-mytrips-page.rr-theme-dark #trip-log-stat-top[style*="--rr-trip-rail-dk"] { color: var(--rr-trip-rail-dk) !important; }
+
+html.rr-mytrips-page.rr-theme-dark body,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal { background: var(--mt-bg) !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .rr-modal { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-title,
+html.rr-mytrips-page.rr-theme-dark .trip-log-section-title,
+html.rr-mytrips-page.rr-theme-dark .trip-log-stat-value:not(#trip-log-stat-top),
+html.rr-mytrips-page.rr-theme-dark .trip-segment-title { color: var(--mt-ink) !important; }
+
+/* ---------- buttons: light style on dark ---------- */
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .rr-btn,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal #trip-log-primary-log,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .trip-log-empty-cta {
+  background: var(--mt-light) !important; border-color: var(--mt-light) !important; color: #07093e !important;
+}
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .rr-btn:hover,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal #trip-log-primary-log:hover { background: #dfe3f7 !important; border-color: #dfe3f7 !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .rr-btn.secondary,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal #trip-log-public-profile,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .trip-log-empty-cta.trip-log-empty-live {
+  background: transparent !important; border-color: rgba(255,255,255,.7) !important; color: #fff !important;
+}
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal .rr-btn.secondary:hover,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal #trip-log-public-profile:hover { background: rgba(255,255,255,.08) !important; border-color: #fff !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-public-panel { background: var(--mt-surface) !important; color: var(--mt-ink) !important; border-color: var(--mt-field) !important; box-shadow: 0 8px 24px rgba(0,0,0,.45) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-public-panel * { color: inherit; }
+html.rr-mytrips-page.rr-theme-dark .trip-public-hint, html.rr-mytrips-page.rr-theme-dark .trip-public-lead { color: var(--mt-muted) !important; }
+
+
+/* ---------- surfaces ---------- */
+html.rr-mytrips-page.rr-theme-dark .trip-log-stats,
+html.rr-mytrips-page.rr-theme-dark .trip-notify-row,
+html.rr-mytrips-page.rr-theme-dark #trip-pane-log > .rr-lightbox-section,
+html.rr-mytrips-page.rr-theme-dark .trip-form-more,
+html.rr-mytrips-page.rr-theme-dark .trip-log-empty-card,
+html.rr-mytrips-page.rr-theme-dark .trip-log-skeleton { background: var(--mt-surface) !important; border-color: var(--mt-line) !important; color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-stat { border-left-color: var(--mt-line) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-stat-rails { border-top-color: var(--mt-line) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-rail-chip { background: var(--mt-surface-2) !important; border-color: var(--mt-line) !important; color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-rail-chip-meta { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-notify-toggle, html.rr-mytrips-page.rr-theme-dark .trip-special-toggle { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-notify-toggle input,
+html.rr-mytrips-page.rr-theme-dark .trip-special-toggle input { accent-color: var(--mt-focus) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-special-block { background: var(--mt-surface-2) !important; border-color: var(--mt-line) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-nearby-banner { background: var(--mt-surface) !important; color: var(--mt-ink) !important; border-color: var(--mt-line) !important; }
+
+/* ---------- tabs ---------- */
+html.rr-mytrips-page.rr-theme-dark .trip-log-tabs { background: transparent !important; border-color: var(--mt-field) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-tab { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-tab + .trip-log-tab { border-left-color: var(--mt-field) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-tab.active { background: var(--mt-light) !important; color: #07093e !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-tab:not(.active):hover { background: rgba(255,255,255,.06) !important; }
+
+/* ---------- fields ---------- */
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal select,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal input[type="text"],
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal input[type="number"],
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal input[type="datetime-local"],
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal textarea {
+  background-color: var(--mt-surface-2) !important; color: var(--mt-ink) !important; border-color: var(--mt-field) !important; color-scheme: dark;
+}
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal select option { background: #0f1446; color: #eef0fa; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal ::placeholder { color: var(--mt-faint) !important; opacity: 1; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal select:disabled,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal input:disabled { color: var(--mt-faint) !important; opacity: 1 !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal select:focus,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal input:focus,
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal textarea:focus { border-color: var(--mt-focus) !important; box-shadow: 0 0 0 2px rgba(143,211,255,.35) !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal label { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-form-more > summary { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-seg-extra-btn { background: transparent !important; color: #fff !important; border-color: rgba(255,255,255,.7) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-seg-extra-btn.active { background: #fff !important; color: #07093e !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-segment-remove { background: transparent !important; color: #ff8a80 !important; border-color: #8a3a3a !important; }
+
+/* ---------- trip cards ---------- */
+html.rr-mytrips-page.rr-theme-dark .trip-log-row,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] {
+  background: var(--mt-surface) !important; color: var(--mt-ink) !important;
+  border-color: var(--mt-line) !important; border-left-color: var(--mt-rail, var(--mt-faint)) !important;
+}
+html.rr-mytrips-page.rr-theme-dark .trip-log-row:hover,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent]:hover { border-color: var(--mt-field) !important; border-left-color: var(--mt-rail, var(--mt-faint)) !important; box-shadow: 0 2px 10px rgba(0,0,0,.35) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-segment,
+html.rr-mytrips-page.rr-theme-dark .trip-segment[data-rail-accent] { background: var(--mt-surface) !important; border-color: var(--mt-line) !important; border-left-color: var(--mt-rail, var(--mt-faint)) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row .trip-rail-badge,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-rail-badge { background: var(--rr-trip-rail-dk, #aab0d4) !important; color: #0b0b3b !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row .trip-train-chip,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-train-chip { background: transparent !important; color: var(--mt-ink) !important; border-color: var(--mt-field) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-route,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-route,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row .trip-route-station { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row .trip-route-to { color: var(--mt-faint) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-relative,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-relative,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-meta,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-meta { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-miles,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-stock,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-miles, html.rr-mytrips-page.rr-theme-dark .trip-log-row-stock { color: var(--mt-faint) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-soon-chip { background: rgba(70,200,120,.16) !important; color: #7fe3a5 !important; border-color: rgba(127,227,165,.45) !important; }
+/* live status bar */
+html.rr-mytrips-page.rr-theme-dark .trip-log-row .trip-log-row-live,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live { color: var(--mt-ink) !important; border-left-color: var(--mt-field) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"] { border-left-color: #5fd38d !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"] { border-left-color: #ffb547 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] { border-left-color: #ff6b5e !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="late"] .trip-log-row-live-late { color: #ffc266 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="very-late"] .trip-log-row-live-late { color: #ff8a80 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="on-time"] .trip-log-row-live-late { color: #7fe3a5 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="miss"],
+html.rr-mytrips-page.rr-theme-dark .trip-log-row[data-rail-accent] .trip-log-row-live[data-live-state="done"],
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-live-place, html.rr-mytrips-page.rr-theme-dark .trip-log-row-actual { color: var(--mt-muted) !important; }
+/* map */
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-map { border-color: var(--mt-line) !important; background: var(--mt-surface-2) !important; color: var(--mt-muted) !important; }
+/* card actions */
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > * { background: transparent !important; color: var(--mt-ink) !important; border-color: var(--mt-field) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > .trip-track-btn { background: var(--mt-light) !important; border-color: var(--mt-light) !important; color: #07093e !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > .trip-edit-btn,
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > .danger { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > :not(.trip-track-btn):hover { background: var(--mt-hover) !important; color: #fff !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > .danger:hover { color: #ff8a80 !important; border-color: #8a3a3a !important; background: rgba(255,107,94,.1) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-status, html.rr-mytrips-page.rr-theme-dark #trip-log-miles-preview,
+html.rr-mytrips-page.rr-theme-dark .trip-seg-train-hint, html.rr-mytrips-page.rr-theme-dark .trip-special-hint,
+html.rr-mytrips-page.rr-theme-dark .trip-dash-stat, html.rr-mytrips-page.rr-theme-dark .trip-notify-hint { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark #trip-log-modal a:not(.rr-btn) { color: #8fd3ff; }
+
+/* MyTrips redesign: empty state + loading placeholders (light) */
+html.rr-mytrips-page .trip-log-skeleton { border-radius: 4px !important; box-shadow: none !important; border-color: var(--mt-line) !important; }
+html.rr-mytrips-page .trip-log-skel-line, html.rr-mytrips-page .trip-log-skel-map { border-radius: 4px !important; }
+html.rr-mytrips-page .trip-log-empty-title { font-size: 15px !important; font-weight: 700 !important; color: var(--mt-navy) !important; }
+html.rr-mytrips-page .trip-log-empty-copy { font-size: 13px !important; color: var(--mt-muted) !important; }
+html.rr-mytrips-page .trip-log-empty-live { margin-left: 8px !important; }
+
+/* MyTrips dark: empty state, loading placeholders, trip detail popup */
+html.rr-mytrips-page.rr-theme-dark .trip-log-empty-title { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-empty-copy { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-log-skel-line,
+html.rr-mytrips-page.rr-theme-dark .trip-log-skel-map { background: linear-gradient(90deg, #1d2362 0%, #262d72 45%, #1d2362 90%) !important; background-size: 200% 100% !important; }
+html.rr-mytrips-page.rr-theme-dark.rr-trip-detail-open,
+html.rr-mytrips-page.rr-theme-dark.rr-trip-detail-open body,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay[data-rail-accent],
+html.rr-mytrips-page.rr-theme-dark .trip-detail-panel,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay[data-rail-accent] .trip-detail-panel { background: var(--mt-surface) !important; color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-panel { box-shadow: 0 -12px 40px rgba(0,0,0,.45) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-accent { background: var(--rr-trip-rail-dk, #aab0d4) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-toolbar { background: rgba(21,26,82,.96) !important; border-bottom-color: var(--mt-line) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-route,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-relative,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-when,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-seg-od,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-meta-value,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-live { color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-line,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-actual,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-stock,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-seg-title,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-seg-sub,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-meta-label,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-share-status,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-route-to { color: var(--mt-muted) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-live[data-live-state="on-time"] { color: #7fe3a5 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-live[data-live-state="late"] { color: #ffc266 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-live[data-live-state="very-late"] { color: #ff8a80 !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-live[data-live-state="arriving"] { color: #8fd3ff !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-fact,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-meta-item,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-miles-pill { background: var(--mt-surface-2) !important; border: 1px solid var(--mt-line) !important; color: var(--mt-ink) !important; border-radius: 4px !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-train-chip { background: transparent !important; color: var(--mt-ink) !important; border: 1px solid var(--mt-field) !important; box-shadow: none !important; border-radius: 4px !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-rail-badge { border-radius: 4px !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-notes { background: var(--mt-surface-2) !important; color: var(--mt-ink) !important; border-left-color: var(--mt-field) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-seg { background: var(--mt-surface-2) !important; border-color: var(--mt-line) !important; border-left: 4px solid var(--rr-trip-rail-dk, #aab0d4) !important; color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-back,
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-share-btn { background: transparent !important; color: #fff !important; border: 1px solid rgba(255,255,255,.7) !important; box-shadow: none !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .rr-btn { background: #fff !important; color: #07093e !important; border: 1px solid #fff !important; border-radius: 4px !important; text-transform: none !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .rr-btn.secondary { background: transparent !important; color: #fff !important; border-color: rgba(255,255,255,.7) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-share { background: var(--mt-surface-2) !important; border-color: var(--mt-line) !important; color: var(--mt-ink) !important; }

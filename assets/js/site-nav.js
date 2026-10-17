@@ -13,6 +13,51 @@
     if (path === '/' || path === '') return 'map';
     return '';
   }
+  /* Display theme: 'light' (default) or 'dark'. Stored in localStorage as rr_theme; only MyTrips has a dark style so far. */
+  var THEME_KEY = 'rr_theme';
+  function getTheme() {
+    try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch (_) { return 'light'; }
+  }
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle('rr-theme-dark', theme === 'dark');
+    document.querySelectorAll('.rr-theme-pick [data-rr-theme]').forEach(function (b) {
+      var on = b.getAttribute('data-rr-theme') === theme;
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.classList.toggle('is-active', on);
+    });
+  }
+  function setTheme(theme) {
+    theme = theme === 'dark' ? 'dark' : 'light';
+    try {
+      if (theme === 'dark') localStorage.setItem(THEME_KEY, 'dark');
+      else localStorage.removeItem(THEME_KEY);
+    } catch (_) {}
+    applyTheme(theme);
+    try { window.dispatchEvent(new CustomEvent('rr-theme-change', { detail: { theme: theme } })); } catch (_) {}
+  }
+  window.rrSetTheme = setTheme;
+  window.rrGetTheme = getTheme;
+  function themePicker() {
+    var wrap = document.createElement('div');
+    wrap.className = 'rr-theme-pick';
+    wrap.innerHTML = '<span class="rr-theme-pick-label" id="rr-theme-label-' + Math.random().toString(36).slice(2, 7) + '">Theme</span>' +
+      '<div class="rr-theme-pick-opts" role="radiogroup">' +
+      '<button type="button" role="radio" data-rr-theme="light">Light</button>' +
+      '<button type="button" role="radio" data-rr-theme="dark">Dark</button></div>';
+    wrap.querySelector('.rr-theme-pick-opts').setAttribute('aria-labelledby', wrap.firstChild.id);
+    wrap.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var b = ev.target.closest('[data-rr-theme]');
+      if (b) setTheme(b.getAttribute('data-rr-theme'));
+    });
+    return wrap;
+  }
+  function addThemePicker(panel) {
+    if (!panel || panel.querySelector('.rr-theme-pick')) return;
+    panel.appendChild(themePicker());
+    applyTheme(getTheme());
+  }
+  window.addEventListener('storage', function (ev) { if (ev.key === THEME_KEY) applyTheme(getTheme()); });
   function ensureStyle() {
     if (document.getElementById('rr-site-nav-style')) return;
     var style = document.createElement('style');
@@ -25,7 +70,16 @@
       '.header-tools-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;background:#07093e;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;z-index:10020;display:flex;flex-direction:column;gap:4px}',
       '.header-tools-panel[hidden]{display:none}',
       '.header-tools-panel .header-auth-btn{width:100%;box-sizing:border-box;margin:0;justify-content:flex-start;text-align:left}',
-      'html.rr-mytrips-page .header-tools{display:none}',
+      'html.rr-mytrips-page #btn-report-train-menu{display:none !important}',
+      '.rr-theme-pick{display:flex;flex-direction:column;gap:6px;padding:8px 6px 4px;margin-top:2px;border-top:1px solid rgba(255,255,255,.14)}',
+      '.rr-theme-pick:first-child{border-top:0;margin-top:0}',
+      '.rr-theme-pick-label{color:rgba(255,255,255,.72);font:500 12px/1 "Google Sans",Roboto,Arial,sans-serif}',
+      '.rr-theme-pick-opts{display:flex;border:1px solid rgba(255,255,255,.7);border-radius:4px;overflow:hidden}',
+      '.rr-theme-pick-opts button{flex:1;height:32px;margin:0;border:0;border-radius:0;background:transparent;color:#fff;font:600 13px/1 "Google Sans",Roboto,Arial,sans-serif;cursor:pointer;padding:0 12px}',
+      '.rr-theme-pick-opts button+button{border-left:1px solid rgba(255,255,255,.7)}',
+      '.rr-theme-pick-opts button:hover{background:rgba(255,255,255,.1)}',
+      '.rr-theme-pick-opts button.is-active{background:#fff;color:#07093e}',
+      '.rr-theme-pick-opts button:focus-visible{outline:2px solid #8fd3ff;outline-offset:-2px}',
       '@media (max-width:760px){.rr-site-nav{gap:0;margin-left:6px}.rr-site-nav a{font-size:12px;padding:7px 6px}}'
     ].join('');
     document.head.appendChild(style);
@@ -38,6 +92,7 @@
   }
   function mount() {
     ensureStyle();
+    applyTheme(getTheme());
     var existing = document.querySelector('.rr-site-nav');
     if (existing) {
       var here = current();
@@ -70,6 +125,7 @@
         right.insertBefore(menu, right.firstChild);
         var pageBtn = menu.querySelector('button');
         var pagePanel = menu.querySelector('.rr-page-menu-panel');
+        addThemePicker(pagePanel);
         pageBtn.addEventListener('click', function (ev) {
           ev.stopPropagation();
           pagePanel.hidden = !pagePanel.hidden;
@@ -85,6 +141,7 @@
     }
     var button = document.getElementById('btn-header-tools');
     var panel = document.getElementById('header-tools-panel');
+    addThemePicker(panel);
     if (button && panel && !button.dataset.bound) {
       button.dataset.bound = '1';
       button.addEventListener('click', function (ev) {
