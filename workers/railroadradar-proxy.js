@@ -501,7 +501,7 @@ async function handlePushSubscribe(request, env, cors) {
   }
   const id = bytesToB64url(new TextEncoder().encode(sub.endpoint)).slice(0, 88);
   const prefs = body.prefs || {};
-  await env.PUSH_SUBS.put("sub:" + id, JSON.stringify({
+  const rec = {
     endpoint: sub.endpoint,
     keys: sub.keys,
     prefs: {
@@ -511,7 +511,19 @@ async function handlePushSubscribe(request, env, cors) {
       trains: Array.isArray(prefs.trains) ? prefs.trains.map((x) => String(x || "").toLowerCase()).filter(Boolean).slice(0, 80) : []
     },
     updatedAt: Date.now()
-  }));
+  };
+  const index = await subsIndexLoad(env);
+  const key = "sub:" + id;
+  const prev = index.subs[key];
+  if (prev && subsSameRecord(prev, rec))
+    return jsonResponse({ ok: true }, 200, cors);
+  const wasEmpty = !Object.keys(index.subs).length;
+  await env.PUSH_SUBS.put(key, JSON.stringify(rec));
+  index.subs[key] = rec;
+  await subsIndexSave(env, index);
+  // The special-move scan is skipped while nobody is subscribed, so its saved state is stale; drop it so the next run re-seeds instead of sending a backlog.
+  if (wasEmpty)
+    await env.PUSH_SUBS.delete("notify:state").catch(() => {});
   return jsonResponse({ ok: true }, 200, cors);
 }
 __name(handlePushSubscribe, "handlePushSubscribe");
@@ -524,10 +536,74 @@ async function handlePushUnsubscribe(request, env, cors) {
     return jsonResponse({ error: "endpoint required" }, 400, cors);
   const id = bytesToB64url(new TextEncoder().encode(endpoint)).slice(0, 88);
   await env.PUSH_SUBS.delete("sub:" + id);
+  const index = await subsIndexLoad(env);
+  if (index.subs["sub:" + id]) {
+    delete index.subs["sub:" + id];
+    await subsIndexSave(env, index);
+  }
   return jsonResponse({ ok: true }, 200, cors);
 }
 __name(handlePushUnsubscribe, "handlePushUnsubscribe");
+// Special-move push subscriptions. "sub:<id>" keys stay the source of truth, but the cron reads one
+// "subs:index" key ({ builtAt, subs: { "sub:<id>": record } }) instead of list() + a get per key every run
+// (free-plan KV allows 1,000 list ops/day; the cron runs 720x/day). The index is rebuilt with list() only
+// when it is missing or older than SUBS_INDEX_REBUILD_MS, so at most about once a day.
+var SUBS_INDEX_KEY = "subs:index";
+var SUBS_INDEX_REBUILD_MS = 24 * 60 * 60 * 1e3;
+function subsSameRecord(a, b) {
+  return JSON.stringify({ e: a.endpoint, k: a.keys, p: a.prefs }) === JSON.stringify({ e: b.endpoint, k: b.keys, p: b.prefs });
+}
+__name(subsSameRecord, "subsSameRecord");
+async function subsIndexSave(env, index) {
+  await env.PUSH_SUBS.put(SUBS_INDEX_KEY, JSON.stringify({ builtAt: index.builtAt || Date.now(), subs: index.subs || {} }));
+}
+__name(subsIndexSave, "subsIndexSave");
+async function subsIndexRebuild(env, prevIndex) {
+  const subs = {};
+  for (const row of await listSubscriptionsFromKeys(env))
+    subs[row.id] = row.sub;
+  const index = { builtAt: Date.now(), subs };
+  // One write per rebuild (needed to record builtAt); rebuilds happen about once a day.
+  await subsIndexSave(env, index);
+  return index;
+}
+__name(subsIndexRebuild, "subsIndexRebuild");
+async function subsIndexLoad(env) {
+  let index = null;
+  try {
+    index = JSON.parse(await env.PUSH_SUBS.get(SUBS_INDEX_KEY) || "null");
+  } catch (_) {
+    index = null;
+  }
+  if (!index || typeof index !== "object" || !index.subs || typeof index.subs !== "object" || !(Date.now() - Number(index.builtAt || 0) < SUBS_INDEX_REBUILD_MS)) {
+    index = await subsIndexRebuild(env, index);
+  }
+  return index;
+}
+__name(subsIndexLoad, "subsIndexLoad");
 async function listSubscriptions(env) {
+  if (!env.PUSH_SUBS)
+    return [];
+  const index = await subsIndexLoad(env);
+  return Object.keys(index.subs).map((id) => ({ id, sub: index.subs[id] })).filter((row) => row.sub && row.sub.endpoint);
+}
+__name(listSubscriptions, "listSubscriptions");
+async function subsIndexRemove(env, ids) {
+  if (!ids || !ids.length)
+    return;
+  const index = await subsIndexLoad(env);
+  let changed = false;
+  ids.forEach((id) => {
+    if (index.subs[id]) {
+      delete index.subs[id];
+      changed = true;
+    }
+  });
+  if (changed)
+    await subsIndexSave(env, index);
+}
+__name(subsIndexRemove, "subsIndexRemove");
+async function listSubscriptionsFromKeys(env) {
   const out = [];
   if (!env.PUSH_SUBS)
     return out;
@@ -547,7 +623,7 @@ async function listSubscriptions(env) {
   } while (cursor);
   return out;
 }
-__name(listSubscriptions, "listSubscriptions");
+__name(listSubscriptionsFromKeys, "listSubscriptionsFromKeys");
 function notifyPrefsMatchEvent(prefs, event) {
   prefs = prefs || {};
   const rails = Array.isArray(prefs.railroads) ? prefs.railroads : [];
@@ -608,8 +684,8 @@ function isWatchedUnit(agency, id, extra) {
   return !!(extra.ids.has(idL) || extra.keys.has(a + "|" + idL));
 }
 __name(isWatchedUnit, "isWatchedUnit");
-async function fanout(env, event) {
-  const subs = await listSubscriptions(env);
+async function fanout(env, event, subs, dead) {
+  subs = subs || await listSubscriptions(env);
   const kind = event.type;
   await Promise.all(subs.map(async (row) => {
     const prefs = row.sub && row.sub.prefs || {};
@@ -621,8 +697,13 @@ async function fanout(env, event) {
       return;
     try {
       const res = await sendWebPush(env, row.sub, event);
-      if (res.status === 404 || res.status === 410)
+      if (res.status === 404 || res.status === 410) {
         await env.PUSH_SUBS.delete(row.id);
+        if (dead)
+          dead.push(row.id);
+        else
+          await subsIndexRemove(env, [row.id]);
+      }
     } catch (_) {
     }
   }));
@@ -631,9 +712,44 @@ __name(fanout, "fanout");
 async function fetchAllReports() {
   const res = await fetch(FIRESTORE_REPORTS + "&key=" + FIRESTORE_KEY);
   if (!res.ok)
-    return [];
+    throw new Error("reports " + res.status);
   const data = await res.json();
   return (data.documents || []).map(fsDoc);
+}
+// Listing trainReports costs one Firestore read per document (about 55 today), and the cron runs 720x/day,
+// which alone used ~39K of the 50K free daily reads. Each run now asks two 1-read questions instead (document
+// count, and the most recently updated report); the full list is read only when that signature changes, or
+// every REPORTS_FULL_SCAN_MS as a safety net for edits that do not touch updatedAt.
+var FIRESTORE_DOCS = "https://firestore.googleapis.com/v1/projects/railroadradar-accounts/databases/(default)/documents";
+var REPORTS_FULL_SCAN_MS = 30 * 60 * 1e3;
+async function fetchReportsSignature() {
+  const opts = (body) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const [countRes, topRes] = await Promise.all([
+    fetch(FIRESTORE_DOCS + ":runAggregationQuery?key=" + FIRESTORE_KEY, opts({
+      structuredAggregationQuery: {
+        structuredQuery: { from: [{ collectionId: "trainReports" }] },
+        aggregations: [{ alias: "n", count: {} }]
+      }
+    })),
+    fetch(FIRESTORE_DOCS + ":runQuery?key=" + FIRESTORE_KEY, opts({
+      structuredQuery: {
+        from: [{ collectionId: "trainReports" }],
+        orderBy: [{ field: { fieldPath: "updatedAt" }, direction: "DESCENDING" }],
+        select: { fields: [{ fieldPath: "updatedAt" }] },
+        limit: 1
+      }
+    }))
+  ]);
+  if (!countRes.ok || !topRes.ok)
+    return null;
+  const countJson = await countRes.json();
+  const topJson = await topRes.json();
+  const agg = Array.isArray(countJson) && countJson[0] && countJson[0].result && countJson[0].result.aggregateFields;
+  const n = agg && agg.n ? String(agg.n.integerValue != null ? agg.n.integerValue : "") : "";
+  const top = Array.isArray(topJson) && topJson[0] && topJson[0].document;
+  if (!n)
+    return null;
+  return n + "|" + (top ? String(top.name || "").split("/").pop() + "@" + (top.updateTime || "") : "-");
 }
 __name(fetchAllReports, "fetchAllReports");
 function walkIds(obj, out) {
@@ -717,11 +833,32 @@ async function scanAndNotify(env) {
   if (!env.PUSH_SUBS || !env.VAPID_PRIVATE_KEY)
     return;
   const subs = await listSubscriptions(env);
+  // Nobody to notify: skip the Firestore and feed reads entirely. Subscribing again clears notify:state so the next run re-seeds.
+  if (!subs.length)
+    return;
   const extra = collectExtraWatched(subs);
   const prev = JSON.parse(await env.PUSH_SUBS.get("notify:state") || '{"reports":{},"live":{}}');
-  const reports = await fetchAllReports().catch(() => []);
-  const reportEvents = {};
-  reports.forEach((r) => {
+  prev.reports = prev.reports || {};
+  prev.live = prev.live || {};
+  const now = Date.now();
+  // Watched units come from subscriber prefs, so a prefs change also forces a fresh report scan.
+  const reportSig = await fetchReportsSignature().catch(() => null);
+  const sig = reportSig ? reportSig + "|" + tripHash(JSON.stringify([Array.from(extra.ids).sort(), Array.from(extra.keys).sort()])) : null;
+  const needFull = !sig || sig !== prev.reportsSig || !(now - Number(prev.reportsFullAt || 0) < REPORTS_FULL_SCAN_MS) || !prev.reportsFullAt;
+  let reports = null;
+  if (needFull)
+    reports = await fetchAllReports().catch(() => null);
+  let reportEvents = {};
+  let reportsSig = prev.reportsSig || null;
+  let reportsFullAt = prev.reportsFullAt || 0;
+  if (!reports) {
+    // Unchanged (or the read failed): keep the previous report events as they are.
+    reportEvents = prev.reports;
+  } else {
+    reportsSig = sig;
+    reportsFullAt = now;
+  }
+  (reports || []).forEach((r) => {
     const agency = String(r.agency || "").toLowerCase();
     const locos = reportLocoIds(r);
     locos.forEach((id) => {
@@ -748,16 +885,19 @@ async function scanAndNotify(env) {
     if (!prev.live[k])
       fresh.push(liveEvents[k]);
   });
-  const seeded = !Object.keys(prev.reports || {}).length && !Object.keys(prev.live || {}).length;
-  // Only write when the event set changed (free-plan KV allows 1,000 writes/day; cron runs 720x/day).
-  if (JSON.stringify({ reports: prev.reports || {}, live: prev.live || {} }) !== JSON.stringify({ reports: reportEvents, live: liveEvents })) {
-    await env.PUSH_SUBS.put("notify:state", JSON.stringify({ reports: reportEvents, live: liveEvents, at: Date.now() }));
+  const seeded = !prev.reportsFullAt && !Object.keys(prev.reports || {}).length && !Object.keys(prev.live || {}).length;
+  // Only write when the event set changed or a full report scan ran (free-plan KV allows 1,000 writes/day; cron runs 720x/day).
+  // Full scans run on report changes plus every 30 min, so this adds about 48 writes/day.
+  if (reportsFullAt !== (prev.reportsFullAt || 0) || JSON.stringify({ reports: prev.reports, live: prev.live }) !== JSON.stringify({ reports: reportEvents, live: liveEvents })) {
+    await env.PUSH_SUBS.put("notify:state", JSON.stringify({ reports: reportEvents, live: liveEvents, at: now, reportsSig, reportsFullAt }));
   }
   if (seeded)
     return;
+  const dead = [];
   for (const evt of fresh.slice(0, 12)) {
-    await fanout(env, evt);
+    await fanout(env, evt, subs, dead);
   }
+  await subsIndexRemove(env, dead);
 }
 __name(scanAndNotify, "scanAndNotify");
 // ---- MyTrips boarding-track alerts (Web Push) ----
