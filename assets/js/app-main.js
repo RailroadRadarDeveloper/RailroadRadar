@@ -5521,7 +5521,7 @@ function closeTripDetailView(opts) {
             const track = document.createElement('a');
             track.className = 'trip-track-btn';
             track.textContent = 'Track this train';
-            track.href = '/?t=' + encodeURIComponent(String(rr).toLowerCase() + ':' + num);
+            track.href = '/map/?t=' + encodeURIComponent(String(rr).toLowerCase() + ':' + num);
             track.addEventListener('click', function(e) { e.stopPropagation(); });
             if (actions) actions.insertBefore(track, actions.firstChild);
           }
@@ -16662,7 +16662,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const key = rrTrainShareKey(agency, vid, trainNum);
         const parts = key.split(':');
         const slug = encodeURIComponent(parts.slice(1).join(':') || parts[0]);
-        let url = origin + '/?train=' + encodeURIComponent(parts[0] || 'mbta') + ':' + slug;
+        let url = origin + '/map/?train=' + encodeURIComponent(parts[0] || 'mbta') + ':' + slug;
         const date = String(serviceDate || '').trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(date)) url += '&date=' + date;
         if (vid && String(vid) !== String(trainNum || '')) url += '&trip=' + encodeURIComponent(vid);
@@ -17325,8 +17325,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           full.addEventListener('click', function() {
             const spec = rrTrainPageSpec || (rrReadTrainQuery().page);
             const origin = (location.origin && location.origin !== 'null') ? location.origin : 'https://railroadradar.com';
-            let path = location.pathname || '/';
+            let path = location.pathname || '/map/';
             if (/index\.html$/i.test(path)) path = path.replace(/index\.html$/i, '');
+            if (path === '/') path = '/map/';
             const key = spec ? encodeURIComponent((spec.agency ? spec.agency + ':' : '') + spec.id) : '';
             location.href = origin + path + (key ? ('?focus=' + key) : '');
           });
@@ -17552,7 +17553,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return events;
       }
       async function rrShowSpecialNotification(evt) {
-        const payload = { type: 'rr-notify', title: evt.title, body: evt.body, tag: evt.tag, url: '/' };
+        const payload = { type: 'rr-notify', title: evt.title, body: evt.body, tag: evt.tag, url: '/map/' };
         try {
           const reg = await navigator.serviceWorker.getRegistration();
           if (reg && reg.active) {

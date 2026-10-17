@@ -1,6 +1,6 @@
 (function () {
   var links = [
-    { id: 'map', href: '/', label: 'Live map' },
+    { id: 'map', href: '/map/', label: 'Live map' },
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
     { id: 'favorites', href: '/favorites/', label: 'Favorites' },
     { id: 'press', href: '/press/', label: 'Press' }
@@ -10,7 +10,7 @@
     if (path.indexOf('/mytrips') === 0 || document.documentElement.classList.contains('rr-mytrips-page')) return 'mytrips';
     if (path.indexOf('/favorites') === 0) return 'favorites';
     if (path.indexOf('/press') === 0) return 'press';
-    if (path === '/' || path === '') return 'map';
+    if (path.indexOf('/map/') === 0 || path === '/map') return 'map';
     return '';
   }
   /* Display theme: 'device' (default, follows prefers-color-scheme), 'light' or 'dark'.
