@@ -152,12 +152,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=aaf8ea33af">
+  <link rel="stylesheet" href="/assets/css/app.css?v=d8e45a2a13">
   <script>
     function rrIsMyTripsPage() {
       const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
       return /(^|\/)mytrips$/i.test(p);
     }
+    /* Display theme (Menu > Theme). Light is the default; applied before first paint. */
+    try { if (localStorage.getItem('rr_theme') === 'dark') document.documentElement.classList.add('rr-theme-dark'); } catch (_) {}
     try {
       if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) {
         document.documentElement.classList.add('rr-mytrips-page');
@@ -667,7 +669,7 @@
             <div class="rr-lightbox-actions" style="margin-top:12px;">
               <button type="button" class="rr-btn" id="trip-log-save">Save trip</button>
               <button type="button" class="rr-btn secondary" id="trip-log-cancel-edit" hidden>Cancel edit</button>
-              <button type="button" class="rr-btn" id="trip-log-go-live" hidden>GO LIVE</button>
+              <button type="button" class="rr-btn" id="trip-log-go-live" hidden>Go live</button>
               <button type="button" class="rr-btn secondary" id="trip-log-goto-list">View MyTrips</button>
             </div>
           </div>
@@ -997,7 +999,7 @@
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
   <script src="/assets/js/trip-stations.js"></script>
   <script src="/assets/js/trip-notify.js?v=5357aa496b"></script>
-  <script src="/assets/js/app-main.js?v=e6ddf4e353"></script>
+  <script src="/assets/js/app-main.js?v=1c6a14a1c1"></script>
   <script>
     try {
       if (window.navigator && 'serviceWorker' in window.navigator && window.navigator.serviceWorker) {
@@ -1032,6 +1034,6 @@
 
 <script src="/assets/js/live-share-bar.js" defer></script>
 <script src="/assets/js/app-go-live.js?v=c938925f0c"></script>
-<script src="/assets/js/site-nav.js?v=9d7932fbb5" defer></script>
+<script src="/assets/js/site-nav.js?v=146fb0df2a" defer></script>
 </body>
 </html>
