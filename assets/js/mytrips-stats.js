@@ -36,6 +36,96 @@
     if (!h) return m + ' min';
     return h.toLocaleString() + ' h' + (m ? ' ' + m + ' min' : '');
   }
+  // kg of CO2 per passenger-mile (car: per vehicle-mile, so the comparison is with driving alone), from
+  // the US EPA GHG Emission Factors Hub (January 2025), Table 10:
+  // https://www.epa.gov/system/files/documents/2025-01/ghg-emission-factors-hub-2025.pdf
+  //   MBTA: Commuter Rail, 0.133
+  //   Amtrak on electric track: Intercity Rail - Northeast Corridor, 0.023
+  //   Amtrak elsewhere: Intercity Rail - Other Routes, 0.149
+  //   Car: Passenger Car, 0.297
+  // These are the Hub's CO2 factors only (no CH4 or N2O), and count fuel burned and electricity used, not
+  // upstream emissions. Other railroads are left out for now.
+  var CO2_PER_MI = { mbta: 0.133, amtrakElectric: 0.023, amtrakDiesel: 0.149, car: 0.297 };
+  // Amtrak is split into electric and diesel miles by where the train runs, not by locomotive. Electric
+  // track is the Northeast Corridor from Washington to Boston and the Keystone line from Philadelphia to
+  // Harrisburg, drawn through their stations. Trains on the Springfield Line are electric only from
+  // Washington to New Haven (same rule as the map's Northeast Corridor icon).
+  var NEC_CODES = ['WAS', 'NCR', 'BWI', 'BAL', 'ABE', 'NRK', 'WIL', 'PHL', 'PHN', 'CWH', 'TRE', 'PJC', 'NBK', 'MET', 'EWR', 'NWK', 'NYP',
+    'NRO', 'STM', 'BRP', 'NHV', 'STS', 'OSB', 'NLC', 'MYS', 'WLY', 'KIN', 'PVD', 'RTE', 'BBY', 'BOS'];
+  var KEYSTONE_CODES = ['PHL', 'ARD', 'PAO', 'EXT', 'DOW', 'COT', 'PAR', 'LNC', 'MJY', 'ELT', 'MID', 'HAR'];
+  var SPRINGFIELD_LINE = { WFD: 1, MDN: 1, BER: 1, HFD: 1, WND: 1, WNL: 1, SPG: 1, HLK: 1, NHT: 1, GFD: 1 };
+  var ON_ELECTRIC_MI = 2, ON_SHAPE_MI = 1.5, ON_SHAPE_STOP_MI = 1;
+  var ELECTRIC_REFS = null, ELECTRIC_SHARE = {};
+  function electricRefs() {
+    if (ELECTRIC_REFS) return ELECTRIC_REFS;
+    function pts(codes) { return codes.map(function (c) { return findTripStation('amtrak', c); }).filter(okLL).map(ll); }
+    var nec = pts(NEC_CODES), toNhv = pts(NEC_CODES.slice(0, NEC_CODES.indexOf('NHV') + 1)), key = pts(KEYSTONE_CODES);
+    return (ELECTRIC_REFS = { all: [nec, key], springfield: [toNhv, key] });
+  }
+  function onElectric(st, springfield) {
+    if (springfield && st.id === 'STS') return false;
+    return electricRefs()[springfield ? 'springfield' : 'all'].some(function (pl) { return rrSnapToPolyline(+st.lat, +st.lon, pl).dist <= ON_ELECTRIC_MI; });
+  }
+  // Share of an Amtrak segment on electric track. Stops between origin and destination come from the
+  // line's stations, put in order along the line's track shape; a stretch between two stops is electric
+  // when both stops are on electric track. Without a shape, the segment is electric only if both ends are.
+  function amtrakElectricShare(seg) {
+    var lid = String(seg.lineId || ''), k = lid + '|' + seg.originStationId + '|' + seg.destStationId;
+    if (k in ELECTRIC_SHARE) return ELECTRIC_SHARE[k];
+    var share = electricShareOf(lid, seg.originStationId, seg.destStationId);
+    // Shapes that timed out may still arrive; only keep answers that used one.
+    if (rrGetCachedTripPolylines('amtrak', lid)) ELECTRIC_SHARE[k] = share;
+    return share;
+  }
+  function electricShareOf(lid, oId, dId) {
+    var o = null, d = null, polys = [];
+    try { o = findTripStation('amtrak', oId); d = findTripStation('amtrak', dId); polys = rrGetCachedTripPolylines('amtrak', lid) || []; } catch (_) {}
+    if (!okLL(o) || !okLL(d)) return 0;
+    var best = null;
+    polys.forEach(function (pl) {
+      var a = rrSnapToPolyline(+o.lat, +o.lon, pl), b = rrSnapToPolyline(+d.lat, +d.lon, pl);
+      var len = Math.abs(a.along - b.along);
+      if (a.dist <= ON_SHAPE_MI && b.dist <= ON_SHAPE_MI && len > 0 && (!best || len < best.len)) best = { pl: pl, a: a.along, b: b.along, len: len };
+    });
+    if (!best) return onElectric(o, false) && onElectric(d, false) ? 1 : 0;
+    var lo = Math.min(best.a, best.b), hi = Math.max(best.a, best.b), stops = [{ st: o, at: best.a }, { st: d, at: best.b }];
+    var line = []; try { line = getTripLogStationsForLine('amtrak', lid) || []; } catch (_) {}
+    line.forEach(function (st) {
+      if (!okLL(st) || st.id === o.id || st.id === d.id) return;
+      var p = rrSnapToPolyline(+st.lat, +st.lon, best.pl);
+      if (p.dist <= ON_SHAPE_STOP_MI && p.along > lo && p.along < hi) stops.push({ st: st, at: p.along });
+    });
+    stops.sort(function (x, y) { return x.at - y.at; });
+    var springfield = stops.some(function (x) { return SPRINGFIELD_LINE[x.st.id]; }), elec = 0;
+    for (var i = 1; i < stops.length; i++) {
+      if (onElectric(stops[i - 1].st, springfield) && onElectric(stops[i].st, springfield)) elec += stops[i].at - stops[i - 1].at;
+    }
+    return Math.min(1, elec / best.len);
+  }
+  // Counted miles and their CO2 for one trip. Its miles are split across segments by each segment's own
+  // miles, so a trip that changes railroads counts only its MBTA and Amtrak parts.
+  function tripCarbon(t) {
+    var segs = segsOf(t), miles = tripMilesValue(t), out = { miles: 0, co2: 0 };
+    var segMiles = segs.map(function (s) { return Number(s.miles) > 0 ? Number(s.miles) : 0; });
+    var sum = segMiles.reduce(function (a, b) { return a + b; }, 0);
+    segs.forEach(function (s, i) {
+      var mi = sum ? miles * segMiles[i] / sum : segs.length === 1 ? miles : 0;
+      var rr = String(s.railroad || t.railroad || '').toLowerCase(), perMi = null;
+      if (rr === 'mbta') perMi = CO2_PER_MI.mbta;
+      else if (rr === 'amtrak') { var e = amtrakElectricShare(s); perMi = e * CO2_PER_MI.amtrakElectric + (1 - e) * CO2_PER_MI.amtrakDiesel; }
+      if (perMi == null || !(mi > 0)) return;
+      out.miles += mi;
+      out.co2 += mi * perMi;
+    });
+    return out;
+  }
+  function addCarbon(s) {
+    s.carbonMiles = 0; s.co2Rail = 0;
+    s.ridden.forEach(function (t) { var c = tripCarbon(t); s.carbonMiles += c.miles; s.co2Rail += c.co2; });
+    s.co2Car = s.carbonMiles * CO2_PER_MI.car;
+    return s;
+  }
+  function fmtKg(n) { return n < 1 ? 'less than 1 kg' : Math.round(n).toLocaleString() + ' kg'; }
   function fmtMi(n) { return n >= 100 ? Math.round(n).toLocaleString() + ' mi' : (Math.round(n * 10) / 10) + ' mi'; }
   function lineInfo(rr, lid, fallbackName) {
     var pack = (typeof TRIP_LINE_STOPS !== 'undefined' && TRIP_LINE_STOPS[rr]) ? TRIP_LINE_STOPS[rr][lid] : null;
@@ -149,6 +239,7 @@
       var m0 = new Date(base.getFullYear(), base.getMonth() - i, 1), m1 = new Date(base.getFullYear(), base.getMonth() - i + 1, 1);
       out.months.push({ label: MON[m0.getMonth()], year: m0.getFullYear(), n: ridden.filter(function (t) { var s = tripStartMs(t); return s >= m0.getTime() && s < m1.getTime(); }).length });
     }
+    out.ridden = ridden;
     out.stations = Object.keys(out.visitedPlaces).length;
     out.endpointCount = Object.keys(out.endpoints).length;
     return out;
@@ -412,9 +503,18 @@
       (next.length ? '<span class="tms-k tms-mini-h">Up next</span>' + next.slice(0, 3).map(function (n) { return progress(esc(n.label), n.right, n.pct); }).join('') : '') +
       (earned.length ? '<details class="tms-earned"><summary>Show earned</summary><div class="tms-chips">' +
         earned.map(function (l) { return '<span class="tms-chip">' + esc(l) + '</span>'; }).join('') + '</div></details>' : ''));
+    // Carbon footprint: one headline, the two totals behind it, and a plain note that it is an estimate.
+    var carbon = '';
+    if (s.carbonMiles > 0) {
+      var saved = s.co2Car - s.co2Rail;
+      carbon = '<section class="tms-card tms-carbon"><div class="tms-carbon-main"><h3 class="tms-label tms-carbon-label"><img src="/assets/icons/leaf.svg" alt="" width="18" height="18">Carbon footprint</h3>' +
+        '<div class="tms-head"><span class="tms-big">About ' + fmtKg(saved) + '</span><span class="tms-big-label">of CO2 saved vs driving</span></div>' +
+        '<p class="tms-carbon-note">An estimate for your MBTA and Amtrak trips from US EPA average emission factors, compared with driving the same distance alone.</p></div>' +
+        '<div class="tms-facts tms-carbon-facts">' + fact('Your train trips', fmtKg(s.co2Rail)) + fact('Same miles by car', fmtKg(s.co2Car)) + '</div></section>';
+    }
     var notes = [];
     if (s.upcoming) notes.push('Counts the ' + s.trips + ' trips you\u2019ve taken. ' + (s.upcoming === 1 ? 'Your upcoming trip is' : 'Your ' + s.upcoming + ' upcoming trips are') + ' added once ' + (s.upcoming === 1 ? 'it departs.' : 'they depart.'));
-    body.innerHTML = explore + '<div class="tms-row3">' + c1 + c3 + c4 + '</div>' + notes.map(function (n) { return '<p class="tms-note">' + n + '</p>'; }).join('');
+    body.innerHTML = explore + '<div class="tms-row3">' + c1 + c3 + c4 + '</div>' + carbon + notes.map(function (n) { return '<p class="tms-note">' + n + '</p>'; }).join('');
     wire(body);
     drawMap(s);
   }
@@ -441,12 +541,14 @@
   async function withOrder(s) {
     var keys = {};
     s.lineList.forEach(function (Ln) { keys[Ln.rr + '|' + Ln.lid] = Ln; });
+    // Amtrak shapes also order the stops for the carbon footprint's electric miles.
+    s.ridden.forEach(function (t) { segsOf(t).forEach(function (sg) { var rr = String(sg.railroad || t.railroad || '').toLowerCase(); if (rr === 'amtrak') keys['amtrak|' + (sg.lineId || '')] = { rr: rr, lid: String(sg.lineId || '') }; }); });
     try {
       await Promise.race([Promise.all(Object.keys(keys).map(function (k) { var Ln = keys[k]; return Promise.resolve(ensureTripShapesForMiles(Ln.rr, Ln.lid)).catch(function () { return null; }); })),
         new Promise(function (r) { setTimeout(r, 5000); })]);
     } catch (_) {}
     s.lineList.forEach(function (Ln) { try { Ln.order = orderLine(Ln, s); } catch (_) { Ln.order = null; } });
-    return s;
+    return addCarbon(s);
   }
   async function load() {
     if (MS_TRIPS) return MS_TRIPS;
@@ -506,6 +608,7 @@
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   } catch (_) {}
   window.rrMoreStatsCompute = compute;
+  window.rrMoreStatsAmtrakElectricShare = electricShareOf;
   window.rrMoreStatsMount = mount;
   mount();
 })();
