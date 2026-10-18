@@ -309,10 +309,14 @@
       <div class="policy">
         <h1>Privacy Policy</h1>
         <div class="meta-row">
-          <span class="pill">Effective October 14, 2026</span>
+          <span class="pill">Effective October 18, 2026</span>
         </div>
         <div class="note">
-          <p><strong>Last updated October 14, 2026.</strong> What changed:</p>
+          <p><strong>Last updated October 18, 2026.</strong> What changed:</p>
+          <ul>
+            <li><a href="#collect">Live location sharing</a>: logging a new special move needs your location, and Go live starts the share. We also say what your device keeps during a share.</li>
+          </ul>
+          <p>Earlier changes, October 14, 2026:</p>
           <ul>
             <li><a href="#collect">Information we collect</a>: we now describe MyTrips trip logs, public profiles and usernames, live location sharing, press-release comments, and ban appeals.</li>
             <li><a href="#cookies">Cookies</a>: Better Stack monitoring now loads only if you allow analytics, and receives only your account ID.</li>
@@ -344,7 +348,7 @@
           <li><strong>Questions you type in search (“Ask”).</strong> If you enter a question, we send the question plus a short snapshot of matching live-train facts to our Ask endpoint so we can answer in plain language.</li>
           <li><strong>MyTrips trip logs.</strong> If you log trips, we store each trip’s railroad, train number, origin and destination stations, times, distance, optional notes, rolling stock, and route segments. Your trips are private unless you publish a public profile. With a public profile, your trips are visible to anyone with your profile link, except trips you mark Hidden.</li>
           <li><strong>Public profile and username.</strong> If you publish a MyTrips profile, your username, display name, and Google profile photo are public, and your username is linked to your account ID. Your email is never shown. You can remove the profile at any time, which hides your trips from the public again.</li>
-          <li><strong>Live location sharing (special moves).</strong> If you start a live share, your device sends its precise location, heading, and speed to our database repeatedly while the share is active, with your first name, trip title, and account ID. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.</li>
+          <li><strong>Live location sharing (special moves).</strong> Logging a new special move asks for location access, and you can’t log one without it, because Go live starts a live share. While the share is active, your device sends its precise location, heading, and speed to our database repeatedly, with your first name, trip title, and account ID. Your location is not saved with the trip itself. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.</li>
           <li><strong>Press-release comments.</strong> Comments on press releases are public and show your Google display name or username (never your email), with the text and time.</li>
           <li><strong>Ban appeals.</strong> If your account is disabled and you appeal, we store your appeal message, account ID, email, the ban reason, and the time, so administrators can review it. Only administrators can read appeals.</li>
           <li><strong>Messages you send us.</strong> If you email us, we keep the contents of that correspondence.</li>
@@ -354,8 +358,8 @@
         <ul>
           <li><strong>Technical and log data.</strong> Servers and content-delivery networks may record IP address, browser type, device type, pages requested, referring URL, date and time, and similar diagnostic data needed to operate and secure the Service. Live train data, trip lookups, and Ask questions go through our own proxy servers (Cloudflare Workers at railroadradar-proxy.railroadradar.workers.dev), which receive your IP address and the request.</li>
           <li><strong>Map usage.</strong> The live map loads tiles and geographic data from map providers. Those providers may receive your IP address and the map area you view.</li>
-          <li><strong>Approximate or precise location (optional).</strong> If you allow location access, your browser can share coordinates with RailroadRadar so we can center the map on you and list nearby trains. That calculation runs in your browser, unless you choose to start a live location share (see section 2.1). You can deny or later revoke location permission in your device or browser settings. We do not require location to use the map.</li>
-          <li><strong>Local device storage.</strong> The Service stores preferences on your device (for example cookie consent, map theme, whether train labels or clusters are shown, which railroads are visible, and notification choices).</li>
+          <li><strong>Approximate or precise location (optional).</strong> If you allow location access, your browser can share coordinates with RailroadRadar so we can center the map on you and list nearby trains. That calculation runs in your browser, unless you choose to start a live location share (see section 2.1). You can deny or later revoke location permission in your device or browser settings. We do not require location to use the map; it is needed only to log a new special move, which starts a live location share.</li>
+          <li><strong>Local device storage.</strong> The Service stores preferences on your device (for example cookie consent, map theme, whether train labels or clusters are shown, which railroads are visible, and notification choices). During a live location share it also keeps the share’s details and your last shared position, so the share can continue if you reload the page.</li>
           <li><strong>Service worker / installed app.</strong> If you install RailroadRadar on your home screen or allow a service worker, your browser may cache map assets for offline or faster loading and may deliver notifications you enabled.</li>
         </ul>
 

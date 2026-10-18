@@ -125,6 +125,7 @@
   </div>
 
   <script src="/assets/js/trip-stations.js"></script>
+  <script src="/assets/js/trip-miles.js?v=16ff83d4dd"></script>
   <script>
   /* Public profile trip maps — station catalogs + Mapbox tiles parity with My Trips */
   (function () {
@@ -641,7 +642,17 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
       window.RR_TRIP_SHAPES_PROMISES[key] = p;
       return p;
     }
+    // Same rule as MyTrips (rrTripIsSpecialMove in app-main.js): special moves show their stations only, no route line.
+    function tripIsSpecialMove(data) {
+      if (!data) return false;
+      const v = data.specialMove;
+      if (v === true || v === 1) return true;
+      if (typeof v === 'string' && ['true', '1', 'yes', 'special'].indexOf(v.trim().toLowerCase()) >= 0) return true;
+      if (data.kind === 'specialMove' || data.tripKind === 'specialMove') return true;
+      return !!(String(data.trainTitle || '').trim() && (data.isSpecialMove === true || data.isSpecial === true));
+    }
     function rrEnsureTripGeomsShapes(data) {
+      if (tripIsSpecialMove(data)) return Promise.resolve(true);
       const segs = rrTripSegmentsForMap(data);
       const promises = [];
       const seen = {};
@@ -686,7 +697,9 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
         return;
       }
       const bounds = [];
+      const odOnly = tripIsSpecialMove(data);
       segs.forEach(function (g) {
+        if (odOnly) return;
         if (g.line && g.line.length >= 2) {
           try {
             L.polyline(g.line, { color: g.color || '#07093e', weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round' }).addTo(map);
@@ -880,6 +893,21 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
           trips.sort(function (a, b) { return tripStartMs(b) - tripStartMs(a); });
         } catch (e2) { trips = []; }
       }
+      // Amtrak miles saved before the stop-chain fix are shown corrected (assets/js/trip-miles.js).
+      try {
+        const fix = window.rrTripMilesFix;
+        if (fix) {
+          const lids = [];
+          trips.forEach(function (t) { fix.shapesNeeded(t).forEach(function (l) { if (lids.indexOf(l) < 0) lids.push(l); }); });
+          if (lids.length) {
+            await Promise.race([
+              Promise.all(lids.map(function (l) { return Promise.resolve(ensureTripShapesForMiles('amtrak', l)).catch(function () { return null; }); })),
+              new Promise(function (r) { setTimeout(r, 5000); })
+            ]);
+          }
+          trips = trips.map(function (t) { const c = fix.correctedTrip(t); return c ? Object.assign({}, t, c) : t; });
+        }
+      } catch (_) {}
       renderProfile(profile, trips);
     }
     main();
