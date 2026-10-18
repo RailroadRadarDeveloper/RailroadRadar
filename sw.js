@@ -1,7 +1,7 @@
 /* RailroadRadar service worker — home-screen notifications */
 /* Failsafe: cached "currently unavailable" page for failed / 5xx navigations. */
 var RR_SW_VERSION = 'rr-sw-v2';
-var RR_FAILSAFE_CACHE = 'rr-failsafe-v47';
+var RR_FAILSAFE_CACHE = 'rr-failsafe-v48';
 var RR_UNAVAILABLE_URL = '/unavailable.html';
 
 self.addEventListener('install', function (e) {

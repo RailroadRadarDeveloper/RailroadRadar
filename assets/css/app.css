@@ -75,6 +75,8 @@
     .header-logo {
       margin-right: 10px;
     }
+    /* Header logo links to the home page; the link is the flex item, the img keeps its sizing rules. */
+    .header-logo-link { display: flex; align-items: center; flex: none; line-height: 0; text-decoration: none; }
     html.rr-mytrips-page .header-logo-picture {
       display: flex;
       align-items: center;
@@ -6069,7 +6071,7 @@
   
 
     html.rr-banned .header { display:flex !important; z-index:100000 !important; }
-    html.rr-banned .header > :not(.header-logo) { display:none !important; }
+    html.rr-banned .header > :not(.header-logo):not(.header-logo-link) { display:none !important; }
     html.rr-banned #rr-banned-screen { top:60px !important; z-index:9000 !important; }
   
 
