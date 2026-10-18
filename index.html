@@ -190,10 +190,8 @@ body{background:var(--navy)}
 .banner{background:linear-gradient(180deg,#07093e 0%,#0d1263 55%,#1c2596 100%)}
 @media (max-width:560px){.banner-art{left:50%;width:170%;height:auto;transform:translateX(-50%)}}
 
-/* Green train glides along the rail, then pauses off-screen before the next pass */
-.rr-train{transform:translateX(420px);will-change:transform;animation:rr-train-run 16s linear infinite}
-@keyframes rr-train-run{0%{transform:translateX(-760px)}85%{transform:translateX(1500px)}100%{transform:translateX(1500px)}}
-@media (prefers-reduced-motion:reduce){.rr-train{animation:none;transform:translateX(420px);will-change:auto}}
+/* Cover trains: drawn and moved by the script at the end of the page */
+.rr-trains>g{will-change:transform}
 
 /* Skyline stays fully visible; below its base a short band fades into the next section's navy */
 .banner{--rr-band:80px;min-height:calc(440px + var(--rr-band))}
@@ -236,7 +234,7 @@ body{background:var(--navy)}
 <main>
   <section class="banner" aria-labelledby="banner-title">
     <svg class="banner-art" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-      <g fill="#1a2390"><rect x="-20" y="312" width="50" height="94"/><rect x="31" y="305" width="36" height="101"/><rect x="71" y="284" width="44" height="122"/><rect x="117" y="281" width="50" height="125"/><rect x="167" y="270" width="41" height="136"/><rect x="208" y="335" width="54" height="71"/><rect x="263" y="333" width="46" height="73"/><rect x="311" y="339" width="29" height="67"/><rect x="344" y="299" width="28" height="107"/><rect x="374" y="345" width="39" height="61"/><rect x="415" y="338" width="56" height="68"/><rect x="475" y="339" width="27" height="67"/><rect x="502" y="266" width="35" height="140"/><rect x="538" y="320" width="29" height="86"/><rect x="569" y="275" width="40" height="131"/><rect x="609" y="299" width="37" height="107"/><rect x="646" y="303" width="45" height="103"/><rect x="692" y="269" width="32" height="137"/><rect x="724" y="352" width="52" height="54"/><rect x="779" y="325" width="51" height="81"/><rect x="830" y="337" width="31" height="69"/><rect x="861" y="303" width="55" height="103"/><rect x="919" y="319" width="60" height="87"/><rect x="983" y="353" width="27" height="53"/><rect x="1013" y="332" width="46" height="74"/><rect x="1060" y="349" width="30" height="57"/><rect x="1090" y="302" width="34" height="104"/><rect x="1124" y="301" width="59" height="105"/><rect x="1187" y="324" width="32" height="82"/><rect x="1220" y="308" width="53" height="98"/><rect x="1276" y="297" width="52" height="109"/><rect x="1328" y="285" width="43" height="121"/><rect x="1372" y="319" width="41" height="87"/><rect x="1416" y="275" width="46" height="131"/></g><g fill="#111874"><rect x="-20" y="377" width="70" height="29"/><rect x="50" y="369" width="47" height="37"/><rect x="98" y="337" width="38" height="69"/><rect x="136" y="379" width="64" height="27"/><rect x="204" y="382" width="57" height="24"/><rect x="261" y="371" width="35" height="35"/><rect x="297" y="346" width="62" height="60"/><rect x="359" y="372" width="65" height="34"/><rect x="428" y="370" width="56" height="36"/><rect x="487" y="367" width="67" height="39"/><rect x="554" y="340" width="40" height="66"/><rect x="597" y="367" width="51" height="39"/><rect x="649" y="336" width="43" height="70"/><rect x="694" y="379" width="36" height="27"/><rect x="733" y="362" width="36" height="44"/><rect x="771" y="368" width="68" height="38"/><rect x="839" y="350" width="59" height="56"/><rect x="898" y="379" width="54" height="27"/><rect x="956" y="331" width="48" height="75"/><rect x="1008" y="348" width="53" height="58"/><rect x="1062" y="382" width="34" height="24"/><rect x="1097" y="379" width="48" height="27"/><rect x="1146" y="360" width="36" height="46"/><rect x="1184" y="344" width="59" height="62"/><rect x="1245" y="361" width="40" height="45"/><rect x="1287" y="342" width="43" height="64"/><rect x="1332" y="346" width="34" height="60"/><rect x="1367" y="338" width="64" height="68"/><rect x="1432" y="355" width="40" height="51"/></g><g transform="translate(0 11)"><g class="rr-train" fill="#0ac700"><rect x="0" y="359" width="168" height="34" rx="5"/><rect x="174" y="359" width="168" height="34" rx="5"/><rect x="348" y="359" width="168" height="34" rx="5"/><path d="M522 364 q0 -5 5 -5 h104 q44 0 72 34 h-181 z"/></g></g>
+      <g fill="#1a2390"><rect x="-20" y="312" width="50" height="94"/><rect x="31" y="305" width="36" height="101"/><rect x="71" y="284" width="44" height="122"/><rect x="117" y="281" width="50" height="125"/><rect x="167" y="270" width="41" height="136"/><rect x="208" y="335" width="54" height="71"/><rect x="263" y="333" width="46" height="73"/><rect x="311" y="339" width="29" height="67"/><rect x="344" y="299" width="28" height="107"/><rect x="374" y="345" width="39" height="61"/><rect x="415" y="338" width="56" height="68"/><rect x="475" y="339" width="27" height="67"/><rect x="502" y="266" width="35" height="140"/><rect x="538" y="320" width="29" height="86"/><rect x="569" y="275" width="40" height="131"/><rect x="609" y="299" width="37" height="107"/><rect x="646" y="303" width="45" height="103"/><rect x="692" y="269" width="32" height="137"/><rect x="724" y="352" width="52" height="54"/><rect x="779" y="325" width="51" height="81"/><rect x="830" y="337" width="31" height="69"/><rect x="861" y="303" width="55" height="103"/><rect x="919" y="319" width="60" height="87"/><rect x="983" y="353" width="27" height="53"/><rect x="1013" y="332" width="46" height="74"/><rect x="1060" y="349" width="30" height="57"/><rect x="1090" y="302" width="34" height="104"/><rect x="1124" y="301" width="59" height="105"/><rect x="1187" y="324" width="32" height="82"/><rect x="1220" y="308" width="53" height="98"/><rect x="1276" y="297" width="52" height="109"/><rect x="1328" y="285" width="43" height="121"/><rect x="1372" y="319" width="41" height="87"/><rect x="1416" y="275" width="46" height="131"/></g><g fill="#111874"><rect x="-20" y="377" width="70" height="29"/><rect x="50" y="369" width="47" height="37"/><rect x="98" y="337" width="38" height="69"/><rect x="136" y="379" width="64" height="27"/><rect x="204" y="382" width="57" height="24"/><rect x="261" y="371" width="35" height="35"/><rect x="297" y="346" width="62" height="60"/><rect x="359" y="372" width="65" height="34"/><rect x="428" y="370" width="56" height="36"/><rect x="487" y="367" width="67" height="39"/><rect x="554" y="340" width="40" height="66"/><rect x="597" y="367" width="51" height="39"/><rect x="649" y="336" width="43" height="70"/><rect x="694" y="379" width="36" height="27"/><rect x="733" y="362" width="36" height="44"/><rect x="771" y="368" width="68" height="38"/><rect x="839" y="350" width="59" height="56"/><rect x="898" y="379" width="54" height="27"/><rect x="956" y="331" width="48" height="75"/><rect x="1008" y="348" width="53" height="58"/><rect x="1062" y="382" width="34" height="24"/><rect x="1097" y="379" width="48" height="27"/><rect x="1146" y="360" width="36" height="46"/><rect x="1184" y="344" width="59" height="62"/><rect x="1245" y="361" width="40" height="45"/><rect x="1287" y="342" width="43" height="64"/><rect x="1332" y="346" width="34" height="60"/><rect x="1367" y="338" width="64" height="68"/><rect x="1432" y="355" width="40" height="51"/></g><g fill="#0ac700"><g class="rr-trains-parked"><g transform="translate(930 351) scale(.85)"><g transform="translate(196 0) scale(-1 1)"><rect x="0" y="0" width="92" height="20" rx="3"/><path d="M96 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g transform="translate(574 384)"><rect x="0" y="0" width="92" height="20" rx="3"/><rect x="96" y="0" width="92" height="20" rx="3"/><path d="M192 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g class="rr-trains"></g></g>
       <rect x="0" y="404" width="1440" height="16" fill="#111874"/>
     </svg>
     <div class="banner-inner">
@@ -321,6 +319,91 @@ body{background:var(--navy)}
     </div>
   </div>
 </div>
+<script>
+/* Home cover trains: two one-way lanes at different heights (eastbound low in front, westbound higher behind),
+   so opposite trains never overlap. Each lane runs ONE train at a time: the next is scheduled only after the
+   previous has left the screen, so trains in a lane can never catch up with each other. Each train is 2 to 4
+   cars and either stops mid-screen (slows, waits 2 to 3 s, speeds away) or runs express straight through.
+   Reduced motion or no JS: the parked trains in the markup stay as they are. Pauses while the tab is hidden. */
+(function () {
+  var svg = document.querySelector('.banner-art');
+  var layer = svg && svg.querySelector('.rr-trains');
+  var parked = svg && svg.querySelector('.rr-trains-parked');
+  if (!layer || !layer.animate) return;
+  try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (_) {}
+  var TEST = window.__rrTrainsTest || null, SPEED = (TEST && TEST.speed) || 1;
+  var NS = 'http://www.w3.org/2000/svg', CAR = 92, GAP = 4, NOSE = 100, H = 20, VW = 1440, MID = 720;
+  var LANES = [
+    { name: 'east', dir: 1, bottom: 404, scale: 1, first: { cars: 3, stop: true }, wait: 300 },
+    { name: 'west', dir: -1, bottom: 368, scale: 0.85, first: { cars: 2, stop: false }, wait: 2600 }
+  ];
+  function len(n) { return (n - 1) * (CAR + GAP) + NOSE; }
+  function shapes(n) {
+    var h = '', x = 0;
+    for (var i = 0; i < n - 1; i++) { h += '<rect x="' + x + '" y="0" width="' + CAR + '" height="' + H + '" rx="3"/>'; x += CAR + GAP; }
+    return h + '<path d="M' + x + ' 3q0-3 3-3h55q26 0 42 20h-100z"/>';
+  }
+  function build(lane, n) {
+    var g = document.createElementNS(NS, 'g'), L = len(n);
+    g.setAttribute('data-lane', lane.name);
+    g.innerHTML = '<g transform="translate(0 ' + (lane.bottom - H * lane.scale) + ') scale(' + lane.scale + ')"><g' +
+      (lane.dir < 0 ? ' transform="translate(' + L + ' 0) scale(-1 1)"' : '') + '>' + shapes(n) + '</g></g>';
+    return g;
+  }
+  function pick(lane) {
+    var stop = lane.stops >= 2 ? false : lane.expresses >= 2 ? true : Math.random() < 0.6;
+    lane.stops = stop ? (lane.stops || 0) + 1 : 0;
+    lane.expresses = stop ? 0 : (lane.expresses || 0) + 1;
+    return { cars: 2 + Math.floor(Math.random() * 3), stop: stop };
+  }
+  function tx(x) { return { transform: 'translateX(' + x.toFixed(1) + 'px)' }; }
+  function run(lane) {
+    lane.timer = 0;
+    if (document.hidden) { lane.due = true; return; }
+    var spec = lane.first || pick(lane); lane.first = null;
+    var Lu = len(spec.cars) * lane.scale;
+    var start = lane.dir > 0 ? -Lu - 10 : VW + 10, end = lane.dir > 0 ? VW + 10 : -Lu - 10, stopAt = MID - Lu / 2;
+    var frames, ms;
+    if (spec.stop) {
+      var dIn = Math.abs(stopAt - start), dOut = Math.abs(end - stopAt);
+      var tIn = 2 * dIn / 300 * 1000, dwell = 2000 + Math.random() * 1000, tOut = 2 * dOut / 320 * 1000; /* quad ease: entry 300, exit 320 units/s */
+      ms = tIn + dwell + tOut;
+      frames = [
+        Object.assign(tx(start), { offset: 0, easing: 'cubic-bezier(.5,1,.89,1)' }),
+        Object.assign(tx(stopAt), { offset: tIn / ms, easing: 'linear' }),
+        Object.assign(tx(stopAt), { offset: (tIn + dwell) / ms, easing: 'cubic-bezier(.11,0,.5,0)' }),
+        Object.assign(tx(end), { offset: 1 })
+      ];
+    } else {
+      ms = Math.abs(end - start) / 480 * 1000; /* express: 480 units/s straight through */
+      frames = [tx(start), tx(end)];
+    }
+    var g = build(lane, spec.cars);
+    layer.appendChild(g);
+    var a = g.animate(frames, { duration: ms, fill: 'both' });
+    a.playbackRate = SPEED;
+    lane.anim = a;
+    if (TEST) (TEST.log = TEST.log || []).push({ lane: lane.name, cars: spec.cars, stop: spec.stop, ms: Math.round(ms) });
+    a.onfinish = function () {
+      g.remove(); lane.anim = null;
+      lane.timer = setTimeout(function () { run(lane); }, (1200 + Math.random() * 2800) / SPEED);
+    };
+  }
+  if (parked) parked.style.display = 'none';
+  LANES.forEach(function (lane) { lane.timer = setTimeout(function () { run(lane); }, lane.wait / SPEED); });
+  document.addEventListener('visibilitychange', function () {
+    LANES.forEach(function (lane) {
+      if (document.hidden) {
+        if (lane.anim) lane.anim.pause();
+        if (lane.timer) { clearTimeout(lane.timer); lane.timer = 0; lane.due = true; }
+      } else {
+        if (lane.anim) lane.anim.play();
+        if (lane.due) { lane.due = false; lane.timer = setTimeout(function () { run(lane); }, 800 / SPEED); }
+      }
+    });
+  });
+})();
+</script>
 <script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
 <script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js" defer></script>
