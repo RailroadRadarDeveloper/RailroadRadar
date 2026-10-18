@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07093e">
+<title>Commuter Rail vehicle roster | RailroadRadar</title>
+<meta name="description" content="See which trips each MBTA Commuter Rail vehicle ran over the last 4 days, searchable by vehicle ID.">
+<link rel="canonical" href="https://railroadradar.com/roster/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RailroadRadar">
+<meta property="og:title" content="Commuter Rail vehicle roster | RailroadRadar">
+<meta property="og:description" content="See which trips each MBTA Commuter Rail vehicle ran over the last 4 days, searchable by vehicle ID.">
+<meta property="og:url" content="https://railroadradar.com/roster/">
+<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Commuter Rail vehicle roster | RailroadRadar">
+<meta name="twitter:description" content="See which trips each MBTA Commuter Rail vehicle ran over the last 4 days, searchable by vehicle ID.">
+<meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
+<script>
+(function(){try{var p=localStorage.getItem('rr_theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('rr-theme-dark');}catch(_){}})();
+</script>
+<script>
+!function(b,e,t,r){
+  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+  b[t].l=+new Date;
+  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+  s.src='https://betterstack.net/b.js?t='+r;
+  /* Better Stack loads only after analytics consent (same choice as Clarity). */
+  b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
+}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+betterstack('init', { environment: 'production' });
+window.__rrLoadClarity = function () {
+  if (window.__rrClarityLoaded) return;
+  window.__rrClarityLoaded = true;
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "yie7bk3bns");
+};
+/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the loaders above. */
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<style>
+:root{
+  --navy:#07093e;
+  --font:"Google Sans",Roboto,Arial,sans-serif;
+  --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
+  --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
+  --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
+  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+}
+html.rr-theme-dark{
+  color-scheme:dark;
+  --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
+  --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
+  --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
+  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 13px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Header: same navy bar as MyTrips */
+.header{position:sticky;top:0;z-index:40;height:66px;background:var(--navy);display:flex;align-items:center;gap:10px;padding:0 16px}
+.header-logo-link{display:flex;align-items:center;flex:none}
+.header-logo{height:40px;width:auto;max-width:min(260px,52vw);display:block}
+.header .rr-site-nav{flex:1}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;position:relative}
+.header-tools{position:relative}
+.header-right .header-tools{position:static}
+.rr-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:4px;border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px/1 var(--font);text-decoration:none;white-space:nowrap;cursor:pointer}
+.rr-btn:hover{background:#dfe3f7;border-color:#dfe3f7}
+.rr-btn.small{height:32px;padding:0 12px}
+.rr-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+.rr-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#fff}
+#btn-header-tools{height:32px;padding:0 12px}
+.header-tools-panel .panel-link{display:block;color:#fff;text-decoration:none;font:700 13px/1 var(--font);padding:9px 10px;border-radius:4px;background:none;border:0;text-align:left;cursor:pointer;width:100%}
+.header-tools-panel .panel-link:hover{background:rgba(255,255,255,.14)}
+.header-auth{display:flex;align-items:center;visibility:hidden}
+.header-auth.is-ready{visibility:visible}
+.header-tools-panel .panel-nav{display:none;flex-direction:column;gap:2px;padding-bottom:4px}
+html.rr-nav-in-menu .header .rr-site-nav{visibility:hidden}
+html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
+@media (max-width:980px){.header-tools-panel .panel-nav{display:flex}}
+@media (max-width:560px){.header{padding:0 12px}.header-logo{height:32px}}
+/* Footer */
+.footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
+.footer-inner{width:min(960px,100%);margin:0 auto;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px}
+.footer-inner a,.footer-inner button{color:#fff;text-decoration:none;font:500 13px/1.4 var(--font);background:none;border:0;padding:0;cursor:pointer}
+.footer-inner a:hover,.footer-inner button:hover{text-decoration:underline}
+.footer-inner .copy{color:rgba(255,255,255,.72);margin-right:auto}
+
+/* Cookie bar and preferences (same markup and script as the map) */
+#rr-cookie-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:10080;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 12px;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:460px}
+#rr-cookie-bar[hidden],#rr-cookie-modal[hidden]{display:none!important}
+#rr-cookie-bar p{margin:0;flex:1 1 240px;font-size:12px;line-height:1.4;color:#e8eaf2}
+#rr-cookie-bar a{color:#8fd3ff}
+.rr-cookie-actions{display:flex;gap:8px;flex-shrink:0}
+.rr-cookie-btn{height:32px;border:1px solid #fff;border-radius:4px;padding:0 12px;font:700 13px/1 var(--font);cursor:pointer;white-space:nowrap;background:#fff;color:var(--navy)}
+.rr-cookie-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+#rr-cookie-modal{position:fixed;inset:0;z-index:10085;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.rr-cookie-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.rr-cookie-modal-card{position:relative;z-index:1;width:100%;max-width:520px;max-height:min(80vh,640px);overflow:auto;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 16px 16px}
+.rr-cookie-modal-card h3{margin:0 0 8px;font-size:17px}
+.rr-cookie-modal-lead{margin:0 0 14px;font-size:13px;color:#c5c9d8}
+.rr-cookie-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
+.rr-cookie-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:4px;background:rgba(255,255,255,.04)}
+.rr-cookie-row-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rr-cookie-row-text span{font-size:12px;color:#c5c9d8}
+.rr-cookie-switch{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;font-size:11px;color:#c5c9d8;cursor:pointer}
+.rr-cookie-switch input{width:18px;height:18px;accent-color:#2ecc71}
+.rr-cookie-switch.is-locked{cursor:default;opacity:.85}
+.rr-cookie-modal-actions{display:flex;gap:8px;justify-content:flex-end}
+/* Roster page */
+body{background:var(--bg)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.roster-hero{background:linear-gradient(180deg,#07093e 0%,#0d1263 100%);color:#fff;padding:44px 20px 40px}
+.roster-hero-inner{width:min(860px,100%);margin:0 auto}
+.roster-hero h1{margin:0 0 10px;font-size:clamp(26px,4.6vw,38px);line-height:1.15;font-weight:700;text-wrap:balance}
+.roster-lead{margin:0 0 14px;max-width:38em;color:#c9d4ea;font-size:16px;line-height:1.5}
+.roster-start{display:inline-block;margin:0;padding:6px 12px;border-radius:999px;background:rgba(10,199,0,.14);color:#c8f5c4;font:500 13px/1.4 var(--font)}
+.roster-wrap{width:min(860px,100%);margin:0 auto;padding:22px 16px 56px;min-height:50vh}
+.roster-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:14px}
+.roster-search{flex:1 1 300px;display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;background:var(--surface);border:1px solid var(--field);border-radius:4px;color:var(--muted)}
+.roster-search:focus-within{border-color:var(--focus);box-shadow:0 0 0 1px var(--focus)}
+.roster-search input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--ink);font:500 15px/1 var(--font)}
+.roster-count{margin:0;color:var(--muted);font-size:13px}
+.roster-msg{margin:24px 0;padding:16px;border:1px dashed var(--field);border-radius:4px;color:var(--muted);text-align:center;font-size:14px}
+.roster-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.veh{background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.veh-head{width:100%;display:flex;align-items:center;gap:14px;padding:12px 14px;background:none;border:0;color:var(--ink);font:inherit;text-align:left;cursor:pointer;border-radius:4px}
+.veh-head:hover{background:rgba(7,9,62,.04)}
+html.rr-theme-dark .veh-head:hover{background:rgba(255,255,255,.05)}
+.veh-id{flex:none;min-width:64px;font:700 18px/1.2 var(--font);font-variant-numeric:tabular-nums}
+.veh-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.veh-sub{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.veh-line{font:500 14px/1.35 var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font:700 11px/1 var(--font);white-space:nowrap;flex:none}
+.pill.live{background:#0ac700;color:#04210a}
+.pill.count{background:rgba(7,9,62,.07);color:var(--muted)}
+html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
+.veh-tags{flex:none;display:flex;gap:8px;align-items:center}
+.veh-chev{flex:none;width:20px;height:20px;color:var(--muted);transition:transform .15s}
+.veh.open .veh-chev{transform:rotate(180deg)}
+.veh-body{padding:2px 14px 14px;border-top:1px solid var(--line)}
+.veh-body[hidden]{display:none}
+.day{margin-top:12px}
+.day h3{margin:0 0 6px;font:700 13px/1.3 var(--font);color:var(--muted);text-transform:none}
+.trips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.trip{display:grid;grid-template-columns:92px 1fr auto;align-items:center;gap:4px 14px;padding:8px 10px;border-radius:4px;background:var(--bg)}
+.trip-num{font:700 14px/1.2 var(--font);font-variant-numeric:tabular-nums}
+.trip-where{min-width:0;display:flex;flex-direction:column}
+.trip-where b{font:500 14px/1.3 var(--font)}
+.trip-where span{color:var(--muted);font-size:12px}
+.trip-time{color:var(--ink);font:500 13px/1.3 var(--font);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.roster-more{margin:14px auto 0;display:flex}
+.rr-btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--field)}
+.rr-btn.ghost:hover{background:var(--bg)}
+@media (max-width:560px){
+  .roster-hero{padding:30px 16px 28px}
+  .veh-head{display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;padding:12px}
+  .veh-id{grid-row:1/3;align-self:center}
+  .veh-main{grid-column:2}
+  .veh-chev{grid-column:3;grid-row:1/3;align-self:center}
+  .veh-tags{grid-column:2;grid-row:2}
+  .veh-id{min-width:52px;font-size:17px}
+  .trip{grid-template-columns:1fr auto;gap:2px 10px}
+  .trip-where{grid-column:1/-1;order:3}
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
+  <nav class="rr-site-nav" aria-label="RailroadRadar">
+    <a href="/map/" data-nav="map">Live map</a>
+    <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
+    <a href="/favorites/" data-nav="favorites">Favorites</a>
+    <a href="/press/" data-nav="press">Press</a>
+  </nav>
+  <div class="header-right">
+    <div class="header-tools">
+      <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
+      <div class="header-tools-panel" id="header-tools-panel" hidden>
+        <div class="panel-nav">
+          <a class="panel-link" href="/map/">Live map</a>
+          <a class="panel-link" href="/mytrips/">MyTrips</a>
+          <a class="panel-link" href="/favorites/">Favorites</a>
+          <a class="panel-link" href="/press/">Press</a>
+        </div>
+        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie settings</button>
+      </div>
+    </div>
+    <div class="header-auth is-ready" id="header-auth"></div>
+  </div>
+</header>
+
+<main>
+  <section class="roster-hero" aria-labelledby="roster-title">
+    <div class="roster-hero-inner">
+      <h1 id="roster-title">Commuter Rail vehicle roster</h1>
+      <p class="roster-lead">See which trips each MBTA Commuter Rail vehicle ran over the last 4 days. Search by the vehicle ID the MBTA gives each train.</p>
+      <p class="roster-start" id="roster-start">We started keeping this history on <span id="roster-start-date">October 18, 2026</span>, so earlier days aren't here.</p>
+    </div>
+  </section>
+  <section class="roster-wrap" aria-label="Vehicles">
+    <div class="roster-tools">
+      <label class="roster-search">
+        <span class="sr-only">Search by vehicle ID</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="search" id="roster-q" placeholder="Search by vehicle ID, like 1811" inputmode="numeric" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="roster-count" id="roster-count" aria-live="polite"></p>
+    </div>
+    <p class="roster-msg" id="roster-msg" hidden></p>
+    <ul class="roster-list" id="roster-list"></ul>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="copy">© 2026 RailroadRadar</span>
+    <a href="/map/">Live map</a>
+    <a href="/mytrips/">MyTrips</a>
+    <a href="/favorites/">Favorites</a>
+    <a href="/press/">Press</a>
+    <a href="/policies/privacy/">Privacy Policy</a>
+    <a href="/policies/terms-of-use/">Terms of Use</a>
+    <a href="/sitemap/">Sitemap</a>
+    <button type="button" id="footer-cookie-settings">Cookie settings</button>
+  </div>
+</footer>
+
+<div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
+  <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></p>
+  <div class="rr-cookie-actions">
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+    <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
+  </div>
+</div>
+<div id="rr-cookie-modal" hidden aria-hidden="true">
+  <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
+  <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
+    <h3 id="rr-cookie-modal-title">Cookie preferences</h3>
+    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the page.</p>
+    <ul class="rr-cookie-list">
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
+        <label class="rr-cookie-switch is-locked"><input type="checkbox" id="rr-cookie-essential" checked disabled><span>Always on</span></label>
+      </li>
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Analytics</strong><span>Microsoft Clarity shows us how people use the site, using cookies from clarity.ms. Better Stack reports page errors and performance.</span></div>
+        <label class="rr-cookie-switch"><input type="checkbox" id="rr-cookie-clarity"><span>Allow</span></label>
+      </li>
+    </ul>
+    <div class="rr-cookie-modal-actions">
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
+    </div>
+  </div>
+</div>
+<script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
+<script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
+<script>
+/* Roster: reads /api/roster (last 4 service days, one cached call) and renders vehicles by MBTA vehicle id. */
+(function () {
+  var API = 'https://railroadradar-proxy.railroadradar.workers.dev/api/roster';
+  var LINES = { 'CR-Fairmount': 'Fairmount Line', 'CR-Fitchburg': 'Fitchburg Line', 'CR-Worcester': 'Framingham/Worcester Line',
+    'CR-Franklin': 'Franklin/Foxboro Line', 'CR-Foxboro': 'Foxboro Line', 'CR-Greenbush': 'Greenbush Line', 'CR-Haverhill': 'Haverhill Line',
+    'CR-Kingston': 'Kingston Line', 'CR-Lowell': 'Lowell Line', 'CR-Middleborough': 'Middleborough/Lakeville Line',
+    'CR-NewBedford': 'Fall River/New Bedford Line', 'CR-Needham': 'Needham Line', 'CR-Newburyport': 'Newburyport/Rockport Line',
+    'CR-Providence': 'Providence/Stoughton Line', 'CapeFlyer': 'CapeFlyer' };
+  var TZ = 'America/New_York', PAGE = 40;
+  var list = document.getElementById('roster-list'), q = document.getElementById('roster-q');
+  var msg = document.getElementById('roster-msg'), count = document.getElementById('roster-count');
+  var data = null, open = {}, shown = PAGE, loadedAt = 0;
+  var fmtTime = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+  var fmtDay = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
+  function lineName(r) { return LINES[r] || String(r || '').replace(/^CR-/, '') + (r ? ' Line' : ''); }
+  function t(sec) { return fmtTime.format(new Date(sec * 1000)); }
+  function dayName(d) {
+    var days = data.days || [];
+    if (d === days[0]) return 'Today';
+    if (d === days[1]) return 'Yesterday';
+    var p = d.split('-'); return fmtDay.format(new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])));
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function latest(v) {
+    var best = null;
+    Object.keys(v.days || {}).forEach(function (d) { (v.days[d] || []).forEach(function (x) { if (!best || x.lastSeen > best.lastSeen) best = Object.assign({ day: d }, x); }); });
+    return best;
+  }
+  function tripCount(v) { var n = 0; Object.keys(v.days || {}).forEach(function (d) { n += (v.days[d] || []).length; }); return n; }
+  function renderVehicle(id, v) {
+    var li = el('li', 'veh' + (open[id] ? ' open' : '')); li.id = 'vehicle-' + id;
+    var head = el('button', 'veh-head'); head.type = 'button'; head.setAttribute('aria-expanded', open[id] ? 'true' : 'false');
+    head.appendChild(el('span', 'veh-id', id));
+    var main = el('span', 'veh-main'), last = latest(v);
+    var running = data.generatedAt - v.lastSeen < 15 * 60;
+    main.appendChild(el('span', 'veh-line', last ? 'Train ' + last.train + ' to ' + (last.headsign || lineName(last.route)) : 'No trips yet'));
+    main.appendChild(el('span', 'veh-sub', (running ? 'On ' + lineName(last && last.route) + ' now' : 'Last seen ' + dayName(last.day).replace(/^Today$/, 'today').replace(/^Yesterday$/, 'yesterday') + ' at ' + t(v.lastSeen)) + (v.label && v.label !== id ? ', labeled ' + v.label : '')));
+    head.appendChild(main);
+    var tags = el('span', 'veh-tags');
+    if (running) tags.appendChild(el('span', 'pill live', 'Running now'));
+    var n = tripCount(v); tags.appendChild(el('span', 'pill count', n + (n === 1 ? ' trip' : ' trips')));
+    head.appendChild(tags);
+    head.insertAdjacentHTML('beforeend', '<svg class="veh-chev" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>');
+    var body = el('div', 'veh-body'); body.hidden = !open[id]; body.id = 'veh-body-' + id; head.setAttribute('aria-controls', body.id);
+    (data.days || []).forEach(function (d) {
+      var trips = (v.days && v.days[d]) || []; if (!trips.length) return;
+      var sec = el('div', 'day'); sec.appendChild(el('h3', '', dayName(d)));
+      var ul = el('ul', 'trips');
+      trips.slice().sort(function (a, b) { return b.firstSeen - a.firstSeen; }).forEach(function (x) {
+        var row = el('li', 'trip');
+        row.appendChild(el('span', 'trip-num', 'Train ' + x.train));
+        var w = el('span', 'trip-where'); w.appendChild(el('b', '', lineName(x.route))); if (x.headsign) w.appendChild(el('span', '', 'To ' + x.headsign));
+        row.appendChild(w);
+        row.appendChild(el('span', 'trip-time', x.firstSeen === x.lastSeen ? 'Seen at ' + t(x.firstSeen) : t(x.firstSeen) + ' to ' + t(x.lastSeen)));
+        ul.appendChild(row);
+      });
+      sec.appendChild(ul); body.appendChild(sec);
+    });
+    head.addEventListener('click', function () {
+      open[id] = !open[id]; li.classList.toggle('open', open[id]); body.hidden = !open[id]; head.setAttribute('aria-expanded', open[id] ? 'true' : 'false');
+    });
+    li.appendChild(head); li.appendChild(body);
+    return li;
+  }
+  function render() {
+    if (!data) return;
+    var term = q.value.trim().toLowerCase();
+    var ids = Object.keys(data.vehicles || {}).filter(function (id) {
+      if (!term) return true;
+      var v = data.vehicles[id];
+      return id.toLowerCase().indexOf(term) !== -1 || (v.label && v.label.toLowerCase().indexOf(term) !== -1);
+    }).sort(function (a, b) { return (data.vehicles[b].lastSeen - data.vehicles[a].lastSeen) || a.localeCompare(b, 'en', { numeric: true }); });
+    list.textContent = '';
+    var total = Object.keys(data.vehicles || {}).length;
+    if (!total) { showMsg("No vehicles yet. Check back once trains start running."); count.textContent = ''; return; }
+    if (!ids.length) { showMsg('No vehicle matches \u201c' + q.value.trim() + '\u201d. Try fewer digits.'); count.textContent = ''; return; }
+    msg.hidden = true;
+    if (ids.length === 1 && term && open[ids[0]] === undefined) open[ids[0]] = true;
+    ids.slice(0, shown).forEach(function (id) { list.appendChild(renderVehicle(id, data.vehicles[id])); });
+    count.textContent = term ? ids.length + ' of ' + total + ' vehicles' : total + ' vehicles in the last 4 days';
+    if (ids.length > shown) {
+      var more = el('button', 'rr-btn ghost roster-more', 'Show more vehicles'); more.type = 'button';
+      more.addEventListener('click', function () { shown += PAGE; render(); });
+      var li = el('li'); li.appendChild(more); list.appendChild(li);
+    }
+  }
+  function showMsg(text) { msg.textContent = text; msg.hidden = false; }
+  function load() {
+    loadedAt = Date.now();
+    return fetch(API, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) { data = j; render(); })
+      .catch(function () { if (!data) showMsg("We couldn't load the roster right now. Try again in a minute."); });
+  }
+  q.addEventListener('input', function () { shown = PAGE; render(); });
+  try { var pre = new URLSearchParams(location.search).get('vehicle'); if (pre) q.value = pre.slice(0, 64); } catch (_) {}
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - loadedAt > 120000) load(); });
+  showMsg('Loading vehicles\u2026');
+  load();
+})();
+</script>
+</body>
+</html>
