@@ -1449,7 +1449,8 @@
     }
 
     // Bump when the stats shape or counting rules change: every stored doc with an older version is rebuilt once.
-    const TRIP_LOG_STATS_VERSION = 2;
+    // 3: Amtrak miles saved before the stop-chain fix are counted at their corrected value (trip-miles.js).
+    const TRIP_LOG_STATS_VERSION = 3;
 
     function tripLogEmptyStats() {
       return { version: TRIP_LOG_STATS_VERSION, tripCount: 0, totalMiles: 0, byRailroad: {} };
@@ -1485,8 +1486,33 @@
       const m = mins % 60;
       return m ? (h + ' hr ' + m + ' min') : (h + ' hr');
     }
+    // Trip data with Amtrak miles saved before the stop-chain fix corrected (assets/js/trip-miles.js).
+    function rrTripMilesFixed(data) {
+      const fix = data && window.rrTripMilesFix ? window.rrTripMilesFix.correctedTrip(data) : null;
+      return fix ? Object.assign({}, data, fix) : data;
+    }
+    // Corrections measure along the track shape, so load the Amtrak shapes first when a trip needs them.
+    // Bounded: if they don't arrive, the straight-line distance is used.
+    function rrAwaitTripMilesShapes(trips) {
+      if (!window.rrTripMilesFix) return Promise.resolve();
+      const lids = [];
+      (trips || []).forEach(function(t) {
+        window.rrTripMilesFix.shapesNeeded(t).forEach(function(lid) { if (lids.indexOf(lid) < 0) lids.push(lid); });
+      });
+      if (!lids.length || typeof ensureTripShapesForMiles !== 'function') return Promise.resolve();
+      const load = Promise.all(lids.map(function(lid) { return ensureTripShapesForMiles('amtrak', lid).catch(function() {}); }));
+      return Promise.race([load, new Promise(function(r) { setTimeout(r, 5000); })]);
+    }
+    // False while a stale trip still waits on Amtrak shapes that haven't loaded (it shows straight-line miles).
+    function rrTripMilesShapesReady(trips) {
+      if (!window.rrTripMilesFix) return true;
+      const pack = window.RR_TRIP_SHAPES && window.RR_TRIP_SHAPES.amtrak;
+      if (pack && Object.keys(pack).length) return true;
+      return !(trips || []).some(function(t) { return window.rrTripMilesFix.shapesNeeded(t).length > 0; });
+    }
     function tripMilesValue(data) {
       if (!data) return 0;
+      data = rrTripMilesFixed(data);
       let n = Number(data.miles);
       if (isFinite(n) && n > 0) return n;
       if (Array.isArray(data.segments)) {
@@ -3780,6 +3806,8 @@ function tripCardStationDotIcon() {
       if (lastArr && !data.actualArriveTime) patch.actualArriveTime = lastArr;
       if (Array.isArray(data.segments) && data.segments.length) {
         patch.segments = segs;
+        // The segments carry corrected Amtrak miles (trip-miles.js); keep the stored total in step with them.
+        if (Number(data.miles) > 0) patch.miles = Number(data.miles);
       }
       return patch;
     }
@@ -5061,7 +5089,7 @@ function closeTripDetailView(opts) {
     }
 
     function tripPayloadForStats(trip) {
-      const data = trip || {};
+      const data = rrTripMilesFixed(trip || {});
       return {
         railroad: data.railroad,
         miles: Number(data.miles) || 0,
@@ -5096,10 +5124,9 @@ function closeTripDetailView(opts) {
         } catch (e) {
           // Fallback without order if composite index missing
           snap = await db.collection('tripLogs').where('userId', '==', uid).limit(500).get();
-          return {
-            trips: snap.docs.map(function(doc) { return Object.assign({ id: doc.id }, doc.data() || {}); }),
-            complete: snap.docs.length < 500
-          };
+          const trips = snap.docs.map(function(doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
+          await rrAwaitTripMilesShapes(trips);
+          return { trips: trips.map(rrTripMilesFixed), complete: snap.docs.length < 500, milesExact: rrTripMilesShapesReady(trips) };
         }
         const docs = snap.docs || [];
         docs.forEach(function(doc) {
@@ -5108,14 +5135,16 @@ function closeTripDetailView(opts) {
         if (docs.length < 100) { complete = true; break; }
         last = docs[docs.length - 1];
       }
-      return { trips: out, complete: complete };
+      await rrAwaitTripMilesShapes(out);
+      return { trips: out.map(rrTripMilesFixed), complete: complete, milesExact: rrTripMilesShapesReady(out) };
     }
 
     async function rebuildTripLogStatsFromTrips(uid, settingsExist) {
       const all = await fetchAllUserTripLogs(uid);
       const next = computeTripLogStatsFromTrips(all.trips);
       // A cut-off list would be stored as the truth and incremented from then on, so it is only shown.
-      if (all.complete) {
+      // Same while corrected Amtrak miles are straight-line stand-ins because the shapes didn't load.
+      if (all.complete && all.milesExact !== false) {
         const ref = db.collection('userSettings').doc(uid);
         const fields = { tripLogStats: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
         // A merge write to a doc that isn't in the local cache makes reads return only the merged fields until
@@ -5571,7 +5600,7 @@ function closeTripDetailView(opts) {
       let upcomingCount = upcomingRows ? upcomingRows.querySelectorAll('.trip-log-row').length : 0;
       let pastCount = pastRows ? pastRows.querySelectorAll('.trip-log-row').length : 0;
       docs.forEach(function(doc) {
-        const data = doc.data() || {};
+        const data = rrTripMilesFixed(doc.data() || {});
         // Normalize special-move flag so live matching never treats these as scheduled trains
         try {
           if (typeof rrTripIsSpecialMove === 'function' && rrTripIsSpecialMove(data)) {
@@ -5744,6 +5773,7 @@ function closeTripDetailView(opts) {
         if (!reset && tripLogLastDoc) q = q.startAfter(tripLogLastDoc);
         const snap = await q.get();
         const docs = snap.docs || [];
+        await rrAwaitTripMilesShapes(docs.map(function(d) { return d.data() || {}; }));
         renderTripLogRows(docs, !reset);
         if (reset) { try { rrTripNotifySyncDocs(docs); } catch (_) {} }
         // Public profile queries only match trips with an explicit hiddenPublic flag; set it on older trips.
@@ -6034,7 +6064,7 @@ function closeTripDetailView(opts) {
         await Promise.race([
           Promise.all((tripLogSegmentsState || []).map(function(sg) {
             return (sg && sg.railroad && sg.lineId) ? ensureTripShapesForMiles(sg.railroad, sg.lineId) : null;
-          })),
+          }).concat(tripLogEditingId ? [rrAwaitTripMilesShapes([tripLogDataById[tripLogEditingId]])] : [])),
           new Promise(function(r) { setTimeout(r, 4000); })
         ]);
       } catch (_) {} finally {
@@ -6131,6 +6161,8 @@ function closeTripDetailView(opts) {
       if (!db || !currentUser || !tripId) return;
       if (!window.confirm('Delete this trip? This cannot be undone.')) return;
       try {
+        // Its miles are removed from the totals at the corrected value they were counted at.
+        await rrAwaitTripMilesShapes([tripLogDataById[tripId]]);
         const uid = currentUser.uid;
         const tripRef = db.collection('tripLogs').doc(tripId);
         const settingsRef = db.collection('userSettings').doc(uid);
@@ -6374,30 +6406,32 @@ function closeTripDetailView(opts) {
       return !!(cb && cb.checked);
     }
 
-    
-
     function rrSpecialRequireLocation() {
       return new Promise(function(resolve, reject) {
+        const el0 = document.getElementById('trip-special-loc');
         if (!navigator.geolocation) {
-          reject(new Error('Location is not supported in this browser.'));
+          if (el0) el0.textContent = 'This browser can’t share location, so it can’t start a special move.';
+          reject(new Error('Location isn’t available in this browser. Try another browser to go live.'));
           return;
         }
         navigator.geolocation.getCurrentPosition(function(pos) {
           const fix = { lat: pos.coords.latitude, lon: pos.coords.longitude };
           window.rrSpecialLastFix = fix;
           const el = document.getElementById('trip-special-loc');
-          if (el) el.textContent = 'Location allowed.';
+          if (el) el.textContent = 'Location allowed. Going live shares it on the map for up to 5 hours.';
           resolve(fix);
         }, function(err) {
           const el = document.getElementById('trip-special-loc');
-          if (el) el.textContent = (err && err.code === 1)
-            ? 'Location is required. Allow location to create this trip.'
-            : 'Location is required and was not available.';
-          reject(new Error('Location is required before this trip can be created.'));
+          const denied = !!(err && err.code === 1);
+          if (el) el.textContent = denied ? 'Location is blocked for this site.' : 'Your location couldn’t be found.';
+          // Going live shares your position, so a special move can't start without it.
+          reject(new Error(denied
+            ? 'Going live needs your location. Allow location for this site in your browser settings, then try again.'
+            : 'Going live needs your location. Check that location is on for this device, then try again.'));
         }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
       });
     }
-function rrSpecialSyncTitleWrap() {
+    function rrSpecialSyncTitleWrap() {
       const cb = document.getElementById('trip-log-special-move');
       const wrap = document.getElementById('trip-special-title-wrap');
       const block = document.getElementById('trip-special-block');
@@ -6409,6 +6443,14 @@ function rrSpecialSyncTitleWrap() {
       document.body.classList.toggle('trip-form-special', on);
       // Editing shows "Update trip" instead of GO LIVE, so an edit never starts a share.
       document.body.classList.toggle('trip-form-editing', !!tripLogEditingId);
+      // The attributes as well as the body classes: MyTrips page button styles override the class rules.
+      const goLive = !!(on && !tripLogEditingId);
+      const goLiveBtn = document.getElementById('trip-log-go-live');
+      const saveBtn = document.getElementById('trip-log-save');
+      const addSeg = document.getElementById('trip-log-add-segment');
+      if (goLiveBtn) goLiveBtn.hidden = !goLive;
+      if (saveBtn) saveBtn.hidden = goLive;
+      if (addSeg) addSeg.hidden = on;
       const locHint = document.getElementById('trip-special-loc');
       if (locHint) locHint.hidden = !!tripLogEditingId;
       // Only a new special move needs location; editing one never shares.
@@ -6420,8 +6462,8 @@ function rrSpecialSyncTitleWrap() {
       }
       if (hint) {
         hint.textContent = on
-          ? 'Add a map title. Share location from the trip after you save.'
-          : 'Excursion, rare, or extra — one map title below. Share location from the trip after saving.';
+          ? 'Add a map title. Go live shares your location on the map for up to 5 hours.'
+          : 'Excursion, rare, or extra. Going live shares your location on the map for up to 5 hours.';
       }
       // When Special is on, force free-text (Extra) mode so schedule picker + Extra button don't restate the same thing
       try { if (typeof syncTripSegmentStateFromDom === 'function') syncTripSegmentStateFromDom(); } catch (_) {}

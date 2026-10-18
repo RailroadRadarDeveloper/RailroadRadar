@@ -191,6 +191,8 @@
     var lineCache = {}, days = {};
     ridden.forEach(function (t) {
       var segs = segsOf(t), mins = 0, miles = tripMilesValue(t);
+      // A special move doesn't follow a line's route, so it adds no line (and no line drawn on the map).
+      var special = typeof rrTripIsSpecialMove === 'function' ? rrTripIsSpecialMove(t) : (t.specialMove === true || t.specialMove === 'true');
       out.miles += miles;
       segs.forEach(function (s, i) {
         mins += segMinutes(s, t, i, segs.length);
@@ -198,7 +200,7 @@
         var o = s.originStationId, d = s.destStationId;
         [o, d].forEach(function (id) { if (id) { out.endpoints[rr + ':' + id] = (out.endpoints[rr + ':' + id] || 0) + 1; out.visited[rr + ':' + id] = 1; } });
         var lid = String(s.lineId || '');
-        if (!lid || !o || !d) return;
+        if (!lid || !o || !d || special) return;
         var key = rr + ':' + lid;
         var info = lineCache[key] || (lineCache[key] = lineInfo(rr, lid, s.lineName));
         if (!info.stations.length) { out.noStopList++; return; }

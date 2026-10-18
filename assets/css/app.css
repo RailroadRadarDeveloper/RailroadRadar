@@ -6701,7 +6701,7 @@ html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > .danger { color: var(
 html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > :not(.trip-track-btn):hover { background: var(--mt-hover) !important; color: #fff !important; }
 html.rr-mytrips-page.rr-theme-dark .trip-log-row-actions > .danger:hover { color: #ff8a80 !important; border-color: #8a3a3a !important; background: rgba(255,107,94,.1) !important; }
 html.rr-mytrips-page.rr-theme-dark .trip-log-status, html.rr-mytrips-page.rr-theme-dark #trip-log-miles-preview,
-html.rr-mytrips-page.rr-theme-dark .trip-seg-train-hint, html.rr-mytrips-page.rr-theme-dark .trip-special-hint,
+html.rr-mytrips-page.rr-theme-dark .trip-seg-train-hint, html.rr-mytrips-page.rr-theme-dark .trip-special-hint, html.rr-mytrips-page.rr-theme-dark .trip-special-loc,
 html.rr-mytrips-page.rr-theme-dark .trip-dash-stat, html.rr-mytrips-page.rr-theme-dark .trip-notify-hint { color: var(--mt-muted) !important; }
 html.rr-mytrips-page.rr-theme-dark #trip-log-modal a:not(.rr-btn) { color: #8fd3ff; }
 
