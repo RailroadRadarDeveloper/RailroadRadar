@@ -153,10 +153,10 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
 .day{margin-top:12px}
 .day h3{margin:0 0 6px;font:700 13px/1.3 var(--font);color:var(--muted);text-transform:none}
 .trips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.trip{display:grid;grid-template-columns:92px 1fr auto;align-items:center;gap:4px 14px;padding:8px 10px;border-radius:4px;background:var(--bg)}
-.trip-num{font:700 14px/1.2 var(--font);font-variant-numeric:tabular-nums}
+.trip{display:grid;grid-template-columns:1fr auto;align-items:start;gap:4px 14px;padding:8px 10px;border-radius:4px;background:var(--bg)}
 .trip-where{min-width:0;display:flex;flex-direction:column}
-.trip-where b{font:500 14px/1.3 var(--font)}
+.trip-where b{font:700 14px/1.3 var(--font)}
+.trip-where .trip-num{color:var(--ink);font:500 13px/1.35 var(--font);font-variant-numeric:tabular-nums}
 .trip-where span{color:var(--muted);font-size:12px}
 .trip-time{color:var(--ink);font:500 13px/1.3 var(--font);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .roster-more{margin:14px auto 0;display:flex}
@@ -170,8 +170,7 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
   .veh-chev{grid-column:3;grid-row:1/3;align-self:center}
   .veh-tags{grid-column:2;grid-row:2}
   .veh-id{min-width:52px;font-size:17px}
-  .trip{grid-template-columns:1fr auto;gap:2px 10px}
-  .trip-where{grid-column:1/-1;order:3}
+  .trip{gap:2px 10px}
 }
 </style>
 </head>
@@ -318,8 +317,7 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
       var ul = el('ul', 'trips');
       trips.slice().sort(function (a, b) { return b.firstSeen - a.firstSeen; }).forEach(function (x) {
         var row = el('li', 'trip');
-        row.appendChild(el('span', 'trip-num', 'Train ' + x.train));
-        var w = el('span', 'trip-where'); w.appendChild(el('b', '', lineName(x.route))); if (x.headsign) w.appendChild(el('span', '', 'To ' + x.headsign));
+        var w = el('span', 'trip-where'); w.appendChild(el('b', '', lineName(x.route))); w.appendChild(el('span', 'trip-num', 'Train ' + x.train)); if (x.headsign) w.appendChild(el('span', '', 'To ' + x.headsign));
         row.appendChild(w);
         row.appendChild(el('span', 'trip-time', x.firstSeen === x.lastSeen ? 'Seen at ' + t(x.firstSeen) : t(x.firstSeen) + ' to ' + t(x.lastSeen)));
         ul.appendChild(row);
