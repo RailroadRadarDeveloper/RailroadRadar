@@ -140,7 +140,7 @@ html.rr-theme-dark .veh-head:hover{background:rgba(255,255,255,.05)}
 .veh-id{flex:none;min-width:64px;font:700 18px/1.2 var(--font);font-variant-numeric:tabular-nums}
 .veh-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .veh-sub{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.veh-line{font:500 14px/1.35 var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.veh-line{font:700 15px/1.35 var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pill{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;font:700 11px/1 var(--font);white-space:nowrap;flex:none}
 .pill.live{background:#0ac700;color:#04210a}
 .pill.count{background:rgba(7,9,62,.07);color:var(--muted)}
@@ -302,11 +302,12 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
     head.appendChild(el('span', 'veh-id', id));
     var main = el('span', 'veh-main'), last = latest(v);
     var running = data.generatedAt - v.lastSeen < 15 * 60;
-    main.appendChild(el('span', 'veh-line', last ? 'Train ' + last.train + ' to ' + (last.headsign || lineName(last.route)) : 'No trips yet'));
-    main.appendChild(el('span', 'veh-sub', (running ? 'On ' + lineName(last && last.route) + ' now' : 'Last seen ' + dayName(last.day).replace(/^Today$/, 'today').replace(/^Yesterday$/, 'yesterday') + ' at ' + t(v.lastSeen)) + (v.label && v.label !== id ? ', labeled ' + v.label : '')));
+    main.appendChild(el('span', 'veh-line', last ? lineName(last.route) : 'No trips yet'));
+    if (last) main.appendChild(el('span', 'veh-sub', 'Train ' + last.train + (last.headsign ? ' to ' + last.headsign : '') + (v.label && v.label !== id ? ', labeled ' + v.label : '')));
     head.appendChild(main);
     var tags = el('span', 'veh-tags');
     if (running) tags.appendChild(el('span', 'pill live', 'Running now'));
+    else if (last) tags.appendChild(el('span', 'pill count', 'Last seen ' + dayName(last.day).replace(/^Today$/, 'today').replace(/^Yesterday$/, 'yesterday') + ' at ' + t(v.lastSeen)));
     var n = tripCount(v); tags.appendChild(el('span', 'pill count', n + (n === 1 ? ' trip' : ' trips')));
     head.appendChild(tags);
     head.insertAdjacentHTML('beforeend', '<svg class="veh-chev" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>');
