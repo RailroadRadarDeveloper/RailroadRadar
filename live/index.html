@@ -5,8 +5,11 @@ try {
   var raw = localStorage.getItem('rrSpecialMoveShareV1');
   var stopped = localStorage.getItem('rrSpecialShareStopped') === '1';
   var o = raw ? JSON.parse(raw) : null;
-  if (!stopped && o && o.uid && Number(o.expiresAt) > Date.now()) location.replace('/live/user.html?uid=' + encodeURIComponent(o.uid));
-  else location.replace('/map/');
+  if (!stopped && o && Number(o.expiresAt) > Date.now()) {
+    if (o.shareCode) location.replace('/live/user.html?s=' + encodeURIComponent(o.shareCode));
+    else if (o.uid) location.replace('/live/user.html?uid=' + encodeURIComponent(o.uid));
+    else location.replace('/map/');
+  } else location.replace('/map/');
 } catch (e) { location.replace('/map/'); }
 </script></head><body><script src="/assets/js/trip-notify.js?v=61eab3b6f1"></script>
 </body></html>
