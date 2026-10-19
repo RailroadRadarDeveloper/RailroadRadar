@@ -262,7 +262,7 @@ box.innerHTML=snap.docs.map(d=>{const c=d.data()||{};/* never show an email, eve
 box.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{await db.collection('pressReleases').doc(slug).collection('comments').doc(b.getAttribute('data-x')).delete();comments(slug);});}
 async function article(slug){if(window.speechSynthesis)window.speechSynthesis.cancel();speaking=false;
 const app=document.getElementById('app');const snap=await db.collection('pressReleases').doc(slug).get();
-if(!snap.exists){app.innerHTML='<h1>Not found</h1><p><a class="btn sec" href="/press/index.html">All releases</a></p>';return;}
+if(!snap.exists){app.innerHTML='<h1>Not Found</h1><p><a class="btn sec" href="/press/index.html">All releases</a></p>';return;}
 const a=snap.data()||{};document.title=(a.title||'Press')+' | RailroadRadar';
 const articleUrl='https://railroadradar.com/press/?id='+encodeURIComponent(slug);
 const plain=String(a.body||'').replace(/\s+/g,' ').trim();
