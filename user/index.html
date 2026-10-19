@@ -1,274 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#07093e">
-<title>A shared trip on MyTrips | RailroadRadar</title>
-<meta name="description" content="See this train trip on MyTrips: the line, train number, times and route map. Follow trains live on RailroadRadar.">
-<meta name="robots" content="noindex,nofollow">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="RailroadRadar">
-<meta property="og:title" content="A shared trip on MyTrips">
-<meta property="og:description" content="See this train trip on MyTrips: the line, train number, times and route map. Follow trains live on RailroadRadar.">
-<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
-<meta property="og:image:alt" content="RailroadRadar">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="A shared trip on MyTrips">
-<meta name="twitter:description" content="See this train trip on MyTrips: the line, train number, times and route map. Follow trains live on RailroadRadar.">
-<meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
-<script>
-(function(){try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('rr-motion');}catch(_){}})();
-</script>
-<script>
-!function(b,e,t,r){
-  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
-  b[t].l=+new Date;
-  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
-  s.src='https://betterstack.net/b.js?t='+r;
-  /* Better Stack loads only after analytics consent (same choice as Clarity). */
-  b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
-}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
-betterstack('init', { environment: 'production' });
-window.__rrLoadClarity = function () {
-  if (window.__rrClarityLoaded) return;
-  window.__rrClarityLoaded = true;
-  (function(c,l,a,r,i,t,y){
-    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-  })(window, document, "clarity", "script", "yie7bk3bns");
-};
-/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the loaders above. */
-</script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-<style>
-:root{
-  --navy:#07093e; --green:#0ac700;
-  --font:"Google Sans",Roboto,Arial,sans-serif;
-  --card:#10145a; --card-2:#151a6b; --line:rgba(255,255,255,.16);
-  --muted:#c9d4ea; --soft:#9aa3c7; --focus:#8fd3ff;
-}
-*{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--navy);color:#fff;font:400 14px/1.5 var(--font);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-a{color:inherit}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-
-/* Header: same as the home page (logo to /, site links, account or Sign in with Google, no Menu button) */
-.header{position:sticky;top:0;z-index:1000;height:66px;background:var(--navy);display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.08)}
-.header-logo-link{display:flex;align-items:center;flex:none}
-.header-logo{height:40px;width:auto;max-width:min(260px,52vw);display:block}
-.header .rr-site-nav{flex:1}
-.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;position:relative}
-.header-tools{position:relative}
-.header-right .header-tools{position:static}
-#btn-header-tools{display:none}
-.rr-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:4px;border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px/1 var(--font);text-decoration:none;white-space:nowrap;cursor:pointer}
-.rr-btn:hover{background:#dfe3f7;border-color:#dfe3f7}
-.rr-btn.small{height:32px;padding:0 12px}
-.rr-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
-.rr-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#fff}
-.header-tools-panel .panel-link{display:block;color:#fff;text-decoration:none;font:700 13px/1 var(--font);padding:9px 10px;border-radius:4px;background:none;border:0;text-align:left;cursor:pointer;width:100%}
-.header-tools-panel .panel-link:hover{background:rgba(255,255,255,.14)}
-.header-auth{display:flex;align-items:center;visibility:hidden}
-.header-auth.is-ready{visibility:visible}
-.home-user{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0;border:0;border-radius:0;background:transparent;color:#fff;font:700 15px/1.2 var(--font);cursor:pointer;max-width:260px}
-.home-user[hidden]{display:none}
-.home-user:hover{opacity:.85}
-.home-user:hover .home-user-name{text-decoration:underline}
-.home-user-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;border:0;background:#2c3e6b;flex:none;display:block}
-.home-user-label{display:inline-flex;align-items:center;min-width:0;padding:0}
-.home-user-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.home-user-badge{width:14px;height:14px;object-fit:contain;margin-left:5px;flex:none;display:block}
-.home-user-badge[hidden]{display:none}
-.home-signed-in{display:flex;flex-direction:column;gap:2px;padding:4px 0 6px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.14)}
-.home-signed-in[hidden]{display:none}
-.home-signed-in-email{color:rgba(255,255,255,.72);font:500 12px/1.3 var(--font);padding:4px 10px 6px;overflow-wrap:anywhere}
-@media (max-width:820px){.home-user-avatar{width:32px;height:32px}.home-user{height:32px}.home-user-name{display:none}.home-user-label:not(:has(.home-user-badge:not([hidden]))){display:none}.home-user-badge{margin-left:0}}
-.header-tools-panel .panel-nav{display:none;flex-direction:column;gap:2px;padding-bottom:4px}
-html.rr-nav-in-menu .header .rr-site-nav{visibility:hidden}
-html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
-@media (max-width:980px){.header-tools-panel .panel-nav{display:flex}}
-@media (max-width:560px){.header{padding:0 12px}.header-logo{height:32px}}
-
-/* Page */
-.page{width:min(900px,100%);margin:0 auto;padding:28px 16px 72px}
-.pill{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font:700 12px/1 var(--font);white-space:nowrap;background:rgba(255,255,255,.14);color:#fff}
-.pill.rail{background:var(--rail,#2c3e6b);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
-.pill.is-now{background:var(--green);color:var(--navy)}
-.pill.is-soon{background:#fff;color:var(--navy)}
-.pill.is-ontime{background:var(--green);color:var(--navy)}
-.pill.is-late{background:#ffb020;color:var(--navy)}
-.pill.is-verylate{background:#ff5a5f;color:#fff}
-.pills{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-
-/* Shared trip summary card */
-.share{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--rail,#2c3e6b);border-radius:4px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.35);margin:0 0 36px}
-.share-body{padding:20px 22px 18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 24px;align-items:start}
-.share-by{grid-column:1 / -1;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;text-decoration:none;width:max-content;max-width:100%}
-.share-by img,.share-by .ava-i{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#2c3e6b;flex:none}
-.share-by strong{color:#fff}
-.share-by:hover strong{text-decoration:underline}
-.share-title{min-width:0}
-.share-title .pills{margin-bottom:12px}
-.share h1{margin:0 0 6px;font-size:clamp(26px,5vw,34px);line-height:1.15;font-weight:700;overflow-wrap:anywhere}
-.share-train{font-size:18px;font-weight:700;margin:0 0 2px}
-.share-to{font-size:18px;color:var(--muted);margin:0}
-.share-when{grid-column:1 / -1;margin:0;color:var(--muted);font-size:14px;font-weight:500}
-.share-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.tl{grid-column:1 / -1;list-style:none;margin:0;padding:0;position:relative}
-.tl::before{content:'';position:absolute;left:83px;top:14px;bottom:14px;width:2px;background:var(--rail,#2c3e6b)}
-.tl li{display:grid;grid-template-columns:72px 24px minmax(0,1fr);align-items:center;gap:0 0;min-height:40px}
-.tl-time{font-size:16px;font-weight:700;text-align:right;padding-right:4px;white-space:nowrap}
-.tl-dot{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--rail,#2c3e6b);justify-self:center;position:relative;z-index:1}
-.tl-stop{min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding-left:6px}
-.tl-stop b{font-size:16px;overflow-wrap:anywhere}
-.tl-k{color:var(--soft);font-size:13px;width:100%;line-height:1.2}
-.tl li.tl-leg{min-height:30px}
-.tl li.tl-leg .tl-dot{width:10px;height:10px;border-width:2px}
-.tl-leg-name{color:var(--muted);font-size:13px;font-weight:700}
-.facts{grid-column:1 / -1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
-.fact{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
-.fact b{display:block;font-size:18px;line-height:1.2}
-.fact span{color:var(--soft);font-size:12px;font-weight:500}
-.share-map{height:340px;background:#d7dde6;position:relative;z-index:0}
-.map-note{margin:0;padding:8px 22px 12px;color:var(--soft);font-size:12px}
-.share-copied{color:var(--green);font-weight:700;font-size:13px;align-self:center}
-.notice{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px 16px;margin:0 0 28px;color:var(--muted)}
-.notice strong{color:#fff}
-@media (max-width:640px){
-  .page{padding:18px 12px 64px}
-  .share-body{grid-template-columns:minmax(0,1fr);padding:16px 16px 14px}
-  .share-actions{justify-content:flex-start}
-  .share-map{height:260px}
-  .facts{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
-  .fact b{font-size:16px}
-  .map-note{padding:8px 16px 12px}
-}
-
-/* Rider */
-.rider{display:flex;align-items:center;gap:14px;margin:0 0 18px}
-.rider img,.rider .ava-i{width:56px;height:56px;border-radius:50%;object-fit:cover;background:#2c3e6b;flex:none}
-.ava-i{display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:22px}
-.share-by .ava-i{font-size:13px}
-.rider h2{margin:0;font-size:22px;line-height:1.2}
-.rider .handle{color:var(--soft);font-weight:500}
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 30px}
-.stats div{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
-.stats b{display:block;font-size:22px;line-height:1.2}
-.stats span{color:var(--soft);font-size:12px;font-weight:500}
-.list-h{margin:0 0 12px;font-size:18px;font-weight:700}
-.list{display:flex;flex-direction:column;gap:12px;margin:0 0 30px}
-.trip{display:grid;grid-template-columns:minmax(0,1fr) 260px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--rail,#2c3e6b);border-radius:4px;overflow:hidden;text-decoration:none;color:#fff}
-.trip:hover{background:var(--card-2)}
-.trip-text{padding:14px 16px;min-width:0}
-.trip-text .pills{margin-bottom:8px}
-.trip-line{font-size:17px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
-.trip-train,.trip-to{font-size:14px}
-.trip-train{font-weight:700}
-.trip-to{color:var(--muted)}
-.trip-meta{margin-top:6px;color:var(--soft);font-size:13px;display:flex;flex-wrap:wrap;gap:2px 14px}
-.trip-map{height:100%;min-height:150px;background:#d7dde6;position:relative;z-index:0;pointer-events:none}
-.trip-map.is-empty::after,.share-map.is-empty::after{content:'Map unavailable';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#5b6578;font-size:12px;font-weight:700}
-.trip-map .leaflet-control-container{display:none!important}
-.share-map .leaflet-control-attribution{font-size:10px}
-@media (max-width:640px){.trip{grid-template-columns:minmax(0,1fr)}.trip-map{height:140px;min-height:0}.stats b{font-size:19px}}
-.rr-train-dot{background:transparent!important;border:0!important}
-
-/* States */
-.state{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:28px 22px;text-align:center;color:var(--muted)}
-.state h1{color:#fff;margin:0 0 8px;font-size:22px}
-.state p{margin:0 0 18px;line-height:1.5}
-.skel{height:14px;border-radius:4px;background:rgba(255,255,255,.1);margin:10px 0}
-.skel.big{height:30px;width:60%}
-.skel.map{height:260px;margin:18px 0 0}
-html.rr-motion .skel{animation:rr-pulse 1.4s ease-in-out infinite}
-@keyframes rr-pulse{50%{opacity:.5}}
-html.rr-motion .rr-in{animation:rr-in .5s cubic-bezier(.2,.7,.2,1) both}
-@keyframes rr-in{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:none}}
-
-/* Footer */
-.footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
-.footer-inner{width:min(960px,100%);margin:0 auto;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px}
-.footer-inner a,.footer-inner button{color:#fff;text-decoration:none;font:500 13px/1.4 var(--font);background:none;border:0;padding:0;cursor:pointer}
-.footer-inner a:hover,.footer-inner button:hover{text-decoration:underline}
-.footer-inner .copy{color:rgba(255,255,255,.72);margin-right:auto}
-@media (max-width:560px){.footer-inner .copy{flex-basis:100%}}
-
-/* Cookie bar and preferences (same markup and script as the home page) */
-#rr-cookie-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:10080;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 12px;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:460px}
-#rr-cookie-bar[hidden],#rr-cookie-modal[hidden]{display:none!important}
-#rr-cookie-bar p{margin:0;flex:1 1 240px;font-size:12px;line-height:1.4;color:#e8eaf2}
-#rr-cookie-bar a{color:#8fd3ff}
-.rr-cookie-actions{display:flex;gap:8px;flex-shrink:0}
-.rr-cookie-btn{height:32px;border:1px solid #fff;border-radius:4px;padding:0 12px;font:700 13px/1 var(--font);cursor:pointer;white-space:nowrap;background:#fff;color:var(--navy)}
-.rr-cookie-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
-#rr-cookie-modal{position:fixed;inset:0;z-index:10085;display:flex;align-items:flex-end;justify-content:center;padding:16px}
-.rr-cookie-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-.rr-cookie-modal-card{position:relative;z-index:1;width:100%;max-width:520px;max-height:min(80vh,640px);overflow:auto;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 16px 16px}
-.rr-cookie-modal-card h3{margin:0 0 8px;font-size:17px}
-.rr-cookie-modal-lead{margin:0 0 14px;font-size:13px;color:#c5c9d8}
-.rr-cookie-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
-.rr-cookie-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:4px;background:rgba(255,255,255,.04)}
-.rr-cookie-row-text{display:flex;flex-direction:column;gap:4px;min-width:0}
-.rr-cookie-row-text span{font-size:12px;color:#c5c9d8}
-.rr-cookie-switch{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;font-size:11px;color:#c5c9d8;cursor:pointer}
-.rr-cookie-switch input{width:18px;height:18px;accent-color:#2ecc71}
-.rr-cookie-switch.is-locked{cursor:default;opacity:.85}
-.rr-cookie-modal-actions{display:flex;gap:8px;justify-content:flex-end}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyTrips | RailroadRadar</title>
+  <meta name="theme-color" content="#07093e">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; min-height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff; color: #1a2030;
+    }
+    .header {
+      position: fixed; top: 0; left: 0; right: 0; height: 64px;
+      background: #07093e; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 20;
+    }
+    .header-logo-picture { display: flex; align-items: center; }
+    .header img.wordmark {
+      height: 52px; width: auto; max-width: min(260px, 58vw); object-fit: contain; display: block;
+    }
+    @media (min-width: 768px) {
+      .header img.wordmark { height: 48px; max-width: min(380px, 44vw); }
+    }
+    .hb {
+      background: #fff; color: #07093e; border: 0; padding: 8px 12px;
+      font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 88px 16px 64px; }
+    .state {
+      background: #f6f7fb; border: 1px solid #e2e6ef; padding: 28px 22px;
+      text-align: center; color: #5b6578;
+    }
+    .state h1 { color: #07093e; margin: 0 0 8px; font-size: 22px; }
+    .state p { margin: 0 0 18px; line-height: 1.45; }
+    .profile-head {
+      display: flex; gap: 16px; align-items: center; margin-bottom: 28px;
+      background: #f6f7fb; border: 1px solid #e2e6ef; padding: 18px 20px;
+    }
+    .avatar, .avatar-fallback {
+      width: 84px; height: 84px; border-radius: 50%; object-fit: cover;
+      border: 3px solid #07093e; background: #2c3e6b; flex-shrink: 0;
+    }
+    .avatar-fallback {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; font-weight: 800; color: #fff;
+    }
+    .profile-meta h1 { margin: 0 0 4px; font-size: 24px; color: #07093e; line-height: 1.2; }
+    .profile-meta .handle { color: #5b6578; font-weight: 700; font-size: 15px; }
+    .profile-meta .brand-note { margin: 6px 0 0; font-size: 12px; font-weight: 700; color: #07093e; letter-spacing: .04em; text-transform: uppercase; }
+    .section { margin: 0 0 28px; }
+    .section h2 {
+      margin: 0 0 14px; color: #07093e; font-size: 18px; font-weight: 800;
+    }
+    /* Solid full-color trip cards (match My Trips prefs) */
+    .trip-log-row {
+      background: var(--rr-trip-rail, #07093e); color: #fff; border: none; border-radius: 14px;
+      padding: 16px; margin: 0 0 16px; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.18);
+    }
+    .trip-log-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .trip-log-row-rail { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .trip-rail-badge, .trip-train-chip {
+      display: inline-block; color: #07093e; background: #fff;
+      font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; letter-spacing: .02em;
+    }
+    .trip-train-chip { background: rgba(255,255,255,0.92); }
+    .trip-log-row-route { font-size: 17px; font-weight: 800; color: #fff; margin: 0 0 6px; }
+    .trip-log-row-meta { color: rgba(255,255,255,0.88); font-size: 13px; margin-bottom: 8px; }
+    .trip-log-row-facts {
+      display: flex; flex-wrap: wrap; gap: 10px; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 10px;
+    }
+    .trip-log-row-map {
+      margin-top: 10px; height: 160px; width: 100%; border-radius: 10px;
+      background: #0b0d1a; overflow: hidden; position: relative; z-index: 0;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+    }
+    .trip-log-row-map.is-empty::after {
+      content: 'Map unavailable';
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #9aa3b8; font-size: 12px; font-weight: 700; pointer-events: none; z-index: 3;
+    }
+    .trip-log-row-map.is-loading::after {
+      content: 'Loading map…';
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #9aa3b8; font-size: 12px; font-weight: 700; pointer-events: none; z-index: 3;
+    }
+    .trip-log-row-map .leaflet-container { height: 100%; width: 100%; background: #0b0d1a; }
+    .trip-log-row-map .leaflet-control-container { display: none !important; }
+    .trip-seg-chip {
+      display: block; font-size: 11px; color: rgba(255,255,255,0.9); margin: 0 0 4px;
+    }
+    .empty-trips { color: #5b6578; padding: 8px 0 18px; }
+    .footer-note { margin-top: 20px; color: #7b8494; font-size: 13px; text-align: center; }
+    .footer-note a { color: #07093e; font-weight: 700; text-decoration: none; }
+    @media (max-width: 520px) {
+      .profile-head { flex-direction: column; text-align: center; }
+    }
+  </style>
 </head>
 <body>
-<header class="header">
-  <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
-  <nav class="rr-site-nav" aria-label="RailroadRadar">
-    <a href="/map/" data-nav="map">Live map</a>
-    <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
-    <a href="/favorites/" data-nav="favorites">Favorites</a>
-    <a href="/press/" data-nav="press">Press</a>
-  </nav>
-  <div class="header-right">
-    <div class="header-tools">
-      <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
-      <div class="header-tools-panel" id="header-tools-panel" hidden>
-        <div class="panel-nav">
-          <a class="panel-link" href="/map/">Live map</a>
-          <a class="panel-link" href="/mytrips/">MyTrips</a>
-          <a class="panel-link" href="/favorites/">Favorites</a>
-          <a class="panel-link" href="/press/">Press</a>
-        </div>
-        <div class="home-signed-in" id="home-signed-in" hidden><span class="home-signed-in-email"></span><a class="panel-link" href="/mytrips/">MyTrips</a><button type="button" class="panel-link" id="home-signout">Sign out</button></div>
-        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie settings</button>
-      </div>
-    </div>
-    <div class="header-auth" id="header-auth">
-      <a class="gsi-btn gsi-light gsi-compact" id="btn-google-signin" href="/mytrips/" aria-label="Sign in with Google"><span class="gsi-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span><span class="gsi-text">Sign in with Google</span></a>
-      <button type="button" class="home-user" id="home-user" hidden aria-haspopup="true" aria-controls="header-tools-panel" aria-label="Account menu"><img class="home-user-avatar" alt="Account" width="34" height="34" referrerpolicy="no-referrer"><span class="home-user-label"><span class="home-user-name">Account</span><img class="home-user-badge" src="/assets/admin-badge.png" alt="" width="18" height="18" loading="lazy" hidden></span></button>
+  <!-- /* Public user profile page */ -->
+  <div class="header">
+    <a class="brand" href="/mytrips/">
+      <picture class="header-logo-picture">
+        <source media="(min-width: 768px)" srcset="/assets/brand/mytrips-logo-wide.png">
+        <img class="wordmark" src="/assets/brand/mytrips-logo.png" alt="MyTrips by RailroadRadar">
+      </picture>
+    </a>
+    <a class="hb" href="/map/">Live map</a>
+  </div>
+  <div class="wrap" id="app">
+    <div class="state" id="state-loading">
+      <h1>Loading MyTrips…</h1>
+      <p>Pulling this rider’s public trip cards.</p>
     </div>
   </div>
-</header>
-<main class="page" id="app">
-  <div class="share" aria-busy="true" aria-label="Loading trip">
-    <div class="share-body" style="display:block">
-      <div class="skel" style="width:40%"></div><div class="skel big"></div><div class="skel" style="width:30%"></div><div class="skel" style="width:50%"></div>
-      <div class="skel map"></div>
-    </div>
-  </div>
-</main>
 
   <script src="/assets/js/trip-stations.js"></script>
   <script src="/assets/js/trip-miles.js?v=16ff83d4dd"></script>
   <script>
-  /* Public MyTrips page and shared trip links (/user/?u=NAME#trip-ID): station catalogs + Mapbox tiles parity with MyTrips */
+  /* Public profile trip maps — station catalogs + Mapbox tiles parity with My Trips */
   (function () {
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
@@ -808,342 +667,188 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
       });
       return Promise.all(promises).then(function () { return true; });
     }
-    /* ---------- Shared trip page (redesign): summary card, rider, trip list ---------- */
-    const REDUCED = (function () { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; } })();
-    const LINE_SUFFIX = { mnr: ' Line' };
-    function segsOf(d) {
-      const segs = Array.isArray(d.segments) && d.segments.length ? d.segments : null;
-      if (segs) return segs;
-      return [{ railroad: d.railroad, lineId: d.lineId || '', lineName: d.lineName || '', trainNumber: d.trainNumber,
-        originStationId: d.originStationId, destStationId: d.destStationId, originName: d.originName, destName: d.destName,
-        departTime: d.startTime, arriveTime: d.endTime }];
-    }
-    function segLineName(s, d) {
-      const rr = String(s.railroad || d.railroad || '').toLowerCase();
-      const named = String(s.lineName || '').trim();
-      if (named) return named;
-      const lid = String(s.lineId || d.lineId || '');
-      const pack = (typeof TRIP_LINE_STOPS !== 'undefined' && TRIP_LINE_STOPS[rr]) || null;
-      if (lid && pack && pack[lid] && pack[lid].n) return pack[lid].n + (LINE_SUFFIX[rr] || '');
-      return railLabel(rr);
-    }
-    function tripTitle(d) {
-      if (tripIsSpecialMove(d) && String(d.trainTitle || '').trim()) return String(d.trainTitle).trim();
-      const names = [];
-      segsOf(d).forEach(function (s) { const n = segLineName(s, d); if (n && names.indexOf(n) < 0) names.push(n); });
-      return names.join(' and ') || railLabel(d.railroad);
-    }
-    function trainText(d) {
-      const nums = segsOf(d).map(function (s) { return String(s.trainNumber || '').replace(/^#/, '').trim(); }).filter(Boolean);
-      const uniq = nums.filter(function (n, i) { return nums.indexOf(n) === i; });
-      if (!uniq.length && d.trainNumber) uniq.push(String(d.trainNumber));
-      if (!uniq.length) return '';
-      return (uniq.length > 1 ? 'Trains ' : 'Train ') + uniq.join(' and ');
-    }
-    function originName(d) { const s = segsOf(d); return s[0].originName || d.originName || s[0].originStationId || 'Start'; }
-    function destName(d) { const s = segsOf(d); const l = s[s.length - 1]; return l.destName || d.destName || l.destStationId || 'End'; }
-    function depRaw(d) { const s = segsOf(d); return s[0].departTime || s[0].startTime || d.startTime; }
-    function arrRaw(d) { const s = segsOf(d); const l = s[s.length - 1]; return l.arriveTime || l.endTime || d.endTime; }
-    function endMs(d) { const a = asDate(arrRaw(d)); return a ? a.getTime() : (tripStartMs(d) ? tripStartMs(d) + 3 * 3600 * 1000 : 0); }
-    function phase(d) {
-      const s = tripStartMs(d), e = endMs(d), now = Date.now();
-      if (s && now < s) return 'upcoming';
-      if (s && now <= e) return 'now';
-      return 'past';
-    }
-    function fmtTime(raw) { const x = asDate(raw); return x ? x.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''; }
-    function fmtDay(raw, long) {
-      const x = asDate(raw); if (!x) return '';
-      return x.toLocaleDateString('en-US', long ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-    }
-    function rideTime(d) {
-      const a = asDate(depRaw(d)), b = asDate(arrRaw(d));
-      if (!a || !b || b <= a) return '';
-      const m = Math.round((b - a) / 60000);
-      if (m < 60) return m + ' min';
-      return Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
-    }
-    function stockText(d) {
-      const s = String(d.rollingStock || '').trim();
-      if (!s) return '';
-      return /^\d+$/.test(s) ? '#' + s : s;
-    }
-    function lateness(d) {
-      const segs = segsOf(d), last = segs[segs.length - 1];
-      const act = asDate(d.actualArriveTime || last.actualArriveTime), sched = asDate(arrRaw(d));
-      if (!act || !sched) return null;
-      const m = Math.round((act - sched) / 60000);
-      if (m <= 5) return { cls: 'is-ontime', text: 'On time' };
-      if (m <= 15) return { cls: 'is-late', text: m + ' min late' };
-      return { cls: 'is-verylate', text: m + ' min late' };
-    }
-    function statusPill(d) {
-      const p = phase(d);
-      if (p === 'now') return '<span class="pill is-now">On the way now</span>';
-      if (p === 'upcoming') return '<span class="pill is-soon">Upcoming</span>';
-      return '<span class="pill">Completed</span>';
-    }
-    function railPills(d) {
-      const ids = railIds(d);
-      return (ids.length ? ids : ['trip']).map(function (id) {
-        return '<span class="pill rail" style="--rail:' + railColor(id) + '">' + esc(railLabel(id)) + '</span>';
-      }).join('');
-    }
-    function avatarHtml(profile, name) {
-      return profile.photoURL
-        ? '<img src="' + esc(profile.photoURL) + '" alt="" referrerpolicy="no-referrer">'
-        : '<span class="ava-i" aria-hidden="true">' + esc(String(name).charAt(0).toUpperCase()) + '</span>';
-    }
 
-    /* Train icon matching the live map's icon for that railroad and line */
-    function trainIconFor(rr, lineId, stock) {
-      rr = String(rr || '').toLowerCase(); lineId = String(lineId || '');
-      const st = String(stock || '').replace(/\D/g, '');
-      let src = '';
-      if (rr === 'mbta') src = ({ '1036': '/assets/mbta-1036.png', '1072': '/assets/mbta-1072.png', '1776': '/assets/mbta-1776.png', '1125': '/assets/mbta-massdot.png', '1136': '/assets/mbta-massdot.png', '1137': '/assets/mbta-massdot.png' })[st] || '/assets/hsp46.png';
-      else if (rr === 'amtrak') src = lineId === '40751' ? '/assets/amtrak-acela.png' : (lineId === '88' || lineId === '94' || lineId === '90') ? '/assets/amtrak-acs64.png' : (lineId === '36921' || lineId === '95' || lineId === '68' || lineId === '31849' || lineId === '36949') ? '/assets/amtrak-empire.png' : '/assets/amtrak.png';
-      else if (rr === 'ctrail') src = '/assets/amtrak.png';
-      else if (rr === 'mnr') src = (['3', '4', '5', '6'].indexOf(lineId) >= 0) ? '/assets/mnr-new-haven.png' : '/assets/mnr.png';
-      else if (rr === 'lirr') src = '/assets/lirr.png';
-      else if (rr === 'njt') src = '/assets/njt-alp.png';
-      if (src) return L.icon({ iconUrl: src, iconSize: [34, 34], iconAnchor: [17, 17], className: 'rr-train-icon' });
-      return L.divIcon({ className: 'rr-train-dot', html: '<div style="width:16px;height:16px;background:' + railColor(rr) + ';border:2px solid #fff;border-radius:50%;box-sizing:border-box"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
-    }
-    function stationDotIcon() {
-      if (stationDotIcon._c) return stationDotIcon._c;
-      return (stationDotIcon._c = L.icon({ iconUrl: '/assets/station.png', iconSize: [16, 16], iconAnchor: [8, 8] }));
-    }
-    function pointAlong(line, f) {
-      if (!line || !line.length) return null;
-      if (line.length === 1 || f <= 0) return line[0];
-      if (f >= 1) return line[line.length - 1];
-      let total = 0; const seg = [];
-      for (let i = 1; i < line.length; i++) { const m = haversineMiles(line[i - 1][0], line[i - 1][1], line[i][0], line[i][1]); seg.push(m); total += m; }
-      let want = total * f;
-      for (let i = 0; i < seg.length; i++) {
-        if (want <= seg[i] || i === seg.length - 1) {
-          const t = seg[i] ? Math.min(1, want / seg[i]) : 0;
-          return [line[i][0] + (line[i + 1][0] - line[i][0]) * t, line[i][1] + (line[i + 1][1] - line[i][1]) * t];
-        }
-        want -= seg[i];
+    function paintTripLogMiniMap(el, data) {
+      if (!el || typeof L === 'undefined' || !L.map) {
+        if (el) { el.classList.add('is-empty'); el.classList.remove('is-loading'); }
+        return;
       }
-      return line[line.length - 1];
-    }
-    /* Where the train icon sits: start before the trip, end after it, and during the trip the spot the schedule puts it */
-    function trainSpot(d, geoms) {
-      const p = phase(d);
-      const first = geoms[0], last = geoms[geoms.length - 1];
-      if (p === 'upcoming') return { ll: first.origin || (first.line && first.line[0]), g: first };
-      if (p === 'past') return { ll: last.dest || (last.line && last.line[last.line.length - 1]), g: last };
-      const segs = segsOf(d), now = Date.now();
-      for (let i = 0; i < segs.length; i++) {
-        const a = asDate(segs[i].departTime || (i === 0 ? d.startTime : null)), b = asDate(segs[i].arriveTime || (i === segs.length - 1 ? d.endTime : null));
-        const g = geoms[i] || last;
-        if (a && b && now <= b.getTime()) {
-          const f = now <= a.getTime() ? 0 : (now - a) / (b - a);
-          const line = (g.line && g.line.length >= 2) ? g.line : [g.origin, g.dest].filter(Boolean);
-          return { ll: pointAlong(line, f), g: g, estimated: true };
-        }
-      }
-      return { ll: last.dest, g: last };
-    }
-
-    function paintTripMap(el, data, featured) {
-      if (!el || typeof L === 'undefined' || !L.map) { if (el) el.classList.add('is-empty'); return; }
+      el.classList.remove('is-empty');
+      el.classList.add('is-loading');
       el.innerHTML = '';
-      const segs = segsOf(data);
-      const geoms = segs.map(function (s) { return rrResolveTripSegmentGeom(s, data); });
-      if (!geoms.some(function (g) { return g.origin || g.dest || (g.line && g.line.length >= 2); })) { el.classList.add('is-empty'); return; }
+      const segs = rrTripSegmentsForMap(data).map(function (s) { return rrResolveTripSegmentGeom(s, data); });
+      const hasAny = segs.some(function (g) { return g.origin || g.dest || (g.line && g.line.length >= 2); });
+      if (!hasAny) {
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
       let map;
       try {
         map = L.map(el, {
-          zoomControl: !!featured && !L.Browser.mobile, attributionControl: !!featured, scrollWheelZoom: false,
-          dragging: !!featured && !L.Browser.mobile, doubleClickZoom: !!featured, boxZoom: false, keyboard: !!featured,
-          tap: false, touchZoom: !!featured, zoomAnimation: !REDUCED, fadeAnimation: !REDUCED, markerZoomAnimation: !REDUCED
+          zoomControl: false, attributionControl: false, dragging: false,
+          scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
+          keyboard: false, tap: false, touchZoom: false, closePopupOnClick: false
         });
         rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
-      } catch (_) { el.classList.add('is-empty'); return; }
+      } catch (e) {
+        el.classList.remove('is-loading');
+        el.classList.add('is-empty');
+        return;
+      }
       const bounds = [];
       const odOnly = tripIsSpecialMove(data);
-      geoms.forEach(function (g) {
+      segs.forEach(function (g) {
         if (odOnly) return;
         if (g.line && g.line.length >= 2) {
-          L.polyline(g.line, { color: g.color || '#07093e', weight: featured ? 6 : 5, opacity: 1, lineJoin: 'round', lineCap: 'round' }).addTo(map);
-          g.line.forEach(function (p) { bounds.push(p); });
+          try {
+            L.polyline(g.line, { color: g.color || '#07093e', weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+            g.line.forEach(function (p) { bounds.push(p); });
+          } catch (_) {}
         } else if (g.origin && g.dest) {
-          L.polyline([g.origin, g.dest], { color: g.color || '#07093e', weight: 3, opacity: 0.75, dashArray: '6 6' }).addTo(map);
-          bounds.push(g.origin, g.dest);
+          try {
+            L.polyline([g.origin, g.dest], { color: g.color || '#07093e', weight: 3, opacity: 0.75, dashArray: '6 6' }).addTo(map);
+            bounds.push(g.origin, g.dest);
+          } catch (_) {}
         }
       });
-      const seen = {};
-      function dot(ll) {
-        if (!ll) return;
-        const k = Number(ll[0]).toFixed(5) + ',' + Number(ll[1]).toFixed(5);
-        if (seen[k]) return; seen[k] = 1;
-        L.marker(ll, { icon: stationDotIcon(), interactive: false, keyboard: false }).addTo(map);
-        bounds.push(ll);
-      }
-      geoms.forEach(function (g) { dot(g.origin); dot(g.dest); });
-      const spot = trainSpot(data, geoms);
-      if (spot && spot.ll) {
-        L.marker(spot.ll, { icon: trainIconFor(spot.g.railroad || data.railroad, spot.g.lineId, data.rollingStock), interactive: false, keyboard: false, zIndexOffset: 1000, title: trainText(data) || 'Train' }).addTo(map);
-        bounds.push(spot.ll);
-        el.setAttribute('data-train-at', spot.estimated ? 'estimated' : (phase(data) === 'upcoming' ? 'origin' : 'dest'));
-      }
+      (function paintTripEndpointMarkers() {
+        function llKey(ll) {
+          if (!ll) return '';
+          const lat = Array.isArray(ll) ? Number(ll[0]) : Number(ll.lat);
+          const lng = Array.isArray(ll) ? Number(ll[1]) : Number(ll.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return '';
+          return lat.toFixed(5) + ',' + lng.toFixed(5);
+        }
+        function addOdMarker(ll, isOrigin) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 5, color: '#1a2030', weight: 2,
+              fillColor: isOrigin ? '#1a7f37' : '#b00020', fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        function addTransferMarker(ll) {
+          if (!ll) return;
+          try {
+            L.circleMarker(ll, {
+              radius: 3.5, color: '#07093e', weight: 2, fillColor: '#fff', fillOpacity: 1
+            }).addTo(map);
+            bounds.push(ll);
+          } catch (_) {}
+        }
+        if (!segs.length) return;
+        if (segs.length === 1) {
+          addOdMarker(segs[0].origin, true);
+          addOdMarker(segs[0].dest, false);
+          return;
+        }
+        addOdMarker(segs[0].origin, true);
+        const endKeys = Object.create(null);
+        const ok = llKey(segs[0].origin); if (ok) endKeys[ok] = 1;
+        const dk = llKey(segs[segs.length - 1].dest); if (dk) endKeys[dk] = 1;
+        const seen = Object.create(null);
+        for (let i = 0; i < segs.length - 1; i++) {
+          const ll = segs[i].dest || (segs[i + 1] && segs[i + 1].origin);
+          const k = llKey(ll);
+          if (!k || endKeys[k] || seen[k]) continue;
+          seen[k] = 1;
+          addTransferMarker(ll);
+        }
+        addOdMarker(segs[segs.length - 1].dest, false);
+      })();
       try {
-        if (bounds.length >= 2) map.fitBounds(bounds, { padding: featured ? [36, 36] : [18, 18], maxZoom: 13, animate: false });
-        else if (bounds.length === 1) map.setView(bounds[0], 11, { animate: false });
-        else map.setView([42.3, -71.1], 7, { animate: false });
-      } catch (_) { try { map.setView([42.3, -71.1], 7); } catch (__) {} }
+        if (bounds.length >= 2) map.fitBounds(bounds, { padding: [18, 18], maxZoom: 13 });
+        else if (bounds.length === 1) map.setView(bounds[0], 11);
+        else map.setView([42.3, -71.1], 7);
+      } catch (_) {
+        try { map.setView([42.3, -71.1], 7); } catch (__) {}
+      }
+      el.classList.remove('is-loading');
       maps.push(map);
-      setTimeout(function () { try { map.invalidateSize(false); } catch (_) {} }, 60);
-      setTimeout(function () { try { map.invalidateSize(false); } catch (_) {} }, 300);
+      setTimeout(function () { try { map.invalidateSize(false); } catch (_) {} }, 50);
+      setTimeout(function () { try { map.invalidateSize(false); } catch (_) {} }, 250);
     }
-    function scheduleTripMap(el, data, featured) {
+    function scheduleTripLogMiniMap(el, data) {
       if (!el) return;
-      rrEnsureTripGeomsShapes(data).then(function () { if (el.isConnected) paintTripMap(el, data, featured); },
-        function () { if (el.isConnected) paintTripMap(el, data, featured); });
+      el.classList.add('is-loading');
+      el.classList.remove('is-empty');
+      rrEnsureTripGeomsShapes(data).then(function () {
+        if (!el.isConnected) return;
+        paintTripLogMiniMap(el, data);
+      }).catch(function () {
+        if (!el.isConnected) return;
+        paintTripLogMiniMap(el, data);
+      });
     }
 
-    function timelineHtml(d) {
-      const segs = segsOf(d), p = phase(d);
-      const leave = p === 'past' ? 'Left' : 'Leaves', arrive = p === 'past' ? 'Got there' : 'Arrives';
-      const late = lateness(d);
-      let rows = '<li><span class="tl-time">' + esc(fmtTime(depRaw(d))) + '</span><span class="tl-dot"></span><span class="tl-stop"><span class="tl-k">' + leave + '</span><b>' + esc(originName(d)) + '</b></span></li>';
+    function tripCard(d) {
+      const ids = railIds(d);
+      const primary = (ids[0] || d.railroad || 'trip');
+      const badges = (ids.length ? ids : ['trip']).map(function (id) {
+        return '<span class="trip-rail-badge">' + esc(railLabel(id)) + '</span>';
+      }).join('');
+      const train = d.trainNumber ? '<span class="trip-train-chip">Train ' + esc(d.trainNumber) + '</span>' : '';
+      const miles = formatMiles(d.miles);
+      const stock = String(d.rollingStock || '').trim();
+      const segs = Array.isArray(d.segments) ? d.segments : [];
+      let chips = '';
       if (segs.length > 1) {
-        for (let i = 0; i < segs.length - 1; i++) {
-          const nx = segs[i + 1];
-          rows += '<li class="tl-leg"><span class="tl-time">' + esc(fmtTime(nx.departTime)) + '</span><span class="tl-dot"></span><span class="tl-stop"><span class="tl-k">Change at</span><b>' + esc(segs[i].destName || nx.originName || '') + '</b><span class="tl-leg-name">' + esc([segLineName(nx, d), nx.trainNumber ? 'Train ' + nx.trainNumber : ''].filter(Boolean).join(', ')) + '</span></span></li>';
-        }
+        chips = segs.map(function (s, i) {
+          return '<span class="trip-seg-chip">' + (i + 1) + '. ' +
+            esc(railLabel(s.railroad)) + ' · ' +
+            esc(s.originName || s.originStationId || '') + ' → ' +
+            esc(s.destName || s.destStationId || '') + '</span>';
+        }).join('');
       }
-      rows += '<li><span class="tl-time">' + esc(fmtTime(arrRaw(d))) + '</span><span class="tl-dot"></span><span class="tl-stop"><span class="tl-k">' + arrive + '</span><b>' + esc(destName(d)) + '</b>' + (late ? '<span class="pill ' + late.cls + '">' + esc(late.text) + '</span>' : '') + '</span></li>';
-      return '<ol class="tl" aria-label="Trip times">' + rows + '</ol>';
-    }
-    function factsHtml(d) {
-      const f = [];
-      const mi = formatMiles(d.miles); if (mi) f.push(['Distance', mi]);
-      const rt = rideTime(d); if (rt) f.push(['Ride time', rt]);
-      const st = stockText(d); if (st) f.push(['Car or engine', st]);
-      const segs = segsOf(d); if (segs.length > 1) f.push(['Trains', String(segs.length)]);
-      if (!f.length) return '';
-      return '<div class="facts">' + f.map(function (x) { return '<div class="fact"><b>' + esc(x[1]) + '</b><span>' + esc(x[0]) + '</span></div>'; }).join('') + '</div>';
-    }
-    function featuredHtml(d, profile, name) {
-      const train = trainText(d);
-      const est = phase(d) === 'now';
-      return '<article class="share rr-in" id="shared-trip" data-trip-id="' + esc(d.id) + '" style="--rail:' + railColor(railIds(d)[0] || d.railroad) + '">' +
-        '<div class="share-body">' +
-          '<a class="share-by" href="#rider"><span>' + avatarHtml(profile, name) + '</span><span><strong>' + esc(name) + '</strong> shared this trip</span></a>' +
-          '<div class="share-title"><div class="pills">' + railPills(d) + statusPill(d) + '</div>' +
-            '<h1>' + esc(tripTitle(d)) + '</h1>' +
-            (train ? '<p class="share-train">' + esc(train) + '</p>' : '') +
-            '<p class="share-to">To ' + esc(destName(d)) + '</p>' +
-          '</div>' +
-          '<div class="share-actions"><button type="button" class="rr-btn" id="share-btn">Share this trip</button><a class="rr-btn secondary" href="/map/">See trains live</a></div>' +
-          '<p class="share-when">' + esc(fmtDay(depRaw(d), true)) + '</p>' +
-          timelineHtml(d) + factsHtml(d) +
-        '</div>' +
-        '<div class="share-map" data-share-map aria-label="Route map"></div>' +
-        (est ? '<p class="map-note">The train is shown where the schedule puts it right now.</p>' : '') +
+      return '<article class="trip-log-row" data-trip-id="' + esc(d.id || '') + '" data-rail-accent style="--rr-trip-rail:' + railColor(primary) + '">' +
+        '<div class="trip-log-row-top"><div class="trip-log-row-rail">' + badges + train + '</div></div>' +
+        '<div class="trip-log-row-route">' + routeHtml(d) + '</div>' +
+        '<div class="trip-log-row-meta">' + esc(tripWhen(d)) + '</div>' +
+        '<div class="trip-log-row-facts">' +
+          (miles ? '<span>' + esc(miles) + '</span>' : '') +
+          (stock ? '<span>Stock #' + esc(stock) + '</span>' : '') +
+        '</div>' + chips +
+        '<div class="trip-log-row-map is-loading" data-trip-map></div>' +
       '</article>';
     }
-    function tripRowHtml(d) {
-      const train = trainText(d);
-      const meta = [fmtDay(depRaw(d)) + (fmtTime(depRaw(d)) ? ', ' + fmtTime(depRaw(d)) : ''), 'From ' + originName(d), formatMiles(d.miles)].filter(Boolean);
-      return '<a class="trip rr-in" href="#trip-' + esc(encodeURIComponent(d.id)) + '" data-trip-id="' + esc(d.id) + '" style="--rail:' + railColor(railIds(d)[0] || d.railroad) + '">' +
-        '<div class="trip-text"><div class="pills">' + railPills(d) + statusPill(d) + '</div>' +
-          '<div class="trip-line">' + esc(tripTitle(d)) + '</div>' +
-          (train ? '<div class="trip-train">' + esc(train) + '</div>' : '') +
-          '<div class="trip-to">To ' + esc(destName(d)) + '</div>' +
-          '<div class="trip-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' +
-        '</div><div class="trip-map" data-trip-map aria-hidden="true"></div></a>';
+    function sectionHtml(title, trips) {
+      if (!trips.length) return '';
+      return '<section class="section"><h2>' + esc(title) + '</h2>' +
+        trips.map(tripCard).join('') + '</section>';
     }
-    function showState(title, body) {
-      document.getElementById('app').innerHTML =
-        '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(body) + '</p>' +
-        '<p><a class="rr-btn" href="/map/">Back to the live map</a></p></div>';
-    }
-    function setMeta(title, desc) {
-      document.title = title;
-      [['property', 'og:title'], ['name', 'twitter:title']].forEach(function (m) { const el = document.querySelector('meta[' + m[0] + '="' + m[1] + '"]'); if (el) el.setAttribute('content', title); });
-      if (desc) [['name', 'description'], ['property', 'og:description'], ['name', 'twitter:description']].forEach(function (m) { const el = document.querySelector('meta[' + m[0] + '="' + m[1] + '"]'); if (el) el.setAttribute('content', desc); });
-    }
-    function wantedTripId() {
-      const m = String(location.hash || '').match(/^#trip-(.+)$/);
-      if (!m) return '';
-      try { return decodeURIComponent(m[1]); } catch (_) { return m[1]; }
-    }
-    let state = null;
-    function render() {
-      const st = state; if (!st) return;
-      const profile = st.profile, trips = st.trips;
-      const name = profile.displayName || profile.username || 'A rider';
-      while (maps.length) { try { maps.pop().remove(); } catch (_) {} }
-      const wantId = wantedTripId();
-      const featured = wantId ? trips.filter(function (t) { return t.id === wantId; })[0] : null;
-      const rest = trips.filter(function (t) { return t !== featured; });
-      const upcoming = rest.filter(function (t) { return phase(t) !== 'past'; }).sort(function (a, b) { return tripStartMs(a) - tripStartMs(b); });
-      const past = rest.filter(function (t) { return phase(t) === 'past'; }).sort(function (a, b) { return tripStartMs(b) - tripStartMs(a); });
-      let miles = 0; const rails = {};
-      trips.forEach(function (t) { const x = Number(t.miles); if (isFinite(x)) miles += x; railIds(t).forEach(function (r) { rails[r] = 1; }); });
-      const nRails = Object.keys(rails).length;
-      let html = '';
-      if (featured) html += featuredHtml(featured, profile, name);
-      else if (wantId) html += '<div class="notice"><strong>This trip isn\u2019t shown here.</strong> The rider may have made it private or removed it. Here are their other public trips.</div>';
-      const first = String(name).split(' ')[0];
-      html += '<section id="rider" aria-label="Rider">' +
-        '<div class="rider">' + avatarHtml(profile, name) + '<div>' + (featured ? '<h2>More trips from ' + esc(first) + '</h2>' : '<h1 style="margin:0;font-size:26px;line-height:1.2">' + esc(name) + '</h1>') +
-          '<div class="handle">@' + esc(profile.username || '') + ' on MyTrips</div></div></div>' +
-        '<div class="stats"><div><b>' + trips.length + '</b><span>' + (trips.length === 1 ? 'Public trip' : 'Public trips') + '</span></div>' +
-          '<div><b>' + esc(formatMiles(miles) || '0 mi') + '</b><span>Ridden</span></div>' +
-          '<div><b>' + nRails + '</b><span>' + (nRails === 1 ? 'Railroad' : 'Railroads') + '</span></div></div>';
-      if (upcoming.length) html += '<h2 class="list-h">Upcoming trips</h2><div class="list">' + upcoming.map(tripRowHtml).join('') + '</div>';
-      if (past.length) html += '<h2 class="list-h">' + 'Past trips' + '</h2><div class="list">' + past.map(tripRowHtml).join('') + '</div>';
-      if (!trips.length) html += '<div class="notice">No public trips yet.</div>';
-      html += '<p style="color:var(--soft);text-align:center;margin:8px 0 0">Log your own rides on <a href="/mytrips/" style="color:#fff;font-weight:700">MyTrips</a></p></section>';
-      document.getElementById('app').innerHTML = html;
-      const by = document.querySelector('.share-by');
-      if (by) by.addEventListener('click', function (e) {
-        e.preventDefault();
-        const el = document.getElementById('rider');
-        if (el) el.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
-      });
-      if (featured) {
-        const t = tripTitle(featured), tr = trainText(featured);
-        setMeta([t, tr, 'to ' + destName(featured)].filter(Boolean).join(' ') + ' | MyTrips',
-          name + ' rode ' + [t, tr].filter(Boolean).join(' ') + ' from ' + originName(featured) + ' to ' + destName(featured) + ' on ' + fmtDay(depRaw(featured), true) + '. See the route map on MyTrips.');
-        scheduleTripMap(document.querySelector('[data-share-map]'), featured, true);
-        const btn = document.getElementById('share-btn');
-        if (btn) btn.addEventListener('click', function () { shareLink(btn, location.href, t); });
-      } else {
-        setMeta(name + ' on MyTrips | RailroadRadar', 'See the train trips ' + name + ' shared on MyTrips, with route maps and times.');
-      }
-      const ordered = upcoming.concat(past);
-      Array.prototype.forEach.call(document.querySelectorAll('[data-trip-map]'), function (el, i) { if (ordered[i]) scheduleTripMap(el, ordered[i], false); });
-    }
-    async function shareLink(btn, url, title) {
-      try { if (navigator.share) { await navigator.share({ title: title, url: url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
-      try { await navigator.clipboard.writeText(url); } catch (_) {}
-      if (!btn.nextElementSibling || !btn.nextElementSibling.classList.contains('share-copied')) {
-        const s = document.createElement('span'); s.className = 'share-copied'; s.setAttribute('role', 'status'); s.textContent = 'Link copied';
-        btn.insertAdjacentElement('afterend', s); setTimeout(function () { s.remove(); }, 2500);
-      }
-    }
-    window.addEventListener('hashchange', function () {
-      if (!state) return;
-      render();
-      try { window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' }); } catch (_) { window.scrollTo(0, 0); }
-    });
     function renderProfile(profile, trips) {
-      state = { profile: profile, trips: trips };
+      const name = profile.displayName || profile.username || 'Railfan';
+      document.title = name + ' | MyTrips';
       window.__rrProfileShare = location.href.split('#')[0];
-      render();
+      const upcoming = trips.filter(function (t) { return tripStartMs(t) >= Date.now(); }).sort(function (a, b) { return tripStartMs(a) - tripStartMs(b); });
+      const past = trips.filter(function (t) { return tripStartMs(t) < Date.now(); });
+      const photo = profile.photoURL
+        ? '<img class="avatar" src="' + esc(profile.photoURL) + '" alt="' + esc(name) + '" referrerpolicy="no-referrer">'
+        : '<div class="avatar-fallback">' + esc(String(name).charAt(0).toUpperCase()) + '</div>';
+      const list = (upcoming.length || past.length)
+        ? sectionHtml('Upcoming trips', upcoming) + sectionHtml('Past trips', past)
+        : '<p class="empty-trips">No public trips yet.</p>';
+      document.getElementById('app').innerHTML =
+        '<div class="profile-head">' + photo +
+        '<div class="profile-meta">' +
+        '<h1>' + esc(name) + '</h1>' +
+        '<div class="handle">@' + esc(profile.username || '') + '</div>' +
+        '<div class="brand-note">MyTrips</div>' +
+        '</div></div>' + list +
+        '<p class="footer-note">Public trip log on <a href="/mytrips/">MyTrips</a></p>';
+      const ordered = upcoming.concat(past);
+      Array.prototype.forEach.call(document.querySelectorAll('[data-trip-map]'), function (el, i) {
+        const trip = ordered[i];
+        if (trip) scheduleTripLogMiniMap(el, trip);
+      });
     }
-
     async function main() {
       const username = usernameFromLoc();
       if (!username) {
-        showState('Rider not found', 'This link is missing the rider\u2019s name. Ask them to share it again.');
+        showState('Profile not found', 'No username was provided in this link.');
         return;
       }
       let db;
@@ -1151,28 +856,28 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
         firebase.initializeApp(FIREBASE_CONFIG);
         db = firebase.firestore();
       } catch (e) {
-        showState('Something went wrong', 'This page could not start. Please try again in a little while.');
+        showState('Could not load', 'Firebase failed to start. Try again later.');
         return;
       }
       const lower = username.toLowerCase();
       let unameSnap;
       try { unameSnap = await db.collection('usernames').doc(lower).get(); }
-      catch (e) { showState('Something went wrong', 'We could not look up this rider right now. Please try again in a little while.'); return; }
+      catch (e) { showState('Could not load', 'Unable to look up this profile right now.'); return; }
       if (!unameSnap.exists) {
-        showState('Rider not found', 'We couldn\u2019t find a public MyTrips page for this link.');
+        showState('Profile not found', 'We couldn’t find a public profile for that username.');
         return;
       }
       const unameData = unameSnap.data() || {};
       const uid = unameData.uid;
       if (!uid) {
-        showState('Rider not found', 'We couldn\u2019t find a public MyTrips page for this link.');
+        showState('Profile not found', 'We couldn’t find a public profile for that username.');
         return;
       }
       let profileSnap;
       try { profileSnap = await db.collection('publicProfiles').doc(uid).get(); }
-      catch (e) { showState('Something went wrong', 'We could not load these trips right now. Please try again in a little while.'); return; }
+      catch (e) { showState('Could not load', 'Unable to load this profile right now.'); return; }
       if (!profileSnap.exists) {
-        showState('These trips are private', 'This rider hasn\u2019t made their MyTrips page public.');
+        showState('This profile isn’t public', 'This user has not published a public MyTrips profile.');
         return;
       }
       const profile = Object.assign({ uid: uid }, profileSnap.data() || {});
@@ -1208,53 +913,8 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
     main();
   })();
   </script>
-<footer class="footer">
-  <div class="footer-inner">
-    <span class="copy">© 2026 RailroadRadar</span>
-    <a href="/map/">Live map</a>
-    <a href="/mytrips/">MyTrips</a>
-    <a href="/favorites/">Favorites</a>
-    <a href="/press/">Press</a>
-    <a href="/policies/privacy/">Privacy Policy</a>
-    <a href="/policies/terms-of-use/">Terms of Use</a>
-    <a href="/sitemap/">Sitemap</a>
-    <button type="button" id="footer-cookie-settings">Cookie settings</button>
-  </div>
-</footer>
-
-<div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
-  <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></p>
-  <div class="rr-cookie-actions">
-    <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
-    <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
-    <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
-  </div>
-</div>
-<div id="rr-cookie-modal" hidden aria-hidden="true">
-  <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
-  <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
-    <h3 id="rr-cookie-modal-title">Cookie preferences</h3>
-    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the page.</p>
-    <ul class="rr-cookie-list">
-      <li class="rr-cookie-row">
-        <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
-        <label class="rr-cookie-switch is-locked"><input type="checkbox" id="rr-cookie-essential" checked disabled><span>Always on</span></label>
-      </li>
-      <li class="rr-cookie-row">
-        <div class="rr-cookie-row-text"><strong>Analytics</strong><span>Microsoft Clarity shows us how people use the site, using cookies from clarity.ms. Better Stack reports page errors and performance.</span></div>
-        <label class="rr-cookie-switch"><input type="checkbox" id="rr-cookie-clarity"><span>Allow</span></label>
-      </li>
-    </ul>
-    <div class="rr-cookie-modal-actions">
-      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
-      <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
-    </div>
-  </div>
-</div>
-<script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
 <script src="/assets/js/live-share-bar.js" defer></script>
 <script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
-<script src="/assets/js/home-auth.js?v=eed54e310a" defer></script>
 <script src="/assets/js/trip-notify.js?v=5357aa496b"></script>
 </body>
 </html>
