@@ -2216,6 +2216,12 @@
     let tripDetailMap = null;
     let tripDetailFocusEl = null;
     let tripDetailOpenId = null;
+    // Read-only hooks for assets/js/trip-connections.js (connection warnings on cards and in the trip detail).
+    window.rrTripLogDataFor = function(id) { return tripLogDataById[id] || null; };
+    window.rrTripDetailOpenTrip = function() {
+      const o = document.getElementById('trip-detail-overlay');
+      return (tripDetailOpenId && o && !o.hidden) ? { id: tripDetailOpenId, data: tripLogDataById[tripDetailOpenId] || null } : null;
+    };
 
     function rrSnapToPolylineDetailed(lat, lon, poly) {
       let bestDist = Infinity, bestAlong = 0, bestI = 0, bestT = 0, cum = 0;
@@ -3132,6 +3138,7 @@ function tripCardStationDotIcon() {
       } else if (heading) {
         heading.hidden = true;
       }
+      try { if (window.rrConnRefresh) window.rrConnRefresh(); } catch (_) {}
     }
 
     let tripDetailHistoryOpen = false;
@@ -5742,7 +5749,12 @@ function closeTripDetailView(opts) {
       if (sections && sections.past) sections.past.hidden = !(pastRows && pastRows.querySelector('.trip-log-row'));
       try { startTripListLivePoll(); } catch (_) {}
       try { tripEnrichRecentCompletedTrips(); } catch (_) {}
+      try { if (window.rrConnRefresh) window.rrConnRefresh(); } catch (_) {}
     }
+    // Test hook (screenshots and checks only): renders trip objects as MyTrips cards without Firestore.
+    window.rrTripLogRenderExample = function(trips) {
+      renderTripLogRows((trips || []).map(function(t) { return { id: t.id, data: function() { return t; } }; }));
+    };
 
     async function loadTripLogList(reset) {
       const status = document.getElementById('trip-log-list-status');
@@ -5823,8 +5835,15 @@ function closeTripDetailView(opts) {
           const dep = Date.parse(seg.departTime || '');
           const origin = tripMbtaCanonicalStationId(seg.originStationId || '');
           if (!id || !train || !isFinite(dep) || origin.indexOf('place-') !== 0) return;
-          items.push({ key: id + '-' + i, railroad: 'mbta', lineName: String(seg.lineName || '').trim(), train: train, dep: dep, originId: origin, originName: String(seg.originName || '').trim(), destName: String(seg.destName || '').trim(),
-            arr: Date.parse(seg.arriveTime || '') || 0, routeId: /^CR-/.test(String(seg.lineId || '')) ? String(seg.lineId) : '' });
+          const item = { key: id + '-' + i, railroad: 'mbta', lineName: String(seg.lineName || '').trim(), train: train, dep: dep, originId: origin, originName: String(seg.originName || '').trim(), destName: String(seg.destName || '').trim(),
+            arr: Date.parse(seg.arriveTime || '') || 0, routeId: /^CR-/.test(String(seg.lineId || '')) ? String(seg.lineId) : '' };
+          // Change of trains from an MBTA train at the same station: the worker watches this connection (trip-connections.js has the same rules).
+          const prev = i > 0 ? segs[i - 1] : null;
+          if (prev && String(prev.railroad || '').toLowerCase() === 'mbta' && String(prev.trainNumber || '').trim() &&
+              tripMbtaCanonicalStationId(prev.destStationId || '') === origin && isFinite(Date.parse(prev.arriveTime || ''))) {
+            item.conn = { inTrain: String(prev.trainNumber).trim(), inArr: Date.parse(prev.arriveTime), inLine: String(prev.lineName || '').trim(), min: 5 };
+          }
+          items.push(item);
         });
       });
       window.rrTripNotify.setTrips(items);
@@ -16950,6 +16969,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       try { window.rrCollectLiveTrainRows = collectLiveTrainRows; } catch (_) {}
       try { window.rrFindSharedTrain = rrFindSharedTrain; } catch (_) {}
+      // Live Amtrak trains with per-station predicted times (Amtraker), for connection warnings.
+      try { window.rrConnAmtrakTrains = function() { return amtrakAllTrains || []; }; } catch (_) {}
       window.shareTrainLink = async function(agency, vid, trainNum, serviceDate) {
         const url = rrTrainShareUrl(agency, vid, trainNum, serviceDate);
         try {

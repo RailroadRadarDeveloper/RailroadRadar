@@ -139,6 +139,8 @@
         var t = { tripKey: it.key, trainNum: it.train, line: it.lineName || '', depTimeISO: new Date(it.dep).toISOString(), originStopId: it.originId, originName: it.originName || '', destination: it.destName || '' };
         if (it.arr) t.arrTimeISO = new Date(it.arr).toISOString();
         if (it.routeId) t.routeId = it.routeId;
+        // Change of trains from an MBTA train here: the worker warns when the connection gets tight or likely missed.
+        if (it.conn && it.conn.inTrain && isFinite(it.conn.inArr)) t.conn = { inTrain: String(it.conn.inTrain), inArrISO: new Date(it.conn.inArr).toISOString(), inLine: it.conn.inLine || '', min: it.conn.min || 5 };
         if (f[it.key]) t.boardingSent = f[it.key];
         if (f[it.key + '-30']) t.headsUpSent = f[it.key + '-30'];
         return t;
