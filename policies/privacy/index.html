@@ -311,10 +311,14 @@
       <div class="policy">
         <h1>Privacy Policy</h1>
         <div class="meta-row">
-          <span class="pill">Effective October 18, 2026</span>
+          <span class="pill">Effective October 19, 2026</span>
         </div>
         <div class="note">
-          <p><strong>Last updated October 18, 2026.</strong> What changed:</p>
+          <p><strong>Last updated October 19, 2026.</strong> What changed:</p>
+          <ul>
+            <li><a href="#collect">Live location sharing</a>: each share uses its own link code, and we describe how a viewer’s browser asks OpenStreetMap Nominatim for a town name from an approximate location.</li>
+          </ul>
+          <p>Earlier changes, October 18, 2026:</p>
           <ul>
             <li><a href="#collect">Live location sharing</a>: logging a new special move needs your location, and Go live starts the share. We also say what your device keeps during a share.</li>
           </ul>
@@ -350,7 +354,8 @@
           <li><strong>Questions you type in search (“Ask”).</strong> If you enter a question, we send the question plus a short snapshot of matching live-train facts to our Ask endpoint so we can answer in plain language.</li>
           <li><strong>MyTrips trip logs.</strong> If you log trips, we store each trip’s railroad, train number, origin and destination stations, times, distance, optional notes, rolling stock, and route segments. Your trips are private unless you publish a public profile. With a public profile, your trips are visible to anyone with your profile link, except trips you mark Hidden.</li>
           <li><strong>Public profile and username.</strong> If you publish a MyTrips profile, your username, display name, and Google profile photo are public, and your username is linked to your account ID. Your email is never shown. You can remove the profile at any time, which hides your trips from the public again.</li>
-          <li><strong>Live location sharing (special moves).</strong> Logging a new special move asks for location access, and you can’t log one without it, because Go live starts a live share. While the share is active, your device sends its precise location, heading, and speed to our database repeatedly, with your first name, trip title, and account ID. Your location is not saved with the trip itself. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.</li>
+          <li><strong>Live location sharing (special moves).</strong> Logging a new special move asks for location access, and you can’t log one without it, because Go live starts a live share. While the share is active, your device sends its precise location, heading, and speed to our database repeatedly, with your first name, trip title, and account ID. Each share gets its own random link code, so a link from an earlier share does not show a later one. Your location is not saved with the trip itself. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.</li>
+          <li><strong>Town names on live viewer pages.</strong> When someone opens your live link, their browser may ask OpenStreetMap’s Nominatim service for a town or city name near your shared position. The request uses approximate coordinates (rounded to about three decimal places, roughly city-block scale), is rate-limited, and is cached by that rounded cell in the viewer’s browser. RailroadRadar does not send those reverse-geocode requests itself; the viewer’s browser does. See also <a href="#share">When we share</a> and <a href="#third">Third-party services</a>.</li>
           <li><strong>Press-release comments.</strong> Comments on press releases are public and show your Google display name or username (never your email), with the text and time.</li>
           <li><strong>Ban appeals.</strong> If your account is disabled and you appeal, we store your appeal message, account ID, email, the ban reason, and the time, so administrators can review it. Only administrators can read appeals.</li>
           <li><strong>Messages you send us.</strong> If you email us, we keep the contents of that correspondence.</li>
@@ -447,7 +452,7 @@
         <p>We share personal information only as follows:</p>
         <ul>
           <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups), Cloudflare (our proxy servers), and, if you consent, Microsoft (Clarity) and Better Stack.</li>
-          <li>Map and library providers that receive technical data when your browser requests map tiles, map code, or other assets (for example Mapbox, OpenStreetMap contributors, and public CDNs that serve mapping libraries).</li>
+          <li>Map and library providers that receive technical data when your browser requests map tiles, map code, or other assets (for example Mapbox, OpenStreetMap contributors, and public CDNs that serve mapping libraries). On a live viewer page, the viewer’s browser may also send approximate coordinates to OpenStreetMap Nominatim to show a town name.</li>
           <li>Transit agencies and public data sources, indirectly: we request their public feeds; we do not send them your account profile in those requests.</li>
           <li>The public, for report content and the reporter label you chose. Do not put information in a comment that you do not want others to see.</li>
           <li>The public, for your public profile and its visible trips, your press-release comments, and your live location while you are sharing it.</li>
@@ -466,7 +471,7 @@
           <li><strong>Better Stack</strong> — optional error and performance monitoring, loaded only after consent; receives only your account ID if signed in.</li>
           <li><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, and Ask; they see your IP address and requests.</li>
           <li><strong>Discord</strong> — when we publish a press release, its title and link may be posted to our Discord server through a webhook. No visitor or account data is sent.</li>
-          <li><strong>Mapbox / OpenStreetMap / Leaflet</strong> — map display.</li>
+          <li><strong>Mapbox / OpenStreetMap / Leaflet</strong> — map display. OpenStreetMap Nominatim may also receive approximate coordinates from a live viewer’s browser to look up a town name.</li>
           <li><strong>Public CDNs</strong> (for example unpkg and jsDelivr) — mapping and data libraries.</li>
           <li><strong>Transit open-data APIs</strong> operated by the agencies listed in section 2.3.</li>
         </ul>
@@ -534,7 +539,7 @@
     </div>
     <div></div>
   </footer>
-<script src="/assets/js/live-share-bar.js?v=2c1ad34c94" defer></script>
+<script src="/assets/js/live-share-bar.js?v=69c925021a" defer></script>
 <script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 </body>
 </html>
