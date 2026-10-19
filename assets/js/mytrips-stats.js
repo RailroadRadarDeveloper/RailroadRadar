@@ -475,7 +475,7 @@
       if (s.longTime) longFacts += fact('Longest by time', fmtDur(s.longTime.v), routeText(s.longTime.t));
     }
     if ((s.timedTrips || 0) > 1) longFacts += fact('Average trip', fmtDur(Math.round(s.minutes / s.timedTrips)));
-    var c1 = card('Time on trains', fmtDur(s.minutes), 'on board', longFacts);
+    var c1 = card('Time on Trains', fmtDur(s.minutes), 'on board', longFacts);
     // Patterns
     var combo = {}, top = null;
     (s.combos || []).forEach(function (c) { combo[c] = (combo[c] || 0) + 1; if (!top || combo[c] > combo[top]) top = c; });
@@ -509,7 +509,7 @@
     var carbon = '';
     if (s.carbonMiles > 0) {
       var saved = s.co2Car - s.co2Rail;
-      carbon = '<section class="tms-card tms-carbon"><div class="tms-carbon-main"><h3 class="tms-label tms-carbon-label"><img src="/assets/icons/leaf.svg" alt="" width="18" height="18">Carbon footprint</h3>' +
+      carbon = '<section class="tms-card tms-carbon"><div class="tms-carbon-main"><h3 class="tms-label tms-carbon-label"><img src="/assets/icons/leaf.svg" alt="" width="18" height="18">Carbon Footprint</h3>' +
         '<div class="tms-head"><span class="tms-big">About ' + fmtKg(saved) + '</span><span class="tms-big-label">of CO2 saved vs driving</span></div>' +
         '<p class="tms-carbon-note">An estimate for your MBTA and Amtrak trips from US EPA average emission factors, compared with driving the same distance alone.</p></div>' +
         '<div class="tms-facts tms-carbon-facts">' + fact('Your train trips', fmtKg(s.co2Rail)) + fact('Same miles by car', fmtKg(s.co2Car)) + '</div></section>';

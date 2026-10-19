@@ -114,7 +114,7 @@
       const tog = document.getElementById('account-interest-toggle');
       const labels = formatInterestRailroads(ids);
       if (sum) sum.textContent = (ids && ids.length) ? ('Selected: ' + labels) : 'None selected';
-      if (tog) tog.textContent = (ids && ids.length) ? labels : 'Choose railroads';
+      if (tog) tog.textContent = (ids && ids.length) ? labels : 'Choose Railroads';
     }
     let currentAdminPerms = null;
 
@@ -8708,7 +8708,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const updated = !!(currentUserSettings && currentUserSettings.legalAccepted);
       const title = document.getElementById('legal-accept-title');
       const sub = document.getElementById('legal-accept-sub');
-      if (title) title.textContent = updated ? 'We updated our Terms and Privacy Policy' : 'Please agree to continue';
+      if (title) title.textContent = updated ? 'We Updated Our Terms and Privacy Policy' : 'Please Agree to Continue';
       if (sub) sub.textContent = updated
         ? 'The Terms of Use and Privacy Policy were updated. Please review the changes and agree to keep using RailroadRadar.'
         : 'You must agree to the Terms of Use and Privacy Policy to use RailroadRadar.';
@@ -8861,7 +8861,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         avatarBtn.style.cursor = 'pointer';
         avatarBtn.setAttribute('role', 'button');
         avatarBtn.setAttribute('tabindex', '0');
-        avatarBtn.setAttribute('aria-label', 'Account settings');
+        avatarBtn.setAttribute('aria-label', 'Account Settings');
         avatarBtn.addEventListener('click', openAccountSettingsLightbox);
         avatarBtn.addEventListener('keydown', function(e) {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -19766,7 +19766,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const btn = document.getElementById('btn-fullscreen');
         if (!btn) return;
         const on = isAppFullscreen();
-        btn.textContent = on ? 'Exit full screen' : 'Full screen';
+        btn.textContent = on ? 'Exit Full Screen' : 'Full Screen';
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       }
       async function toggleAppFullscreen() {
