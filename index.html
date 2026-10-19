@@ -27,6 +27,9 @@
 </script>
 <link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
 <script>
+(function(){try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&'IntersectionObserver' in window)document.documentElement.classList.add('rr-motion');}catch(_){}})();
+</script>
+<script>
 (function(){try{var p=localStorage.getItem('rr_theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('rr-theme-dark');}catch(_){}})();
 </script>
 <script>
@@ -199,6 +202,29 @@ body{background:var(--navy)}
 .banner::after{content:'';position:absolute;left:0;right:0;bottom:0;height:calc(var(--rr-band) + 1px);background:linear-gradient(180deg,#111874 0%,#0c1056 45%,#07093e 100%);pointer-events:none;z-index:0}
 @media (max-width:859px){.banner{min-height:calc(420px + var(--rr-band))}}
 @media (max-width:560px){.banner{--rr-band:64px}.banner-art{height:auto}}
+
+/* Full-screen cover: fills the screen under the sticky header (svh keeps iPhone toolbars from cropping it).
+   The skyline keeps its own shape at the bottom, above the fade band; the text centers in the sky above it. */
+.banner{--rr-band:80px;--art-w:100vw;min-height:max(560px,calc(100vh - 66px));padding:48px 24px calc(var(--rr-band) + var(--art-w) * .1 + 40px);align-items:center}
+@supports (height:100svh){.banner{min-height:max(560px,calc(100svh - 66px))}}
+.banner-art{top:auto;bottom:var(--rr-band);height:auto;transform-origin:50% 100%}
+@media (max-width:859px){.banner{padding-top:40px;padding-left:18px;padding-right:18px}}
+@media (max-width:560px){
+  .banner{--rr-band:64px;--art-w:250vw;min-height:max(520px,calc(100vh - 66px))}
+  @supports (height:100svh){.banner{min-height:max(520px,calc(100svh - 66px))}}
+  .banner-art{left:50%;width:250%;margin-left:-125%;transform:none}
+}
+.more{scroll-margin-top:66px}
+.scroll-cue{position:absolute;left:50%;bottom:calc(var(--rr-band) / 2 - 18px);z-index:2;width:36px;height:36px;margin-left:-18px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid rgba(255,255,255,.45);color:#fff;background:rgba(7,9,62,.35)}
+.scroll-cue:hover{border-color:#fff;background:rgba(255,255,255,.1)}
+.scroll-cue svg{display:block}
+html.rr-motion .scroll-cue svg{animation:rr-cue 2.2s ease-in-out infinite}
+@keyframes rr-cue{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
+/* Scroll effects (motion only): JS sets transform/opacity; sections slide up and fade in as they enter */
+html.rr-motion .banner-inner,html.rr-motion .banner-art{will-change:transform}
+html.rr-motion .rr-reveal{opacity:0;transform:translate3d(0,40px,0);transition:opacity .7s ease,transform .8s cubic-bezier(.2,.7,.2,1)}
+html.rr-motion .rr-reveal.rr-reveal-late{transition-delay:.12s}
+html.rr-motion .rr-reveal.is-in{opacity:1;transform:none}
 </style>
 </head>
 <body>
@@ -234,7 +260,7 @@ body{background:var(--navy)}
 <main>
   <section class="banner" aria-labelledby="banner-title">
     <svg class="banner-art" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-      <g fill="#1a2390"><rect x="-20" y="312" width="50" height="94"/><rect x="31" y="305" width="36" height="101"/><rect x="71" y="284" width="44" height="122"/><rect x="117" y="281" width="50" height="125"/><rect x="167" y="270" width="41" height="136"/><rect x="208" y="335" width="54" height="71"/><rect x="263" y="333" width="46" height="73"/><rect x="311" y="339" width="29" height="67"/><rect x="344" y="299" width="28" height="107"/><rect x="374" y="345" width="39" height="61"/><rect x="415" y="338" width="56" height="68"/><rect x="475" y="339" width="27" height="67"/><rect x="502" y="266" width="35" height="140"/><rect x="538" y="320" width="29" height="86"/><rect x="569" y="275" width="40" height="131"/><rect x="609" y="299" width="37" height="107"/><rect x="646" y="303" width="45" height="103"/><rect x="692" y="269" width="32" height="137"/><rect x="724" y="352" width="52" height="54"/><rect x="779" y="325" width="51" height="81"/><rect x="830" y="337" width="31" height="69"/><rect x="861" y="303" width="55" height="103"/><rect x="919" y="319" width="60" height="87"/><rect x="983" y="353" width="27" height="53"/><rect x="1013" y="332" width="46" height="74"/><rect x="1060" y="349" width="30" height="57"/><rect x="1090" y="302" width="34" height="104"/><rect x="1124" y="301" width="59" height="105"/><rect x="1187" y="324" width="32" height="82"/><rect x="1220" y="308" width="53" height="98"/><rect x="1276" y="297" width="52" height="109"/><rect x="1328" y="285" width="43" height="121"/><rect x="1372" y="319" width="41" height="87"/><rect x="1416" y="275" width="46" height="131"/></g><g fill="#111874"><rect x="-20" y="377" width="70" height="29"/><rect x="50" y="369" width="47" height="37"/><rect x="98" y="337" width="38" height="69"/><rect x="136" y="379" width="64" height="27"/><rect x="204" y="382" width="57" height="24"/><rect x="261" y="371" width="35" height="35"/><rect x="297" y="346" width="62" height="60"/><rect x="359" y="372" width="65" height="34"/><rect x="428" y="370" width="56" height="36"/><rect x="487" y="367" width="67" height="39"/><rect x="554" y="340" width="40" height="66"/><rect x="597" y="367" width="51" height="39"/><rect x="649" y="336" width="43" height="70"/><rect x="694" y="379" width="36" height="27"/><rect x="733" y="362" width="36" height="44"/><rect x="771" y="368" width="68" height="38"/><rect x="839" y="350" width="59" height="56"/><rect x="898" y="379" width="54" height="27"/><rect x="956" y="331" width="48" height="75"/><rect x="1008" y="348" width="53" height="58"/><rect x="1062" y="382" width="34" height="24"/><rect x="1097" y="379" width="48" height="27"/><rect x="1146" y="360" width="36" height="46"/><rect x="1184" y="344" width="59" height="62"/><rect x="1245" y="361" width="40" height="45"/><rect x="1287" y="342" width="43" height="64"/><rect x="1332" y="346" width="34" height="60"/><rect x="1367" y="338" width="64" height="68"/><rect x="1432" y="355" width="40" height="51"/></g><g fill="#0ac700"><g class="rr-trains-parked"><g transform="translate(930 351) scale(.85)"><g transform="translate(196 0) scale(-1 1)"><rect x="0" y="0" width="92" height="20" rx="3"/><path d="M96 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g transform="translate(574 384)"><rect x="0" y="0" width="92" height="20" rx="3"/><rect x="96" y="0" width="92" height="20" rx="3"/><path d="M192 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g class="rr-trains"></g></g>
+      <g class="rr-sky-back" fill="#1a2390"><rect x="-20" y="312" width="50" height="94"/><rect x="31" y="305" width="36" height="101"/><rect x="71" y="284" width="44" height="122"/><rect x="117" y="281" width="50" height="125"/><rect x="167" y="270" width="41" height="136"/><rect x="208" y="335" width="54" height="71"/><rect x="263" y="333" width="46" height="73"/><rect x="311" y="339" width="29" height="67"/><rect x="344" y="299" width="28" height="107"/><rect x="374" y="345" width="39" height="61"/><rect x="415" y="338" width="56" height="68"/><rect x="475" y="339" width="27" height="67"/><rect x="502" y="266" width="35" height="140"/><rect x="538" y="320" width="29" height="86"/><rect x="569" y="275" width="40" height="131"/><rect x="609" y="299" width="37" height="107"/><rect x="646" y="303" width="45" height="103"/><rect x="692" y="269" width="32" height="137"/><rect x="724" y="352" width="52" height="54"/><rect x="779" y="325" width="51" height="81"/><rect x="830" y="337" width="31" height="69"/><rect x="861" y="303" width="55" height="103"/><rect x="919" y="319" width="60" height="87"/><rect x="983" y="353" width="27" height="53"/><rect x="1013" y="332" width="46" height="74"/><rect x="1060" y="349" width="30" height="57"/><rect x="1090" y="302" width="34" height="104"/><rect x="1124" y="301" width="59" height="105"/><rect x="1187" y="324" width="32" height="82"/><rect x="1220" y="308" width="53" height="98"/><rect x="1276" y="297" width="52" height="109"/><rect x="1328" y="285" width="43" height="121"/><rect x="1372" y="319" width="41" height="87"/><rect x="1416" y="275" width="46" height="131"/></g><g fill="#111874"><rect x="-20" y="377" width="70" height="29"/><rect x="50" y="369" width="47" height="37"/><rect x="98" y="337" width="38" height="69"/><rect x="136" y="379" width="64" height="27"/><rect x="204" y="382" width="57" height="24"/><rect x="261" y="371" width="35" height="35"/><rect x="297" y="346" width="62" height="60"/><rect x="359" y="372" width="65" height="34"/><rect x="428" y="370" width="56" height="36"/><rect x="487" y="367" width="67" height="39"/><rect x="554" y="340" width="40" height="66"/><rect x="597" y="367" width="51" height="39"/><rect x="649" y="336" width="43" height="70"/><rect x="694" y="379" width="36" height="27"/><rect x="733" y="362" width="36" height="44"/><rect x="771" y="368" width="68" height="38"/><rect x="839" y="350" width="59" height="56"/><rect x="898" y="379" width="54" height="27"/><rect x="956" y="331" width="48" height="75"/><rect x="1008" y="348" width="53" height="58"/><rect x="1062" y="382" width="34" height="24"/><rect x="1097" y="379" width="48" height="27"/><rect x="1146" y="360" width="36" height="46"/><rect x="1184" y="344" width="59" height="62"/><rect x="1245" y="361" width="40" height="45"/><rect x="1287" y="342" width="43" height="64"/><rect x="1332" y="346" width="34" height="60"/><rect x="1367" y="338" width="64" height="68"/><rect x="1432" y="355" width="40" height="51"/></g><g fill="#0ac700"><g class="rr-trains-parked"><g transform="translate(930 351) scale(.85)"><g transform="translate(196 0) scale(-1 1)"><rect x="0" y="0" width="92" height="20" rx="3"/><path d="M96 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g transform="translate(574 384)"><rect x="0" y="0" width="92" height="20" rx="3"/><rect x="96" y="0" width="92" height="20" rx="3"/><path d="M192 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g class="rr-trains"></g></g>
       <rect x="0" y="404" width="1440" height="16" fill="#111874"/>
     </svg>
     <div class="banner-inner">
@@ -245,12 +271,13 @@ body{background:var(--navy)}
         <a class="rr-btn secondary" href="/mytrips/">MyTrips</a>
       </div>
     </div>
+    <a class="scroll-cue" href="#more" aria-label="Scroll to see more"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></a>
   </section>
 
-  <section class="more" aria-label="What you can do">
+  <section class="more" id="more" aria-label="What you can do">
     <div class="feature">
-      <div class="feature-media"><img src="/assets/home/feature-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map" width="960" height="750" loading="lazy"></div>
-      <div class="feature-copy">
+      <div class="feature-media rr-reveal"><img src="/assets/home/feature-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map" width="960" height="750" loading="lazy"></div>
+      <div class="feature-copy rr-reveal rr-reveal-late">
         <h2>Stay in the&nbsp;know on&nbsp;the&nbsp;go.</h2>
         <p class="feature-lead">See where the trains are right now. Tap one to find out where it's going and when it gets to each stop.</p>
         <ul class="hero-points">
@@ -261,8 +288,8 @@ body{background:var(--navy)}
       </div>
     </div>
     <div class="feature is-flip">
-      <div class="feature-media has-phone"><img src="/assets/home/feature-mytrips.svg" alt="MyTrips showing saved trips" width="960" height="476" loading="lazy"><img class="feature-phone" src="/assets/brand/mytrips-phone.png" alt="MyTrips on a phone" width="645" height="800" loading="lazy"></div>
-      <div class="feature-copy">
+      <div class="feature-media has-phone rr-reveal"><img src="/assets/home/feature-mytrips.svg" alt="MyTrips showing saved trips" width="960" height="476" loading="lazy"><img class="feature-phone" src="/assets/brand/mytrips-phone.png" alt="MyTrips on a phone" width="645" height="800" loading="lazy"></div>
+      <div class="feature-copy rr-reveal rr-reveal-late">
         <h2 class="feature-logo"><img src="/assets/brand/mytrips-logo-wide.png" alt="MyTrips" width="1280" height="182" loading="lazy"></h2>
         <p class="feature-lead">Keep track of the trains you ride. Save each trip and look back on everywhere you've been.</p>
         <ul class="hero-points">
@@ -332,6 +359,8 @@ body{background:var(--navy)}
   if (!layer || !layer.animate) return;
   try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (_) {}
   var TEST = window.__rrTrainsTest || null, SPEED = (TEST && TEST.speed) || 1;
+  var boost = 1;
+  window.__rrTrainsBoost = function (b) { boost = b; LANES.forEach(function (l) { if (l.anim) l.anim.playbackRate = SPEED * b; }); };
   var NS = 'http://www.w3.org/2000/svg', CAR = 92, GAP = 4, NOSE = 100, H = 20, VW = 1440, MID = 720;
   var LANES = [
     { name: 'east', dir: 1, bottom: 404, scale: 1, first: { cars: 3, stop: true }, wait: 300 },
@@ -381,7 +410,7 @@ body{background:var(--navy)}
     var g = build(lane, spec.cars);
     layer.appendChild(g);
     var a = g.animate(frames, { duration: ms, fill: 'both' });
-    a.playbackRate = SPEED;
+    a.playbackRate = SPEED * boost;
     lane.anim = a;
     if (TEST) (TEST.log = TEST.log || []).push({ lane: lane.name, cars: spec.cars, stop: spec.stop, ms: Math.round(ms) });
     a.onfinish = function () {
@@ -402,6 +431,43 @@ body{background:var(--navy)}
       }
     });
   });
+})();
+</script>
+<script>
+/* Cover scroll effects (skipped for reduced motion): as the cover scrolls away the headline and buttons lift and
+   fade, the back buildings sink a little (parallax depth), the scene zooms in slightly and the trains speed up.
+   One passive scroll listener, at most one update per frame, transform and opacity only. Sections below
+   slide up and fade in once as they enter the screen. */
+(function () {
+  var root = document.documentElement;
+  if (!root.classList.contains('rr-motion')) return;
+  var banner = document.querySelector('.banner'), inner = banner && banner.querySelector('.banner-inner');
+  var art = banner && banner.querySelector('.banner-art'), back = art && art.querySelector('.rr-sky-back');
+  var cue = banner && banner.querySelector('.scroll-cue');
+  if (banner && inner && art) {
+    var h = banner.offsetHeight || 1, last = -1, queued = false;
+    var apply = function () {
+      queued = false;
+      var p = Math.min(1, Math.max(0, (window.scrollY || window.pageYOffset || 0) / h));
+      if (Math.abs(p - last) < 0.0005) return;
+      last = p;
+      inner.style.transform = 'translate3d(0,' + (-p * 80).toFixed(1) + 'px,0)';
+      inner.style.opacity = Math.max(0, 1 - p * 1.7).toFixed(3);
+      art.style.transform = 'scale(' + (1 + p * 0.08).toFixed(4) + ')';
+      if (back) back.setAttribute('transform', 'translate(0 ' + (p * 34).toFixed(2) + ')');
+      if (cue) { cue.style.opacity = Math.max(0, 1 - p * 5).toFixed(3); cue.style.pointerEvents = p > 0.15 ? 'none' : ''; }
+      if (window.__rrTrainsBoost) window.__rrTrainsBoost(1 + p * 1.6);
+    };
+    var queue = function () { if (!queued) { queued = true; requestAnimationFrame(apply); } };
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', function () { h = banner.offsetHeight || 1; last = -1; queue(); }, { passive: true });
+    apply();
+  }
+  var els = document.querySelectorAll('.rr-reveal');
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.12 });
+  for (var i = 0; i < els.length; i++) io.observe(els[i]);
 })();
 </script>
 <script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
