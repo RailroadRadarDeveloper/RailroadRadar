@@ -232,7 +232,7 @@
       try { info = JSON.parse(localStorage.getItem('rrBanInfo') || '{}') || {}; } catch (e) { info = {}; }
       var uid = String(info.uid || '').slice(0, 128);
       var token = String(info.token || '');
-      document.title = 'Account disabled | RailroadRadar';
+      document.title = 'Account Disabled | RailroadRadar';
       document.getElementById('rr-unavail-title').textContent = 'Your account has been disabled.';
       var sub = document.getElementById('rr-unavail-sub');
       sub.textContent = info.reason ? ('Reason: ' + info.reason) : '';
