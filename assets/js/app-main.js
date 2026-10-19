@@ -6131,7 +6131,7 @@ function closeTripDetailView(opts) {
           share.title = payload.trainTitle;
           rrSpecialPersistLocal(share);
           try {
-            await db.collection('specialMoveShares').doc(share.uid).set({ title: share.title }, { merge: true });
+            await db.collection('specialMoveShares').doc(rrSpecialShareDocId(share) || share.uid).set({ title: share.title }, { merge: true });
           } catch (renameErr) {
             console.warn('[live-trip] share rename', renameErr);
           }
@@ -6384,6 +6384,37 @@ function closeTripDetailView(opts) {
     const RR_SPECIAL_SHARE_STALE_MS = 30 * 60 * 1000;
     const RR_SPECIAL_SHARE_QUEUE_MAX = 12;
     const RR_SPECIAL_SHARE_LS_KEY = 'rrSpecialMoveShareV1';
+    function rrSpecialNewShareCode() {
+      try {
+        const a = new Uint8Array(10);
+        crypto.getRandomValues(a);
+        const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let s = '';
+        for (let i = 0; i < a.length; i++) s += alphabet[a[i] % 36];
+        return s;
+      } catch (_) {
+        return ('s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).slice(0, 12);
+      }
+    }
+    function rrSpecialShareDocId(st) {
+      return (st && st.shareCode) || null;
+    }
+    function rrSpecialLiveViewerPath(shareCode) {
+      return '/live/user.html?s=' + encodeURIComponent(shareCode || '');
+    }
+    function rrSpecialLiveViewerUrl(shareCode) {
+      let origin = '';
+      try { origin = location.origin || (location.protocol + '//' + location.host); } catch (_) {}
+      return origin + rrSpecialLiveViewerPath(shareCode);
+    }
+    async function rrSpecialDeleteShareDoc(shareCode, uid) {
+      if (!db) return;
+      const jobs = [];
+      if (shareCode) jobs.push(db.collection('specialMoveShares').doc(shareCode).delete().catch(function() {}));
+      // Legacy docs were keyed by uid before per-share codes.
+      if (uid) jobs.push(db.collection('specialMoveShares').doc(uid).delete().catch(function() {}));
+      if (jobs.length) await Promise.all(jobs);
+    }
 
     let rrSpecialShareWatchId = null;
     let rrSpecialShareState = null; // { uid, tripId, title, startedAt, expiresAt, lastWriteAt, lastLat, lastLon, offline }
@@ -6548,6 +6579,7 @@ function closeTripDetailView(opts) {
         localStorage.removeItem('rrSpecialShareStopped');
         localStorage.setItem(RR_SPECIAL_SHARE_LS_KEY, JSON.stringify({
           uid: state.uid,
+          shareCode: state.shareCode || null,
           tripId: state.tripId,
           title: state.title,
           startedAt: state.startedAt,
@@ -6818,7 +6850,12 @@ function closeTripDetailView(opts) {
           // Older builds stored a trail of past positions; the map never used it.
           recent: firebase.firestore.FieldValue.delete()
         };
-        await db.collection('specialMoveShares').doc(st.uid).set(doc, { merge: true });
+        const shareDocId = rrSpecialShareDocId(st);
+        if (!shareDocId) {
+          st.shareCode = rrSpecialNewShareCode();
+          try { rrSpecialPersistLocal(st); } catch (_) {}
+        }
+        await db.collection('specialMoveShares').doc(rrSpecialShareDocId(st)).set(doc, { merge: true });
         st.lastWriteAt = now;
         st.lastLat = ping.lat;
         st.lastLon = ping.lon;
@@ -6928,8 +6965,11 @@ function closeTripDetailView(opts) {
       if (!user || !db || !fix || fix.lat == null) return;
       const startedAt = Date.now();
       const expiresAt = startedAt + (typeof RR_SPECIAL_SHARE_MAX_MS === 'number' ? RR_SPECIAL_SHARE_MAX_MS : 5 * 60 * 60 * 1000);
+      const prevCode = rrSpecialShareState && rrSpecialShareState.shareCode;
+      const shareCode = rrSpecialNewShareCode();
       rrSpecialShareState = {
         uid: user.uid,
+        shareCode: shareCode,
         tripId: tripId,
         title: String(title || 'Live trip').slice(0, 80),
         startedAt: startedAt,
@@ -6941,7 +6981,8 @@ function closeTripDetailView(opts) {
       };
       try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
       try { rrSpecialWakeLockSync(); } catch (_) {}
-      await db.collection('specialMoveShares').doc(user.uid).set({
+      try { await rrSpecialDeleteShareDoc(prevCode, user.uid); } catch (_) {}
+      await db.collection('specialMoveShares').doc(shareCode).set({
         uid: user.uid,
         tripId: tripId,
         title: rrSpecialShareState.title,
@@ -6985,11 +7026,12 @@ function closeTripDetailView(opts) {
       try { rrSpecialShowResumeBanner(false); } catch (_) {}
       try { rrSpecialSetSelfDoc(null); } catch (_) {}
       if (st && db && st.uid) {
+        const docId = rrSpecialShareDocId(st) || st.uid;
         try {
-          await db.collection('specialMoveShares').doc(st.uid).delete();
+          await rrSpecialDeleteShareDoc(rrSpecialShareDocId(st), st.uid);
         } catch (e1) {
           try {
-            await db.collection('specialMoveShares').doc(st.uid).set({
+            await db.collection('specialMoveShares').doc(docId).set({
               active: false,
               updatedAt: Date.now(),
               uid: st.uid
@@ -7082,9 +7124,10 @@ function closeTripDetailView(opts) {
         rrSpecialPersistLocal(null);
         if (prev && db && prev.uid) {
           try {
-            db.collection('specialMoveShares').doc(prev.uid).delete().catch(function() {
+            rrSpecialDeleteShareDoc(rrSpecialShareDocId(prev), prev.uid).catch(function() {
               try {
-                db.collection('specialMoveShares').doc(prev.uid).set({
+                const id = rrSpecialShareDocId(prev) || prev.uid;
+                db.collection('specialMoveShares').doc(id).set({
                   active: false, updatedAt: Date.now(), uid: prev.uid
                 }, { merge: true });
               } catch (_) {}
@@ -7096,6 +7139,7 @@ function closeTripDetailView(opts) {
       const expiresAt = startedAt + RR_SPECIAL_SHARE_MAX_MS;
       rrSpecialShareState = {
         uid: user.uid,
+        shareCode: rrSpecialNewShareCode(),
         tripId: tripId,
         title: title,
         startedAt: startedAt,
@@ -7588,10 +7632,17 @@ function closeTripDetailView(opts) {
       let cand = (local && local.uid === user.uid) ? Object.assign({}, local) : null;
       let docRead = false;
       let docData = null;
+      let restoreDocId = (cand && cand.shareCode) || null;
       try {
-        const snap = await db.collection('specialMoveShares').doc(user.uid).get();
+        // Prefer the per-share code from localStorage; fall back to a legacy uid-keyed doc once.
+        let snap = null;
+        if (restoreDocId) snap = await db.collection('specialMoveShares').doc(restoreDocId).get();
+        if ((!snap || !snap.exists) && !restoreDocId) {
+          snap = await db.collection('specialMoveShares').doc(user.uid).get();
+          if (snap.exists) restoreDocId = user.uid;
+        }
         docRead = true;
-        docData = snap.exists ? (snap.data() || {}) : null;
+        docData = snap && snap.exists ? (snap.data() || {}) : null;
       } catch (e) {
         console.warn('[special-share] restore read failed (using local state)', e);
       }
@@ -7603,11 +7654,26 @@ function closeTripDetailView(opts) {
           if (cand) rrSpecialPersistLocal(null);
           // Remove a leftover expired share so its last position is not kept.
           if (docData) {
-            try { await db.collection('specialMoveShares').doc(user.uid).delete(); } catch (_) {}
+            try { await rrSpecialDeleteShareDoc(restoreDocId !== user.uid ? restoreDocId : null, user.uid); } catch (_) {}
           }
           return null;
         }
         if (!cand || cand.tripId !== docData.tripId) cand = { uid: user.uid, tripId: docData.tripId };
+        // Migrate a legacy uid-keyed doc onto a fresh share code so old ?uid= links stay dead.
+        if (!cand.shareCode || restoreDocId === user.uid) {
+          const migrated = rrSpecialNewShareCode();
+          try {
+            await db.collection('specialMoveShares').doc(migrated).set(Object.assign({}, docData, { uid: user.uid }), { merge: true });
+            await rrSpecialDeleteShareDoc(null, user.uid);
+            restoreDocId = migrated;
+            cand.shareCode = migrated;
+          } catch (migErr) {
+            console.warn('[special-share] migrate share code failed', migErr);
+            cand.shareCode = restoreDocId;
+          }
+        } else {
+          cand.shareCode = cand.shareCode || restoreDocId;
+        }
         cand.title = docData.title || cand.title;
         cand.startedAt = Number(docData.startedAt) || cand.startedAt || now;
         cand.expiresAt = Number(docData.expiresAt);
@@ -7618,6 +7684,7 @@ function closeTripDetailView(opts) {
         cand.heading = docData.heading;
       }
       if (!cand || !cand.tripId || !(Number(cand.expiresAt) > now)) return null;
+      if (!cand.shareCode) cand.shareCode = rrSpecialNewShareCode();
       // The share must belong to one of this user's special-move trips.
       let trip = tripLogDataById[cand.tripId] || null;
       if (!trip) {
@@ -7630,6 +7697,7 @@ function closeTripDetailView(opts) {
       if (rrSpecialShareState) return null;
       rrSpecialShareState = {
         uid: user.uid,
+        shareCode: cand.shareCode,
         tripId: cand.tripId,
         title: String(cand.title || trip.trainTitle || 'Special move').slice(0, 80),
         startedAt: Number(cand.startedAt) || now,
@@ -7682,6 +7750,8 @@ function closeTripDetailView(opts) {
     } catch (_) {}
     window.rrSpecialWriteShare = rrSpecialWriteShare;
     window.rrSpecialResumeSharing = rrSpecialResumeSharing;
+    window.rrSpecialLiveViewerUrl = rrSpecialLiveViewerUrl;
+    window.rrSpecialNewShareCode = rrSpecialNewShareCode;
 
     window.rrSpecialStartMapListener = rrSpecialStartMapListener;
     window.rrSpecialStopSharing = rrSpecialStopSharing;
@@ -8539,7 +8609,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (snap.size < 200) return;
         }
       }
-      await step('specialMoveShares', function() { return db.collection('specialMoveShares').doc(uid).delete(); });
+      await step('specialMoveShares', async function() {
+        let shareCode = null;
+        try {
+          const raw = localStorage.getItem(RR_SPECIAL_SHARE_LS_KEY);
+          const o = raw ? JSON.parse(raw) : null;
+          if (o && o.uid === uid && o.shareCode) shareCode = o.shareCode;
+        } catch (_) {}
+        await rrSpecialDeleteShareDoc(shareCode, uid);
+      });
       await step('usernames', async function() {
         const names = new Set();
         try {

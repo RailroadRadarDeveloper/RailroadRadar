@@ -39,6 +39,16 @@
     }
     window.__rrLiveWatch = 0;
   }
+  function liveViewerUrl(o) {
+    var code = o && o.shareCode;
+    if (!code) return '';
+    var origin = '';
+    try { origin = location.origin || (location.protocol + '//' + location.host); } catch (e) {}
+    return origin + '/live/user.html?s=' + encodeURIComponent(code);
+  }
+  function shareDocId(o) {
+    return (o && o.shareCode) || (o && o.uid) || '';
+  }
   // Pages offset their content by this so the fixed bar does not cover it.
   function reserve() {
     var el = document.getElementById('rr-live-bar');
@@ -93,6 +103,7 @@
     });
   }
   function endShare() {
+    var o = read();
     try {
       localStorage.setItem(STOP, '1');
       localStorage.removeItem(KEY);
@@ -101,7 +112,7 @@
     clearWatch();
     hide();
     if (typeof rrSpecialStopSharing === 'function') rrSpecialStopSharing();
-    else stopRemote();
+    else stopRemote(o);
   }
   function leftLabel(o) {
     var left = Math.max(0, Number(o.expiresAt) - Date.now());
@@ -109,23 +120,74 @@
     var mins = Math.floor((left % 3600000) / 60000);
     return (hrs ? hrs + 'h ' : '') + mins + 'm left';
   }
+  function flashCopy(btn, ok) {
+    if (!btn) return;
+    var prev = btn.textContent;
+    btn.textContent = ok ? 'Link copied' : 'Could not copy';
+    btn.disabled = true;
+    setTimeout(function () {
+      btn.textContent = prev || 'Copy live link';
+      btn.disabled = false;
+    }, 1800);
+  }
+  function copyLiveLink(btn) {
+    var o = read();
+    var url = liveViewerUrl(o);
+    if (!url) {
+      flashCopy(btn, false);
+      return;
+    }
+    var title = (o && o.title) || 'Live trip';
+    function fallback() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(url).then(function () { flashCopy(btn, true); }, function () { flashCopy(btn, false); });
+      }
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        flashCopy(btn, !!ok);
+      } catch (e) { flashCopy(btn, false); }
+    }
+    if (navigator.share) {
+      Promise.resolve(navigator.share({ title: title, text: title + ' on RailroadRadar', url: url }))
+        .then(function () { flashCopy(btn, true); })
+        .catch(function (err) {
+          if (err && (err.name === 'AbortError' || /abort/i.test(String(err.message || '')))) return;
+          fallback();
+        });
+      return;
+    }
+    fallback();
+  }
   function ensureBar() {
     var el = document.getElementById('rr-live-bar');
-    if (el && el.querySelector('#rr-live-bar-resume') && el.querySelector('#rr-live-bar-hint')) return el;
+    if (el && el.querySelector('#rr-live-bar-resume') && el.querySelector('#rr-live-bar-hint') && el.querySelector('#rr-live-bar-copy')) return el;
     if (el) el.remove();
     if (!document.getElementById('rr-live-bar-css')) {
       var css = document.createElement('style');
       css.id = 'rr-live-bar-css';
-      css.textContent = '.rr-live-main{display:flex;flex-direction:column;min-width:0}#rr-live-bar-hint{font-weight:600;font-size:12px;line-height:1.25;opacity:.92}#rr-live-bar-hint:empty{display:none}#rr-live-bar{position:fixed;top:60px;left:0;right:0;z-index:10040;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#b00020;color:#fff;padding:8px 16px;font:700 14px/1.3 sans-serif}#rr-live-bar[hidden]{display:none!important}#rr-live-bar-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rr-live-bar .rr-live-actions{display:flex;gap:8px}#rr-live-bar button{background:#fff;color:#b00020;border:0;border-radius:999px;padding:4px 12px;font-weight:800;white-space:nowrap;cursor:pointer}@media(max-width:600px){#rr-live-bar{gap:8px;padding:5px 10px;font-size:12px}#rr-live-bar .rr-live-actions{gap:6px}#rr-live-bar button{padding:3px 10px;font-size:12px}#rr-live-bar-hint{font-size:11px}}';
+      css.textContent = '.rr-live-main{display:flex;flex-direction:column;min-width:0}#rr-live-bar-hint{font-weight:600;font-size:12px;line-height:1.25;opacity:.92}#rr-live-bar-hint:empty{display:none}#rr-live-bar{position:fixed;top:60px;left:0;right:0;z-index:10040;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#b00020;color:#fff;padding:8px 16px;font:700 14px/1.3 sans-serif}#rr-live-bar[hidden]{display:none!important}#rr-live-bar-text{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#rr-live-bar .rr-live-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}#rr-live-bar button{background:#fff;color:#b00020;border:0;border-radius:999px;padding:4px 12px;font-weight:800;white-space:nowrap;cursor:pointer}#rr-live-bar button:disabled{opacity:.85;cursor:default}@media(max-width:600px){#rr-live-bar{gap:8px;padding:5px 10px;font-size:12px}#rr-live-bar .rr-live-actions{gap:6px}#rr-live-bar button{padding:3px 10px;font-size:12px}#rr-live-bar-hint{font-size:11px}}';
       document.head.appendChild(css);
     }
     el = document.createElement('div');
     el.id = 'rr-live-bar';
     el.hidden = true;
-    el.innerHTML = '<span class="rr-live-main"><span id="rr-live-bar-text">Sharing paused</span><span id="rr-live-bar-hint"></span></span><span class="rr-live-actions"><button type="button" id="rr-live-bar-resume">Resume sharing</button><button type="button" id="rr-live-bar-stop">Stop sharing</button></span>';
+    el.innerHTML = '<span class="rr-live-main"><span id="rr-live-bar-text">Sharing paused</span><span id="rr-live-bar-hint"></span></span><span class="rr-live-actions"><button type="button" id="rr-live-bar-copy">Copy live link</button><button type="button" id="rr-live-bar-resume">Resume sharing</button><button type="button" id="rr-live-bar-stop">Stop sharing</button></span>';
     var header = document.querySelector('.header');
     if (header && header.parentNode) header.parentNode.insertBefore(el, header.nextSibling);
     else document.body.appendChild(el);
+    el.querySelector('#rr-live-bar-copy').addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      copyLiveLink(el.querySelector('#rr-live-bar-copy'));
+    });
     el.querySelector('#rr-live-bar-resume').addEventListener('click', function () {
       var o = read();
       if (window.rrSpecialShareState && typeof rrSpecialResumeSharing === 'function') rrSpecialResumeSharing(true);
@@ -142,15 +204,17 @@
     if (stopped() || !o) { hide(); return; }
     var el = ensureBar();
     var resume = el.querySelector('#rr-live-bar-resume');
+    var copyBtn = el.querySelector('#rr-live-bar-copy');
     // On the map the page runs its own watch and tracks the last write; elsewhere this script does.
     var st = window.rrSpecialShareState;
     var live = st ? (!st.resumeNeeded && !!window.rrSpecialShareWatching()) : !!window.__rrLiveWatch;
     if (resume) resume.hidden = live;
+    if (copyBtn) copyBtn.hidden = !o.shareCode;
     var last = st ? st.lastWriteAt : o.updatedAt;
     var ago = last ? Math.max(0, Math.round((Date.now() - Number(last)) / 1000)) : 0;
     el.querySelector('#rr-live-bar-text').textContent = live
-      ? ('Sharing live' + (ago >= 10 ? (' \u00b7 updated ' + ago + 's ago') : '') + ' \u00b7 ' + leftLabel(o))
-      : ('Sharing paused \u00b7 ' + leftLabel(o));
+      ? ('Sharing live ' + leftLabel(o) + (ago >= 10 ? (' updated ' + ago + 's ago') : ''))
+      : ('Sharing paused ' + leftLabel(o));
     if (live) wakeAcquire();
     var hint = el.querySelector('#rr-live-bar-hint');
     var hintText = !live ? '' : (wakeHeld() ? 'Screen stays on while you\u2019re live.'
@@ -197,6 +261,8 @@
       return;
     }
     if (!writeDue(coords)) return;
+    var docId = shareDocId(o);
+    if (!docId) return;
     loadFirebase().then(function () {
       if (stopped()) return;
       var user = firebase.auth().currentUser;
@@ -204,17 +270,22 @@
       lastSentAt = Date.now();
       lastSentLat = coords.latitude;
       lastSentLon = coords.longitude;
-      firebase.firestore().collection('specialMoveShares').doc(user.uid).set({
+      firebase.firestore().collection('specialMoveShares').doc(docId).set({
         uid: user.uid, tripId: o.tripId, title: o.title || 'Live trip', active: true,
         lat: coords.latitude, lon: coords.longitude, heading: coords.heading, speed: coords.speed, startedAt: o.startedAt, expiresAt: o.expiresAt, expireAt: firebase.firestore.Timestamp.fromMillis(Number(o.expiresAt)), updatedAt: Date.now()
       }, { merge: true });
     }).catch(function () {});
   }
-  function stopRemote() {
+  function stopRemote(o) {
     loadFirebase().then(function () {
       var user = firebase.auth().currentUser;
       if (!user) return;
-      firebase.firestore().collection('specialMoveShares').doc(user.uid).delete();
+      var id = shareDocId(o) || user.uid;
+      firebase.firestore().collection('specialMoveShares').doc(id).delete();
+      // Legacy uid-keyed docs from before per-share codes.
+      if (id !== user.uid) {
+        firebase.firestore().collection('specialMoveShares').doc(user.uid).delete().catch(function () {});
+      }
     }).catch(function () {});
   }
   function startWatch(o) {
@@ -273,9 +344,18 @@
       return;
     }
     try { localStorage.removeItem(STOP); } catch (e) {}
-    write({ uid: state.uid, tripId: state.tripId, title: state.title, startedAt: state.startedAt, expiresAt: state.expiresAt, updatedAt: Date.now() });
+    write({
+      uid: state.uid,
+      shareCode: state.shareCode || null,
+      tripId: state.tripId,
+      title: state.title,
+      startedAt: state.startedAt,
+      expiresAt: state.expiresAt,
+      updatedAt: Date.now()
+    });
     show(read());
   };
+  window.rrLiveShareViewerUrl = function (o) { return liveViewerUrl(o || read()); };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
   window.addEventListener('resize', reserve);
   document.addEventListener('visibilitychange', function () {
