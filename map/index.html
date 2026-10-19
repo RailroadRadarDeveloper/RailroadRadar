@@ -154,6 +154,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <link rel="stylesheet" href="/assets/css/app.css?v=490b3643f1">
   <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
+  <link rel="stylesheet" href="/assets/css/settings.css?v=9a0dfeb2f7">
   <script>
     function rrIsMyTripsPage() {
       const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
@@ -365,19 +366,58 @@
     </div>
   </div>
   <div class="overlay" id="overlay"></div>
-  <div class="control-panel" id="control-panel">
-    <button class="close-panel" id="close-panel" aria-label="Close menu">×</button>
-      <div class="toggle-section" style="margin-top:0; padding-top:0; border-top:none;">
-        <h3>Map Layers</h3>
+  <div class="control-panel rr-settings" id="control-panel" role="region" aria-labelledby="control-panel-title">
+    <div class="rr-set-head">
+      <div class="rr-set-head-text">
+        <h2 class="rr-set-title" id="control-panel-title">Map settings</h2>
+        <p class="rr-set-lead">Choose what the map shows, set up alerts, and manage your account.</p>
+      </div>
+      <button class="close-panel" id="close-panel" aria-label="Close menu">×</button>
+    </div>
+    <div class="rr-set-body">
+    <div class="rr-set-col">
+      <div class="toggle-section rr-set-card rr-set-layers">
+        <h3>Map layers</h3>
         <div class="map-theme-row">
           <span class="map-theme-label">Map theme</span>
-          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-dark" value="dark"> Dark</label>
-          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-light" value="light" checked> Light</label>
+          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-dark" value="dark"><span>Dark</span></label>
+          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-light" value="light" checked><span>Light</span></label>
         </div>
-        <div><input type="checkbox" id="show-routes" checked><label for="show-routes">Show Routes</label></div>
-        <button type="button" id="btn-fullscreen" class="location-btn" style="margin-top:10px; width:100%;">Full screen</button>
+        <div><input type="checkbox" id="show-routes" checked><label for="show-routes">Show routes</label></div>
+        <button type="button" id="btn-fullscreen" class="location-btn rr-set-btn-secondary">Full screen</button>
       </div>
-      <div class="toggle-section" id="settings-account-section">
+      <div class="toggle-section rr-set-card rr-set-markers">
+        <h3>Markers</h3>
+        <div class="station-toggle">
+          <input type="checkbox" id="show-stations" checked>
+          <img src="/assets/station.png" class="station-icon" alt="Station">
+          <label for="show-stations">Show stations</label>
+        </div>
+        <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show train labels</label></div>
+        <div><input type="checkbox" id="show-clusters"><label for="show-clusters">Cluster overlapping trains</label></div>
+        <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show only special units</label></div>
+        <div><input type="checkbox" id="show-mbta" checked><label for="show-mbta">Show MBTA Commuter Rail</label></div>
+        <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak trains</label></div>
+        <div><input type="checkbox" id="show-via" checked><label for="show-via">Show VIA Rail trains</label></div>
+        <div><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North trains</label></div>
+        <div><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR trains</label></div>
+        <div><input type="checkbox" id="show-metra" checked><label for="show-metra">Show Metra trains</label></div>
+        <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit trains</label></div>
+        <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
+        <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC trains (paused)</label></div>
+        <button type="button" id="rr-change-railroads">Change railroads…</button>
+      </div>
+      <div class="rr-set-card rr-set-tools">
+        <h3>Reports &amp; data</h3>
+        <button type="button" id="btn-report-train-panel" class="cabcar-report-btn">Report a train</button>
+        <button type="button" id="btn-specials-panel" class="cabcar-report-btn rr-set-btn-secondary">Specials &amp; reports</button>
+        <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn rr-set-btn-secondary"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18">Weekly leaderboard</button>
+        <button id="refresh-button" class="refresh-button rr-set-btn-secondary">Refresh Data</button>
+        <div id="last-updated" class="last-updated">Last updated: Never</div>
+      </div>
+    </div>
+    <div class="rr-set-col">
+      <div class="toggle-section rr-set-card rr-set-account" id="settings-account-section">
         <h3>Account</h3>
         <div id="settings-account-signed-out">
           <p class="rr-modal-hint">Sign in to report locomotives, log your trips, and choose which railroads you follow.</p>
@@ -392,9 +432,9 @@
           </div>
         </div>
       </div>
-      <div class="toggle-section" id="settings-notifications-section">
+      <div class="toggle-section rr-set-card rr-set-notify" id="settings-notifications-section">
         <h3>Notifications</h3>
-        <p class="rr-modal-hint" style="margin-top:0;">On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.</p>
+        <p class="rr-modal-hint rr-set-note">On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.</p>
         <p class="rr-modal-hint" id="notify-status"></p>
         <div><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable notifications</label></div>
         <div class="notify-subhead">When</div>
@@ -407,7 +447,7 @@
         <select id="notify-train-select" aria-label="Add a special unit">
           <option value="">Specials — pick one to add</option>
         </select>
-        <p class="rr-modal-hint" style="margin:4px 0 8px;">Or type any locomotive number:</p>
+        <p class="rr-modal-hint rr-set-or">Or type any locomotive number:</p>
         <div class="notify-loco-add">
           <select id="notify-loco-agency" aria-label="Railroad for locomotive"></select>
           <input type="text" id="notify-loco-number" placeholder="Loco number" maxlength="16" autocomplete="off" aria-label="Locomotive number">
@@ -421,46 +461,22 @@
         </div>
         <p class="rr-modal-hint" id="notify-save-hint"></p>
       </div>
-      <div class="toggle-section">
-        <h3>Markers</h3>
-        <div class="station-toggle">
-          <input type="checkbox" id="show-stations" checked>
-          <img src="/assets/station.png" class="station-icon" alt="Station">
-          <label for="show-stations">Show Stations</label>
-        </div>
-        <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
-        <div><input type="checkbox" id="show-clusters"><label for="show-clusters">Cluster Overlapping Trains</label></div>
-        <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
-        <div><input type="checkbox" id="show-mbta" checked><label for="show-mbta">Show MBTA Commuter Rail</label></div>
-        <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
-        <div><input type="checkbox" id="show-via" checked><label for="show-via">Show VIA Rail Trains</label></div>
-        <div><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North Trains</label></div>
-        <div><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR Trains</label></div>
-        <div><input type="checkbox" id="show-metra" checked><label for="show-metra">Show Metra Trains</label></div>
-        <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
-        <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
-        <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains (paused)</label></div>
-        <button type="button" id="rr-change-railroads">Change railroads…</button>
-      </div>
-      <button type="button" id="btn-report-train-panel" class="cabcar-report-btn" style="margin-top:10px;">Report a train</button>
-      <button type="button" id="btn-specials-panel" class="cabcar-report-btn" style="margin-top:8px;">Specials & reports</button>
-      <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn" style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18" style="flex-shrink:0;">Weekly Leaderboard</button>
-      <button id="refresh-button" class="refresh-button">Refresh Data</button>
-      <div id="last-updated" class="last-updated">Last updated: Never</div>
-      <div class="disclaimer"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.</p></div>
-      <div class="location-section">
-        <h3>My Location</h3>
+      <div class="location-section rr-set-card rr-set-location">
+        <h3>My location</h3>
         <button id="location-btn" class="location-btn" onclick="requestUserLocation()">Show My Location</button>
         <div id="location-status" class="location-status"></div>
         <div id="closest-trains" class="closest-trains-list"></div>
       </div>
+    </div>
+      <div class="disclaimer rr-set-foot"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.</p></div>
+    </div>
   </div>
 
   <!-- Account Settings lightbox -->
   <div class="rr-modal-backdrop" id="account-settings-modal" aria-hidden="true">
     <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="account-settings-title">
       <div class="rr-modal-header">
-        <span id="account-settings-title">Account Settings</span>
+        <h2 class="rr-acct-title" id="account-settings-title">Account settings</h2>
         <button type="button" class="rr-modal-close" id="account-settings-close" aria-label="Close">×</button>
       </div>
       <div class="rr-lightbox-body">
@@ -477,24 +493,10 @@
             </div>
           </div>
         </div>
-        <div class="rr-lightbox-section" id="account-report-stats-section">
-          <h3>Your reports</h3>
-          <div class="rr-report-stats">
-            <div class="rr-report-stat">
-              <span class="rr-report-stat-value" id="account-stat-trains">—</span>
-              <span class="rr-report-stat-label">trains reported</span>
-            </div>
-            <div class="rr-report-stat">
-              <span class="rr-report-stat-value" id="account-stat-loco">—</span>
-              <span class="rr-report-stat-label">most reported locomotive</span>
-            </div>
-          </div>
-          <p class="rr-modal-hint" id="account-stat-hint" style="margin-top:10px;">Saved to your account. Amtrak and other same-day reports still count after the service day ends.</p>
-        </div>
         <div class="rr-lightbox-section">
           <h3>How your reports are shown</h3>
           <div class="rr-radio-row" id="account-display-mode-group">
-            <label><input type="radio" name="report-display-mode" value="first_initial" checked> First name + last initial (e.g. Arturo K.)</label>
+            <label><input type="radio" name="report-display-mode" value="first_initial" checked> First name + last initial</label>
             <label><input type="radio" name="report-display-mode" value="full_name"> Full name</label>
             <label><input type="radio" name="report-display-mode" value="anonymous"> Anonymous</label>
             <label><input type="radio" name="report-display-mode" value="custom"> Custom label</label>
@@ -506,7 +508,7 @@
         </div>
         <div class="rr-lightbox-section">
           <h3>Railroads you follow</h3>
-          <p class="rr-modal-hint" style="margin-top:0;">Which railroads are you most interested in using RailroadRadar for? Select all that apply. Answering this helps us plan future updates.</p>
+          <p class="rr-modal-hint">Which railroads are you most interested in using RailroadRadar for? Select all that apply. Answering this helps us plan future updates.</p>
           <div class="rr-interest-dropdown" id="account-interest-dropdown">
             <button type="button" class="rr-interest-toggle" id="account-interest-toggle">Choose railroads</button>
             <div class="rr-interest-menu rr-interest-list" id="account-interest-menu" hidden></div>
@@ -518,23 +520,23 @@
         <!-- /* Public profile settings */ -->
         <div class="rr-lightbox-section" id="account-public-profile-section">
           <h3>Username &amp; public profile</h3>
-          <p class="rr-modal-hint" style="margin-top:0;">Share a public page with your name, photo, and trip log. Email stays private.</p>
-          <label class="rr-checkbox-row" style="display:flex;align-items:center;gap:8px;font-weight:600;margin:8px 0;">
+          <p class="rr-modal-hint">Share a public page with your name, photo, and trip log. Email stays private.</p>
+          <label class="rr-checkbox-row">
             <input type="checkbox" id="account-public-profile-toggle"> Make my profile public
           </label>
           <label for="account-username">Username</label>
           <input type="text" id="account-username" maxlength="24" placeholder="yourname" autocomplete="off" spellcheck="false">
           <p class="rr-modal-hint" id="account-username-hint">railroadradar.com/user/yourname · 3–24 chars, letters, numbers, underscore</p>
-          <div id="account-public-link-row" style="display:none;margin-top:10px;">
+          <div id="account-public-link-row" style="display:none;">
             <label for="account-public-link">Your public link</label>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input type="text" id="account-public-link" readonly style="flex:1;min-width:180px;">
+            <div class="rr-acct-link-row">
+              <input type="text" id="account-public-link" readonly>
               <button type="button" class="rr-btn secondary" id="account-public-link-copy">Copy</button>
             </div>
           </div>
         </div>
 
-        <div class="rr-lightbox-section">
+        <div class="rr-lightbox-section rr-acct-actions-section">
           <div class="rr-lightbox-actions">
             <button type="button" class="rr-btn" id="account-save-settings">Save settings</button>
             <button type="button" class="rr-btn secondary" id="account-sign-out">Sign out</button>

@@ -1,0 +1,613 @@
+/* Map settings (#control-panel) and Account settings (#account-settings-modal), in the homepage style:
+   Google Sans / Roboto, navy band headers, white 4px cards on a light page, sentence-case buttons.
+   Everything is scoped to those two ids, so no other screen changes. Loaded after app.css. */
+#control-panel,
+#account-settings-modal {
+  --s-navy: #07093e;
+  --s-font: "Google Sans", Roboto, Arial, sans-serif;
+  --s-bg: #f5f6f8;
+  --s-surface: #fff;
+  --s-line: #e3e6eb;
+  --s-field: #7c8295;      /* field and outline borders, 3:1+ on white and on --s-bg (homepage #c5cad3 is 1.6:1) */
+  --s-field-bg: #fff;
+  --s-ink: #07093e;          /* headings, strong text */
+  --s-text: #1f2433;         /* body text */
+  --s-muted: #5b6275;        /* hints, 6:1 on white */
+  --s-focus: #0B57D0;
+  --s-hover: rgba(7,9,62,.04);
+  --s-tint: #eef1fa;         /* selected rows and chips */
+  --s-accent: #07093e;       /* checkbox and radio fill */
+  --s-btn-bg: #07093e;
+  --s-btn-ink: #fff;
+  --s-btn-hover: #1a1f6b;
+  --s-btn2-border: #07093e;
+  --s-btn2-ink: #07093e;
+  --s-danger: #b3261e;
+  --s-danger-hover: #fdecea;
+  --s-link: #0B57D0;
+  --s-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2307093e' stroke-width='2'/%3E%3C/svg%3E");
+}
+
+/* ---------- Shared pieces ---------- */
+#control-panel :focus-visible,
+#account-settings-modal :focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; }
+#control-panel .rr-set-head :focus-visible,
+#account-settings-modal .rr-modal-header :focus-visible { outline-color: #8fd3ff; }
+
+#control-panel .rr-modal-hint,
+#account-settings-modal .rr-modal-hint { margin: 10px 0 0; font: 400 13px/1.45 var(--s-font); color: var(--s-muted); }
+#control-panel .rr-modal-hint:empty,
+#account-settings-modal .rr-modal-hint:empty { display: none; }
+
+#control-panel select,
+#control-panel input[type="text"],
+#account-settings-modal .rr-lightbox-body input[type="text"],
+#account-settings-modal .rr-interest-toggle {
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--s-field);
+  border-radius: 4px;
+  background-color: var(--s-field-bg);
+  color: var(--s-text);
+  font: 400 15px/1.2 var(--s-font);
+}
+#control-panel select,
+#account-settings-modal .rr-interest-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: var(--s-chev);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+#control-panel select:focus,
+#control-panel input[type="text"]:focus,
+#account-settings-modal .rr-lightbox-body input[type="text"]:focus,
+#account-settings-modal .rr-interest-toggle:focus-visible {
+  outline: none;
+  border-color: var(--s-focus);
+  box-shadow: 0 0 0 1px var(--s-focus);
+}
+#control-panel input::placeholder,
+#account-settings-modal input::placeholder { color: var(--s-muted); opacity: 1; }
+#control-panel input[type="checkbox"],
+#control-panel input[type="radio"],
+#account-settings-modal input[type="checkbox"],
+#account-settings-modal input[type="radio"] {
+  width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--s-accent); cursor: pointer;
+}
+
+/* Buttons: primary is filled navy, secondary is a navy outline, both sentence case with 4px corners */
+#control-panel .cabcar-report-btn,
+#control-panel .location-btn,
+#control-panel .refresh-button,
+#control-panel .notify-add-btn,
+#control-panel .notify-confirm-btn,
+#account-settings-modal .rr-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--s-btn-bg);
+  border-radius: 4px;
+  background: var(--s-btn-bg);
+  color: var(--s-btn-ink);
+  font: 700 15px/1.2 var(--s-font);
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+  text-align: center;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+#control-panel .cabcar-report-btn:hover,
+#control-panel .location-btn:hover,
+#control-panel .refresh-button:hover,
+#control-panel .notify-add-btn:hover,
+#account-settings-modal .rr-btn:hover {
+  background: var(--s-btn-hover);
+  border-color: var(--s-btn-hover);
+  filter: none;
+  transform: none;
+}
+#control-panel .rr-set-btn-secondary,
+#account-settings-modal .rr-btn.secondary {
+  background: transparent;
+  border-color: var(--s-btn2-border);
+  color: var(--s-btn2-ink);
+}
+#control-panel .rr-set-btn-secondary:hover,
+#account-settings-modal .rr-btn.secondary:hover {
+  background: var(--s-tint);
+  border-color: var(--s-btn2-border);
+  color: var(--s-btn2-ink);
+}
+#control-panel .location-btn:disabled,
+#control-panel .refresh-button:disabled,
+#account-settings-modal .rr-btn:disabled {
+  background: var(--s-bg);
+  border-color: var(--s-field);
+  color: var(--s-muted);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* ---------- Map settings panel ---------- */
+#control-panel.control-panel {
+  top: 72px;
+  width: min(1100px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100vh - 88px);
+  max-height: calc(100dvh - 88px);
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--s-bg);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  box-shadow: 0 18px 48px rgba(7,9,62,.35);
+  overscroll-behavior: contain;
+  transition: opacity .2s ease, visibility .2s ease;
+}
+#control-panel .rr-set-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 28px 20px;
+  background: linear-gradient(180deg, #07093e 0%, #0d1263 100%);
+  color: #fff;
+}
+#control-panel .rr-set-head-text { min-width: 0; }
+#control-panel h2.rr-set-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #fff;
+  font: 700 clamp(22px, 3.2vw, 28px)/1.15 var(--s-font);
+}
+#control-panel .rr-set-lead { margin: 6px 0 0; color: #c9d4ea; font: 400 15px/1.45 var(--s-font); }
+#control-panel .rr-set-head .close-panel,
+#account-settings-modal .rr-modal-close {
+  position: static;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.7);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font: 400 26px/1 var(--s-font);
+  text-shadow: none;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+#control-panel .rr-set-head .close-panel:hover,
+#account-settings-modal .rr-modal-close:hover { background: rgba(255,255,255,.12); }
+
+#control-panel .rr-set-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 20px 28px 24px;
+}
+#control-panel .rr-set-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+#control-panel .rr-set-card,
+#control-panel .toggle-section.rr-set-card {
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--s-line);
+  border-radius: 4px;
+  background: var(--s-surface);
+}
+#control-panel .rr-set-card h3 {
+  margin: 0 0 10px;
+  color: var(--s-ink);
+  font: 700 17px/1.25 var(--s-font);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Checkbox rows: a list with thin dividers, the whole label is the tap target */
+#control-panel .rr-set-card > div:not([class]):not([id]),
+#control-panel .rr-set-card > .station-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--s-line);
+}
+#control-panel .rr-set-card > div:not([class]):not([id]):hover,
+#control-panel .rr-set-card > .station-toggle:hover { background: var(--s-hover); }
+#control-panel .rr-set-card > div:not([class]):not([id]) > label,
+#control-panel .rr-set-card > .station-toggle > label {
+  flex: 1;
+  padding: 11px 0;
+  color: var(--s-text);
+  font: 500 15px/1.3 var(--s-font);
+  cursor: pointer;
+}
+#control-panel .station-toggle .station-icon { width: 18px; height: 18px; margin: 0; flex: none; object-fit: contain; }
+
+/* Map layers: theme picker is a two-part segmented control */
+#control-panel .map-theme-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 6px 4px 12px;
+  border-bottom: 1px solid var(--s-line);
+  font-size: 15px;
+}
+#control-panel .map-theme-label { flex: 1 1 auto; margin: 0; color: var(--s-text); font: 500 15px/1.3 var(--s-font); }
+#control-panel .map-theme-option { position: relative; display: inline-flex; margin: 0; cursor: pointer; }
+#control-panel .map-theme-option + .map-theme-option { margin-left: -13px; } /* overlap the shared border inside the 12px gap */
+#control-panel .map-theme-option input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer;
+}
+#control-panel .map-theme-option span {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 18px;
+  border: 1px solid var(--s-navy); background: var(--s-surface); color: var(--s-navy);
+  font: 700 14px/1 var(--s-font);
+  transition: background-color .15s ease, color .15s ease;
+}
+#control-panel .map-theme-option:first-of-type span { border-radius: 4px 0 0 4px; }
+#control-panel .map-theme-option:last-of-type span { border-radius: 0 4px 4px 0; }
+#control-panel .map-theme-option input:checked + span { background: var(--s-navy); color: #fff; }
+#control-panel .map-theme-option:hover input:not(:checked) + span { background: var(--s-tint); }
+#control-panel .map-theme-option input:focus-visible + span { outline: 2px solid var(--s-focus); outline-offset: 2px; position: relative; z-index: 1; }
+#control-panel #btn-fullscreen { margin-top: 14px; }
+
+/* Account card */
+#control-panel #settings-account-section .rr-modal-hint { margin: 0 0 14px; font-size: 14px; color: var(--s-muted); }
+#control-panel .settings-account-name { margin: 2px 0 0; color: var(--s-ink); font: 700 17px/1.3 var(--s-font); overflow-wrap: anywhere; }
+#control-panel .settings-account-email { margin: 2px 0 0; color: var(--s-muted); font: 400 14px/1.4 var(--s-font); overflow-wrap: anywhere; }
+#control-panel #settings-account-section .settings-account-actions { gap: 8px; margin: 14px 0 0; }
+#control-panel #settings-account-section .settings-account-actions .cabcar-report-btn + .cabcar-report-btn {
+  background: transparent; border-color: var(--s-btn2-border); color: var(--s-btn2-ink);
+}
+#control-panel #settings-account-section .settings-account-actions .cabcar-report-btn + .cabcar-report-btn:hover { background: var(--s-tint); }
+
+/* Notifications card */
+#control-panel .rr-set-note {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--s-line);
+  border-radius: 4px;
+  background: var(--s-bg);
+  color: var(--s-muted);
+  font-size: 13px;
+}
+#control-panel #notify-status { margin: 0 0 8px; color: var(--s-ink); font-weight: 500; }
+#control-panel .notify-subhead { margin: 18px 0 6px; color: var(--s-ink); font: 700 14px/1.3 var(--s-font); }
+#control-panel .notify-rail-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; }
+#control-panel .notify-rail-list label {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 36px; margin: 0; padding: 0 14px 0 10px;
+  border: 1px solid var(--s-field); border-radius: 999px;
+  background: var(--s-surface); color: var(--s-text);
+  font: 500 14px/1.2 var(--s-font); cursor: pointer;
+}
+#control-panel .notify-rail-list label:hover { background: var(--s-hover); }
+#control-panel .notify-rail-list label:has(input:checked) { border-color: var(--s-navy); background: var(--s-tint); }
+#control-panel .notify-rail-list input { width: 16px; height: 16px; }
+#control-panel #notify-train-select { width: 100%; margin: 4px 0 0; }
+#control-panel .rr-modal-hint.rr-set-or { margin: 12px 0 6px; }
+#control-panel .notify-loco-add { display: flex; gap: 8px; align-items: stretch; margin: 0; }
+#control-panel .notify-loco-add select { width: 38%; min-width: 0; flex: 0 1 38%; }
+#control-panel .notify-loco-add input { flex: 1 1 auto; min-width: 0; width: auto; }
+#control-panel .notify-loco-add .notify-add-btn { width: auto; flex: none; padding: 0 20px; }
+#control-panel .notify-train-chips { gap: 6px; margin-top: 12px; }
+#control-panel .notify-chip {
+  min-height: 30px; padding: 0 6px 0 12px; gap: 4px;
+  border: 1px solid var(--s-line); border-radius: 999px; background: var(--s-tint);
+  color: var(--s-ink); font: 600 13px/1.2 var(--s-font);
+}
+#control-panel .notify-chip:not(:has(button)) { padding-right: 12px; }
+#control-panel .notify-chip button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%; color: var(--s-ink); font-size: 16px;
+}
+#control-panel .notify-chip button:hover { background: rgba(7,9,62,.1); }
+#control-panel .notify-save-row { gap: 8px; margin-top: 16px; }
+#control-panel .notify-confirm-btn { background: #0ac700; border-color: #0ac700; color: var(--s-navy); }  /* navy on brand green: 7.6:1 */
+#control-panel .notify-confirm-btn:hover:not(:disabled) { background: #09b000; border-color: #09b000; }
+#control-panel .notify-confirm-btn:disabled,
+#control-panel button.notify-confirm-btn:disabled {
+  background: var(--s-bg) !important;
+  border-color: var(--s-field) !important;
+  color: var(--s-muted) !important;
+}
+
+/* Markers card: two columns of toggles on wide screens */
+#control-panel .rr-set-markers { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; align-content: start; }
+#control-panel .rr-set-markers > h3,
+#control-panel .rr-set-markers > #rr-change-railroads { grid-column: 1 / -1; }
+#control-panel #rr-change-railroads {
+  justify-self: start;
+  margin: 12px 0 0;
+  padding: 6px 2px;
+  color: var(--s-link);
+  font: 600 14px/1.3 var(--s-font);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+#control-panel #rr-change-railroads:hover { text-decoration-thickness: 2px; }
+
+/* Reports & data card */
+#control-panel .rr-set-tools { display: flex; flex-direction: column; gap: 8px; }
+#control-panel .rr-set-tools > h3 { margin-bottom: 4px; }
+#control-panel .rr-set-tools img { width: 18px; height: 18px; flex: none; }
+#control-panel .last-updated { margin: 4px 0 0; color: var(--s-muted); font: 400 13px/1.4 var(--s-font); text-align: center; }
+
+/* My location card */
+#control-panel .rr-set-location .location-status { margin: 10px 0 0; min-height: 0; color: var(--s-muted); font: 400 13px/1.4 var(--s-font); }
+#control-panel .rr-set-location .location-status:empty { display: none; }
+#control-panel .rr-set-location .closest-trains-list:not(:empty) { margin-top: 10px; }
+
+#control-panel .disclaimer.rr-set-foot {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  color: var(--s-muted);
+  font: 400 13px/1.45 var(--s-font);
+}
+#control-panel .disclaimer.rr-set-foot p { margin: 0; }
+
+/* Phone and small tablet: one column, full-height sheet under the header, original section order */
+@media (max-width: 859px) {
+  #control-panel.control-panel {
+    top: 60px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: none;
+    transform: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #control-panel .rr-set-head { padding: 18px 16px 16px; }
+  #control-panel .rr-set-lead { font-size: 14px; }
+  #control-panel .rr-set-body { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px 12px calc(20px + env(safe-area-inset-bottom)); }
+  #control-panel .rr-set-col { display: contents; }
+  #control-panel .rr-set-layers   { order: 1; }
+  #control-panel .rr-set-account  { order: 2; }
+  #control-panel .rr-set-notify   { order: 3; }
+  #control-panel .rr-set-markers  { order: 4; }
+  #control-panel .rr-set-tools    { order: 5; }
+  #control-panel .rr-set-location { order: 6; }
+  #control-panel .rr-set-foot     { order: 7; padding: 4px 4px 0; }
+  #control-panel .rr-set-card,
+  #control-panel .toggle-section.rr-set-card { padding: 16px; }
+}
+@media (max-width: 559px) {
+  #control-panel .rr-set-markers { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Account settings modal ---------- */
+#account-settings-modal.rr-modal-backdrop { background: rgba(7,9,62,.62); padding: 24px; }
+#account-settings-modal .rr-lightbox {
+  width: min(720px, 100%);
+  max-height: min(92vh, 960px);
+  border: 0;
+  border-radius: 4px;
+  background: var(--s-bg);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  box-shadow: 0 18px 48px rgba(0,0,0,.35);
+}
+#account-settings-modal .rr-modal-header {
+  gap: 16px;
+  padding: 18px 24px;
+  background: linear-gradient(180deg, #07093e 0%, #0d1263 100%);
+  color: #fff;
+}
+#account-settings-modal h2.rr-acct-title { margin: 0; color: #fff; font: 700 22px/1.2 var(--s-font); }
+#account-settings-modal .rr-lightbox-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 0;
+}
+#account-settings-modal .rr-lightbox-section {
+  margin: 0;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--s-line);
+  border-radius: 4px;
+  background: var(--s-surface);
+}
+#account-settings-modal .rr-lightbox-section h3 {
+  margin: 0 0 12px;
+  color: var(--s-ink);
+  font: 700 17px/1.25 var(--s-font);
+  letter-spacing: normal;
+  text-transform: none;
+}
+#account-settings-modal .rr-lightbox-section > .rr-modal-hint:first-of-type { margin-top: 0; }
+
+/* Profile: photo with no ring, name, email */
+#account-settings-modal .rr-profile-row { flex-direction: row; align-items: center; gap: 14px; }
+#account-settings-modal .rr-profile-avatar { width: 56px; height: 56px; border: 0; border-radius: 50%; }
+#account-settings-modal .rr-profile-meta { min-width: 0; color: var(--s-text); font: 400 14px/1.4 var(--s-font); }
+#account-settings-modal .rr-profile-name-row { color: var(--s-ink); font: 700 19px/1.25 var(--s-font); overflow-wrap: anywhere; }
+#account-settings-modal .rr-profile-meta .rr-muted { margin-top: 2px; color: var(--s-muted); font-size: 14px; overflow-wrap: anywhere; }
+
+/* Display mode: each choice is a full-width row */
+#account-settings-modal .rr-radio-row { gap: 8px; margin: 0; }
+#account-settings-modal .rr-radio-row label {
+  box-sizing: border-box;
+  gap: 12px;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--s-line);
+  border-radius: 4px;
+  background: var(--s-surface);
+  color: var(--s-text);
+  font: 500 15px/1.3 var(--s-font);
+  transition: background-color .15s ease, border-color .15s ease;
+}
+#account-settings-modal .rr-radio-row label:hover { background: var(--s-hover); }
+#account-settings-modal .rr-radio-row label:has(input:checked) { border-color: var(--s-accent); background: var(--s-tint); box-shadow: inset 0 0 0 1px var(--s-accent); }
+
+#account-settings-modal .rr-lightbox-section > label[for],
+#account-settings-modal #account-public-link-row > label {
+  display: block;
+  margin: 16px 0 6px;
+  color: var(--s-ink);
+  font: 600 14px/1.3 var(--s-font);
+}
+#account-settings-modal .rr-preview-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--s-line);
+  border-radius: 4px;
+  background: var(--s-bg);
+  color: var(--s-text);
+  font: 400 14px/1.4 var(--s-font);
+}
+#account-settings-modal .rr-preview-box strong { color: var(--s-ink); }
+#account-settings-modal .rr-modal-error { border-radius: 4px; font-family: var(--s-font); }
+
+/* Railroads you follow: the toggle looks like a select */
+#account-settings-modal .rr-interest-toggle {
+  width: 100%;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 12px;
+}
+#account-settings-modal .rr-interest-menu {
+  padding: 6px;
+  border: 1px solid var(--s-field);
+  border-radius: 4px;
+  background: var(--s-surface);
+  box-shadow: 0 10px 28px rgba(7,9,62,.18);
+}
+#account-settings-modal .rr-interest-list { gap: 4px; margin: 0; }
+#account-settings-modal .rr-interest-list label {
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--s-text);
+  font: 500 14px/1.3 var(--s-font);
+}
+#account-settings-modal .rr-interest-list label:hover { background: var(--s-hover); }
+#account-settings-modal .rr-interest-list label:has(input:checked) { background: var(--s-tint); }
+#account-settings-modal .rr-interest-summary { margin-top: 10px; color: var(--s-muted); font: 400 13px/1.45 var(--s-font); }
+
+/* Public profile */
+#account-settings-modal .rr-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 8px 0 0;
+  color: var(--s-ink);
+  font: 600 15px/1.3 var(--s-font);
+  cursor: pointer;
+}
+#account-settings-modal #account-public-link-row { margin-top: 4px; }
+#account-settings-modal .rr-acct-link-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+#account-settings-modal .rr-acct-link-row input { flex: 1 1 200px; min-width: 0; }
+#account-settings-modal .rr-acct-link-row .rr-btn { width: auto; flex: none; padding: 0 20px; }
+
+/* Actions stay in reach: a bar pinned to the bottom of the scrolling body */
+#account-settings-modal .rr-lightbox-section.rr-acct-actions-section {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -24px;
+  padding: 14px 24px;
+  border: 0;
+  border-top: 1px solid var(--s-line);
+  border-radius: 0;
+  background: var(--s-surface);
+}
+#account-settings-modal .rr-lightbox-actions { gap: 8px; margin: 0; }
+#account-settings-modal .rr-lightbox-actions .rr-btn { width: auto; padding: 0 18px; }
+#account-settings-modal .rr-btn.danger.secondary { background: transparent; border-color: var(--s-danger); color: var(--s-danger); }
+#account-settings-modal .rr-btn.danger.secondary:hover { background: var(--s-danger-hover); border-color: var(--s-danger); color: var(--s-danger); }
+
+@media (max-width: 600px) {
+  #account-settings-modal.rr-modal-backdrop { padding: 0; align-items: stretch; }
+  #account-settings-modal .rr-lightbox { width: 100%; height: 100%; max-height: none; border-radius: 0; }
+  #account-settings-modal .rr-modal-header { padding: 14px 16px; }
+  #account-settings-modal h2.rr-acct-title { font-size: 20px; }
+  #account-settings-modal .rr-lightbox-body { gap: 12px; padding: 12px 12px 0; }
+  #account-settings-modal .rr-lightbox-section { padding: 16px; }
+  #account-settings-modal .rr-profile-row { flex-direction: row; align-items: center; }
+  #account-settings-modal .rr-lightbox-section.rr-acct-actions-section {
+    margin: 0 -12px;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  }
+  #account-settings-modal .rr-lightbox-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  #account-settings-modal .rr-lightbox-actions .rr-btn { width: 100%; padding: 0 10px; }
+}
+
+/* Dark site theme (Menu > Theme). Only MyTrips has a dark style, so only there does the account modal go dark.
+   The map settings panel is not shown on MyTrips. */
+html.rr-mytrips-page.rr-theme-dark #account-settings-modal {
+  color-scheme: dark;
+  --s-bg: #0b0b3b;
+  --s-surface: #151a52;
+  --s-line: #2a3172;
+  --s-field: #646cb5;
+  --s-field-bg: #0f1446;
+  --s-ink: #eef0fa;
+  --s-text: #eef0fa;
+  --s-muted: #aab0d4;
+  --s-focus: #8fd3ff;
+  --s-hover: rgba(255,255,255,.05);
+  --s-tint: #1d2362;
+  --s-accent: #8fd3ff;
+  --s-btn-bg: #fff;
+  --s-btn-ink: #07093e;
+  --s-btn-hover: #dfe3f7;
+  --s-btn2-border: rgba(255,255,255,.7);
+  --s-btn2-ink: #fff;
+  --s-danger: #ffb4ab;
+  --s-danger-hover: rgba(255,180,171,.12);
+  --s-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23eef0fa' stroke-width='2'/%3E%3C/svg%3E");
+}
+html.rr-mytrips-page.rr-theme-dark #account-settings-modal .rr-modal-error { background: #3b1426; color: #ffb4ab; }
+
+/* Reduced motion: no fades or colour transitions on either screen */
+@media (prefers-reduced-motion: reduce) {
+  #control-panel.control-panel,
+  #control-panel *,
+  #account-settings-modal,
+  #account-settings-modal * { transition: none !important; animation: none !important; }
+}
