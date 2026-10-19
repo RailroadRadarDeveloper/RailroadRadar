@@ -3844,6 +3844,7 @@
       color: #6a5538;
       min-height: 1.2em;
     }
+    .trip-detail-share-wake { display: block; margin-top: 2px; }
     .trip-detail-share-status.is-error {
       color: #9b1c1c;
       font-weight: 700;
@@ -6756,3 +6757,4 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-share-btn {
 html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .rr-btn { background: #fff !important; color: #07093e !important; border: 1px solid #fff !important; border-radius: 4px !important; text-transform: none !important; }
 html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .rr-btn.secondary { background: transparent !important; color: #fff !important; border-color: rgba(255,255,255,.7) !important; }
 html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-share { background: var(--mt-surface-2) !important; border-color: var(--mt-line) !important; color: var(--mt-ink) !important; }
+html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-title { color: var(--mt-ink) !important; }

@@ -6570,7 +6570,85 @@ function closeTripDetailView(opts) {
       if (!el) return;
       el.textContent = msg || '';
       try { el.classList.toggle('is-error', !!(isError && msg)); } catch (_) {}
+      rrSpecialPaintWakeHint();
     }
+
+    // Screen Wake Lock while a live share is on: a phone that dims and locks pauses the location updates.
+    // Browsers drop the lock whenever the page is hidden, so it is taken again once the page is visible.
+    // Best effort only: unsupported browsers, low battery or a refusal never stop the share.
+    var rrSpecialWakeLock = null;
+    var rrSpecialWakeLockPending = false;
+    function rrSpecialWakeLockSupported() {
+      try { return !!(navigator.wakeLock && typeof navigator.wakeLock.request === 'function'); } catch (_) { return false; }
+    }
+    function rrSpecialSharingActive() {
+      const st = rrSpecialShareState;
+      return !!(st && Date.now() < Number(st.expiresAt));
+    }
+    function rrSpecialWakeHintText() {
+      const st = rrSpecialShareState;
+      if (!rrSpecialSharingActive() || !st.lastWriteAt || st.resumeNeeded) return '';
+      if (rrSpecialWakeLock) return 'Screen stays on while you\u2019re live.';
+      if (rrSpecialWakeLockPending) return '';
+      return 'Keep this page open so your location keeps updating.';
+    }
+    function rrSpecialPaintWakeHint() {
+      const el = document.getElementById('trip-detail-share-status');
+      if (!el) return;
+      let hint = el.querySelector('.trip-detail-share-wake');
+      const text = el.classList.contains('is-error') ? '' : rrSpecialWakeHintText();
+      if (!text) { if (hint) hint.remove(); return; }
+      if (!hint) {
+        hint = document.createElement('span');
+        hint.className = 'trip-detail-share-wake';
+        el.appendChild(hint);
+      }
+      hint.textContent = text;
+    }
+    function rrSpecialWakeLockRelease() {
+      const lock = rrSpecialWakeLock;
+      rrSpecialWakeLock = null;
+      if (lock) {
+        try { Promise.resolve(lock.release()).catch(function() {}); } catch (_) {}
+      }
+      rrSpecialPaintWakeHint();
+    }
+    function rrSpecialWakeLockSync() {
+      if (!rrSpecialSharingActive()) { rrSpecialWakeLockRelease(); return; }
+      if (!rrSpecialWakeLockSupported() || rrSpecialWakeLock || rrSpecialWakeLockPending ||
+          document.visibilityState === 'hidden') {
+        rrSpecialPaintWakeHint();
+        return;
+      }
+      rrSpecialWakeLockPending = true;
+      let req;
+      try { req = Promise.resolve(navigator.wakeLock.request('screen')); } catch (e) { req = Promise.reject(e); }
+      req.then(function(lock) {
+        rrSpecialWakeLockPending = false;
+        // Sharing may have stopped while the request was out.
+        if (!rrSpecialSharingActive()) {
+          try { Promise.resolve(lock && lock.release()).catch(function() {}); } catch (_) {}
+          return;
+        }
+        rrSpecialWakeLock = lock || null;
+        try {
+          lock.addEventListener('release', function() {
+            if (rrSpecialWakeLock === lock) rrSpecialWakeLock = null;
+            rrSpecialPaintWakeHint();
+          });
+        } catch (_) {}
+        rrSpecialPaintWakeHint();
+      }).catch(function() {
+        rrSpecialWakeLockPending = false;
+        rrSpecialPaintWakeHint();
+      });
+      rrSpecialPaintWakeHint();
+    }
+    try {
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') rrSpecialWakeLockSync();
+      });
+    } catch (_) {}
 
 
     var rrSpecialSharePending = false;
@@ -6580,6 +6658,7 @@ function closeTripDetailView(opts) {
       try { rrSpecialClearDetailMarker(); } catch (_) {}
       rrSpecialShareState = null;
       rrSpecialShareQueue = [];
+      try { rrSpecialWakeLockRelease(); } catch (_) {}
       try { rrSpecialPersistLocal(null); } catch (_) {}
       try { rrSpecialUpdateShareButtons(); } catch (_) {}
     }
@@ -6636,12 +6715,12 @@ function closeTripDetailView(opts) {
             const left = Math.max(0, Number(rrSpecialShareState.expiresAt) - Date.now());
             const hrs = Math.floor(left / 3600000);
             const mins = Math.floor((left % 3600000) / 60000);
-            rrSpecialSetShareStatus('Sharing on the live map · stops in ' + (hrs ? (hrs + 'h ') : '') + mins + 'm');
+            rrSpecialSetShareStatus('Sharing on the live map. Stops in ' + (hrs ? (hrs + 'h ') : '') + mins + 'm.');
           }
         }
       } else {
         rrSpecialUpdateShareButtons();
-        rrSpecialSetShareStatus('Up to 5 hours · works while this page is open.');
+        rrSpecialSetShareStatus('Shares for up to 5 hours while this page is open.');
       }
     }
 
@@ -6662,7 +6741,7 @@ function closeTripDetailView(opts) {
       const left = Math.max(0, Number(rrSpecialShareState.expiresAt) - Date.now());
       const hrs = Math.floor(left / 3600000);
       const mins = Math.floor((left % 3600000) / 60000);
-      const base = 'Sharing on the live map · stops in ' + (hrs ? (hrs + 'h ') : '') + mins + 'm';
+      const base = 'Sharing on the live map. Stops in ' + (hrs ? (hrs + 'h ') : '') + mins + 'm.';
       if (rrSpecialShareState.offline || rrSpecialShareQueue.length) {
         const n = rrSpecialShareQueue.length;
         rrSpecialSetShareStatus((extra || 'Connection lost — buffering locally') + (n ? (' (' + n + ')') : '') + ' · ' + base);
@@ -6842,6 +6921,7 @@ function closeTripDetailView(opts) {
         offline: false
       };
       try { rrSpecialPersistLocal(rrSpecialShareState); } catch (_) {}
+      try { rrSpecialWakeLockSync(); } catch (_) {}
       await db.collection('specialMoveShares').doc(user.uid).set({
         uid: user.uid,
         tripId: tripId,
@@ -6874,11 +6954,12 @@ function closeTripDetailView(opts) {
       ev.preventDefault();
       if (typeof rrSpecialStopSharing === 'function') rrSpecialStopSharing();
     });
-async function rrSpecialStopSharing(opts) {
+    async function rrSpecialStopSharing(opts) {
       opts = opts || {};
       rrSpecialClearWatch();
       const st = rrSpecialShareState;
       rrSpecialShareState = null;
+      try { rrSpecialWakeLockRelease(); } catch (_) {}
       rrSpecialShareQueue = [];
       rrSpecialPersistLocal(null);
       try { localStorage.setItem('rrSpecialShareStopped', '1'); } catch (_) {}
@@ -6902,7 +6983,7 @@ async function rrSpecialStopSharing(opts) {
       rrSpecialUpdateShareButtons();
       if (!opts.silent) {
         if (opts.reason === 'expired') {
-          rrSpecialSetShareStatus('Sharing stopped — 5 hour limit reached.');
+          rrSpecialSetShareStatus('Sharing stopped after the 5 hour limit.');
           if (typeof showNotification === 'function') showNotification('Location sharing ended (5h limit)');
         } else if (opts.reason === 'leave') {
           rrSpecialSetShareStatus('');
@@ -7047,6 +7128,7 @@ async function rrSpecialStopSharing(opts) {
           if (first && rrSpecialShareState && !rrSpecialShareState.offline && rrSpecialShareState.lastWriteAt) {
             if (typeof showNotification === 'function') showNotification('Sharing location on the live map');
           }
+          try { rrSpecialWakeLockSync(); } catch (_) {}
         }).catch(function(e) {
           console.warn('[special-share] writeShare', e);
         });
@@ -7406,6 +7488,7 @@ async function rrSpecialStopSharing(opts) {
         rrSpecialStopSharing({ reason: 'expired' });
         return;
       }
+      try { rrSpecialWakeLockSync(); } catch (_) {}
       if (rrSpecialShareWatchId != null && !fromGesture) return;
       const geoOpts = { enableHighAccuracy: true, maximumAge: 0, timeout: 25000 };
       let gotFix = false;
