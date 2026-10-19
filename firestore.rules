@@ -525,35 +525,61 @@ service cloud.firestore {
     }
 
 
-    // Live location shares: public only while unexpired. Rules can only check a list query's
-    // filters, so it must filter active == true and expireAt after a time no earlier than ten
-    // minutes ago (the slack allows for a client clock that runs a little behind).
-    // expireAt (timestamp) also drives the Firestore TTL policy that deletes old shares.
-    match /specialMoveShares/{uid} {
+    // Live location shares: doc id is a random per-share code (not the account uid), so ending a
+    // share permanently retires its viewer link. Public only while unexpired. List queries must
+    // filter active == true and expireAt after a time no earlier than ten minutes ago (slack for a
+    // slow client clock). expireAt also drives the Firestore TTL policy that deletes old shares.
+    // Legacy docs from before share codes are keyed by the owner's uid; their owner may only end
+    // (active == false) or delete them.
+    match /specialMoveShares/{shareId} {
+      function isShareCode() {
+        return shareId.matches('[a-z0-9]{8,20}');
+      }
+      // Owner of an existing doc: the uid field if present, else (legacy) the doc id.
+      function ownsExisting() {
+        return activeUser() && resource.data.get('uid', shareId) == request.auth.uid;
+      }
+      function shareFieldsOk() {
+        return request.resource.data.keys().hasOnly(['uid', 'displayName', 'tripId', 'title', 'icon', 'active', 'lat', 'lon',
+            'heading', 'speed', 'startedAt', 'expiresAt', 'expireAt', 'updatedAt', 'recent'])
+          && strOk(request.resource.data.get('tripId', null), 128)
+          && request.resource.data.lat is number
+          && request.resource.data.lon is number
+          && request.resource.data.expireAt is timestamp
+          && request.resource.data.expireAt <= request.time + duration.value(6, 'h')
+          && (!('recent' in request.resource.data)
+              || (request.resource.data.recent is list && request.resource.data.recent.size() <= 10))
+          && strOk(request.resource.data.get('displayName', null), 80)
+          && strOk(request.resource.data.get('title', null), 120)
+          && iconIsAsset(request.resource.data);
+      }
       allow get: if isAdmin()
-        || (activeUser() && request.auth.uid == uid)
+        || (activeUser() && shareId == request.auth.uid)
+        || (activeUser() && resource.data.uid == request.auth.uid)
         || (resource.data.active == true
             && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
       allow list: if isAdmin()
         || (resource.data.active == true
             && resource.data.expireAt > request.time - duration.value(10, 'm'));
-      allow create, update: if activeUser()
-        && request.auth.uid == uid
-        && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'tripId', 'title', 'icon', 'active', 'lat', 'lon',
-          'heading', 'speed', 'startedAt', 'expiresAt', 'expireAt', 'updatedAt', 'recent'])
-        && strOk(request.resource.data.get('tripId', null), 128)
-        && request.resource.data.lat is number
-        && request.resource.data.lon is number
-        && request.resource.data.expireAt is timestamp
-        && request.resource.data.expireAt <= request.time + duration.value(6, 'h')
-        && (!('recent' in request.resource.data)
-            || (request.resource.data.recent is list && request.resource.data.recent.size() <= 10))
-        && strOk(request.resource.data.get('displayName', null), 80)
-        && strOk(request.resource.data.get('title', null), 120)
-        && iconIsAsset(request.resource.data);
-      // Admins clean up expired shares in case no TTL policy is set.
-      allow delete: if (activeUser() && request.auth.uid == uid) || isAdmin();
+      allow create: if activeUser()
+        && resource == null
+        && isShareCode()
+        && request.resource.data.uid == request.auth.uid
+        && shareFieldsOk();
+      allow update: if ownsExisting()
+        && request.resource.data.uid == request.auth.uid
+        && (
+          (isShareCode()
+            && resource.data.uid == request.auth.uid
+            && shareFieldsOk())
+          // Legacy uid-keyed doc: only ending it is allowed.
+          || (!isShareCode()
+            && request.resource.data.active == false
+            && request.resource.data.keys().hasOnly(['uid', 'displayName', 'tripId', 'title', 'icon', 'active', 'lat', 'lon',
+                'heading', 'speed', 'startedAt', 'expiresAt', 'expireAt', 'updatedAt', 'recent']))
+        );
+      // Owner deletes (code or legacy doc); admins clean up expired shares in case no TTL policy is set.
+      allow delete: if ownsExisting() || isAdmin();
     }
 
     match /tracksideFavorites/{id} {

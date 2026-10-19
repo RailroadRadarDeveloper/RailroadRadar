@@ -24,8 +24,11 @@ const USERS = {
   noperms: { email: 'noperms@example.com' },
   ver: { email: 'ver@example.com' },
   owner: { email: 'turokerr@gmail.com' },
-  fakeOwner: { email: 'turokerr@gmail.com', email_verified: false }
+  fakeOwner: { email: 'turokerr@gmail.com', email_verified: false },
+  // Looks like a real Firebase uid (28 mixed-case chars), for legacy uid-keyed shares.
+  LegacyUid0123456789abcdefXYZ: { email: 'legacy@example.com' }
 };
+const LEGACY = 'LegacyUid0123456789abcdefXYZ';
 
 let env;
 const as = (uid) => env.authenticatedContext(uid, { email_verified: true, ...USERS[uid] }).firestore();
@@ -95,8 +98,9 @@ beforeEach(async () => {
     set('tripLogs/alicePrivate', trip('alice', { hiddenPublic: true }));
     set('tripLogs/bobPublic', trip('bob', { hiddenPublic: false }));
     set('trainStopActuals/s1', stopActuals('alice'));
-    set('specialMoveShares/alice', share('alice'));
-    set('specialMoveShares/bob', share('bob', { expireAt: hoursFromNow(-1) }));
+    set('specialMoveShares/aliceshr01', share('alice'));
+    set('specialMoveShares/bobshare01', share('bob', { expireAt: hoursFromNow(-1) }));
+    set('specialMoveShares/' + LEGACY, share(LEGACY));
     set('accounts/alice', { uid: 'alice' });
     set('pressReleases/pr1', { title: 'News', commentsEnabled: true });
     set('pressReleases/pr2', { title: 'Closed', commentsEnabled: false });
@@ -403,29 +407,55 @@ describe('trainStopActuals', () => {
 });
 
 describe('specialMoveShares', () => {
-  it('owner shares for at most 6 hours', async () => {
-    await ok(as('bob').doc('specialMoveShares/bob').set(share('bob')));
-    await no(as('bob').doc('specialMoveShares/bob').set(share('bob', { expireAt: hoursFromNow(7) })));
-    await no(as('bob').doc('specialMoveShares/alice').set(share('alice')));
-    await no(as('bob').doc('specialMoveShares/bob').set(share('bob', { icon: '/x/evil.png' })));
+  it('owner shares for at most 6 hours under a per-share code', async () => {
+    await ok(as('bob').doc('specialMoveShares/bobshare99').set(share('bob')));
+    await no(as('bob').doc('specialMoveShares/bobshare99').set(share('bob', { expireAt: hoursFromNow(7) })));
+    await no(as('bob').doc('specialMoveShares/aliceshr99').set(share('alice')));
+    await no(as('bob').doc('specialMoveShares/bobshare99').set(share('bob', { icon: '/x/evil.png' })));
+    await no(as('bob').doc('specialMoveShares/short').set(share('bob'))); // share id must be 8–20 chars
   });
   it('anyone gets an unexpired active share, not an expired one', async () => {
-    await ok(anon().doc('specialMoveShares/alice').get());
-    await no(anon().doc('specialMoveShares/bob').get());
-    await ok(as('bob').doc('specialMoveShares/bob').get());
+    await ok(anon().doc('specialMoveShares/aliceshr01').get());
+    await no(anon().doc('specialMoveShares/bobshare01').get());
+    await ok(as('bob').doc('specialMoveShares/bobshare01').get());
   });
   it('listing requires the active filter and a recent expireAt bound', async () => {
     const q = (backMin) => anon().collection('specialMoveShares').where('active', '==', true).where('expireAt', '>', Timestamp.fromMillis(Date.now() - backMin * 60e3));
     const snap = await ok(q(5).get());
-    if (snap.docs.map((d) => d.id).join() !== 'alice') throw new Error('listed ' + snap.docs.map((d) => d.id).join());
+    const ids = snap.docs.map((d) => d.id).sort().join();
+    if (ids !== [LEGACY, 'aliceshr01'].sort().join()) throw new Error('listed ' + ids);
     await no(q(20).get());
     await no(anon().collection('specialMoveShares').where('active', '==', true).get());
     await no(anon().collection('specialMoveShares').get());
   });
-  it('denies unknown fields on a share', () => no(as('bob').doc('specialMoveShares/bob').set(share('bob', { photoURL: 'https://example.com/x.png' }))));
+  it('denies unknown fields on a share', () => no(as('bob').doc('specialMoveShares/bobshare99').set(share('bob', { photoURL: 'https://example.com/x.png' }))));
   it('owner or admin deletes', async () => {
-    await no(as('bob').doc('specialMoveShares/alice').delete());
-    await ok(as('viewer').doc('specialMoveShares/bob').delete());
+    await no(as('bob').doc('specialMoveShares/aliceshr01').delete());
+    await ok(as('alice').doc('specialMoveShares/aliceshr01').delete());
+    await ok(as('viewer').doc('specialMoveShares/bobshare01').delete());
+  });
+  it('owner updates their own share code doc', () => ok(as('alice').doc('specialMoveShares/aliceshr01').set({ lat: 42.4, updatedAt: Date.now() }, { merge: true })));
+  it('denies a foreign-uid update', async () => {
+    await no(as('bob').doc('specialMoveShares/aliceshr01').set({ lat: 0 }, { merge: true }));
+    await no(as('bob').doc('specialMoveShares/aliceshr01').update({ uid: 'bob' }));
+    await no(as('alice').doc('specialMoveShares/aliceshr01').update({ uid: 'bob' }));
+  });
+  it('denies a foreign create over an existing doc', async () => {
+    await no(as('bob').doc('specialMoveShares/aliceshr01').set(share('bob')));
+    await no(as('bob').doc('specialMoveShares/aliceshr01').set(share('alice')));
+  });
+  it('denies creating a doc keyed by a uid', () => no(as(LEGACY).doc('specialMoveShares/' + LEGACY + 'x').set(share(LEGACY))));
+  it('legacy owner can end and delete their uid-keyed doc, nobody else can', async () => {
+    const legacy = (who) => as(who).doc('specialMoveShares/' + LEGACY);
+    await no(legacy('bob').set({ active: false, updatedAt: Date.now(), uid: 'bob' }, { merge: true }));
+    await no(legacy('bob').set({ active: false, updatedAt: Date.now(), uid: LEGACY }, { merge: true }));
+    await no(legacy('bob').delete());
+    // Only ending is allowed on a legacy doc, not keeping it live.
+    await no(legacy(LEGACY).set({ lat: 41, updatedAt: Date.now() }, { merge: true }));
+    await ok(legacy(LEGACY).get());
+    await ok(legacy(LEGACY).set({ active: false, updatedAt: Date.now(), uid: LEGACY }, { merge: true }));
+    await no(legacy('bob').delete());
+    await ok(legacy(LEGACY).delete());
   });
 });
 
