@@ -17,6 +17,9 @@
     #map { position: fixed; top: 104px; left: 0; right: 0; bottom: 0; background: #d7dde6; }
     body:has(#live-share-banner:not([hidden]), #rr-live-bar:not([hidden])) #live-stats { top: 104px; }
     body:has(#live-share-banner:not([hidden]), #rr-live-bar:not([hidden])) #map { top: 148px; }
+    /* The site-wide bar can take two lines (wake lock hint), so follow its measured height. */
+    html body:has(#rr-live-bar:not([hidden])) #live-stats { top: calc(60px + var(--rr-live-bar-h, 44px)); }
+    html body:has(#rr-live-bar:not([hidden])) #map { top: calc(104px + var(--rr-live-bar-h, 44px)); }
     #status { font-size: 14px; }
     .rr-live-train { background: transparent !important; border: 0 !important; }
   </style>
@@ -120,7 +123,7 @@
       });
     }
   </script>
-  <script src="/assets/js/live-share-bar.js"></script>
+  <script src="/assets/js/live-share-bar.js?v=2c1ad34c94"></script>
 <script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 </body>
 </html>
