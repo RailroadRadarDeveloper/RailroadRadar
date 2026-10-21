@@ -58,6 +58,11 @@
       var em = signedIn.querySelector('.home-signed-in-email');
       if (em) em.textContent = on ? (u.email || u.displayName || '') : '';
     }
+    /* Cover headline becomes "Good Morning, <first name>" when signed in (no period); signed out keeps the headline */
+    if (typeof window.rrHomeGreet === 'function') window.rrHomeGreet(on ? String(u.displayName || '') : null);
+    /* "Sign in with Google to get started" is for signed-out visitors only */
+    var note = document.getElementById('home-signup-note');
+    if (note) note.hidden = on;
     if (!on) paintBadge(null);
     else if (badge !== undefined) paintBadge(badge);
     else lookupBadge(u);

@@ -3,8 +3,113 @@
 <head>
 <meta charset="utf-8">
 <script>
-/* Old live map links lived at / (shared trains ?train= / ?t= / ?focus=, stops, special and live links, #hashes). Send them to /map/ before anything renders. */
-(function(){try{var s=location.search,h=location.hash;if(!s&&!h)return;var keep=/^(utm_[a-z]+|fbclid|gclid|msclkid|ref)$/i,go=!!h;if(s&&!go){new URLSearchParams(s).forEach(function(v,k){if(!keep.test(k))go=true;});}if(go)location.replace('/map/'+s+h);}catch(_){}})();
+/* Old live map links lived at / (shared trains ?train= / ?t= / ?focus=, stops, special and live links, #hashes). Send them to /map/ before anything renders (?sky= is the cover sky preview and stays here). */
+(function(){try{var s=location.search,h=location.hash;if(!s&&!h)return;var keep=/^(utm_[a-z]+|fbclid|gclid|msclkid|ref|sky)$/i,go=!!h;if(s&&!go){new URLSearchParams(s).forEach(function(v,k){if(!keep.test(k))go=true;});}if(go)location.replace('/map/'+s+h);}catch(_){}})();
+</script>
+<script>
+/* Cover sky follows the sun in the visitor's own time: night navy, dawn glow, morning, blue day, sunset, dusk.
+   No location prompt: the place is estimated from the browser's time zone (a few US/Canada zones, otherwise
+   longitude from the UTC offset at ~42N), sunrise and sunset come from the standard sunrise equation, and the
+   colors blend between phases. Runs in the head so the first paint already has the right sky; re-checks every
+   few minutes and when the tab comes back. Preview: ?sky=dawn|morning|day|sunset|dusk|night or ?sky=HH:MM. */
+(function () {
+  var root = document.documentElement, rad = Math.PI / 180;
+  var ZONES = {
+    'America/New_York': [40.71, -74.01], 'America/Detroit': [42.33, -83.05], 'America/Chicago': [41.88, -87.63],
+    'America/Denver': [39.74, -104.99], 'America/Phoenix': [33.45, -112.07], 'America/Los_Angeles': [34.05, -118.24],
+    'America/Toronto': [43.65, -79.38], 'America/Montreal': [45.5, -73.57], 'America/Vancouver': [49.28, -123.12],
+    'America/Halifax': [44.65, -63.57], 'America/Anchorage': [61.22, -149.9], 'Pacific/Honolulu': [21.31, -157.86]
+  };
+  /* top / middle / above the rooftops / horizon, horizon glow (rgba) and its x position, back buildings, text scrim, lead text */
+  var P = {
+    night:   { top: '#07093e', mid: '#0d1263', low: '#121975', hz: '#1a228e', glow: [255, 255, 255, 0],   gx: 50, back: '#1a2390', scrim: 0,   lead: '#c9d4ea' },
+    dawn:    { top: '#1d1f6b', mid: '#4b3c8c', low: '#e0785e', hz: '#ffd06a', glow: [255, 196, 92, .85], gx: 24, back: '#2b2468', scrim: .22, lead: '#eceef8' },
+    morning: { top: '#1d3f8f', mid: '#3a66b8', low: '#e6c2a4', hz: '#ffe4b5', glow: [255, 228, 170, .55], gx: 32, back: '#33498f', scrim: .26, lead: '#eef2fb' },
+    day:     { top: '#173f8f', mid: '#2d68ba', low: '#86bdea', hz: '#c3e2f7', glow: [255, 255, 255, .3],  gx: 50, back: '#3557a3', scrim: .28, lead: '#eef2fb' },
+    sunset:  { top: '#251f6a', mid: '#613889', low: '#e2627c', hz: '#ffa04a', glow: [255, 146, 64, .8],   gx: 76, back: '#3a2462', scrim: .22, lead: '#eceef8' },
+    dusk:    { top: '#0b0d48', mid: '#261f6a', low: '#5b3a84', hz: '#b05a78', glow: [220, 100, 110, .3],  gx: 80, back: '#1f1b66', scrim: .08, lead: '#d8dcef' }
+  };
+  var COLORS = ['top', 'mid', 'low', 'hz', 'back', 'lead'];
+  function rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function place() {
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
+    if (ZONES[tz]) return ZONES[tz];
+    var y = new Date().getFullYear(), jan = new Date(y, 0, 1).getTimezoneOffset(), jul = new Date(y, 6, 1).getTimezoneOffset();
+    /* Standard offset is the larger one; summer time in January means the southern hemisphere */
+    return [jan < jul ? -35 : 42, -Math.max(jan, jul) / 4];
+  }
+  /* Sunrise equation (NOAA/Wikipedia form, -0.833 deg for refraction and the sun's disc); times in ms */
+  function sun(d, lat, lon) {
+    var noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime();
+    var n = Math.round(noon / 864e5 + 2440587.5 - 2451545 + lon / 360), J = n - lon / 360;
+    var M = (357.5291 + 0.98560028 * J) % 360;
+    var C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+    var L = (M + C + 180 + 102.9372) % 360;
+    var Jt = 2451545 + J + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * L * rad);
+    var dec = Math.asin(Math.sin(L * rad) * Math.sin(23.4397 * rad));
+    var cw = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec));
+    var ms = function (j) { return (j - 2440587.5) * 864e5; };
+    if (cw > 1) return { polar: 'night', noon: ms(Jt) };
+    if (cw < -1) return { polar: 'day', noon: ms(Jt) };
+    var w = Math.acos(cw) / rad / 360;
+    return { rise: ms(Jt - w), set: ms(Jt + w), noon: ms(Jt) };
+  }
+  var MIN = 6e4;
+  /* Phase keyframes around the day's sunrise (R) and sunset (S); between two keyframes the colors ease across */
+  function frames(s) {
+    if (s.polar) return [[s.noon, s.polar]];
+    var R = s.rise, S = s.set, d1 = R + 200 * MIN, d2 = S - 150 * MIN;
+    if (d1 > d2) d1 = d2 = (R + S) / 2;
+    return [[R - 90 * MIN, 'night'], [R + 5 * MIN, 'dawn'], [R + 80 * MIN, 'morning'], [d1, 'day'], [d2, 'day'],
+      [S, 'sunset'], [S + 40 * MIN, 'dusk'], [S + 90 * MIN, 'night']];
+  }
+  function at(t, f) {
+    if (f.length === 1) return [f[0][1], f[0][1], 0];
+    if (t <= f[0][0] || t >= f[f.length - 1][0]) return ['night', 'night', 0];
+    for (var i = 0; i < f.length - 1; i++) {
+      if (t < f[i + 1][0]) { var k = (t - f[i][0]) / (f[i + 1][0] - f[i][0]); return [f[i][1], f[i + 1][1], k * k * (3 - 2 * k)]; }
+    }
+    return ['night', 'night', 0];
+  }
+  var loc = place(), fake = null;
+  try {
+    var q = new URLSearchParams(location.search).get('sky');
+    if (q) fake = q.toLowerCase();
+  } catch (_) {}
+  function now() {
+    var d = new Date();
+    if (!fake) return d;
+    var m = /^(\d{1,2}):(\d{2})$/.exec(fake);
+    if (m) return new Date(d.getFullYear(), d.getMonth(), d.getDate(), +m[1], +m[2]);
+    var f = frames(sun(d, loc[0], loc[1])), pick = { night: f[0][0] - 60 * MIN };
+    f.forEach(function (x, i) { if (!(x[1] in pick) || x[1] === 'day') pick[x[1]] = x[0]; });
+    if (f.length > 1) pick.day = (f[3][0] + f[4][0]) / 2;
+    return pick[fake] != null ? new Date(pick[fake]) : d;
+  }
+  window.rrSkyNow = now;
+  function update() {
+    var d = now(), s = sun(d, loc[0], loc[1]), f = frames(s), r = at(d.getTime(), f);
+    var a = P[r[0]], b = P[r[1]], k = r[2], st = root.style;
+    COLORS.forEach(function (c) {
+      var x = rgb(a[c]), y = rgb(b[c]);
+      st.setProperty('--sky-' + c, 'rgb(' + x.map(function (v, i) { return Math.round(v + (y[i] - v) * k); }).join(',') + ')');
+    });
+    var g = a.glow.map(function (v, i) { return v + (b.glow[i] - v) * k; });
+    st.setProperty('--sky-glow', 'rgba(' + g.slice(0, 3).map(Math.round).join(',') + ',' + g[3].toFixed(3) + ')');
+    st.setProperty('--sky-gx', (a.gx + (b.gx - a.gx) * k).toFixed(1) + '%');
+    st.setProperty('--sky-scrim', (a.scrim + (b.scrim - a.scrim) * k).toFixed(3));
+    root.setAttribute('data-sky', k < 0.5 ? r[0] : r[1]);
+    window.rrSky = { lat: loc[0], lon: loc[1], rise: s.rise, set: s.set, polar: s.polar || null, frames: f, phase: root.getAttribute('data-sky') };
+  }
+  try {
+    update();
+    setInterval(update, 3 * MIN);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) update(); });
+    /* Ease later changes (every few minutes) instead of stepping; not on first paint, and never with reduced motion */
+    requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.add('rr-sky-anim'); }); });
+  } catch (_) {}
+})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#07093e">
@@ -141,6 +246,7 @@ body{background:var(--navy)}
 .feature{position:relative;z-index:1;width:min(980px,100%);margin:0 auto 56px;display:flex;flex-direction:column;gap:24px;text-align:center}
 .feature h2{margin:0 0 10px;color:#fff;font-size:clamp(24px,4.6vw,32px);line-height:1.2;font-weight:700}
 .feature-note{margin:-8px auto 18px;color:#c9d4ea;font-size:14px}
+.feature-note[hidden]{display:none}
 .feature-lead{margin:0 auto 18px;max-width:30em;color:#c9d4ea;font-size:16px;line-height:1.5}
 .feature-media img{display:block;width:100%;height:auto;border-radius:4px;border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.35)}
 .feature-media.has-phone{position:relative;padding:0 0 48px}
@@ -225,6 +331,28 @@ html.rr-motion .banner-inner,html.rr-motion .banner-art{will-change:transform}
 html.rr-motion .rr-reveal{opacity:0;transform:translate3d(0,40px,0);transition:opacity .7s ease,transform .8s cubic-bezier(.2,.7,.2,1)}
 html.rr-motion .rr-reveal.rr-reveal-late{transition-delay:.12s}
 html.rr-motion .rr-reveal.is-in{opacity:1;transform:none}
+/* Cover sky (set by the sky script in the head). Registered so the few-minute updates ease rather than step. */
+@property --sky-top{syntax:'<color>';inherits:true;initial-value:#07093e}
+@property --sky-mid{syntax:'<color>';inherits:true;initial-value:#0d1263}
+@property --sky-low{syntax:'<color>';inherits:true;initial-value:#121975}
+@property --sky-hz{syntax:'<color>';inherits:true;initial-value:#1a228e}
+@property --sky-glow{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --sky-back{syntax:'<color>';inherits:true;initial-value:#1a2390}
+@property --sky-lead{syntax:'<color>';inherits:true;initial-value:#c9d4ea}
+@property --sky-scrim{syntax:'<number>';inherits:true;initial-value:0}
+@property --sky-gx{syntax:'<percentage>';inherits:true;initial-value:50%}
+html.rr-sky-anim{transition:--sky-top 6s linear,--sky-mid 6s linear,--sky-low 6s linear,--sky-hz 6s linear,--sky-glow 6s linear,--sky-back 6s linear,--sky-lead 6s linear,--sky-scrim 6s linear,--sky-gx 6s linear}
+@media (prefers-reduced-motion:reduce){html.rr-sky-anim{transition:none}}
+.banner{background:
+  radial-gradient(ellipse calc(var(--art-w) * .36) calc(var(--art-w) * .2) at var(--sky-gx,50%) calc(100% - var(--rr-band)),var(--sky-glow,transparent),transparent),
+  linear-gradient(180deg,#07093e 0,rgba(7,9,62,.6) min(12%,110px),rgba(7,9,62,0) min(34%,300px)),
+  linear-gradient(180deg,var(--sky-top,#07093e) 0%,var(--sky-mid,#0d1263) 55%,var(--sky-low,#121975) calc(100% - var(--rr-band) - var(--art-w) * .14),var(--sky-hz,#1a228e) calc(100% - var(--rr-band)))}
+.banner .rr-sky-back{fill:var(--sky-back,#1a2390)}
+.banner-lead{color:var(--sky-lead,#c9d4ea)}
+/* Soft navy pool behind the words: none at night, enough in the bright phases to keep text and buttons readable */
+.banner-inner::before{content:'';position:absolute;left:50%;top:50%;width:min(1200px,160%);height:calc(100% + 200px);transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(7,9,62,.9),rgba(7,9,62,.55) 45%,rgba(7,9,62,.18) 75%,rgba(7,9,62,0));opacity:var(--sky-scrim,0);pointer-events:none;z-index:-1}
+/* Soft dark shadow only on the avatar (no ring or border) */
+html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[data-sky=dusk]) .home-user-avatar{box-shadow:0 1px 6px rgba(7,9,62,.5)}
 </style>
 </head>
 <body>
@@ -265,6 +393,45 @@ html.rr-motion .rr-reveal.is-in{opacity:1;transform:none}
     </svg>
     <div class="banner-inner">
       <h1 id="banner-title">Building the Future of Train Tracking</h1>
+      <script>
+      /* Signed-in greeting in place of the headline: "Good Morning, Arturo" by the visitor's own clock.
+         The last signed-in first name is cached on this device, so a returning visitor sees the greeting
+         from the first paint; home-auth.js then confirms it (or puts the headline back) once sign-in is known. */
+      (function () {
+        var h1 = document.getElementById('banner-title');
+        if (!h1) return;
+        var headline = h1.textContent;
+        var KEY = 'rrHomeGreet';
+        function partOfDay(d) { var x = d.getHours(); return x < 12 ? 'Morning' : (x < 18 ? 'Afternoon' : 'Evening'); }
+        function firstName(n) {
+          var f = String(n || '').trim().split(/\s+/)[0] || '';
+          f = f.slice(0, 40);
+          if (f && f === f.toLowerCase()) f = f.charAt(0).toUpperCase() + f.slice(1);
+          return f;
+        }
+        var name = null; /* null = signed out, '' = signed in with no name */
+        function paint() {
+          if (name === null) { h1.textContent = headline; h1.classList.remove('is-greeting'); return; }
+          h1.textContent = 'Good ' + partOfDay(window.rrSkyNow ? window.rrSkyNow() : new Date()) + (name ? ', ' + name : '');
+          h1.classList.add('is-greeting');
+        }
+        /* Called by home-auth.js with the Firebase user's displayName, or null when signed out */
+        window.rrHomeGreet = function (displayName) {
+          name = displayName === null ? null : firstName(displayName);
+          try {
+            if (name === null) localStorage.removeItem(KEY);
+            else localStorage.setItem(KEY, JSON.stringify({ on: true, name: name }));
+          } catch (_) {}
+          paint();
+        };
+        /* Morning can turn into afternoon while the tab sits open */
+        document.addEventListener('visibilitychange', function () { if (!document.hidden && name !== null) paint(); });
+        try {
+          var c = JSON.parse(localStorage.getItem(KEY) || 'null');
+          if (c && c.on) { name = firstName(c.name); paint(); }
+        } catch (_) {}
+      })();
+      </script>
       <p class="banner-lead">RailroadRadar takes live railroad data and integrates it with our tools to track trains and log your trips.</p>
       <div class="hero-actions">
         <a class="rr-btn" href="/map/">Open live map</a>
@@ -296,7 +463,12 @@ html.rr-motion .rr-reveal.is-in{opacity:1;transform:none}
           <li>See how far you've traveled</li>
           <li>Look back on every ride</li>
         </ul>
-        <p class="feature-note">Sign in with Google to get started.</p>
+        <p class="feature-note" id="home-signup-note">Sign in with Google to get started.</p>
+        <script>
+        /* Signed-in visitors don't need the sign-in prompt. The greeting's cached signed-in hint hides it from the first
+           paint; home-auth.js then shows or hides it for the real sign-in state. */
+        try { var rrG = JSON.parse(localStorage.getItem('rrHomeGreet') || 'null'); if (rrG && rrG.on) document.getElementById('home-signup-note').hidden = true; } catch (_) {}
+        </script>
         <div class="hero-actions"><a class="rr-btn" href="/mytrips/">Open MyTrips</a></div>
       </div>
     </div>
@@ -474,6 +646,6 @@ html.rr-motion .rr-reveal.is-in{opacity:1;transform:none}
 <script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js" defer></script>
-<script src="/assets/js/home-auth.js?v=eed54e310a" defer></script>
+<script src="/assets/js/home-auth.js?v=72a8189411" defer></script>
 </body>
 </html>
