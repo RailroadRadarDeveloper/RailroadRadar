@@ -178,7 +178,8 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
 <header class="header">
   <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
   <nav class="rr-site-nav" aria-label="RailroadRadar">
-    <a href="/map/" data-nav="map">Live map</a>
+    <a href="/map/" data-nav="map">Live Map</a>
+    <a href="/timetables/" data-nav="timetables">Timetables</a>
     <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
     <a href="/favorites/" data-nav="favorites">Favorites</a>
     <a href="/press/" data-nav="press">Press</a>
@@ -188,12 +189,13 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
       <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
       <div class="header-tools-panel" id="header-tools-panel" hidden>
         <div class="panel-nav">
-          <a class="panel-link" href="/map/">Live map</a>
+          <a class="panel-link" href="/map/">Live Map</a>
+          <a class="panel-link" href="/timetables/">Timetables</a>
           <a class="panel-link" href="/mytrips/">MyTrips</a>
           <a class="panel-link" href="/favorites/">Favorites</a>
           <a class="panel-link" href="/press/">Press</a>
         </div>
-        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie settings</button>
+        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie Settings</button>
       </div>
     </div>
     <div class="header-auth is-ready" id="header-auth"></div>
@@ -224,14 +226,15 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
 <footer class="footer">
   <div class="footer-inner">
     <span class="copy">© 2026 RailroadRadar</span>
-    <a href="/map/">Live map</a>
+    <a href="/map/">Live Map</a>
+    <a href="/timetables/">Timetables</a>
     <a href="/mytrips/">MyTrips</a>
     <a href="/favorites/">Favorites</a>
     <a href="/press/">Press</a>
     <a href="/policies/privacy/">Privacy Policy</a>
     <a href="/policies/terms-of-use/">Terms of Use</a>
     <a href="/sitemap/">Sitemap</a>
-    <button type="button" id="footer-cookie-settings">Cookie settings</button>
+    <button type="button" id="footer-cookie-settings">Cookie Settings</button>
   </div>
 </footer>
 
@@ -247,7 +250,7 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
   <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
   <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
     <h3 id="rr-cookie-modal-title">Cookie Preferences</h3>
-    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie settings at the bottom of the page.</p>
+    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie Settings at the bottom of the page.</p>
     <ul class="rr-cookie-list">
       <li class="rr-cookie-row">
         <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
@@ -265,7 +268,7 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
   </div>
 </div>
 <script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
-<script src="/assets/js/site-nav.js?v=d2cfc0a214" defer></script>
+<script src="/assets/js/site-nav.js?v=095c433614" defer></script>
 <script>
 /* Roster: reads /api/roster (last 4 service days, one cached call) and renders vehicles by MBTA vehicle id. */
 (function () {
