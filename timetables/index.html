@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07093e">
+<title>Timetables | RailroadRadar</title>
+<meta name="description" content="See every scheduled MBTA Commuter Rail train on a line for any date, or plan a trip on Commuter Rail and the subway.">
+<link rel="canonical" href="https://railroadradar.com/timetables/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RailroadRadar">
+<meta property="og:title" content="Timetables | RailroadRadar">
+<meta property="og:description" content="See every scheduled MBTA Commuter Rail train on a line for any date, or plan a trip on Commuter Rail and the subway.">
+<meta property="og:url" content="https://railroadradar.com/timetables/">
+<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Timetables | RailroadRadar">
+<meta name="twitter:description" content="See every scheduled MBTA Commuter Rail train on a line for any date, or plan a trip on Commuter Rail and the subway.">
+<meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
+<script>
+(function(){try{var p=localStorage.getItem('rr_theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('rr-theme-dark');}catch(_){}})();
+</script>
+<script>
+!function(b,e,t,r){
+  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+  b[t].l=+new Date;
+  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+  s.src='https://betterstack.net/b.js?t='+r;
+  /* Better Stack loads only after analytics consent (same choice as Clarity). */
+  b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
+}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+betterstack('init', { environment: 'production' });
+window.__rrLoadClarity = function () {
+  if (window.__rrClarityLoaded) return;
+  window.__rrClarityLoaded = true;
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "yie7bk3bns");
+};
+/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the loaders above. */
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<style>
+:root{
+  --navy:#07093e;
+  --font:"Google Sans",Roboto,Arial,sans-serif;
+  --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
+  --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
+  --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
+  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+}
+html.rr-theme-dark{
+  color-scheme:dark;
+  --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
+  --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
+  --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
+  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 13px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Header: same navy bar as MyTrips */
+.header{position:sticky;top:0;z-index:40;height:66px;background:var(--navy);display:flex;align-items:center;gap:10px;padding:0 16px}
+.header-logo-link{display:flex;align-items:center;flex:none}
+.header-logo{height:40px;width:auto;max-width:min(260px,52vw);display:block}
+.header .rr-site-nav{flex:1}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;position:relative}
+.header-tools{position:relative}
+.header-right .header-tools{position:static}
+.rr-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:4px;border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px/1 var(--font);text-decoration:none;white-space:nowrap;cursor:pointer}
+.rr-btn:hover{background:#dfe3f7;border-color:#dfe3f7}
+.rr-btn.small{height:32px;padding:0 12px}
+.rr-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+.rr-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#fff}
+#btn-header-tools{height:32px;padding:0 12px}
+.header-tools-panel .panel-link{display:block;color:#fff;text-decoration:none;font:700 13px/1 var(--font);padding:9px 10px;border-radius:4px;background:none;border:0;text-align:left;cursor:pointer;width:100%}
+.header-tools-panel .panel-link:hover{background:rgba(255,255,255,.14)}
+.header-auth{display:flex;align-items:center;visibility:hidden}
+.header-auth.is-ready{visibility:visible}
+.header-tools-panel .panel-nav{display:none;flex-direction:column;gap:2px;padding-bottom:4px}
+html.rr-nav-in-menu .header .rr-site-nav{visibility:hidden}
+html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
+@media (max-width:980px){.header-tools-panel .panel-nav{display:flex}}
+@media (max-width:560px){.header{padding:0 12px}.header-logo{height:32px}}
+/* Footer */
+.footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
+.footer-inner{width:min(960px,100%);margin:0 auto;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px}
+.footer-inner a,.footer-inner button{color:#fff;text-decoration:none;font:500 13px/1.4 var(--font);background:none;border:0;padding:0;cursor:pointer}
+.footer-inner a:hover,.footer-inner button:hover{text-decoration:underline}
+.footer-inner .copy{color:rgba(255,255,255,.72);margin-right:auto}
+
+/* Cookie bar and preferences (same markup and script as the map) */
+#rr-cookie-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:10080;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 12px;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:460px}
+#rr-cookie-bar[hidden],#rr-cookie-modal[hidden]{display:none!important}
+#rr-cookie-bar p{margin:0;flex:1 1 240px;font-size:12px;line-height:1.4;color:#e8eaf2}
+#rr-cookie-bar a{color:#8fd3ff}
+.rr-cookie-actions{display:flex;gap:8px;flex-shrink:0}
+.rr-cookie-btn{height:32px;border:1px solid #fff;border-radius:4px;padding:0 12px;font:700 13px/1 var(--font);cursor:pointer;white-space:nowrap;background:#fff;color:var(--navy)}
+.rr-cookie-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+#rr-cookie-modal{position:fixed;inset:0;z-index:10085;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.rr-cookie-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.rr-cookie-modal-card{position:relative;z-index:1;width:100%;max-width:520px;max-height:min(80vh,640px);overflow:auto;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 16px 16px}
+.rr-cookie-modal-card h3{margin:0 0 8px;font-size:17px}
+.rr-cookie-modal-lead{margin:0 0 14px;font-size:13px;color:#c5c9d8}
+.rr-cookie-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
+.rr-cookie-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:4px;background:rgba(255,255,255,.04)}
+.rr-cookie-row-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rr-cookie-row-text span{font-size:12px;color:#c5c9d8}
+.rr-cookie-switch{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;font-size:11px;color:#c5c9d8;cursor:pointer}
+.rr-cookie-switch input{width:18px;height:18px;accent-color:#2ecc71}
+.rr-cookie-switch.is-locked{cursor:default;opacity:.85}
+.rr-cookie-modal-actions{display:flex;gap:8px;justify-content:flex-end}
+:root{--s-field:#7c8295;--s-btn:#07093e;--s-btn-ink:#fff;--s-btn-hover:#1a1f6b;--s-tint:#eef1fa;--s-head:#07093e;--s-zebra:#f8f9fb;
+  --s-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2307093e' stroke-width='2'/%3E%3C/svg%3E")}
+html.rr-theme-dark{--s-field:#646cb5;--s-btn:#eef0fa;--s-btn-ink:#07093e;--s-btn-hover:#dfe3f7;--s-tint:rgba(255,255,255,.08);--s-head:#07093e;--s-zebra:#121747;
+  --s-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23eef0fa' stroke-width='2'/%3E%3C/svg%3E")}
+/* Timetables page: field and button styles follow assets/css/settings.css */
+body{background:var(--bg)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tt-hero{background:linear-gradient(180deg,#07093e 0%,#0d1263 100%);color:#fff;padding:40px 20px 36px}
+.tt-hero-inner{width:min(1100px,100%);margin:0 auto}
+.tt-hero h1{margin:0 0 10px;font-size:clamp(26px,4.6vw,38px);line-height:1.15;font-weight:700;text-wrap:balance}
+.tt-lead{margin:0;max-width:38em;color:#c9d4ea;font-size:16px;line-height:1.5}
+.tt-wrap{width:min(1100px,100%);margin:0 auto;padding:22px 16px 56px;min-height:50vh}
+.tt-pick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 16px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.tt-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tt-field label{font:700 13px/1.2 var(--font);color:var(--ink)}
+.tt-field select,.tt-field input{box-sizing:border-box;width:100%;height:44px;min-height:44px;padding:0 12px;border:1px solid var(--s-field);border-radius:4px;background:var(--surface);color:var(--ink);font:400 15px/1.2 var(--font)}
+.tt-field select{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:var(--s-chev);background-repeat:no-repeat;background-position:right 12px center;cursor:pointer}
+.tt-field select:disabled{cursor:not-allowed;color:var(--muted)}
+.tt-field select:focus,.tt-field input:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 1px var(--focus)}
+.tt-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border:1px solid var(--s-btn);border-radius:4px;background:var(--s-btn);color:var(--s-btn-ink);font:700 14px/1.2 var(--font);cursor:pointer;white-space:nowrap}
+.tt-btn:hover{background:var(--s-btn-hover);border-color:var(--s-btn-hover)}
+.tt-btn.secondary{background:transparent;color:var(--ink);border-color:var(--ink)}
+.tt-btn.secondary:hover{background:var(--s-tint)}
+.tt-msg{margin:22px 0;padding:18px 16px;border:1px dashed var(--s-field);border-radius:4px;color:var(--muted);text-align:center;font-size:15px;line-height:1.5}
+.tt-msg[hidden],.tt-result[hidden]{display:none}
+.tt-msg .tt-btn{margin-top:12px}
+.tt-result{margin-top:22px}
+.tt-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 16px;margin-bottom:12px}
+.tt-title{margin:0;display:flex;align-items:center;gap:10px;font:700 24px/1.2 var(--font);color:var(--ink)}
+.tt-title::before{content:'';width:6px;align-self:stretch;min-height:26px;border-radius:3px;background:var(--line-color,var(--rail-mbta))}
+.tt-sub{margin:4px 0 0;color:var(--muted);font-size:14px}
+.tt-tabs{display:flex;border:1px solid var(--ink);border-radius:4px;overflow:hidden;margin-bottom:12px;width:min(520px,100%)}
+.tt-tab{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 10px;border:0;background:transparent;color:var(--ink);font:700 15px/1.2 var(--font);cursor:pointer}
+.tt-tab+.tt-tab{border-left:1px solid var(--ink)}
+.tt-tab span{font:500 12px/1.25 var(--font);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.tt-tab:hover{background:var(--s-tint)}
+.tt-tab[aria-selected="true"]{background:var(--s-btn);color:var(--s-btn-ink)}
+.tt-tab[aria-selected="true"] span{color:var(--s-btn-ink);opacity:.85}
+.tt-tab:focus-visible{outline:2px solid var(--focus);outline-offset:-4px}
+.tt-scroll{position:relative;overflow:auto;max-height:calc(100vh - 82px);max-height:calc(100dvh - 82px);background:var(--surface);border:1px solid var(--line);border-radius:4px;overscroll-behavior-x:contain}
+.tt-grid{border-collapse:separate;border-spacing:0;font:400 13px/1.2 var(--font);font-variant-numeric:tabular-nums;color:var(--ink)}
+.tt-grid th,.tt-grid td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}
+.tt-grid thead th{position:sticky;top:0;z-index:2;background:var(--s-head);color:#fff;font:700 13px/1.2 var(--font);text-align:right}
+.tt-grid thead th small{display:block;font:500 11px/1.2 var(--font);color:#c9d4ea;margin-top:2px}
+.tt-grid .tt-stn{position:sticky;left:0;z-index:1;text-align:left;background:var(--surface);font-weight:700;min-width:118px;max-width:150px;white-space:normal;line-height:1.25;border-right:1px solid var(--line)}
+.tt-grid thead .tt-stn{z-index:3;background:var(--s-head)}
+.tt-grid tbody tr:nth-child(even) td,.tt-grid tbody tr:nth-child(even) .tt-stn{background:var(--s-zebra)}
+.tt-grid td.pm{font-weight:700}
+.tt-grid td.none{color:var(--muted)}
+.tt-grid sup{font:700 10px/1 var(--font);color:var(--rail-mbta);margin-left:2px}
+.tt-grid tr:last-child th,.tt-grid tr:last-child td{border-bottom:0}
+.tt-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:12px;color:var(--muted);font-size:13px}
+.tt-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0;padding:0;list-style:none}
+.tt-legend b{color:var(--rail-mbta)}
+@media (max-width:760px){
+  .tt-pick{grid-template-columns:1fr;padding:14px}
+  .tt-hero{padding:28px 16px 26px}
+  .tt-title{font-size:20px}
+  .tt-grid th,.tt-grid td{padding:7px 8px}
+  .tt-grid .tt-stn{min-width:104px;max-width:118px;font-size:12.5px}
+}
+.tt-views{display:flex;gap:4px;margin:0 0 16px;border-bottom:1px solid var(--line)}
+.tt-view{padding:10px 14px;margin-bottom:-1px;border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);font:700 15px/1.2 var(--font);cursor:pointer}
+.tt-view:hover{color:var(--ink)}
+.tt-view[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tt-view:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.tt-panel[hidden]{display:none}
+.tp-pick{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tt-field .tp-label{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tp-swap{padding:0;border:0;background:none;color:var(--focus);font:700 13px/1.2 var(--font);cursor:pointer;text-decoration:underline}
+.tp-list{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.tp-option{padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.tp-times{display:grid;grid-template-columns:repeat(4,auto);justify-content:start;gap:6px 28px;font-variant-numeric:tabular-nums;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.tp-times div{display:flex;flex-direction:column;gap:2px}
+.tp-times small{color:var(--muted);font:500 12px/1.2 var(--font)}
+.tp-times b{font:700 17px/1.2 var(--font);color:var(--ink);white-space:nowrap}
+.tp-legs{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.tp-leg{padding:2px 0 2px 12px;border-left:5px solid var(--line-color,var(--rail-mbta))}
+.tp-line{margin:0;font:700 15px/1.25 var(--font);color:var(--ink)}
+.tp-train{margin:1px 0 4px;color:var(--muted);font-size:14px;line-height:1.35}
+.tp-stop{margin:2px 0 0;font-size:14px;line-height:1.35;color:var(--ink);font-variant-numeric:tabular-nums}
+.tp-stop b{display:inline-block;min-width:68px}
+.tp-note{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.tp-change{margin-left:17px;padding:4px 10px;background:var(--s-tint);border-radius:4px;color:var(--ink);font:500 13px/1.3 var(--font);width:fit-content}
+.tp-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:20px}
+.tp-summary h2{margin:0;font:700 20px/1.25 var(--font);color:var(--ink)}
+.tp-summary p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.tp-more{margin-top:12px}
+@media (max-width:760px){
+  .tp-pick{grid-template-columns:1fr 1fr}
+  .tp-pick .tt-field:nth-child(-n+2){grid-column:1 / -1}
+  .tp-option{padding:12px 14px}
+  .tp-times{grid-template-columns:repeat(2,auto);gap:8px 28px}
+  .tp-summary h2{font-size:18px}
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
+  <nav class="rr-site-nav" aria-label="RailroadRadar">
+    <a href="/map/" data-nav="map">Live Map</a>
+    <a href="/timetables/" data-nav="timetables">Timetables</a>
+    <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
+    <a href="/favorites/" data-nav="favorites">Favorites</a>
+    <a href="/press/" data-nav="press">Press</a>
+  </nav>
+  <div class="header-right">
+    <div class="header-tools">
+      <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
+      <div class="header-tools-panel" id="header-tools-panel" hidden>
+        <div class="panel-nav">
+          <a class="panel-link" href="/map/">Live Map</a>
+          <a class="panel-link" href="/timetables/">Timetables</a>
+          <a class="panel-link" href="/mytrips/">MyTrips</a>
+          <a class="panel-link" href="/favorites/">Favorites</a>
+          <a class="panel-link" href="/press/">Press</a>
+        </div>
+        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie Settings</button>
+      </div>
+    </div>
+    <div class="header-auth is-ready" id="header-auth"></div>
+  </div>
+</header>
+
+<main>
+  <section class="tt-hero" aria-labelledby="tt-page-title">
+    <div class="tt-hero-inner">
+      <h1 id="tt-page-title">Timetables</h1>
+      <p class="tt-lead">See every scheduled Commuter Rail train on a line for the day you pick, or plan a trip on Commuter Rail and the subway.</p>
+    </div>
+  </section>
+  <section class="tt-wrap" aria-label="Timetables and Trip Planner">
+    <div class="tt-views" role="tablist" aria-label="View">
+      <button type="button" class="tt-view" role="tab" id="tt-view-table" data-view="table" aria-controls="tt-panel-table">Timetables</button>
+      <button type="button" class="tt-view" role="tab" id="tt-view-plan" data-view="plan" aria-controls="tt-panel-plan">Trip Planner</button>
+    </div>
+    <div class="tt-panel" id="tt-panel-table" role="tabpanel" aria-labelledby="tt-view-table">
+      <form class="tt-pick" onsubmit="return false">
+        <div class="tt-field">
+          <label for="tt-rr">Railroad</label>
+          <select id="tt-rr"><option value="mbta">MBTA Commuter Rail</option></select>
+        </div>
+        <div class="tt-field">
+          <label for="tt-line">Line</label>
+          <select id="tt-line" disabled><option value="">Choose a Line</option></select>
+        </div>
+        <div class="tt-field">
+          <label for="tt-date">Date</label>
+          <input type="date" id="tt-date" required>
+        </div>
+      </form>
+      <div class="tt-msg" id="tt-msg" role="status">Loading lines...</div>
+      <div class="tt-result" id="tt-result" hidden>
+        <div class="tt-head">
+          <div>
+            <h2 class="tt-title" id="tt-title"></h2>
+            <p class="tt-sub" id="tt-sub"></p>
+          </div>
+          <button type="button" class="tt-btn secondary" id="tt-copy">Copy Link</button>
+        </div>
+        <div class="tt-tabs" role="tablist" aria-label="Direction">
+          <button type="button" class="tt-tab" role="tab" id="tt-tab-inbound" data-dir="inbound" aria-controls="tt-scroll">Inbound<span></span></button>
+          <button type="button" class="tt-tab" role="tab" id="tt-tab-outbound" data-dir="outbound" aria-controls="tt-scroll">Outbound<span></span></button>
+        </div>
+        <div class="tt-scroll" id="tt-scroll" role="tabpanel" tabindex="0"></div>
+        <div class="tt-foot">
+          <ul class="tt-legend" id="tt-legend"></ul>
+          <span id="tt-count"></span>
+        </div>
+      </div>
+    </div>
+    <div class="tt-panel" id="tt-panel-plan" role="tabpanel" aria-labelledby="tt-view-plan" hidden>
+      <form class="tt-pick tp-pick" onsubmit="return false">
+        <div class="tt-field">
+          <label for="tp-from">From</label>
+          <select id="tp-from" disabled><option value="">Choose a Station</option></select>
+        </div>
+        <div class="tt-field">
+          <span class="tp-label"><label for="tp-to">To</label><button type="button" class="tp-swap" id="tp-swap">Swap Stations</button></span>
+          <select id="tp-to" disabled><option value="">Choose a Station</option></select>
+        </div>
+        <div class="tt-field">
+          <label for="tp-date">Date</label>
+          <input type="date" id="tp-date" required>
+        </div>
+        <div class="tt-field">
+          <label for="tp-after">Leave After</label>
+          <input type="time" id="tp-after">
+        </div>
+      </form>
+      <div class="tt-msg" id="tp-msg" role="status">Loading stations and trains...</div>
+      <div id="tp-result" hidden>
+        <div class="tp-summary">
+          <div>
+            <h2 id="tp-title"></h2>
+            <p id="tp-sub"></p>
+          </div>
+          <button type="button" class="tt-btn secondary" id="tp-copy">Copy Link</button>
+        </div>
+        <ol class="tp-list" id="tp-list"></ol>
+        <button type="button" class="tt-btn secondary tp-more" id="tp-later" hidden>Later Options</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="copy">© 2026 RailroadRadar</span>
+    <a href="/map/">Live Map</a>
+    <a href="/timetables/">Timetables</a>
+    <a href="/mytrips/">MyTrips</a>
+    <a href="/favorites/">Favorites</a>
+    <a href="/press/">Press</a>
+    <a href="/policies/privacy/">Privacy Policy</a>
+    <a href="/policies/terms-of-use/">Terms of Use</a>
+    <a href="/sitemap/">Sitemap</a>
+    <button type="button" id="footer-cookie-settings">Cookie Settings</button>
+  </div>
+</footer>
+
+<div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
+  <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></p>
+  <div class="rr-cookie-actions">
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+    <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
+  </div>
+</div>
+<div id="rr-cookie-modal" hidden aria-hidden="true">
+  <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
+  <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
+    <h3 id="rr-cookie-modal-title">Cookie Preferences</h3>
+    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie Settings at the bottom of the page.</p>
+    <ul class="rr-cookie-list">
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
+        <label class="rr-cookie-switch is-locked"><input type="checkbox" id="rr-cookie-essential" checked disabled><span>Always on</span></label>
+      </li>
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Analytics</strong><span>Microsoft Clarity shows us how people use the site, using cookies from clarity.ms. Better Stack reports page errors and performance.</span></div>
+        <label class="rr-cookie-switch"><input type="checkbox" id="rr-cookie-clarity"><span>Allow</span></label>
+      </li>
+    </ul>
+    <div class="rr-cookie-modal-actions">
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
+    </div>
+  </div>
+</div>
+<script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
+<script src="/assets/js/site-nav.js?v=095c433614" defer></script>
+<script>
+/* Timetables and Trip Planner. Timetables shows one line for one date as a grid (stations down, trains across);
+   Trip Planner finds trips between two stations, changing trains where needed. Each railroad is an adapter that returns lines and
+   trips in one shape, so more can be added to RAILROADS later. MBTA reads V3 schedules through the Worker,
+   which adds the API key, so nothing secret is in this page. */
+(function () {
+  var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
+  var cache = {};
+  function getJson(path) {
+    if (!cache[path]) {
+      cache[path] = fetch(API + path).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      });
+      cache[path].catch(function () { delete cache[path]; });
+    }
+    return cache[path];
+  }
+
+  /* MBTA direction 0 is outbound (away from Boston), 1 is inbound. */
+  function fetchJson(path) {
+    return fetch(API + path).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  /* Trips are kept per request in sessionStorage in a packed form, so going back and forth between dates and
+     views does not ask the Worker again. Times are seconds after the trip's first stop. */
+  var STORE = 'rr_tt1:';
+  var tripMemo = {};
+  function packTrips(list) {
+    var names = {};
+    return { n: names, t: list.map(function (t) {
+      var base = Math.floor(t.stops[0].ms / 1000), flat = [];
+      t.stops.forEach(function (s) {
+        names[s.key] = s.name;
+        flat.push(s.key, s.ms / 1000 - base, s.arr / 1000 - base, (s.flag ? 1 : 0) + (s.noPick ? 2 : 0) + (s.noDrop ? 4 : 0));
+      });
+      return [t.line, t.num, t.headsign, t.dir === 'inbound' ? 1 : 0, base, flat];
+    }) };
+  }
+  function unpackTrips(p) {
+    return p.t.map(function (r) {
+      var stops = [], flat = r[5];
+      for (var i = 0; i < flat.length; i += 4) {
+        stops.push({ key: flat[i], name: p.n[flat[i]], ms: (r[4] + flat[i + 1]) * 1000, arr: (r[4] + flat[i + 2]) * 1000, flag: !!(flat[i + 3] & 1), noPick: !!(flat[i + 3] & 2), noDrop: !!(flat[i + 3] & 4) });
+      }
+      return { line: r[0], num: r[1], headsign: r[2], dir: r[3] ? 'inbound' : 'outbound', stops: stops };
+    });
+  }
+  function storedTrips(path, parse) {
+    if (tripMemo[path]) return tripMemo[path];
+    var key = STORE + path;
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (raw) return (tripMemo[path] = Promise.resolve(unpackTrips(JSON.parse(raw))));
+    } catch (_) {}
+    tripMemo[path] = fetchJson(path).then(function (j) {
+      var list = parse(j), packed = JSON.stringify(packTrips(list));
+      try { sessionStorage.setItem(key, packed); } catch (_) {
+        try {
+          Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf(STORE) === 0) sessionStorage.removeItem(k); });
+          sessionStorage.setItem(key, packed);
+        } catch (_) {}
+      }
+      return list;
+    });
+    tripMemo[path].catch(function () { delete tripMemo[path]; });
+    return tripMemo[path];
+  }
+  /* V3 schedules with their trips and stops included, grouped into trips. Platforms are merged into
+     their parent station, so a station is one stop no matter which line or platform. */
+  function parseSchedules(j, lineId) {
+    var inc = {};
+    (j.included || []).forEach(function (x) { inc[x.type + ':' + x.id] = x; });
+    var byTrip = {};
+    (j.data || []).forEach(function (s) {
+      var a = s.attributes || {}, rel = s.relationships || {};
+      var tid = rel.trip && rel.trip.data && rel.trip.data.id;
+      var sid = rel.stop && rel.stop.data && rel.stop.data.id;
+      var when = a.departure_time || a.arrival_time;
+      if (!tid || !sid || !when) return;
+      var trip = inc['trip:' + tid] || { attributes: {} };
+      var stop = inc['stop:' + sid] || { attributes: {}, relationships: {} };
+      var parent = stop.relationships && stop.relationships.parent_station && stop.relationships.parent_station.data;
+      var t = byTrip[tid] || (byTrip[tid] = {
+        line: (rel.route && rel.route.data && rel.route.data.id) || lineId,
+        num: trip.attributes.name || tid,
+        headsign: trip.attributes.headsign || '',
+        dir: a.direction_id === 1 ? 'inbound' : 'outbound',
+        stops: []
+      });
+      t.stops.push({
+        seq: a.stop_sequence,
+        key: parent ? parent.id : sid,
+        name: stop.attributes.name || sid,
+        ms: Date.parse(when),
+        arr: Date.parse(a.arrival_time || when),
+        flag: a.pickup_type === 3 || a.drop_off_type === 3,
+        noPick: a.pickup_type === 1,
+        noDrop: a.drop_off_type === 1
+      });
+    });
+    return Object.keys(byTrip).map(function (k) {
+      var t = byTrip[k];
+      t.stops.sort(function (a, b) { return a.seq - b.seq; });
+      if (!t.headsign) t.headsign = t.stops[t.stops.length - 1].name;
+      return t;
+    });
+  }
+
+  /* MBTA direction 0 is outbound (away from Boston), 1 is inbound. Timetables cover Commuter Rail;
+     Trip Planner adds the subway (Red, Orange, Blue, Green and Mattapan). */
+  var mbta = {
+    name: 'MBTA Commuter Rail',
+    planName: 'MBTA Commuter Rail and Subway',
+    tz: 'America/New_York',
+    tzName: 'Eastern',
+    /* Minutes to change trains: 5 between subway lines, 8 when Commuter Rail is involved. */
+    transferMin: function (from, to) { return from === 'subway' && to === 'subway' ? 5 : 8; },
+    lines: function () {
+      return getJson('/api/mbta/routes?filter[type]=2').then(function (j) {
+        return (j.data || []).slice().sort(function (a, b) { return (a.attributes.sort_order || 0) - (b.attributes.sort_order || 0); }).map(function (r) {
+          var a = r.attributes || {}, dest = a.direction_destinations || [];
+          return { id: r.id, name: a.long_name || r.id, color: a.color ? '#' + a.color : '', mode: 'cr', dest: { outbound: dest[0] || '', inbound: dest[1] || '' } };
+        });
+      });
+    },
+    trips: function (lineId, ymd) {
+      return storedTrips('/api/mbta/schedules?filter[date]=' + ymd + '&filter[route]=' + encodeURIComponent(lineId) + '&include=trip,stop,route', function (j) { return parseSchedules(j, lineId); });
+    },
+    subwayLines: function () {
+      return getJson('/api/mbta/routes?filter[type]=0,1').then(function (j) {
+        return (j.data || []).map(function (r) {
+          var a = r.attributes || {};
+          return { id: r.id, name: a.long_name || r.id, color: a.color ? '#' + a.color : '', mode: 'subway' };
+        });
+      });
+    },
+    stations: function () {
+      return getJson('/api/mbta/stops?filter[route_type]=0,1,2&fields[stop]=name').then(function (j) {
+        var names = {};
+        (j.data || []).forEach(function (s) {
+          var p = s.relationships && s.relationships.parent_station && s.relationships.parent_station.data;
+          var key = p ? p.id : s.id;
+          if (!names[key]) names[key] = (s.attributes && s.attributes.name) || key;
+        });
+        return names;
+      });
+    },
+    /* Subway runs every few minutes, so only a 5 hour window is loaded, starting on an even hour,
+       in three requests of similar size that load side by side. */
+    subwayTrips: function (ymd, ids, startHour) {
+      var green = ids.filter(function (id) { return id.indexOf('Green') === 0; });
+      var red = ids.filter(function (id) { return id === 'Red' || id === 'Mattapan'; });
+      var rest = ids.filter(function (id) { return green.indexOf(id) < 0 && red.indexOf(id) < 0; });
+      return Promise.all([green, red, rest].filter(function (g) { return g.length; }).map(function (g) {
+        return storedTrips('/api/mbta/schedules?filter[date]=' + ymd + '&filter[route]=' + g.join(',') +
+          '&filter[min_time]=' + pad(startHour) + ':00&filter[max_time]=' + pad(startHour + 5) + ':00&include=trip,stop' +
+          '&fields[schedule]=arrival_time,departure_time,stop_sequence,pickup_type,drop_off_type,direction_id&fields[trip]=headsign,name&fields[stop]=name',
+          function (j) { return parseSchedules(j, ''); });
+      })).then(function (lists) { return [].concat.apply([], lists); });
+    },
+    network: function (ymd, startHour) {
+      return Promise.all([this.lines(), this.subwayLines(), this.stations()]).then(function (r) {
+        var cr = r[0], sub = r[1];
+        return Promise.all(cr.map(function (l) { return mbta.trips(l.id, ymd); }).concat([
+          mbta.subwayTrips(ymd, sub.map(function (l) { return l.id; }), startHour)
+        ])).then(function (lists) {
+          var routes = {};
+          cr.concat(sub).forEach(function (l) { routes[l.id] = l; });
+          return { routes: routes, stations: r[2], trips: [].concat.apply([], lists) };
+        });
+      });
+    }
+  };
+  var RAILROADS = { mbta: mbta };
+
+  var el = function (id) { return document.getElementById(id); };
+  var rrSel = el('tt-rr'), lineSel = el('tt-line'), dateIn = el('tt-date');
+  var msg = el('tt-msg'), result = el('tt-result'), scroller = el('tt-scroll');
+  var fromSel = el('tp-from'), toSel = el('tp-to'), planDate = el('tp-date'), afterIn = el('tp-after');
+  var state = { view: 'table', rr: 'mbta', line: '', date: '', dir: 'inbound', from: '', to: '', after: '' };
+  var lines = [], routeInfo = {}, trips = null, seq = 0, planSeq = 0;
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function todayLocal() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function validDate(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false;
+    var p = s.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+    return d.getUTCMonth() === +p[1] - 1 && d.getUTCDate() === +p[2];
+  }
+  function validTime(s) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(s || ''); }
+  function longDate(s) {
+    var p = s.split('-');
+    return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])));
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function rr() { return RAILROADS[state.rr]; }
+  function timeFmt() { return new Intl.DateTimeFormat('en-US', { timeZone: rr().tz, hour: 'numeric', minute: '2-digit' }); }
+  /* Clock time on the railroad's own clock, as HH:MM, for comparing with Depart After. */
+  function clockOf(ms) {
+    var parts = new Intl.DateTimeFormat('en-US', { timeZone: rr().tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
+    var h = '', m = '';
+    parts.forEach(function (p) { if (p.type === 'hour') h = p.value; if (p.type === 'minute') m = p.value; });
+    return h + ':' + m;
+  }
+  function lineById(id) { return lines.filter(function (l) { return l.id === id; })[0]; }
+
+  function readUrl() {
+    var q = new URLSearchParams(location.search);
+    var r = (q.get('rr') || '').toLowerCase();
+    state.view = q.get('view') === 'plan' ? 'plan' : 'table';
+    state.rr = RAILROADS[r] ? r : 'mbta';
+    state.line = q.get('line') || '';
+    state.date = validDate(q.get('date')) ? q.get('date') : todayLocal();
+    state.dir = q.get('dir') === 'outbound' ? 'outbound' : 'inbound';
+    state.from = q.get('from') || '';
+    state.to = q.get('to') || '';
+    state.after = validTime(q.get('after')) ? q.get('after') : '';
+  }
+  function writeUrl() {
+    var q = new URLSearchParams();
+    if (state.view === 'plan') {
+      q.set('view', 'plan');
+      if (state.from || state.to) {
+        q.set('rr', state.rr);
+        if (state.from) q.set('from', state.from);
+        if (state.to) q.set('to', state.to);
+        q.set('date', state.date);
+        if (state.after) q.set('after', state.after);
+      }
+    } else if (state.line) {
+      q.set('rr', state.rr);
+      q.set('line', state.line);
+      q.set('date', state.date);
+      if (state.dir === 'outbound') q.set('dir', 'outbound');
+    }
+    var s = q.toString();
+    history.replaceState(null, '', location.pathname + (s ? '?' + s : ''));
+  }
+  function setMsg(box, text, retry) {
+    box.hidden = false;
+    box.innerHTML = esc(text) + (retry ? '<br><button type="button" class="tt-btn">Try Again</button>' : '');
+    if (retry) box.querySelector('button').onclick = retry;
+  }
+  function showMsg(text, retry) { result.hidden = true; setMsg(msg, text, retry); }
+  function copyLink(btn) {
+    var label = btn.textContent;
+    var done = function (t) { btn.textContent = t; setTimeout(function () { btn.textContent = label; }, 2000); };
+    if (!navigator.clipboard) { done('Copy From the Address Bar'); return; }
+    navigator.clipboard.writeText(location.href).then(function () { done('Link Copied'); }, function () { done('Copy From the Address Bar'); });
+  }
+
+  /* ---------- Timetables ---------- */
+
+  /* One station order for the line: the longest trip first, then each other trip's missing stations
+     go right after the station before them, so a branch's stations stay together after the junction.
+     Inbound trips are read backwards so both directions share the order. */
+  function stationOrder(list) {
+    var runs = list.map(function (t) { var s = t.stops.slice(); return t.dir === 'inbound' ? s.reverse() : s; });
+    runs.sort(function (a, b) { return b.length - a.length; });
+    var order = [], names = {};
+    runs.forEach(function (run) {
+      var at = -1;
+      run.forEach(function (s) {
+        names[s.key] = names[s.key] || s.name;
+        var i = order.indexOf(s.key);
+        if (i === -1) { order.splice(at + 1, 0, s.key); at += 1; }
+        else at = i;
+      });
+    });
+    return order.map(function (k) { return { key: k, name: names[k] }; });
+  }
+  /* Trains read left to right by their time at the first station both of them stop at. */
+  function compareTrips(a, b) {
+    for (var i = 0; i < a.stops.length; i++) {
+      for (var j = 0; j < b.stops.length; j++) {
+        if (a.stops[i].key === b.stops[j].key) return a.stops[i].ms - b.stops[j].ms;
+      }
+    }
+    return a.stops[0].ms - b.stops[0].ms;
+  }
+
+  function render() {
+    var line = lineById(state.line);
+    if (!line || !trips) return;
+    var fmt = timeFmt();
+    el('tt-title').textContent = line.name;
+    result.style.setProperty('--line-color', line.color || '');
+    el('tt-sub').textContent = rr().name + ', ' + longDate(state.date) + ', All Times ' + rr().tzName;
+    document.title = line.name + ' Timetable | RailroadRadar';
+    ['inbound', 'outbound'].forEach(function (d) {
+      var tab = el('tt-tab-' + d), on = d === state.dir;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+      tab.querySelector('span').textContent = line.dest[d] ? 'To ' + line.dest[d] : '';
+    });
+    scroller.setAttribute('aria-labelledby', 'tt-title tt-tab-' + state.dir);
+
+    var order = stationOrder(trips);
+    if (state.dir === 'inbound') order.reverse();
+    var cols = trips.filter(function (t) { return t.dir === state.dir; }).sort(compareTrips);
+    msg.hidden = true;
+    result.hidden = false;
+    if (!cols.length) {
+      scroller.innerHTML = '<p class="tt-msg" style="margin:16px;border:0">No ' + state.dir + ' trains are scheduled on this date.</p>';
+      el('tt-legend').innerHTML = '';
+      el('tt-count').textContent = '';
+      return;
+    }
+    var cells = cols.map(function (t) {
+      var m = {}, last = t.stops.length - 1;
+      t.stops.forEach(function (s, i) {
+        var mark = s.flag ? 'f' : (s.noPick && i < last ? 'd' : (s.noDrop && i > 0 ? 'p' : ''));
+        m[s.key] = { text: fmt.format(new Date(s.ms)), pm: clockOf(s.ms) >= '12:00', mark: mark };
+      });
+      return m;
+    });
+    var used = {};
+    var html = '<table class="tt-grid"><thead><tr><th scope="col" class="tt-stn">Station<small>Train</small></th>';
+    cols.forEach(function (t) { html += '<th scope="col" aria-label="' + esc(line.name + ' Train ' + t.num) + '">' + esc(t.num) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    order.forEach(function (st) {
+      if (!cells.some(function (m) { return m[st.key]; })) return;
+      html += '<tr><th scope="row" class="tt-stn">' + esc(st.name) + '</th>';
+      cells.forEach(function (m) {
+        var c = m[st.key];
+        if (!c) { html += '<td class="none"><span class="sr-only">No stop</span></td>'; return; }
+        if (c.mark) used[c.mark] = 1;
+        html += '<td' + (c.pm ? ' class="pm"' : '') + '>' + esc(c.text) + (c.mark ? '<sup>' + c.mark + '</sup>' : '') + '</td>';
+      });
+      html += '</tr>';
+    });
+    scroller.innerHTML = html + '</tbody></table>';
+    var legend = [];
+    if (used.f) legend.push('<li><b>f</b> Flag Stop</li>');
+    if (used.d) legend.push('<li><b>d</b> Drop-Off Only</li>');
+    if (used.p) legend.push('<li><b>p</b> Pick-Up Only</li>');
+    legend.push('<li>PM Times in Bold</li>');
+    el('tt-legend').innerHTML = legend.join('');
+    el('tt-count').textContent = cols.length + (cols.length === 1 ? ' Train' : ' Trains');
+    scrollToNext(cols);
+  }
+  /* On today's timetable, start at the first train that has not finished its trip. */
+  function scrollToNext(cols) {
+    scroller.scrollLeft = 0;
+    if (state.date !== todayLocal()) return;
+    var now = Date.now(), idx = -1;
+    cols.some(function (t, i) { if (t.stops[t.stops.length - 1].ms >= now) { idx = i; return true; } return false; });
+    if (idx <= 0) return;
+    var th = scroller.querySelectorAll('thead th')[idx + 1], stn = scroller.querySelector('thead .tt-stn');
+    if (th && stn) scroller.scrollLeft = th.offsetLeft - stn.offsetWidth;
+  }
+
+  function loadTable() {
+    if (!state.line) { trips = null; showMsg('Choose a line to see its timetable.'); return; }
+    var my = ++seq;
+    showMsg('Loading the timetable...');
+    rr().trips(state.line, state.date).then(function (list) {
+      if (my !== seq) return;
+      trips = list;
+      if (!list.length) {
+        var line = lineById(state.line);
+        showMsg('No ' + (line ? line.name : 'trains') + ' trains are scheduled on ' + longDate(state.date) + '. Schedules are only posted for the current season.');
+        return;
+      }
+      render();
+    }).catch(function () {
+      if (my === seq) showMsg('The timetable could not load. Check your connection and try again.', loadTable);
+    });
+  }
+
+  /* ---------- Trip Planner ---------- */
+
+  var planMsg = el('tp-msg'), planResult = el('tp-result'), shownOptions = [], planStart = 0;
+  function planShowMsg(text, retry) { planResult.hidden = true; setMsg(planMsg, text, retry); }
+  /* Epoch ms for a clock time on a date, on the railroad's own clock. */
+  function zonedMs(ymd, hhmm) {
+    var p = ymd.split('-'), guess = Date.UTC(+p[0], +p[1] - 1, +p[2], +hhmm.slice(0, 2), +hhmm.slice(3, 5));
+    var off = function (ms) {
+      var q = {};
+      new Intl.DateTimeFormat('en-US', { timeZone: rr().tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(ms)).forEach(function (x) { q[x.type] = +x.value; });
+      return Date.UTC(q.year, q.month - 1, q.day, q.hour, q.minute) - ms;
+    };
+    var ms = guess - off(guess);
+    return guess - off(ms);
+  }
+  /* With no time picked, today starts now and other dates start at 8:00 AM. */
+  function effectiveAfter() {
+    if (state.after) return state.after;
+    return state.date === todayLocal() ? clockOf(Date.now()) : '08:00';
+  }
+  function duration(ms) {
+    var m = Math.round(ms / 60000), h = Math.floor(m / 60);
+    return h ? h + ' hr ' + (m % 60) + ' min' : m + ' min';
+  }
+
+  var netMemo = {};
+  function network(ms) {
+    var hours = Math.max(0, Math.floor((ms - zonedMs(state.date, '00:00')) / 3600000));
+    var start = Math.min(24, hours - hours % 2), key = state.rr + state.date + start;
+    if (!netMemo[key]) {
+      netMemo[key] = rr().network(state.date, start).then(function (net) {
+        routeInfo = net.routes;
+        net.trips.forEach(function (t) { t.mode = (net.routes[t.line] || {}).mode || 'cr'; });
+        net.conns = [];
+        net.trips.forEach(function (t, ti) {
+          for (var i = 0; i < t.stops.length - 1; i++) {
+            net.conns.push({ trip: ti, i: i, from: t.stops[i].key, to: t.stops[i + 1].key, dep: t.stops[i].ms, arr: t.stops[i + 1].arr });
+          }
+        });
+        net.conns.sort(function (x, y) { return x.dep - y.dep || x.arr - y.arr; });
+        return net;
+      });
+      netMemo[key].catch(function () { delete netMemo[key]; });
+    }
+    return netMemo[key];
+  }
+
+  /* Connection scan: every hop between two stops, in departure order, keeping the earliest arrival at each
+     station and, when two arrivals tie, the one with fewer trains. A train can be boarded where the rider
+     already is, after the time it takes to change trains. */
+  function search(net, from, to, T) {
+    var trips = net.trips, conns = net.conns, best = {}, onTrip = {};
+    function reach(stop, label) {
+      var cur = best[stop];
+      if (!cur || label.t < cur.t || (label.t === cur.t && label.legs < cur.legs)) best[stop] = label;
+    }
+    reach(from, { t: T, legs: 0, mode: '', at: from });
+    var lo = 0, hi = conns.length;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (conns[mid].dep < T) lo = mid + 1; else hi = mid; }
+    for (var c = lo; c < conns.length; c++) {
+      var k = conns[c], t = trips[k.trip], ride = onTrip[k.trip];
+      if (best[to] && k.dep > best[to].t) break;
+      if (!ride) {
+        var here = best[k.from];
+        if (!here || t.stops[k.i].noPick) continue;
+        var change = here.mode ? rr().transferMin(here.mode, t.mode) * 60000 : 0;
+        if (k.dep < here.t + change) continue;
+        ride = onTrip[k.trip] = { board: k.i, prev: here };
+      }
+      if (t.stops[k.i + 1].noDrop) continue;
+      reach(k.to, { t: k.arr, legs: ride.prev.legs + 1, mode: t.mode, trip: k.trip, board: ride.board, alight: k.i + 1, at: k.to, prev: ride.prev });
+    }
+    return best[to] || null;
+  }
+  function itinerary(net, label) {
+    var legs = [], arrive = label.t, transfers = label.legs - 1;
+    for (; label.prev; label = label.prev) legs.unshift({ trip: net.trips[label.trip], board: label.board, alight: label.alight });
+    return { legs: legs, leave: legs[0].trip.stops[legs[0].board].ms, arrive: arrive, transfers: transfers };
+  }
+  /* Up to `count` options, each the earliest arrival for leaving a minute after the one before.
+     When a later departure arrives at the same time with no more changes, it replaces the earlier one.
+     Frequent subway trains often lead to the same arrival, so the search allows many more tries than options,
+     and it runs until a further arrival turns up so the last option also leaves as late as it can. */
+  function findOptions(from, to, T, count, found) {
+    var out = [], tries = 0;
+    function step(t) {
+      if (out.length > count || tries++ > count * 12) return Promise.resolve(out.slice(0, count));
+      return network(t).then(function (net) {
+        var hit = search(net, from, to, t);
+        if (!hit || hit.legs === 0) return out.slice(0, count);
+        var opt = itinerary(net, hit), last = out[out.length - 1];
+        if (last && last.arrive === opt.arrive) { if (opt.transfers <= last.transfers) out[out.length - 1] = opt; }
+        else out.push(opt);
+        found(out.slice(0, count));
+        return step(opt.leave + 60000);
+      });
+    }
+    return step(T);
+  }
+
+  function fillStations(names) {
+    var keys = Object.keys(names).sort(function (a, b) { return names[a].localeCompare(names[b]); });
+    var opts = '<option value="">Choose a Station</option>' + keys.map(function (k) { return '<option value="' + esc(k) + '">' + esc(names[k]) + '</option>'; }).join('');
+    fromSel.innerHTML = opts;
+    toSel.innerHTML = opts;
+    if (state.from && !names[state.from]) state.from = '';
+    if (state.to && !names[state.to]) state.to = '';
+    fromSel.value = state.from;
+    toSel.value = state.to;
+    fromSel.disabled = toSel.disabled = false;
+  }
+
+  function loadPlan(more) {
+    var my = ++planSeq;
+    afterIn.value = effectiveAfter();
+    if (!lines.length) return;
+    var T = more ? planStart : zonedMs(state.date, effectiveAfter());
+    if (!more) shownOptions = [];
+    el('tp-later').hidden = true;
+    if (!more) planShowMsg('Loading stations and trains...');
+    if (state.from && state.to && state.from !== state.to) network(T).catch(function () {});
+    var before = more ? shownOptions : [];
+    rr().stations().then(function (names) {
+      if (my !== planSeq) return null;
+      fillStations(names);
+      writeUrl();
+      if (!state.from || !state.to) { planShowMsg('Choose where you are leaving from and where you are going.'); return null; }
+      if (state.from === state.to) { planShowMsg('Choose two different stations.'); return null; }
+      if (!more) planShowMsg('Finding trips from ' + names[state.from] + ' to ' + names[state.to] + '...');
+      var show = function (opts, done) { if (my === planSeq) renderPlan(names, before, opts, done); };
+      return findOptions(state.from, state.to, T, 5, function (opts) { show(opts, false); }).then(function (opts) { show(opts, true); });
+    }).catch(function () {
+      if (my === planSeq) planShowMsg('Trains could not load. Check your connection and try again.', function () { loadPlan(); });
+    });
+  }
+
+  function legHtml(leg, fmt) {
+    var t = leg.trip, line = routeInfo[t.line] || { name: t.line, color: '' };
+    var a = t.stops[leg.board], b = t.stops[leg.alight];
+    var what = t.mode === 'cr' ? 'Train ' + esc(t.num) + ' to ' + esc(t.headsign) : 'to ' + esc(t.headsign);
+    var flags = [a, b].filter(function (s) { return s.flag; }).map(function (s) { return s.name; });
+    return '<li class="tp-leg"' + (line.color ? ' style="--line-color:' + esc(line.color) + '"' : '') + '>' +
+      '<p class="tp-line">' + esc(line.name) + '</p><p class="tp-train">' + what + '</p>' +
+      '<p class="tp-stop"><b>' + esc(fmt.format(new Date(a.ms))) + '</b> ' + esc(a.name) + '</p>' +
+      '<p class="tp-stop"><b>' + esc(fmt.format(new Date(b.arr))) + '</b> ' + esc(b.name) + '</p>' +
+      (flags.length ? '<p class="tp-note">Flag Stop at ' + esc(flags.join(' and ')) + '</p>' : '') + '</li>';
+  }
+  function optionHtml(o, fmt) {
+    var parts = [], prevEnd = null, prevStop = '';
+    o.legs.forEach(function (leg) {
+      var board = leg.trip.stops[leg.board];
+      if (prevEnd !== null) parts.push('<li class="tp-change">Transfer at ' + esc(prevStop) + ', ' + Math.round((board.ms - prevEnd) / 60000) + ' Min Wait</li>');
+      parts.push(legHtml(leg, fmt));
+      prevEnd = leg.trip.stops[leg.alight].arr;
+      prevStop = leg.trip.stops[leg.alight].name;
+    });
+    return '<li class="tp-option"><div class="tp-times">' +
+      '<div><small>Departs</small><b>' + esc(fmt.format(new Date(o.leave))) + '</b></div>' +
+      '<div><small>Arrives</small><b>' + esc(fmt.format(new Date(o.arrive))) + '</b></div>' +
+      '<div><small>Total</small><b>' + duration(o.arrive - o.leave) + '</b></div>' +
+      '<div><small>Transfers</small><b>' + (o.transfers ? o.transfers : 'None') + '</b></div></div>' +
+      '<ol class="tp-legs">' + parts.join('') + '</ol></li>';
+  }
+
+  /* Called as each option is found, then once more with `done` set when the search ends. */
+  function renderPlan(names, before, opts, done) {
+    var fmt = timeFmt(), fromName = names[state.from], toName = names[state.to], after = effectiveAfter();
+    document.title = fromName + ' to ' + toName + ' | RailroadRadar';
+    var seen = {};
+    before.forEach(function (o) { seen[o.leave + ':' + o.arrive] = 1; });
+    shownOptions = before.concat(opts.filter(function (o) { return !seen[o.leave + ':' + o.arrive]; }));
+    if (!shownOptions.length) {
+      if (!done) return;
+      planShowMsg('No trips from ' + fromName + ' to ' + toName + ' were found leaving after ' + fmt.format(new Date(zonedMs(state.date, after))) + ' on ' + longDate(state.date) + '.');
+      return;
+    }
+    planMsg.hidden = true;
+    planResult.hidden = false;
+    el('tp-title').textContent = fromName + ' to ' + toName;
+    el('tp-sub').textContent = rr().planName + ', ' + longDate(state.date) + ', Leaving After ' + fmt.format(new Date(zonedMs(state.date, after))) + ', All Times ' + rr().tzName;
+    el('tp-list').innerHTML = shownOptions.map(function (o) { return optionHtml(o, fmt); }).join('');
+    planStart = shownOptions[shownOptions.length - 1].leave + 60000;
+    el('tp-later').hidden = !done || !opts.length;
+  }
+
+  /* ---------- Shared ---------- */
+
+  function setView(v) {
+    state.view = v;
+    ['table', 'plan'].forEach(function (k) {
+      var on = k === v, tab = el('tt-view-' + k);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+      el('tt-panel-' + k).hidden = !on;
+    });
+    dateIn.value = planDate.value = state.date;
+    writeUrl();
+    if (v === 'plan') loadPlan();
+    else {
+      document.title = state.line && lineById(state.line) ? lineById(state.line).name + ' Timetable | RailroadRadar' : 'Timetables | RailroadRadar';
+      loadTable();
+    }
+  }
+  function setDate(v) {
+    if (!validDate(v)) return;
+    state.date = v;
+    dateIn.value = planDate.value = v;
+    writeUrl();
+    if (state.view === 'plan') loadPlan(); else loadTable();
+  }
+
+  function loadLines() {
+    lineSel.disabled = true;
+    rr().lines().then(function (list) {
+      lines = list;
+      lineSel.innerHTML = '<option value="">Choose a Line</option>' + list.map(function (l) { return '<option value="' + esc(l.id) + '">' + esc(l.name) + '</option>'; }).join('');
+      lineSel.disabled = false;
+      if (state.line && !lineById(state.line)) {
+        state.line = '';
+        if (state.view === 'table') { writeUrl(); showMsg('That line was not found. Choose a line from the list.'); return; }
+      }
+      lineSel.value = state.line;
+      setView(state.view);
+    }).catch(function () {
+      var retry = function () { loadLines(); };
+      showMsg('The list of lines could not load. Check your connection and try again.', retry);
+      planShowMsg('The list of lines could not load. Check your connection and try again.', retry);
+    });
+  }
+
+  readUrl();
+  rrSel.value = state.rr;
+  dateIn.value = planDate.value = state.date;
+  afterIn.value = state.after;
+  ['table', 'plan'].forEach(function (k) {
+    var on = k === state.view;
+    el('tt-view-' + k).setAttribute('aria-selected', on ? 'true' : 'false');
+    el('tt-panel-' + k).hidden = !on;
+  });
+  document.querySelector('.tt-views').addEventListener('click', function (e) {
+    var b = e.target.closest('.tt-view');
+    if (b && b.getAttribute('data-view') !== state.view) setView(b.getAttribute('data-view'));
+  });
+  document.querySelector('.tt-views').addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    setView(state.view === 'table' ? 'plan' : 'table');
+    el('tt-view-' + state.view).focus();
+  });
+  rrSel.addEventListener('change', function () { state.rr = rrSel.value; state.line = ''; state.from = state.to = ''; loadLines(); });
+  lineSel.addEventListener('change', function () { state.line = lineSel.value; writeUrl(); document.title = 'Timetables | RailroadRadar'; loadTable(); });
+  dateIn.addEventListener('change', function () { setDate(dateIn.value); });
+  planDate.addEventListener('change', function () { setDate(planDate.value); });
+  document.querySelector('.tt-tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('.tt-tab');
+    if (!b || b.getAttribute('data-dir') === state.dir) return;
+    state.dir = b.getAttribute('data-dir');
+    writeUrl();
+    render();
+  });
+  document.querySelector('.tt-tabs').addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    state.dir = state.dir === 'inbound' ? 'outbound' : 'inbound';
+    writeUrl();
+    render();
+    el('tt-tab-' + state.dir).focus();
+  });
+  fromSel.addEventListener('change', function () { state.from = fromSel.value; loadPlan(); });
+  toSel.addEventListener('change', function () { state.to = toSel.value; loadPlan(); });
+  el('tp-swap').addEventListener('click', function () { var f = state.from; state.from = state.to; state.to = f; loadPlan(); });
+  afterIn.addEventListener('change', function () { state.after = validTime(afterIn.value) ? afterIn.value : ''; loadPlan(); });
+  el('tp-later').addEventListener('click', function () { loadPlan(true); });
+  el('tt-copy').addEventListener('click', function () { copyLink(el('tt-copy')); });
+  el('tp-copy').addEventListener('click', function () { copyLink(el('tp-copy')); });
+  loadLines();
+})();
+</script>
+</body>
+</html>
