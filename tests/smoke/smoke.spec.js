@@ -136,3 +136,50 @@ test('map shows trains and popups for each railroad', async ({ page, baseURL }, 
 
   expect(realProblems(problems, '/map/')).toEqual([]);
 });
+
+test('timetables grid and trip planner', async ({ page, baseURL }) => {
+  watch(page, baseURL);
+  await page.goto('/timetables/?rr=mbta&line=CR-Haverhill&date=2026-10-15');
+  const grid = page.locator('#tt-panel-table .tt-grid');
+  await expect(grid).toBeVisible();
+  expect(await grid.locator('thead th').count(), 'train columns').toBeGreaterThan(5);
+  expect(await grid.locator('tbody tr').count(), 'station rows').toBeGreaterThan(5);
+  await page.click('#tt-tab-outbound');
+  await expect(page).toHaveURL(/dir=outbound/);
+  await expect(page.locator('#tt-title')).toContainText('Haverhill Line');
+
+  // The recording has Commuter Rail only, so the subway is one Orange Line route with two trips from North Station
+  // to Back Bay: one too soon after Train 266 arrives at 6:41 PM to change, and one that leaves time to change.
+  const station = (id, name, parent) => ({ type: 'stop', id, attributes: { name }, relationships: { parent_station: { data: parent ? { type: 'stop', id: parent } : null } } });
+  const stop = (trip, id, seq, time) => ({ type: 'schedule', id: trip + '-' + seq, attributes: { arrival_time: time, departure_time: time, stop_sequence: seq, pickup_type: 0, drop_off_type: 0, direction_id: 0 },
+    relationships: { trip: { data: { type: 'trip', id: trip } }, stop: { data: { type: 'stop', id } }, route: { data: { type: 'route', id: 'Orange' } } } });
+  const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(body) });
+  await page.route((u) => decodeURIComponent(u.href).includes('/api/mbta/routes?filter[type]=0,1'), (r) => json(r, {
+    data: [{ type: 'route', id: 'Orange', attributes: { long_name: 'Orange Line', color: 'ED8B00', type: 1 } }]
+  }));
+  await page.route((u) => decodeURIComponent(u.href).includes('/api/mbta/stops?filter[route_type]=0,1,2'), (r) => json(r, {
+    data: [station('WR-0329-02', 'Haverhill', 'place-WR-0329'), station('BNT-0000', 'North Station', 'place-north'), station('70014', 'Back Bay', 'place-bbsta')]
+  }));
+  await page.route((u) => decodeURIComponent(u.href).includes('filter[route]=Orange&'), (r) => json(r, {
+    data: [stop('o1', '70026', 1, '2026-10-15T18:45:00-04:00'), stop('o1', '70014', 2, '2026-10-15T18:56:00-04:00'),
+      stop('o2', '70026', 1, '2026-10-15T18:55:00-04:00'), stop('o2', '70014', 2, '2026-10-15T19:06:00-04:00')],
+    included: [{ type: 'trip', id: 'o1', attributes: { headsign: 'Forest Hills', name: '' } }, { type: 'trip', id: 'o2', attributes: { headsign: 'Forest Hills', name: '' } },
+      station('70026', 'North Station', 'place-north'), station('70014', 'Back Bay', 'place-bbsta')]
+  }));
+
+  await page.goto('/timetables/?view=plan&rr=mbta&from=place-WR-0329&to=place-north&date=2026-10-15&after=17:00');
+  const first = page.locator('.tp-option').first();
+  await expect(first).toContainText('Haverhill Line');
+  await expect(first).toContainText('Train 266 to North Station');
+  await expect(first).toContainText('5:30 PM');
+
+  await page.selectOption('#tp-to', 'place-bbsta');
+  await expect(page).toHaveURL(/to=place-bbsta/);
+  const trip = page.locator('.tp-option').first();
+  await expect(trip).toContainText('Orange Line');
+  await expect(trip).toContainText('Transfer at North Station, 14 Min Wait');
+  await expect(trip.locator('.tp-times')).toContainText('7:06 PM');
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), 'page scrolls sideways').toBeLessThanOrEqual(0);
+  expect(realProblems(problems, '/timetables/')).toEqual([]);
+});
