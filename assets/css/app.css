@@ -290,6 +290,19 @@
       white-space: pre-wrap;
     }
     .search-ask-card.loading .search-ask-answer { color: #7f8c9a; }
+    .search-ask-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin-top: 8px;
+    }
+    .search-ask-link {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #0b5cad;
+      text-decoration: underline;
+    }
     .search-ask-trains {
       background: #f4f6fa;
       border-bottom: 1px solid #e8ecf3;

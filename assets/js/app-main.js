@@ -18276,7 +18276,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return q.split(/\s+/).filter(Boolean).length >= 3;
       }
       let askSeq = 0;
-      function renderAskCard(results, state, text) {
+      function renderAskCard(results, state, text, opts) {
         let card = results.querySelector('.search-ask-card');
         if (!card) {
           card = document.createElement('div');
@@ -18284,13 +18284,39 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           results.insertBefore(card, results.firstChild);
         }
         card.classList.toggle('loading', state === 'loading');
-        card.innerHTML = '<div class="search-ask-label"><img src="/assets/icons/ask.png" alt="">Ask</div><div class="search-ask-answer"></div><div class="search-ask-disclaimer">AI is in beta and may make mistakes. Please do not solely rely on this information for decisions.</div>';
+        const fromData = !!(opts && opts.data);
+        const note = opts && opts.note ? opts.note : fromData
+          ? 'From live train positions and MBTA schedules and alerts. Times can change, so check before you go.'
+          : 'AI is in beta and may make mistakes. Please do not solely rely on this information for decisions.';
+        card.innerHTML = '<div class="search-ask-label"><img src="/assets/icons/ask.png" alt="">Ask</div><div class="search-ask-answer"></div><div class="search-ask-disclaimer"></div>';
         card.querySelector('.search-ask-answer').textContent = text;
+        card.querySelector('.search-ask-disclaimer').textContent = note;
+        const links = ((opts && opts.links) || (opts && opts.link ? [opts.link] : [])).filter(function(l) { return l && l.href; });
+        if (links.length) {
+          const box = document.createElement('div');
+          box.className = 'search-ask-links';
+          links.forEach(function(l) {
+            const a = document.createElement('a');
+            a.className = 'search-ask-link';
+            a.href = l.href;
+            a.textContent = l.text;
+            if (l.click) {
+              a.addEventListener('click', function(e) {
+                const target = document.getElementById(l.click);
+                if (!target) return;
+                e.preventDefault();
+                target.click();
+              });
+            }
+            box.appendChild(a);
+          });
+          card.querySelector('.search-ask-answer').after(box);
+        }
       }
 
       function filterAskRows(question, rows) {
         const q = String(question || '').toLowerCase();
-        const stop = { the:1, and:1, are:1, any:1, for:1, how:1, who:1, why:1, what:1, when:1, which:1, where:1, this:1, that:1, with:1, from:1, have:1, has:1, was:1, were:1, can:1, you:1, see:1, show:1, list:1, tell:1, find:1, there:1, they:1, live:1, train:1, trains:1, right:1, now:1, does:1, did:1, about:1, some:1, all:1, is:1, on:1, to:1, of:1, in:1, at:1, or:1, me:1, my:1, get:1, going:1, run:1, running:1, line:1, lines:1, railroad:1, railroads:1, status:1, info:1, please:1, just:1, looking:1, look:1, currently:1, current:1, today:1, tonight:1, still:1, its:1, delay:1, delays:1, delayed:1, late:1, later:1, disrupt:1, disrupted:1, disruption:1, problem:1, problems:1, issue:1, issues:1, trouble:1, cancel:1, canceled:1, cancelled:1 };
+        const stop = { the:1, and:1, are:1, any:1, for:1, how:1, who:1, why:1, what:1, when:1, which:1, where:1, this:1, that:1, with:1, from:1, have:1, has:1, was:1, were:1, can:1, you:1, see:1, show:1, list:1, tell:1, find:1, there:1, they:1, live:1, train:1, trains:1, right:1, now:1, does:1, did:1, about:1, some:1, all:1, is:1, on:1, to:1, of:1, in:1, at:1, or:1, me:1, my:1, get:1, going:1, run:1, running:1, line:1, lines:1, railroad:1, railroads:1, status:1, info:1, please:1, just:1, looking:1, look:1, currently:1, current:1, today:1, tonight:1, still:1, its:1, delay:1, delays:1, delayed:1, late:1, later:1, disrupt:1, disrupted:1, disruption:1, problem:1, problems:1, issue:1, issues:1, trouble:1, cancel:1, canceled:1, cancelled:1, near:1, nearby:1, around:1, next:1, last:1, first:1, leave:1, leaves:1, leaving:1, depart:1, departs:1, departure:1, departures:1, arrive:1, arrives:1, tomorrow:1, schedule:1, time:1, times:1, there:1, many:1, much:1, long:1, will:1, should:1 };
         const tokens = (q.match(/[a-z]{3,}/g) || []).filter(function(w) { return !stop[w]; });
         const nums = q.match(/\b\d+[a-z]?\b/g) || [];
         let agencyHint = '';
@@ -18323,7 +18349,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           for (let i = 0; i < tokens.length; i++) {
             const opts = aliases[tokens[i]] || [tokens[i]];
             for (let j = 0; j < opts.length; j++) {
-              if (h.indexOf(opts[j]) >= 0) { n += 10; break; }
+              if (new RegExp('\\b' + opts[j] + '\\b').test(h)) { n += 10; break; }
             }
           }
           for (let i = 0; i < nums.length; i++) {
@@ -18349,7 +18375,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           });
           return numbered.sort(function(a,b){ return b.n - a.n; }).map(function(x){ return x.r; });
         }
-        const need = tokens.length ? 10 : 0;
+        const need = Math.min(tokens.length, 2) * 10;
         if (need) {
           const hits = scored.filter(function(x){ return x.n >= need; });
           return hits.sort(function(a,b){ return b.n - a.n; }).map(function(x){ return x.r; });
@@ -18367,15 +18393,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return 'I do not see any matching trains on the live map right now.';
         }
         const bits = list.map(function(r) {
-          let s = (r.agency ? r.agency + ' ' : '') + String(r.trainNum || '—');
-          if (r.routeName) s += ' on the ' + r.routeName;
-          s += ' to ' + (r.dest || '—');
+          let s = rrAskRowName(r) + ' to ' + (r.dest || '—');
           if (r.statusText) s += ', ' + r.statusText;
           if (r.stopName && r.stopName !== '—') s += ', ' + (r.stopLabel || 'next') + ' ' + r.stopName;
           return s;
         });
         if (bits.length === 1) return 'Right now I see ' + bits[0] + '.';
-        return 'Right now I see:\n• ' + bits.join('\n• ');
+        return 'Right now I see:\n- ' + bits.join('\n- ');
       }
       function askFactsGrounded(answer, rows) {
         const text = String(answer || '');
@@ -18708,21 +18732,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const bits = [];
         toward.forEach(function(d) {
           const num = (typeof extractTrainNumber === 'function') ? (extractTrainNumber(d.tripId) || '') : '';
-          let s = (num ? ('MBTA ' + num) : 'MBTA') + ' to ' + (d.destination || parsed.dest);
+          let s = rrAskTrainName(d.routeName, 'MBTA', num) + ' to ' + (d.destination || parsed.dest);
           if (d.formattedScheduledTime) s += ' at ' + d.formattedScheduledTime;
           if (d.status) s += ' (' + d.status + ')';
           bits.push(s);
         });
         if (!bits.length && live.length) {
           live.slice(0, 2).forEach(function(r) {
-            let s = (r.agency ? r.agency + ' ' : '') + String(r.trainNum || '—') + ' to ' + (r.dest || parsed.dest);
+            let s = rrAskRowName(r) + ' to ' + (r.dest || parsed.dest);
             if (r.stopName && r.stopName !== '—') s += ', ' + (r.stopLabel || 'next') + ' ' + r.stopName;
             bits.push(s);
           });
         }
         let answer;
         if (bits.length === 1) answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ': ' + bits[0] + '.';
-        else answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ':\n• ' + bits.join('\n• ');
+        else answer = 'Next from ' + origin.name + ' to ' + parsed.dest + ':\n- ' + bits.join('\n- ');
         const cards = [];
         const seen = {};
         live.forEach(function(r) { if (r && !seen[r.id]) { seen[r.id] = true; cards.push(r); } });
@@ -18744,19 +18768,673 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         return { answer: answer, rows: cards.slice(0, 6) };
       }
+      /* Ask answers questions it can parse from live trains, MBTA schedules and MBTA alerts first.
+         Lookups are cached in memory and sessionStorage, so asking again does not refetch;
+         the model is only used to reword the generic live train list, or for a question that only partly
+         matches RailroadRadar's pages (see rrAskSiteAi). */
+      const RR_ASK_STORE = 'rr_ask_v1:';
+      const rrAskMem = {};
+      const rrAskInflight = {};
+      function rrAskCached(key, ttlMs, load) {
+        const now = Date.now();
+        const mem = rrAskMem[key];
+        if (mem && now - mem.t < ttlMs) return Promise.resolve(mem.v);
+        try {
+          const saved = sessionStorage.getItem(RR_ASK_STORE + key);
+          if (saved) {
+            const o = JSON.parse(saved);
+            if (o && now - o.t < ttlMs) { rrAskMem[key] = o; return Promise.resolve(o.v); }
+          }
+        } catch (_) {}
+        if (rrAskInflight[key]) return rrAskInflight[key];
+        const p = Promise.resolve().then(load).then(function(v) {
+          const o = { t: Date.now(), v: v };
+          rrAskMem[key] = o;
+          try { sessionStorage.setItem(RR_ASK_STORE + key, JSON.stringify(o)); } catch (_) {}
+          return v;
+        }).finally(function() { delete rrAskInflight[key]; });
+        rrAskInflight[key] = p;
+        return p;
+      }
+      async function rrAskMbta(path) {
+        const res = await fetch(apiUrl('/api/mbta' + path));
+        if (!res.ok) throw new Error('mbta ' + res.status);
+        return res.json();
+      }
+      function rrAskHash(s) {
+        let h = 5381;
+        const str = String(s || '');
+        for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+        return h.toString(36);
+      }
+      function rrAskYmd(d) { return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
+      function rrAskTime(ms) { return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }); }
+      function rrAskNyHour() { return Number(new Date().toLocaleString('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: 'America/New_York' })) % 24; }
+      function rrAskTrim(s, n) {
+        const t = String(s || '').replace(/\s+/g, ' ').trim();
+        return t.length > n ? t.slice(0, n - 3).replace(/\s+\S*$/, '') + '...' : t;
+      }
+      function rrAskNorm(s) {
+        return String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9\s]/g, ' ')
+          .replace(/\b(sta|stn)\b/g, 'station').replace(/\s+/g, ' ').trim();
+      }
+      function rrAskEdit(a, b, max) {
+        if (Math.abs(a.length - b.length) > max) return max + 1;
+        let prev = [];
+        for (let j = 0; j <= b.length; j++) prev[j] = j;
+        for (let i = 1; i <= a.length; i++) {
+          const cur = [i];
+          let best = i;
+          for (let j = 1; j <= b.length; j++) {
+            cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+            if (cur[j] < best) best = cur[j];
+          }
+          if (best > max) return max + 1;
+          prev = cur;
+        }
+        return prev[b.length];
+      }
+      const RR_ASK_STATION_ALIASES = {
+        'sstation': 'south station', 's station': 'south station', 'so station': 'south station',
+        'nstation': 'north station', 'n station': 'north station', 'bbay': 'back bay',
+        'pvd': 'providence', 'penn': 'penn station', 'nyp': 'penn station', 'gct': 'grand central'
+      };
+      function rrAskFindStation(query, mbtaOnly) {
+        let q = rrAskNorm(query);
+        if (!q || q.length < 3) return null;
+        if (RR_ASK_STATION_ALIASES[q]) q = RR_ASK_STATION_ALIASES[q];
+        let best = null, bestScore = 0;
+        listAskStations().forEach(function(st) {
+          if (mbtaOnly && st.agency !== 'MBTA') return;
+          const k = rrAskNorm(st.name);
+          if (!k) return;
+          let n = 0;
+          if (k === q) n = 120;
+          else if (k.indexOf(q) === 0) n = 85 + Math.min(q.length, 20);
+          else if ((' ' + k + ' ').indexOf(' ' + q + ' ') >= 0) n = 70 + Math.min(q.length, 20);
+          else if (q.length >= 5 && k.indexOf(q) >= 0) n = 55 + Math.min(q.length, 20);
+          else {
+            const lim = q.length >= 9 ? 2 : (q.length >= 5 ? 1 : 0);
+            if (lim && rrAskEdit(q, k, lim) <= lim) n = 80;
+            else {
+              const qt = q.split(' '), kt = k.split(' ');
+              let hit = 0;
+              qt.forEach(function(w) {
+                if (kt.some(function(x) { return x === w || (w.length >= 5 && rrAskEdit(w, x, 1) <= 1); })) hit++;
+              });
+              if (hit === qt.length) n = 42 + hit * 6 - Math.max(0, kt.length - qt.length) * 2;
+            }
+          }
+          if (n && st.agency === 'MBTA') n += 1;
+          if (n > bestScore) { bestScore = n; best = st; }
+        });
+        return bestScore >= 42 ? { st: best, score: bestScore } : null;
+      }
+      const RR_ASK_NORTH_SIDE = ['CR-Haverhill', 'CR-Lowell', 'CR-Fitchburg', 'CR-Newburyport'];
+      async function rrAskBostonHub(other, ymd) {
+        const sched = await rrAskStopSchedule(other.stopIds, ymd);
+        const routes = {};
+        sched.forEach(function(x) { if (x.route) routes[x.route] = true; });
+        const ids = Object.keys(routes);
+        if (!ids.length) return null;
+        const key = ids.some(function(r) { return RR_ASK_NORTH_SIDE.indexOf(r) >= 0; }) ? 'north station' : 'south station';
+        const g = stationsByName[key];
+        if (!g || key === other.key) return null;
+        return { agency: 'MBTA', name: g.name, key: key, stopIds: g.stopIds || [], lat: g.lat, lng: g.lng };
+      }
+      const RR_ASK_LINES = [
+        { ids: ['Red'], name: 'Red Line', subway: true, words: ['red'] },
+        { ids: ['Orange'], name: 'Orange Line', subway: true, words: ['orange'] },
+        { ids: ['Blue'], name: 'Blue Line', subway: true, words: ['blue'] },
+        { ids: ['Mattapan'], name: 'Mattapan Line', subway: true, words: ['mattapan'] },
+        { ids: ['Green-B', 'Green-C', 'Green-D', 'Green-E'], name: 'Green Line', subway: true, words: ['green'] },
+        { ids: ['CR-Fairmount'], name: 'Fairmount Line', words: ['fairmount'] },
+        { ids: ['CR-NewBedford'], name: 'Fall River/New Bedford Line', words: ['fall river', 'new bedford', 'river', 'bedford'] },
+        { ids: ['CR-Fitchburg'], name: 'Fitchburg Line', words: ['fitchburg'] },
+        { ids: ['CR-Worcester'], name: 'Framingham/Worcester Line', words: ['framingham', 'worcester'] },
+        { ids: ['CR-Franklin'], name: 'Franklin/Foxboro Line', words: ['franklin', 'foxboro'] },
+        { ids: ['CR-Greenbush'], name: 'Greenbush Line', words: ['greenbush'] },
+        { ids: ['CR-Haverhill'], name: 'Haverhill Line', words: ['haverhill'] },
+        { ids: ['CR-Kingston'], name: 'Kingston Line', words: ['kingston', 'plymouth'] },
+        { ids: ['CR-Lowell'], name: 'Lowell Line', words: ['lowell'] },
+        { ids: ['CR-Needham'], name: 'Needham Line', words: ['needham'] },
+        { ids: ['CR-Newburyport'], name: 'Newburyport/Rockport Line', words: ['newburyport', 'rockport'] },
+        { ids: ['CR-Providence'], name: 'Providence/Stoughton Line', words: ['providence', 'stoughton'] }
+      ];
+      /* Site rule: line first, then train number, then destination ("Haverhill Line Train 256"). */
+      function rrAskRouteName(id) {
+        const line = RR_ASK_LINES.filter(function(l) { return l.ids.indexOf(id) >= 0; })[0];
+        return line ? line.name : '';
+      }
+      function rrAskTrainName(lineName, agency, num) {
+        const n = String(num || '').replace(/^VIA\s+/i, '').trim();
+        let line = String(lineName || '').trim();
+        if (line === 'Unknown') line = '';
+        if (line && agency === 'MNR' && line !== 'Metro-North' && !/\b(line|branch)$/i.test(line)) line += ' Line';
+        const head = line || ({ MNR: 'Metro-North', NJT: 'NJ Transit' })[agency] || agency || '';
+        if (!n || n === '—' || n === '-') return head ? head + ' train' : 'a train';
+        return (head ? head + ' ' : '') + 'Train ' + n;
+      }
+      function rrAskRowName(r) {
+        return rrAskTrainName(r.routeName, r.agency, r.trainNum);
+      }
+      function rrAskFindLine(raw) {
+        const q = rrAskNorm(raw);
+        const g = q.match(/\bgreen\s*line\s*([bcde])\b/) || q.match(/\bgreen\s*([bcde])\s*(?:line|branch)\b/) || q.match(/\b([bcde])\s*branch\b/);
+        if (g) {
+          const b = g[1].toUpperCase();
+          return { ids: ['Green-' + b], name: 'Green Line ' + b, subway: true };
+        }
+        const words = q.split(' ');
+        for (let i = 1; i < words.length; i++) {
+          if (words[i] !== 'line' && words[i] !== 'lines') continue;
+          const before = words.slice(Math.max(0, i - 3), i);
+          for (let j = 0; j < RR_ASK_LINES.length; j++) {
+            const line = RR_ASK_LINES[j];
+            const hit = line.words.some(function(w) {
+              if (w.indexOf(' ') >= 0) return before.join(' ').indexOf(w) >= 0;
+              return before.some(function(x) { return x === w || (w.length >= 6 && rrAskEdit(x, w, 1) <= 1); });
+            });
+            if (hit) return line;
+          }
+        }
+        if (/\bmattapan\s+(trolley|line)\b/.test(q)) return RR_ASK_LINES[3];
+        return null;
+      }
+      const RR_ASK_SERVICES = [
+        ['acela', 'Acela'], ['downeaster', 'Downeaster'], ['down easter', 'Downeaster'], ['northeast regional', 'Northeast Regional'],
+        ['vermonter', 'Vermonter'], ['valley flyer', 'Valley Flyer'], ['lake shore', 'Lake Shore Limited'], ['empire service', 'Empire Service'],
+        ['ethan allen', 'Ethan Allen Express'], ['adirondack', 'Adirondack'], ['maple leaf', 'Maple Leaf'], ['keystone', 'Keystone'],
+        ['carolinian', 'Carolinian'], ['piedmont', 'Piedmont'], ['palmetto', 'Palmetto'], ['silver meteor', 'Silver Meteor'],
+        ['silver star', 'Silver Star'], ['floridian', 'Floridian'], ['crescent', 'Crescent'], ['cardinal', 'Cardinal'],
+        ['capitol limited', 'Capitol Limited'], ['auto train', 'Auto Train'], ['city of new orleans', 'City of New Orleans'],
+        ['california zephyr', 'California Zephyr'], ['southwest chief', 'Southwest Chief'], ['coast starlight', 'Coast Starlight'],
+        ['empire builder', 'Empire Builder'], ['texas eagle', 'Texas Eagle'], ['sunset limited', 'Sunset Limited'],
+        ['hiawatha', 'Hiawatha'], ['borealis', 'Borealis'], ['cascades', 'Cascades'], ['pacific surfliner', 'Pacific Surfliner'],
+        ['hartford line', 'Hartford Line'], ['the canadian', 'The Canadian'], ['ocean', 'Ocean']
+      ];
+      function rrAskFindService(raw) {
+        const q = ' ' + rrAskNorm(raw) + ' ';
+        for (let i = 0; i < RR_ASK_SERVICES.length; i++) {
+          if (q.indexOf(' ' + RR_ASK_SERVICES[i][0] + ' ') >= 0) return { key: RR_ASK_SERVICES[i][0].replace(/^down easter$/, 'downeaster').replace(/^the /, ''), label: RR_ASK_SERVICES[i][1] };
+        }
+        return null;
+      }
+      function rrAskParseTrainNum(raw) {
+        const q = rrAskNorm(raw)
+          .replace(/\b(where|is|the|a|train|number|no|status|of|find|track|show|me|right|now|whats|what|s|running|late|delayed|on|time|today|at|currently)\b/g, ' ')
+          .replace(/\s+/g, ' ').trim();
+        const m = q.match(/^(?:(amtrak|mbta|via rail|via|lirr|mnr|metro north|metra|njt|nj transit|marc)\s*)?v?(\d{1,5})$/);
+        if (!m) return null;
+        let agency = '';
+        if (m[1]) agency = /^via/.test(m[1]) ? 'VIA Rail' : (m[1] === 'marc' ? 'MARC' : askAgencyKey(m[1]));
+        return { agency: agency, num: m[2] };
+      }
+      const RR_ASK_FILLER = /\b(the|a|an|next|last|first|earliest|latest|final|train|trains|please|now|today|tonight|tomorrow|departing|leaving|leave|leaves|depart|departs|heading|bound|when|does|do|is|are|there|any|what|time|times|mbta|commuter|rail|direct|get|go)\b/ig;
+      function rrAskClean(s) {
+        return String(s || '').replace(/\bright now\b/ig, ' ').replace(RR_ASK_FILLER, ' ').replace(/[?!.,]+/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+      function rrAskParseTrip(raw) {
+        const q = String(raw || '').replace(/\s+/g, ' ').trim();
+        let m, origin = '', dest = '';
+        if ((m = q.match(/\bto\s+(.+?)\s+from\s+(.+)$/i))) { dest = m[1]; origin = m[2]; }
+        else if ((m = q.match(/\bfrom\s+(.+?)\s+(?:to|for|towards?)\s+(.+)$/i))) { origin = m[1]; dest = m[2]; }
+        else if ((m = q.match(/\b(?:leave|leaves|leaving|depart|departs|departing)\s+(.+?)\s+(?:for|to|towards?)\s+(.+)$/i))) { origin = m[1]; dest = m[2]; }
+        else if ((m = q.match(/^(.+?)\s+to\s+(.+)$/i))) { origin = m[1]; dest = m[2]; }
+        else if ((m = q.match(/\b(?:to|for|towards?)\s+(.+)$/i))) { dest = m[1]; }
+        else return null;
+        const when = /\b(last|latest|final)\b/i.test(q) ? 'last' : (/\b(first|earliest)\b/i.test(q) ? 'first' : 'next');
+        return { origin: rrAskClean(origin), dest: rrAskClean(dest), when: when, tomorrow: /\btomorrow\b/i.test(q), explicit: /\bfrom\b/i.test(q) };
+      }
+      function rrAskCompactSchedules(j) {
+        const trips = {}, parents = {};
+        (j.included || []).forEach(function(i) {
+          if (i.type === 'trip') trips[i.id] = i.attributes || {};
+          else if (i.type === 'stop') {
+            const p = i.relationships && i.relationships.parent_station && i.relationships.parent_station.data;
+            parents[i.id] = { place: p ? p.id : i.id, name: (i.attributes && i.attributes.name) || '' };
+          }
+        });
+        return (j.data || []).map(function(s) {
+          const a = s.attributes || {}, r = s.relationships || {};
+          const tid = r.trip && r.trip.data && r.trip.data.id;
+          const sid = r.stop && r.stop.data && r.stop.data.id;
+          const t = trips[tid] || {};
+          const st = parents[sid] || { place: sid, name: '' };
+          const dep = a.departure_time || a.arrival_time;
+          const arr = a.arrival_time || a.departure_time;
+          return {
+            trip: tid, route: r.route && r.route.data && r.route.data.id, seq: a.stop_sequence,
+            dep: dep ? Date.parse(dep) : null, arr: arr ? Date.parse(arr) : null, leaves: !!a.departure_time,
+            name: t.name || '', head: t.headsign || '', place: st.place, stop: st.name
+          };
+        }).filter(function(x) { return x.trip && x.dep; });
+      }
+      function rrAskStopSchedule(stopIds, ymd) {
+        const ids = stopIds.slice().sort().join(',');
+        return rrAskCached('sched:' + ids + ':' + ymd, 30 * 60 * 1000, async function() {
+          return rrAskCompactSchedules(await rrAskMbta('/schedules?filter[stop]=' + ids + '&filter[date]=' + ymd + '&filter[route_type]=2&include=trip,stop&sort=departure_time'));
+        });
+      }
+      function rrAskServiceDates(tomorrow) {
+        const now = new Date();
+        if (tomorrow) return [rrAskYmd(new Date(now.getTime() + 24 * 3600 * 1000))];
+        const dates = [rrAskYmd(now)];
+        if (rrAskNyHour() < 3) dates.unshift(rrAskYmd(new Date(now.getTime() - 24 * 3600 * 1000)));
+        return dates;
+      }
+      async function rrAskDirectTrips(o, d, dates) {
+        const out = [];
+        let placeO = '', placeD = '';
+        for (let i = 0; i < dates.length; i++) {
+          const both = await Promise.all([rrAskStopSchedule(o.stopIds, dates[i]), rrAskStopSchedule(d.stopIds, dates[i])]);
+          const atDest = {};
+          both[1].forEach(function(x) { atDest[x.trip] = x; if (!placeD) placeD = x.place; });
+          both[0].forEach(function(x) {
+            if (!placeO) placeO = x.place;
+            const y = atDest[x.trip];
+            if (!x.leaves || !y || !(y.seq > x.seq)) return;
+            out.push({ trip: x.trip, name: x.name, route: x.route, head: x.head, dep: x.dep, arr: y.arr || y.dep });
+          });
+        }
+        out.sort(function(a, b) { return a.dep - b.dep; });
+        return { trips: out, placeO: placeO, placeD: placeD };
+      }
+      function rrAskLiveRow(rows, num) {
+        return (rows || []).filter(function(r) { return r.agency === 'MBTA' && String(r.trainNum) === String(num); })[0] || null;
+      }
+      function rrAskLiveNote(row) {
+        if (!row) return '';
+        if (row.delayMinutes != null && row.delayMinutes > 5) return ', running ' + Math.round(row.delayMinutes) + ' min late';
+        return ', on the map now';
+      }
+      function rrAskDepCard(t, fromName, st, rows) {
+        const live = rrAskLiveRow(rows, t.name);
+        if (live) return live;
+        return {
+          agency: 'MBTA', agencyColor: '#1a1a2e', id: 'ask-dep-' + String(t.trip),
+          markerMap: typeof markers !== 'undefined' ? markers : {},
+          routeName: t.routeName || rrAskRouteName(t.route) || 'MBTA', trainNum: t.name || '-', dest: t.head || '-',
+          vehicleLabel: t.name || '-', speedMph: null, stopLabel: 'Departs',
+          stopName: rrAskTime(t.dep) + ' from ' + fromName,
+          statusClass: 'status-scheduled', statusText: t.status || 'Scheduled',
+          hasAlert: false, lat: st && st.lat, lng: st && st.lng,
+          matchFields: [t.trip, t.name, t.head]
+        };
+      }
+      function rrAskTripLine(t, rows) {
+        return rrAskTime(t.dep) + ', ' + rrAskTrainName(rrAskRouteName(t.route), 'MBTA', t.name) + ', arrives ' + rrAskTime(t.arr) + rrAskLiveNote(rrAskLiveRow(rows, t.name));
+      }
+      async function rrAskTripAnswer(p, rows) {
+        function resolve(text) {
+          if (!text) return null;
+          if (/^boston$/i.test(text)) return { boston: true };
+          const f = rrAskFindStation(text, false);
+          return f ? f.st : null;
+        }
+        let o = resolve(p.origin), d = resolve(p.dest);
+        if (p.origin && !o && p.explicit) return { answer: 'I could not find a station called ' + p.origin + '.', rows: [] };
+        if (!d) {
+          if (!p.explicit) return null;
+          return { answer: 'I could not find a station called ' + p.dest + '.', rows: [] };
+        }
+        if (o && o.boston && d.boston) return null;
+        const hubDate = rrAskServiceDates(p.tomorrow).slice(-1)[0];
+        if (!o) {
+          if (d.boston || d.agency !== 'MBTA' || /^(south station|north station|back bay)$/.test(d.key)) return null;
+          o = await rrAskBostonHub(d, hubDate);
+        } else if (o.boston) o = d.agency === 'MBTA' ? await rrAskBostonHub(d, hubDate) : null;
+        else if (d.boston) d = o.agency === 'MBTA' ? await rrAskBostonHub(o, hubDate) : null;
+        if (!o || !d || o.agency !== 'MBTA' || d.agency !== 'MBTA' || o.key === d.key) return null;
+        const now = Date.now();
+        let label = p.tomorrow ? 'tomorrow' : 'today';
+        let res = await rrAskDirectTrips(o, d, rrAskServiceDates(p.tomorrow));
+        let list = res.trips;
+        let lead = '';
+        if (p.when === 'next' && !p.tomorrow) {
+          list = list.filter(function(t) { return t.dep >= now - 60000; });
+          if (!list.length) {
+            res = await rrAskDirectTrips(o, d, rrAskServiceDates(true));
+            list = res.trips;
+            label = 'tomorrow';
+            if (list.length) lead = 'No more direct trains from ' + o.name + ' to ' + d.name + ' today. ';
+          }
+        }
+        const planDate = rrAskYmd(new Date(now + (label === 'tomorrow' ? 24 * 3600 * 1000 : 0)));
+        const plan = (res.placeO && res.placeD)
+          ? { href: '/timetables/?view=plan&rr=mbta&from=' + encodeURIComponent(res.placeO) + '&to=' + encodeURIComponent(res.placeD) + '&date=' + planDate, text: 'Open in Trip Planner' }
+          : null;
+        if (!list.length) {
+          return { answer: 'I do not see a direct train from ' + o.name + ' to ' + d.name + ' ' + label + '. The Trip Planner can look for trips with a transfer.', rows: [], link: plan };
+        }
+        let pick, answer;
+        if (p.when === 'last') {
+          pick = list.slice(-2).reverse();
+          const last = pick[0];
+          const verb = last.dep < now ? 'left' : 'leaves';
+          answer = 'The last direct train from ' + o.name + ' to ' + d.name + ' ' + label + ' ' + verb + ' at ' + rrAskTime(last.dep) + ' (' + rrAskTrainName(rrAskRouteName(last.route), 'MBTA', last.name) + ', arrives ' + rrAskTime(last.arr) + ').';
+          if (pick[1]) answer += '\nThe one before it leaves at ' + rrAskTime(pick[1].dep) + ' (' + rrAskTrainName(rrAskRouteName(pick[1].route), 'MBTA', pick[1].name) + ').';
+        } else {
+          pick = list.slice(0, 3);
+          const head = (p.when === 'first' ? 'First' : 'Next') + ' trains from ' + o.name + ' to ' + d.name + (label === 'tomorrow' ? ' tomorrow' : '') + ':';
+          answer = lead + head + '\n- ' + pick.map(function(t) { return rrAskTripLine(t, rows); }).join('\n- ');
+        }
+        return { answer: answer, rows: pick.map(function(t) { return rrAskDepCard(t, o.name, o, rows); }), link: plan };
+      }
+      async function rrAskTrainNumAnswer(tn, rows) {
+        const hits = (rows || []).filter(function(r) {
+          if (tn.agency && r.agency !== tn.agency) return false;
+          return String(r.trainNum || '').toLowerCase().replace(/^via\s*/, '').replace(/^v/, '') === tn.num;
+        });
+        if (hits.length) return { answer: formatAskFactAnswer('', hits.slice(0, 8)), rows: hits.slice(0, 6) };
+        const who = rrAskTrainName('', tn.agency, tn.num);
+        if (tn.agency && tn.agency !== 'MBTA') {
+          return { answer: who + ' is not on the live map right now. Trains show up here once they are running.', rows: [] };
+        }
+        const ymd = rrAskYmd(new Date());
+        let trip = null;
+        try {
+          trip = await rrAskCached('trip:' + tn.num + ':' + ymd, 30 * 60 * 1000, async function() {
+            const j = await rrAskMbta('/trips?filter[name]=' + encodeURIComponent(tn.num) + '&filter[date]=' + ymd);
+            const t = (j.data || []).filter(function(x) { return /^CR-/.test(x.relationships && x.relationships.route && x.relationships.route.data && x.relationships.route.data.id); })[0];
+            if (!t) return { none: true };
+            const s = rrAskCompactSchedules(await rrAskMbta('/schedules?filter[trip]=' + encodeURIComponent(t.id) + '&filter[date]=' + ymd + '&include=stop'));
+            s.sort(function(a, b) { return a.seq - b.seq; });
+            if (!s.length) return { none: true };
+            return { route: t.relationships.route.data.id, first: s[0].stop, dep: s[0].dep, last: s[s.length - 1].stop, arr: s[s.length - 1].arr };
+          });
+        } catch (_) { trip = null; }
+        if (!trip || trip.none) {
+          return { answer: 'I do not see ' + (tn.agency ? who : 'Train ' + tn.num) + ' on the live map' + (trip ? ' or in today\'s MBTA schedule' : '') + ' right now.', rows: [] };
+        }
+        const plan = 'leave ' + trip.first + ' at ' + rrAskTime(trip.dep) + ' and reach ' + trip.last + ' at ' + rrAskTime(trip.arr);
+        const name = rrAskTrainName(rrAskRouteName(trip.route), 'MBTA', tn.num);
+        const now = Date.now();
+        let answer;
+        if (now < trip.dep) answer = name + ' is not running yet. Today it is scheduled to ' + plan + '.';
+        else if (now > trip.arr) answer = name + ' is done for today. It was scheduled to ' + plan + '.';
+        else answer = name + ' should be running now (scheduled to ' + plan + ') but is not reporting a location.';
+        return { answer: answer, rows: [], link: { href: '/timetables/?rr=mbta&line=' + encodeURIComponent(trip.route), text: 'Open Timetable' } };
+      }
+      function rrAskServiceAnswer(svc, rows) {
+        const hits = (rows || []).filter(function(r) { return rrAskNorm(r.routeName).indexOf(svc.key) >= 0; });
+        if (hits.length) return { answer: formatAskFactAnswer('', hits.slice(0, 8)), rows: hits.slice(0, 6) };
+        return { answer: 'No ' + svc.label + ' trains are on the live map right now.', rows: [] };
+      }
+      const RR_ASK_INFO_EFFECTS = { STATION_ISSUE: 1, NOTICE: 1, ACCESS_ISSUE: 1, ELEVATOR_CLOSURE: 1, ESCALATOR_CLOSURE: 1, PARKING_CLOSURE: 1, PARKING_ISSUE: 1, FACILITY_ISSUE: 1, BIKE_ISSUE: 1, AMBER_ALERT: 1, SUMMARY: 1, EXTRA_SERVICE: 1 };
+      async function rrAskLineAnswer(line, rows) {
+        let alerts = null;
+        try {
+          alerts = await rrAskCached('alerts:' + line.ids.join(','), 2 * 60 * 1000, async function() {
+            const j = await rrAskMbta('/alerts?filter[route]=' + line.ids.join(',') + '&filter[datetime]=NOW');
+            return (j.data || []).map(function(a) {
+              const at = a.attributes || {};
+              return { effect: at.effect || '', header: at.short_header || at.header || '' };
+            });
+          });
+        } catch (_) { alerts = null; }
+        const parts = [];
+        const live = line.subway ? [] : (rows || []).filter(function(r) { return r.agency === 'MBTA' && rrAskNorm(r.routeName) === rrAskNorm(line.name); });
+        const hour = rrAskNyHour();
+        if (line.subway && hour >= 1 && hour < 5) parts.push('The ' + line.name + ' does not run overnight. Service usually starts again around 5 AM.');
+        if (alerts === null) parts.push('I could not load MBTA alerts for the ' + line.name + ' just now.');
+        else {
+          const seen = {};
+          const service = alerts.filter(function(a) {
+            if (RR_ASK_INFO_EFFECTS[a.effect] || !a.header || seen[a.header]) return false;
+            seen[a.header] = true;
+            return true;
+          });
+          const info = alerts.length - service.length;
+          if (!service.length) parts.push('No delays or service changes are reported for the ' + line.name + ' right now.' + (info ? ' There ' + (info === 1 ? 'is 1 station notice' : 'are ' + info + ' station notices') + '.' : ''));
+          else parts.push('The ' + line.name + ' has ' + (service.length === 1 ? '1 service alert' : service.length + ' service alerts') + ' right now:\n- ' + service.slice(0, 3).map(function(a) { return rrAskTrim(a.header, 180); }).join('\n- '));
+        }
+        if (!line.subway) {
+          const late = live.filter(function(r) { return r.delayMinutes != null && r.delayMinutes > 5; });
+          if (live.length) {
+            parts.push(live.length + (live.length === 1 ? ' train is' : ' trains are') + ' on the map now' + (late.length ? ', ' + late.length + ' running late.' : ', none more than 5 min late.'));
+          } else {
+            let next = null;
+            try {
+              const ymd = rrAskYmd(new Date());
+              const firsts = await rrAskCached('linefirst:' + line.ids[0] + ':' + ymd, 30 * 60 * 1000, async function() {
+                return rrAskCompactSchedules(await rrAskMbta('/schedules?filter[route]=' + line.ids[0] + '&filter[date]=' + ymd + '&filter[stop_sequence]=first&include=trip,stop&sort=departure_time'));
+              });
+              next = firsts.filter(function(x) { return x.dep > Date.now(); })[0] || null;
+            } catch (_) {}
+            parts.push('No ' + line.name + ' trains are on the map right now.' + (next ? ' The next one leaves ' + next.stop + ' at ' + rrAskTime(next.dep) + ' (' + rrAskTrainName(rrAskRouteName(next.route) || line.name, 'MBTA', next.name) + ' to ' + next.head + ').' : ''));
+          }
+        }
+        return {
+          answer: parts.join(' ').replace(/ \n/g, '\n'),
+          rows: live.slice(0, 6),
+          link: { href: '/timetables/?rr=mbta&line=' + encodeURIComponent(line.ids[0]), text: 'Open Timetable' }
+        };
+      }
+      async function rrAskStationAnswer(raw, rows) {
+        const rest = rrAskClean(String(raw || '').replace(/\b(near|around|by|at|from|for|in|departures?|arrivals?|schedule|board|leaving|station board)\b/ig, ' '));
+        if (!rest || rest.split(' ').length > 4) return null;
+        const f = rrAskFindStation(rest, false);
+        if (!f || f.score < 70) return null;
+        const st = f.st;
+        if (st.agency === 'MBTA') {
+          let deps = [];
+          try { deps = await getStationDepartures(st.stopIds.slice()); } catch (_) { deps = []; }
+          const now = Date.now();
+          const next = (deps || []).filter(function(x) { return (x.predictedDeparture || x.scheduledDeparture) >= now - 60000; }).slice(0, 4);
+          if (!next.length) return { answer: 'I do not see any upcoming departures from ' + st.name + ' right now.', rows: [] };
+          const items = next.map(function(x) {
+            const num = extractTrainNumber(x.tripId) || '';
+            const at = (x.predictedDeparture || x.scheduledDeparture).getTime();
+            return { trip: x.tripId, name: num, head: x.destination, dep: at, routeName: x.routeName, status: /delayed/i.test(x.status) ? x.status : '' };
+          });
+          return {
+            answer: 'Next departures from ' + st.name + ':\n- ' + items.map(function(t) {
+              return rrAskTime(t.dep) + ', ' + rrAskTrainName(t.routeName, 'MBTA', t.name) + ' to ' + t.head + (t.status ? ' (' + t.status + ')' : '') + rrAskLiveNote(rrAskLiveRow(rows, t.name));
+            }).join('\n- '),
+            rows: items.map(function(t) { return rrAskDepCard(t, st.name, st, rows); })
+          };
+        }
+        const k = rrAskNorm(st.name);
+        const hits = (rows || []).filter(function(r) { return r.agency === st.agency && (rrAskNorm(r.stopName) === k || rrAskNorm(r.dest) === k); });
+        if (!hits.length) return { answer: 'I do not see trains at or headed to ' + st.name + ' on the live map right now.', rows: [] };
+        return { answer: formatAskFactAnswer('', hits.slice(0, 8)), rows: hits.slice(0, 6) };
+      }
+      /* General, how-to and policy questions are answered from assets/data/site-index.json: hand-picked
+         sentences quoted word for word from RailroadRadar's own pages (tests/static/check.js keeps them true).
+         The file is fetched once, the first time Ask gets this far, and costs no MBTA or worker request. */
+      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=78e742fee2';
+      const RR_ASK_SITE_STOP = new Set(('a about am an and any are as at be been by can could d did do does dont for from get got have '
+        + 'how i if im in is it its ll me my number of on or our phone please re s should so t tell that the there this to us use using '
+        + 've want was we what whats when where which who why will with would you your railroadradar site website app page').split(' '));
+      const RR_ASK_SITE_GENERIC = new Set(['train', 'trip', 'map', 'station', 'line', 'rail', 'railroad', 'track', 'mbta']);
+      let rrAskSitePromise = null;
+      function rrAskStem(w) {
+        let s = w;
+        if (s.length > 4 && /ies$/.test(s)) s = s.slice(0, -3) + 'i';
+        else if (s.length > 3 && /s$/.test(s) && !/ss$/.test(s)) s = s.slice(0, -1);
+        if (s.length > 5 && /ing$/.test(s)) s = s.slice(0, -3);
+        else if (s.length > 4 && /ed$/.test(s)) s = s.slice(0, -2);
+        if (s.length > 3 && /([b-df-hj-km-pr-tv-z])\1$/.test(s) && !/(ll|ss)$/.test(s)) s = s.slice(0, -1);
+        if (s.length > 3 && /e$/.test(s)) s = s.slice(0, -1);
+        if (s.length > 3 && /y$/.test(s)) s = s.slice(0, -1) + 'i';
+        return s;
+      }
+      function rrAskSiteTokens(s) {
+        return rrAskNorm(s).split(' ').filter(function(w) { return w && !RR_ASK_SITE_STOP.has(w); }).map(rrAskStem);
+      }
+      function rrAskSiteIndex() {
+        if (!rrAskSitePromise) {
+          rrAskSitePromise = fetch(RR_ASK_SITE_INDEX_URL).then(function(res) {
+            if (!res.ok) throw new Error('site index ' + res.status);
+            return res.json();
+          }).then(function(index) {
+            const byId = {};
+            const pages = (index.pages || []).map(function(p) {
+              const page = {
+                p: p,
+                phrases: p.k.concat([p.title]).map(rrAskSiteTokens).filter(function(t) { return t.length; }),
+                snips: p.s.map(function(s) {
+                  return { s: s, words: new Set(rrAskSiteTokens(s.t)), phrases: (s.k || []).map(rrAskSiteTokens).filter(function(t) { return t.length; }) };
+                })
+              };
+              byId[p.id] = page;
+              return page;
+            });
+            return { pages: pages, byId: byId };
+          }).catch(function(e) { rrAskSitePromise = null; throw e; });
+        }
+        return rrAskSitePromise;
+      }
+      function rrAskSiteWeight(w) { return RR_ASK_SITE_GENERIC.has(w) ? 3 : 10; }
+      /* Ranks pages for a question. coverage is the share of the question's words a page's keywords explain. */
+      function rrAskSiteMatch(raw, index) {
+        const words = Array.from(new Set(rrAskSiteTokens(raw)));
+        if (!words.length) return [];
+        const total = words.reduce(function(n, w) { return n + rrAskSiteWeight(w); }, 0);
+        function findWord(t) {
+          if (words.indexOf(t) >= 0) return t;
+          if (t.length < 6) return '';
+          return words.filter(function(w) { return w.length >= 6 && rrAskEdit(w, t, 1) <= 1; })[0] || '';
+        }
+        function hits(phrases, covered) {
+          let n = 0;
+          phrases.forEach(function(ph) {
+            const found = ph.map(findWord);
+            if (found.every(Boolean)) { n += 1; found.forEach(function(w) { covered.add(w); }); }
+          });
+          return n;
+        }
+        return index.pages.map(function(page) {
+          const covered = new Set();
+          hits(page.phrases, covered);
+          const snips = page.snips.map(function(sn, i) {
+            const own = new Set();
+            const score = hits(sn.phrases, own) * 10 + words.filter(function(w) { return sn.words.has(w) && !RR_ASK_SITE_GENERIC.has(w); }).length * 2;
+            own.forEach(function(w) { covered.add(w); });
+            return { sn: sn, i: i, score: score };
+          }).sort(function(a, b) { return b.score - a.score || a.i - b.i; });
+          let coveredWeight = 0;
+          covered.forEach(function(w) { coveredWeight += rrAskSiteWeight(w); });
+          return { page: page, snips: snips, coveredWeight: coveredWeight, coverage: coveredWeight / total, score: coveredWeight + Math.min(6, snips[0] ? snips[0].score : 0) };
+        }).filter(function(m) { return m.score > 0; }).sort(function(a, b) {
+          return b.coverage - a.coverage || b.score - a.score;
+        });
+      }
+      function rrAskSiteStrong(m) { return !!m && m.coveredWeight >= 10 && m.coverage >= 0.65; }
+      function rrAskSiteNear(raw, m) { return !/\d/.test(raw) && m.coveredWeight >= 10 && m.coverage >= 0.4; }
+      function rrAskSiteLink(p, anchor) {
+        const base = p.url.split('#')[0];
+        const a = anchor || p.url.split('#')[1] || '';
+        return { href: base + (a ? '#' + a : ''), text: p.label || 'Open ' + p.title, click: p.click || '' };
+      }
+      function rrAskSiteLinks(m, index, anchor) {
+        const links = [rrAskSiteLink(m.page.p, anchor)];
+        (m.page.p.rel || []).forEach(function(id) {
+          const page = index.byId[id];
+          if (!page || links.length >= 3) return;
+          const link = rrAskSiteLink(page.p);
+          if (!links.some(function(l) { return l.text === link.text; })) links.push(link);
+        });
+        return links;
+      }
+      function rrAskSiteAnswer(m, index) {
+        const best = m.snips[0].score >= 10 ? m.snips[0] : m.snips.filter(function(x) { return x.i === 0; })[0];
+        const picked = [best];
+        const next = best.score >= 10 && m.snips[1];
+        if (next && next.score >= best.score * 0.6 && best.sn.s.t.length + next.sn.s.t.length < 420) picked.push(next);
+        picked.sort(function(a, b) { return a.i - b.i; });
+        return {
+          answer: picked.map(function(x) { return '"' + x.sn.s.t + '"'; }).join('\n'),
+          links: rrAskSiteLinks(m, index, best.sn.s.a),
+          note: "Quoted from RailroadRadar's own pages. Open the page for the full text."
+        };
+      }
+      async function rrAskSiteDirect(raw) {
+        const index = await rrAskSiteIndex();
+        const top = rrAskSiteMatch(raw, index)[0];
+        return rrAskSiteStrong(top) ? rrAskSiteAnswer(top, index) : null;
+      }
+      /* Last resort for a question that only partly matches a page: the AI sees the two closest snippets and is
+         asked to name the page or say it does not know. An answer that adds numbers or emails the snippets lack is
+         dropped. The card always links the pages, and names them when the answer does not. */
+      function rrAskAscii(text) {
+        return String(text || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2010\u2011]/g, '-').replace(/[\u00a0\u2007\u202f]/g, ' ')
+          .replace(/\s*[\u2013\u2014]\s*(?=[.,;:!?)]|$)/gm, '').replace(/\s*[\u2013\u2014]\s*/g, ', ')
+          .replace(/,?\s*next stop:?\s*(?=[.,;)]|$)/gim, '').replace(/,\s*(?=[.;)])/g, '').replace(/\s*\(\s*\)/g, '').replace(/\u2026/g, '...').replace(/[ \t]+$/gm, '').trim();
+      }
+      function rrAskSiteGrounded(text, context) {
+        const t = String(text || '');
+        if (!t || /could not read the live map|too many questions|live train data/i.test(t)) return false;
+        const flat = context.replace(/\D/g, '');
+        if ((t.match(/\d[\d-]{2,}\d/g) || []).some(function(n) { return flat.indexOf(n.replace(/\D/g, '')) < 0; })) return false;
+        return !(t.match(/[\w.+-]+@[\w-]+\.[\w.]+/g) || []).some(function(e) { return context.indexOf(e) < 0; });
+      }
+      async function rrAskSiteAi(raw, matches) {
+        const top = matches.slice(0, 2);
+        const titles = top.map(function(m) { return m.page.p.title; });
+        const context = top.map(function(m) {
+          const sn = m.snips[0].sn.s;
+          return 'Page: ' + m.page.p.title + ' (https://railroadradar.com' + rrAskSiteLink(m.page.p, sn.a).href + ')\n' + sn.t;
+        }).join('\n\n');
+        const links = [];
+        top.forEach(function(m) {
+          const link = rrAskSiteLink(m.page.p, m.snips[0].sn.s.a);
+          if (!links.some(function(l) { return l.text === link.text; })) links.push(link);
+        });
+        let text = '';
+        try {
+          text = await rrAskCached('site:' + rrAskHash(rrAskNorm(raw) + '|' + context), 10 * 60 * 1000, async function() {
+            const res = await fetch(apiUrl('/api/ask'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ question: raw, context: context, mode: 'site' })
+            });
+            const data = await res.json().catch(function() { return {}; });
+            const answer = rrAskAscii(data && data.answer);
+            if (!res.ok || !rrAskSiteGrounded(answer, context)) throw new Error('ask ' + res.status);
+            return answer;
+          });
+        } catch (_) { text = ''; }
+        const named = titles.filter(function(t, i) { return titles.indexOf(t) === i; });
+        if (text && !named.some(function(t) { return text.toLowerCase().indexOf(t.toLowerCase()) >= 0; })) text += '\nSources: ' + named.join(', ') + '.';
+        return {
+          answer: text || "I could not find that on RailroadRadar's pages. These pages may help:",
+          links: links,
+          ai: !!text
+        };
+      }
+      async function rrAskDirect(raw, rows) {
+        let site = null;
+        try { site = await rrAskSiteDirect(raw); } catch (_) { site = null; }
+        if (site) return site;
+        const tn = rrAskParseTrainNum(raw);
+        if (tn) return rrAskTrainNumAnswer(tn, rows);
+        const svc = rrAskFindService(raw);
+        if (svc) return rrAskServiceAnswer(svc, rows);
+        const line = rrAskFindLine(raw);
+        if (line) return rrAskLineAnswer(line, rows);
+        const trip = rrAskParseTrip(raw);
+        if (trip) return rrAskTripAnswer(trip, rows);
+        return rrAskStationAnswer(raw, rows);
+      }
       async function polishAskAnswer(raw, rows, results, seq) {
         const facts = rows.map(function(r) {
-          return [r.agency, r.trainNum, r.routeName, 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
+          return [rrAskRowName(r), 'to', r.dest, r.statusText, r.stopName ? ((r.stopLabel || 'next') + ' ' + r.stopName) : ''].filter(Boolean).join(' ');
         }).join('\n');
-        const res = await fetch(apiUrl('/api/ask'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
+        const polished = await rrAskCached('polish:' + rrAskHash(rrAskNorm(raw) + '|' + facts), 10 * 60 * 1000, async function() {
+          const res = await fetch(apiUrl('/api/ask'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: raw, context: facts, mode: 'polish' })
+          });
+          const data = await res.json().catch(function() { return {}; });
+          const text = rrAskAscii(data && data.answer);
+          if (!res.ok || !text || !askFactsGrounded(text, rows)) throw new Error('ask ' + res.status);
+          return text;
         });
-        const data = await res.json().catch(function() { return {}; });
         if (seq !== askSeq) return;
-        const polished = data && data.answer ? String(data.answer).trim() : '';
-        if (res.ok && polished && askFactsGrounded(polished, rows)) {
+        if (polished && askFactsGrounded(polished, rows)) {
           renderAskCard(results, 'ok', polished);
           renderAskTrainCards(results, rows);
         }
@@ -18766,24 +19444,40 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         renderAskCard(results, 'loading', 'Looking at live trains…');
         try {
           const rows = collectLiveTrainRows();
+          let direct = null;
+          try { direct = await rrAskDirect(raw, rows); } catch (_) { direct = null; }
+          if (direct && direct.answer) {
+            if (seq !== askSeq) return;
+            renderAskCard(results, 'ok', direct.answer, { data: true, link: direct.link, links: direct.links, note: direct.note });
+            renderAskTrainCards(results, direct.rows || []);
+            return;
+          }
           const fromTo = await answerAskFromTo(raw, rows);
           if (fromTo && fromTo.answer) {
             if (seq !== askSeq) return;
-            renderAskCard(results, 'ok', fromTo.answer);
+            renderAskCard(results, 'ok', fromTo.answer, { data: true });
             renderAskTrainCards(results, fromTo.rows || []);
-            if (!(fromTo.rows || []).length) return;
-            try {
-              await polishAskAnswer(raw, fromTo.rows, results, seq);
-            } catch (_) {}
             return;
           }
           const matched = filterAskRows(raw, rows).slice(0, 8);
           const fact = formatAskFactAnswer(raw, matched);
           if (seq !== askSeq) return;
-          renderAskCard(results, 'ok', fact);
+          if (!matched.length) {
+            let index = null, near = [];
+            try { index = await rrAskSiteIndex(); near = rrAskSiteMatch(raw, index).filter(function(m) { return rrAskSiteNear(raw, m); }); } catch (_) {}
+            if (seq !== askSeq) return;
+            if (near.length) {
+              renderAskCard(results, 'loading', "Checking RailroadRadar's pages...");
+              const site = await rrAskSiteAi(raw, near);
+              if (seq !== askSeq) return;
+              renderAskCard(results, 'ok', site.answer, site.ai ? { links: site.links } : { data: true, links: site.links, note: "These are RailroadRadar's closest pages." });
+              return;
+            }
+          }
+          renderAskCard(results, 'ok', fact, { data: true });
           renderAskTrainCards(results, matched);
           if (!matched.length) return;
-          await polishAskAnswer(raw, matched, results, seq);
+          try { await polishAskAnswer(raw, matched, results, seq); } catch (_) {}
         } catch (_) {
           if (seq !== askSeq) return;
           try {
