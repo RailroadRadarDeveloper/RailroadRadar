@@ -1,4 +1,4 @@
-// Fails if any site script has a syntax error or any ?v= cache-buster is out of date. Reads only.
+// Fails if any site script has a syntax error, any ?v= cache-buster is out of date, or a site-index.json snippet is no longer on its page. Reads only.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -136,7 +136,64 @@ for (const file of htmlFiles) {
   checkVersions(file, html);
 }
 
+// Ask quotes assets/data/site-index.json word for word, so every snippet must still be on the page it cites.
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', rsquo: "'", lsquo: "'", rdquo: '"', ldquo: '"', middot: '·', copy: '©', times: '×', hellip: '...' };
+function plainText(s) {
+  return String(s)
+    .replace(/<meta\s+name="description"\s+content="([^"]*)"[^>]*>/gi, ' $1 ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (m, n) => ENTITIES[n.toLowerCase()] ?? m)
+    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
+    .replace(/\\(['"])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .replace(/ ([,.;:)])/g, '$1');
+}
+function checkSiteIndex() {
+  const file = path.join(siteDir, 'assets/data/site-index.json');
+  if (!fs.existsSync(file)) return 0;
+  const where = rel(file);
+  let index;
+  try { index = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { fail(where, e.message); return 0; }
+  const pages = index.pages || [];
+  const ids = new Set(pages.map((p) => p.id));
+  const textOf = new Map();
+  const pageText = (f) => {
+    if (!textOf.has(f)) textOf.set(f, plainText(fs.readFileSync(path.join(siteDir, f), 'utf8')));
+    return textOf.get(f);
+  };
+  const pageFile = (url) => {
+    const p = url.split(/[?#]/)[0];
+    return p.endsWith('/') ? p.slice(1) + 'index.html' : p.slice(1);
+  };
+  const hasId = (f, id) => new RegExp(`\\bid=["']${id}["']`).test(fs.readFileSync(path.join(siteDir, f), 'utf8'));
+  let snippets = 0;
+  for (const p of pages) {
+    const at = `${where} ${p.id || '(no id)'}`;
+    if (!p.id || !p.title || !p.url || !Array.isArray(p.k) || !Array.isArray(p.s) || !p.s.length) { fail(at, 'needs id, title, url, k and s'); continue; }
+    const target = pageFile(p.url);
+    if (!fs.existsSync(path.join(siteDir, target))) { fail(at, `${p.url} has no ${target}`); continue; }
+    const anchor = p.url.split('#')[1];
+    if (anchor && !hasId(target, anchor)) fail(at, `${target} has no id="${anchor}"`);
+    if (p.click && !hasId('map/index.html', p.click)) fail(at, `map/index.html has no id="${p.click}"`);
+    for (const r of p.rel || []) if (!ids.has(r)) fail(at, `rel "${r}" is not an entry`);
+    const srcs = p.src && p.src.length ? p.src : [target];
+    for (const f of srcs) if (!fs.existsSync(path.join(siteDir, f))) fail(at, `src ${f} is missing`);
+    for (const sn of p.s) {
+      snippets++;
+      if (/[\u2013\u2014\u2018\u2019\u201c\u201d]/.test(sn.t)) fail(at, `use straight quotes and no dashes: "${sn.t}"`);
+      if (sn.a && !hasId(target, sn.a)) fail(at, `${target} has no id="${sn.a}"`);
+      const want = plainText(sn.t);
+      if (!srcs.some((f) => fs.existsSync(path.join(siteDir, f)) && pageText(f).includes(want))) fail(at, `snippet is not on ${srcs.join(' or ')}: "${sn.t}"`);
+    }
+  }
+  return snippets;
+}
+const indexSnippets = checkSiteIndex();
+
 console.log(`Checked ${jsFiles.length} .js files, ${scripts} inline scripts in ${htmlFiles.length} .html files under ${siteDir}`);
+if (indexSnippets) console.log(`Checked ${indexSnippets} site-index.json snippets against their pages`);
 if (failures.length) {
   console.log(`\n${failures.length} problem(s):`);
   for (const f of failures) console.log('  ' + f);

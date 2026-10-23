@@ -311,10 +311,14 @@
       <div class="policy">
         <h1>Privacy Policy</h1>
         <div class="meta-row">
-          <span class="pill">Effective October 19, 2026</span>
+          <span class="pill">Effective October 23, 2026</span>
         </div>
         <div class="note">
-          <p><strong>Last updated October 19, 2026.</strong> What changed:</p>
+          <p><strong>Last updated October 23, 2026.</strong> What changed:</p>
+          <ul>
+            <li><a href="#collect">Ask</a>: we say when Ask sends your question to our AI provider, Groq, and what goes with it.</li>
+          </ul>
+          <p>Earlier changes, October 19, 2026:</p>
           <ul>
             <li><a href="#collect">Live location sharing</a>: each share uses its own link code, and we describe how a viewer’s browser asks OpenStreetMap Nominatim for a town name from an approximate location.</li>
           </ul>
@@ -351,7 +355,7 @@
           <li><strong>Public reporter label.</strong> You choose how your name appears on reports: first initial, full Google display name, a custom label, or “Anonymous.” Your email and raw Google name are not shown on the public map.</li>
           <li><strong>Notification and interest settings.</strong> You may tell us which railroads or units you follow and whether you want alerts when a watched unit goes live or when a new report is posted.</li>
           <li><strong>Optional contact for future alerts.</strong> Some screens mention vehicle or SMS alerts. If those features are enabled and you submit a vehicle ID or phone number, we will use that information only to send the alerts you requested.</li>
-          <li><strong>Questions you type in search (“Ask”).</strong> If you enter a question, we send the question plus a short snapshot of matching live-train facts to our Ask endpoint so we can answer in plain language.</li>
+          <li><strong>Questions you type in search (“Ask”).</strong> If you enter a question, we send the question plus a short snapshot of matching live-train facts, or short excerpts from RailroadRadar’s public pages, to our Ask endpoint. It passes them to our AI provider, Groq, to answer in plain language. No account details are sent with them. Questions we can answer from schedules, alerts, or our own pages are not sent to the Ask endpoint or the AI provider.</li>
           <li><strong>MyTrips trip logs.</strong> If you log trips, we store each trip’s railroad, train number, origin and destination stations, times, distance, optional notes, rolling stock, and route segments. Your trips are private unless you publish a public profile. With a public profile, your trips are visible to anyone with your profile link, except trips you mark Hidden.</li>
           <li><strong>Public profile and username.</strong> If you publish a MyTrips profile, your username, display name, and Google profile photo are public, and your username is linked to your account ID. Your email is never shown. You can remove the profile at any time, which hides your trips from the public again.</li>
           <li><strong>Live location sharing (special moves).</strong> Logging a new special move asks for location access, and you can’t log one without it, because Go live starts a live share. While the share is active, your device sends its precise location, heading, and speed to our database repeatedly, with your first name, trip title, and account ID. Each share gets its own random link code, so a link from an earlier share does not show a later one. Your location is not saved with the trip itself. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.</li>
@@ -384,7 +388,7 @@
           <li>Accept, display, moderate, and audit train and locomotive reports.</li>
           <li>Enforce community rules, including holding reports for review, verifying trusted reporters, and suspending or banning accounts that abuse the Service.</li>
           <li>Send in-app or browser notifications you have enabled.</li>
-          <li>Answer “Ask” questions using live train context you can already see on the map.</li>
+          <li>Answer “Ask” questions using live train context you can already see on the map, or text from RailroadRadar’s public pages.</li>
           <li>Understand how the map is used (only if you allow Microsoft Clarity).</li>
           <li>Secure the Service, debug outages, prevent fraud or spam, and comply with law.</li>
           <li>Contact you about your account, a report you submitted, or a material change to this Policy.</li>
@@ -451,7 +455,7 @@
         <h2 id="share">7. When We Share Information</h2>
         <p>We share personal information only as follows:</p>
         <ul>
-          <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups), Cloudflare (our proxy servers), and, if you consent, Microsoft (Clarity) and Better Stack.</li>
+          <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups), Cloudflare (our proxy servers), Groq (AI answers for Ask), and, if you consent, Microsoft (Clarity) and Better Stack.</li>
           <li>Map and library providers that receive technical data when your browser requests map tiles, map code, or other assets (for example Mapbox, OpenStreetMap contributors, and public CDNs that serve mapping libraries). On a live viewer page, the viewer’s browser may also send approximate coordinates to OpenStreetMap Nominatim to show a town name.</li>
           <li>Transit agencies and public data sources, indirectly: we request their public feeds; we do not send them your account profile in those requests.</li>
           <li>The public, for report content and the reporter label you chose. Do not put information in a comment that you do not want others to see.</li>
@@ -470,6 +474,7 @@
           <li><strong>Microsoft Clarity</strong> — optional analytics and session insights, loaded only after consent.</li>
           <li><strong>Better Stack</strong> — optional error and performance monitoring, loaded only after consent; receives only your account ID if signed in.</li>
           <li><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, and Ask; they see your IP address and requests.</li>
+          <li><strong>Groq</strong>: the AI provider that writes some Ask answers. It receives the question and the facts or page excerpts sent with it from our proxy server, not your IP address or account details.</li>
           <li><strong>Discord</strong> — when we publish a press release, its title and link may be posted to our Discord server through a webhook. No visitor or account data is sent.</li>
           <li><strong>Mapbox / OpenStreetMap / Leaflet</strong> — map display. OpenStreetMap Nominatim may also receive approximate coordinates from a live viewer’s browser to look up a town name.</li>
           <li><strong>Public CDNs</strong> (for example unpkg and jsDelivr) — mapping and data libraries.</li>

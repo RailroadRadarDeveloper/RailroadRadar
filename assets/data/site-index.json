@@ -1,0 +1,226 @@
+{
+  "v": 1,
+  "pages": [
+    {
+      "id": "live-map", "title": "Live Map", "url": "/map/", "src": ["map/index.html", "index.html"],
+      "k": ["live map", "where are the trains", "see trains", "track a train", "train tracker", "which railroads", "railroads covered", "what railroads"],
+      "s": [
+        { "t": "See where the trains are right now. Tap one to find out where it's going and when it gets to each stop." },
+        { "t": "Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.", "k": ["data source", "where does data come from", "railroads", "accurate", "inaccurate", "wrong"] }
+      ],
+      "rel": ["map-settings", "timetables"]
+    },
+    {
+      "id": "map-settings", "title": "Map Settings", "url": "/map/", "click": "menu-button", "src": ["map/index.html"],
+      "k": ["map settings", "settings", "dark mode", "light mode", "map theme", "theme", "hide railroads", "show stations", "train labels", "cluster", "full screen", "change railroads", "show routes"],
+      "s": [
+        { "t": "Choose what the map shows, set up alerts, and manage your account." },
+        { "t": "Pick what to load for a faster start. You can change this anytime in Settings.", "k": ["change railroads", "which railroads", "hide railroads", "faster"] }
+      ],
+      "rel": ["notifications", "account-settings"]
+    },
+    {
+      "id": "notifications", "title": "Notifications", "label": "Open Notification Settings", "url": "/map/", "click": "menu-button", "src": ["map/index.html", "policies/privacy/index.html"],
+      "k": ["notifications", "notification", "alerts", "push", "notify me", "boarding track", "track alert", "iphone alerts", "watched unit"],
+      "s": [
+        { "t": "Get a notification when your upcoming MBTA trip's train is boarding on its track. Works in desktop browsers and the Home Screen app, including when RailroadRadar is closed.", "k": ["boarding", "track", "trip"] },
+        { "t": "On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.", "k": ["iphone", "safari", "home screen"] },
+        { "t": "You can disable notifications in RailroadRadar settings and in your browser or operating-system permission controls.", "k": ["turn off", "disable", "stop"] }
+      ],
+      "rel": ["map-settings", "mytrips"]
+    },
+    {
+      "id": "timetables", "title": "Timetables", "url": "/timetables/", "src": ["timetables/index.html"],
+      "k": ["timetable", "timetables", "schedule", "schedules", "printed schedule", "every train on a line", "all trains on a line"],
+      "s": [
+        { "t": "See every scheduled Commuter Rail train on a line for the day you pick, or plan a trip on Commuter Rail and the subway." }
+      ],
+      "rel": ["trip-planner", "live-map"]
+    },
+    {
+      "id": "trip-planner", "title": "Trip Planner", "url": "/timetables/?view=plan", "src": ["timetables/index.html"],
+      "k": ["trip planner", "plan a trip", "plan my trip", "plan a route", "directions", "subway transfer"],
+      "s": [
+        { "t": "See every scheduled Commuter Rail train on a line for the day you pick, or plan a trip on Commuter Rail and the subway." }
+      ],
+      "rel": ["timetables", "mytrips"]
+    },
+    {
+      "id": "mytrips", "title": "MyTrips", "url": "/mytrips/", "src": ["map/index.html", "index.html"],
+      "k": ["mytrips", "my trips", "log a trip", "log trip", "log my trip", "log a ride", "trip log", "record a trip", "save a trip", "miles", "how far", "add a trip"],
+      "s": [
+        { "t": "Keep track of the trains you ride. Save each trip and look back on everywhere you've been." },
+        { "t": "Log trains, keep your miles, and share trips with a public MyTrips page." },
+        { "t": "Log a ride to start your miles and see routes on the map.", "k": ["log", "start"] },
+        { "t": "Miles are approximate station-to-station estimates.", "k": ["miles", "distance", "how far"] }
+      ],
+      "rel": ["share-trip", "sign-in"]
+    },
+    {
+      "id": "share-trip", "title": "MyTrips", "url": "/mytrips/", "src": ["map/index.html"],
+      "k": ["share my trip", "share a trip", "share trip", "share trips", "share", "public profile", "public page", "profile link", "username", "trip image", "share live trip"],
+      "s": [
+        { "t": "Share a trip image or your public profile" },
+        { "t": "Share a public page with your name, photo, and trip log. Email stays private.", "k": ["public", "profile", "page"] },
+        { "t": "Set a username in Account settings first.", "k": ["username", "public"] },
+        { "t": "Share a live trip with your family and friends using the share button on train pop-ups!", "k": ["live", "family", "friends", "train"] }
+      ],
+      "rel": ["account-settings", "live-location"]
+    },
+    {
+      "id": "live-location", "title": "MyTrips", "url": "/mytrips/", "src": ["map/index.html", "policies/privacy/index.html"],
+      "k": ["go live", "live location", "share location", "share my location", "location sharing", "stop sharing", "special move", "special moves"],
+      "s": [
+        { "t": "Going live asks for your location and shares it on the map for up to 5 hours." },
+        { "t": "A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.", "k": ["stop", "ends", "delete", "how long"] }
+      ],
+      "rel": ["privacy", "share-trip"]
+    },
+    {
+      "id": "sign-in", "title": "Sign In", "label": "Sign In with Google", "url": "/map/", "click": "btn-google-signin", "src": ["map/index.html", "index.html", "policies/terms-of-use/index.html"],
+      "k": ["sign in", "sign up", "log in", "login", "signin", "create account", "make an account", "google account", "need an account", "register"],
+      "s": [
+        { "t": "Sign in to report locomotives, log your trips, and choose which railroads you follow." },
+        { "t": "You may browse the public map without an account. Submitting reports and saving watch lists requires Google sign-in.", "k": ["need", "without", "required"] }
+      ],
+      "rel": ["account-settings", "privacy"]
+    },
+    {
+      "id": "account-settings", "title": "Account Settings", "url": "/map/", "click": "header-menu-account-settings", "src": ["map/index.html", "policies/privacy/index.html"],
+      "k": ["account settings", "account", "change my name", "display name", "anonymous", "custom label", "how my name", "reports are shown", "username", "make my profile public"],
+      "s": [
+        { "t": "You choose how your name appears on reports: first initial, full Google display name, a custom label, or \"Anonymous.\" Your email and raw Google name are not shown on the public map.", "k": ["name", "anonymous", "label", "reports"] },
+        { "t": "Share a public page with your name, photo, and trip log. Email stays private.", "k": ["public", "profile", "username"] }
+      ],
+      "rel": ["delete-account", "sign-in"]
+    },
+    {
+      "id": "delete-account", "title": "Privacy Policy", "url": "/policies/privacy/#accounts", "src": ["policies/privacy/index.html"],
+      "k": ["delete my account", "delete account", "remove my account", "close my account", "deactivate", "erase my data", "delete my data", "remove my data"],
+      "s": [
+        { "t": "You may delete your account from the account menu. Deleting removes your sign-in account, account and settings records, public profile and username, trip logs, any live location share, pending reports, and your press-release comments." },
+        { "t": "Public train reports you already submitted stay on trains with the label they were posted under, and the admin-only audit copy of your reports and any ban or appeal records are kept for moderation; email railroadradar@gmail.com and we will delete or anonymize those on request where we can.", "k": ["reports", "kept", "stay"] }
+      ],
+      "rel": ["account-settings", "privacy"]
+    },
+    {
+      "id": "report-train", "title": "Report a Train", "label": "Report a Train", "url": "/map/", "click": "btn-report-train-header", "src": ["map/index.html", "policies/privacy/index.html"],
+      "k": ["report a train", "report", "pair", "pairing", "locomotive", "consist", "which engine", "leaderboard", "specials"],
+      "s": [
+        { "t": "Sign in with Google to pair locomotives to live trains and share what you see." },
+        { "t": "Signed-in users can pair locomotives or special units to live or scheduled trains and add comments.", "k": ["pair", "comment"] },
+        { "t": "No train reports this week yet. Report a consist to get on the board.", "k": ["leaderboard", "board", "points"] }
+      ],
+      "rel": ["sign-in", "terms"]
+    },
+    {
+      "id": "station-audio", "title": "Station Audio", "url": "/stationaudio/", "src": ["stationaudio/index.html"],
+      "k": ["station audio", "announcements", "announcement", "hear", "audio", "spoken", "speak", "voice", "read aloud", "sound"],
+      "s": [
+        { "t": "Station audio announcements. Nothing is spoken until you press Start." },
+        { "t": "Press Start or Test sound once to unlock audio.", "k": ["iphone", "no sound", "silent", "unlock"] }
+      ],
+      "rel": ["live-map", "timetables"]
+    },
+    {
+      "id": "roster", "title": "Roster", "url": "/roster/", "src": ["roster/index.html"],
+      "k": ["roster", "vehicle roster", "vehicle id", "which trips did", "vehicle history", "coach", "rolling stock", "fleet"],
+      "s": [
+        { "t": "See which trips each MBTA Commuter Rail vehicle ran over the last 4 days. Search by the vehicle ID the MBTA gives each train." }
+      ],
+      "rel": ["live-map", "report-train"]
+    },
+    {
+      "id": "favorites", "title": "Favorites", "url": "/favorites/", "src": ["favorites/index.html"],
+      "k": ["favorites", "favorite", "trackside favorites", "restaurants", "restaurant", "stores", "businesses", "places to eat", "railfan spots", "add a favorite"],
+      "s": [
+        { "t": "Restaurants, stores, and other businesses that are easy to reach by public transit, train-themed, or welcoming to train fans." }
+      ],
+      "rel": ["live-map", "sitemap"]
+    },
+    {
+      "id": "privacy", "title": "Privacy Policy", "url": "/policies/privacy/", "src": ["policies/privacy/index.html"],
+      "k": ["privacy", "privacy policy", "what data", "data do you collect", "collect", "personal information", "my information", "sell my data", "sell", "email", "location data", "track me", "gdpr", "ccpa"],
+      "s": [
+        { "t": "Google provides your account identifier, email address, display name, and profile photo (if your Google account includes one). We collect your email so we can moderate reports and reach you about your account.", "a": "collect", "k": ["collect", "data do you collect", "email", "google"] },
+        { "t": "We do not sell your personal information. We do not use your reports or account data to build advertising profiles or to show third-party ads.", "a": "use", "k": ["sell", "ads", "advertising"] },
+        { "t": "We do not require location to use the map; it is needed only to log a new special move, which starts a live location share.", "a": "collect", "k": ["location", "gps", "track me"] },
+        { "t": "Email us to request access to, correction of, or deletion of personal information we hold about you, including a copy of your data (we do not yet offer a self-service export).", "a": "rights", "k": ["copy", "export", "download", "access", "correction"] }
+      ],
+      "rel": ["cookies", "delete-account"]
+    },
+    {
+      "id": "cookies", "title": "Cookie Settings", "url": "/policies/privacy/#cookies", "click": "header-menu-cookie-settings", "src": ["policies/privacy/index.html", "index.html"],
+      "k": ["cookies", "cookie", "cookie settings", "analytics", "clarity", "better stack", "tracking", "opt out"],
+      "s": [
+        { "t": "When you first visit the map, a banner asks about cookies. You can agree, decline, or choose Customize to decide about analytics yourself. Analytics stays off unless you agree to it." },
+        { "t": "Analytics stays off unless you turn it on. You can change this any time with Cookie Settings at the bottom of the page.", "k": ["change", "turn off", "opt out"] }
+      ],
+      "rel": ["privacy", "terms"]
+    },
+    {
+      "id": "terms", "title": "Terms of Use", "url": "/policies/terms-of-use/", "src": ["policies/terms-of-use/index.html"],
+      "k": ["terms", "terms of use", "terms of service", "rules", "allowed", "acceptable use", "banned", "ban", "suspended", "accurate", "accuracy", "official", "affiliated", "free"],
+      "s": [
+        { "t": "RailroadRadar is not a ticket seller, dispatcher, or official passenger-information system. Positions, delays, tracks, alerts, history, Ask answers, and community pairings can be late, incomplete, or wrong.", "a": "accuracy", "k": ["accurate", "accuracy", "official", "wrong", "rely"] },
+        { "t": "It is not affiliated with, endorsed by, or operated by MassDOT, the MBTA, Amtrak, MTA Metro-North, the Long Island Rail Road, Metra, NJ Transit, CTrail, or any other railroad or public agency.", "a": "agreement", "k": ["affiliated", "official", "mbta", "amtrak", "owned"] },
+        { "t": "We may refuse, hold, suspend, or ban accounts that violate these Terms, submit false or abusive reports, evade a prior ban, or threaten the Service or other users.", "a": "accounts", "k": ["ban", "banned", "suspended", "suspend"] },
+        { "t": "The Service is offered as a free beta product. Features can change, break, or be removed without notice.", "a": "agreement", "k": ["free", "cost", "price", "beta"] }
+      ],
+      "rel": ["safety", "privacy"]
+    },
+    {
+      "id": "safety", "title": "Terms of Use", "url": "/policies/terms-of-use/#safety-tracks", "src": ["policies/terms-of-use/index.html"],
+      "k": ["safe", "safety", "walk on tracks", "walk on the tracks", "on the tracks", "tracks", "trespass", "trespassing", "railroad property", "crossing", "cross the tracks", "platform", "photos", "photography", "railfanning", "yard"],
+      "s": [
+        { "t": "Stay off tracks and railroad property. Walking on or along tracks, or going into yards, rights-of-way, bridges, or tunnels without permission, is trespassing. It is against the law, and it can kill you.", "k": ["walk", "tracks", "trespass", "yard", "property", "bridge", "tunnel"] },
+        { "t": "Cross only at marked crossings. Obey all signals, gates, bells, and signs. Never go around or under a lowered gate.", "k": ["cross", "crossing", "gate"] },
+        { "t": "On platforms, stay back from the edge. Stand behind the yellow line or edge markings, and follow posted rules and railroad staff.", "k": ["platform", "edge", "yellow line"] },
+        { "t": "Watch and take photos only from places you are allowed to be, such as public sidewalks, roads, parks, and the public areas of stations.", "k": ["photo", "photos", "photography", "railfan", "watch"] },
+        { "t": "Never rely on RailroadRadar for a safety decision.", "k": ["rely", "safe", "decision"] }
+      ],
+      "rel": ["railroad-police", "terms"]
+    },
+    {
+      "id": "railroad-police", "title": "Terms of Use", "url": "/policies/terms-of-use/#safety-help", "src": ["policies/terms-of-use/index.html"],
+      "k": ["police", "transit police", "railroad police", "emergency", "911", "report a crime", "suspicious", "stuck on the tracks", "gate not working", "crossing problem", "help", "suicide", "988", "crisis", "dangerous activity"],
+      "s": [
+        { "t": "Emergencies: call 911.", "k": ["emergency", "911"] },
+        { "t": "A problem at a railroad crossing (for example, a vehicle stuck on the tracks, or a gate or signal that isn't working): if anyone is on the tracks, get them off and well away first. Then call the railroad's emergency number on the blue-and-white Emergency Notification System (ENS) sign at the crossing, and give the crossing number shown on the sign.", "k": ["crossing", "gate", "stuck", "signal", "ens"] },
+        { "t": "MBTA Transit Police: 617-222-1212, or text 617-600-0683", "k": ["mbta", "transit police", "police"] },
+        { "t": "Amtrak Police: 800-331-0008, or text APD11 (27311)", "k": ["amtrak", "police"] },
+        { "t": "MTA Police (Metro-North and the Long Island Rail Road): 888-682-9117 for emergencies, or 212-878-1001", "k": ["mta", "metro north", "lirr", "long island", "police"] },
+        { "t": "NJ TRANSIT Police: 973-378-6565 or 800-242-0236, or text NJTPD (65873)", "k": ["nj transit", "njt", "new jersey", "police"] },
+        { "t": "Metra Police: 312-322-2800, or 312-322-2999 for non-emergencies", "k": ["metra", "chicago", "police"] },
+        { "t": "In the U.S., call or text 988 to reach the 988 Suicide & Crisis Lifeline. In Canada, call or text 9-8-8.", "k": ["suicide", "988", "crisis", "hurt myself", "lifeline"] },
+        { "t": "If you see something on RailroadRadar that breaks these rules, email us at railroadradar@gmail.com.", "k": ["report a user", "abuse", "dangerous", "breaks the rules"] }
+      ],
+      "rel": ["safety", "terms"]
+    },
+    {
+      "id": "contact", "title": "Privacy Policy", "url": "/policies/privacy/#who", "src": ["policies/privacy/index.html"],
+      "k": ["contact", "contact you", "email you", "support", "get in touch", "feedback", "bug", "who runs", "who made"],
+      "s": [
+        { "t": "Email: railroadradar@gmail.com" },
+        { "t": "If you contact us about a specific report or account, please include the train number, vehicle or locomotive ID, and approximate time.", "a": "changes", "k": ["report", "account"] }
+      ],
+      "rel": ["press", "terms"]
+    },
+    {
+      "id": "press", "title": "Press", "url": "/press/", "src": ["press/index.html", "sitemap/index.html"],
+      "k": ["press", "news", "updates", "development update", "whats new", "what's new", "changelog", "announcement post"],
+      "s": [
+        { "t": "Official news and development updates from RailroadRadar." }
+      ],
+      "rel": ["sitemap", "contact"]
+    },
+    {
+      "id": "sitemap", "title": "Sitemap", "url": "/sitemap/", "src": ["sitemap/index.html"],
+      "k": ["sitemap", "site map", "all pages", "pages", "where is", "find a page", "menu"],
+      "s": [
+        { "t": "Public pages on RailroadRadar." }
+      ],
+      "rel": ["live-map", "press"]
+    }
+  ]
+}
