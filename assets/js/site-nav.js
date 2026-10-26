@@ -4,12 +4,14 @@
     { id: 'timetables', href: '/timetables/', label: 'Timetables' },
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
     { id: 'favorites', href: '/favorites/', label: 'Favorites' },
+    { id: 'roster', href: '/roster/', label: 'Roster' },
     { id: 'press', href: '/press/', label: 'Press' }
   ];
   function current() {
     var path = location.pathname.replace(/\/index\.html$/, '/');
     if (path.indexOf('/mytrips') === 0 || document.documentElement.classList.contains('rr-mytrips-page')) return 'mytrips';
     if (path.indexOf('/favorites') === 0) return 'favorites';
+    if (path.indexOf('/roster') === 0) return 'roster';
     if (path.indexOf('/press') === 0) return 'press';
     if (path.indexOf('/timetables') === 0) return 'timetables';
     if (path.indexOf('/map/') === 0 || path === '/map') return 'map';
