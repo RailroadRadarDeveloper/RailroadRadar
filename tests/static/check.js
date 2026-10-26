@@ -1,4 +1,4 @@
-// Fails if any site script has a syntax error, any ?v= cache-buster is out of date, or a site-index.json snippet is no longer on its page. Reads only.
+// Fails if any site script has a syntax error, any ?v= cache-buster is out of date, a site-index.json snippet is no longer on its page, or the home page route count no longer matches assets/shapes. Reads only.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -191,6 +191,21 @@ function checkSiteIndex() {
   return snippets;
 }
 const indexSnippets = checkSiteIndex();
+
+// The home page's By the Numbers route count is typed in, so it must match the route shapes the map draws.
+function checkHomeRouteCount() {
+  const home = path.join(siteDir, 'index.html');
+  const dir = path.join(siteDir, 'assets/shapes');
+  if (!fs.existsSync(home) || !fs.existsSync(dir)) return;
+  const m = fs.readFileSync(home, 'utf8').match(/data-count="(\d+)" data-stat="routes"/);
+  if (!m) return;
+  let routes = 0;
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.json'))) {
+    try { routes += (JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).routes || []).length; } catch (e) { fail(rel(path.join(dir, f)), e.message); }
+  }
+  if (Number(m[1]) !== routes) fail('index.html', `By the Numbers says ${m[1]} routes but assets/shapes has ${routes}; update data-count and the text`);
+}
+checkHomeRouteCount();
 
 console.log(`Checked ${jsFiles.length} .js files, ${scripts} inline scripts in ${htmlFiles.length} .html files under ${siteDir}`);
 if (indexSnippets) console.log(`Checked ${indexSnippets} site-index.json snippets against their pages`);

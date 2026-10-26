@@ -242,6 +242,20 @@ html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
 body{background:var(--navy)}
 .more{position:relative;overflow:hidden;background:var(--navy);color:#fff;padding:48px 18px 110px}
 .more .feature:last-child{margin-bottom:0}
+.stats{position:relative;z-index:1;width:min(980px,100%);margin:0 auto 56px;text-align:center}
+.stats h2{margin:0 0 22px;color:#fff;font-size:clamp(24px,4.6vw,32px);line-height:1.2;font-weight:700}
+.stats-list{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:24px 48px}
+.stat{flex:1 1 0;min-width:0;max-width:240px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.stat[hidden]{display:none}
+.stat-num{color:#fff;font:700 clamp(32px,5vw,40px)/1 var(--font);font-variant-numeric:tabular-nums}
+.stat.is-loading .stat-num{visibility:hidden}
+.stat-label{color:#c9d4ea;font-size:14px;line-height:1.35;text-wrap:balance}
+.stats-hero{margin-bottom:40px}
+.stat.stat-big{max-width:420px}
+.stat-big .stat-num{font-size:clamp(60px,11vw,88px)}
+.stat-big .stat-label{color:#fff;font-size:17px}
+@media (max-width:559px){.stats-list{gap:24px 12px}.stat-num{font-size:30px}.stat-label{font-size:13px}.stats-hero{margin-bottom:32px}.stat-big .stat-label{font-size:15px}}
+@media (min-width:860px){.stats{margin-bottom:80px}}
 .more::after{content:'';position:absolute;right:-80px;bottom:-60px;width:min(720px,88vw);aspect-ratio:1279/427;background:url('/assets/brand/tracks-left-bottom.png') no-repeat center/contain;transform:scaleX(-1);pointer-events:none}
 .feature{position:relative;z-index:1;width:min(980px,100%);margin:0 auto 56px;display:flex;flex-direction:column;gap:24px;text-align:center}
 .feature h2{margin:0 0 10px;color:#fff;font-size:clamp(24px,4.6vw,32px);line-height:1.2;font-weight:700}
@@ -368,6 +382,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     <a href="/timetables/" data-nav="timetables">Timetables</a>
     <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
     <a href="/favorites/" data-nav="favorites">Favorites</a>
+    <a href="/roster/" data-nav="roster">Roster</a>
     <a href="/press/" data-nav="press">Press</a>
   </nav>
   <div class="header-right">
@@ -379,6 +394,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
           <a class="panel-link" href="/timetables/">Timetables</a>
           <a class="panel-link" href="/mytrips/">MyTrips</a>
           <a class="panel-link" href="/favorites/">Favorites</a>
+          <a class="panel-link" href="/roster/">Roster</a>
           <a class="panel-link" href="/press/">Press</a>
         </div>
         <div class="home-signed-in" id="home-signed-in" hidden><span class="home-signed-in-email"></span><a class="panel-link" href="/mytrips/">MyTrips</a><button type="button" class="panel-link" id="home-signout">Sign out</button></div>
@@ -449,6 +465,21 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
   </section>
 
   <section class="more" id="more" aria-label="What you can do">
+    <div class="stats rr-reveal" id="home-stats">
+      <h2>RailroadRadar by the Numbers</h2>
+      <ul class="stats-list stats-hero">
+        <!-- Same feeds and filters as the map; the label says how many of the 7 railroads answered. -->
+        <li class="stat stat-big is-loading" data-live="trains"><span class="stat-num">0</span><span class="stat-label">Trains Live Across 7 Railroads</span></li>
+        <!-- Hidden until the Worker serves /api/stats; no stored history of every tracked train exists before that counter starts. -->
+        <li class="stat stat-big is-loading" data-live="tracked" hidden><span class="stat-num">0</span><span class="stat-label">Trains Tracked</span></li>
+      </ul>
+      <ul class="stats-list">
+        <!-- Routes in assets/shapes/*.json; tests/static/check.js fails if this stops matching. -->
+        <li class="stat"><span class="stat-num" data-count="109" data-stat="routes">109</span><span class="stat-label">Routes Drawn on the Live Map</span></li>
+        <li class="stat is-loading" data-live="lines"><span class="stat-num">0</span><span class="stat-label">Commuter Rail Lines in Timetables</span></li>
+        <li class="stat is-loading" data-live="roster"><span class="stat-num">0</span><span class="stat-label">Roster Vehicles Seen in the Last 4 Days</span></li>
+      </ul>
+    </div>
     <div class="feature">
       <div class="feature-media rr-reveal"><img src="/assets/home/feature-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map" width="960" height="750" loading="lazy"></div>
       <div class="feature-copy rr-reveal rr-reveal-late">
@@ -489,6 +520,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     <a href="/timetables/">Timetables</a>
     <a href="/mytrips/">MyTrips</a>
     <a href="/favorites/">Favorites</a>
+    <a href="/roster/">Roster</a>
     <a href="/press/">Press</a>
     <a href="/policies/privacy/">Privacy Policy</a>
     <a href="/policies/terms-of-use/">Terms of Use</a>
@@ -648,6 +680,186 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
   }, { rootMargin: '0px 0px -10% 0px', threshold: 0.12 });
   for (var i = 0; i < els.length; i++) io.observe(els[i]);
+})();
+</script>
+<script>
+/* By the Numbers: counts load once the section is near the screen. The URLs are the exact ones the map,
+   Timetables and Roster pages request, so the Worker answers from its cache instead of asking each railroad
+   again. A count that fails to load is hidden rather than guessed. */
+(function () {
+  var box = document.getElementById('home-stats');
+  if (!box) return;
+  var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
+  // Set to true once the Worker serves /api/stats (live counts in one small response, plus Trains Tracked).
+  var SUMMARY = false;
+  var RAILROADS = 7;
+  var LIVE = {
+    lines: ['/api/mbta/routes?filter[type]=2', function (j) { return Array.isArray(j.data) && j.data.length ? j.data.length : null; }],
+    roster: ['/api/roster', function (j) { return j && j.vehicles ? Object.keys(j.vehicles).length : null; }]
+  };
+
+  // Minimal GTFS-realtime reader: only FeedEntity id, vehicle, trip_update and vehicle.position are needed to count.
+  function varint(b, i) {
+    var n = 0, m = 1, c;
+    do { c = b[i++]; n += (c & 127) * m; m *= 128; } while (c & 128 && i < b.length);
+    return [n, i];
+  }
+  function fields(b, s, e, cb) {
+    var i = s, r, f, w, st;
+    while (i < e) {
+      r = varint(b, i); f = Math.floor(r[0] / 8); w = r[0] & 7; i = r[1];
+      if (w === 0) i = varint(b, i)[1];
+      else if (w === 1) i += 8;
+      else if (w === 5) { cb(f, i, i + 4); i += 4; }
+      else if (w === 2) { r = varint(b, i); st = r[1]; i = st + r[0]; cb(f, st, i); }
+      else throw new Error('bad protobuf');
+    }
+  }
+  function entities(buf) {
+    var b = new Uint8Array(buf), dv = new DataView(buf), out = [];
+    fields(b, 0, b.length, function (f, s, e) {
+      if (f !== 2) return;
+      var ent = { id: '', vehicle: false, tripUpdate: false, lat: NaN, lon: NaN };
+      fields(b, s, e, function (f, s, e) {
+        if (f === 1) ent.id = new TextDecoder().decode(b.subarray(s, e)).trim();
+        else if (f === 3) ent.tripUpdate = true;
+        else if (f === 4) {
+          ent.vehicle = true;
+          fields(b, s, e, function (f, s, e) {
+            if (f === 2) fields(b, s, e, function (f, s) {
+              if (f === 1) ent.lat = dv.getFloat32(s, true);
+              else if (f === 2) ent.lon = dv.getFloat32(s, true);
+            });
+          });
+        }
+      });
+      out.push(ent);
+    });
+    return out;
+  }
+  function hasCoords(lat, lon) { return isFinite(lat) && isFinite(lon) && !(lat === 0 && lon === 0); }
+  // Each counter mirrors the matching fetch*Trains() filter in app-main.js and keys trains by the same id.
+  var FEEDS = [
+    ['/api/mbta/vehicles?filter[route_type]=2&include=trip,route,stop', 'json', function (j) {
+      var seen = new Set();
+      (j.data || []).forEach(function (v) {
+        var a = v.attributes || {}, rel = v.relationships || {};
+        if (a.latitude && a.longitude && rel.trip && rel.trip.data && rel.route && rel.route.data) seen.add(v.id);
+      });
+      return { mbta: seen.size };
+    }],
+    // Amtraker carries VIA Rail too; app-main.js rrIsViaTrain() splits them the same way.
+    ['/api/amtrak/trains', 'json', function (j) {
+      var amtrak = new Set(), via = new Set();
+      Object.keys(j || {}).forEach(function (k) {
+        if (!Array.isArray(j[k])) return;
+        j[k].forEach(function (t) {
+          if (!t || t.lat == null || t.lon == null || isNaN(parseFloat(t.lat)) || isNaN(parseFloat(t.lon))) return;
+          var prov = String(t.provider || '').toLowerCase();
+          var isVia = t.isVia === true || prov === 'via' || prov === 'via rail' || String(t.providerShort || '').toUpperCase() === 'VIA' ||
+            /^v\d/i.test(String(t.trainNum || '')) || /^v\d/i.test(String(t.trainID || ''));
+          (isVia ? via : amtrak).add(t.trainID || t.trainNum || t.trainNumRaw || k);
+        });
+      });
+      return { amtrak: amtrak.size, via: via.size };
+    }],
+    // Metro-North and the LIRR also place trains that only have a trip update, so the map draws them without GPS.
+    ['/api/mta/mnr', 'pb', function (list) {
+      var seen = new Set();
+      list.forEach(function (e) { if (e.id && (e.vehicle || e.tripUpdate)) seen.add(e.id); });
+      return { mnr: seen.size };
+    }],
+    // The LIRR splits each train into _V and _T entities; the map merges them by base id.
+    ['/api/mta/lirr', 'pb', function (list) {
+      var seen = new Set();
+      list.forEach(function (e) { if (e.id && (e.vehicle || e.tripUpdate)) seen.add(e.id.replace(/_[VT]$/, '')); });
+      return { lirr: seen.size };
+    }],
+    ['/api/njt/vehicles', 'json', function (j) {
+      var rows = Array.isArray(j) ? j : (j && (j.trains || j.TRAINS || j.vehicles)) || [];
+      if (rows && !Array.isArray(rows) && Array.isArray(rows.TRAINS)) rows = rows.TRAINS;
+      var seen = new Set();
+      (Array.isArray(rows) ? rows : []).forEach(function (t) {
+        if (!t || typeof t !== 'object') return;
+        var num = String(t.ID || t.id || t.trainId || t.TRAIN_ID || t.trainNum || '').trim();
+        // Trains starting with A or S are Amtrak and SEPTA, which the map leaves out of NJ Transit.
+        if (!num || /^[AS]/i.test(num)) return;
+        var lat = Number(t.LATITUDE || t.lat || t.latitude || t.GPSLATITUDE), lon = Number(t.LONGITUDE || t.lng || t.lon || t.longitude || t.GPSLONGITUDE);
+        if (hasCoords(lat, lon)) seen.add(num);
+      });
+      return { njt: seen.size };
+    }],
+    ['/api/metra/positions', 'pb', function (list) {
+      var n = 0;
+      list.forEach(function (e) { if (e.vehicle && hasCoords(e.lat, e.lon)) n++; });
+      return { metra: n };
+    }]
+  ];
+  function liveFromFeeds() {
+    return Promise.all(FEEDS.map(function (feed) {
+      return fetch(API + feed[0]).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return feed[1] === 'pb' ? r.arrayBuffer().then(entities) : r.json();
+      }).then(feed[2]).catch(function () { return {}; });
+    })).then(function (parts) {
+      var out = { trains: 0, railroads: 0 };
+      parts.forEach(function (p) { Object.keys(p).forEach(function (k) { out.trains += p[k]; out.railroads++; }); });
+      return out;
+    });
+  }
+
+  var motion = document.documentElement.classList.contains('rr-motion');
+  function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+  function show(num, n) {
+    if (!motion) { num.textContent = fmt(n); return; }
+    var t0 = 0;
+    var step = function (t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / 900);
+      num.textContent = fmt(n * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    num.textContent = '0';
+    requestAnimationFrame(step);
+  }
+  function fill(li, n, label) {
+    if (typeof n !== 'number' || !isFinite(n)) { li.hidden = true; return; }
+    if (label) li.querySelector('.stat-label').textContent = label;
+    li.classList.remove('is-loading');
+    li.hidden = false;
+    show(li.querySelector('.stat-num'), n);
+  }
+  function liveLabel(railroads) {
+    return railroads === RAILROADS ? 'Trains Live Across ' + RAILROADS + ' Railroads' : 'Trains Live on ' + railroads + ' of ' + RAILROADS + ' Railroads';
+  }
+  function start() {
+    box.querySelectorAll('.stat-num[data-count]').forEach(function (num) { show(num, Number(num.getAttribute('data-count'))); });
+    Object.keys(LIVE).forEach(function (key) {
+      var li = box.querySelector('[data-live="' + key + '"]');
+      fetch(API + LIVE[key][0]).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
+        fill(li, LIVE[key][1](j));
+      }).catch(function () { li.hidden = true; });
+    });
+    var trainsLi = box.querySelector('[data-live="trains"]');
+    var trackedLi = box.querySelector('[data-live="tracked"]');
+    var summary = SUMMARY
+      ? fetch(API + '/api/stats').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(function () { return null; })
+      : Promise.resolve(null);
+    summary.then(function (s) {
+      var tracked = s && s.tracked;
+      if (tracked && typeof tracked.total === 'number' && tracked.total > 0) fill(trackedLi, tracked.total);
+      var live = s && s.live;
+      return live && typeof live.trains === 'number' && live.railroads > 0 ? live : liveFromFeeds();
+    }).then(function (live) {
+      if (!live.railroads) { trainsLi.hidden = true; return; }
+      fill(trainsLi, live.trains, liveLabel(live.railroads));
+    });
+  }
+  if (!('IntersectionObserver' in window)) { start(); return; }
+  var io = new IntersectionObserver(function (entries) {
+    if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); start(); }
+  }, { threshold: 0.1 });
+  io.observe(box);
 })();
 </script>
 <script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
