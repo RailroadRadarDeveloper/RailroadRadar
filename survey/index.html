@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Survey | RailroadRadar</title>
-<meta name="description" content="Tell us how you use RailroadRadar and what we should build next. Two minutes, eight questions.">
+<title>Share Your Feedback | RailroadRadar</title>
+<meta name="description" content="Tell us how you use RailroadRadar and what you'd love to see next. It only takes about two minutes.">
 <link rel="canonical" href="https://railroadradar.com/survey/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="RailroadRadar">
-<meta property="og:title" content="Survey | RailroadRadar">
-<meta property="og:description" content="Tell us how you use RailroadRadar and what we should build next.">
+<meta property="og:title" content="Share Your Feedback | RailroadRadar">
+<meta property="og:description" content="Tell us how you use RailroadRadar and what you'd love to see next.">
 <meta property="og:url" content="https://railroadradar.com/survey/">
 <meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
 <meta name="twitter:card" content="summary">
@@ -81,20 +81,20 @@ textarea{min-height:110px;resize:vertical}
 </div>
 <main class="wrap">
   <div id="done" class="thanks" hidden>
-    <h1 id="done-title">Thanks for the Feedback!</h1>
-    <p id="done-text">Your answers were sent. We read every response, and they help us decide what to fix and build next.</p>
+    <h1 id="done-title">Thank You So Much!</h1>
+    <p id="done-text">Your feedback is on its way. We read every response, and yours really helps shape what we build next.</p>
     <div class="actions">
       <a class="btn" href="/map/">Back to the Live Map</a>
-      <a class="btn sec" href="/">Home Page</a>
+      <a class="btn sec" href="/">Visit the Home Page</a>
     </div>
   </div>
 
   <form id="survey" novalidate>
-    <h1>RailroadRadar Survey</h1>
-    <p class="lede">Two minutes, eight questions. Only the first one is required. Your answers help us decide what to fix and build next.</p>
+    <h1>We'd Love Your Feedback</h1>
+    <p class="lede">Thanks for stopping by! This takes about two minutes, and only the first question is required, so share as much or as little as you like. Your answers help us decide what to improve and build next.</p>
 
     <fieldset id="q-rating">
-      <legend>How Would You Rate RailroadRadar Overall? <span class="req">(Required)</span></legend>
+      <legend>How Would You Rate Your Experience So Far? <span class="req">(Required)</span></legend>
       <div class="scale five">
         <label class="pick"><input type="radio" name="rating" value="1"><span>1</span></label>
         <label class="pick"><input type="radio" name="rating" value="2"><span>2</span></label>
@@ -102,28 +102,28 @@ textarea{min-height:110px;resize:vertical}
         <label class="pick"><input type="radio" name="rating" value="4"><span>4</span></label>
         <label class="pick"><input type="radio" name="rating" value="5"><span>5</span></label>
       </div>
-      <div class="scale-ends"><span>Poor</span><span>Excellent</span></div>
+      <div class="scale-ends"><span>Not Great</span><span>Love It</span></div>
     </fieldset>
 
     <fieldset>
-      <legend>How Likely Are You to Recommend RailroadRadar to a Friend? <span class="opt">(Optional)</span></legend>
+      <legend>How Likely Are You to Tell a Friend About RailroadRadar? <span class="opt">(Optional)</span></legend>
       <div class="scale eleven" id="recommend-scale"></div>
-      <div class="scale-ends"><span>0 = Not Likely</span><span>10 = Very Likely</span></div>
+      <div class="scale-ends"><span>0 = Not Very Likely</span><span>10 = Absolutely</span></div>
     </fieldset>
 
     <fieldset>
-      <legend>How Often Do You Use RailroadRadar? <span class="opt">(Optional)</span></legend>
+      <legend>How Often Do You Stop By? <span class="opt">(Optional)</span></legend>
       <div class="chips">
         <label class="pick"><input type="radio" name="frequency" value="daily"><span>Every Day</span></label>
         <label class="pick"><input type="radio" name="frequency" value="weekly"><span>A Few Times a Week</span></label>
         <label class="pick"><input type="radio" name="frequency" value="monthly"><span>A Few Times a Month</span></label>
-        <label class="pick"><input type="radio" name="frequency" value="rarely"><span>Rarely</span></label>
-        <label class="pick"><input type="radio" name="frequency" value="first"><span>This Is My First Visit</span></label>
+        <label class="pick"><input type="radio" name="frequency" value="rarely"><span>Every Now and Then</span></label>
+        <label class="pick"><input type="radio" name="frequency" value="first"><span>It's My First Time Here</span></label>
       </div>
     </fieldset>
 
     <fieldset>
-      <legend>What Do You Use RailroadRadar For? <span class="opt">(Pick Any)</span></legend>
+      <legend>What Do You Use RailroadRadar For? <span class="opt">(Pick All That Apply)</span></legend>
       <div class="chips">
         <label class="pick"><input type="checkbox" name="uses" value="map"><span>Live Map</span></label>
         <label class="pick"><input type="checkbox" name="uses" value="mytrips"><span>MyTrips</span></label>
@@ -133,11 +133,11 @@ textarea{min-height:110px;resize:vertical}
         <label class="pick"><input type="checkbox" name="uses" value="ask"><span>Ask AI Search</span></label>
         <label class="pick"><input type="checkbox" name="uses" value="other" data-other="usesOther"><span>Other</span></label>
       </div>
-      <input class="other" type="text" id="usesOther" maxlength="120" placeholder="What else do you use it for?" aria-label="Other Use" hidden>
+      <input class="other" type="text" id="usesOther" maxlength="120" placeholder="Tell us what else you use it for" aria-label="Other Use" hidden>
     </fieldset>
 
     <fieldset>
-      <legend>Which Railroads Do You Ride? <span class="opt">(Pick Any)</span></legend>
+      <legend>Which Railroads Do You Usually Ride? <span class="opt">(Pick All That Apply)</span></legend>
       <div class="chips">
         <label class="pick"><input type="checkbox" name="railroads" value="mbta"><span>MBTA Commuter Rail</span></label>
         <label class="pick"><input type="checkbox" name="railroads" value="amtrak"><span>Amtrak</span></label>
@@ -147,14 +147,14 @@ textarea{min-height:110px;resize:vertical}
         <label class="pick"><input type="checkbox" name="railroads" value="metra"><span>Metra</span></label>
         <label class="pick"><input type="checkbox" name="railroads" value="ctrail"><span>CTrail</span></label>
         <label class="pick"><input type="checkbox" name="railroads" value="marc"><span>MARC</span></label>
-        <label class="pick"><input type="checkbox" name="railroads" value="none"><span>I Don't Ride, I Just Follow Trains</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="none"><span>None, I Just Love Following Trains</span></label>
         <label class="pick"><input type="checkbox" name="railroads" value="other" data-other="railroadsOther"><span>Other</span></label>
       </div>
-      <input class="other" type="text" id="railroadsOther" maxlength="120" placeholder="Which other railroads?" aria-label="Other Railroads" hidden>
+      <input class="other" type="text" id="railroadsOther" maxlength="120" placeholder="Which other railroads do you ride?" aria-label="Other Railroads" hidden>
     </fieldset>
 
     <fieldset>
-      <legend>What Should We Build Next? <span class="opt">(Pick Any)</span></legend>
+      <legend>What Would You Like to See in a Future Update? <span class="opt">(Pick All That Apply)</span></legend>
       <div class="chips">
         <label class="pick"><input type="checkbox" name="features" value="alerts"><span>Delay and Cancellation Alerts</span></label>
         <label class="pick"><input type="checkbox" name="features" value="railroads"><span>More Railroads (SEPTA, VRE, Caltrain and More)</span></label>
@@ -165,26 +165,26 @@ textarea{min-height:110px;resize:vertical}
         <label class="pick"><input type="checkbox" name="features" value="photos"><span>Train Photos From Riders</span></label>
         <label class="pick"><input type="checkbox" name="features" value="other" data-other="featuresOther"><span>Other</span></label>
       </div>
-      <input class="other" type="text" id="featuresOther" maxlength="200" placeholder="Your idea" aria-label="Other Feature Idea" hidden>
+      <input class="other" type="text" id="featuresOther" maxlength="200" placeholder="Share your idea" aria-label="Other Feature Idea" hidden>
     </fieldset>
 
     <fieldset>
-      <legend><label for="improve">What Is One Thing We Should Improve?</label> <span class="opt">(Optional)</span></legend>
-      <textarea id="improve" maxlength="1000" placeholder="Anything that is confusing, slow, missing, or wrong"></textarea>
+      <legend><label for="improve">Is There Anything We Could Do Better?</label> <span class="opt">(Optional)</span></legend>
+      <textarea id="improve" maxlength="1000" placeholder="Something confusing, slow, or missing? We'd love to hear about it."></textarea>
       <div class="count"><span id="improve-count">0</span> / 1000</div>
     </fieldset>
 
     <fieldset>
-      <legend><label for="email">Your Email</label> <span class="opt">(Optional, Only If You Want a Reply)</span></legend>
-      <p class="hint">We only use it to reply to you about your answers.</p>
+      <legend><label for="email">Want Us to Get Back to You? Leave Your Email</label> <span class="opt">(Optional)</span></legend>
+      <p class="hint">We'll only use it to reply about your feedback.</p>
       <input type="email" id="email" maxlength="254" autocomplete="email" placeholder="you@example.com">
     </fieldset>
 
     <div class="actions">
-      <button class="btn" type="submit" id="submit">Submit Survey</button>
+      <button class="btn" type="submit" id="submit">Send My Feedback</button>
       <p class="err" id="err" role="alert"></p>
     </div>
-    <p class="fine">We save your answers without your IP address. If you are signed in, we also save your account ID with them. See our <a href="/policies/privacy/#collect">Privacy Policy</a>.</p>
+    <p class="fine">We don't store your IP address with your answers. If you're signed in, we save your account ID with them too. You can read more in our <a href="/policies/privacy/#collect">Privacy Policy</a>.</p>
   </form>
 </main>
 <footer class="rr-foot">
@@ -210,8 +210,8 @@ textarea{min-height:110px;resize:vertical}
   function readState() { try { return JSON.parse(localStorage.getItem(K_STATE) || 'null'); } catch (_) { return null; } }
   function showDone(already) {
     if (already) {
-      document.getElementById('done-title').textContent = 'You Already Took the Survey';
-      document.getElementById('done-text').textContent = 'Thanks again. Your answers from this browser are already in, so there is nothing more to fill out.';
+      document.getElementById('done-title').textContent = 'You\'ve Already Shared Your Feedback';
+      document.getElementById('done-text').textContent = 'Thanks again for taking the time! We already have your answers from this browser, so you\'re all set.';
     }
     form.hidden = true;
     done.hidden = false;
@@ -282,14 +282,14 @@ textarea{min-height:110px;resize:vertical}
     err.textContent = '';
     var rating = parseInt(one('rating'), 10);
     if (!(rating >= 1 && rating <= 5)) {
-      err.textContent = 'Please choose an overall rating from 1 to 5.';
+      err.textContent = 'Just one thing: please pick an overall rating from 1 to 5 so we can send your feedback.';
       document.getElementById('q-rating').scrollIntoView({ block: 'center' });
       form.querySelector('input[name=rating]').focus({ preventScroll: true });
       return;
     }
     var email = document.getElementById('email').value.trim();
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      err.textContent = 'That email address does not look right. Fix it or leave it blank.';
+      err.textContent = 'Hmm, that email doesn\'t look quite right. You can fix it or leave it blank.';
       document.getElementById('email').focus();
       return;
     }
@@ -310,7 +310,7 @@ textarea{min-height:110px;resize:vertical}
     if (imp) doc.improve = imp;
     if (email) doc.email = email.slice(0, 254);
 
-    if (!db) { err.textContent = 'We could not reach our database. Check your connection and try again.'; return; }
+    if (!db) { err.textContent = 'Sorry, we couldn\'t connect just now. Please check your connection and try again.'; return; }
     submit.disabled = true;
     submit.textContent = 'Sending...';
     currentUser().then(function (u) {
@@ -322,9 +322,9 @@ textarea{min-height:110px;resize:vertical}
       showDone(false);
     }).catch(function (e2) {
       console.warn('[survey] submit failed', e2);
-      err.textContent = 'We could not send your answers. Check your connection and try again.';
+      err.textContent = 'Sorry, your answers didn\'t go through. Please check your connection and try again.';
       submit.disabled = false;
-      submit.textContent = 'Submit Survey';
+      submit.textContent = 'Send My Feedback';
     });
   });
 })();

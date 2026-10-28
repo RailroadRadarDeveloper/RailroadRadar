@@ -223,10 +223,10 @@
       "rel": ["live-map", "press"]
     },
     {
-      "id": "survey", "title": "Survey", "url": "/survey/", "src": ["survey/index.html"],
+      "id": "survey", "title": "Share Your Feedback", "url": "/survey/", "src": ["survey/index.html"],
       "k": ["survey", "feedback", "give feedback", "send feedback", "rate railroadradar", "feature request", "suggest a feature", "what to build next"],
       "s": [
-        { "t": "Two minutes, eight questions. Only the first one is required. Your answers help us decide what to fix and build next." }
+        { "t": "Thanks for stopping by! This takes about two minutes, and only the first question is required, so share as much or as little as you like. Your answers help us decide what to improve and build next." }
       ],
       "rel": ["contact", "sitemap"]
     }
