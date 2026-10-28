@@ -376,6 +376,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     <a href="/favorites/" data-nav="favorites">Favorites</a>
     <a href="/roster/" data-nav="roster">Roster</a>
     <a href="/press/" data-nav="press">Press</a>
+    <a href="/survey/" data-nav="survey">Survey</a>
   </nav>
   <div class="header-right">
     <div class="header-tools">
@@ -388,6 +389,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
           <a class="panel-link" href="/favorites/">Favorites</a>
           <a class="panel-link" href="/roster/">Roster</a>
           <a class="panel-link" href="/press/">Press</a>
+          <a class="panel-link" href="/survey/">Survey</a>
         </div>
         <div class="home-signed-in" id="home-signed-in" hidden><span class="home-signed-in-email"></span><a class="panel-link" href="/mytrips/">MyTrips</a><button type="button" class="panel-link" id="home-signout">Sign out</button></div>
         <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie Settings</button>
@@ -514,6 +516,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     <a href="/favorites/">Favorites</a>
     <a href="/roster/">Roster</a>
     <a href="/press/">Press</a>
+    <a href="/survey/">Survey</a>
     <a href="/policies/privacy/">Privacy Policy</a>
     <a href="/policies/terms-of-use/">Terms of Use</a>
     <a href="/sitemap/">Sitemap</a>
@@ -682,8 +685,8 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
   var box = document.getElementById('home-stats');
   if (!box) return;
   var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
-  // Set to true once the Worker serves /api/stats (live counts in one small response, plus Trains Tracked).
-  var SUMMARY = false;
+  // When true, the live counts and Trains Tracked come from /api/stats in one small response.
+  var SUMMARY = true;
   var RAILROADS = 7;
   var LIVE = {
     lines: ['/api/mbta/routes?filter[type]=2', function (j) { return Array.isArray(j.data) && j.data.length ? j.data.length : null; }],
@@ -855,7 +858,8 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
 })();
 </script>
 <script src="/assets/js/app-cookie-consent.js?v=a3c40f6c3e"></script>
-<script src="/assets/js/site-nav.js?v=ce097ac69e" defer></script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
+<script src="/assets/js/survey-prompt.js?v=83fcb590e2" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js" defer></script>
 <script src="/assets/js/home-auth.js?v=72a8189411" defer></script>
