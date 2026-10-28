@@ -318,6 +318,7 @@
           <p><strong>Last updated October 28, 2026.</strong> What changed:</p>
           <ul>
             <li><a href="#cookies">Cookies</a>: if you allow analytics, Microsoft Clarity runs on every RailroadRadar page, not only the map, and we tell Clarity you have not agreed to advertising storage. Turning analytics off stops Clarity and clears the Clarity cookies on our site.</li>
+            <li><a href="#collect">Site survey</a> and <a href="#keep">retention</a>: we describe what our optional survey collects, that an email is only for a reply if you want one, and that we keep responses for up to 2 years.</li>
           </ul>
           <p>Earlier changes, October 23, 2026:</p>
           <ul>
@@ -367,6 +368,7 @@
           <li><strong>Town names on live viewer pages.</strong> When someone opens your live link, their browser may ask OpenStreetMap’s Nominatim service for a town or city name near your shared position. The request uses approximate coordinates (rounded to about three decimal places, roughly city-block scale), is rate-limited, and is cached by that rounded cell in the viewer’s browser. RailroadRadar does not send those reverse-geocode requests itself; the viewer’s browser does. See also <a href="#share">When we share</a> and <a href="#third">Third-party services</a>.</li>
           <li><strong>Press-release comments.</strong> Comments on press releases are public and show your Google display name or username (never your email), with the text and time.</li>
           <li><strong>Ban appeals.</strong> If your account is disabled and you appeal, we store your appeal message, account ID, email, the ban reason, and the time, so administrators can review it. Only administrators can read appeals.</li>
+          <li><strong>Survey responses.</strong> If you take our optional survey at <a href="/survey/">railroadradar.com/survey</a>, we store your answers: your overall rating, how likely you are to recommend RailroadRadar, how often you use it, which features and railroads you use, what you want us to build next, any text you type, whether you started from the survey invitation, and the time you sent it. We do not store your IP address with your answers. If you are signed in, we also store your account ID. Your email is optional, and we use it only to reply to you about your answers. Only administrators can read survey responses.</li>
           <li><strong>Messages you send us.</strong> If you email us, we keep the contents of that correspondence.</li>
         </ul>
 
@@ -375,7 +377,7 @@
           <li><strong>Technical and log data.</strong> Servers and content-delivery networks may record IP address, browser type, device type, pages requested, referring URL, date and time, and similar diagnostic data needed to operate and secure the Service. Live train data, trip lookups, and Ask questions go through our own proxy servers (Cloudflare Workers at railroadradar-proxy.railroadradar.workers.dev), which receive your IP address and the request.</li>
           <li><strong>Map usage.</strong> The live map loads tiles and geographic data from map providers. Those providers may receive your IP address and the map area you view.</li>
           <li><strong>Approximate or precise location (optional).</strong> If you allow location access, your browser can share coordinates with RailroadRadar so we can center the map on you and list nearby trains. That calculation runs in your browser, unless you choose to start a live location share (see section 2.1). You can deny or later revoke location permission in your device or browser settings. We do not require location to use the map; it is needed only to log a new special move, which starts a live location share.</li>
-          <li><strong>Local device storage.</strong> The Service stores preferences on your device (for example cookie consent, map theme, whether train labels or clusters are shown, which railroads are visible, and notification choices). During a live location share it also keeps the share’s details and your last shared position, so the share can continue if you reload the page.</li>
+          <li><strong>Local device storage.</strong> The Service stores preferences on your device (for example cookie consent, map theme, whether train labels or clusters are shown, which railroads are visible, notification choices, and whether you answered or dismissed the survey invitation along with how long you have spent on the site so far, which decides when we show it). During a live location share it also keeps the share’s details and your last shared position, so the share can continue if you reload the page.</li>
           <li><strong>Service worker / installed app.</strong> If you install RailroadRadar on your home screen or allow a service worker, your browser may cache map assets for offline or faster loading and may deliver notifications you enabled.</li>
         </ul>
 
@@ -395,6 +397,7 @@
           <li>Send in-app or browser notifications you have enabled.</li>
           <li>Answer “Ask” questions using live train context you can already see on the map, or text from RailroadRadar’s public pages.</li>
           <li>Understand how the site is used (only if you allow Microsoft Clarity).</li>
+          <li>Learn what to fix and build next from survey answers you choose to send, and reply to you if you gave an email for that.</li>
           <li>Secure the Service, debug outages, prevent fraud or spam, and comply with law.</li>
           <li>Contact you about your account, a report you submitted, or a material change to this Policy.</li>
         </ul>
@@ -428,7 +431,7 @@
             </tr>
             <tr>
               <td><strong>Preferences — saved settings</strong></td>
-              <td>localStorage keys such as cookie consent, map theme, display theme (Device, Light or Dark, <code>rr_theme</code>), label/cluster toggles, and notification choices.</td>
+              <td>localStorage keys such as cookie consent, map theme, display theme (Device, Light or Dark, <code>rr_theme</code>), label/cluster toggles, notification choices, and survey invitation status (<code>rr_survey</code>, <code>rr_survey_time</code>).</td>
               <td>No. They only remember choices you make on the site. Clearing site data in your browser removes them.</td>
             </tr>
             <tr>
@@ -494,6 +497,7 @@
           <li><strong>Trip logs, public profile, and username:</strong> until you delete them or your account.</li>
           <li><strong>Live location shares:</strong> deleted when the share ends (when you stop it, or after at most 5 hours); copies left behind after they expire are removed in our next cleanup.</li>
           <li><strong>Action log:</strong> 7 days.</li>
+          <li><strong>Survey responses:</strong> up to 2 years, then deleted. Deleting your account does not remove them; email us and we will delete yours sooner.</li>
           <li><strong>Ban appeals:</strong> while the ban and its review are relevant, and as long as needed to protect the Service.</li>
           <li><strong>Cookie consent and local preferences:</strong> until you clear site data or change the setting.</li>
           <li><strong>Server and security logs:</strong> typically a short operational period unless needed for an investigation.</li>
@@ -545,11 +549,13 @@
       <span style="color:#4a6fa5;">|</span>
       <a href="/policies/terms-of-use/">Terms of Use</a>
       <a href="/press/">Press</a>
+      <a href="/survey/">Survey</a>
       <a href="/policies/privacy/">Privacy Policy</a>
     </div>
     <div></div>
   </footer>
 <script src="/assets/js/live-share-bar.js?v=69c925021a" defer></script>
-<script src="/assets/js/site-nav.js?v=ce097ac69e" defer></script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
+<script src="/assets/js/survey-prompt.js?v=83fcb590e2" defer></script>
 </body>
 </html>

@@ -95,6 +95,7 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
 
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap"><link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<style>.rr-foot{border-top:1px solid #1a3a5f;background:#07093e;color:#a8c0e0;font:13px/1.4 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center}.rr-foot a{color:#a8c0e0;text-decoration:none}.rr-foot a:hover{color:#fff;text-decoration:underline}</style>
 </head>
 <body>
 <a class="skip" href="#app">Skip to content</a>
@@ -112,6 +113,14 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
   </div>
 </div>
 <div class="wrap" id="app" tabindex="-1"></div>
+<footer class="rr-foot">
+  <span>&copy; 2026 RailroadRadar</span>
+  <a href="/policies/terms-of-use/">Terms of Use</a>
+  <a href="/press/">Press</a>
+  <a href="/survey/">Survey</a>
+  <a href="/policies/privacy/">Privacy Policy</a>
+  <a href="/sitemap/">Sitemap</a>
+</footer>
 <div class="rr-cookie" id="rr-cookie" hidden>
   <div>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></div>
   <div class="row">
@@ -328,7 +337,8 @@ document.addEventListener('click',e=>{const m=document.getElementById('acct-menu
 auth.onAuthStateChanged(async u=>{user=u;header();try{if(typeof betterstack==='function'&&u)betterstack('user',{id:u.uid||''});}catch(e){}await refreshAdmin(u);await route();});
 </script>
 <script src="/assets/js/live-share-bar.js?v=69c925021a" defer></script>
-<script src="/assets/js/site-nav.js?v=ce097ac69e" defer></script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
+<script src="/assets/js/survey-prompt.js?v=83fcb590e2" defer></script>
 <script src="/assets/js/trip-notify.js?v=61eab3b6f1"></script>
 </body>
 </html>
