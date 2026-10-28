@@ -27,29 +27,7 @@
 }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
 betterstack('init', { environment: 'production' });
 </script>
-<script>
-window.__rrLoadClarity = function () {
-  if (window.__rrClarityLoaded) return;
-  window.__rrClarityLoaded = true;
-  (function(c,l,a,r,i,t,y){
-    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-  })(window, document, "clarity", "script", "yie7bk3bns");
-};
-try {
-  var _rrConsent = localStorage.getItem('rr_cookie_consent');
-  var _rrPrefsRaw = localStorage.getItem('rr_cookie_prefs');
-  var _rrClarityOk = _rrConsent === 'accepted';
-  if (_rrPrefsRaw) {
-    try {
-      var _rrPrefs = JSON.parse(_rrPrefsRaw);
-      if (_rrPrefs && _rrPrefs.decided) _rrClarityOk = !!_rrPrefs.clarity;
-    } catch (_e) {}
-  }
-  if (_rrClarityOk) window.__rrLoadClarity();
-} catch (_) {}
-</script>
+<script src="/assets/js/clarity.js?v=a614ddb074"></script>
 
 <meta name="theme-color" content="#07093e"/>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3"/>
@@ -324,6 +302,7 @@ function rrSaveCookies(on){
     localStorage.setItem('rr_cookie_prefs', JSON.stringify({decided:true,clarity:!!on,preferences:true,decidedAt:Date.now()}));
   }catch(e){}
   if(on&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(on&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();
+  if(!on&&typeof window.__rrStopClarity==='function')window.__rrStopClarity();
 }
 function rrCookieBar(){
   const box=document.getElementById('rr-cookie');
