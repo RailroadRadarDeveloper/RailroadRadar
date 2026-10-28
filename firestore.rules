@@ -642,18 +642,23 @@ service cloud.firestore {
       }
       function surveyOk(d) {
         return d.keys().hasOnly(['v', 'rating', 'recommend', 'frequency', 'uses', 'usesOther', 'railroads',
-            'railroadsOther', 'features', 'featuresOther', 'improve', 'email', 'source', 'uid', 'createdAt'])
+            'railroadsOther', 'features', 'featuresOther', 'heardFrom', 'heardFromOther', 'favorite', 'stuck', 'improve', 'email',
+            'source', 'uid', 'createdAt'])
           && d.keys().hasAll(['v', 'rating', 'source', 'createdAt'])
           && d.v == 1
           && d.rating is int && d.rating >= 1 && d.rating <= 5
           && (!('recommend' in d) || (d.recommend is int && d.recommend >= 0 && d.recommend <= 10))
           && (!('frequency' in d) || d.frequency in ['daily', 'weekly', 'monthly', 'rarely', 'first'])
+          && (!('heardFrom' in d) || d.heardFrom in ['friend', 'search', 'social', 'forum', 'other'])
           && surveyPicks(d, 'uses', ['map', 'mytrips', 'timetables', 'stationaudio', 'roster', 'ask', 'other'])
           && surveyPicks(d, 'railroads', ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'metra', 'ctrail', 'marc', 'none', 'other'])
           && surveyPicks(d, 'features', ['alerts', 'railroads', 'crowding', 'app', 'offline', 'stats', 'photos', 'other'])
           && surveyText(d, 'usesOther', 120)
           && surveyText(d, 'railroadsOther', 120)
           && surveyText(d, 'featuresOther', 200)
+          && surveyText(d, 'heardFromOther', 120)
+          && surveyText(d, 'favorite', 500)
+          && surveyText(d, 'stuck', 500)
           && surveyText(d, 'improve', 1000)
           && (!('email' in d) || (d.email is string && d.email.size() <= 254 && d.email.matches('[^@\\s]+@[^@\\s]+[.][^@\\s]+')))
           && d.source in ['popup', 'page']
