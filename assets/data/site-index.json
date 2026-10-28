@@ -221,6 +221,14 @@
         { "t": "Public pages on RailroadRadar." }
       ],
       "rel": ["live-map", "press"]
+    },
+    {
+      "id": "survey", "title": "Survey", "url": "/survey/", "src": ["survey/index.html"],
+      "k": ["survey", "feedback", "give feedback", "send feedback", "rate railroadradar", "feature request", "suggest a feature", "what to build next"],
+      "s": [
+        { "t": "Two minutes, eight questions. Only the first one is required. Your answers help us decide what to fix and build next." }
+      ],
+      "rel": ["contact", "sitemap"]
     }
   ]
 }

@@ -506,6 +506,7 @@
         <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip logs</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="survey" id="admin-tab-survey">Survey</button>
       </div>
       <div class="rr-lightbox-body">
         <div class="rr-modal-error" id="admin-dashboard-error"></div>
@@ -755,6 +756,36 @@
           </div>
           <p class="rr-modal-hint" id="admin-trips-status">Loading…</p>
           <p class="rr-modal-hint">Shows the 500 most recent trip logs across all users. Admins can view only (users still own create/update/delete).</p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-survey" data-admin-pane="survey">
+          <div class="rr-admin-toolbar">
+            <input type="search" id="admin-survey-search" placeholder="Filter by text, email, railroad, feature..." aria-label="Filter survey responses" style="flex:1; min-width:180px;">
+            <button type="button" class="rr-btn secondary" id="admin-survey-refresh">Refresh</button>
+            <button type="button" class="rr-btn danger secondary" id="admin-survey-purge">Delete older than 2 years</button>
+          </div>
+          <p class="rr-modal-hint" id="admin-survey-summary"></p>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table" id="admin-survey-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Rating</th>
+                  <th>Recommend</th>
+                  <th>Uses it</th>
+                  <th>Uses</th>
+                  <th>Railroads</th>
+                  <th>Build next</th>
+                  <th>Improve</th>
+                  <th>Email / account</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admin-survey-tbody"></tbody>
+            </table>
+          </div>
+          <p class="rr-modal-hint" id="admin-survey-status">Loading...</p>
+          <p class="rr-modal-hint">Shows the 500 most recent responses from /survey/. Read-only except Delete, which is for deletion requests and the 2-year retention in the Privacy Policy (Firestore TTL needs billing).</p>
         </div>
       </div>
     </div>
@@ -1189,6 +1220,8 @@
         await loadAdminAccounts();
       } else if (tab === 'trips') {
         await loadAdminTrips();
+      } else if (tab === 'survey') {
+        await loadAdminSurvey();
       } else if (tab === 'pending') {
         if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
         await loadAdminPendingReports();
@@ -2437,6 +2470,107 @@
         setAdminError((e && e.message) || String(e));
       }
     }
+    let adminSurveyCache = [];
+    const SURVEY_LABELS = {
+      frequency: { daily: 'Every day', weekly: 'Few times a week', monthly: 'Few times a month', rarely: 'Rarely', first: 'First visit' },
+      uses: { map: 'Live Map', mytrips: 'MyTrips', timetables: 'Timetables', stationaudio: 'Station Audio', roster: 'Roster', ask: 'Ask AI', other: 'Other' },
+      railroads: { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', njt: 'NJ Transit', metra: 'Metra', ctrail: 'CTrail', marc: 'MARC', none: 'Does not ride', other: 'Other' },
+      features: { alerts: 'Delay alerts', railroads: 'More railroads', crowding: 'Crowding', app: 'Native app', offline: 'Offline timetables', stats: 'MyTrips stats', photos: 'Rider photos', other: 'Other' }
+    };
+    function surveyWhen(r) {
+      const ts = r.createdAt;
+      return ts && typeof ts.toDate === 'function' ? ts.toDate() : null;
+    }
+    function surveyList(r, key, otherKey) {
+      const map = SURVEY_LABELS[key];
+      const list = Array.isArray(r[key]) ? r[key].map(function(k) { return map[k] || k; }) : [];
+      let html = escapeHtmlLite(list.join(', ') || '-');
+      if (r[otherKey]) html += '<div class="meta">' + escapeHtmlLite(r[otherKey]) + '</div>';
+      return html;
+    }
+    async function loadAdminSurvey() {
+      const status = document.getElementById('admin-survey-status');
+      if (status) status.textContent = 'Loading survey responses...';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('surveyResponses').orderBy('createdAt', 'desc').limit(500).get();
+        adminSurveyCache = [];
+        snap.forEach(function(doc) { adminSurveyCache.push(Object.assign({ id: doc.id }, doc.data() || {})); });
+        renderAdminSurvey();
+        if (status) status.textContent = adminSurveyCache.length + ' response(s)';
+      } catch (e) {
+        console.error('[admin] survey load failed', e);
+        if (status) status.textContent = 'Failed to load survey responses.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminSurvey() {
+      const tbody = document.getElementById('admin-survey-tbody');
+      if (!tbody) return;
+      const rows = adminSurveyCache;
+      const summary = document.getElementById('admin-survey-summary');
+      if (summary) {
+        const ratings = rows.map(function(r) { return Number(r.rating); }).filter(function(n) { return n >= 1 && n <= 5; });
+        const recs = rows.map(function(r) { return r.recommend; }).filter(function(n) { return typeof n === 'number'; });
+        const avg = ratings.length ? (ratings.reduce(function(a, b) { return a + b; }, 0) / ratings.length).toFixed(2) : '-';
+        // Net Promoter Score: % of 9-10 minus % of 0-6.
+        const nps = recs.length
+          ? Math.round(100 * (recs.filter(function(n) { return n >= 9; }).length - recs.filter(function(n) { return n <= 6; }).length) / recs.length)
+          : '-';
+        const tally = {};
+        rows.forEach(function(r) { (r.features || []).forEach(function(f) { tally[f] = (tally[f] || 0) + 1; }); });
+        const top = Object.keys(tally).sort(function(a, b) { return tally[b] - tally[a]; }).slice(0, 3)
+          .map(function(k) { return (SURVEY_LABELS.features[k] || k) + ' (' + tally[k] + ')'; }).join(', ');
+        summary.textContent = rows.length + ' responses. Average rating ' + avg + ' / 5. NPS ' + nps +
+          ' (' + recs.length + ' answered).' + (top ? ' Most wanted: ' + top + '.' : '');
+      }
+      const q = String(((document.getElementById('admin-survey-search') || {}).value || '')).trim().toLowerCase();
+      tbody.innerHTML = rows.filter(function(r) {
+        if (!q) return true;
+        return JSON.stringify(r).toLowerCase().indexOf(q) !== -1;
+      }).map(function(r) {
+        const when = surveyWhen(r);
+        const who = (r.email ? '<strong>' + escapeHtmlLite(r.email) + '</strong>' : '-') +
+          (r.uid ? '<div class="meta"><code style="font-size:11px;">' + escapeHtmlLite(r.uid) + '</code></div>' : '') +
+          '<div class="meta">' + escapeHtmlLite(r.source === 'popup' ? 'From invitation' : 'Direct') + '</div>';
+        return '<tr>' +
+          '<td>' + escapeHtmlLite(when ? when.toLocaleString() : '-') + '</td>' +
+          '<td><strong>' + escapeHtmlLite(r.rating) + '</strong></td>' +
+          '<td>' + escapeHtmlLite(r.recommend != null ? r.recommend : '-') + '</td>' +
+          '<td>' + escapeHtmlLite(SURVEY_LABELS.frequency[r.frequency] || '-') + '</td>' +
+          '<td>' + surveyList(r, 'uses', 'usesOther') + '</td>' +
+          '<td>' + surveyList(r, 'railroads', 'railroadsOther') + '</td>' +
+          '<td>' + surveyList(r, 'features', 'featuresOther') + '</td>' +
+          '<td style="min-width:220px; white-space:pre-wrap;">' + escapeHtmlLite(r.improve || '-') + '</td>' +
+          '<td>' + who + '</td>' +
+          '<td><button type="button" class="rr-btn danger secondary" data-survey-delete="' + escapeHtmlLite(r.id) + '">Delete</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+    async function deleteSurveyResponse(id) {
+      if (!id || !confirm('Delete this survey response? This cannot be undone.')) return;
+      try {
+        await db.collection('surveyResponses').doc(id).delete();
+        adminSurveyCache = adminSurveyCache.filter(function(r) { return r.id !== id; });
+        renderAdminSurvey();
+      } catch (e) {
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function purgeOldSurveyResponses() {
+      const cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 730 * 24 * 3600 * 1000);
+      try {
+        const snap = await db.collection('surveyResponses').where('createdAt', '<', cutoff).limit(400).get();
+        if (snap.empty) { alert('No responses older than 2 years.'); return; }
+        if (!confirm('Delete ' + snap.size + ' response(s) older than 2 years?')) return;
+        const batch = db.batch();
+        snap.forEach(function(doc) { batch.delete(doc.ref); });
+        await batch.commit();
+        await loadAdminSurvey();
+      } catch (e) {
+        setAdminError((e && e.message) || String(e));
+      }
+    }
     function renderAdminTrips() {
       const tbody = document.getElementById('admin-trips-tbody');
       if (!tbody) return;
@@ -2930,6 +3064,19 @@
       const tripsBackfill = document.getElementById('admin-trips-backfill');
       if (tripsBackfill) tripsBackfill.addEventListener('click', adminBackfillTripHiddenPublic);
       if (tripsSearch) tripsSearch.addEventListener('input', renderAdminTrips);
+      const surveyRefresh = document.getElementById('admin-survey-refresh');
+      const surveySearch = document.getElementById('admin-survey-search');
+      const surveyPurge = document.getElementById('admin-survey-purge');
+      const surveyTbody = document.getElementById('admin-survey-tbody');
+      if (surveyRefresh) surveyRefresh.addEventListener('click', loadAdminSurvey);
+      if (surveySearch) surveySearch.addEventListener('input', renderAdminSurvey);
+      if (surveyPurge) surveyPurge.addEventListener('click', purgeOldSurveyResponses);
+      if (surveyTbody) {
+        surveyTbody.addEventListener('click', function(e) {
+          const btn = e.target.closest('[data-survey-delete]');
+          if (btn) deleteSurveyResponse(btn.getAttribute('data-survey-delete'));
+        });
+      }
       const accountsTbody = document.getElementById('admin-accounts-tbody');
       if (accountsTbody) {
         accountsTbody.addEventListener('click', function(e) {
@@ -3380,6 +3527,6 @@
 
   </script>
 <script src="/assets/js/live-share-bar.js?v=69c925021a" defer></script>
-<script src="/assets/js/site-nav.js?v=ce097ac69e" defer></script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
 </body>
 </html>

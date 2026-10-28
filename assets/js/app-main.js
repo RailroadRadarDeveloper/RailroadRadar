@@ -19243,7 +19243,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       /* General, how-to and policy questions are answered from assets/data/site-index.json: hand-picked
          sentences quoted word for word from RailroadRadar's own pages (tests/static/check.js keeps them true).
          The file is fetched once, the first time Ask gets this far, and costs no MBTA or worker request. */
-      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=78e742fee2';
+      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=9ed7775cee';
       const RR_ASK_SITE_STOP = new Set(('a about am an and any are as at be been by can could d did do does dont for from get got have '
         + 'how i if im in is it its ll me my number of on or our phone please re s should so t tell that the there this to us use using '
         + 've want was we what whats when where which who why will with would you your railroadradar site website app page').split(' '));

@@ -47,6 +47,7 @@ const stopActuals = (uid, extra) => ({
 const share = (uid, extra) => ({ uid, lat: 42.3, lon: -71.1, expireAt: hoursFromNow(1), active: true, ...extra });
 const profile = (uid, extra) => ({ uid, username: 'Alice', displayName: 'Alice', photoURL: null, ...extra });
 const appeal = (uid, extra) => ({ uid, message: 'please', createdAt: now(), status: 'open', token: TOKEN, ...extra });
+const survey = (extra) => ({ v: 1, rating: 4, source: 'page', createdAt: now(), ...extra });
 const comment = (uid, extra) => ({ uid, text: 'Nice', displayName: 'Alice', createdAt: now(), ...extra });
 // A report as the site writes it on first submission.
 const entry = (uid, extra) => ({ uid, label: 'A.', displayMode: 'first_initial', at: Date.now(), verified: false, ...extra });
@@ -104,6 +105,7 @@ beforeEach(async () => {
     set('accounts/alice', { uid: 'alice' });
     set('pressReleases/pr1', { title: 'News', commentsEnabled: true });
     set('pressReleases/pr2', { title: 'Closed', commentsEnabled: false });
+    set('surveyResponses/s1', { v: 1, rating: 5, source: 'popup', email: 'x@example.com' });
     set('pressReleases/pr1/comments/c1', comment('alice', { email: 'alice@example.com', displayName: 'alice@example.com' }));
     await b.commit();
   });
@@ -536,5 +538,68 @@ describe('press release comments', () => {
   it('author or admin deletes', async () => {
     await no(doc(as('bob'), 'c1').delete());
     await ok(doc(as('alice'), 'c1').delete());
+  });
+});
+
+describe('surveyResponses', () => {
+  const add = (db, d) => db.collection('surveyResponses').add(d);
+  const full = {
+    recommend: 9, frequency: 'weekly', uses: ['map', 'mytrips', 'other'], usesOther: 'Railfanning',
+    railroads: ['mbta', 'amtrak'], features: ['alerts', 'other'], featuresOther: 'Dark map',
+    improve: 'Faster loading', email: 'rider@example.com'
+  };
+  it('signed-out visitor adds a response without a uid', async () => {
+    await ok(add(anon(), survey()));
+    await ok(add(anon(), survey(full)));
+    await no(add(anon(), survey({ uid: 'alice' })));
+  });
+  it('signed-in user may add only their own uid', async () => {
+    await ok(add(as('alice'), survey({ uid: 'alice' })));
+    await ok(add(as('unverified'), survey({ uid: 'unverified' })));
+    await no(add(as('alice'), survey({ uid: 'bob' })));
+    await no(add(as('alice'), survey()));
+  });
+  it('rating is required and must be 1 to 5', async () => {
+    const { rating, ...noRating } = survey();
+    await no(add(anon(), noRating));
+    await no(add(anon(), survey({ rating: 0 })));
+    await no(add(anon(), survey({ rating: 6 })));
+    await no(add(anon(), survey({ rating: 3.5 })));
+    await no(add(anon(), survey({ rating: '4' })));
+  });
+  it('rejects bad choices, extra fields and oversize text', async () => {
+    await no(add(anon(), survey({ recommend: 11 })));
+    await no(add(anon(), survey({ frequency: 'hourly' })));
+    await no(add(anon(), survey({ uses: ['map', 'hack'] })));
+    await no(add(anon(), survey({ uses: [] })));
+    await no(add(anon(), survey({ railroads: ['septa'] })));
+    await no(add(anon(), survey({ features: ['alerts', 'alerts', 'alerts', 'alerts', 'alerts', 'alerts', 'alerts', 'alerts', 'alerts'] })));
+    await no(add(anon(), survey({ improve: 'x'.repeat(1001) })));
+    await ok(add(anon(), survey({ improve: 'x'.repeat(1000) })));
+    await no(add(anon(), survey({ usesOther: 'x'.repeat(121) })));
+    await no(add(anon(), survey({ featuresOther: '' })));
+    await no(add(anon(), survey({ email: 'not-an-email' })));
+    await no(add(anon(), survey({ email: 'a@b.c' + 'x'.repeat(260) })));
+    await no(add(anon(), survey({ source: 'bot' })));
+    await no(add(anon(), survey({ v: 2 })));
+    await no(add(anon(), survey({ ip: '1.2.3.4' })));
+    await no(add(anon(), survey({ createdAt: Timestamp.fromMillis(1000) })));
+  });
+  it('nobody but an admin reads, and nobody edits', async () => {
+    await no(anon().doc('surveyResponses/s1').get());
+    await no(as('alice').doc('surveyResponses/s1').get());
+    await no(as('alice').collection('surveyResponses').get());
+    await no(as('fakeViewer').doc('surveyResponses/s1').get());
+    await ok(as('viewer').doc('surveyResponses/s1').get());
+    await ok(as('admin').collection('surveyResponses').get());
+    await no(anon().doc('surveyResponses/s1').update({ rating: 1 }));
+    await no(as('admin').doc('surveyResponses/s1').update({ rating: 1 }));
+    await no(anon().doc('surveyResponses/s1').set(survey()));
+  });
+  it('only an admin deletes (retention cleanup)', async () => {
+    await no(anon().doc('surveyResponses/s1').delete());
+    await no(as('alice').doc('surveyResponses/s1').delete());
+    await no(as('noperms').doc('surveyResponses/s1').delete());
+    await ok(as('admin').doc('surveyResponses/s1').delete());
   });
 });
