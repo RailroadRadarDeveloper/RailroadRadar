@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Survey | RailroadRadar</title>
+<meta name="description" content="Tell us how you use RailroadRadar and what we should build next. Two minutes, eight questions.">
+<link rel="canonical" href="https://railroadradar.com/survey/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RailroadRadar">
+<meta property="og:title" content="Survey | RailroadRadar">
+<meta property="og:description" content="Tell us how you use RailroadRadar and what we should build next.">
+<meta property="og:url" content="https://railroadradar.com/survey/">
+<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#07093e">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3">
+<style>
+:root{--navy:#07093e;--panel:#0c1448;--muted:#a8c0e0;--line:#1a3a5f;--pick:#2a5bd7}
+*{box-sizing:border-box}
+html,body{margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--navy);color:#fff}
+.header{position:fixed;top:0;left:0;right:0;height:60px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid var(--line)}
+.header .wordmark{height:40px;width:auto;display:block}
+.header-right{display:flex;gap:8px;align-items:center;position:relative}
+.wrap{max-width:760px;margin:0 auto;padding:84px 16px 40px}
+h1{margin:0 0 8px;font-size:30px}
+.lede{color:var(--muted);margin:0 0 20px;line-height:1.5}
+fieldset{margin:0 0 14px;padding:16px 18px 18px;background:var(--panel);border:1px solid var(--line);min-width:0}
+legend{float:left;width:100%;padding:0;margin:0 0 10px;font-weight:700;font-size:16px;line-height:1.35}
+legend + *{clear:both}
+.req{color:#ffb4b4;font-weight:400;font-size:13px}
+.opt{color:var(--muted);font-weight:400;font-size:13px}
+.hint{color:var(--muted);font-size:13px;margin:-4px 0 10px}
+.scale{display:grid;gap:6px}
+.scale.five{grid-template-columns:repeat(5,1fr)}
+.scale.eleven{grid-template-columns:repeat(11,1fr)}
+.scale-ends{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
+.pick{position:relative;display:block}
+.pick input{position:absolute;opacity:0;width:1px;height:1px}
+.pick span{display:flex;align-items:center;justify-content:center;min-height:42px;padding:8px 10px;border:1px solid #2a4a7a;background:#0a1240;color:#fff;font-weight:700;font-size:14px;text-align:center;cursor:pointer;line-height:1.25;border-radius:3px}
+.pick span:hover{border-color:#7fa6e0}
+.pick input:checked + span{background:#fff;color:var(--navy);border-color:#fff}
+.pick input:focus-visible + span{outline:2px solid #7fb2ff;outline-offset:2px}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.chips .pick span{justify-content:flex-start;text-align:left;font-weight:600}
+.other{margin-top:8px}
+input[type=text],input[type=email],textarea{width:100%;border:1px solid #2a4a7a;background:#fff;color:#111;padding:10px;font:inherit;font-size:15px;border-radius:3px}
+input[type=text]:focus,input[type=email]:focus,textarea:focus{outline:2px solid #7fb2ff;outline-offset:1px}
+textarea{min-height:110px;resize:vertical}
+.count{color:var(--muted);font-size:12px;text-align:right;margin-top:4px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.btn{background:#fff;color:var(--navy);border:0;padding:12px 20px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;border-radius:3px}
+.btn:hover{background:#e8eef9}
+.btn:disabled{opacity:.6;cursor:default}
+.btn.sec{background:transparent;color:#fff;border:1px solid #4a6fa5}
+.btn:focus-visible{outline:2px solid #7fb2ff;outline-offset:2px}
+.err{color:#ffb4b4;font-weight:700;margin:0}
+.fine{color:var(--muted);font-size:13px;line-height:1.5;margin:14px 0 0}
+.fine a,.lede a{color:#fff}
+.thanks{background:var(--panel);border:1px solid var(--line);padding:26px 22px}
+.thanks h1{font-size:26px}
+.thanks p{color:var(--muted);line-height:1.5;margin:0 0 18px}
+.rr-foot{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center}
+.rr-foot a{color:var(--muted);text-decoration:none}
+.rr-foot a:hover{color:#fff;text-decoration:underline}
+@media (max-width:600px){
+  h1{font-size:25px}
+  fieldset{padding:14px 12px 16px}
+  .scale.eleven{grid-template-columns:repeat(6,1fr)}
+  .chips{grid-template-columns:1fr 1fr}
+  .chips .pick span{font-size:13px;padding:8px}
+}
+@media (max-width:360px){.chips{grid-template-columns:1fr}}
+</style>
+<script src="/assets/js/clarity.js?v=a614ddb074"></script>
+</head>
+<body>
+<div class="header">
+  <a href="/"><img class="wordmark" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
+  <div class="header-right"></div>
+</div>
+<main class="wrap">
+  <div id="done" class="thanks" hidden>
+    <h1 id="done-title">Thanks for the Feedback!</h1>
+    <p id="done-text">Your answers were sent. We read every response, and they help us decide what to fix and build next.</p>
+    <div class="actions">
+      <a class="btn" href="/map/">Back to the Live Map</a>
+      <a class="btn sec" href="/">Home Page</a>
+    </div>
+  </div>
+
+  <form id="survey" novalidate>
+    <h1>RailroadRadar Survey</h1>
+    <p class="lede">Two minutes, eight questions. Only the first one is required. Your answers help us decide what to fix and build next.</p>
+
+    <fieldset id="q-rating">
+      <legend>How Would You Rate RailroadRadar Overall? <span class="req">(Required)</span></legend>
+      <div class="scale five">
+        <label class="pick"><input type="radio" name="rating" value="1"><span>1</span></label>
+        <label class="pick"><input type="radio" name="rating" value="2"><span>2</span></label>
+        <label class="pick"><input type="radio" name="rating" value="3"><span>3</span></label>
+        <label class="pick"><input type="radio" name="rating" value="4"><span>4</span></label>
+        <label class="pick"><input type="radio" name="rating" value="5"><span>5</span></label>
+      </div>
+      <div class="scale-ends"><span>Poor</span><span>Excellent</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>How Likely Are You to Recommend RailroadRadar to a Friend? <span class="opt">(Optional)</span></legend>
+      <div class="scale eleven" id="recommend-scale"></div>
+      <div class="scale-ends"><span>0 = Not Likely</span><span>10 = Very Likely</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>How Often Do You Use RailroadRadar? <span class="opt">(Optional)</span></legend>
+      <div class="chips">
+        <label class="pick"><input type="radio" name="frequency" value="daily"><span>Every Day</span></label>
+        <label class="pick"><input type="radio" name="frequency" value="weekly"><span>A Few Times a Week</span></label>
+        <label class="pick"><input type="radio" name="frequency" value="monthly"><span>A Few Times a Month</span></label>
+        <label class="pick"><input type="radio" name="frequency" value="rarely"><span>Rarely</span></label>
+        <label class="pick"><input type="radio" name="frequency" value="first"><span>This Is My First Visit</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>What Do You Use RailroadRadar For? <span class="opt">(Pick Any)</span></legend>
+      <div class="chips">
+        <label class="pick"><input type="checkbox" name="uses" value="map"><span>Live Map</span></label>
+        <label class="pick"><input type="checkbox" name="uses" value="mytrips"><span>MyTrips</span></label>
+        <label class="pick"><input type="checkbox" name="uses" value="timetables"><span>Timetables and Trip Planner</span></label>
+        <label class="pick"><input type="checkbox" name="uses" value="stationaudio"><span>Station Audio</span></label>
+        <label class="pick"><input type="checkbox" name="uses" value="roster"><span>Roster</span></label>
+        <label class="pick"><input type="checkbox" name="uses" value="ask"><span>Ask AI Search</span></label>
+        <label class="pick"><input type="checkbox" name="uses" value="other" data-other="usesOther"><span>Other</span></label>
+      </div>
+      <input class="other" type="text" id="usesOther" maxlength="120" placeholder="What else do you use it for?" aria-label="Other Use" hidden>
+    </fieldset>
+
+    <fieldset>
+      <legend>Which Railroads Do You Ride? <span class="opt">(Pick Any)</span></legend>
+      <div class="chips">
+        <label class="pick"><input type="checkbox" name="railroads" value="mbta"><span>MBTA Commuter Rail</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="amtrak"><span>Amtrak</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="mnr"><span>Metro-North</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="lirr"><span>LIRR</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="njt"><span>NJ Transit</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="metra"><span>Metra</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="ctrail"><span>CTrail</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="marc"><span>MARC</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="none"><span>I Don't Ride, I Just Follow Trains</span></label>
+        <label class="pick"><input type="checkbox" name="railroads" value="other" data-other="railroadsOther"><span>Other</span></label>
+      </div>
+      <input class="other" type="text" id="railroadsOther" maxlength="120" placeholder="Which other railroads?" aria-label="Other Railroads" hidden>
+    </fieldset>
+
+    <fieldset>
+      <legend>What Should We Build Next? <span class="opt">(Pick Any)</span></legend>
+      <div class="chips">
+        <label class="pick"><input type="checkbox" name="features" value="alerts"><span>Delay and Cancellation Alerts</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="railroads"><span>More Railroads (SEPTA, VRE, Caltrain and More)</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="crowding"><span>Crowding and Seat Info</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="app"><span>iPhone and Android App</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="offline"><span>Offline Timetables</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="stats"><span>More MyTrips Stats and Badges</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="photos"><span>Train Photos From Riders</span></label>
+        <label class="pick"><input type="checkbox" name="features" value="other" data-other="featuresOther"><span>Other</span></label>
+      </div>
+      <input class="other" type="text" id="featuresOther" maxlength="200" placeholder="Your idea" aria-label="Other Feature Idea" hidden>
+    </fieldset>
+
+    <fieldset>
+      <legend><label for="improve">What Is One Thing We Should Improve?</label> <span class="opt">(Optional)</span></legend>
+      <textarea id="improve" maxlength="1000" placeholder="Anything that is confusing, slow, missing, or wrong"></textarea>
+      <div class="count"><span id="improve-count">0</span> / 1000</div>
+    </fieldset>
+
+    <fieldset>
+      <legend><label for="email">Your Email</label> <span class="opt">(Optional, Only If You Want a Reply)</span></legend>
+      <p class="hint">We only use it to reply to you about your answers.</p>
+      <input type="email" id="email" maxlength="254" autocomplete="email" placeholder="you@example.com">
+    </fieldset>
+
+    <div class="actions">
+      <button class="btn" type="submit" id="submit">Submit Survey</button>
+      <p class="err" id="err" role="alert"></p>
+    </div>
+    <p class="fine">We save your answers without your IP address. If you are signed in, we also save your account ID with them. See our <a href="/policies/privacy/#collect">Privacy Policy</a>.</p>
+  </form>
+</main>
+<footer class="rr-foot">
+  <span>&copy; 2026 RailroadRadar</span>
+  <a href="/policies/terms-of-use/">Terms of Use</a>
+  <a href="/press/">Press</a>
+  <a href="/survey/">Survey</a>
+  <a href="/policies/privacy/">Privacy Policy</a>
+  <a href="/sitemap/">Sitemap</a>
+</footer>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  'use strict';
+  var K_STATE = 'rr_survey';
+  var form = document.getElementById('survey');
+  var done = document.getElementById('done');
+  var err = document.getElementById('err');
+  var submit = document.getElementById('submit');
+
+  function readState() { try { return JSON.parse(localStorage.getItem(K_STATE) || 'null'); } catch (_) { return null; } }
+  function showDone(already) {
+    if (already) {
+      document.getElementById('done-title').textContent = 'You Already Took the Survey';
+      document.getElementById('done-text').textContent = 'Thanks again. Your answers from this browser are already in, so there is nothing more to fill out.';
+    }
+    form.hidden = true;
+    done.hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  var st = readState();
+  if (st && st.s === 'done') { showDone(true); return; }
+
+  var scale = document.getElementById('recommend-scale');
+  for (var i = 0; i <= 10; i++) {
+    scale.insertAdjacentHTML('beforeend', '<label class="pick"><input type="radio" name="recommend" value="' + i + '"><span>' + i + '</span></label>');
+  }
+
+  form.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.getAttribute && t.getAttribute('data-other')) {
+      var box = document.getElementById(t.getAttribute('data-other'));
+      box.hidden = !t.checked;
+      if (t.checked) box.focus();
+    }
+    if (t.name === 'railroads' && t.value === 'none' && t.checked) {
+      form.querySelectorAll('input[name=railroads]').forEach(function (b) { if (b !== t) b.checked = false; });
+      document.getElementById('railroadsOther').hidden = true;
+    } else if (t.name === 'railroads' && t.checked) {
+      form.querySelector('input[name=railroads][value=none]').checked = false;
+    }
+    if (t.name === 'rating') err.textContent = '';
+  });
+  var improve = document.getElementById('improve');
+  improve.addEventListener('input', function () {
+    document.getElementById('improve-count').textContent = improve.value.length;
+  });
+
+  function picked(name) {
+    return Array.prototype.map.call(form.querySelectorAll('input[name=' + name + ']:checked'), function (b) { return b.value; });
+  }
+  function one(name) { var v = picked(name); return v.length ? v[0] : ''; }
+  function text(id, max) {
+    var el = document.getElementById(id);
+    if (el.hidden) return '';
+    return el.value.replace(/\s+/g, ' ').trim().slice(0, max);
+  }
+
+  var db = null, auth = null;
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp({apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDomain:'railroadradar-accounts.firebaseapp.com',projectId:'railroadradar-accounts',storageBucket:'railroadradar-accounts.firebasestorage.app',messagingSenderId:'896370923309',appId:'1:896370923309:web:594b0a20d3b1c6822e65a4'});
+    }
+    auth = firebase.auth();
+    db = firebase.firestore();
+  } catch (e) { console.warn('[survey] Firebase unavailable', e); }
+
+  function currentUser() {
+    if (!auth) return Promise.resolve(null);
+    return new Promise(function (resolve) {
+      var settled = false;
+      var off = auth.onAuthStateChanged(function (u) {
+        if (settled) return;
+        settled = true; off(); resolve(u || null);
+      });
+      setTimeout(function () { if (!settled) { settled = true; off(); resolve(auth.currentUser || null); } }, 3000);
+    });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    err.textContent = '';
+    var rating = parseInt(one('rating'), 10);
+    if (!(rating >= 1 && rating <= 5)) {
+      err.textContent = 'Please choose an overall rating from 1 to 5.';
+      document.getElementById('q-rating').scrollIntoView({ block: 'center' });
+      form.querySelector('input[name=rating]').focus({ preventScroll: true });
+      return;
+    }
+    var email = document.getElementById('email').value.trim();
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      err.textContent = 'That email address does not look right. Fix it or leave it blank.';
+      document.getElementById('email').focus();
+      return;
+    }
+    var doc = { v: 1, rating: rating, source: /[?&]from=popup\b/.test(location.search) ? 'popup' : 'page' };
+    var rec = one('recommend');
+    if (rec !== '') doc.recommend = parseInt(rec, 10);
+    var freq = one('frequency');
+    if (freq) doc.frequency = freq;
+    var uses = picked('uses'), rrs = picked('railroads'), feats = picked('features');
+    if (uses.length) doc.uses = uses;
+    if (rrs.length) doc.railroads = rrs;
+    if (feats.length) doc.features = feats;
+    var uo = text('usesOther', 120), ro = text('railroadsOther', 120), fo = text('featuresOther', 200);
+    if (uo) doc.usesOther = uo;
+    if (ro) doc.railroadsOther = ro;
+    if (fo) doc.featuresOther = fo;
+    var imp = improve.value.trim().slice(0, 1000);
+    if (imp) doc.improve = imp;
+    if (email) doc.email = email.slice(0, 254);
+
+    if (!db) { err.textContent = 'We could not reach our database. Check your connection and try again.'; return; }
+    submit.disabled = true;
+    submit.textContent = 'Sending...';
+    currentUser().then(function (u) {
+      if (u && u.uid) doc.uid = u.uid;
+      doc.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      return db.collection('surveyResponses').add(doc);
+    }).then(function () {
+      try { localStorage.setItem(K_STATE, JSON.stringify({ s: 'done', at: Date.now() })); } catch (_) {}
+      showDone(false);
+    }).catch(function (e2) {
+      console.warn('[survey] submit failed', e2);
+      err.textContent = 'We could not send your answers. Check your connection and try again.';
+      submit.disabled = false;
+      submit.textContent = 'Submit Survey';
+    });
+  });
+})();
+</script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
+</body>
+</html>

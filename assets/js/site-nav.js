@@ -5,7 +5,8 @@
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
     { id: 'favorites', href: '/favorites/', label: 'Favorites' },
     { id: 'roster', href: '/roster/', label: 'Roster' },
-    { id: 'press', href: '/press/', label: 'Press' }
+    { id: 'press', href: '/press/', label: 'Press' },
+    { id: 'survey', href: '/survey/', label: 'Survey' }
   ];
   function current() {
     var path = location.pathname.replace(/\/index\.html$/, '/');
@@ -13,6 +14,7 @@
     if (path.indexOf('/favorites') === 0) return 'favorites';
     if (path.indexOf('/roster') === 0) return 'roster';
     if (path.indexOf('/press') === 0) return 'press';
+    if (path.indexOf('/survey') === 0) return 'survey';
     if (path.indexOf('/timetables') === 0) return 'timetables';
     if (path.indexOf('/map/') === 0 || path === '/map') return 'map';
     return '';

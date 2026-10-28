@@ -631,6 +631,40 @@ service cloud.firestore {
       allow read, update, delete: if adminHasPerm('banUsers');
     }
 
+    // Site survey: anyone (signed in or not) may add one response; nobody may edit it.
+    // Admins can read, and delete for retention because TTL needs billing (Spark plan).
+    match /surveyResponses/{id} {
+      function surveyText(d, k, max) {
+        return !(k in d) || (d[k] is string && d[k].size() > 0 && d[k].size() <= max);
+      }
+      function surveyPicks(d, k, allowed) {
+        return !(k in d) || (d[k] is list && d[k].size() > 0 && d[k].size() <= allowed.size() && d[k].hasOnly(allowed));
+      }
+      function surveyOk(d) {
+        return d.keys().hasOnly(['v', 'rating', 'recommend', 'frequency', 'uses', 'usesOther', 'railroads',
+            'railroadsOther', 'features', 'featuresOther', 'improve', 'email', 'source', 'uid', 'createdAt'])
+          && d.keys().hasAll(['v', 'rating', 'source', 'createdAt'])
+          && d.v == 1
+          && d.rating is int && d.rating >= 1 && d.rating <= 5
+          && (!('recommend' in d) || (d.recommend is int && d.recommend >= 0 && d.recommend <= 10))
+          && (!('frequency' in d) || d.frequency in ['daily', 'weekly', 'monthly', 'rarely', 'first'])
+          && surveyPicks(d, 'uses', ['map', 'mytrips', 'timetables', 'stationaudio', 'roster', 'ask', 'other'])
+          && surveyPicks(d, 'railroads', ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'metra', 'ctrail', 'marc', 'none', 'other'])
+          && surveyPicks(d, 'features', ['alerts', 'railroads', 'crowding', 'app', 'offline', 'stats', 'photos', 'other'])
+          && surveyText(d, 'usesOther', 120)
+          && surveyText(d, 'railroadsOther', 120)
+          && surveyText(d, 'featuresOther', 200)
+          && surveyText(d, 'improve', 1000)
+          && (!('email' in d) || (d.email is string && d.email.size() <= 254 && d.email.matches('[^@\\s]+@[^@\\s]+[.][^@\\s]+')))
+          && d.source in ['popup', 'page']
+          && ((signedIn() && 'uid' in d && d.uid == request.auth.uid) || (!signedIn() && !('uid' in d)))
+          && d.createdAt == request.time;
+      }
+      allow create: if surveyOk(request.resource.data);
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
     // Unban markers: lets a signed-out, formerly banned browser learn it may clear its lock.
     // Keyed by a random status token (>= 32 chars) stored only in the admin-only ban doc
     // and the banned user's browser, so ban history can't be looked up by uid.
