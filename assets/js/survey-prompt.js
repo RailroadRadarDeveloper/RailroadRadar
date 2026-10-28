@@ -117,7 +117,7 @@
     card.setAttribute('aria-labelledby', 'rr-survey-pop-title');
     card.setAttribute('aria-describedby', 'rr-survey-pop-text');
     card.innerHTML =
-      '<h2 id="rr-survey-pop-title">Got a Minute? We\'d Love Your Help</h2>' +
+      '<h2 id="rr-survey-pop-title">We\'d Love Your Feedback</h2>' +
       '<p id="rr-survey-pop-text">We\'re making RailroadRadar better for riders like you. Tell us how you use it and what you\'d like to see next. It only takes about two minutes.</p>' +
       '<div class="rr-sp-row">' +
       '<a href="/survey/?from=popup" id="rr-survey-pop-go">Sure, Let\'s Go</a>' +
