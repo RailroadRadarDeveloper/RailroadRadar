@@ -38,6 +38,12 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://railroadradar.com/survey/</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
     <loc>https://railroadradar.com/roster/</loc>
     <lastmod>2026-10-18</lastmod>
     <changefreq>weekly</changefreq>
