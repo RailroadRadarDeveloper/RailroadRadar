@@ -147,17 +147,9 @@
   b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
 }(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
 betterstack('init', { environment: 'production' });
-window.__rrLoadClarity = function () {
-  if (window.__rrClarityLoaded) return;
-  window.__rrClarityLoaded = true;
-  (function(c,l,a,r,i,t,y){
-    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-  })(window, document, "clarity", "script", "yie7bk3bns");
-};
-/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the loaders above. */
+/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the Better Stack loader above and the Clarity loader in clarity.js. */
 </script>
+<script src="/assets/js/clarity.js?v=a614ddb074"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
 <style>
@@ -862,7 +854,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
   io.observe(box);
 })();
 </script>
-<script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
+<script src="/assets/js/app-cookie-consent.js?v=a3c40f6c3e"></script>
 <script src="/assets/js/site-nav.js?v=ce097ac69e" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js" defer></script>

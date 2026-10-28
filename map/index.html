@@ -121,30 +121,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png?v=2">
-  <!-- Microsoft Clarity — loaded only after the visitor agrees in #rr-cookie-bar -->
-  <script>
-    window.__rrLoadClarity = function () {
-      if (window.__rrClarityLoaded) return;
-      window.__rrClarityLoaded = true;
-      (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "yie7bk3bns");
-    };
-    try {
-      var _rrConsent = localStorage.getItem('rr_cookie_consent');
-      var _rrPrefsRaw = localStorage.getItem('rr_cookie_prefs');
-      var _rrClarityOk = _rrConsent === 'accepted';
-      if (_rrPrefsRaw) {
-        try {
-          var _rrPrefs = JSON.parse(_rrPrefsRaw);
-          if (_rrPrefs && _rrPrefs.decided) _rrClarityOk = !!_rrPrefs.clarity;
-        } catch (_e) {}
-      }
-      if (_rrClarityOk) window.__rrLoadClarity();
-    } catch (_) {}
-  </script>
+  <script src="/assets/js/clarity.js?v=a614ddb074"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
@@ -1005,7 +982,7 @@
       </div>
     </div>
   </div>
-  <script src="/assets/js/app-cookie-consent.js?v=1df9b7a228"></script>
+  <script src="/assets/js/app-cookie-consent.js?v=a3c40f6c3e"></script>
   <!-- Jotform scripts (unchanged) -->
   <!-- Jotform script removed to prevent console errors in sandboxed viewers -->
   <script src="/assets/js/trip-stations.js"></script>
