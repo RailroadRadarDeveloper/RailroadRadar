@@ -546,7 +546,8 @@ describe('surveyResponses', () => {
   const full = {
     recommend: 9, frequency: 'weekly', uses: ['map', 'mytrips', 'other'], usesOther: 'Railfanning',
     railroads: ['mbta', 'amtrak'], features: ['alerts', 'other'], featuresOther: 'Dark map',
-    improve: 'Faster loading', email: 'rider@example.com'
+    heardFrom: 'other', heardFromOther: 'A railfan meetup', favorite: 'The live map',
+    stuck: 'Station audio on my phone', improve: 'Faster loading', email: 'rider@example.com'
   };
   it('signed-out visitor adds a response without a uid', async () => {
     await ok(add(anon(), survey()));
@@ -578,6 +579,17 @@ describe('surveyResponses', () => {
     await ok(add(anon(), survey({ improve: 'x'.repeat(1000) })));
     await no(add(anon(), survey({ usesOther: 'x'.repeat(121) })));
     await no(add(anon(), survey({ featuresOther: '' })));
+    await no(add(anon(), survey({ heardFrom: 'tv' })));
+    await no(add(anon(), survey({ heardFrom: ['friend'] })));
+    for (const h of ['friend', 'search', 'social', 'forum', 'other']) await ok(add(anon(), survey({ heardFrom: h })));
+    await no(add(anon(), survey({ heardFromOther: 'x'.repeat(121) })));
+    await ok(add(anon(), survey({ heardFromOther: 'x'.repeat(120) })));
+    await no(add(anon(), survey({ favorite: 'x'.repeat(501) })));
+    await ok(add(anon(), survey({ favorite: 'x'.repeat(500) })));
+    await no(add(anon(), survey({ stuck: 'x'.repeat(501) })));
+    await ok(add(anon(), survey({ stuck: 'x'.repeat(500) })));
+    await no(add(anon(), survey({ stuck: '' })));
+    await no(add(anon(), survey({ favorite: 5 })));
     await no(add(anon(), survey({ email: 'not-an-email' })));
     await no(add(anon(), survey({ email: 'a@b.c' + 'x'.repeat(260) })));
     await no(add(anon(), survey({ source: 'bot' })));

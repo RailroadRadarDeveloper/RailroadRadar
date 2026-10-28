@@ -123,6 +123,18 @@ textarea{min-height:110px;resize:vertical}
     </fieldset>
 
     <fieldset>
+      <legend>How Did You Hear About RailroadRadar? <span class="opt">(Optional)</span></legend>
+      <div class="chips">
+        <label class="pick"><input type="radio" name="heardFrom" value="friend"><span>A Friend</span></label>
+        <label class="pick"><input type="radio" name="heardFrom" value="search"><span>A Search Engine (Like Google)</span></label>
+        <label class="pick"><input type="radio" name="heardFrom" value="social"><span>Social Media</span></label>
+        <label class="pick"><input type="radio" name="heardFrom" value="forum"><span>An Online Forum</span></label>
+        <label class="pick"><input type="radio" name="heardFrom" value="other" data-other="heardFromOther"><span>Other (Please Describe)</span></label>
+      </div>
+      <input class="other" type="text" id="heardFromOther" maxlength="120" placeholder="Tell us where you heard about us" aria-label="Where You Heard About Us" hidden>
+    </fieldset>
+
+    <fieldset>
       <legend>What Do You Use RailroadRadar For? <span class="opt">(Pick All That Apply)</span></legend>
       <div class="chips">
         <label class="pick"><input type="checkbox" name="uses" value="map"><span>Live Map</span></label>
@@ -166,6 +178,18 @@ textarea{min-height:110px;resize:vertical}
         <label class="pick"><input type="checkbox" name="features" value="other" data-other="featuresOther"><span>Other</span></label>
       </div>
       <input class="other" type="text" id="featuresOther" maxlength="200" placeholder="Share your idea" aria-label="Other Feature Idea" hidden>
+    </fieldset>
+
+    <fieldset>
+      <legend><label for="favorite">What's Your Favorite Part of RailroadRadar?</label> <span class="opt">(Optional)</span></legend>
+      <textarea id="favorite" maxlength="500" placeholder="A feature, a page, or a little detail you love"></textarea>
+      <div class="count"><span id="favorite-count">0</span> / 500</div>
+    </fieldset>
+
+    <fieldset>
+      <legend><label for="stuck">Is There a Feature You Tried but Couldn't Figure Out?</label> <span class="opt">(Optional)</span></legend>
+      <textarea id="stuck" maxlength="500" placeholder="Tell us what you were trying to do and where you got stuck"></textarea>
+      <div class="count"><span id="stuck-count">0</span> / 500</div>
     </fieldset>
 
     <fieldset>
@@ -239,11 +263,15 @@ textarea{min-height:110px;resize:vertical}
     } else if (t.name === 'railroads' && t.checked) {
       form.querySelector('input[name=railroads][value=none]').checked = false;
     }
+    // A radio's change event only fires on the newly picked option, so hide the box when "Other" is unpicked.
+    if (t.name === 'heardFrom') document.getElementById('heardFromOther').hidden = t.value !== 'other';
     if (t.name === 'rating') err.textContent = '';
   });
-  var improve = document.getElementById('improve');
-  improve.addEventListener('input', function () {
-    document.getElementById('improve-count').textContent = improve.value.length;
+  ['favorite', 'stuck', 'improve'].forEach(function (id) {
+    var box = document.getElementById(id);
+    box.addEventListener('input', function () {
+      document.getElementById(id + '-count').textContent = box.value.length;
+    });
   });
 
   function picked(name) {
@@ -306,7 +334,15 @@ textarea{min-height:110px;resize:vertical}
     if (uo) doc.usesOther = uo;
     if (ro) doc.railroadsOther = ro;
     if (fo) doc.featuresOther = fo;
-    var imp = improve.value.trim().slice(0, 1000);
+    var heard = one('heardFrom');
+    if (heard) doc.heardFrom = heard;
+    var ho = text('heardFromOther', 120);
+    if (ho) doc.heardFromOther = ho;
+    var fav = document.getElementById('favorite').value.trim().slice(0, 500);
+    if (fav) doc.favorite = fav;
+    var stuck = document.getElementById('stuck').value.trim().slice(0, 500);
+    if (stuck) doc.stuck = stuck;
+    var imp = document.getElementById('improve').value.trim().slice(0, 1000);
     if (imp) doc.improve = imp;
     if (email) doc.email = email.slice(0, 254);
 

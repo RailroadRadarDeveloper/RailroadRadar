@@ -773,9 +773,12 @@
                   <th>Rating</th>
                   <th>Recommend</th>
                   <th>Uses it</th>
+                  <th>Heard from</th>
                   <th>Uses</th>
                   <th>Railroads</th>
                   <th>Build next</th>
+                  <th>Favorite part</th>
+                  <th>Couldn't figure out</th>
                   <th>Improve</th>
                   <th>Email / account</th>
                   <th></th>
@@ -2475,6 +2478,7 @@
       frequency: { daily: 'Every day', weekly: 'Few times a week', monthly: 'Few times a month', rarely: 'Rarely', first: 'First visit' },
       uses: { map: 'Live Map', mytrips: 'MyTrips', timetables: 'Timetables', stationaudio: 'Station Audio', roster: 'Roster', ask: 'Ask AI', other: 'Other' },
       railroads: { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', njt: 'NJ Transit', metra: 'Metra', ctrail: 'CTrail', marc: 'MARC', none: 'Does not ride', other: 'Other' },
+      heardFrom: { friend: 'A friend', search: 'Search engine', social: 'Social media', forum: 'Online forum', other: 'Other' },
       features: { alerts: 'Delay alerts', railroads: 'More railroads', crowding: 'Crowding', app: 'Native app', offline: 'Offline timetables', stats: 'MyTrips stats', photos: 'Rider photos', other: 'Other' }
     };
     function surveyWhen(r) {
@@ -2521,8 +2525,14 @@
         rows.forEach(function(r) { (r.features || []).forEach(function(f) { tally[f] = (tally[f] || 0) + 1; }); });
         const top = Object.keys(tally).sort(function(a, b) { return tally[b] - tally[a]; }).slice(0, 3)
           .map(function(k) { return (SURVEY_LABELS.features[k] || k) + ' (' + tally[k] + ')'; }).join(', ');
+        const heard = {};
+        rows.forEach(function(r) { if (r.heardFrom) heard[r.heardFrom] = (heard[r.heardFrom] || 0) + 1; });
+        const heardN = Object.keys(heard).reduce(function(a, k) { return a + heard[k]; }, 0);
+        const heardTxt = Object.keys(heard).sort(function(a, b) { return heard[b] - heard[a]; })
+          .map(function(k) { return (SURVEY_LABELS.heardFrom[k] || k) + ' ' + heard[k] + ' (' + Math.round(100 * heard[k] / heardN) + '%)'; }).join(', ');
         summary.textContent = rows.length + ' responses. Average rating ' + avg + ' / 5. NPS ' + nps +
-          ' (' + recs.length + ' answered).' + (top ? ' Most wanted: ' + top + '.' : '');
+          ' (' + recs.length + ' answered).' + (top ? ' Most wanted: ' + top + '.' : '') +
+          (heardN ? ' Heard about us from (' + heardN + ' answered): ' + heardTxt + '.' : '');
       }
       const q = String(((document.getElementById('admin-survey-search') || {}).value || '')).trim().toLowerCase();
       tbody.innerHTML = rows.filter(function(r) {
@@ -2538,9 +2548,13 @@
           '<td><strong>' + escapeHtmlLite(r.rating) + '</strong></td>' +
           '<td>' + escapeHtmlLite(r.recommend != null ? r.recommend : '-') + '</td>' +
           '<td>' + escapeHtmlLite(SURVEY_LABELS.frequency[r.frequency] || '-') + '</td>' +
+          '<td>' + escapeHtmlLite(SURVEY_LABELS.heardFrom[r.heardFrom] || r.heardFrom || '-') +
+            (r.heardFromOther ? '<div class="meta">' + escapeHtmlLite(r.heardFromOther) + '</div>' : '') + '</td>' +
           '<td>' + surveyList(r, 'uses', 'usesOther') + '</td>' +
           '<td>' + surveyList(r, 'railroads', 'railroadsOther') + '</td>' +
           '<td>' + surveyList(r, 'features', 'featuresOther') + '</td>' +
+          '<td style="min-width:180px; white-space:pre-wrap;">' + escapeHtmlLite(r.favorite || '-') + '</td>' +
+          '<td style="min-width:180px; white-space:pre-wrap;">' + escapeHtmlLite(r.stuck || '-') + '</td>' +
           '<td style="min-width:220px; white-space:pre-wrap;">' + escapeHtmlLite(r.improve || '-') + '</td>' +
           '<td>' + who + '</td>' +
           '<td><button type="button" class="rr-btn danger secondary" data-survey-delete="' + escapeHtmlLite(r.id) + '">Delete</button></td>' +
