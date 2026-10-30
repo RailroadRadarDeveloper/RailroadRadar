@@ -278,6 +278,7 @@
     betterstack('init', { environment: 'production' });
   </script>
   <script src="/assets/js/clarity.js?v=a614ddb074"></script>
+  <script src="/assets/js/analytics.js?v=591f430b27"></script>
 </head>
 <body>
   <header class="header">
@@ -312,10 +313,14 @@
       <div class="policy">
         <h1>Privacy Policy</h1>
         <div class="meta-row">
-          <span class="pill">Effective October 28, 2026</span>
+          <span class="pill">Effective October 30, 2026</span>
         </div>
         <div class="note">
-          <p><strong>Last updated October 28, 2026.</strong> What changed:</p>
+          <p><strong>Last updated October 30, 2026.</strong> What changed:</p>
+          <ul>
+            <li><a href="#cookies">Cookies</a> and <a href="#third">third parties</a>: if you allow analytics, we now also use Google Analytics to count visits and page views. It loads only after you agree, Google’s advertising features stay off, and turning analytics off stops it. Microsoft Clarity and Google Analytics may be linked so Clarity session information appears in Google Analytics.</li>
+          </ul>
+          <p>Earlier changes, October 28, 2026:</p>
           <ul>
             <li><a href="#cookies">Cookies</a>: if you allow analytics, Microsoft Clarity runs on every RailroadRadar page, not only the map, and we tell Clarity you have not agreed to advertising storage. Turning analytics off stops Clarity and clears the Clarity cookies on our site.</li>
             <li><a href="#collect">Site survey</a> and <a href="#keep">retention</a>: we describe what our optional survey collects, that an email is only for a reply if you want one, and that we keep responses for up to 2 years.</li>
@@ -396,7 +401,7 @@
           <li>Enforce community rules, including holding reports for review, verifying trusted reporters, and suspending or banning accounts that abuse the Service.</li>
           <li>Send in-app or browser notifications you have enabled.</li>
           <li>Answer “Ask” questions using live train context you can already see on the map, or text from RailroadRadar’s public pages.</li>
-          <li>Understand how the site is used (only if you allow Microsoft Clarity).</li>
+          <li>Understand how the site is used (only if you allow analytics with Microsoft Clarity and Google Analytics).</li>
           <li>Learn what to fix and build next from survey answers you choose to send, and reply to you if you gave an email for that.</li>
           <li>Secure the Service, debug outages, prevent fraud or spam, and comply with law.</li>
           <li>Contact you about your account, a report you submitted, or a material change to this Policy.</li>
@@ -425,6 +430,11 @@
               <td>Yes. Decline or uncheck Analytics. Clarity is not loaded until you allow it, and turning Analytics off later stops it and clears the Clarity cookies on our site.</td>
             </tr>
             <tr>
+              <td><strong>Analytics — Google Analytics</strong></td>
+              <td>If allowed, loads Google Analytics 4 (googletagmanager.com and google-analytics.com) on RailroadRadar pages to count visits and see which pages and features people use. It sets its own cookies on our site (<code>_ga</code> and <code>_ga_…</code>) and collects things like the pages you view, how you got here, approximate location from your IP address, device and browser type, and a random visitor ID. Google Signals and ad personalization are turned off, and we tell Google you have not agreed to advertising storage, ad user data, or ad personalization.</td>
+              <td>Yes. It uses the same Analytics choice as Clarity. Google Analytics is not loaded until you allow it, and turning Analytics off later stops it from sending data and clears its cookies on our site.</td>
+            </tr>
+            <tr>
               <td>Analytics — Better Stack</td>
               <td>If allowed, loads Better Stack monitoring (betterstack.net) to report errors and page performance. If you are signed in, it receives only your account ID, not your email or name.</td>
               <td>Yes. It uses the same Analytics choice as Clarity and is not loaded until you allow it.</td>
@@ -443,6 +453,8 @@
         </table>
         <p>We also store a small consent record in localStorage (<code>rr_cookie_prefs</code> and, for older visits, <code>rr_cookie_consent</code>) so we remember your choice.</p>
         <p>Microsoft Clarity is a Microsoft product. If you allow it, Microsoft may collect device and usage data under Microsoft's own privacy terms. You can change your choice at any time with Cookie Settings at the bottom of the map, then refresh the page.</p>
+        <p id="google-analytics">Google Analytics is a Google product. If you allow analytics, Google processes this usage data under <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google’s Privacy Policy</a>; you can learn more in <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">How Google Uses Information From Sites That Use Its Services</a>. We use Google Consent Mode, so before you agree no Google Analytics code is loaded, and advertising storage, ad user data, and ad personalization always stay denied. We do not use Google Analytics for advertising. Besides declining in our cookie banner, you can install the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google Analytics Opt-out Browser Add-on</a>.</p>
+        <p>Microsoft Clarity and Google Analytics may be linked, so Clarity session information (such as a link to a session recording) can appear in our Google Analytics reports. Both only run if you allow analytics.</p>
 
         <h2 id="accounts">5. Accounts, Reports, and Moderation</h2>
         <p>Creating an account is optional. The map works without signing in.</p>
@@ -463,7 +475,7 @@
         <h2 id="share">7. When We Share Information</h2>
         <p>We share personal information only as follows:</p>
         <ul>
-          <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups), Cloudflare (our proxy servers), Groq (AI answers for Ask), and, if you consent, Microsoft (Clarity) and Better Stack.</li>
+          <li>Service providers that host or power the Service, including Google (Firebase Authentication and Cloud Firestore; Google sign-in; Google Apps Script for some historical lookups), Cloudflare (our proxy servers), Groq (AI answers for Ask), and, if you consent, Microsoft (Clarity), Google (Google Analytics), and Better Stack.</li>
           <li>Map and library providers that receive technical data when your browser requests map tiles, map code, or other assets (for example Mapbox, OpenStreetMap contributors, and public CDNs that serve mapping libraries). On a live viewer page, the viewer’s browser may also send approximate coordinates to OpenStreetMap Nominatim to show a town name.</li>
           <li>Transit agencies and public data sources, indirectly: we request their public feeds; we do not send them your account profile in those requests.</li>
           <li>The public, for report content and the reporter label you chose. Do not put information in a comment that you do not want others to see.</li>
@@ -480,6 +492,7 @@
           <li><strong>Google Firebase Authentication and Cloud Firestore</strong> — account sign-in and database for reports, settings, and moderation. Google’s terms and privacy policy apply to Google’s processing.</li>
           <li><strong>Google Sign-In</strong> — you authenticate with Google; we never receive your Google password.</li>
           <li><strong>Microsoft Clarity</strong> — optional analytics and session insights, loaded only after consent.</li>
+          <li><strong>Google Analytics</strong> — optional visit and page-view statistics, loaded only after consent, with advertising features off. It may be linked with Microsoft Clarity.</li>
           <li><strong>Better Stack</strong> — optional error and performance monitoring, loaded only after consent; receives only your account ID if signed in.</li>
           <li><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, and Ask; they see your IP address and requests.</li>
           <li><strong>Groq</strong>: the AI provider that writes some Ask answers. It receives the question and the facts or page excerpts sent with it from our proxy server, not your IP address or account details.</li>
@@ -502,6 +515,7 @@
           <li><strong>Cookie consent and local preferences:</strong> until you clear site data or change the setting.</li>
           <li><strong>Server and security logs:</strong> typically a short operational period unless needed for an investigation.</li>
           <li><strong>Clarity analytics:</strong> according to Microsoft’s retention settings for our project, and only if you allowed Clarity.</li>
+          <li><strong>Google Analytics:</strong> according to the data retention setting for our Google Analytics property, and only if you allowed analytics.</li>
         </ul>
         <p>We may keep limited records longer if required by law or to establish, exercise, or defend legal claims.</p>
 
@@ -516,7 +530,7 @@
         <ul>
           <li>Use the map without creating an account.</li>
           <li>Refuse or later revoke location permission.</li>
-          <li>Accept, reject, or change cookie / analytics (Clarity and Better Stack) preferences via the cookie banner and preference dialog.</li>
+          <li>Accept, reject, or change cookie / analytics (Clarity, Google Analytics, and Better Stack) preferences via the cookie banner and preference dialog.</li>
           <li>Hide individual trips from your public profile, remove your public profile, or stop a live location share at any time.</li>
           <li>Change how your name appears on reports, or switch to Anonymous.</li>
           <li>Turn notifications off.</li>

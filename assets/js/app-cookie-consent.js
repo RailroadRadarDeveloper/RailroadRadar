@@ -32,7 +32,9 @@
       function applyClarity(on) {
         if (on && typeof window.__rrLoadClarity === 'function') window.__rrLoadClarity();
         if (on && typeof window.__rrLoadBetterStack === 'function') window.__rrLoadBetterStack();
+        if (on && typeof window.__rrLoadGoogleAnalytics === 'function') window.__rrLoadGoogleAnalytics();
         if (!on && typeof window.__rrStopClarity === 'function') window.__rrStopClarity();
+        if (!on && typeof window.__rrStopGoogleAnalytics === 'function') window.__rrStopGoogleAnalytics();
       }
 
       function openModal() {

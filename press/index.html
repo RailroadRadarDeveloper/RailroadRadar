@@ -28,6 +28,7 @@
 betterstack('init', { environment: 'production' });
 </script>
 <script src="/assets/js/clarity.js?v=a614ddb074"></script>
+<script src="/assets/js/analytics.js?v=591f430b27"></script>
 
 <meta name="theme-color" content="#07093e"/>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png?v=3"/>
@@ -122,14 +123,14 @@ img.thumb{max-height:220px}img.hero{max-height:420px}
   <a href="/sitemap/">Sitemap</a>
 </footer>
 <div class="rr-cookie" id="rr-cookie" hidden>
-  <div>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></div>
+  <div>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity, Google Analytics and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></div>
   <div class="row">
     <button class="btn" id="rr-cookie-decline" type="button">Decline</button>
     <button class="btn sec" id="rr-cookie-customize" type="button">Customize</button>
     <button class="btn" id="rr-cookie-accept" type="button">Agree</button>
   </div>
   <div class="row" id="rr-cookie-custom" hidden>
-    <label><input type="checkbox" id="rr-cookie-clarity"> Allow analytics (Microsoft Clarity and Better Stack)</label>
+    <label><input type="checkbox" id="rr-cookie-clarity"> Allow analytics (Microsoft Clarity, Google Analytics and Better Stack)</label>
     <button class="btn" id="rr-cookie-save" type="button">Save</button>
   </div>
 </div>
@@ -310,8 +311,8 @@ function rrSaveCookies(on){
     localStorage.setItem('rr_cookie_consent', on?'accepted':'declined');
     localStorage.setItem('rr_cookie_prefs', JSON.stringify({decided:true,clarity:!!on,preferences:true,decidedAt:Date.now()}));
   }catch(e){}
-  if(on&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(on&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();
-  if(!on&&typeof window.__rrStopClarity==='function')window.__rrStopClarity();
+  if(on&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(on&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();if(on&&typeof window.__rrLoadGoogleAnalytics==='function')window.__rrLoadGoogleAnalytics();
+  if(!on&&typeof window.__rrStopClarity==='function')window.__rrStopClarity();if(!on&&typeof window.__rrStopGoogleAnalytics==='function')window.__rrStopGoogleAnalytics();
 }
 function rrCookieBar(){
   const box=document.getElementById('rr-cookie');
@@ -319,7 +320,7 @@ function rrCookieBar(){
   const decided=rrCookieDecided();
   if(decided){
     box.hidden=true;box.classList.remove('on');
-    if(decided.clarity&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(decided.clarity&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();
+    if(decided.clarity&&typeof window.__rrLoadClarity==='function')window.__rrLoadClarity();if(decided.clarity&&typeof window.__rrLoadBetterStack==='function')window.__rrLoadBetterStack();if(decided.clarity&&typeof window.__rrLoadGoogleAnalytics==='function')window.__rrLoadGoogleAnalytics();
     return;
   }
   box.hidden=false;box.classList.add('on');
