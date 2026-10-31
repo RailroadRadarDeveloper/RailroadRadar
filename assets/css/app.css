@@ -6771,3 +6771,12 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .rr-btn { background: #f
 html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .rr-btn.secondary { background: transparent !important; color: #fff !important; border-color: rgba(255,255,255,.7) !important; }
 html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-share { background: var(--mt-surface-2) !important; border-color: var(--mt-line) !important; color: var(--mt-ink) !important; }
 html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-title { color: var(--mt-ink) !important; }
+
+/* Halloween (Oct 31 only): live map popups of trains that stop at Salem get an orange header with black text.
+   The hidden .rr-salem-stop marker is only written on Oct 31 (rrHalloweenStopsHaveSalem in app-main.js). */
+.leaflet-popup .train-popup:has(.rr-salem-stop) > .train-popup-header { background: #FF6A00 !important; color: #000 !important; }
+.leaflet-popup .train-popup:has(.rr-salem-stop) > .train-popup-header > div,
+.leaflet-popup .train-popup:has(.rr-salem-stop) > .train-popup-header span:not([class]),
+.leaflet-popup .train-popup:has(.rr-salem-stop) > .train-popup-header a { color: #000 !important; }
+.leaflet-popup .train-popup:has(.rr-salem-stop) > .train-popup-header img { filter: brightness(0) !important; }
+.leaflet-popup:has(.train-popup .rr-salem-stop) .leaflet-popup-close-button { color: #000 !important; }

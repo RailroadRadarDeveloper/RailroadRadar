@@ -5,6 +5,17 @@
       return d.getMonth() === 9 && d.getDate() === 31 && String(agency || '').toLowerCase() === 'mbta' && String(routeId || '') === 'CR-Newburyport' ? '#FF6A00' : color;
     }
     window.rrHalloweenLineColor = rrHalloweenLineColor;
+    /* Halloween (Oct 31 local): true when a train's stop list includes Salem (MBTA ER-0168 or a stop named Salem).
+       buildStopsHtml then adds a hidden marker, and app.css turns that live map popup's header orange. */
+    function rrHalloweenStopsHaveSalem(stops) {
+      var d = new Date();
+      if (!(d.getMonth() === 9 && d.getDate() === 31) || !Array.isArray(stops)) return false;
+      return stops.some(function (st) {
+        if (!st) return false;
+        if (/(^|[^0-9A-Za-z])ER-0168([^0-9]|$)/.test(String(st.stopId || st.id || ''))) return true;
+        return String(st.name || '').trim().toLowerCase().replace(/\s+(station|stop)$/, '') === 'salem';
+      });
+    }
 
     // Global error handler
     window.addEventListener('error', function(e) {
@@ -12885,7 +12896,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
             return `<li class="${stop.isCompleted ? 'completed' : ''}"><span class="stop-time">${escapeHtmlLite(leftTime)}</span><span class="stop-name">${escapeHtmlLite(stop.name)} ${track}${done}${extraHtml}</span>${statusHtml}</li>`;
           }).join('')
-        }</ul></div>`;
+        }</ul>${rrHalloweenStopsHaveSalem(stops) ? '<span class="rr-salem-stop" hidden></span>' : ''}</div>`;
       }
       // ==================== AMTRAK + LOGGING (Final) ====================
 // NEC icon only while the train is GEOGRAPHICALLY on the corridor:
