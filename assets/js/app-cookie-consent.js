@@ -60,7 +60,11 @@
         writePrefs(prefs);
         bar.hidden = true;
         closeModal();
-        applyClarity(prefs.clarity);
+        // Start the analytics loaders after the banner has been painted away, so the tap is not held up by them.
+        var applied = false;
+        var applyOnce = function () { if (!applied) { applied = true; applyClarity(prefs.clarity); } };
+        try { requestAnimationFrame(function () { setTimeout(applyOnce, 0); }); } catch (_) { setTimeout(applyOnce, 0); }
+        setTimeout(applyOnce, 250);
         try {
           if (typeof window.persistCookieConsentToAccount === 'function') {
             window.persistCookieConsentToAccount(prefs);
