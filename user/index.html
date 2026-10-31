@@ -140,6 +140,11 @@
   <script>
   /* Public profile trip maps — station catalogs + Mapbox tiles parity with My Trips */
   (function () {
+    /* Halloween (Oct 31 by the visitor's own clock): the MBTA Newburyport/Rockport Line draws orange. Date only, so it reverts on Nov 1. */
+    function rrHalloweenLineColor(agency, routeId, color) {
+      var d = new Date();
+      return d.getMonth() === 9 && d.getDate() === 31 && String(agency || '').toLowerCase() === 'mbta' && String(routeId || '') === 'CR-Newburyport' ? '#FF6A00' : color;
+    }
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
       authDomain: "railroadradar-accounts.firebaseapp.com",
@@ -538,7 +543,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
     }
     function rrResolveTripSegmentGeom(seg, data) {
       const ids = rrTripSegIds(seg, data);
-      const color = tripRailColor(ids.railroad);
+      const color = rrHalloweenLineColor(ids.railroad, ids.lineId, tripRailColor(ids.railroad));
       const o = findTripStation(ids.railroad, ids.originId);
       const d = findTripStation(ids.railroad, ids.destId);
       let origin = null, dest = null;

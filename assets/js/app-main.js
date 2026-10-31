@@ -1,4 +1,11 @@
 
+    /* Halloween (Oct 31 by the visitor's own clock): the MBTA Newburyport/Rockport Line draws orange. Date only, so it reverts on Nov 1. */
+    function rrHalloweenLineColor(agency, routeId, color) {
+      var d = new Date();
+      return d.getMonth() === 9 && d.getDate() === 31 && String(agency || '').toLowerCase() === 'mbta' && String(routeId || '') === 'CR-Newburyport' ? '#FF6A00' : color;
+    }
+    window.rrHalloweenLineColor = rrHalloweenLineColor;
+
     // Global error handler
     window.addEventListener('error', function(e) {
       console.error('%c[Global Error]', 'color:#e74c3c', e.message);
@@ -2376,7 +2383,7 @@
 
     function rrResolveTripSegmentGeom(seg, data) {
       const ids = rrTripSegIds(seg, data);
-      const color = tripRailColor(ids.railroad);
+      const color = rrHalloweenLineColor(ids.railroad, ids.lineId, tripRailColor(ids.railroad));
       const o = findTripStation(ids.railroad, ids.originId);
       const d = findTripStation(ids.railroad, ids.destId);
       let origin = null, dest = null;
@@ -15745,7 +15752,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             } catch (_) {}
             let agencyPolys = 0;
             routes.forEach(function(rt) {
-              const color = rt.color || ag.fallback;
+              const color = rrHalloweenLineColor(ag.id, rt.id, rt.color || ag.fallback);
               if (ag.id === 'mbta' && rt.id) routeColors[rt.id] = color;
               const grp = L.layerGroup();
               (rt.polylines || []).forEach(function(pl) {
@@ -15799,7 +15806,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Fallback: proxy MBTA shapes API (warm Cache API / long TTL on worker).
           const r = await fetch(routesUrl);
           const rd = await r.json();
-          rd.data.forEach(rt => routeColors[rt.id] = `#${rt.attributes.color || '800080'}`);
+          rd.data.forEach(rt => routeColors[rt.id] = rrHalloweenLineColor('mbta', rt.id, `#${rt.attributes.color || '800080'}`));
           if (!routeColors['CapeFlyer']) routeColors['CapeFlyer'] = '#00ccff';
           async function loadMbtaRouteShapes(rid) {
             let shapes = [];

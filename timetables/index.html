@@ -377,6 +377,11 @@ body{background:var(--bg)}
    trips in one shape, so more can be added to RAILROADS later. MBTA reads V3 schedules through the Worker,
    which adds the API key, so nothing secret is in this page. */
 (function () {
+  /* Halloween (Oct 31 by the visitor's own clock): the MBTA Newburyport/Rockport Line draws orange. Date only, so it reverts on Nov 1. */
+  function rrHalloweenLineColor(agency, routeId, color) {
+    var d = new Date();
+    return d.getMonth() === 9 && d.getDate() === 31 && String(agency || '').toLowerCase() === 'mbta' && String(routeId || '') === 'CR-Newburyport' ? '#FF6A00' : color;
+  }
   var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
   var cache = {};
   function getJson(path) {
@@ -496,7 +501,7 @@ body{background:var(--bg)}
       return getJson('/api/mbta/routes?filter[type]=2').then(function (j) {
         return (j.data || []).slice().sort(function (a, b) { return (a.attributes.sort_order || 0) - (b.attributes.sort_order || 0); }).map(function (r) {
           var a = r.attributes || {}, dest = a.direction_destinations || [];
-          return { id: r.id, name: a.long_name || r.id, color: a.color ? '#' + a.color : '', mode: 'cr', dest: { outbound: dest[0] || '', inbound: dest[1] || '' } };
+          return { id: r.id, name: a.long_name || r.id, color: rrHalloweenLineColor('mbta', r.id, a.color ? '#' + a.color : ''), mode: 'cr', dest: { outbound: dest[0] || '', inbound: dest[1] || '' } };
         });
       });
     },
