@@ -19446,6 +19446,551 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ai: !!text
         };
       }
+      /* Questions about how trains usually run are answered from the railroadradar-history Worker, which keeps
+         delay samples from the live feeds. Every number in the answer comes from that JSON, with its run count and
+         date range; no AI is involved. Any failure returns null so the live-data flow still runs. */
+      const RR_HISTORY_BASE = 'https://railroadradar-history.railroadradar.workers.dev';
+      const RR_HISTORY_RE = /\b(reliab\w*|punctual\w*|track record|on[- ]time (?:rate|record|percent\w*|performance)|most (?:delay\w*|late)|least (?:delay\w*|late)|most on[- ]time|worst|best train|always late|ever on time|delay history|average delay)\b/i;
+      const RR_HISTORY_SOFT = /\b(usually|typically|normally|generally|historically|on average|how often|in the (?:past|last) (?:week|month|\d+ days))\b/i;
+      function rrHistoryIntent(text) {
+        return RR_HISTORY_RE.test(text) || (RR_HISTORY_SOFT.test(text) && /\b(late|delay\w*|on[- ]time|cancel\w*)\b/i.test(text));
+      }
+      const RR_HISTORY_RR = { Amtrak: 'amtrak', MBTA: 'mbta', MNR: 'mnr', LIRR: 'lirr', NJT: 'njt' };
+      function rrHistoryRail(raw) {
+        const q = String(raw || '');
+        if (/\bvia rail\b|\bVIA\b/.test(q)) return 'via';
+        if (/\b(red line|orange line|blue line|green line|silver line|mattapan|metra|marc|ctrail|septa)\b/i.test(q)) return 'none';
+        if (/\b(mbta|commuter rail)\b/i.test(q)) return 'mbta';
+        if (/\bmnr\b/i.test(q)) return 'mnr';
+        if (/\bnjt\b/i.test(q)) return 'njt';
+        return RR_HISTORY_RR[askAgencyKey(q)] || '';
+      }
+      function rrHistoryDate(ymd) {
+        return new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      }
+      function rrHistoryRange(d) {
+        if (!d.from || !d.to) return '';
+        return d.from === d.to ? 'on ' + rrHistoryDate(d.from) : 'from ' + rrHistoryDate(d.from) + ' to ' + rrHistoryDate(d.to);
+      }
+      function rrHistoryRuns(n, unit) { return n + ' ' + (unit || 'run') + (n === 1 ? '' : 's'); }
+      function rrHistoryWere(k, n) { return k + ' of ' + n + (k === 1 ? ' was' : ' were'); }
+      function rrHistoryNote(d, unit) {
+        return 'From RailroadRadar\'s own samples of live train feeds, ' + rrHistoryRange(d) + '; ' + rrHistoryRuns(d.n || 0, unit) + '. On time means 5 minutes late or less. Not official railroad statistics.';
+      }
+      function rrHistoryShort(d, what) {
+        const seen = d.n ? ' RailroadRadar has only ' + rrHistoryRuns(d.n) + ' so far' + (d.from ? ', ' + rrHistoryRange(d) : '') + ', and needs at least 5.' : '';
+        return { answer: 'There isn\'t enough history yet ' + what + '.' + seen + ' RailroadRadar started recording delay history recently, so check back in a few days.', note: 'RailroadRadar keeps its own record of past runs from live train feeds.' };
+      }
+      async function rrHistoryGet(path) {
+        return rrAskCached('hist:' + path, 10 * 60 * 1000, async function() {
+          const res = await fetch(RR_HISTORY_BASE + path);
+          if (!res.ok) throw new Error('history ' + res.status);
+          const d = await res.json();
+          if (!d || !d.ok) throw new Error('history');
+          return d;
+        });
+      }
+      function rrHistoryMins(m) { return m === 1 ? '1 minute' : m + ' minutes'; }
+      function rrHistoryTrainText(d, cancelQ) {
+        const name = d.railroad + ' Train ' + d.train + (d.line ? ' (' + d.line + ')' : '');
+        const od = d.origin && d.dest ? ', ' + (d.origin.name || d.origin.code) + ' to ' + (d.dest.name || d.dest.code) : '';
+        const ran = d.runs - d.cancelled;
+        let t = name + od + ', was on time on ' + d.on_time + ' of ' + ran + ' recorded runs (' + d.on_time_pct + '%) ' + rrHistoryRange(d) + '.';
+        t += ' Median delay: ' + rrHistoryMins(d.median_delay) + '. 9 in 10 runs were ' + rrHistoryMins(d.p90_delay) + ' late or less; the worst was ' + rrHistoryMins(d.worst_delay) + '.';
+        if (d.late15) t += ' ' + rrHistoryWere(d.late15, ran) + ' more than 15 minutes late.';
+        t += d.cancelled ? ' ' + rrHistoryWere(d.cancelled, d.runs) + ' marked cancelled.' : (cancelQ ? ' None were marked cancelled.' : '');
+        if (d.approx_final) t += ' For ' + d.approx_final + ' of these runs the final arrival was not seen, so the last delay RailroadRadar saw is used.';
+        if (d.other_railroads && d.other_railroads.length) t += ' A train with this number also runs on ' + d.other_railroads.join(', ') + '; name the railroad to see it.';
+        return t;
+      }
+      function rrHistoryLineRow(l) {
+        return l.line + ' (' + l.railroad + '): ' + l.on_time_pct + '% on time, ' + l.late15_pct + '% more than 15 minutes late, ' + rrHistoryRuns(l.n);
+      }
+      function rrHistoryPlace(s) {
+        return String(s || '').replace(/\b(?:after|before)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?.*$/i, ' ').replace(RR_HISTORY_RE, ' ').replace(RR_HISTORY_SOFT, ' ')
+          .replace(/\b(on average|in the (?:past|last) \w+(?: days)?|the|which|what|is|are|usually|most|best|reliable|on time|late|delayed|train|trains|amtrak|metro[- ]?north|lirr|nj transit|njt|via rail|station)\b/ig, ' ')
+          .replace(/[?!.,]+/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+      function rrHistoryWindow(text) {
+        let out = '';
+        const d = text.match(/\b(?:past|last)\s+(\d{1,3})\s+days?\b/i);
+        if (d) out += '&days=' + d[1];
+        else if (/\b(?:past|last) week\b/i.test(text)) out += '&days=7';
+        else if (/\b(?:past|last) month\b/i.test(text)) out += '&days=30';
+        const re = /\b(after|before)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/ig;
+        let m;
+        while ((m = re.exec(text))) {
+          let h = Number(m[2]) % 12;
+          if ((m[4] || '').toLowerCase() === 'pm' || (!m[4] && h < 5)) h += 12;
+          if (!m[4] && Number(m[2]) > 12) h = Number(m[2]);
+          if (h < 24) out += '&' + m[1].toLowerCase() + '=' + h + ':' + (m[3] || '00');
+        }
+        return out;
+      }
+      async function rrAskHistory(raw) {
+        const text = String(raw || '').replace(/\s+/g, ' ').trim();
+        if (!rrHistoryIntent(text)) return null;
+        const rr = rrHistoryRail(text);
+        if (rr === 'none') {
+          return { answer: 'RailroadRadar keeps delay history for MBTA Commuter Rail, Amtrak, VIA Rail, Metro-North, LIRR, and NJ Transit trains. It does not have history for that railroad yet.', note: 'RailroadRadar keeps its own record of past runs from live train feeds.' };
+        }
+        const rrQ = rr ? '&rr=' + rr : '';
+        const daysQ = rrHistoryWindow(text).replace(/&(?:after|before)=[^&]*/g, '');
+        const reliableBest = /\b(best|most reliable|most on[- ]time|least (?:delay\w*|late))\b/i.test(text);
+        if (/\b(alerts?|advisor(?:y|ies)|service changes?)\b/i.test(text)) {
+          const d = await rrHistoryGet('/api/history/alerts');
+          return rrHistoryShort(d, 'for service alerts');
+        }
+        if (/\b(locomotives?|equipment|consists?|unit numbers?|engines?)\b/i.test(text)) {
+          const d = await rrHistoryGet('/api/history/units');
+          return rrHistoryShort(d, 'for equipment');
+        }
+        const pair = text.match(/\bfrom\s+(.+?)\s+to\s+(.+)$/i) || text.match(/\bbetween\s+(.+?)\s+and\s+(.+)$/i);
+        const back = !pair && (text.match(/\bto\s+(.+?)\s+from\s+(.+)$/i) || (reliableBest && /\btrains?\b/i.test(text) && text.match(/^()(.+?)\s+to\s+(.+)$/i)));
+        if (pair || back) {
+          const from = rrHistoryPlace(pair ? pair[1] : back[2]), to = rrHistoryPlace(pair ? pair[2] : (back[3] || back[1]));
+          if (from && to) {
+            const d = await rrHistoryGet('/api/history/best?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + rrQ + rrHistoryWindow(text));
+            if (d.insufficient || !d.trains || !d.trains.length) return rrHistoryShort(d, 'for trains from ' + (d.from_stop ? d.from_stop.name : from) + ' to ' + (d.to_stop ? d.to_stop.name : to));
+            const ok = d.trains.filter(function(x) { return !x.insufficient; }).slice(0, 4);
+            if (!ok.length) return rrHistoryShort(d, 'for any single train from ' + d.from_stop.name + ' to ' + d.to_stop.name);
+            const lines = ok.map(function(x) {
+              return 'Train ' + x.train + ' (leaves about ' + x.departs + ', arrives about ' + x.arrives + '): on time ' + x.on_time + ' of ' + rrHistoryRuns(x.n) + ' (' + x.on_time_pct + '%), median delay ' + rrHistoryMins(x.median_delay) + '.';
+            });
+            return {
+              answer: 'Most reliable ' + d.railroad + ' trains from ' + d.from_stop.name + ' to ' + d.to_stop.name + ', ' + rrHistoryRange(d) + ':\n- ' + lines.join('\n- ') + '\n' + d.time_note,
+              note: rrHistoryNote(d)
+            };
+          }
+        }
+        let num = text.match(/\b(?:train|#|no\.?|number)\s*#?\s*v?(\d{1,5})\b/i) || text.match(/\b(?:amtrak|via rail|via|lirr|mnr|metro[- ]?north|njt|nj transit)\s*#?\s*(\d{1,5})\b/i);
+        if (!num && !/\d\s*(?:am|pm|:\d\d|days?|weeks?|months?|%)/i.test(text)) num = text.match(/\b(\d{2,5})\b/);
+        if (num) {
+          const d = await rrHistoryGet('/api/history/train?train=' + num[1] + rrQ + daysQ);
+          if (d.insufficient) return rrHistoryShort(d, 'for Train ' + num[1]);
+          return { answer: rrHistoryTrainText(d, /\bcancel/i.test(text)), note: rrHistoryNote(d) };
+        }
+        const lineM = text.match(/\b([a-z][a-z .'-]{1,30}?)\s+(?:line|branch)\b/i);
+        let lineName = lineM ? rrHistoryPlace(lineM[1].replace(/^.*\b(?:the|is|are|does|do|how|which|on|of)\s+/i, '')) : '';
+        if (/^(which|what|worst|best|most|least|a|any|each|every|this|that|reliable)?$/i.test(lineName)) lineName = '';
+        const at = !lineName && text.match(/\bat\s+(.+?)(?:\s+station)?\s*(?:\?|$|\b(?:usually|on average|most|late|delayed|on time|in the (?:past|last))\b)/i);
+        const atName = at && !/\b(stations?|which|what|the (?:past|last))\b/i.test(at[1]) ? rrHistoryPlace(at[1]) : '';
+        if (atName) {
+          const d = await rrHistoryGet('/api/history/station?stop=' + encodeURIComponent(atName) + rrQ + daysQ);
+          if (d.insufficient) return rrHistoryShort(d, 'for ' + (d.stop ? d.stop.name : atName));
+          return {
+            answer: d.railroad + ' trains at ' + d.stop.name + ' were on time at ' + d.on_time + ' of ' + d.n + ' recorded stops (' + d.on_time_pct + '%) ' + rrHistoryRange(d) + '. Average delay: ' + rrHistoryMins(d.avg_delay) + '; ' + d.late15_pct + '% were more than 15 minutes late.',
+            note: rrHistoryNote(d, 'stop')
+          };
+        }
+        if (/\b(stations?|stops?)\b/i.test(text) && !lineName) {
+          const d = await rrHistoryGet('/api/history/stations?' + (rrQ + daysQ).slice(1));
+          const list = (d.stations || []).slice(0, 5);
+          if (d.insufficient || !list.length) return rrHistoryShort(d, 'to rank stations');
+          return {
+            answer: 'Stations with the most delays ' + rrHistoryRange(d) + ':\n- ' + list.map(function(s) { return s.stop.name + ' (' + s.railroad + '): ' + s.on_time_pct + '% on time, ' + s.late15_pct + '% more than 15 minutes late, ' + s.n + ' stops'; }).join('\n- '),
+            note: rrHistoryNote(d, 'stop')
+          };
+        }
+        if (lineName || reliableBest || /\b(lines?|branch(?:es)?|routes?|worst|most (?:delay\w*|late))\b/i.test(text)) {
+          const d = await rrHistoryGet('/api/history/lines?' + (rrQ + daysQ + (lineName ? '&line=' + encodeURIComponent(lineName) : '')).slice(1));
+          const rows = (d.lines || []).filter(function(l) { return !l.insufficient; });
+          if (d.insufficient || !rows.length) return rrHistoryShort(d, 'for ' + (lineName ? 'the ' + lineName + ' line' : 'that'));
+          if (lineName && rows.length === 1) {
+            const l = rows[0];
+            return { answer: l.railroad + ' ' + l.line + ': on time on ' + l.on_time + ' of ' + rrHistoryRuns(l.n) + ' (' + l.on_time_pct + '%) ' + rrHistoryRange(d) + '. Average delay: ' + rrHistoryMins(l.avg_delay) + '; ' + l.late15_pct + '% were more than 15 minutes late.', note: rrHistoryNote(d) };
+          }
+          rows.sort(function(a, b) { return reliableBest ? b.on_time_pct - a.on_time_pct || a.avg_delay - b.avg_delay : a.on_time_pct - b.on_time_pct || b.avg_delay - a.avg_delay; });
+          return {
+            answer: (reliableBest ? 'Most reliable lines ' : 'Lines with the most delays ') + rrHistoryRange(d) + ':\n- ' + rows.slice(0, 5).map(rrHistoryLineRow).join('\n- '),
+            note: rrHistoryNote(d)
+          };
+        }
+        return null;
+      }
+      /* "How is the X line doing?" is answered in code: live counts come from the trains on the map and the
+         railroads' alert feeds, history from the railroadradar-history Worker, and today's holidays and events
+         from its calendar. Nothing here calls the AI, and a part that fails to load is left out, never guessed. */
+      const RR_STATUS_RR = {
+        mbta: { label: 'MBTA Commuter Rail', agency: 'MBTA', scope: ['US', 'MA', 'MA-Suffolk'] },
+        mnr: { label: 'Metro-North', agency: 'MNR', scope: ['US', 'NY'] },
+        lirr: { label: 'LIRR', agency: 'LIRR', scope: ['US', 'NY'] },
+        njt: { label: 'NJ Transit', agency: 'NJT', scope: ['US', 'NJ'] },
+        amtrak: { label: 'Amtrak', agency: 'Amtrak', scope: ['US'] }
+      };
+      const RR_STATUS_LINES = (function() {
+        const out = [];
+        RR_ASK_LINES.forEach(function(l) {
+          if (!l.subway) out.push({ rr: 'mbta', name: l.name, key: l.name, ids: l.ids, words: l.words.filter(function(w) { return w !== 'river'; }) });
+        });
+        Object.keys(MNR_STATIC.routes || {}).forEach(function(id) {
+          const n = MNR_STATIC.routes[id].name;
+          out.push({ rr: 'mnr', name: n + ' Line', key: n, mta: id, words: [n.toLowerCase()] });
+        });
+        Object.keys(LIRR_STATIC.routes || {}).forEach(function(id) {
+          const n = LIRR_STATIC.routes[id].name;
+          if (!/Branch$/.test(n)) return;
+          const k = n.replace(/ Branch$/, '');
+          out.push({ rr: 'lirr', name: n, key: k, mta: id, words: [k.toLowerCase()] });
+        });
+        [['Atlantic City Line', 'atlantic city'], ['Bergen County Line', 'bergen county', 'bergen'], ['Gladstone Branch', 'gladstone'],
+          ['Morris & Essex Line', 'morris and essex', 'morris essex', 'morristown', 'm and e'], ['Main Line', 'main'],
+          ['Montclair-Boonton Line', 'montclair boonton', 'montclair', 'boonton'], ['North Jersey Coast Line', 'north jersey coast', 'jersey coast', 'njcl', 'coast'],
+          ['Northeast Corridor Line', 'northeast corridor', 'nec'], ['Pascack Valley Line', 'pascack valley', 'pascack'],
+          ['Princeton Branch', 'princeton', 'dinky'], ['Raritan Valley Line', 'raritan valley', 'raritan']].forEach(function(a) {
+          out.push({ rr: 'njt', name: a[0], key: a[0], words: a.slice(1) });
+        });
+        RR_ASK_SERVICES.forEach(function(s) {
+          if (s[1] === 'Ocean' || s[1] === 'The Canadian' || s[1] === 'Hartford Line') return;
+          if (out.some(function(x) { return x.rr === 'amtrak' && x.name === s[1]; })) {
+            out.filter(function(x) { return x.rr === 'amtrak' && x.name === s[1]; })[0].words.push(s[0]);
+            return;
+          }
+          out.push({ rr: 'amtrak', name: s[1], key: s[1], words: [s[0]] });
+        });
+        return out;
+      })();
+      const RR_STATUS_RE = /\b(how(?: i?s| are| has| have)|hows|status|doing|running|any (?:delays?|problems?|issues?|trouble)|(?:delays?|problems?|issues?) on|today|right now)\b/;
+      function rrStatusRail(q) {
+        if (/\b(mbta|commuter rail)\b/.test(q)) return 'mbta';
+        if (/\b(metro north|mnr)\b/.test(q)) return 'mnr';
+        if (/\b(lirr|long island)\b/.test(q)) return 'lirr';
+        if (/\b(nj ?transit|njt|new jersey transit)\b/.test(q)) return 'njt';
+        if (/\bamtrak\b/.test(q)) return 'amtrak';
+        return '';
+      }
+      function rrStatusSwapped(a, b) {
+        if (a.length !== b.length) return false;
+        const diff = [];
+        for (let i = 0; i < a.length && diff.length < 3; i++) if (a[i] !== b[i]) diff.push(i);
+        return diff.length === 2 && diff[1] === diff[0] + 1 && a[diff[0]] === b[diff[1]] && a[diff[1]] === b[diff[0]];
+      }
+      function rrStatusFindLines(raw) {
+        const q = rrAskNorm(raw), padded = ' ' + q + ' ';
+        const rr = rrStatusRail(q);
+        if (/\b(nec|northeast corridor)\b/.test(q) && rr === 'amtrak') {
+          return RR_STATUS_LINES.filter(function(l) { return l.rr === 'amtrak' && (l.name === 'Acela' || l.name === 'Northeast Regional'); });
+        }
+        const words = q.split(' ');
+        let best = null, bestLen = 0;
+        RR_STATUS_LINES.forEach(function(l) {
+          if (rr && l.rr !== rr) return;
+          l.words.forEach(function(w) {
+            let hit = padded.indexOf(' ' + w + ' ') >= 0;
+            // Only long single words get the typo allowance, so "main" or "coast" never match by accident.
+            if (!hit && w.indexOf(' ') < 0 && w.length >= 7) hit = words.some(function(x) { return x.length >= 6 && (rrAskEdit(x, w, 1) <= 1 || rrStatusSwapped(x, w)); });
+            if (!hit) return;
+            // Bare generic words need "line" or "branch" after them to count.
+            if (/^(main|coast|princeton|hempstead|bergen|morristown)$/.test(w) && !new RegExp('\\b' + w + ' (?:line|branch)\\b').test(q)) return;
+            if (w.length > bestLen) { best = l; bestLen = w.length; }
+          });
+        });
+        return best ? [best] : [];
+      }
+      function rrStatusIntent(raw) {
+        const q = rrAskNorm(raw);
+        if (!RR_STATUS_RE.test(q)) return false;
+        if (/\b(from|to|between|next|when|last|first|schedule|timetable)\b/.test(q) && !/\bholiday\b/.test(q)) return false;
+        if (/\b\d{2,5}\b/.test(q)) return false;
+        return true;
+      }
+      function rrStatusDelay(r) {
+        if (r.delayMinutes != null && isFinite(r.delayMinutes)) return Math.max(0, Math.round(Number(r.delayMinutes)));
+        const t = String(r.statusText || '').toLowerCase();
+        if (/cancel/.test(t)) return null;
+        if (/on time|early/.test(t)) return 0;
+        const h = t.match(/(\d+)\s*(?:h|hr|hrs|hour|hours)\b/), m = t.match(/(\d+)\s*(?:m|min|mins|minutes?)\b/);
+        if ((h || m) && /late|delay/.test(t)) return (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
+        // Amtrak often reports only "Active"; the popup then works the delay out from the next stop, and so does this.
+        if (r.agency === 'Amtrak' && amtrakTrainInfo[r.id]) {
+          const d = amtrakNextStopDelayMinutes(amtrakTrainInfo[r.id]);
+          if (d != null && isFinite(d)) return Math.max(0, Math.round(d));
+        }
+        return null;
+      }
+      function rrStatusRowMatch(l, r) {
+        if (r.agency !== RR_STATUS_RR[l.rr].agency) return false;
+        const n = rrAskNorm(r.routeName), k = rrAskNorm(l.key);
+        if (l.rr === 'mbta') return n === k;
+        if (l.rr === 'lirr' || l.rr === 'mnr') return n === k || n === k + ' branch' || n === k + ' line';
+        return n === k || n.indexOf(k) >= 0;
+      }
+      function rrStatusMins(m) { return m >= 60 ? Math.floor(m / 60) + ' hr ' + (m % 60) + ' min' : m + ' min'; }
+      async function rrStatusMbtaAlerts(ids) {
+        return rrAskCached('alerts:' + ids.join(','), 2 * 60 * 1000, async function() {
+          const j = await rrAskMbta('/alerts?filter[route]=' + ids.join(',') + '&filter[datetime]=NOW');
+          return (j.data || []).map(function(a) {
+            const at = a.attributes || {};
+            return { effect: at.effect || '', header: at.short_header || at.header || '' };
+          });
+        });
+      }
+      async function rrStatusMbtaCancelled(ids) {
+        return rrAskCached('cancel:' + ids.join(','), 2 * 60 * 1000, async function() {
+          const j = await rrAskMbta('/predictions?filter[route]=' + ids.join(',') + '&fields[prediction]=schedule_relationship');
+          const trips = {};
+          (j.data || []).forEach(function(p) {
+            const tid = p.relationships && p.relationships.trip && p.relationships.trip.data && p.relationships.trip.data.id;
+            if (!tid) return;
+            const c = (p.attributes || {}).schedule_relationship === 'CANCELLED';
+            trips[tid] = trips[tid] === undefined ? c : trips[tid] && c;
+          });
+          return Object.keys(trips).filter(function(t) { return trips[t]; }).length;
+        });
+      }
+      async function rrStatusMtaAlerts(rr, routeId) {
+        const feed = await fetchMtaAlertsFeed();
+        if (!feed) return null;
+        const agencies = rr === 'mnr' ? ['MNR'] : ['LI', 'LIRR'];
+        const seen = {}, out = [];
+        (feed.entity || []).forEach(function(e) {
+          const a = e && e.alert;
+          if (!a || !gtfsRtAlertIsActive(a)) return;
+          const hit = (a.informed_entity || []).some(function(ent) {
+            return ent && String(ent.route_id || '') === String(routeId) && (!ent.agency_id || agencies.indexOf(String(ent.agency_id).toUpperCase()) >= 0);
+          });
+          const header = gtfsRtTranslatedText(a.header_text) || '';
+          if (hit && header && !seen[header]) { seen[header] = 1; out.push({ header: header }); }
+        });
+        return out;
+      }
+      function rrStatusHourText(hm) {
+        const m = String(hm || '').match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return '';
+        const h = Number(m[1]);
+        return (h % 12 || 12) + (m[2] === '00' ? '' : ':' + m[2]) + (h < 12 ? ' AM' : ' PM');
+      }
+      function rrStatusServes(ev, rr, lineName) {
+        const label = RR_STATUS_RR[rr].label, ln = String(lineName || '').toLowerCase();
+        return (ev.serves || []).some(function(s) {
+          if (s.indexOf(label) !== 0) return false;
+          const m = s.match(/\(([^)]*)\)/);
+          if (!m) return true;
+          return !ln || m[1].split(', ').some(function(f) { return ln.indexOf(f) >= 0; });
+        });
+      }
+      function rrStatusEventText(e) {
+        const t = rrStatusHourText(e.time);
+        return e.title + (e.venue_name && e.venue !== 'nycparade' ? ' at ' + e.venue_name : '') + (t ? ' (' + t + ')' : '') + (e.stations ? ', near ' + e.stations : '');
+      }
+      async function rrStatusToday(rr, lineName) {
+        let d = null;
+        try { d = await rrHistoryGet('/api/history/day?date=today'); } catch (_) { return ''; }
+        const day = d && d.days && d.days[0];
+        if (!day) return '';
+        const parts = [];
+        const hol = (day.holidays || []).filter(function(h) { return RR_STATUS_RR[rr].scope.indexOf(h.scope) >= 0; });
+        if (hol.length) parts.push('Today is ' + hol.map(function(h) { return h.name; }).join(' and ') + '; railroads may run a holiday or modified schedule.');
+        (day.travel || []).forEach(function(t) { parts.push('Today is ' + t.name + ', usually a busy travel day.'); });
+        const ev = (day.events || []).filter(function(e) { return rrStatusServes(e, rr, lineName); });
+        if (ev.length) parts.push('Event today that can crowd this line\'s trains or stations: ' + ev.slice(0, 3).map(rrStatusEventText).join('; ') + '.');
+        return parts.join(' ');
+      }
+      async function rrStatusHistory(l) {
+        let d;
+        try { d = await rrHistoryGet('/api/history/lines?rr=' + l.rr + '&line=' + encodeURIComponent(l.key.toLowerCase())); } catch (_) { return { text: 'History is not available right now.', d: null }; }
+        const row = (d.lines || []).filter(function(x) { return x.line.toLowerCase() === l.key.toLowerCase() || x.line.toLowerCase().indexOf(l.key.toLowerCase()) >= 0; })[0];
+        if (!row || row.insufficient) {
+          return { text: 'History: not enough yet' + (row ? ' (RailroadRadar has ' + rrHistoryRuns(row.n) + ' so far ' + rrHistoryRange(d) + ' and needs at least 5)' : ' (no recorded runs yet)') + '.', d: null };
+        }
+        return { text: 'History: on time on ' + row.on_time + ' of ' + rrHistoryRuns(row.n) + ' (' + row.on_time_pct + '%) ' + rrHistoryRange(d) + ', average delay ' + rrHistoryMins(row.avg_delay) + '.', d: d };
+      }
+      async function rrStatusLine(l, rows) {
+        const rrInfo = RR_STATUS_RR[l.rr];
+        const live = (rows || []).filter(function(r) { return rrStatusRowMatch(l, r); });
+        const delays = live.map(function(r) { return { r: r, d: rrStatusDelay(r) }; });
+        const known = delays.filter(function(x) { return x.d != null; });
+        const late = known.filter(function(x) { return x.d > 5; }).sort(function(a, b) { return b.d - a.d; });
+        const cancelledRows = live.filter(function(r) { return /cancel/i.test(r.statusText || ''); }).length;
+        const [alerts, cancelled, hist, today] = await Promise.all([
+          (async function() {
+            try {
+              if (l.rr === 'mbta') return (await rrStatusMbtaAlerts(l.ids)).filter(function(a) { return a.header && !RR_ASK_INFO_EFFECTS[a.effect]; });
+              if (l.mta) return await rrStatusMtaAlerts(l.rr, l.mta);
+            } catch (_) {}
+            return null;
+          })(),
+          (async function() {
+            if (l.rr !== 'mbta') return null;
+            try { return await rrStatusMbtaCancelled(l.ids); } catch (_) { return null; }
+          })(),
+          rrStatusHistory(l),
+          rrStatusToday(l.rr, l.name)
+        ]);
+        const title = (l.rr === 'amtrak' ? 'Amtrak ' : '') + l.name + (l.rr === 'amtrak' ? '' : ' (' + rrInfo.label + ')');
+        const lines = [];
+        if (!live.length) lines.push('Right now: no ' + l.name + ' trains are on the live map.');
+        else {
+          let s = 'Right now: ' + live.length + (live.length === 1 ? ' train' : ' trains') + ' running';
+          if (known.length) {
+            s += '; ' + (known.length - late.length) + ' on time' + (late.length ? ', ' + late.length + ' late (worst: ' + rrAskRowName(late[0].r) + ', ' + rrStatusMins(late[0].d) + ' late)' : ', none more than 5 min late');
+          }
+          if (known.length < live.length) s += '; ' + (live.length - known.length) + ' without a delay estimate';
+          lines.push(s + '.');
+        }
+        if (cancelled != null) lines.push(cancelled ? cancelled + (cancelled === 1 ? ' trip still ahead today is' : ' trips still ahead today are') + ' cancelled.' : 'No cancelled trips ahead in the MBTA feed.');
+        else if (cancelledRows) lines.push(cancelledRows + (cancelledRows === 1 ? ' train shows' : ' trains show') + ' as cancelled on the map.');
+        else if (live.length) lines.push('No cancellations show in the live feed.');
+        if (alerts) {
+          lines.push(alerts.length ? (alerts.length === 1 ? '1 active alert: ' : alerts.length + ' active alerts: ') + alerts.slice(0, 2).map(function(a) { return rrAskTrim(a.header, 160); }).join(' / ') : 'No active service alerts.');
+        } else {
+          const flagged = live.filter(function(r) { return r.hasAlert; }).length;
+          if (flagged) lines.push(flagged + (flagged === 1 ? ' train has' : ' trains have') + ' an alert on the map.');
+          else if (live.length) lines.push('No alerts on these trains.');
+        }
+        lines.push(hist.text);
+        if (today) lines.push(today);
+        return { title: title, text: lines.join(' '), rows: live, hist: hist.d };
+      }
+      async function rrAskLineStatus(raw) {
+        if (!rrStatusIntent(raw) || rrHistoryIntent(raw)) return null;
+        const found = rrStatusFindLines(raw);
+        if (!found.length) return null;
+        const rows = collectLiveTrainRows();
+        const parts = await Promise.all(found.map(function(l) { return rrStatusLine(l, rows); }));
+        const ambiguousNec = found[0].rr === 'njt' && found[0].name === 'Northeast Corridor Line' && /\b(nec|northeast corridor)\b/.test(rrAskNorm(raw));
+        const answer = parts.map(function(p) { return p.title + '\n' + p.text; }).join('\n\n') + (ambiguousNec ? '\n\nAsked about Amtrak on the Northeast Corridor? Ask "How is Amtrak on the NEC doing?"' : '');
+        const withHist = parts.filter(function(p) { return p.hist; })[0];
+        return {
+          answer: answer,
+          note: 'Live counts are from the trains on the map and the railroad\'s alerts right now. ' + (withHist ? rrHistoryNote(withHist.hist) : 'History is from RailroadRadar\'s own samples of live train feeds.'),
+          rows: parts.reduce(function(a, p) { return a.concat(p.rows); }, []).slice(0, 6),
+          link: found[0].rr === 'mbta' ? { href: '/timetables/?rr=mbta&line=' + encodeURIComponent(found[0].ids[0]), text: 'Open Timetable' } : null
+        };
+      }
+      /* Holiday and event questions. The calendar and event list come from the history Worker; an effect on
+         trains is claimed only when its compare endpoint says so (at least 5 days in each group and a 10 point
+         gap). Otherwise the answer says there is no clear pattern or not enough history. */
+      const RR_CAL_HOLIDAY_RE = /\b(holiday|holidays|sunday schedule|saturday schedule|weekend schedule|modified schedule)\b/;
+      const RR_CAL_EVENT_RE = /\b(game|games|red sox|sox|yankees|mets|bruins|rangers|islanders|devils|celtics|knicks|nets|patriots|giants|jets|concert|concerts|parade|parades|marathon|fireworks|regatta|head of the charles|fenway|td garden|gillette|yankee stadium|citi field|madison square garden|msg|ubs arena|metlife|barclays|event|events)\b/;
+      const RR_CAL_NAMED_RE = /\b(new year|martin luther king|mlk|presidents|memorial|juneteenth|independence|fourth of july|july 4th|labor day|columbus|indigenous|veterans|thanksgiving|christmas|patriots day|evacuation|bunker hill|lincoln|election day|good friday)\b/;
+      function rrCalDate(q) {
+        const now = new Date();
+        if (/\btomorrow\b/.test(q)) return rrAskYmd(new Date(now.getTime() + 24 * 3600 * 1000));
+        const months = 'january february march april may june july august september october november december'.split(' ');
+        const m = q.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec) (\d{1,2})\b/);
+        if (m) {
+          const mi = months.findIndex(function(x) { return x.indexOf(m[1]) === 0; });
+          const y = Number(rrAskYmd(now).slice(0, 4));
+          let d = y + '-' + String(mi + 1).padStart(2, '0') + '-' + String(Number(m[2])).padStart(2, '0');
+          if (d < rrAskYmd(new Date(now.getTime() - 60 * 24 * 3600 * 1000))) d = (y + 1) + d.slice(4);
+          return d;
+        }
+        const h = q.match(RR_CAL_NAMED_RE);
+        if (h) return 'holiday:' + encodeURIComponent(h[1]);
+        return 'today';
+      }
+      function rrCalDateText(ymd) {
+        return new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+      }
+      async function rrCalAlertScan(re) {
+        const hits = [];
+        try {
+          const j = await rrAskCached('cralerts', 2 * 60 * 1000, async function() {
+            const r = await rrAskMbta('/alerts?filter[route_type]=2&filter[datetime]=NOW');
+            return (r.data || []).map(function(a) { const at = a.attributes || {}; return at.header || at.short_header || ''; });
+          });
+          j.forEach(function(h) { if (re.test(h)) hits.push('MBTA: ' + rrAskTrim(h, 160)); });
+        } catch (_) {}
+        try {
+          const feed = await fetchMtaAlertsFeed();
+          const seen = {};
+          ((feed && feed.entity) || []).forEach(function(e) {
+            const a = e && e.alert;
+            if (!a || !gtfsRtAlertIsActive(a)) return;
+            const h = gtfsRtTranslatedText(a.header_text) || '';
+            if (!h || seen[h] || !re.test(h)) return;
+            seen[h] = 1;
+            const ag = ((a.informed_entity || [])[0] || {}).agency_id || '';
+            const who = /^MNR$/i.test(ag) ? 'Metro-North' : /^LI/i.test(ag) ? 'LIRR' : 'MTA';
+            hits.push(who + ': ' + rrAskTrim(h, 160));
+          });
+        } catch (_) {}
+        return hits;
+      }
+      function rrCalCompareText(c, what) {
+        if (!c) return '';
+        const t = c.tagged || {}, n = c.normal || {};
+        if (c.effect === 'insufficient') {
+          return 'Not enough history yet to tell whether ' + what + ' affect trains: RailroadRadar has ' + (t.days || 0) + ' such ' + (t.days === 1 ? 'day' : 'days') + ' and ' + (n.days || 0) + ' comparable normal days, and needs at least 5 of each.';
+        }
+        const nums = what.charAt(0).toUpperCase() + what.slice(1) + ': ' + t.on_time_pct + '% on time over ' + rrHistoryRuns(t.n) + ' on ' + t.days + ' days; comparable normal days: ' + n.on_time_pct + '% over ' + rrHistoryRuns(n.n) + ' on ' + n.days + ' days.';
+        const caveat = c.small_sample ? ' That is a small sample, so treat it as a hint, not a rule.' : '';
+        if (c.effect === 'none') return nums + ' No clear pattern: the gap is under 10 points.' + caveat;
+        return nums + ' In this history, trains ran ' + (c.effect === 'worse' ? 'worse' : 'better') + ' on those days (' + Math.abs(c.gap_pts) + ' points).' + caveat;
+      }
+      function rrCalServesText(venue) {
+        if (!venue.rr) return venue.serves.join(', ');
+        return Object.keys(venue.rr).map(function(rr) {
+          const label = (RR_STATUS_RR[rr] || {}).label || rr;
+          const names = venue.rr[rr].map(function(k) {
+            const l = RR_STATUS_LINES.filter(function(x) { return x.rr === rr && x.name.toLowerCase().indexOf(k) >= 0; })[0];
+            return l ? l.name : k;
+          });
+          return label + (names.length ? ' (' + names.join(', ') + ')' : '');
+        }).join(', ');
+      }
+      async function rrAskCalendar(raw) {
+        const q = rrAskNorm(raw);
+        const holidayQ = RR_CAL_HOLIDAY_RE.test(q) || (RR_CAL_NAMED_RE.test(q) && /\b(schedule|trains?|service|running|affect\w*|rail|commuter)\b/.test(q));
+        const eventQ = !holidayQ && RR_CAL_EVENT_RE.test(q) && /\b(affect\w*|impact\w*|delay\w*|crowd\w*|busy|trains?|service|rail|commuter|lirr|mbta|metro north|nj transit|amtrak)\b/.test(q);
+        if (!holidayQ && !eventQ) return null;
+        if (holidayQ) {
+          const date = rrCalDate(q);
+          const [d, alerts, cmp] = await Promise.all([
+            rrHistoryGet('/api/history/day?' + (date.indexOf('holiday:') === 0 ? 'holiday=' + date.slice(8) : 'date=' + date)),
+            rrCalAlertScan(/holiday|sunday schedule|saturday schedule|weekend schedule|modified schedule/i),
+            rrHistoryGet('/api/history/compare?tag=holiday').catch(function() { return null; })
+          ]);
+          const day = d.days[0];
+          const when = day.date === d.today ? 'Today, ' + rrCalDateText(day.date) + ',' : rrCalDateText(day.date);
+          const parts = [];
+          if (day.holidays.length) {
+            parts.push(when + ' is ' + day.holidays.map(function(h) { return h.name + (h.scope === 'US' ? ' (federal holiday)' : ' (' + h.scope.replace('MA-Suffolk', 'Suffolk County, MA') + ' holiday)'); }).join(' and ') + '. Railroads may run a holiday or modified schedule; check your railroad\'s alerts and timetable.');
+          } else {
+            parts.push(when + ' is not a holiday on RailroadRadar\'s calendar (US federal holidays plus Massachusetts, New York, and New Jersey holidays).' + (day.weekend ? ' It is a ' + day.weekday + ', so railroads run their weekend schedules.' : ' Railroads run their regular ' + day.weekday + ' schedules unless an alert says otherwise.'));
+          }
+          day.travel.forEach(function(t) { parts.push('It is also ' + t.name + ', usually a busy travel day.'); });
+          if (day.events.length) parts.push('Events that day: ' + day.events.slice(0, 3).map(rrStatusEventText).join('; ') + '.');
+          // Live alerts describe today and the next few days, so they are only shown for a date close to today.
+          if (day.date <= rrAskYmd(new Date(Date.now() + 3 * 24 * 3600 * 1000))) parts.push(alerts.length ? 'Current alerts that mention a special schedule:\n- ' + alerts.slice(0, 4).join('\n- ') : 'No MBTA or MTA alerts mention a holiday or special schedule right now.');
+          const ct = rrCalCompareText(cmp, 'holidays');
+          if (ct) parts.push(ct);
+          return { answer: parts.join(' ').replace(/ \n/g, '\n').replace(/\n- ([^\n]*) (Not enough|Holidays:)/, '\n- $1\n$2'), note: 'Holidays come from RailroadRadar\'s calendar, computed from public holiday rules. ' + (cmp && cmp.effect !== 'insufficient' ? cmp.rule : 'Delay comparisons use RailroadRadar\'s own samples of live train feeds.') };
+        }
+        const words = q.replace(/\b(is|are|the|a|an|game|games|today|tonight|tomorrow|affect\w*|impact\w*|delay\w*|trains?|service|going|to|will|does|do|any|on|my|commute|right|now|crowd\w*|busy|event|events)\b/g, ' ').replace(/\s+/g, ' ').trim();
+        const ev = await rrHistoryGet('/api/history/events?q=' + encodeURIComponent(words || q));
+        const venue = (ev.venues || [])[0];
+        const team = (ev.teams || [])[0];
+        const parts = [];
+        if (!venue && !(ev.events || []).length) {
+          return { answer: 'RailroadRadar\'s event calendar does not know that event or venue. It covers major Boston and New York venues, parades, marathons, and fireworks.', note: 'RailroadRadar keeps a calendar of big events near train stations.' };
+        }
+        const upcoming = (ev.events || []).filter(function(e) { return !venue || e.venue === venue.venue; });
+        const todayEv = upcoming.filter(function(e) { return e.date === ev.today; });
+        if (team && !team.covered) parts.push('RailroadRadar is not tracking ' + team.team.replace(/\b\w/g, function(c) { return c.toUpperCase(); }) + ' games right now, so I cannot tell whether one is on today.');
+        else if (todayEv.length) parts.push('On today: ' + todayEv.map(rrStatusEventText).join('; ') + '.');
+        else parts.push('No ' + (team ? team.team.replace(/\b\w/g, function(c) { return c.toUpperCase(); }) + ' game' : 'event') + (venue ? ' at ' + venue.venue_name : '') + ' is on RailroadRadar\'s calendar for today.' + (upcoming.length ? ' Next: ' + upcoming.slice(0, 2).map(function(e) { return rrCalDateText(e.date) + ', ' + rrStatusEventText(e); }).join('; ') + '.' : ''));
+        if (venue) parts.push(venue.venue_name + ' is served by ' + rrCalServesText(venue) + (venue.stations ? ' (' + venue.stations + ')' : '') + '.');
+        let cmp = null;
+        if (venue) {
+          const first = String(venue.serves[0] || '');
+          const rr = Object.keys(RR_STATUS_RR).filter(function(k) { return first.indexOf(RR_STATUS_RR[k].label) === 0; })[0] || '';
+          const frag = (first.match(/\(([^,)]*)/) || [])[1] || '';
+          const line = rr && frag ? RR_STATUS_LINES.filter(function(l) { return l.rr === rr && l.name.toLowerCase().indexOf(frag) >= 0; })[0] : null;
+          if (line) {
+            const live = collectLiveTrainRows().filter(function(r) { return rrStatusRowMatch(line, r); });
+            const late = live.filter(function(r) { const d = rrStatusDelay(r); return d != null && d > 5; }).length;
+            parts.push('Right now the ' + line.name + ' has ' + (live.length ? live.length + (live.length === 1 ? ' train' : ' trains') + ' on the live map, ' + (late ? late + ' more than 5 min late' : 'none more than 5 min late') : 'no trains on the live map') + '.');
+          }
+          try { cmp = await rrHistoryGet('/api/history/compare?tag=' + venue.venue + (rr ? '&rr=' + rr : '') + (frag ? '&line=' + encodeURIComponent(frag) : '')); } catch (_) { cmp = null; }
+        }
+        const alerts = await rrCalAlertScan(new RegExp((venue ? venue.venue_name.split(' ')[0] + '|' : '') + (team ? team.team : 'event') + '|game|parade|marathon', 'i'));
+        parts.push(alerts.length ? 'Alerts that mention it:\n- ' + alerts.slice(0, 3).join('\n- ') : 'No MBTA or MTA alerts mention it right now.');
+        const ct = rrCalCompareText(cmp, 'event days');
+        if (ct) parts.push(ct);
+        return { answer: parts.join(' ').replace(/ \n/g, '\n').replace(/\n- ([^\n]*) (Not enough|Event days:)/, '\n- $1\n$2'), note: 'Events come from RailroadRadar\'s calendar (' + String(ev.source || '').replace(/^RailroadRadar event calendar \(|\)$/g, '') + '). ' + (cmp && cmp.effect !== 'insufficient' ? cmp.rule : 'Delay comparisons use RailroadRadar\'s own samples of live train feeds.') };
+      }
       async function rrAskDirect(raw, rows) {
         let site = null;
         try { site = await rrAskSiteDirect(raw); } catch (_) { site = null; }
@@ -19485,6 +20030,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const seq = ++askSeq;
         renderAskCard(results, 'loading', 'Looking at live trains…');
         try {
+          let status = null;
+          try { status = await rrAskLineStatus(raw) || await rrAskCalendar(raw); } catch (_) { status = null; }
+          if (status && status.answer) {
+            if (seq !== askSeq) return;
+            renderAskCard(results, 'ok', status.answer, { data: true, note: status.note, link: status.link });
+            renderAskTrainCards(results, status.rows || []);
+            return;
+          }
+          let history = null;
+          try { history = await rrAskHistory(raw); } catch (_) { history = null; }
+          if (history && history.answer) {
+            if (seq !== askSeq) return;
+            renderAskCard(results, 'ok', history.answer, { data: true, note: history.note });
+            return;
+          }
           const rows = collectLiveTrainRows();
           let direct = null;
           try { direct = await rrAskDirect(raw, rows); } catch (_) { direct = null; }
