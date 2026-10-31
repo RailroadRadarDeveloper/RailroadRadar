@@ -166,6 +166,11 @@
       var STALE_DROP_MS = 30 * 60 * 1000;
       var TILE_LIGHT = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
       var TILE_DARK = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}';
+      /* Halloween (Oct 31 by the visitor's own clock): the MBTA Newburyport/Rockport Line draws orange. Date only, so it reverts on Nov 1. */
+      function rrHalloweenLineColor(agency, routeId, color) {
+        var d = new Date();
+        return d.getMonth() === 9 && d.getDate() === 31 && String(agency || '').toLowerCase() === 'mbta' && String(routeId || '') === 'CR-Newburyport' ? '#FF6A00' : color;
+      }
       var SHAPE_FILES = [
         { id: 'mbta', file: '/assets/shapes/mbta.json', fallback: '#800080' },
         { id: 'mnr', file: '/assets/shapes/mnr.json', fallback: '#EE0034' },
@@ -229,7 +234,7 @@
             return r.json();
           }).then(function (data) {
             (data.routes || []).forEach(function (rt) {
-              var color = rt.color || ag.fallback;
+              var color = rrHalloweenLineColor(ag.id, rt.id, rt.color || ag.fallback);
               (rt.polylines || []).forEach(function (pl) {
                 if (!pl || pl.length < 2) return;
                 L.polyline(pl, {
