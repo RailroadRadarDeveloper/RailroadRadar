@@ -29,6 +29,10 @@
     sunset:  { top: '#251f6a', mid: '#613889', low: '#e2627c', hz: '#ffa04a', glow: [255, 146, 64, .8],   gx: 76, back: '#3a2462', scrim: .22, lead: '#eceef8' },
     dusk:    { top: '#0b0d48', mid: '#261f6a', low: '#5b3a84', hz: '#b05a78', glow: [220, 100, 110, .3],  gx: 80, back: '#1f1b66', scrim: .08, lead: '#d8dcef' }
   };
+  /* Halloween (Oct 31 by the visitor's own clock): one orange-and-black sky all day. The navy veil in the CSS still
+     fades it softly into the solid navy header. Gated on the date only, so it reverts on its own on Nov 1. */
+  var HALLOWEEN = { top: '#0a0505', mid: '#6b2310', low: '#d4561a', hz: '#ff9a2e', glow: [255, 140, 40, .7], gx: 50, back: '#1a0c08', scrim: .3, lead: '#f6e6d6' };
+  window.rrIsHalloween = function () { var d = new Date(); return d.getMonth() === 9 && d.getDate() === 31; };
   var COLORS = ['top', 'mid', 'low', 'hz', 'back', 'lead'];
   function rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
   function place() {
@@ -90,7 +94,10 @@
   window.rrSkyNow = now;
   function update() {
     var d = now(), s = sun(d, loc[0], loc[1]), f = frames(s), r = at(d.getTime(), f);
-    var a = P[r[0]], b = P[r[1]], k = r[2], st = root.style;
+    var hw = window.rrIsHalloween();
+    root.classList.toggle('is-halloween', hw);
+    var tc = document.querySelector('meta[name=theme-color]'); if (tc) tc.setAttribute('content', hw ? '#000000' : '#07093e');
+    var a = hw ? HALLOWEEN : P[r[0]], b = hw ? HALLOWEEN : P[r[1]], k = r[2], st = root.style;
     COLORS.forEach(function (c) {
       var x = rgb(a[c]), y = rgb(b[c]);
       st.setProperty('--sky-' + c, 'rgb(' + x.map(function (v, i) { return Math.round(v + (y[i] - v) * k); }).join(',') + ')');
@@ -106,6 +113,7 @@
     update();
     setInterval(update, 3 * MIN);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) update(); });
+    document.addEventListener('DOMContentLoaded', update);
     /* Ease later changes (every few minutes) instead of stepping; not on first paint, and never with reduced motion */
     requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.add('rr-sky-anim'); }); });
   } catch (_) {}
@@ -363,6 +371,22 @@ html.rr-sky-anim{transition:--sky-top 6s linear,--sky-mid 6s linear,--sky-low 6s
 .banner-lead{color:var(--sky-lead,#c9d4ea)}
 /* Soft navy pool behind the words: none at night, enough in the bright phases to keep text and buttons readable */
 .banner-inner::before{content:'';position:absolute;left:50%;top:50%;width:min(1200px,160%);height:calc(100% + 200px);transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(7,9,62,.9),rgba(7,9,62,.55) 45%,rgba(7,9,62,.18) 75%,rgba(7,9,62,0));opacity:var(--sky-scrim,0);pointer-events:none;z-index:-1}
+/* Halloween (html.is-halloween, set by the sky script on Oct 31 only): black skyline and ground, orange trains,
+   the band under the skyline is black, and the line under the greeting is hidden.
+   The eased veil below fades the orange sky softly into the solid black header. */
+html.is-halloween .banner .rr-sky-front{fill:#000}
+html.is-halloween .banner .rr-sky-ground{fill:#000}
+html.is-halloween .banner .rr-sky-trains{fill:#ff8a1f}
+html.is-halloween .banner::after{background:#000}
+/* Halloween only: the navy goes black (header, sections, footer); the same eased veil fades the sky into black */
+html.is-halloween{--navy:#000}
+html.is-halloween .banner{background:
+  radial-gradient(ellipse calc(var(--art-w) * .36) calc(var(--art-w) * .2) at var(--sky-gx,50%) calc(100% - var(--rr-band)),var(--sky-glow,transparent),transparent),
+  linear-gradient(180deg,#000 0,rgba(0,0,0,.976) calc(var(--sky-fade) * 0.1),rgba(0,0,0,.905) calc(var(--sky-fade) * 0.2),rgba(0,0,0,.794) calc(var(--sky-fade) * 0.3),rgba(0,0,0,.655) calc(var(--sky-fade) * 0.4),rgba(0,0,0,.5) calc(var(--sky-fade) * 0.5),rgba(0,0,0,.345) calc(var(--sky-fade) * 0.6),rgba(0,0,0,.206) calc(var(--sky-fade) * 0.7),rgba(0,0,0,.095) calc(var(--sky-fade) * 0.8),rgba(0,0,0,.024) calc(var(--sky-fade) * 0.9),rgba(0,0,0,0) var(--sky-fade)),
+  linear-gradient(180deg,var(--sky-top,#000) 0%,color-mix(in oklab,var(--sky-top) 50%,var(--sky-mid)) 27.5%,color-mix(in oklab,var(--sky-low) 1.3889%,color-mix(in oklab,var(--sky-top) 35.2113%,var(--sky-mid))) calc(35.1389% + var(--sky-l) * 0.0139),color-mix(in oklab,var(--sky-low) 5.5556%,color-mix(in oklab,var(--sky-top) 23.5294%,var(--sky-mid))) calc(39.7222% + var(--sky-l) * 0.0556),color-mix(in oklab,var(--sky-low) 12.5%,color-mix(in oklab,var(--sky-top) 14.2857%,var(--sky-mid))) calc(41.25% + var(--sky-l) * 0.125),color-mix(in oklab,var(--sky-low) 22.2222%,color-mix(in oklab,var(--sky-top) 7.1429%,var(--sky-mid))) calc(39.7222% + var(--sky-l) * 0.2222),color-mix(in oklab,var(--sky-low) 34.7222%,color-mix(in oklab,var(--sky-top) 2.1277%,var(--sky-mid))) calc(35.1389% + var(--sky-l) * 0.3472),color-mix(in oklab,var(--sky-low) 50%,var(--sky-mid)) calc(27.5% + var(--sky-l) * 0.5),color-mix(in oklab,var(--sky-hz) 1.3889%,color-mix(in oklab,var(--sky-mid) 35.2113%,var(--sky-low))) calc(19.0972% + var(--sky-l) * 0.6389 + var(--sky-h) * 0.0139),color-mix(in oklab,var(--sky-hz) 5.5556%,color-mix(in oklab,var(--sky-mid) 23.5294%,var(--sky-low))) calc(12.2222% + var(--sky-l) * 0.7222 + var(--sky-h) * 0.0556),color-mix(in oklab,var(--sky-hz) 12.5%,color-mix(in oklab,var(--sky-mid) 14.2857%,var(--sky-low))) calc(6.875% + var(--sky-l) * 0.75 + var(--sky-h) * 0.125),color-mix(in oklab,var(--sky-hz) 22.2222%,color-mix(in oklab,var(--sky-mid) 7.1429%,var(--sky-low))) calc(3.0556% + var(--sky-l) * 0.7222 + var(--sky-h) * 0.2222),color-mix(in oklab,var(--sky-hz) 34.7222%,color-mix(in oklab,var(--sky-mid) 2.1277%,var(--sky-low))) calc(0.7639% + var(--sky-l) * 0.6389 + var(--sky-h) * 0.3472),color-mix(in oklab,var(--sky-hz) 50%,var(--sky-low)) calc(var(--sky-l) * 0.5 + var(--sky-h) * 0.5),var(--sky-hz,#1a228e) var(--sky-h))}
+html.is-halloween .banner-inner::before{background:radial-gradient(closest-side,rgba(0,0,0,.9),rgba(0,0,0,.55) 45%,rgba(0,0,0,.18) 75%,rgba(0,0,0,0))}
+html.is-halloween .banner-lead{display:none}
+html.is-halloween .banner h1{text-shadow:0 2px 18px rgba(0,0,0,.55)}
 /* Soft dark shadow only on the avatar (no ring or border) */
 html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[data-sky=dusk]) .home-user-avatar{box-shadow:0 1px 6px rgba(7,9,62,.5)}
 </style>
@@ -406,8 +430,8 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
 <main>
   <section class="banner" aria-labelledby="banner-title">
     <svg class="banner-art" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-      <g class="rr-sky-back" fill="#1a2390"><rect x="-20" y="312" width="50" height="94"/><rect x="31" y="305" width="36" height="101"/><rect x="71" y="284" width="44" height="122"/><rect x="117" y="281" width="50" height="125"/><rect x="167" y="270" width="41" height="136"/><rect x="208" y="335" width="54" height="71"/><rect x="263" y="333" width="46" height="73"/><rect x="311" y="339" width="29" height="67"/><rect x="344" y="299" width="28" height="107"/><rect x="374" y="345" width="39" height="61"/><rect x="415" y="338" width="56" height="68"/><rect x="475" y="339" width="27" height="67"/><rect x="502" y="266" width="35" height="140"/><rect x="538" y="320" width="29" height="86"/><rect x="569" y="275" width="40" height="131"/><rect x="609" y="299" width="37" height="107"/><rect x="646" y="303" width="45" height="103"/><rect x="692" y="269" width="32" height="137"/><rect x="724" y="352" width="52" height="54"/><rect x="779" y="325" width="51" height="81"/><rect x="830" y="337" width="31" height="69"/><rect x="861" y="303" width="55" height="103"/><rect x="919" y="319" width="60" height="87"/><rect x="983" y="353" width="27" height="53"/><rect x="1013" y="332" width="46" height="74"/><rect x="1060" y="349" width="30" height="57"/><rect x="1090" y="302" width="34" height="104"/><rect x="1124" y="301" width="59" height="105"/><rect x="1187" y="324" width="32" height="82"/><rect x="1220" y="308" width="53" height="98"/><rect x="1276" y="297" width="52" height="109"/><rect x="1328" y="285" width="43" height="121"/><rect x="1372" y="319" width="41" height="87"/><rect x="1416" y="275" width="46" height="131"/></g><g fill="#111874"><rect x="-20" y="377" width="70" height="29"/><rect x="50" y="369" width="47" height="37"/><rect x="98" y="337" width="38" height="69"/><rect x="136" y="379" width="64" height="27"/><rect x="204" y="382" width="57" height="24"/><rect x="261" y="371" width="35" height="35"/><rect x="297" y="346" width="62" height="60"/><rect x="359" y="372" width="65" height="34"/><rect x="428" y="370" width="56" height="36"/><rect x="487" y="367" width="67" height="39"/><rect x="554" y="340" width="40" height="66"/><rect x="597" y="367" width="51" height="39"/><rect x="649" y="336" width="43" height="70"/><rect x="694" y="379" width="36" height="27"/><rect x="733" y="362" width="36" height="44"/><rect x="771" y="368" width="68" height="38"/><rect x="839" y="350" width="59" height="56"/><rect x="898" y="379" width="54" height="27"/><rect x="956" y="331" width="48" height="75"/><rect x="1008" y="348" width="53" height="58"/><rect x="1062" y="382" width="34" height="24"/><rect x="1097" y="379" width="48" height="27"/><rect x="1146" y="360" width="36" height="46"/><rect x="1184" y="344" width="59" height="62"/><rect x="1245" y="361" width="40" height="45"/><rect x="1287" y="342" width="43" height="64"/><rect x="1332" y="346" width="34" height="60"/><rect x="1367" y="338" width="64" height="68"/><rect x="1432" y="355" width="40" height="51"/></g><g fill="#0ac700"><g class="rr-trains-parked"><g transform="translate(930 351) scale(.85)"><g transform="translate(196 0) scale(-1 1)"><rect x="0" y="0" width="92" height="20" rx="3"/><path d="M96 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g transform="translate(574 384)"><rect x="0" y="0" width="92" height="20" rx="3"/><rect x="96" y="0" width="92" height="20" rx="3"/><path d="M192 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g class="rr-trains"></g></g>
-      <rect x="0" y="404" width="1440" height="16" fill="#111874"/>
+      <g class="rr-sky-back" fill="#1a2390"><rect x="-20" y="312" width="50" height="94"/><rect x="31" y="305" width="36" height="101"/><rect x="71" y="284" width="44" height="122"/><rect x="117" y="281" width="50" height="125"/><rect x="167" y="270" width="41" height="136"/><rect x="208" y="335" width="54" height="71"/><rect x="263" y="333" width="46" height="73"/><rect x="311" y="339" width="29" height="67"/><rect x="344" y="299" width="28" height="107"/><rect x="374" y="345" width="39" height="61"/><rect x="415" y="338" width="56" height="68"/><rect x="475" y="339" width="27" height="67"/><rect x="502" y="266" width="35" height="140"/><rect x="538" y="320" width="29" height="86"/><rect x="569" y="275" width="40" height="131"/><rect x="609" y="299" width="37" height="107"/><rect x="646" y="303" width="45" height="103"/><rect x="692" y="269" width="32" height="137"/><rect x="724" y="352" width="52" height="54"/><rect x="779" y="325" width="51" height="81"/><rect x="830" y="337" width="31" height="69"/><rect x="861" y="303" width="55" height="103"/><rect x="919" y="319" width="60" height="87"/><rect x="983" y="353" width="27" height="53"/><rect x="1013" y="332" width="46" height="74"/><rect x="1060" y="349" width="30" height="57"/><rect x="1090" y="302" width="34" height="104"/><rect x="1124" y="301" width="59" height="105"/><rect x="1187" y="324" width="32" height="82"/><rect x="1220" y="308" width="53" height="98"/><rect x="1276" y="297" width="52" height="109"/><rect x="1328" y="285" width="43" height="121"/><rect x="1372" y="319" width="41" height="87"/><rect x="1416" y="275" width="46" height="131"/></g><g class="rr-sky-front" fill="#111874"><rect x="-20" y="377" width="70" height="29"/><rect x="50" y="369" width="47" height="37"/><rect x="98" y="337" width="38" height="69"/><rect x="136" y="379" width="64" height="27"/><rect x="204" y="382" width="57" height="24"/><rect x="261" y="371" width="35" height="35"/><rect x="297" y="346" width="62" height="60"/><rect x="359" y="372" width="65" height="34"/><rect x="428" y="370" width="56" height="36"/><rect x="487" y="367" width="67" height="39"/><rect x="554" y="340" width="40" height="66"/><rect x="597" y="367" width="51" height="39"/><rect x="649" y="336" width="43" height="70"/><rect x="694" y="379" width="36" height="27"/><rect x="733" y="362" width="36" height="44"/><rect x="771" y="368" width="68" height="38"/><rect x="839" y="350" width="59" height="56"/><rect x="898" y="379" width="54" height="27"/><rect x="956" y="331" width="48" height="75"/><rect x="1008" y="348" width="53" height="58"/><rect x="1062" y="382" width="34" height="24"/><rect x="1097" y="379" width="48" height="27"/><rect x="1146" y="360" width="36" height="46"/><rect x="1184" y="344" width="59" height="62"/><rect x="1245" y="361" width="40" height="45"/><rect x="1287" y="342" width="43" height="64"/><rect x="1332" y="346" width="34" height="60"/><rect x="1367" y="338" width="64" height="68"/><rect x="1432" y="355" width="40" height="51"/></g><g class="rr-sky-trains" fill="#0ac700"><g class="rr-trains-parked"><g transform="translate(930 351) scale(.85)"><g transform="translate(196 0) scale(-1 1)"><rect x="0" y="0" width="92" height="20" rx="3"/><path d="M96 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g transform="translate(574 384)"><rect x="0" y="0" width="92" height="20" rx="3"/><rect x="96" y="0" width="92" height="20" rx="3"/><path d="M192 3q0-3 3-3h55q26 0 42 20h-100z"/></g></g><g class="rr-trains"></g></g>
+      <rect class="rr-sky-ground" x="0" y="404" width="1440" height="16" fill="#111874"/>
     </svg>
     <div class="banner-inner">
       <h1 id="banner-title">Building the Future of Train Tracking</h1>
@@ -429,6 +453,12 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
         }
         var name = null; /* null = signed out, '' = signed in with no name */
         function paint() {
+          /* Halloween: "Happy Halloween, Arturo" signed in, plain "Happy Halloween" signed out */
+          if (window.rrIsHalloween && window.rrIsHalloween()) {
+            h1.textContent = 'Happy Halloween' + (name ? ', ' + name : '');
+            h1.classList.add('is-greeting');
+            return;
+          }
           if (name === null) { h1.textContent = headline; h1.classList.remove('is-greeting'); return; }
           h1.textContent = 'Good ' + partOfDay(window.rrSkyNow ? window.rrSkyNow() : new Date()) + (name ? ', ' + name : '');
           h1.classList.add('is-greeting');
@@ -443,11 +473,12 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
           paint();
         };
         /* Morning can turn into afternoon while the tab sits open */
-        document.addEventListener('visibilitychange', function () { if (!document.hidden && name !== null) paint(); });
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) paint(); });
         try {
           var c = JSON.parse(localStorage.getItem(KEY) || 'null');
-          if (c && c.on) { name = firstName(c.name); paint(); }
+          if (c && c.on) name = firstName(c.name);
         } catch (_) {}
+        paint();
       })();
       </script>
       <p class="banner-lead">RailroadRadar takes live railroad data and integrates it with our tools to track trains and log your trips.</p>
