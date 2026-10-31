@@ -9240,9 +9240,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Truly transparent 1x1 PNG. The previous tile was RGBA(0,255,0,127);
       // Leaflet stretches errorTileUrl to the tile size, so pan/zoom tile errors painted the map green.
       const EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
+      // Called for every marker a poll creates. Reading innerWidth between marker DOM writes forces a
+      // style/layout pass each time (hundreds per MNR/LIRR poll), so the width is read once and re-read after a resize.
+      var rrPopupOptsWidth = 0; // var: hoisted, so a call before this line runs still works
+      try {
+        const rrPopupOptsReset = function() { rrPopupOptsWidth = 0; };
+        window.addEventListener('resize', rrPopupOptsReset);
+        window.addEventListener('orientationchange', rrPopupOptsReset);
+      } catch (_) {}
       function rrPopupOpts() {
-        let w = 520;
-        try { w = Math.min(window.innerWidth || 520, screen.width || 520); } catch (_) {}
+        let w = rrPopupOptsWidth || 520;
+        if (!rrPopupOptsWidth) {
+          try { w = Math.min(window.innerWidth || 520, screen.width || 520); rrPopupOptsWidth = w; } catch (_) {}
+        }
         if (w <= 700) return { maxWidth: Math.min(320, Math.max(240, w - 40)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
         return { maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true };
       }
@@ -9546,9 +9556,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let reportTrainSelectToken = 0;
       let reportTrainPreferNumber = '';
 
+      // toLocaleDateString builds a new formatter on every call; this one is shared (same en-CA YYYY-MM-DD output).
+      var RR_NY_DATE_FORMAT = null; // var: hoisted, so a call before this line runs still works
       function nyServiceDateToday() {
         try {
-          return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          if (!RR_NY_DATE_FORMAT) RR_NY_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
+          return RR_NY_DATE_FORMAT.format(new Date());
         } catch (_) {
           const d = new Date();
           return d.toISOString().slice(0, 10);
@@ -13127,6 +13140,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!stops.length) return '<div class="no-departures">No stop data</div>';
         return buildStopsHtml(stops, currentLat, currentLng);
       }
+      // Resolves after the next frame is painted (or after 100 ms if no frame comes, e.g. a hidden tab).
+      function rrAfterPaint() {
+        return new Promise(function(resolve) {
+          let done = false;
+          const finish = function() { if (!done) { done = true; resolve(); } };
+          try { requestAnimationFrame(function() { setTimeout(finish, 0); }); } catch (_) { setTimeout(finish, 0); }
+          setTimeout(finish, 100);
+        });
+      }
       async function rrHydrateAmtrakStopActuals(vid, t) {
         try {
           const num = (t && (t.trainNum || t.trainNumRaw)) || String(vid || '').replace('amtrak-', '');
@@ -13136,6 +13158,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (cached) rrApplyStopActuals(stops, cached);
           // Prefer live Amtrak departed stamps; Firebase fills gaps for already-passed stops missing times
           rrSaveStopActuals('amtrak', num, svc, stops);
+          // Let the tap's popup paint first; the re-render and stop-list scroll then run in their own task.
+          await rrAfterPaint();
           if (amtrakMarkers[vid] && amtrakMarkers[vid].isPopupOpen && amtrakMarkers[vid].isPopupOpen()) {
             amtrakMarkers[vid].getPopup().update();
             scrollStopsListToNextStop(amtrakMarkers[vid].getPopup());
@@ -19538,10 +19562,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             results.appendChild(hint);
           }
         }
-        searchInput.addEventListener('input', () => { runSearchAndAsk(false); });
+        // Typing paints the character first; the result list (hundreds of trains to filter and render) is rebuilt in
+        // the next task, once per frame, with whatever the box holds by then.
+        let searchInputPending = 0;
+        let searchInputSeq = 0;
+        searchInput.addEventListener('input', () => {
+          if (searchInputPending) return;
+          const token = searchInputPending = ++searchInputSeq;
+          const run = () => {
+            if (searchInputPending !== token) return;
+            searchInputPending = 0;
+            runSearchAndAsk(false);
+          };
+          try { requestAnimationFrame(() => { setTimeout(run, 0); }); } catch (_) { setTimeout(run, 0); }
+          setTimeout(run, 100);
+        });
         searchInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
+            searchInputPending = 0;
             runSearchAndAsk(true);
           }
         });
