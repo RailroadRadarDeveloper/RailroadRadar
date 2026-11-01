@@ -723,7 +723,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
           } catch (_) {}
         } else if (g.origin && g.dest) {
           try {
-            L.polyline([g.origin, g.dest], { color: g.color || '#07093e', weight: 3, opacity: 0.75, dashArray: '6 6' }).addTo(map);
+            L.polyline([g.origin, g.dest], { color: g.color || '#07093e', weight: 3, opacity: 1, dashArray: '6 6' }).addTo(map);
             bounds.push(g.origin, g.dest);
           } catch (_) {}
         }
