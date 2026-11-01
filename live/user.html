@@ -238,7 +238,7 @@
               (rt.polylines || []).forEach(function (pl) {
                 if (!pl || pl.length < 2) return;
                 L.polyline(pl, {
-                  color: color, weight: 3, opacity: 0.65, interactive: false, className: 'gtfs-shape-line'
+                  color: color, weight: 3, opacity: 1, interactive: false, className: 'gtfs-shape-line'
                 }).addTo(map);
               });
             });

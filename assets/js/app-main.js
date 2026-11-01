@@ -2637,7 +2637,7 @@ function tripCardStationDotIcon() {
             L.polyline([g.origin, g.dest], {
               color: g.color || '#07093e',
               weight: 3,
-              opacity: 0.75,
+              opacity: 1,
               dashArray: '6 6'
             }).addTo(map);
             bounds.push(g.origin, g.dest);
@@ -2846,7 +2846,7 @@ function tripCardStationDotIcon() {
             L.polyline([g.origin, g.dest], {
               color: g.color || '#07093e',
               weight: 5,
-              opacity: 0.85,
+              opacity: 1,
               dashArray: '8 8'
             }).addTo(map);
             bounds.push(g.origin, g.dest);
@@ -15795,7 +15795,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 grp.addLayer(L.polyline(pl, {
                   color: color,
                   weight: 3,
-                  opacity: 0.65,
+                  opacity: 1,
                   interactive: false,
                   className: 'gtfs-shape-line'
                 }));
@@ -15869,7 +15869,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (pl) {
                 const pts = L.Polyline.fromEncoded(pl).getLatLngs();
                 tripPolys.push(pts);
-                grp.addLayer(L.polyline(pts, { color: routeColors[rid] || '#800080', weight: 3, opacity: 0.7 }));
+                grp.addLayer(L.polyline(pts, { color: routeColors[rid] || '#800080', weight: 3, opacity: 1 }));
               }
             });
             try {
@@ -17312,7 +17312,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { pts = routeLines[routeId].getLatLngs(); } catch (e) {}
         }
         if (!pts || pts.length < 2) return;
-        const nextLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 0.95 }).addTo(map);
+        const nextLine = L.polyline(pts, { color: '#0ac700', weight: 5, opacity: 1 }).addTo(map);
         if (rrScheduledLine && rrScheduledLine !== nextLine) {
           try { map.removeLayer(rrScheduledLine); } catch (e) {}
         }

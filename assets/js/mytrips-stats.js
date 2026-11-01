@@ -382,6 +382,15 @@
       '<div class="tms-linebody" hidden>' + body + '</div></li>';
   }
   var MS_MAP = null;
+  // A solid (opaque) faded version of a line color: mixed most of the way toward a neutral grey.
+  function mutedLineColor(c) {
+    var g = isDark() ? [92, 98, 112] : [190, 194, 202];
+    var h = String(c || '').replace('#', '');
+    if (h.length === 3) h = h.replace(/./g, function (x) { return x + x; });
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return 'rgb(' + g.join(',') + ')';
+    var out = [0, 2, 4].map(function (i, j) { return Math.round(parseInt(h.substr(i, 2), 16) * 0.25 + g[j] * 0.75); });
+    return 'rgb(' + out.join(',') + ')';
+  }
   function drawMap(s) {
     var el = document.getElementById('tms-map');
     if (!el || typeof L === 'undefined') return;
@@ -394,7 +403,7 @@
       var col = railColor(Ln.rr), grp = L.layerGroup().addTo(map);
       layers[Ln.key] = grp;
       var polys = []; try { polys = rrGetCachedTripPolylines(Ln.rr, Ln.lid) || []; } catch (_) {}
-      polys.forEach(function (pl) { var p = L.polyline(pl, { color: col, weight: 2, opacity: 0.35, interactive: false }).addTo(grp); p.__tmsBase = { opacity: 0.35 }; });
+      polys.forEach(function (pl) { var p = L.polyline(pl, { color: col, weight: 2, opacity: 1, interactive: false }).addTo(grp); p.__tmsBase = { color: col, opacity: 1 }; p.__tmsLine = 1; });
     });
     var drawn = {};
     // Not yet visited, then passed, then boarded or got off, so the important dots sit on top.
@@ -437,12 +446,13 @@
   }
   function focusLine(key) {
     if (!MS_MAP || !MS_TRIPS) return;
-    // The open line stays bright; the others fade.
+    // The open line stays bright; the others fade. Track lines stay fully opaque and fade to a solid muted tint instead.
     Object.keys(MS_MAP.layers).forEach(function (k) {
       MS_MAP.layers[k].eachLayer(function (lay) {
         var b = lay.__tmsBase; if (!b || !lay.setStyle) return;
         var dim = key && k !== key;
-        lay.setStyle(dim ? { opacity: b.opacity * 0.25, fillOpacity: b.fillOpacity == null ? undefined : b.fillOpacity * 0.25 } : b);
+        if (lay.__tmsLine) lay.setStyle(dim ? { color: mutedLineColor(b.color), opacity: 1 } : b);
+        else lay.setStyle(dim ? { opacity: b.opacity * 0.25, fillOpacity: b.fillOpacity == null ? undefined : b.fillOpacity * 0.25 } : b);
         if (!dim && key && lay.bringToFront) lay.bringToFront();
       });
     });
