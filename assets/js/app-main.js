@@ -19,7 +19,8 @@
     /* Attributes for a live map popup header in the train's line color. Header text stays white unless white falls
        under the WCAG 3:1 large text contrast on that color (relative luminance), then it turns black.
        No known color returns '' and the header stays navy. */
-    function rrPopupHeaderAttrs(color) {
+    // forceTone ('dark' = white text, 'light' = black text) overrides the 3:1 rule for one header, e.g. Acela.
+    function rrPopupHeaderAttrs(color, forceTone) {
       const m = /^#?([0-9a-f]{6})$/i.exec(String(color || '').trim());
       if (!m) return '';
       const ch = [0, 2, 4].map(function (i) {
@@ -27,17 +28,76 @@
         return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
       });
       const lum = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
-      const tone = 1.05 / (lum + 0.05) < 3 ? 'light' : 'dark';
-      return ' style="--rr-head-bg:#' + m[1] + ';" data-rr-head-tone="' + tone + '"';
+      const forced = forceTone === 'dark' || forceTone === 'light';
+      const tone = forced ? forceTone : (1.05 / (lum + 0.05) < 3 ? 'light' : 'dark');
+      return ' style="--rr-head-bg:#' + m[1] + ';" data-rr-head-tone="' + tone + '"' + (forced ? ' data-rr-head-forced' : '');
     }
-    /* Railroad short name at the start of a live map popup title, styled like the title. Map popups hide the
-       railroad badge; the train page card shows the badge and hides this name. Skipped when the line name already
-       starts with the railroad name. */
+    /* Railroad name on its own small line above a live map popup title, same color as the title. Map popups hide
+       the railroad badge; the train page card shows the badge and hides this name. The title under it stays on one
+       line (rrFitPopupTitle shrinks it a little when it would not fit). */
     function rrPopupRailroadNameHtml(railroad, line) {
-      if (String(line || '').trim().toLowerCase().indexOf(String(railroad).toLowerCase()) === 0) return '';
       return '<span class="rr-popup-head-rr">' + escapeHtmlLite(railroad) + '</span>';
     }
+    /* Live map popup title: one line that clears the close button. When the title is still too wide, shrink its
+       font a little (down to 11.5px) instead of wrapping; past that it ends in an ellipsis. */
+    function rrFitPopupTitle(root) {
+      try {
+        const heads = (root || document).querySelectorAll('.leaflet-popup .train-popup-header > div:has(> .rr-popup-head-rr)');
+        for (let i = 0; i < heads.length; i++) {
+          const d = heads[i];
+          rrFitPopupTitleNow(d);
+          // Refit when the popup width settles or the web font arrives after the popup opens.
+          if (!d._rrFitWatch) {
+            d._rrFitWatch = true;
+            try { new ResizeObserver(function () { rrFitPopupTitleNow(d); }).observe(d); } catch (_) {}
+            try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { rrFitPopupTitleNow(d); }); } catch (_) {}
+            requestAnimationFrame(function () { rrFitPopupTitleNow(d); });
+          }
+        }
+      } catch (_) {}
+    }
+    function rrFitPopupTitleNow(d) {
+      try {
+        d.style.removeProperty('--rr-title-fs');
+        const rr = d.querySelector(':scope > .rr-popup-head-rr');
+        if (!d.clientWidth || !rr) return;
+        const cs = getComputedStyle(d);
+        const room = d.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+        const range = document.createRange();
+        range.setStartAfter(rr);
+        range.setEnd(d, d.childNodes.length);
+        const tooWide = function () { return range.getBoundingClientRect().width > room + 0.5; };
+        let fs = 14.5;
+        while (tooWide() && fs > 11.5) {
+          fs = Math.max(11.5, fs - 0.5);
+          d.style.setProperty('--rr-title-fs', fs + 'px');
+        }
+      } catch (_) {}
+    }
+    window.rrFitPopupTitle = rrFitPopupTitle;
+    /* Line name in a live map popup title. When it starts with the railroad name (e.g. "Metro-North Hudson"), that
+       part goes in its own span, which map popups hide because the railroad line above already names it; the train
+       page card still shows the whole name. */
+    function rrPopupLineHtml(railroad, line) {
+      const s = String(line == null ? '' : line);
+      const rr = String(railroad || '');
+      if (rr && s.toLowerCase().indexOf(rr.toLowerCase()) === 0) {
+        const rest = s.slice(rr.length);
+        if (/^\s+\S/.test(rest)) {
+          return '<span class="rr-popup-line-rr">' + escapeHtmlLite(s.slice(0, rr.length)) + ' </span>' + escapeHtmlLite(rest.replace(/^\s+/, ''));
+        }
+      }
+      return escapeHtmlLite(s);
+    }
 
+    /* Station popup sort key: the time a departure really leaves. A delayed train sorts at its predicted time; an
+       early estimate never sorts ahead of the scheduled time, because a train does not leave a station early. */
+    function rrDepartureSortTime(d) {
+      const sch = d && d.scheduledDeparture ? +d.scheduledDeparture : NaN;
+      const pred = d && d.predictedDeparture ? +d.predictedDeparture : NaN;
+      if (isFinite(sch) && isFinite(pred)) return Math.max(sch, pred);
+      return isFinite(pred) ? pred : (isFinite(sch) ? sch : Infinity);
+    }
     // Global error handler
     window.addEventListener('error', function(e) {
       console.error('%c[Global Error]', 'color:#e74c3c', e.message);
@@ -9217,6 +9277,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             nodes[i].style.maxWidth = w + 'px';
             nodes[i].style.minWidth = '0px';
           }
+          rrFitPopupTitle(box);
+          const pop = ev.popup;
+          if (pop && !pop._rrFitTitle) {
+            pop._rrFitTitle = true;
+            pop.on('contentupdate', function () { rrFitPopupTitle(pop._container); });
+          }
         } catch (_) {}
       });
 
@@ -12069,6 +12135,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const VIA_ICON_URL = 'data:image/png;base64,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';
       const VIA_COLOR = '#FFC20E';
       const AMTRAK_LINE_COLOR = '#003366';
+      // Acela blue: Amtrak's Acela Sky Blue, PMS 306 C (C81 M0 Y13 K0); #00B3E3 is Pantone's sRGB for 306 C.
+      const ACELA_LINE_COLOR = '#00B3E3';
       const CTRAIL_LINE_COLOR = '#EA0D2A';
       const amtrakMarkers = {};
       const amtrakTrainInfo = {};
@@ -12246,6 +12314,240 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (a === 'marc') return !!showMarc;
         return true;
       }
+      // Amtrak stop dots are drawn only at or east of this longitude (Chicago Union Station and east).
+      // Lower it (e.g. to -180) to show Amtrak stops nationwide.
+      const RR_AMTRAK_DOT_MIN_LNG = -87.75;
+      // Stops of different railroads this close together are one physical station and share one dot.
+      const RR_SHARED_STATION_M = 300;
+      // Which railroad's name a shared station dot uses (lowest first).
+      const RR_STATION_NAME_RANK = { mbta: 0, mnr: 1, metra: 2, amtrak: 3, lirr: 4, marc: 5, ctrail: 6, njt: 7 };
+      const rrStationHubs = [];
+      let rrAmtrakCoordsByCode = null;
+      function rrAmtrakCoords(code) {
+        if (!rrAmtrakCoordsByCode) {
+          rrAmtrakCoordsByCode = {};
+          try {
+            (typeof AMTRAK_TRIP_STATIONS !== 'undefined' ? AMTRAK_TRIP_STATIONS : []).forEach(function(s) {
+              if (s && s.id && isFinite(s.lat) && isFinite(s.lon)) rrAmtrakCoordsByCode[String(s.id).toUpperCase()] = [Number(s.lat), Number(s.lon)];
+            });
+          } catch (_) {}
+        }
+        return rrAmtrakCoordsByCode[String(code || '').toUpperCase()] || null;
+      }
+      // Amtraker stops carry no coordinates, so they come from the station list by stop code.
+      function rrAmtrakStopLatLng(s) {
+        if (!s) return [null, null];
+        const lat = (s.lat != null && s.lat !== '') ? parseFloat(s.lat) : NaN;
+        const lngRaw = (s.lon != null && s.lon !== '') ? s.lon : s.lng;
+        const lng = (lngRaw != null && lngRaw !== '') ? parseFloat(lngRaw) : NaN;
+        if (isFinite(lat) && isFinite(lng)) return [lat, lng];
+        const c = rrAmtrakCoords(s.code);
+        return c ? [c[0], c[1]] : [null, null];
+      }
+      function rrCleanStationName(agency, name) {
+        let n = String(name || '').replace(/\s+/g, ' ').trim();
+        if (agency === 'marc') n = n.replace(/\s+marc$/i, '').replace(/\s+(WV|MD)$/, '');
+        if (agency === 'amtrak') {
+          n = n.replace(/\s+amtrak station$/i, '');
+          if (/ (Union|Penn|South|North)$/.test(n)) n += ' Station';
+        }
+        // Title Case words the feeds write in capitals ("UNION STATION Washington").
+        n = n.replace(/\b[A-Z]{3,}\b/g, function(w) {
+          return /^(BWI|MARC|RTC|NJT|LIRR|MBTA)$/.test(w) ? w : w.charAt(0) + w.slice(1).toLowerCase();
+        });
+        return n || String(name || '');
+      }
+      function rrStationNameKey(n) {
+        return String(n || '').toLowerCase().replace(/\bstation\b/g, '').replace(/[^a-z0-9]/g, '');
+      }
+      function rrFindStationHub(agency, name, lat, lng) {
+        const key = rrStationNameKey(name);
+        let best = null, bestD = Infinity;
+        for (let i = 0; i < rrStationHubs.length; i++) {
+          const h = rrStationHubs[i];
+          if (Math.abs(h.lat - lat) > 0.02 || Math.abs(h.lng - lng) > 0.03) continue;
+          const d = haversine(h.lat, h.lng, lat, lng) * 1609.344;
+          // Another railroad's stop within ~300 m, or a stop with the same name nearby (MARC lists each direction).
+          const ok = (d <= RR_SHARED_STATION_M && !h.members[agency]) || (key && h.nameKeys.indexOf(key) >= 0 && d <= 1500);
+          if (ok && d < bestD) { best = h; bestD = d; }
+        }
+        return best;
+      }
+      function rrHubVisible(hub) {
+        return Object.keys(hub.members).some(agencyStationsVisible);
+      }
+      function rrSyncHubVisibility(hub) {
+        const m = hub.marker;
+        if (rrHubVisible(hub)) { if (!map.hasLayer(m)) m.addTo(map); }
+        else if (map.hasLayer(m)) map.removeLayer(m);
+      }
+      function rrHubLoadingHtml(hub) {
+        return rrSpLoadingHtml(hub.name);
+      }
+      // One dot per physical station; every railroad that stops there is a member of it.
+      function rrAddStationToHub(agency, ids, name, lat, lng) {
+        const a = String(agency || '').toLowerCase();
+        const clean = rrCleanStationName(a, name);
+        const rank = RR_STATION_NAME_RANK[a] != null ? RR_STATION_NAME_RANK[a] : 9;
+        let hub = rrFindStationHub(a, clean, lat, lng);
+        if (!hub) {
+          hub = { id: rrStationHubs.length, name: clean, rank: rank, lat: lat, lng: lng, members: {}, nameKeys: [], marker: null, timer: null };
+          rrStationHubs.push(hub);
+          const m = createStationDot(lat, lng);
+          m._rrHub = hub;
+          m._rrAgency = a;
+          m._rrStation = { name: clean, amtrakCode: a === 'amtrak' ? String(ids[0]) : '', lat: lat, lng: lng };
+          m.bindPopup(rrHubLoadingHtml(hub), rrPopupOpts());
+          m.on('popupopen', function() { rrOpenStationHub(hub); });
+          m.on('popupclose', function() { if (hub.timer) { clearInterval(hub.timer); hub.timer = null; } });
+          hub.marker = m;
+        } else if (rank < hub.rank) {
+          hub.name = clean;
+          hub.rank = rank;
+          hub.marker._rrStation.name = clean;
+        }
+        if (!hub.members[a]) hub.members[a] = [];
+        ids.forEach(function(id) { if (hub.members[a].indexOf(String(id)) === -1) hub.members[a].push(String(id)); });
+        const key = rrStationNameKey(clean);
+        if (key && hub.nameKeys.indexOf(key) === -1) hub.nameKeys.push(key);
+        if (a === 'amtrak' && !hub.marker._rrStation.amtrakCode) hub.marker._rrStation.amtrakCode = String(ids[0]);
+        rrSyncHubVisibility(hub);
+        return hub;
+      }
+      function rrHubDeparture(agency, key, dest, route, sched, pred, track, live, color, trainNum) {
+        const now = Date.now();
+        let status = 'Scheduled';
+        if (pred) {
+          const delay = (pred - sched) / 60000;
+          status = Math.abs(delay) <= 5 ? 'On Time' : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+        }
+        const mins = Math.floor(((pred || sched) - now) / 60000);
+        if (mins > 0 && mins < 60) status = `in ${mins} min`;
+        return {
+          agency: agency, tripId: key, routeName: route || '', destination: rrCleanStationName(agency, dest || route || ''),
+          stopName: '', trackNumber: track ? String(track) : null, trackTbd: false,
+          scheduledDeparture: sched, predictedDeparture: pred, delayMinutes: pred ? (pred - sched) / 60000 : null,
+          status: status, isLive: !!live, formattedScheduledTime: rrClockTime(sched), lineColor: color || '',
+          trainNum: trainNum != null ? String(trainNum) : ''
+        };
+      }
+      // A shared terminal reads the same in every row ("South Station", not Amtrak's "Boston South").
+      // Amtrak and CTrail destinations shown as the city. Add more cities here by Amtrak station code.
+      const RR_AMTRAK_DEST_CITY = { BOS: 'Boston', BBY: 'Boston', WAS: 'Washington D.C.' };
+      const RR_AMTRAK_DEST_CITY_NAMES = [
+        [/^(boston )?(south station|back bay)$/i, 'Boston'],
+        [/^washington( union( station)?)?$/i, 'Washington D.C.']
+      ];
+      function rrAmtrakCityDest(name, code) {
+        const byCode = RR_AMTRAK_DEST_CITY[String(code || '').toUpperCase()];
+        if (byCode) return byCode;
+        const n = String(name || '').trim();
+        for (let i = 0; i < RR_AMTRAK_DEST_CITY_NAMES.length; i++) {
+          if (RR_AMTRAK_DEST_CITY_NAMES[i][0].test(n)) return RR_AMTRAK_DEST_CITY_NAMES[i][1];
+        }
+        return n;
+      }
+      function rrAmtrakDestName(t) {
+        const last = (t.stations || [])[(t.stations || []).length - 1];
+        const m = last && last.code && stationMarkers['amtrak:' + last.code];
+        return rrAmtrakCityDest((m && m._rrHub && m._rrHub.name) || t.destName, (last && last.code) || t.destCode);
+      }
+      // Live Amtrak (and CTrail) trains due to leave one of these stop codes.
+      function rrAmtrakHubDepartures(codes) {
+        const want = {};
+        codes.forEach(function(c) { want[String(c).toUpperCase()] = true; });
+        const now = Date.now();
+        const out = [];
+        (amtrakAllTrains || []).forEach(function(t) {
+          const st = t && t.stations;
+          if (!Array.isArray(st) || /brightline/i.test(String(t.provider || ''))) return;
+          // The last stop is an arrival, not a departure.
+          for (let i = 0; i < st.length - 1; i++) {
+            const s = st[i];
+            if (!s || s.bus || !want[String(s.code || '').toUpperCase()]) continue;
+            if (String(s.status || '').toLowerCase() === 'departed') continue;
+            const sch = new Date(s.schDep || s.schArr);
+            const est = new Date(s.dep || s.arr || s.schDep || s.schArr);
+            if (isNaN(est.getTime()) || est.getTime() < now - 60000 || est.getTime() > now + 24 * 3600000) continue;
+            const vid = 'amtrak-' + (t.trainID || t.trainNum || t.trainNumRaw);
+            const codesOnTrip = st.map(function(x) { return String((x && (x.code || x.stationCode)) || '').toUpperCase(); });
+            const hartford = ['HFD', 'WFD', 'MDN', 'BER'].some(function(c) { return codesOnTrip.indexOf(c) !== -1; });
+            out.push(rrHubDeparture('amtrak', vid, rrAmtrakDestName(t), t.routeName || (hartford ? 'Hartford Line' : ''), isNaN(sch.getTime()) ? est : sch, est, s.platform, true, hartford ? CTRAIL_LINE_COLOR : (/acela/i.test(String(t.routeName || '')) ? ACELA_LINE_COLOR : AMTRAK_LINE_COLOR), t.trainNum || t.trainNumRaw));
+          }
+        });
+        return out;
+      }
+      // Live trains from a GTFS-RT feed (Metro-North, LIRR, Metra, MARC) due to leave these stops.
+      function rrFeedHubDepartures(agency, stopIds) {
+        let info = null;
+        try {
+          if (agency === 'mnr') info = mnrTrainInfo;
+          else if (agency === 'lirr') info = lirrTrainInfo;
+          else if (agency === 'metra') info = metraTrainInfo;
+          else if (agency === 'marc') info = marcTrainInfo;
+        } catch (_) {}
+        if (!info) return [];
+        const want = {};
+        stopIds.forEach(function(id) { want[String(id)] = true; });
+        const now = Date.now();
+        const out = [];
+        Object.keys(info).forEach(function(vid) {
+          const t = info[vid];
+          const st = (t && t.stops) || [];
+          for (let i = 0; i < st.length - 1; i++) {
+            const s = st[i];
+            if (!s || !want[String(s.stopId)] || s.isCompleted) continue;
+            const pred = s.predictedTime instanceof Date ? s.predictedTime : (s.predictedTime ? new Date(s.predictedTime) : null);
+            if (!pred || isNaN(pred.getTime()) || pred.getTime() < now) continue;
+            const sched = (s.delayMinutes != null && isFinite(s.delayMinutes)) ? new Date(pred.getTime() - s.delayMinutes * 60000) : pred;
+            out.push(rrHubDeparture(agency, vid, t.destName || (st[st.length - 1] && st[st.length - 1].name), t.routeName, sched, pred, s.trackNumber, true, t.routeColor, t.trainNum));
+          }
+        });
+        return out;
+      }
+      async function rrLoadHubDepartures(hub, fresh) {
+        const jobs = Object.keys(hub.members).filter(agencyStationsVisible).map(function(a) {
+          const ids = hub.members[a].slice();
+          if (a === 'mbta') {
+            if (fresh) delete stationDeparturesCache[ids.slice().sort().join('-')];
+            return getStationDepartures(ids).then(function(d) { return d.map(function(x) { return Object.assign({ agency: 'mbta' }, x); }); });
+          }
+          if (a === 'amtrak') return Promise.resolve(rrAmtrakHubDepartures(ids));
+          return Promise.resolve(rrFeedHubDepartures(a, ids));
+        });
+        const lists = await Promise.all(jobs.map(function(p) { return p.catch(function() { return []; }); }));
+        const all = [].concat.apply([], lists);
+        all.sort(function(x, y) { return rrDepartureSortTime(x) - rrDepartureSortTime(y); });
+        return all;
+      }
+      function rrHubPopupContent(hub, deps) {
+        const agencies = Object.keys(hub.members);
+        const mbtaIds = hub.members.mbta || [];
+        // Only an MBTA-only station keeps its platform count, as before.
+        const n = (agencies.length === 1 && agencies[0] === 'mbta') ? mbtaIds.length : 1;
+        return createStationPopupContent(hub.name, mbtaIds, deps, n, hub.id);
+      }
+      async function rrOpenStationHub(hub) {
+        const m = hub.marker;
+        m.getPopup().setContent(rrHubLoadingHtml(hub));
+        const deps = await rrLoadHubDepartures(hub, false);
+        if (m.isPopupOpen()) m.getPopup().setContent(rrHubPopupContent(hub, deps));
+        if (hub.timer) clearInterval(hub.timer);
+        // Live departures move while the popup is open; South/North Station tracks are assigned only minutes ahead.
+        const hubTracks = (hub.members.mbta || []).some(rrIsMbtaHubStop);
+        hub.timer = setInterval(async function() {
+          if (!m.isPopupOpen()) { clearInterval(hub.timer); hub.timer = null; return; }
+          const freshDeps = await rrLoadHubDepartures(hub, hubTracks);
+          if (m.isPopupOpen()) m.getPopup().setContent(rrHubPopupContent(hub, freshDeps));
+        }, 45000);
+      }
+      window.rrRefreshStationHub = async function(id) {
+        const hub = rrStationHubs[Number(id)];
+        if (!hub || !hub.marker.isPopupOpen()) return;
+        hub.marker.getPopup().setContent(rrHubLoadingHtml(hub));
+        const deps = await rrLoadHubDepartures(hub, true);
+        if (hub.marker.isPopupOpen()) hub.marker.getPopup().setContent(rrHubPopupContent(hub, deps));
+      };
       function upsertAgencyStationDot(agency, sid, name, lat, lng) {
         const latN = Number(lat);
         const lngN = Number(lng);
@@ -12253,16 +12555,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const a = String(agency || '').toLowerCase();
         const key = a + ':' + String(sid);
         if (stationMarkers[key]) return stationMarkers[key];
-        const title = String(name || sid || 'Station');
-        const esc = (typeof escapeHtml === 'function') ? escapeHtml(title) : title.replace(/</g, '&lt;');
-        const labels = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
-        const agencyLabel = labels[a] || a.toUpperCase();
-        const m = createStationDot(latN, lngN);
-        m._rrAgency = a;
-        m._rrStation = { name: title, amtrakCode: a === 'amtrak' ? String(sid) : '', lat: latN, lng: lngN }; if (a !== 'amtrak') { m.bindPopup('<div class="station-popup"><h3>' + esc + '</h3><p class="no-departures">' + agencyLabel + ' station</p></div>'); }
-        stationMarkers[key] = m;
-        if (agencyStationsVisible(a)) m.addTo(map);
-        return m;
+        const hub = rrAddStationToHub(a, [String(sid)], String(name || sid || 'Station'), latN, lngN);
+        stationMarkers[key] = hub.marker;
+        return hub.marker;
       }
       function plotStaticAgencyStationDots() {
         const menuIcon = document.querySelector('.station-toggle img.station-icon');
@@ -12278,16 +12573,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { walk(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'mnr'); } catch (_) {}
         try { walk(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'lirr'); } catch (_) {}
         try { walk(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'metra'); } catch (_) {}
+        try { walk(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'marc'); } catch (_) {}
       }
       function harvestAmtrakStationDots(trainObj) {
-        const stations = (trainObj && trainObj.stations) || [];
+        if (!trainObj || /brightline/i.test(String(trainObj.provider || ''))) return;
+        const stations = trainObj.stations || [];
         stations.forEach(function(s) {
-          if (!s) return;
-          const lat = s.lat != null ? s.lat : s.latitude;
-          const lon = s.lon != null ? s.lon : (s.lng != null ? s.lng : s.longitude);
-          const id = s.code || s.id || s.name;
-          if (!id) return;
-          upsertAgencyStationDot('amtrak', id, s.name || s.code || id, lat, lon);
+          if (!s || s.bus || !s.code) return;
+          if (stationMarkers['amtrak:' + s.code]) return;
+          const ll = rrAmtrakStopLatLng(s);
+          if (ll[0] == null || ll[1] < RR_AMTRAK_DOT_MIN_LNG) return;
+          upsertAgencyStationDot('amtrak', s.code, s.name || s.code, ll[0], ll[1]);
         });
       }
       function extractTrackNumber(platformName, platformDesc, platformCode) {
@@ -12809,6 +13105,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 trackTbd: isHub && !track,
                 routeName: routeInfo?.attributes.long_name || "Unknown",
                 destination: tripInfo?.attributes.headsign || "Unknown",
+                trainNum: tripInfo?.attributes.name || "",
                 scheduledDeparture: schedDep || depTime,
                 predictedDeparture: depTime,
                 delayMinutes: delay,
@@ -12843,6 +13140,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 trackTbd: isHub && !track,
                 routeName: routeInfo?.attributes.long_name || "Unknown",
                 destination: tripInfo?.attributes.headsign || "Unknown",
+                trainNum: tripInfo?.attributes.name || "",
                 scheduledDeparture: depTime,
                 predictedDeparture: null,
                 delayMinutes: null,
@@ -12852,7 +13150,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               });
             });
           }
-          departures.sort((a,b) => (a.predictedDeparture || a.scheduledDeparture) - (b.predictedDeparture || b.scheduledDeparture));
+          departures.sort((a,b) => rrDepartureSortTime(a) - rrDepartureSortTime(b));
           const limited = departures;
           stationDeparturesCache[key] = { departures: limited, timestamp: Date.now() };
           return limited;
@@ -13126,7 +13424,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Map Amtrak station objects into the same shape MBTA buildStopsHtml expects
       // so every train popup stop list uses one shared layout.
       function amtrakStationsToStops(stations) {
-        return (stations || []).map(function(s) {
+        const out = (stations || []).map(function(s) {
           const st = String(s.status || '').toLowerCase();
           const completed = st === 'departed';
           const schIso = s.schDep || s.schArr || null;
@@ -13137,6 +13435,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const liveOk = liveTime && !isNaN(liveTime.getTime());
           const formattedScheduled = formatAmtrakTime(s.schDep) || formatAmtrakTime(s.schArr) || '—';
           const formattedLive = formatAmtrakTime(s.dep) || formatAmtrakTime(s.arr) || null;
+          const ll = rrAmtrakStopLatLng(s);
           return {
             name: s.name || s.code || 'Unknown',
             scheduledTime: schOk ? schTime : null,
@@ -13147,10 +13446,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             formattedPredictedTime: formattedLive,
             formattedActualTime: (completed && formattedLive) ? formattedLive : null,
             isCompleted: completed,
-            lat: (s.lat != null && s.lat !== '') ? parseFloat(s.lat) : null,
-            lng: (s.lon != null && s.lon !== '') ? parseFloat(s.lon) : ((s.lng != null && s.lng !== '') ? parseFloat(s.lng) : null)
+            lat: ll[0],
+            lng: ll[1]
           };
         });
+        // Journey miles from the first stop, the same way MBTA trip stops get them.
+        if (out.length) {
+          out[0].cumulativeMiles = 0;
+          for (let i = 1; i < out.length; i++) {
+            const prev = out[i - 1], curr = out[i];
+            curr.cumulativeMiles = (prev.cumulativeMiles || 0) +
+              ((prev.lat != null && prev.lng != null && curr.lat != null && curr.lng != null) ? haversine(prev.lat, prev.lng, curr.lat, curr.lng) : 0);
+          }
+        }
+        return out;
       }
       function buildAmtrakStopsHtml(stations, currentLat, currentLng, trainNumber) {
         let stops = amtrakStationsToStops(stations);
@@ -13357,7 +13666,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           isNaN(amtrakLng) ? null : amtrakLng,
           num
         );
-        const headerAttrs = rrPopupHeaderAttrs(isViaPopup ? VIA_COLOR : (onHartfordLine ? CTRAIL_LINE_COLOR : AMTRAK_LINE_COLOR));
+        const acelaHeader = !isViaPopup && !onHartfordLine && isAcelaTrain(t);
+        // Acela keeps white text on Acela blue by request, an exception to the 3:1 rule.
+        const headerAttrs = rrPopupHeaderAttrs(isViaPopup ? VIA_COLOR : (onHartfordLine ? CTRAIL_LINE_COLOR : (acelaHeader ? ACELA_LINE_COLOR : AMTRAK_LINE_COLOR)), acelaHeader ? 'dark' : '');
         return `
           <div class="train-popup">
             <div class="train-popup-header"${headerAttrs}>
@@ -13365,10 +13676,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${ctrailBadge}
                 ${amtrakBadge}
                 ${rrPopupRailroadNameHtml(isViaPopup ? 'VIA Rail' : 'Amtrak', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml(isViaPopup ? 'VIA Rail' : 'Amtrak', route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dispNum)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
+                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(isViaPopup ? dest : rrAmtrakCityDest(dest, t.destCode))}</span>
                 ${amtrakAlertIcon}
               </div>
             </div>
@@ -13480,7 +13791,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const amtrakLabelInfo = buildCyclingTrainInfo({
                 route: info.routeName || (isVia ? 'VIA Rail' : 'Amtrak'),
                 trainNum: isVia ? ('VIA ' + rrViaDisplayNum(info)) : trainNum,
-                dest: info.destName || info.destCode || '',
+                dest: isVia ? (info.destName || info.destCode || '') : (rrAmtrakCityDest(info.destName, info.destCode) || info.destCode || ''),
                 speedMph: info.velocity != null ? Number(info.velocity) : null,
                 status: (info.statusMsg && String(info.statusMsg).trim()) || info.trainState || '',
                 nextStop: info.eventName || info.eventCode || ''
@@ -13972,7 +14283,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${mnrBadge}
                 ${rrPopupRailroadNameHtml('Metro-North', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metro-North', route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
@@ -14390,7 +14701,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${lirrBadge}
                 ${rrPopupRailroadNameHtml('LIRR', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('LIRR', route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
@@ -14732,7 +15043,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${metraBadge}
                 ${rrPopupRailroadNameHtml('Metra', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metra', route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
@@ -15207,7 +15518,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${njtBadge}
                 ${rrPopupRailroadNameHtml('NJ Transit', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('NJ Transit', route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 ${dest ? '<span style="color:#ffffff; font-weight:500; font-style:italic;">to</span><span style="font-weight:700; color:#ffffff; font-style:italic;">' + escapeHtmlLite(dest) + '</span>' : ''}
                 ${alertIcon}
@@ -15472,7 +15783,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
         const speedHtml = speed != null ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>') : '';
         return '<div class="train-popup"><div class="train-popup-header"' + rrPopupHeaderAttrs(MARC_STATIC.routes[String(info.routeId || '')] ? info.routeColor : '') + '><div>' + badge + rrPopupRailroadNameHtml('MARC', route) +
-          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + escapeHtmlLite(route) + '</span> ' +
+          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + rrPopupLineHtml('MARC', route) + '</span> ' +
           '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(num) + '</span> ' +
           '<span style="color:#fff;font-style:italic;">to</span> ' +
           '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(dest) + '</span>' + alertIcon +
@@ -15637,7 +15948,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let mbtaStationsRequested = false;
       async function fetchStations() {
         if (!showMbta) {
-          if (showMnr || showLirr || showMetra) plotStaticAgencyStationDots();
+          if (showMnr || showLirr || showMetra || showMarc) plotStaticAgencyStationDots();
           return;
         }
         if (mbtaStationsRequested) return;
@@ -15678,33 +15989,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const g = stationsByName[skey];
             const n = g.stopIds.length;
             g.lat /= n; g.lng /= n;
-            const m = createStationDot(g.lat, g.lng);
-            m.bindPopup(`<div class="station-popup"><h3>${escapeHtmlLite(g.name)} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading departures...</div></div>`, rrPopupOpts());
-            m.on('popupopen', async () => {
-              const deps = await getStationDepartures(g.stopIds);
-              m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, deps, n));
-              // South/North Station: tracks are assigned only minutes ahead, so refresh while open.
-              if (g.stopIds.some(rrIsMbtaHubStop)) {
-                if (m._rrHubTimer) clearInterval(m._rrHubTimer);
-                m._rrHubTimer = setInterval(async () => {
-                  if (!m.isPopupOpen()) { clearInterval(m._rrHubTimer); m._rrHubTimer = null; return; }
-                  delete stationDeparturesCache[g.stopIds.slice().sort().join('-')];
-                  const fresh = await getStationDepartures(g.stopIds.slice());
-                  if (m.isPopupOpen()) m.getPopup().setContent(createStationPopupContent(g.name, g.stopIds, fresh, n));
-                }, 45000);
-              }
-            });
-            m.on('popupclose', () => { if (m._rrHubTimer) { clearInterval(m._rrHubTimer); m._rrHubTimer = null; } });
-            stationMarkers[g.stopIds[0]] = m;
-            if (showStations) m.addTo(map);
+            stationMarkers[g.stopIds[0]] = rrAddStationToHub('mbta', g.stopIds, g.name, g.lat, g.lng).marker;
           }
         } catch (e) { mbtaStationsRequested = false; console.error("Stations error", e); }
         plotStaticAgencyStationDots();
       }
       let amtrakAllTrains = [];
       window.stationDepartureClick = function(agency, tripId, rname, dest, svcDate) {
-        if (agency === 'amtrak') {
-          const m = amtrakMarkers && (amtrakMarkers[tripId] || amtrakMarkers['amtrak-' + tripId]);
+        const feedMarkers = { amtrak: amtrakMarkers, mnr: mnrMarkers, lirr: lirrMarkers, metra: metraMarkers, marc: marcMarkers }[agency];
+        if (feedMarkers) {
+          const m = feedMarkers[tripId] || (agency === 'amtrak' ? amtrakMarkers['amtrak-' + tripId] : null);
           if (m && m.getLatLng) {
             map.flyTo(m.getLatLng(), 14, { animate: true });
             setTimeout(function() { try { m.openPopup(); } catch (e) {} }, 900);
@@ -15713,34 +16007,87 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         if (typeof openTrainSchedule === 'function') openTrainSchedule(tripId, rname, dest, svcDate);
       };
-      function createStationPopupContent(name, ids, deps, n) {
-        let html = '';
-        if (!deps.length) html = '<div class="no-departures">No upcoming departures</div>';
-        else {
-          html = `<div class="upcoming-stops"><h4>Upcoming Departures <small>(click a train for its schedule)</small></h4><ul class="departures-list">${ 
-            deps.map(d => {
-              let cls = d.status.includes('Delayed') ? 'status-delayed' : 'status-on-time';
-              const live = d.isLive ? `<span class="live-indicator"><img src="/assets/icons/live.png" class="live-train-icon"></span>` : '';
-              const plat = (n > 1 && d.stopName !== name) ? `<small>(${escapeHtmlLite(d.stopName)})</small>` : '';
-              const trk = rrTrackBadgeHtml(d.trackNumber, d.trackTbd);
-              const svcDate = ((d.predictedDeparture||d.scheduledDeparture)||new Date()).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
-              return `<li data-trip="${escapeHtmlLite(d.tripId)}" data-route="${escapeHtmlLite(d.routeName)}" data-dest="${escapeHtmlLite(d.destination)}" data-date="${svcDate}" onclick="openTrainSchedule(this.dataset.trip, this.dataset.route, this.dataset.dest, this.dataset.date)" style="cursor:pointer">
-                <span class="departure-time">${d.formattedScheduledTime}</span>
-                <span class="departure-destination"><small>${d.agency === 'amtrak' ? 'Amtrak' : 'MBTA'}</small> ${escapeHtmlLite(d.destination || d.routeName)} ${plat} ${trk} ${live}</span>
-                <span class="departure-status ${cls}">${d.status}</span>
-              </li>`;
-            }).join('')
-          }</ul></div>`;
-        }
-        const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
-        return `<div class="station-popup"><h3>${escapeHtmlLite(name)} ${n>1 ? `<span class="station-badge">${n} platforms</span>` : ''}</h3>${n>1 ? `<p><strong>Platforms:</strong> ${n}</p>` : ''}${html}<button class="refresh-button" data-ids="${escapeHtmlLite(idsStr)}" onclick="refreshStationDepartures(this.dataset.ids, 'mbta')">Refresh</button></div>`;
+      // Station popup: navy header with the station name, then one row per departure with a thick bar in that
+      // train's line color (CSS in app.css under .station-popup .rr-sp-*).
+      function rrSpColor(d) {
+        let c = d.lineColor || '';
+        if (!c && (!d.agency || d.agency === 'mbta')) c = routeColors[d.routeId] || (/^CR-/.test(String(d.routeId || '')) ? '#80276C' : '');
+        const m = /^#?([0-9a-f]{6})$/i.exec(String(c).trim());
+        return m ? '#' + m[1].toUpperCase() : '#07093E';
+      }
+      function rrSpClock(d) { return rrClockTime(d).replace(/^0/, ''); }
+      // Route or line name plus train number for a station popup row ("Acela 2153", "New Haven Line 1577").
+      function rrSpTitleCase(x) {
+        const v = String(x || '').replace(/\s+/g, ' ').trim();
+        if (v !== v.toUpperCase() && v !== v.toLowerCase()) return v;
+        return v.toLowerCase().replace(/(^|[\s/(-])([a-z])/g, function(m, a, b) { return a + b.toUpperCase(); });
+      }
+      function rrSpRouteLabel(d) {
+        let route = rrSpTitleCase(d.routeName);
+        if (/^unknown$/i.test(route)) route = '';
+        if (d.agency === 'mnr' && route && !/\bline$/i.test(route)) route += ' Line';
+        let num = String(d.trainNum || '').trim();
+        if (!num && (!d.agency || d.agency === 'mbta') && typeof extractTrainNumber === 'function') num = String(extractTrainNumber(d.tripId) || '');
+        if (num && route && new RegExp('\\b' + num.replace(/[^\w]/g, '') + '$').test(route)) num = '';
+        return (route + ' ' + num).trim();
+      }
+      function rrSpInfo(d) {
+        const t0 = rrDepartureSortTime(d);
+        const when = new Date(isFinite(t0) ? t0 : Date.now());
+        const delay = (d.delayMinutes != null && isFinite(d.delayMinutes)) ? Math.round(d.delayMinutes) : null;
+        let label, tone;
+        if (d.status === 'Departed') { label = 'Departed'; tone = 'gone'; }
+        else if (!d.predictedDeparture) { label = 'Scheduled'; tone = 'sched'; }
+        else if (delay != null && delay > 5) { label = 'Delayed ' + delay + ' Min'; tone = delay >= 15 ? 'late' : 'warn'; }
+        // A train never leaves a station early, so an early estimate still reads On Time.
+        else { label = 'On Time'; tone = 'ok'; }
+        const track = d.trackNumber ? 'Track ' + d.trackNumber : (d.trackTbd ? 'Track TBD' : '');
+        // Left: scheduled time. Right chip: estimated time (never before scheduled). Under the destination: status.
+        return { label: label, tone: tone, track: track, clock: rrSpClock(d.scheduledDeparture || when),
+          estClock: rrSpClock(when), color: rrSpColor(d) };
+      }
+      // MBTA rows open the trip schedule; rows from other railroads fly to the live train.
+      function rrSpRowAttrs(d, color) {
+        const svcDate = ((d.predictedDeparture || d.scheduledDeparture) || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        const click = (!d.agency || d.agency === 'mbta')
+          ? 'openTrainSchedule(this.dataset.trip, this.dataset.route, this.dataset.dest, this.dataset.date)'
+          : 'stationDepartureClick(this.dataset.agency, this.dataset.trip)';
+        return ' class="rr-sp-row" style="--rr-sp-line:' + color + '" data-agency="' + escapeHtmlLite(d.agency || 'mbta') + '" data-trip="' + escapeHtmlLite(d.tripId) +
+          '" data-route="' + escapeHtmlLite(d.routeName) + '" data-dest="' + escapeHtmlLite(d.destination) + '" data-date="' + svcDate + '" onclick="' + click + '" role="button" tabindex="0"';
+      }
+      const RR_SP_REFRESH_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>';
+      function rrSpHeadHtml(name, refresh) {
+        return '<div class="rr-sp-head"><div class="rr-sp-title">' + escapeHtmlLite(name) + '</div><div class="rr-sp-sub">Departures</div>' + (refresh || '') + '</div>';
+      }
+      function rrSpLoadingHtml(name) {
+        return '<div class="station-popup rr-sp">' + rrSpHeadHtml(name) + '<div class="rr-sp-empty"><span class="loading-spinner"></span> Loading Departures</div></div>';
+      }
+      function createStationPopupContent(name, ids, deps, n, hubId) {
+        const idsStr = Array.isArray(ids) ? ids.join(',') : String(ids || '');
+        const refreshClick = hubId != null ? 'rrRefreshStationHub(this.dataset.hub)' : "refreshStationDepartures(this.dataset.ids, 'mbta')";
+        const refresh = '<button type="button" class="rr-sp-refresh" title="Refresh" aria-label="Refresh" data-ids="' + escapeHtmlLite(idsStr) + '"' +
+          (hubId != null ? ' data-hub="' + hubId + '"' : '') + ' onclick="' + refreshClick + '">' + RR_SP_REFRESH_SVG + '</button>';
+        const head = rrSpHeadHtml(name, refresh);
+        if (!deps.length) return '<div class="station-popup rr-sp">' + head + '<div class="rr-sp-empty">No Upcoming Departures</div></div>';
+        const rows = deps.map(function(d) {
+          const r = rrSpInfo(d);
+          const routeLabel = rrSpRouteLabel(d);
+          const sub = (routeLabel ? '<span class="rr-sp-route">' + escapeHtmlLite(routeLabel).replace(/ (\S+)$/, '&nbsp;$1').replace(/\//g, '/<wbr>') + '</span>' : '') +
+            (r.track ? '<span>' + r.track + '</span>' : '') + '<span class="rr-sp-status rr-sp-st-' + r.tone + '">' + r.label + '</span>';
+          return '<li' + rrSpRowAttrs(d, r.color) + '><span class="rr-sp-time">' + r.clock + '</span>' +
+            '<span class="rr-sp-main"><span class="rr-sp-dest">' + escapeHtmlLite(d.destination || d.routeName) + '</span>' +
+            '<span class="rr-sp-track">' + sub + '</span></span>' +
+            '<span class="rr-sp-chip rr-sp-tone-' + r.tone + '">' + r.estClock + '</span></li>';
+        }).join('');
+        return '<div class="station-popup rr-sp">' + head + '<ul class="rr-sp-list">' + rows + '</ul>' +
+          '<div class="rr-sp-foot">Live Times Updated ' + rrSpClock(new Date()) + '</div></div>';
       }
       window.refreshStationDepartures = async function(idsStr, type) {
         const ids = idsStr.split(',');
         const m = stationMarkers[ids[0]];
         if (m && m.isPopupOpen()) {
           const nm = stationInfo[ids[0]].name;
-          m.getPopup().setContent(`<div class="station-popup"><h3>${escapeHtmlLite(nm)}</h3><div class="loading-departures"><span class="loading-spinner"></span> Loading...</div></div>`);
+          m.getPopup().setContent(rrSpLoadingHtml(nm));
           delete stationDeparturesCache[ids.sort().join('-')];
           const deps = await getStationDepartures(ids);
           m.getPopup().setContent(createStationPopupContent(nm, ids, deps, ids.length));
@@ -16305,12 +16652,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function updateStationVisibility() {
         Object.keys(stationMarkers).forEach(function(key) {
           const m = stationMarkers[key];
-          if (!m) return;
+          if (!m || m._rrHub) return;
           const agency = m._rrAgency || (key.indexOf(':') >= 0 ? key.split(':')[0] : 'mbta');
           const show = agencyStationsVisible(agency);
           if (show) { if (!map.hasLayer(m)) map.addLayer(m); }
           else { if (map.hasLayer(m)) map.removeLayer(m); }
         });
+        rrStationHubs.forEach(rrSyncHubVisibility);
       }
       function toggleRoutes(show) {
         showRoutes = show;
@@ -16836,7 +17184,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (rowVia ? !showVia : false) continue;
             res.push({
               agency: rowVia ? 'VIA Rail' : 'Amtrak', agencyColor: rowVia ? VIA_COLOR : '#003087', id: vid, markerMap: amtrakMarkers,
-              routeName: t.routeName || (rowVia ? 'VIA Rail' : 'Amtrak'), trainNum: rowVia ? ('VIA ' + rrViaDisplayNum(t)) : num, dest: t.destName || t.destCode || '—',
+              routeName: t.routeName || (rowVia ? 'VIA Rail' : 'Amtrak'), trainNum: rowVia ? ('VIA ' + rrViaDisplayNum(t)) : num, dest: rowVia ? (t.destName || t.destCode || '—') : (rrAmtrakCityDest(t.destName, t.destCode) || t.destCode || '—'),
               vehicleLabel: t.trainID || num, shareNum: num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
               statusClass: statusClass, statusText: statusRaw,
               hasAlert: hasAlert, lat: t.lat, lng: (t.lng != null ? t.lng : t.lon),
@@ -16975,7 +17323,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rrLogTripBtnHtml(agency, vid, trainNum) {
         const esc = function(s) { return escapeHtmlLite(String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")); };
         return '<button type="button" class="popup-action-btn log-trip-btn" onclick="logTripFromLive(\'' +
-          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Log this ride</button>';
+          esc(agency) + '\',\'' + esc(vid) + '\',\'' + esc(trainNum) + '\')">Log This Ride</button>';
       }
       function rrBuildLogTripPrefill(agency, vid, trainNum) {
         const a = (typeof rrNormShareAgency === 'function') ? rrNormShareAgency(agency) : String(agency || '').toLowerCase();
