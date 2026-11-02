@@ -402,8 +402,6 @@ const PAGE_CSS = `/* Line and station pages */
 .lp-crumbs{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 8px;font-size:13px;color:#c9d4ea}
 .lp-crumbs li+li::before{content:'/';margin-right:8px;color:rgba(255,255,255,.45)}
 .lp-crumbs a{color:#fff;text-decoration:none}.lp-crumbs a:hover{text-decoration:underline}
-.lp-rail{display:inline-flex;align-items:center;gap:8px;margin:0 0 8px;font:700 13px/1.2 var(--font);color:#c9d4ea;text-transform:none}
-.lp-rail::before{content:'';width:12px;height:12px;border-radius:50%;background:var(--line-color);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
 .lp-hero h1{margin:0 0 10px;font-size:clamp(26px,4.6vw,38px);line-height:1.15;font-weight:700;text-wrap:balance}
 .lp-lead{margin:0;max-width:44em;color:#c9d4ea;font-size:16px;line-height:1.5}
 .lp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
@@ -506,7 +504,6 @@ ${T.header}
   <section class="lp-hero" aria-labelledby="lp-title">
     <div class="lp-hero-inner">
       <ol class="lp-crumbs" aria-label="Breadcrumb">${o.crumbs.map((c, i) => i < o.crumbs.length - 1 ? `<li><a href="${c[1]}">${esc(c[0])}</a></li>` : `<li aria-current="page">${esc(c[0])}</li>`).join('')}</ol>
-      ${o.rail ? `<p class="lp-rail">${esc(o.rail)}</p>` : ''}
       <h1 id="lp-title">${esc(o.h1)}</h1>
       ${o.lead ? `<p class="lp-lead">${o.lead}</p>` : ''}
       ${o.actions ? `<div class="lp-actions">${o.actions}</div>` : ''}
@@ -691,7 +688,7 @@ for (const l of lines) {
     for (const s of l.all) for (const k of s.kids) m[k] = s.name;
     names = `<script type="application/json" id="lp-stop-names">${JSON.stringify(m).replace(/</g, '\\u003c')}</script>\n`;
   }
-  write(`lines/${l.slug}/index.html`, page(T, { path: path_, title, description: desc, h1: l.name, rail: R.label, lead: '',
+  write(`lines/${l.slug}/index.html`, page(T, { path: path_, title, description: desc, h1: l.name, lead: '',
     map: { rr: l.rr, lines: [{ color: l.color, paths: linePaths(l) }], stops: l.all.map((x) => { const st = l.rr === 'mbta' && stations.get(x.id); return [r5(x.lat), r5(x.lon), x.name, st ? `/stations/${st.slug}/` : '']; }) }, color: l.color, crumbs, jsonld, body, actions, mainAttrs: attrs, script: names + widget }));
 }
 
@@ -708,7 +705,7 @@ ${groups.map(([rr, ls]) => `    <section class="lp-card wide" id="${rr}" aria-la
     </section>`).join('\n')}`;
   const crumbs = [home, ['Lines', '/lines/']];
   const jsonld = [crumbsLd(crumbs, '/lines/')];
-  write('lines/index.html', page(T, { path: '/lines/', title: 'Train Line Tracker: Live Maps, Delays and On-Time Stats', h1: 'Train Lines', rail: '',
+  write('lines/index.html', page(T, { path: '/lines/', title: 'Train Line Tracker: Live Maps, Delays and On-Time Stats', h1: 'Train Lines',
     description: `Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for ${lines.length} lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail.`,
     lead: `Pick a line to see its trains live, current alerts and every station in order. ${lines.length} lines across ${groups.length} railroads.`, color: '#07093e', crumbs, jsonld, body,
     actions: '<a class="rr-btn" href="/map/">Open the Live Map</a><a class="rr-btn secondary" href="/stations/">All Stations</a>' }));
@@ -775,7 +772,7 @@ for (const st of stations.values()) {
   const stationMap = { rr: 'mbta', center: [r5(st.lat), r5(st.lon)], zoom: 13, here: [r5(st.lat), r5(st.lon), stName],
     lines: [...mbtaLines, ...others.filter((l) => l.rr === 'amtrak')].map((l) => ({ color: l.color, paths: linePaths(l, l.rr === 'mbta' ? null : box) })), stops: [...near.values()] };
   const actions = `<a class="rr-btn" href="/map/">Open the Live Map</a>` + (tt ? `<a class="rr-btn secondary" href="/timetables/?rr=mbta&amp;line=${encodeURIComponent(tt.key)}">Timetable</a>` : '');
-  write(`stations/${st.slug}/index.html`, page(T, { path: path_, title, description: desc, h1: stName, map: stationMap, rail: 'MBTA Commuter Rail', lead: '', color: mbtaLines[0].color, crumbs,
+  write(`stations/${st.slug}/index.html`, page(T, { path: path_, title, description: desc, h1: stName, map: stationMap, lead: '', color: mbtaLines[0].color, crumbs,
     jsonld: [crumbsLd(crumbs, path_), ld], body, actions, mainAttrs: attrs, script: widget }));
 }
 
@@ -791,7 +788,7 @@ ${letters.map((c) => `    <section class="lp-card wide" id="letter-${c.toLowerCa
       <ul class="lp-index lp-az">${all.filter((s) => s.name[0].toUpperCase() === c).map((s) => `<li style="--c:${s.lines[0].color}"><a href="/stations/${s.slug}/">${esc(s.name)}</a><small>${esc(s.lines.filter((l) => l.rr === 'mbta').map((l) => l.name.replace(/ Line$/, '')).join(', '))}</small></li>`).join('')}</ul>
     </section>`).join('\n')}`;
   const crumbs = [home, ['Stations', '/stations/']];
-  write('stations/index.html', page(T, { path: '/stations/', title: 'MBTA Commuter Rail Station Tracker: Live Departures and Delays', h1: 'MBTA Commuter Rail Stations', rail: '',
+  write('stations/index.html', page(T, { path: '/stations/', title: 'MBTA Commuter Rail Station Tracker: Live Departures and Delays', h1: 'MBTA Commuter Rail Stations',
     description: `Live departures, delays and lines on RailroadRadar for all ${all.length} MBTA Commuter Rail stations, from South Station and North Station to Providence, Worcester and Newburyport.`,
     lead: `All ${all.length} MBTA Commuter Rail stations, with live departures and the lines that stop at each one.`, color: '#9d1c80', crumbs, jsonld: [crumbsLd(crumbs, '/stations/')], body,
     actions: '<a class="rr-btn" href="/map/">Open the Live Map</a><a class="rr-btn secondary" href="/lines/">All Lines</a>' }));
