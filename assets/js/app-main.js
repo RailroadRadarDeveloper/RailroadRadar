@@ -30,6 +30,13 @@
       const tone = 1.05 / (lum + 0.05) < 3 ? 'light' : 'dark';
       return ' style="--rr-head-bg:#' + m[1] + ';" data-rr-head-tone="' + tone + '"';
     }
+    /* Railroad short name at the start of a live map popup title, styled like the title. Map popups hide the
+       railroad badge; the train page card shows the badge and hides this name. Skipped when the line name already
+       starts with the railroad name. */
+    function rrPopupRailroadNameHtml(railroad, line) {
+      if (String(line || '').trim().toLowerCase().indexOf(String(railroad).toLowerCase()) === 0) return '';
+      return '<span class="rr-popup-head-rr">' + escapeHtmlLite(railroad) + '</span>';
+    }
 
     // Global error handler
     window.addEventListener('error', function(e) {
@@ -13357,6 +13364,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${ctrailBadge}
                 ${amtrakBadge}
+                ${rrPopupRailroadNameHtml(isViaPopup ? 'VIA Rail' : 'Amtrak', route)}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dispNum)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
@@ -13963,6 +13971,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             <div class="train-popup-header"${headerAttrs}>
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${mnrBadge}
+                ${rrPopupRailroadNameHtml('Metro-North', route)}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
@@ -14380,6 +14389,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             <div class="train-popup-header"${headerAttrs}>
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${lirrBadge}
+                ${rrPopupRailroadNameHtml('LIRR', route)}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
@@ -14721,6 +14731,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             <div class="train-popup-header"${headerAttrs}>
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${metraBadge}
+                ${rrPopupRailroadNameHtml('Metra', route)}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
@@ -15195,6 +15206,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             <div class="train-popup-header"${headerAttrs}>
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${njtBadge}
+                ${rrPopupRailroadNameHtml('NJ Transit', route)}
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(route)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 ${dest ? '<span style="color:#ffffff; font-weight:500; font-style:italic;">to</span><span style="font-weight:700; color:#ffffff; font-style:italic;">' + escapeHtmlLite(dest) + '</span>' : ''}
@@ -15459,7 +15471,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
         else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
         const speedHtml = speed != null ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>') : '';
-        return '<div class="train-popup"><div class="train-popup-header"' + rrPopupHeaderAttrs(MARC_STATIC.routes[String(info.routeId || '')] ? info.routeColor : '') + '><div>' + badge +
+        return '<div class="train-popup"><div class="train-popup-header"' + rrPopupHeaderAttrs(MARC_STATIC.routes[String(info.routeId || '')] ? info.routeColor : '') + '><div>' + badge + rrPopupRailroadNameHtml('MARC', route) +
           '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + escapeHtmlLite(route) + '</span> ' +
           '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(num) + '</span> ' +
           '<span style="color:#fff;font-style:italic;">to</span> ' +
@@ -16126,6 +16138,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             <div class="train-popup-header"${rrPopupHeaderAttrs(routeColors[rid] || (/^CR-/.test(String(rid || '')) ? '#80276C' : ''))}>
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${capeBadge}
+                ${rrPopupRailroadNameHtml('MBTA', rname)}
                 <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
                 <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(rname)}</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(extractTrainNumber(tid) || tid)}</span>

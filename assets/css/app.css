@@ -5942,7 +5942,8 @@
     }
     /* Live map train popup header in the line color (rrPopupHeaderAttrs in app-main.js). On a light line color
        the text, logos and close button turn black; the alert triangle keeps its colors with a thin black edge. */
-    .leaflet-popup .train-popup-header[data-rr-head-tone] {
+    .leaflet-popup .train-popup-header[data-rr-head-tone],
+    .leaflet-popup .train-popup-header[data-rr-head-tone]::after {
       background: var(--rr-head-bg);
     }
     .leaflet-popup .train-popup-header[data-rr-head-tone="light"] {
@@ -5958,12 +5959,18 @@
     .leaflet-popup .train-popup-header[data-rr-head-tone="light"] img[src*="/icons/alert"] {
       filter: drop-shadow(0 0 0.6px #000) drop-shadow(0 0 0.6px #000);
     }
-    /* Railroad badges can match the line color, so they get an edge in the text color. */
-    .leaflet-popup .train-popup-header[data-rr-head-tone="dark"] .cape-badge {
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.7);
+    /* Map popups name the railroad in plain text at the start of the title instead of a badge or logo; the train
+       page card keeps the badge. */
+    .leaflet-popup .train-popup-header .cape-badge,
+    .leaflet-popup .train-popup-header .mbta-heading-icon,
+    .rr-popup-head-rr {
+      display: none;
     }
-    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] .cape-badge {
-      box-shadow: 0 0 0 1px rgba(0,0,0,0.7);
+    .leaflet-popup .rr-popup-head-rr {
+      display: inline;
+      font-size: 14.5px;
+      font-weight: 700;
+      font-style: italic;
     }
     .leaflet-popup:has(.train-popup-header[data-rr-head-tone="light"]) .leaflet-popup-close-button {
       color: #000 !important;
