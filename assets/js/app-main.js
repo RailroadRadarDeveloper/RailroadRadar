@@ -16,8 +16,8 @@
         return String(st.name || '').trim().toLowerCase().replace(/\s+(station|stop)$/, '') === 'salem';
       });
     }
-    /* Attributes for a live map popup header in the train's line color. The tone says whether black or white text
-       contrasts more with it (WCAG relative luminance); the better of the two is always at least 4.5:1.
+    /* Attributes for a live map popup header in the train's line color. Header text stays white unless white falls
+       under the WCAG 3:1 large text contrast on that color (relative luminance), then it turns black.
        No known color returns '' and the header stays navy. */
     function rrPopupHeaderAttrs(color) {
       const m = /^#?([0-9a-f]{6})$/i.exec(String(color || '').trim());
@@ -27,7 +27,7 @@
         return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
       });
       const lum = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
-      const tone = (lum + 0.05) / 0.05 >= 1.05 / (lum + 0.05) ? 'light' : 'dark';
+      const tone = 1.05 / (lum + 0.05) < 3 ? 'light' : 'dark';
       return ' style="--rr-head-bg:#' + m[1] + ';" data-rr-head-tone="' + tone + '"';
     }
 
