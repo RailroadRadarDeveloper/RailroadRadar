@@ -5940,6 +5940,38 @@
       color: #07093e !important;
       text-shadow: none;
     }
+    /* Live map train popup header in the line color (rrPopupHeaderAttrs in app-main.js). On a light line color
+       the text, logos and close button turn black; the alert triangle keeps its colors with a thin black edge. */
+    .leaflet-popup .train-popup-header[data-rr-head-tone] {
+      background: var(--rr-head-bg);
+    }
+    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] {
+      color: #000;
+    }
+    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] > div,
+    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] span:not([class]) {
+      color: #000 !important;
+    }
+    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] img:not([src*="/icons/alert"]) {
+      filter: brightness(0);
+    }
+    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] img[src*="/icons/alert"] {
+      filter: drop-shadow(0 0 0.6px #000) drop-shadow(0 0 0.6px #000);
+    }
+    /* Railroad badges can match the line color, so they get an edge in the text color. */
+    .leaflet-popup .train-popup-header[data-rr-head-tone="dark"] .cape-badge {
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.7);
+    }
+    .leaflet-popup .train-popup-header[data-rr-head-tone="light"] .cape-badge {
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.7);
+    }
+    .leaflet-popup:has(.train-popup-header[data-rr-head-tone="light"]) .leaflet-popup-close-button {
+      color: #000 !important;
+      text-shadow: none;
+    }
+    .leaflet-popup:has(.train-popup-header[data-rr-head-tone="light"]) .leaflet-popup-close-button:hover {
+      background: rgba(0,0,0,0.1);
+    }
     @media (max-width: 700px) {
       /* Mobile: healthier side margins + shorter card so map stays visible */
       .leaflet-popup-content-wrapper,
