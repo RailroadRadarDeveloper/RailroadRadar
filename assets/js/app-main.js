@@ -33,48 +33,11 @@
       return ' style="--rr-head-bg:#' + m[1] + ';" data-rr-head-tone="' + tone + '"' + (forced ? ' data-rr-head-forced' : '');
     }
     /* Railroad name on its own small line above a live map popup title, same color as the title. Map popups hide
-       the railroad badge; the train page card shows the badge and hides this name. The title under it stays on one
-       line (rrFitPopupTitle shrinks it a little when it would not fit). */
+       the railroad badge; the train page card shows the badge and hides this name. The title under it wraps onto a
+       second line when it is too long (app.css). */
     function rrPopupRailroadNameHtml(railroad, line) {
       return '<span class="rr-popup-head-rr">' + escapeHtmlLite(railroad) + '</span>';
     }
-    /* Live map popup title: one line that clears the close button. When the title is still too wide, shrink its
-       font a little (down to 11.5px) instead of wrapping; past that it ends in an ellipsis. */
-    function rrFitPopupTitle(root) {
-      try {
-        const heads = (root || document).querySelectorAll('.leaflet-popup .train-popup-header > div:has(> .rr-popup-head-rr)');
-        for (let i = 0; i < heads.length; i++) {
-          const d = heads[i];
-          rrFitPopupTitleNow(d);
-          // Refit when the popup width settles or the web font arrives after the popup opens.
-          if (!d._rrFitWatch) {
-            d._rrFitWatch = true;
-            try { new ResizeObserver(function () { rrFitPopupTitleNow(d); }).observe(d); } catch (_) {}
-            try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { rrFitPopupTitleNow(d); }); } catch (_) {}
-            requestAnimationFrame(function () { rrFitPopupTitleNow(d); });
-          }
-        }
-      } catch (_) {}
-    }
-    function rrFitPopupTitleNow(d) {
-      try {
-        d.style.removeProperty('--rr-title-fs');
-        const rr = d.querySelector(':scope > .rr-popup-head-rr');
-        if (!d.clientWidth || !rr) return;
-        const cs = getComputedStyle(d);
-        const room = d.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
-        const range = document.createRange();
-        range.setStartAfter(rr);
-        range.setEnd(d, d.childNodes.length);
-        const tooWide = function () { return range.getBoundingClientRect().width > room + 0.5; };
-        let fs = 14.5;
-        while (tooWide() && fs > 11.5) {
-          fs = Math.max(11.5, fs - 0.5);
-          d.style.setProperty('--rr-title-fs', fs + 'px');
-        }
-      } catch (_) {}
-    }
-    window.rrFitPopupTitle = rrFitPopupTitle;
     /* Line name in a live map popup title. When it starts with the railroad name (e.g. "Metro-North Hudson"), that
        part goes in its own span, which map popups hide because the railroad line above already names it; the train
        page card still shows the whole name. */
@@ -7460,7 +7423,7 @@ function closeTripDetailView(opts) {
               keyboard: true
             });
             m._rrIconKey = iconKey;
-            m.bindPopup(html, { maxWidth: 240 });
+            m.bindPopup(html, { maxWidth: 240, autoPanPaddingTopLeft: L.point(5, 84) });
             m.addTo(map);
             rrSpecialShareMarkers[uid] = m;
           } catch (e) {
@@ -9277,12 +9240,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             nodes[i].style.maxWidth = w + 'px';
             nodes[i].style.minWidth = '0px';
           }
-          rrFitPopupTitle(box);
-          const pop = ev.popup;
-          if (pop && !pop._rrFitTitle) {
-            pop._rrFitTitle = true;
-            pop.on('contentupdate', function () { rrFitPopupTitle(pop._container); });
-          }
         } catch (_) {}
       });
 
@@ -9340,8 +9297,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!rrPopupOptsWidth) {
           try { w = Math.min(window.innerWidth || 520, screen.width || 520); rrPopupOptsWidth = w; } catch (_) {}
         }
-        if (w <= 700) return { maxWidth: Math.min(320, Math.max(240, w - 40)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true };
-        return { maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true };
+        // Pan an opening (or growing) popup down far enough that its top, and the close X, sit below the
+        // zoom (ends 75px down) and layers (58px) buttons in the map's top corners; otherwise on phones the layers button covers the X.
+        const pad = { autoPan: true, autoPanPaddingTopLeft: L.point(5, 84), autoPanPaddingBottomRight: L.point(5, 5) };
+        if (w <= 700) return Object.assign({ maxWidth: Math.min(320, Math.max(240, w - 40)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true }, pad);
+        return Object.assign({ maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true }, pad);
       }
 
       // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
@@ -13676,8 +13636,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${ctrailBadge}
                 ${amtrakBadge}
                 ${rrPopupRailroadNameHtml(isViaPopup ? 'VIA Rail' : 'Amtrak', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml(isViaPopup ? 'VIA Rail' : 'Amtrak', route)}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dispNum)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml(isViaPopup ? 'VIA Rail' : 'Amtrak', route)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dispNum)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(isViaPopup ? dest : rrAmtrakCityDest(dest, t.destCode))}</span>
                 ${amtrakAlertIcon}
@@ -14283,8 +14242,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${mnrBadge}
                 ${rrPopupRailroadNameHtml('Metro-North', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metro-North', route)}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metro-North', route)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
@@ -14701,8 +14659,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${lirrBadge}
                 ${rrPopupRailroadNameHtml('LIRR', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('LIRR', route)}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('LIRR', route)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
@@ -15043,8 +15000,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${metraBadge}
                 ${rrPopupRailroadNameHtml('Metra', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metra', route)}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metra', route)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${alertIcon}
@@ -15518,8 +15474,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
                 ${njtBadge}
                 ${rrPopupRailroadNameHtml('NJ Transit', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('NJ Transit', route)}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('NJ Transit', route)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
                 ${dest ? '<span style="color:#ffffff; font-weight:500; font-style:italic;">to</span><span style="font-weight:700; color:#ffffff; font-style:italic;">' + escapeHtmlLite(dest) + '</span>' : ''}
                 ${alertIcon}
               </div>
@@ -15783,8 +15738,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
         const speedHtml = speed != null ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>') : '';
         return '<div class="train-popup"><div class="train-popup-header"' + rrPopupHeaderAttrs(MARC_STATIC.routes[String(info.routeId || '')] ? info.routeColor : '') + '><div>' + badge + rrPopupRailroadNameHtml('MARC', route) +
-          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + rrPopupLineHtml('MARC', route) + '</span> ' +
-          '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(num) + '</span> ' +
+          '<span style="font-size:14.5px;font-weight:700;color:#fff;font-style:italic;"> ' + rrPopupLineHtml('MARC', route) + '</span>' +
+          '<span data-rr-num style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(num) + '</span> ' +
           '<span style="color:#fff;font-style:italic;">to</span> ' +
           '<span style="font-weight:700;color:#fff;font-style:italic;">' + escapeHtmlLite(dest) + '</span>' + alertIcon +
           '</div></div><div class="train-popup-body"><div class="quick-status" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #eee;">' +
@@ -16487,8 +16442,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${capeBadge}
                 ${rrPopupRailroadNameHtml('MBTA', rname)}
                 <img class="mbta-heading-icon" src="/assets/icons/mbta.png" alt="MBTA">
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(rname)}</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(extractTrainNumber(tid) || tid)}</span>
+                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(rname)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(extractTrainNumber(tid) || tid)}</span>
                 <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
                 <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
                 ${hasAlert ? `<img src="/assets/icons/alert.png" alt="Alert" style="height:20px; width:auto; margin:0 0 0 8px; vertical-align:middle;">` : ''}

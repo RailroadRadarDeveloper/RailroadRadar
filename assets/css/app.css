@@ -5930,9 +5930,9 @@
     .rr-popup-head-rr {
       display: none;
     }
-    /* Railroad name on its own small line above the title, solid in the title color. The title stays on one line
-       and keeps clear of the close button; rrFitPopupTitle in app-main.js sets --rr-title-fs to shrink it a little
-       when it would not fit. The Halloween Salem popup keeps its own look. */
+    /* Railroad name on its own small line above the title, solid in the title color. A long title wraps onto a
+       second line between words, keeping the train number with the word before it, and stays clear of the close
+       button. The Halloween Salem popup keeps its own look. */
     .leaflet-popup .rr-popup-head-rr {
       display: block;
       font-size: 11px;
@@ -5947,15 +5947,19 @@
     }
     .leaflet-popup .train-popup:not(:has(.rr-salem-stop)) > .train-popup-header > div:has(> .rr-popup-head-rr) {
       display: block !important;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      padding-right: 24px;
+      white-space: normal;
+      overflow-wrap: break-word;
+      padding-right: 28px;
       min-width: 0;
     }
     .leaflet-popup .train-popup:not(:has(.rr-salem-stop)) > .train-popup-header > div:has(> .rr-popup-head-rr) > span:not(.rr-popup-head-rr) {
-      font-size: var(--rr-title-fs, 14.5px) !important;
+      font-size: 14.5px !important;
       vertical-align: middle;
+    }
+    /* The number span sits right after the line name with no space between them, so this no-break space is the
+       only gap and the two never split across lines. */
+    .leaflet-popup .train-popup:not(:has(.rr-salem-stop)) > .train-popup-header > div:has(> .rr-popup-head-rr) > span[data-rr-num]::before {
+      content: "\00a0";
     }
     .leaflet-popup .train-popup:not(:has(.rr-salem-stop)) > .train-popup-header > div:has(> .rr-popup-head-rr) > img {
       vertical-align: middle;
