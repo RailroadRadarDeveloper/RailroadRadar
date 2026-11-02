@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07093e">
+<title>Amtrak Vermonter Train Tracker: Live Map, Delays and On-Time Stats | RailroadRadar</title>
+<meta name="description" content="Follow Amtrak Vermonter trains on the RailroadRadar live map, with live delays and alerts and on-time history. All 31 stations from Washington Union Station to St. Albans, and MyTrips to log your rides.">
+<link rel="canonical" href="https://railroadradar.com/lines/amtrak-vermonter/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RailroadRadar">
+<meta property="og:title" content="Amtrak Vermonter Train Tracker: Live Map, Delays and On-Time Stats | RailroadRadar">
+<meta property="og:description" content="Follow Amtrak Vermonter trains on the RailroadRadar live map, with live delays and alerts and on-time history. All 31 stations from Washington Union Station to St. Albans, and MyTrips to log your rides.">
+<meta property="og:url" content="https://railroadradar.com/lines/amtrak-vermonter/">
+<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Amtrak Vermonter Train Tracker: Live Map, Delays and On-Time Stats | RailroadRadar">
+<meta name="twitter:description" content="Follow Amtrak Vermonter trains on the RailroadRadar live map, with live delays and alerts and on-time history. All 31 stations from Washington Union Station to St. Albans, and MyTrips to log your rides.">
+<meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
+<script>
+(function(){try{var p=localStorage.getItem('rr_theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('rr-theme-dark');}catch(_){}})();
+</script>
+<script>
+!function(b,e,t,r){
+  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+  b[t].l=+new Date;
+  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+  s.src='https://betterstack.net/b.js?t='+r;
+  /* Better Stack loads only after analytics consent (same choice as Clarity). */
+  b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
+}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+betterstack('init', { environment: 'production' });
+/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the Better Stack loader above, the Clarity loader in clarity.js and the Google Analytics loader in analytics.js. */
+</script>
+<script src="/assets/js/clarity.js?v=a614ddb074"></script>
+<script src="/assets/js/analytics.js?v=591f430b27"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<style>
+:root{
+  --navy:#07093e;
+  --font:"Google Sans",Roboto,Arial,sans-serif;
+  --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
+  --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
+  --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
+  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+}
+html.rr-theme-dark{
+  color-scheme:dark;
+  --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
+  --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
+  --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
+  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 13px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Header: same navy bar as MyTrips */
+.header{position:sticky;top:0;z-index:40;height:66px;background:var(--navy);display:flex;align-items:center;gap:10px;padding:0 16px}
+.header-logo-link{display:flex;align-items:center;flex:none}
+.header-logo{height:40px;width:auto;max-width:min(260px,52vw);display:block}
+.header .rr-site-nav{flex:1}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;position:relative}
+.header-tools{position:relative}
+.header-right .header-tools{position:static}
+.rr-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:4px;border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px/1 var(--font);text-decoration:none;white-space:nowrap;cursor:pointer}
+.rr-btn:hover{background:#dfe3f7;border-color:#dfe3f7}
+.rr-btn.small{height:32px;padding:0 12px}
+.rr-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+.rr-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#fff}
+#btn-header-tools{height:32px;padding:0 12px}
+.header-tools-panel .panel-link{display:block;color:#fff;text-decoration:none;font:700 13px/1 var(--font);padding:9px 10px;border-radius:4px;background:none;border:0;text-align:left;cursor:pointer;width:100%}
+.header-tools-panel .panel-link:hover{background:rgba(255,255,255,.14)}
+.header-auth{display:flex;align-items:center;visibility:hidden}
+.header-auth.is-ready{visibility:visible}
+.header-tools-panel .panel-nav{display:none;flex-direction:column;gap:2px;padding-bottom:4px}
+html.rr-nav-in-menu .header .rr-site-nav{visibility:hidden}
+html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
+@media (max-width:980px){.header-tools-panel .panel-nav{display:flex}}
+@media (max-width:560px){.header{padding:0 12px}.header-logo{height:32px}}
+/* Footer */
+.footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
+.footer-inner{width:min(960px,100%);margin:0 auto;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px}
+.footer-inner a,.footer-inner button{color:#fff;text-decoration:none;font:500 13px/1.4 var(--font);background:none;border:0;padding:0;cursor:pointer}
+.footer-inner a:hover,.footer-inner button:hover{text-decoration:underline}
+.footer-inner .copy{color:rgba(255,255,255,.72);margin-right:auto}
+
+/* Cookie bar and preferences (same markup and script as the map) */
+#rr-cookie-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:10080;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 12px;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:460px}
+#rr-cookie-bar[hidden],#rr-cookie-modal[hidden]{display:none!important}
+#rr-cookie-bar p{margin:0;flex:1 1 240px;font-size:12px;line-height:1.4;color:#e8eaf2}
+#rr-cookie-bar a{color:#8fd3ff}
+.rr-cookie-actions{display:flex;gap:8px;flex-shrink:0}
+.rr-cookie-btn{height:32px;border:1px solid #fff;border-radius:4px;padding:0 12px;font:700 13px/1 var(--font);cursor:pointer;white-space:nowrap;background:#fff;color:var(--navy)}
+.rr-cookie-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+#rr-cookie-modal{position:fixed;inset:0;z-index:10085;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.rr-cookie-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.rr-cookie-modal-card{position:relative;z-index:1;width:100%;max-width:520px;max-height:min(80vh,640px);overflow:auto;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 16px 16px}
+.rr-cookie-modal-card h3{margin:0 0 8px;font-size:17px}
+.rr-cookie-modal-lead{margin:0 0 14px;font-size:13px;color:#c5c9d8}
+.rr-cookie-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
+.rr-cookie-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:4px;background:rgba(255,255,255,.04)}
+.rr-cookie-row-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rr-cookie-row-text span{font-size:12px;color:#c5c9d8}
+.rr-cookie-switch{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;font-size:11px;color:#c5c9d8;cursor:pointer}
+.rr-cookie-switch input{width:18px;height:18px;accent-color:#2ecc71}
+.rr-cookie-switch.is-locked{cursor:default;opacity:.85}
+.rr-cookie-modal-actions{display:flex;gap:8px;justify-content:flex-end}
+:root{--s-field:#7c8295;--s-btn:#07093e;--s-btn-ink:#fff;--s-btn-hover:#1a1f6b;--s-tint:#eef1fa;--s-head:#07093e;--s-zebra:#f8f9fb;
+  --s-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2307093e' stroke-width='2'/%3E%3C/svg%3E")}
+html.rr-theme-dark{--s-field:#646cb5;--s-btn:#eef0fa;--s-btn-ink:#07093e;--s-btn-hover:#dfe3f7;--s-tint:rgba(255,255,255,.08);--s-head:#07093e;--s-zebra:#121747;
+  --s-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23eef0fa' stroke-width='2'/%3E%3C/svg%3E")}
+/* Line and station pages */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lp-hero{background:linear-gradient(180deg,#07093e 0%,#0d1263 100%);color:#fff;padding:22px 20px 32px}
+.lp-hero-inner,.lp-wrap{width:min(1100px,100%);margin:0 auto}
+.lp-crumbs{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 8px;font-size:13px;color:#c9d4ea}
+.lp-crumbs li+li::before{content:'/';margin-right:8px;color:rgba(255,255,255,.45)}
+.lp-crumbs a{color:#fff;text-decoration:none}.lp-crumbs a:hover{text-decoration:underline}
+.lp-rail{display:inline-flex;align-items:center;gap:8px;margin:0 0 8px;font:700 13px/1.2 var(--font);color:#c9d4ea;text-transform:none}
+.lp-rail::before{content:'';width:12px;height:12px;border-radius:50%;background:var(--line-color);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.lp-hero h1{margin:0 0 10px;font-size:clamp(26px,4.6vw,38px);line-height:1.15;font-weight:700;text-wrap:balance}
+.lp-lead{margin:0;max-width:44em;color:#c9d4ea;font-size:16px;line-height:1.5}
+.lp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.lp-hero .rr-btn{height:40px}
+.lp-hero h1+.lp-actions{margin-top:16px}
+.lp-mapbox{width:min(1100px,100%);margin:20px auto 0;padding:0 20px;box-sizing:border-box}
+.lp-map{position:relative;height:clamp(480px,62vh,560px);border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#e9edf3;z-index:0}
+.lp-map-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted);font-size:14px}
+.lp-map .leaflet-container{font-family:var(--font)}
+.lp-map-note{margin:8px 2px 0;color:var(--muted);font-size:12.5px}
+.lp-official{margin:14px 0 0;font-size:14px}
+.lp-official a{color:var(--ink);font-weight:600}
+@media (max-width:760px){.lp-mapbox{padding:0 12px;margin-top:14px}.lp-map{height:60vh;min-height:320px}}
+.lp-wrap{padding:22px 16px 56px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.lp-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:16px 18px;min-width:0}
+.lp-card.wide{grid-column:1 / -1}
+.lp-card[hidden]{display:none}
+.lp-card h2{margin:0 0 4px;display:flex;align-items:center;gap:10px;font:700 20px/1.25 var(--font);color:var(--ink)}
+.lp-card h2::before{content:'';width:5px;align-self:stretch;min-height:22px;border-radius:3px;background:var(--line-color,var(--rail-mbta))}
+.lp-card h3{margin:16px 0 6px;font:700 15px/1.3 var(--font);color:var(--ink)}
+.lp-sub{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.lp-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0}
+.lp-facts div{padding:10px 12px;background:var(--s-tint);border-radius:4px;min-width:0}
+.lp-facts dt{color:var(--muted);font:500 12px/1.2 var(--font)}
+.lp-facts dd{margin:3px 0 0;font:700 15px/1.3 var(--font);color:var(--ink);overflow-wrap:anywhere}
+.lp-stops{list-style:none;margin:0;padding:0 0 0 4px}
+.lp-stops li{position:relative;padding:5px 0 5px 22px;font-size:15px;line-height:1.35}
+.lp-stops li::before{content:'';position:absolute;left:4px;top:0;bottom:0;width:4px;background:var(--line-color)}
+.lp-stops li:first-child::before{top:50%}.lp-stops li:last-child::before{bottom:50%}
+.lp-stops li::after{content:'';position:absolute;left:0;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--surface);border:3px solid var(--line-color);box-sizing:border-box}
+.lp-stops a{color:var(--ink);font-weight:500}
+.lp-stops small{color:var(--muted);font-size:12.5px;margin-left:6px}
+.lp-cols{columns:2 240px;column-gap:28px}
+.lp-cols li{break-inside:avoid}
+.lp-links{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lp-links li{display:flex;align-items:center;gap:10px;font-size:15px}
+.lp-links li::before{content:'';flex:none;width:12px;height:12px;border-radius:50%;background:var(--c,var(--line-color))}
+.lp-links a{color:var(--ink);font-weight:500}
+.lp-links small{color:var(--muted)}
+.lp-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.lp-rows li{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.lp-rows li:first-child{border-top:0}
+.lp-rows b{font-weight:700;color:var(--ink)}
+.lp-rows span{color:var(--muted)}
+.lp-rows a{color:var(--ink)}
+.lp-pill{display:inline-block;padding:2px 8px;border-radius:10px;font:700 12px/1.4 var(--font);background:var(--s-tint);color:var(--ink);white-space:nowrap}
+.lp-pill.late{background:#fde7e9;color:#8a0f1c}.lp-pill.ok{background:#e3f4e8;color:#145c2c}
+html.rr-theme-dark .lp-pill.late{background:#5a1a26;color:#ffd6dc}html.rr-theme-dark .lp-pill.ok{background:#173f2a;color:#c9f1d6}
+.lp-alert{padding:10px 12px;margin:0 0 8px;border-left:4px solid #e0a100;background:var(--s-tint);border-radius:0 4px 4px 0;font-size:14px;line-height:1.45}
+.lp-msg{margin:0;color:var(--muted);font-size:14px}
+.lp-note{margin:12px 0 0;color:var(--muted);font-size:12.5px;line-height:1.45}
+.lp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.lp-stats div{padding:10px 12px;background:var(--s-tint);border-radius:4px}
+.lp-stats b{display:block;font:700 22px/1.2 var(--font);color:var(--ink)}
+.lp-stats span{color:var(--muted);font-size:12.5px}
+.lp-index{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 24px;list-style:none;margin:0;padding:0}
+.lp-index li{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px;min-width:0}
+.lp-index li::before{content:'';flex:none;width:10px;height:10px;border-radius:50%;background:var(--c,var(--line-color))}
+.lp-index a{color:var(--ink);font-weight:500;overflow-wrap:anywhere}
+.lp-index small{color:var(--muted);margin-left:auto;white-space:nowrap;font-size:12.5px}
+.lp-index.lp-az li{flex-wrap:wrap;align-items:baseline}
+.lp-index.lp-az small{flex:1 1 100%;margin-left:20px;white-space:normal}
+.lp-jump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 4px;padding:0;list-style:none}
+.lp-jump a{display:inline-block;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);text-decoration:none;font:500 13px/1.2 var(--font)}
+.lp-jump a:hover{border-color:var(--ink)}
+@media (max-width:760px){.lp-wrap{grid-template-columns:minmax(0,1fr)}.lp-card{padding:14px}}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://railroadradar.com/"},{"@type":"ListItem","position":2,"name":"Lines","item":"https://railroadradar.com/lines/"},{"@type":"ListItem","position":3,"name":"Amtrak Vermonter","item":"https://railroadradar.com/lines/amtrak-vermonter/"}]}</script>
+</head>
+<body>
+<header class="header">
+  <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
+  <nav class="rr-site-nav" aria-label="RailroadRadar">
+    <a href="/map/" data-nav="map">Live Map</a>
+    <a href="/timetables/" data-nav="timetables">Timetables</a>
+    <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
+    <a href="/favorites/" data-nav="favorites">Favorites</a>
+    <a href="/roster/" data-nav="roster">Roster</a>
+    <a href="/press/" data-nav="press">Press</a>
+    <a href="/survey/" data-nav="survey">Survey</a>
+  </nav>
+  <div class="header-right">
+    <div class="header-tools">
+      <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
+      <div class="header-tools-panel" id="header-tools-panel" hidden>
+        <div class="panel-nav">
+          <a class="panel-link" href="/map/">Live Map</a>
+          <a class="panel-link" href="/timetables/">Timetables</a>
+          <a class="panel-link" href="/mytrips/">MyTrips</a>
+          <a class="panel-link" href="/favorites/">Favorites</a>
+          <a class="panel-link" href="/roster/">Roster</a>
+          <a class="panel-link" href="/press/">Press</a>
+          <a class="panel-link" href="/survey/">Survey</a>
+        </div>
+        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie Settings</button>
+      </div>
+    </div>
+    <div class="header-auth is-ready" id="header-auth"></div>
+  </div>
+</header>
+
+<main id="lp-main" data-page="line" data-rr="amtrak" data-route="90" data-name="Vermonter" data-history="Vermonter" style="--line-color:#003366">
+  <section class="lp-hero" aria-labelledby="lp-title">
+    <div class="lp-hero-inner">
+      <ol class="lp-crumbs" aria-label="Breadcrumb"><li><a href="/">Home</a></li><li><a href="/lines/">Lines</a></li><li aria-current="page">Amtrak Vermonter</li></ol>
+      <p class="lp-rail">Amtrak</p>
+      <h1 id="lp-title">Amtrak Vermonter</h1>
+      
+      <div class="lp-actions"><a class="rr-btn" href="/map/">Open the Live Map</a><a class="rr-btn secondary" href="/timetables/">Timetables</a></div>
+    </div>
+  </section>
+  <section class="lp-mapbox" aria-label="Live Map">
+    <div class="lp-map" id="lp-map"><p class="lp-map-msg">Loading the Live Map...</p></div>
+    <script type="application/json" id="lp-map-data">{"rr":"amtrak","lines":[{"color":"#003366","paths":[[[38.89841,-77.00553],[38.91034,-77.00066],[38.91779,-76.97991],[38.9162,-76.92339],[38.92042,-76.90731],[38.94446,-76.87644],[38.9675,-76.85373],[39.01171,-76.77243],[39.0451,-76.73993],[39.06664,-76.72826],[39.08391,-76.70819],[39.09237,-76.70378],[39.1217,-76.69624],[39.16245,-76.69731],[39.1856,-76.69247],[39.20173,-76.69741],[39.23124,-76.69179],[39.25617,-76.69025],[39.28314,-76.67051],[39.2932,-76.65346],[39.30164,-76.64943],[39.30274,-76.63584],[39.31093,-76.62189],[39.30598,-76.61028],[39.30628,-76.59347],[39.30235,-76.58575],[39.3026,-76.56954],[39.29713,-76.55511],[39.29906,-76.52976],[39.30913,-76.49884],[39.32332,-76.48611],[39.32742,-76.47893],[39.32889,-76.45206],[39.34677,-76.39234],[39.3599,-76.37105],[39.39578,-76.33988],[39.44868,-76.21952],[39.49414,-76.17207],[39.51421,-76.1587],[39.53268,-76.11855],[39.5505,-76.09787],[39.57172,-76.03145],[39.57456,-75.99865],[39.57941,-75.97679],[39.58344,-75.96886],[39.60343,-75.94725],[39.61029,-75.9296],[39.61031,-75.92147],[39.60382,-75.90042],[39.6013,-75.87101],[39.60707,-75.84434],[39.62035,-75.82041],[39.65913,-75.77728],[39.66562,-75.76685],[39.69313,-75.67731],[39.70503,-75.64781],[39.71375,-75.59906],[39.72154,-75.57881],[39.7388,-75.56061],[39.73652,-75.54382],[39.74994,-75.51709],[39.75562,-75.49349],[39.78572,-75.47008],[39.79715,-75.45292],[39.81385,-75.43634],[39.85575,-75.3443],[39.86075,-75.33809],[39.87687,-75.32728],[39.88734,-75.31088],[39.90468,-75.27005],[39.91132,-75.25987],[39.91535,-75.24519],[39.94367,-75.20503],[39.94958,-75.18477],[39.95978,-75.18177],[39.96629,-75.18749],[39.96931,-75.19646],[39.97236,-75.19817],[39.98671,-75.17813],[40.00499,-75.13401],[40.00135,-75.0949],[40.00672,-75.08602],[40.01404,-75.05754],[40.05102,-74.98861],[40.05905,-74.97955],[40.07274,-74.95042],[40.0908,-74.92081],[40.09887,-74.87006],[40.10945,-74.84732],[40.12532,-74.83388],[40.15832,-74.79714],[40.19419,-74.78109],[40.20225,-74.77497],[40.28198,-74.66738],[40.38818,-74.53256],[40.46639,-74.47813],[40.49852,-74.44433],[40.53169,-74.39059],[40.54457,-74.35115],[40.55596,-74.34324],[40.56779,-74.33063],[40.59261,-74.29256],[40.60623,-74.27672],[40.66072,-74.21904],[40.71493,-74.18436],[40.73578,-74.16228],[40.74126,-74.15169],[40.74545,-74.11879],[40.75624,-74.08688],[40.77259,-74.04896],[40.77146,-74.04184],[40.74281,-73.97373],[40.7411,-73.95193],[40.75259,-73.90721],[40.7552,-73.90498],[40.76255,-73.90455],[40.77512,-73.9128],[40.78466,-73.92473],[40.78845,-73.92562],[40.82218,-73.88704],[40.83539,-73.87948],[40.84135,-73.86569],[40.84487,-73.84903],[40.855,-73.83955],[40.86224,-73.81927],[40.90582,-73.7908],[40.9212,-73.77613],[40.96535,-73.72301],[40.97115,-73.70657],[40.98496,-73.68572],[40.98795,-73.67595],[41.00381,-73.66188],[41.00823,-73.64754],[41.01992,-73.63326],[41.02232,-73.61925],[41.02969,-73.60038],[41.0321,-73.57314],[41.03595,-73.55732],[41.04454,-73.54756],[41.05548,-73.52454],[41.06629,-73.51982],[41.06997,-73.51452],[41.06883,-73.49218],[41.07647,-73.47648],[41.07924,-73.43498],[41.0994,-73.41842],[41.10655,-73.39774],[41.11762,-73.37646],[41.12288,-73.34198],[41.12031,-73.32156],[41.1269,-73.30179],[41.1403,-73.27949],[41.14292,-73.25793],[41.16533,-73.22796],[41.1708,-73.18709],[41.18136,-73.18694],[41.18531,-73.18327],[41.18523,-73.14589],[41.20293,-73.11862],[41.21243,-73.08269],[41.22339,-73.05704],[41.22571,-73.03376],[41.24367,-73.0022],[41.26725,-72.97195],[41.273,-72.95867],[41.28442,-72.94556],[41.29544,-72.92792],[41.30928,-72.91854],[41.31197,-72.90852],[41.32103,-72.89635],[41.34574,-72.89409],[41.38052,-72.87683],[41.40685,-72.84723],[41.45873,-72.82429],[41.48419,-72.81052],[41.49096,-72.81022],[41.5023,-72.81626],[41.51492,-72.8136],[41.53623,-72.80336],[41.54761,-72.7937],[41.55973,-72.78987],[41.58409,-72.77217],[41.592,-72.76894],[41.60382,-72.76544],[41.62776,-72.76991],[41.65306,-72.75204],[41.66596,-72.75357],[41.70099,-72.74727],[41.76023,-72.70113],[41.76443,-72.6943],[41.76629,-72.68344],[41.77218,-72.68069],[41.77577,-72.67359],[41.78885,-72.66777],[41.81592,-72.64808],[41.82944,-72.64385],[41.84201,-72.64566],[41.85739,-72.64149],[41.87921,-72.62829],[41.89207,-72.62919],[41.91819,-72.62537],[41.93506,-72.62713],[41.94286,-72.62101],[41.94373,-72.60973],[41.94684,-72.60623],[41.97005,-72.60533],[41.98791,-72.6009],[42.00184,-72.60455],[42.07075,-72.58809],[42.08127,-72.5798],[42.09591,-72.58775],[42.10272,-72.59626],[42.10568,-72.59365],[42.10365,-72.59633],[42.10197,-72.59537],[42.10562,-72.60134],[42.11699,-72.6111],[42.14417,-72.61506],[42.17482,-72.61103],[42.18365,-72.60716],[42.19204,-72.59976],[42.20039,-72.60396],[42.20753,-72.60129],[42.21247,-72.60506],[42.21453,-72.61528],[42.22425,-72.61676],[42.22949,-72.62502],[42.23287,-72.62583],[42.2494,-72.61906],[42.26228,-72.60837],[42.27249,-72.60357],[42.28007,-72.60632],[42.28756,-72.61699],[42.31588,-72.62445],[42.32312,-72.63094],[42.33413,-72.63339],[42.34612,-72.64195],[42.35508,-72.63634],[42.41561,-72.61995],[42.49556,-72.60802],[42.51995,-72.60125],[42.54758,-72.59937],[42.56776,-72.59081],[42.58989,-72.60416],[42.60587,-72.60618],[42.62397,-72.59568],[42.66653,-72.55162],[42.66709,-72.51257],[42.67868,-72.50152],[42.68941,-72.47908],[42.72265,-72.46121],[42.73934,-72.47068],[42.7535,-72.484],[42.76433,-72.51749],[42.78481,-72.52507],[42.81005,-72.54346],[42.84189,-72.54977],[42.85292,-72.55753],[42.86112,-72.55441],[42.8781,-72.55617],[42.88529,-72.55324],[42.89377,-72.53706],[42.91177,-72.53029],[42.91619,-72.52486],[42.92968,-72.52769],[42.94113,-72.52715],[42.94834,-72.53424],[42.95278,-72.53398],[42.96312,-72.51983],[42.96972,-72.49125],[42.97959,-72.47212],[43.01127,-72.45562],[43.01553,-72.45577],[43.02661,-72.46342],[43.04232,-72.46356],[43.05417,-72.46862],[43.06665,-72.45269],[43.08672,-72.43849],[43.10278,-72.44367],[43.11941,-72.43328],[43.12912,-72.44365],[43.13527,-72.44396],[43.1461,-72.44935],[43.18327,-72.43913],[43.19767,-72.43757],[43.20614,-72.43079],[43.22475,-72.42271],[43.2348,-72.42653],[43.253,-72.42463],[43.27933,-72.4059],[43.28819,-72.4033],[43.29232,-72.3961],[43.30698,-72.38207],[43.327,-72.37768],[43.3486,-72.38387],[43.36401,-72.378],[43.37756,-72.37783],[43.39035,-72.38646],[43.41011,-72.39266],[43.43856,-72.39124],[43.45192,-72.38699],[43.47187,-72.3894],[43.47795,-72.38522],[43.48811,-72.38384],[43.50413,-72.39157],[43.51019,-72.39951],[43.51564,-72.40098],[43.54659,-72.38427],[43.57711,-72.38286],[43.58471,-72.37335],[43.59353,-72.342],[43.6015,-72.32907],[43.60705,-72.32877],[43.61068,-72.33384],[43.61788,-72.33584],[43.6358,-72.32953],[43.6416,-72.31907],[43.64582,-72.31706],[43.64995,-72.32001],[43.65543,-72.33211],[43.66532,-72.3615],[43.66819,-72.37816],[43.67723,-72.39297],[43.70182,-72.40586],[43.70673,-72.4149],[43.72028,-72.41807],[43.72722,-72.43327],[43.73781,-72.43553],[43.76158,-72.45196],[43.77672,-72.4489],[43.78099,-72.45135],[43.782,-72.45645],[43.77832,-72.46937],[43.78756,-72.48957],[43.79615,-72.50361],[43.80599,-72.50751],[43.81489,-72.51584],[43.82345,-72.52855],[43.8242,-72.537],[43.82155,-72.54331],[43.81522,-72.5484],[43.8145,-72.55511],[43.81655,-72.56129],[43.82471,-72.56595],[43.82734,-72.57097],[43.82078,-72.60579],[43.82627,-72.62919],[43.84024,-72.64474],[43.85765,-72.64557],[43.87331,-72.63987],[43.89216,-72.64949],[43.91815,-72.65574],[43.92168,-72.6611],[43.92492,-72.67882],[43.9336,-72.70175],[43.9458,-72.71091],[43.96557,-72.74173],[43.97319,-72.74741],[44.02462,-72.75817],[44.03542,-72.75358],[44.04385,-72.74453],[44.05958,-72.74359],[44.07259,-72.74571],[44.08704,-72.7357],[44.11351,-72.7282],[44.11644,-72.72423],[44.11739,-72.71421],[44.10983,-72.6901],[44.11404,-72.67481],[44.12586,-72.66727],[44.13741,-72.66642],[44.15072,-72.65692],[44.16586,-72.65705],[44.17429,-72.65081],[44.17979,-72.64099],[44.19199,-72.63989],[44.20669,-72.63237],[44.22208,-72.62114],[44.22792,-72.61267],[44.22959,-72.60404],[44.23797,-72.59747],[44.24544,-72.5984],[44.25911,-72.60923],[44.27078,-72.63416],[44.27844,-72.65743],[44.28944,-72.66653],[44.29789,-72.68671],[44.31307,-72.69809],[44.31412,-72.71653],[44.31709,-72.72408],[44.32905,-72.74497],[44.33962,-72.75681],[44.34858,-72.77396],[44.35574,-72.80837],[44.35523,-72.81875],[44.37001,-72.87055],[44.38245,-72.93453],[44.40254,-72.9918],[44.43336,-73.02083],[44.45512,-73.02827],[44.45959,-73.03193],[44.47924,-73.07224],[44.48229,-73.08822],[44.48124,-73.09988],[44.48724,-73.11044],[44.49181,-73.1097],[44.54,-73.13174],[44.56063,-73.12949],[44.57036,-73.13414],[44.5793,-73.12073],[44.59291,-73.11843],[44.61031,-73.10888],[44.61993,-73.11126],[44.63562,-73.10582],[44.64659,-73.10542],[44.66609,-73.08751],[44.67662,-73.0833],[44.69097,-73.08503],[44.69874,-73.09027],[44.70699,-73.091],[44.73018,-73.08231],[44.73888,-73.08169],[44.76129,-73.10308],[44.77225,-73.10554],[44.78808,-73.10292],[44.812,-73.08628]]]}],"stops":[[38.89699,-77.00642,"Washington Union Station",""],[38.9481,-76.87149,"New Carrollton",""],[39.19236,-76.6943,"BWI Airport",""],[39.3073,-76.61569,"Baltimore Penn Station",""],[39.73726,-75.55109,"Wilmington, DE",""],[39.95562,-75.18104,"Philadelphia",""],[40.21901,-74.75444,"Trenton",""],[40.56806,-74.32958,"Metropark",""],[40.73471,-74.16475,"Newark Penn Station",""],[40.75033,-73.99446,"New York Penn Station",""],[41.04713,-73.54216,"Stamford",""],[41.17801,-73.18754,"Bridgeport",""],[41.29771,-72.92667,"New Haven Union Station",""],[41.53939,-72.80068,"Meriden",""],[41.76876,-72.68131,"Hartford",""],[41.93336,-72.62767,"Windsor Locks",""],[42.10599,-72.5929,"Springfield, MA",""],[42.20416,-72.60231,"Holyoke",""],[42.31886,-72.62638,"Northampton",""],[42.58546,-72.60076,"Greenfield",""],[42.85085,-72.5565,"Brattleboro",""],[43.13654,-72.4446,"Bellows Falls",""],[43.36833,-72.37764,"Claremont, NH",""],[43.47991,-72.38498,"Windsor-Mt. Ascutney",""],[43.64779,-72.31727,"White River Junction",""],[43.9224,-72.66546,"Randolph",""],[44.25575,-72.60639,"Montpelier-Berlin",""],[44.33501,-72.75181,"Waterbury-Stowe",""],[44.49247,-73.11028,"Essex Junction-Burlington",""],[44.81236,-73.08619,"St. Albans",""],[40.31585,-74.62398,"Princeton Junction",""]]}</script>
+  </section>
+  <div class="lp-wrap">
+    <section class="lp-card" id="live" aria-labelledby="live-title">
+      <h2 id="live-title">Live Trains</h2>
+      <p class="lp-sub">Trains running on the line right now, with how late each one is.</p>
+      <div id="lp-live"><p class="lp-msg">Loading live trains...</p></div>
+    </section>
+    <section class="lp-card" id="alerts" aria-labelledby="alerts-title">
+      <h2 id="alerts-title">Service Alerts</h2>
+      <p class="lp-sub">Current alerts from Amtrak for this route.</p>
+      <div id="lp-alerts"><p class="lp-msg">Loading alerts...</p></div>
+    </section>
+    <section class="lp-card wide" id="history" aria-labelledby="history-title" hidden>
+      <h2 id="history-title">How Is the Line Doing</h2>
+      <p class="lp-sub" id="lp-history-range"></p>
+      <div id="lp-history"></div>
+      <p class="lp-note">From RailroadRadar's own samples of live train feeds. On time means 5 minutes late or less. Not official railroad statistics.</p>
+    </section>
+    <section class="lp-card wide" id="stations" aria-labelledby="stations-title">
+      <h2 id="stations-title">Stations on the Amtrak Vermonter</h2>
+      <p class="lp-sub">31 stations, in order, from the Amtrak schedule data. Not every train serves every branch.</p>
+      <h3>Washington Union Station to St. Albans</h3><ol class="lp-stops lp-cols"><li>Washington Union Station</li><li>New Carrollton</li><li>BWI Airport</li><li>Baltimore Penn Station</li><li>Wilmington, DE</li><li>Philadelphia</li><li>Trenton</li><li>Metropark</li><li>Newark Penn Station</li><li>New York Penn Station</li><li>Stamford</li><li>Bridgeport</li><li>New Haven Union Station</li><li>Meriden</li><li>Hartford</li><li>Windsor Locks</li><li>Springfield, MA</li><li>Holyoke</li><li>Northampton</li><li>Greenfield</li><li>Brattleboro</li><li>Bellows Falls</li><li>Claremont, NH</li><li>Windsor-Mt. Ascutney</li><li>White River Junction</li><li>Randolph</li><li>Montpelier-Berlin</li><li>Waterbury-Stowe</li><li>Essex Junction-Burlington</li><li>St. Albans</li></ol><h3>Via Princeton Junction, Between Trenton and Metropark</h3><ol class="lp-stops"><li>Princeton Junction</li></ol>
+    </section>
+    <section class="lp-card wide" aria-labelledby="facts-title">
+      <h2 id="facts-title">About the Line</h2>
+      <dl class="lp-facts">
+        <div><dt>Railroad</dt><dd>Amtrak</dd></div>
+        <div><dt>Stations</dt><dd>31</dd></div>
+        <div><dt>Ends</dt><dd>Washington Union Station and St. Albans</dd></div>
+      </dl>
+      <p class="lp-official"><a href="https://www.amtrak.com/train-schedules-timetables" rel="noopener">Official Amtrak Schedule</a></p>
+      <h3>Other Amtrak Routes</h3><ul class="lp-index"><li style="--c:#003366"><a href="/lines/amtrak-lincoln-service/">Amtrak Lincoln Service</a></li><li style="--c:#003366"><a href="/lines/amtrak-illini/">Amtrak Illini</a></li><li style="--c:#003366"><a href="/lines/amtrak-lincoln-service-missouri-river-runner/">Amtrak Lincoln Service Missouri River Runner</a></li><li style="--c:#003366"><a href="/lines/amtrak-missouri-river-runner/">Amtrak Missouri River Runner</a></li><li style="--c:#003366"><a href="/lines/amtrak-pere-marquette/">Amtrak Pere Marquette</a></li><li style="--c:#003366"><a href="/lines/amtrak-capitol-corridor/">Amtrak Capitol Corridor</a></li><li style="--c:#003366"><a href="/lines/amtrak-hartford-line/">Amtrak Hartford Line</a></li><li style="--c:#003366"><a href="/lines/amtrak-keystone-service/">Amtrak Keystone Service</a></li><li style="--c:#003366"><a href="/lines/amtrak-floridian/">Amtrak Floridian</a></li><li style="--c:#003366"><a href="/lines/amtrak-northeast-regional/">Amtrak Northeast Regional</a></li><li style="--c:#003366"><a href="/lines/amtrak-empire-builder/">Amtrak Empire Builder</a></li><li style="--c:#003366"><a href="/lines/amtrak-silver-meteor/">Amtrak Silver Meteor</a></li><li style="--c:#003366"><a href="/lines/amtrak-southwest-chief/">Amtrak Southwest Chief</a></li><li style="--c:#003366"><a href="/lines/amtrak-empire-service/">Amtrak Empire Service</a></li><li style="--c:#003366"><a href="/lines/amtrak-ethan-allen-express/">Amtrak Ethan Allen Express</a></li><li style="--c:#003366"><a href="/lines/amtrak-california-zephyr/">Amtrak California Zephyr</a></li><li style="--c:#003366"><a href="/lines/amtrak-acela/">Amtrak Acela</a></li><li style="--c:#003366"><a href="/lines/amtrak-blue-water/">Amtrak Blue Water</a></li><li style="--c:#003366"><a href="/lines/amtrak-carl-sandburg/">Amtrak Carl Sandburg</a></li><li style="--c:#003366"><a href="/lines/amtrak-cascades/">Amtrak Cascades</a></li><li style="--c:#003366"><a href="/lines/amtrak-downeaster/">Amtrak Downeaster</a></li><li style="--c:#003366"><a href="/lines/amtrak-valley-flyer/">Amtrak Valley Flyer</a></li><li style="--c:#003366"><a href="/lines/amtrak-adirondack/">Amtrak Adirondack</a></li><li style="--c:#003366"><a href="/lines/amtrak-hiawatha-service/">Amtrak Hiawatha Service</a></li><li style="--c:#003366"><a href="/lines/amtrak-borealis/">Amtrak Borealis</a></li><li style="--c:#003366"><a href="/lines/amtrak-cardinal/">Amtrak Cardinal</a></li><li style="--c:#003366"><a href="/lines/amtrak-palmetto/">Amtrak Palmetto</a></li><li style="--c:#003366"><a href="/lines/amtrak-saluki/">Amtrak Saluki</a></li><li style="--c:#003366"><a href="/lines/amtrak-city-of-new-orleans/">Amtrak City of New Orleans</a></li><li style="--c:#003366"><a href="/lines/amtrak-piedmont/">Amtrak Piedmont</a></li><li style="--c:#003366"><a href="/lines/amtrak-heartland-flyer/">Amtrak Heartland Flyer</a></li><li style="--c:#003366"><a href="/lines/amtrak-pennsylvanian/">Amtrak Pennsylvanian</a></li><li style="--c:#003366"><a href="/lines/amtrak-maple-leaf/">Amtrak Maple Leaf</a></li><li style="--c:#003366"><a href="/lines/amtrak-crescent/">Amtrak Crescent</a></li><li style="--c:#003366"><a href="/lines/amtrak-mardi-gras-service/">Amtrak Mardi Gras Service</a></li><li style="--c:#003366"><a href="/lines/amtrak-auto-train/">Amtrak Auto Train</a></li><li style="--c:#003366"><a href="/lines/amtrak-lake-shore-limited/">Amtrak Lake Shore Limited</a></li><li style="--c:#003366"><a href="/lines/amtrak-carolinian/">Amtrak Carolinian</a></li><li style="--c:#003366"><a href="/lines/amtrak-texas-eagle/">Amtrak Texas Eagle</a></li><li style="--c:#003366"><a href="/lines/amtrak-sunset-limited/">Amtrak Sunset Limited</a></li><li style="--c:#003366"><a href="/lines/amtrak-pacific-surfliner/">Amtrak Pacific Surfliner</a></li><li style="--c:#003366"><a href="/lines/amtrak-coast-starlight/">Amtrak Coast Starlight</a></li><li style="--c:#003366"><a href="/lines/amtrak-wolverine/">Amtrak Wolverine</a></li></ul>
+    </section>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="copy">© 2026 RailroadRadar</span>
+    <a href="/map/">Live Map</a>
+    <a href="/timetables/">Timetables</a>
+    <a href="/mytrips/">MyTrips</a>
+    <a href="/favorites/">Favorites</a>
+    <a href="/roster/">Roster</a>
+    <a href="/press/">Press</a>
+    <a href="/survey/">Survey</a>
+    <a href="/policies/privacy/">Privacy Policy</a>
+    <a href="/policies/terms-of-use/">Terms of Use</a>
+    <a href="/sitemap/">Sitemap</a>
+    <button type="button" id="footer-cookie-settings">Cookie Settings</button>
+  </div>
+</footer>
+
+<div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
+  <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity, Google Analytics and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></p>
+  <div class="rr-cookie-actions">
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+    <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
+  </div>
+</div>
+<div id="rr-cookie-modal" hidden aria-hidden="true">
+  <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
+  <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
+    <h3 id="rr-cookie-modal-title">Cookie Preferences</h3>
+    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie Settings at the bottom of the page.</p>
+    <ul class="rr-cookie-list">
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
+        <label class="rr-cookie-switch is-locked"><input type="checkbox" id="rr-cookie-essential" checked disabled><span>Always on</span></label>
+      </li>
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Analytics</strong><span>Microsoft Clarity shows us how people use the site, using cookies from clarity.ms. Google Analytics counts visits and page views, using its own cookies on our site. Better Stack reports page errors and performance.</span></div>
+        <label class="rr-cookie-switch"><input type="checkbox" id="rr-cookie-clarity"><span>Allow</span></label>
+      </li>
+    </ul>
+    <div class="rr-cookie-modal-actions">
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
+    </div>
+  </div>
+</div>
+<script src="/assets/js/app-cookie-consent.js?v=ce091d5bf9"></script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
+<script src="/assets/js/survey-prompt.js?v=985e8f67cb" defer></script>
+<script src="/assets/js/line-pages.js?v=9deb021265" defer></script>
+</body>
+</html>
