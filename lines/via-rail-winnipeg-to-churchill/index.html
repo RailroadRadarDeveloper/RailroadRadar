@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07093e">
+<title>VIA Rail Winnipeg to Churchill Train Tracker: Live Map, Trains and Stations | RailroadRadar</title>
+<meta name="description" content="Follow VIA Rail Winnipeg to Churchill trains on the RailroadRadar live map. All 71 stations from Winnipeg to Churchill, and MyTrips to log your rides.">
+<link rel="canonical" href="https://railroadradar.com/lines/via-rail-winnipeg-to-churchill/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RailroadRadar">
+<meta property="og:title" content="VIA Rail Winnipeg to Churchill Train Tracker: Live Map, Trains and Stations | RailroadRadar">
+<meta property="og:description" content="Follow VIA Rail Winnipeg to Churchill trains on the RailroadRadar live map. All 71 stations from Winnipeg to Churchill, and MyTrips to log your rides.">
+<meta property="og:url" content="https://railroadradar.com/lines/via-rail-winnipeg-to-churchill/">
+<meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="VIA Rail Winnipeg to Churchill Train Tracker: Live Map, Trains and Stations | RailroadRadar">
+<meta name="twitter:description" content="Follow VIA Rail Winnipeg to Churchill trains on the RailroadRadar live map. All 71 stations from Winnipeg to Churchill, and MyTrips to log your rides.">
+<meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
+<script>
+(function(){try{var p=localStorage.getItem('rr_theme');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('rr-theme-dark');}catch(_){}})();
+</script>
+<script>
+!function(b,e,t,r){
+  b[t]=b[t]||function(...args){(b[t].q=b[t].q||[]).push(args)};
+  b[t].l=+new Date;
+  var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
+  s.src='https://betterstack.net/b.js?t='+r;
+  /* Better Stack loads only after analytics consent (same choice as Clarity). */
+  b.__rrLoadBetterStack=function(){if(b.__rrBsLoaded)return;b.__rrBsLoaded=1;(e.head||e.getElementsByTagName('head')[0]).appendChild(s);};
+}(window,document,'betterstack','9YUqwW9LKdXPNgHo9Vg5Vzf3');
+betterstack('init', { environment: 'production' });
+/* Analytics load only after consent: app-cookie-consent.js (end of body) reads rr_cookie_prefs / rr_cookie_consent and calls the Better Stack loader above, the Clarity loader in clarity.js and the Google Analytics loader in analytics.js. */
+</script>
+<script src="/assets/js/clarity.js?v=a614ddb074"></script>
+<script src="/assets/js/analytics.js?v=591f430b27"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<style>
+:root{
+  --navy:#07093e;
+  --font:"Google Sans",Roboto,Arial,sans-serif;
+  --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
+  --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
+  --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
+  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+}
+html.rr-theme-dark{
+  color-scheme:dark;
+  --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
+  --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
+  --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
+  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 13px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Header: same navy bar as MyTrips */
+.header{position:sticky;top:0;z-index:40;height:66px;background:var(--navy);display:flex;align-items:center;gap:10px;padding:0 16px}
+.header-logo-link{display:flex;align-items:center;flex:none}
+.header-logo{height:40px;width:auto;max-width:min(260px,52vw);display:block}
+.header .rr-site-nav{flex:1}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;position:relative}
+.header-tools{position:relative}
+.header-right .header-tools{position:static}
+.rr-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:4px;border:1px solid #fff;background:#fff;color:var(--navy);font:700 13px/1 var(--font);text-decoration:none;white-space:nowrap;cursor:pointer}
+.rr-btn:hover{background:#dfe3f7;border-color:#dfe3f7}
+.rr-btn.small{height:32px;padding:0 12px}
+.rr-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+.rr-btn.secondary:hover{background:rgba(255,255,255,.1);border-color:#fff}
+#btn-header-tools{height:32px;padding:0 12px}
+.header-tools-panel .panel-link{display:block;color:#fff;text-decoration:none;font:700 13px/1 var(--font);padding:9px 10px;border-radius:4px;background:none;border:0;text-align:left;cursor:pointer;width:100%}
+.header-tools-panel .panel-link:hover{background:rgba(255,255,255,.14)}
+.header-auth{display:flex;align-items:center;visibility:hidden}
+.header-auth.is-ready{visibility:visible}
+.header-tools-panel .panel-nav{display:none;flex-direction:column;gap:2px;padding-bottom:4px}
+html.rr-nav-in-menu .header .rr-site-nav{visibility:hidden}
+html.rr-nav-in-menu .header-tools-panel .panel-nav{display:flex}
+@media (max-width:980px){.header-tools-panel .panel-nav{display:flex}}
+@media (max-width:560px){.header{padding:0 12px}.header-logo{height:32px}}
+/* Footer */
+.footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
+.footer-inner{width:min(960px,100%);margin:0 auto;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:13px}
+.footer-inner a,.footer-inner button{color:#fff;text-decoration:none;font:500 13px/1.4 var(--font);background:none;border:0;padding:0;cursor:pointer}
+.footer-inner a:hover,.footer-inner button:hover{text-decoration:underline}
+.footer-inner .copy{color:rgba(255,255,255,.72);margin-right:auto}
+
+/* Cookie bar and preferences (same markup and script as the map) */
+#rr-cookie-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:10080;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 12px;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:460px}
+#rr-cookie-bar[hidden],#rr-cookie-modal[hidden]{display:none!important}
+#rr-cookie-bar p{margin:0;flex:1 1 240px;font-size:12px;line-height:1.4;color:#e8eaf2}
+#rr-cookie-bar a{color:#8fd3ff}
+.rr-cookie-actions{display:flex;gap:8px;flex-shrink:0}
+.rr-cookie-btn{height:32px;border:1px solid #fff;border-radius:4px;padding:0 12px;font:700 13px/1 var(--font);cursor:pointer;white-space:nowrap;background:#fff;color:var(--navy)}
+.rr-cookie-btn.secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+#rr-cookie-modal{position:fixed;inset:0;z-index:10085;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.rr-cookie-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.rr-cookie-modal-card{position:relative;z-index:1;width:100%;max-width:520px;max-height:min(80vh,640px);overflow:auto;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 16px 16px}
+.rr-cookie-modal-card h3{margin:0 0 8px;font-size:17px}
+.rr-cookie-modal-lead{margin:0 0 14px;font-size:13px;color:#c5c9d8}
+.rr-cookie-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:10px}
+.rr-cookie-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:4px;background:rgba(255,255,255,.04)}
+.rr-cookie-row-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rr-cookie-row-text span{font-size:12px;color:#c5c9d8}
+.rr-cookie-switch{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;font-size:11px;color:#c5c9d8;cursor:pointer}
+.rr-cookie-switch input{width:18px;height:18px;accent-color:#2ecc71}
+.rr-cookie-switch.is-locked{cursor:default;opacity:.85}
+.rr-cookie-modal-actions{display:flex;gap:8px;justify-content:flex-end}
+:root{--s-field:#7c8295;--s-btn:#07093e;--s-btn-ink:#fff;--s-btn-hover:#1a1f6b;--s-tint:#eef1fa;--s-head:#07093e;--s-zebra:#f8f9fb;
+  --s-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2307093e' stroke-width='2'/%3E%3C/svg%3E")}
+html.rr-theme-dark{--s-field:#646cb5;--s-btn:#eef0fa;--s-btn-ink:#07093e;--s-btn-hover:#dfe3f7;--s-tint:rgba(255,255,255,.08);--s-head:#07093e;--s-zebra:#121747;
+  --s-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23eef0fa' stroke-width='2'/%3E%3C/svg%3E")}
+/* Line and station pages */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lp-hero{background:linear-gradient(180deg,#07093e 0%,#0d1263 100%);color:#fff;padding:22px 20px 32px}
+.lp-hero-inner,.lp-wrap{width:min(1100px,100%);margin:0 auto}
+.lp-crumbs{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 8px;font-size:13px;color:#c9d4ea}
+.lp-crumbs li+li::before{content:'/';margin-right:8px;color:rgba(255,255,255,.45)}
+.lp-crumbs a{color:#fff;text-decoration:none}.lp-crumbs a:hover{text-decoration:underline}
+.lp-rail{display:inline-flex;align-items:center;gap:8px;margin:0 0 8px;font:700 13px/1.2 var(--font);color:#c9d4ea;text-transform:none}
+.lp-rail::before{content:'';width:12px;height:12px;border-radius:50%;background:var(--line-color);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.lp-hero h1{margin:0 0 10px;font-size:clamp(26px,4.6vw,38px);line-height:1.15;font-weight:700;text-wrap:balance}
+.lp-lead{margin:0;max-width:44em;color:#c9d4ea;font-size:16px;line-height:1.5}
+.lp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.lp-hero .rr-btn{height:40px}
+.lp-hero h1+.lp-actions{margin-top:16px}
+.lp-mapbox{width:min(1100px,100%);margin:20px auto 0;padding:0 20px;box-sizing:border-box}
+.lp-map{position:relative;height:clamp(480px,62vh,560px);border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#e9edf3;z-index:0}
+.lp-map-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted);font-size:14px}
+.lp-map .leaflet-container{font-family:var(--font)}
+.lp-map-note{margin:8px 2px 0;color:var(--muted);font-size:12.5px}
+.lp-official{margin:14px 0 0;font-size:14px}
+.lp-official a{color:var(--ink);font-weight:600}
+@media (max-width:760px){.lp-mapbox{padding:0 12px;margin-top:14px}.lp-map{height:60vh;min-height:320px}}
+.lp-wrap{padding:22px 16px 56px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.lp-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:16px 18px;min-width:0}
+.lp-card.wide{grid-column:1 / -1}
+.lp-card[hidden]{display:none}
+.lp-card h2{margin:0 0 4px;display:flex;align-items:center;gap:10px;font:700 20px/1.25 var(--font);color:var(--ink)}
+.lp-card h2::before{content:'';width:5px;align-self:stretch;min-height:22px;border-radius:3px;background:var(--line-color,var(--rail-mbta))}
+.lp-card h3{margin:16px 0 6px;font:700 15px/1.3 var(--font);color:var(--ink)}
+.lp-sub{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.lp-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0}
+.lp-facts div{padding:10px 12px;background:var(--s-tint);border-radius:4px;min-width:0}
+.lp-facts dt{color:var(--muted);font:500 12px/1.2 var(--font)}
+.lp-facts dd{margin:3px 0 0;font:700 15px/1.3 var(--font);color:var(--ink);overflow-wrap:anywhere}
+.lp-stops{list-style:none;margin:0;padding:0 0 0 4px}
+.lp-stops li{position:relative;padding:5px 0 5px 22px;font-size:15px;line-height:1.35}
+.lp-stops li::before{content:'';position:absolute;left:4px;top:0;bottom:0;width:4px;background:var(--line-color)}
+.lp-stops li:first-child::before{top:50%}.lp-stops li:last-child::before{bottom:50%}
+.lp-stops li::after{content:'';position:absolute;left:0;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--surface);border:3px solid var(--line-color);box-sizing:border-box}
+.lp-stops a{color:var(--ink);font-weight:500}
+.lp-stops small{color:var(--muted);font-size:12.5px;margin-left:6px}
+.lp-cols{columns:2 240px;column-gap:28px}
+.lp-cols li{break-inside:avoid}
+.lp-links{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lp-links li{display:flex;align-items:center;gap:10px;font-size:15px}
+.lp-links li::before{content:'';flex:none;width:12px;height:12px;border-radius:50%;background:var(--c,var(--line-color))}
+.lp-links a{color:var(--ink);font-weight:500}
+.lp-links small{color:var(--muted)}
+.lp-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.lp-rows li{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.lp-rows li:first-child{border-top:0}
+.lp-rows b{font-weight:700;color:var(--ink)}
+.lp-rows span{color:var(--muted)}
+.lp-rows a{color:var(--ink)}
+.lp-pill{display:inline-block;padding:2px 8px;border-radius:10px;font:700 12px/1.4 var(--font);background:var(--s-tint);color:var(--ink);white-space:nowrap}
+.lp-pill.late{background:#fde7e9;color:#8a0f1c}.lp-pill.ok{background:#e3f4e8;color:#145c2c}
+html.rr-theme-dark .lp-pill.late{background:#5a1a26;color:#ffd6dc}html.rr-theme-dark .lp-pill.ok{background:#173f2a;color:#c9f1d6}
+.lp-alert{padding:10px 12px;margin:0 0 8px;border-left:4px solid #e0a100;background:var(--s-tint);border-radius:0 4px 4px 0;font-size:14px;line-height:1.45}
+.lp-msg{margin:0;color:var(--muted);font-size:14px}
+.lp-note{margin:12px 0 0;color:var(--muted);font-size:12.5px;line-height:1.45}
+.lp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.lp-stats div{padding:10px 12px;background:var(--s-tint);border-radius:4px}
+.lp-stats b{display:block;font:700 22px/1.2 var(--font);color:var(--ink)}
+.lp-stats span{color:var(--muted);font-size:12.5px}
+.lp-index{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 24px;list-style:none;margin:0;padding:0}
+.lp-index li{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px;min-width:0}
+.lp-index li::before{content:'';flex:none;width:10px;height:10px;border-radius:50%;background:var(--c,var(--line-color))}
+.lp-index a{color:var(--ink);font-weight:500;overflow-wrap:anywhere}
+.lp-index small{color:var(--muted);margin-left:auto;white-space:nowrap;font-size:12.5px}
+.lp-index.lp-az li{flex-wrap:wrap;align-items:baseline}
+.lp-index.lp-az small{flex:1 1 100%;margin-left:20px;white-space:normal}
+.lp-jump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 4px;padding:0;list-style:none}
+.lp-jump a{display:inline-block;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);text-decoration:none;font:500 13px/1.2 var(--font)}
+.lp-jump a:hover{border-color:var(--ink)}
+@media (max-width:760px){.lp-wrap{grid-template-columns:minmax(0,1fr)}.lp-card{padding:14px}}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://railroadradar.com/"},{"@type":"ListItem","position":2,"name":"Lines","item":"https://railroadradar.com/lines/"},{"@type":"ListItem","position":3,"name":"VIA Rail Winnipeg to Churchill","item":"https://railroadradar.com/lines/via-rail-winnipeg-to-churchill/"}]}</script>
+</head>
+<body>
+<header class="header">
+  <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160"></a>
+  <nav class="rr-site-nav" aria-label="RailroadRadar">
+    <a href="/map/" data-nav="map">Live Map</a>
+    <a href="/timetables/" data-nav="timetables">Timetables</a>
+    <a href="/mytrips/" data-nav="mytrips">MyTrips</a>
+    <a href="/favorites/" data-nav="favorites">Favorites</a>
+    <a href="/roster/" data-nav="roster">Roster</a>
+    <a href="/press/" data-nav="press">Press</a>
+    <a href="/survey/" data-nav="survey">Survey</a>
+  </nav>
+  <div class="header-right">
+    <div class="header-tools">
+      <button type="button" class="rr-btn small" id="btn-header-tools" aria-haspopup="true" aria-expanded="false" aria-controls="header-tools-panel">Menu</button>
+      <div class="header-tools-panel" id="header-tools-panel" hidden>
+        <div class="panel-nav">
+          <a class="panel-link" href="/map/">Live Map</a>
+          <a class="panel-link" href="/timetables/">Timetables</a>
+          <a class="panel-link" href="/mytrips/">MyTrips</a>
+          <a class="panel-link" href="/favorites/">Favorites</a>
+          <a class="panel-link" href="/roster/">Roster</a>
+          <a class="panel-link" href="/press/">Press</a>
+          <a class="panel-link" href="/survey/">Survey</a>
+        </div>
+        <button type="button" class="panel-link" id="header-menu-cookie-settings">Cookie Settings</button>
+      </div>
+    </div>
+    <div class="header-auth is-ready" id="header-auth"></div>
+  </div>
+</header>
+
+<main id="lp-main" data-page="line" data-rr="via" data-route="388-435" data-name="Winnipeg - Churchill" data-history="" style="--line-color:#FFC20E">
+  <section class="lp-hero" aria-labelledby="lp-title">
+    <div class="lp-hero-inner">
+      <ol class="lp-crumbs" aria-label="Breadcrumb"><li><a href="/">Home</a></li><li><a href="/lines/">Lines</a></li><li aria-current="page">VIA Rail Winnipeg to Churchill</li></ol>
+      <p class="lp-rail">VIA Rail Canada</p>
+      <h1 id="lp-title">VIA Rail Winnipeg to Churchill</h1>
+      
+      <div class="lp-actions"><a class="rr-btn" href="/map/">Open the Live Map</a><a class="rr-btn secondary" href="/timetables/">Timetables</a></div>
+    </div>
+  </section>
+  <section class="lp-mapbox" aria-label="Live Map">
+    <div class="lp-map" id="lp-map"><p class="lp-map-msg">Loading the Live Map...</p></div>
+    <script type="application/json" id="lp-map-data">{"rr":"via","lines":[{"color":"#FFC20E","paths":[[[49.88913,-97.13355],[49.88372,-97.1315],[49.85249,-97.15624],[49.84047,-97.28419],[49.83524,-97.44987],[49.9268,-97.88216],[49.92802,-98.07552],[49.94204,-98.15289],[49.95387,-98.17537],[49.95583,-98.1937],[49.97532,-98.25936],[49.97815,-98.33382],[50.10188,-98.87822],[50.10629,-98.88437],[50.21999,-98.93797],[50.22995,-98.96614],[50.30468,-99.08889],[50.47042,-99.09062],[50.52182,-99.15936],[50.57663,-99.21878],[50.60791,-99.24247],[50.6492,-99.29783],[50.75712,-99.48071],[50.85864,-99.53099],[50.87973,-99.55758],[50.89362,-99.56366],[50.90732,-99.57721],[50.93572,-99.59656],[50.95705,-99.62003],[50.9794,-99.65404],[50.98672,-99.6773],[51.09154,-99.8245],[51.13271,-100.01535],[51.17698,-100.11107],[51.17704,-100.321],[51.14801,-100.46229],[51.14733,-100.57972],[51.16844,-100.69371],[51.18757,-100.72075],[51.22705,-100.88549],[51.23531,-100.95402],[51.23124,-100.97567],[51.23584,-101.02905],[51.23198,-101.04508],[51.23356,-101.07243],[51.22493,-101.11569],[51.22588,-101.147],[51.21385,-101.15642],[51.21189,-101.17465],[51.19911,-101.17169],[51.19486,-101.17864],[51.19459,-101.21125],[51.19981,-101.22136],[51.20186,-101.23991],[51.19664,-101.27816],[51.19716,-101.31892],[51.20242,-101.3287],[51.20912,-101.33249],[51.21215,-101.34152],[51.23369,-101.35513],[51.27094,-101.40725],[51.29492,-101.41545],[51.30086,-101.41012],[51.30561,-101.41289],[51.3153,-101.42856],[51.31927,-101.44921],[51.33471,-101.46278],[51.34744,-101.48893],[51.35178,-101.5142],[51.36268,-101.52304],[51.41366,-101.60343],[51.42575,-101.65791],[51.43488,-101.66551],[51.44222,-101.66043],[51.44861,-101.6618],[51.45017,-101.67779],[51.46482,-101.68617],[51.47043,-101.69697],[51.49022,-101.70463],[51.4966,-101.71932],[51.51093,-101.73126],[51.51483,-101.74628],[51.53186,-101.7603],[51.52865,-101.77698],[51.52033,-101.78373],[51.5217,-101.7982],[51.51702,-101.82671],[51.52379,-101.85046],[51.53753,-101.86241],[51.56389,-101.90806],[51.55575,-101.9385],[51.56346,-101.95105],[51.59212,-102.15707],[51.63889,-102.44169],[51.72504,-102.444],[51.74822,-102.46184],[51.78545,-102.4621],[51.80544,-102.47984],[51.87417,-102.48449],[51.91023,-102.52244],[51.92468,-102.53469],[51.93246,-102.53482],[51.94893,-102.55482],[51.95091,-102.56931],[51.96101,-102.58772],[51.97549,-102.59882],[51.99999,-102.59936],[52.01582,-102.60639],[52.03773,-102.63305],[52.05865,-102.64744],[52.09107,-102.68111],[52.1191,-102.67764],[52.15873,-102.65233],[52.25493,-102.65258],[52.26777,-102.66002],[52.2819,-102.65725],[52.28748,-102.66266],[52.29659,-102.66127],[52.30656,-102.65268],[52.31586,-102.65663],[52.34108,-102.64001],[52.34797,-102.64153],[52.35727,-102.63627],[52.3649,-102.64659],[52.38576,-102.65692],[52.39627,-102.67101],[52.40618,-102.67458],[52.41688,-102.6636],[52.42301,-102.66287],[52.43475,-102.67918],[52.44644,-102.66652],[52.44996,-102.65732],[52.47411,-102.64567],[52.49124,-102.60865],[52.86201,-102.42935],[52.86506,-102.3917],[52.9009,-102.38815],[52.91247,-102.37578],[52.92821,-102.37026],[52.94562,-102.34877],[52.99485,-102.3388],[53.01394,-102.32069],[53.01919,-102.31128],[53.05094,-102.29027],[53.06797,-102.2521],[53.07854,-102.23784],[53.09222,-102.19759],[53.18564,-102.11692],[53.28055,-102.02716],[53.28967,-102.00525],[53.31669,-101.97013],[53.38773,-101.77903],[53.41983,-101.72796],[53.45534,-101.70526],[53.47127,-101.64754],[53.5062,-101.59342],[53.58286,-101.41998],[53.61229,-101.39098],[53.64925,-101.32234],[53.65906,-101.29245],[53.67515,-101.26019],[53.69724,-101.2281],[53.7284,-101.21047],[53.75512,-101.22341],[53.7617,-101.23123],[53.78933,-101.22555],[53.80581,-101.24989],[53.82636,-101.24767],[53.83868,-101.26257],[53.87989,-101.22643],[53.94133,-101.11055],[53.96769,-101.02779],[53.99948,-100.88597],[54.06621,-100.77671],[54.12328,-100.72011],[54.13908,-100.68507],[54.15704,-100.66021],[54.16995,-100.64834],[54.17976,-100.61666],[54.19385,-100.5945],[54.2049,-100.58481],[54.22635,-100.60326],[54.23513,-100.59202],[54.26514,-100.50001],[54.28522,-100.38966],[54.42167,-100.01136],[54.47201,-99.85219],[54.48048,-99.83411],[54.48447,-99.81267],[54.5304,-99.66608],[54.53006,-99.63719],[54.53949,-99.61062],[54.59788,-99.32075],[54.65065,-99.13403],[54.66064,-99.07065],[54.69854,-98.91441],[54.84687,-98.74543],[54.86712,-98.7289],[54.92409,-98.59577],[54.97752,-98.51418],[54.99353,-98.50969],[55.00085,-98.49809],[55.05376,-98.3449],[55.0626,-98.33399],[55.07872,-98.30086],[55.08489,-98.27246],[55.1137,-98.21289],[55.1915,-98.0265],[55.2465,-97.93255],[55.28874,-97.79423],[55.29748,-97.75153],[55.30798,-97.73223],[55.32096,-97.68097],[55.32279,-97.64462],[55.341,-97.60512],[55.35074,-97.59765],[55.36524,-97.56928],[55.37493,-97.55992],[55.3839,-97.53576],[55.40071,-97.5156],[55.4149,-97.47281],[55.44621,-97.43059],[55.45949,-97.39894],[55.47387,-97.41906],[55.49044,-97.4544],[55.49266,-97.48045],[55.50422,-97.49031],[55.50874,-97.51386],[55.51487,-97.51673],[55.52021,-97.53217],[55.5467,-97.52928],[55.5509,-97.54892],[55.55879,-97.55563],[55.56798,-97.57864],[55.57131,-97.6207],[55.59557,-97.65605],[55.61196,-97.66227],[55.61578,-97.67381],[55.62365,-97.67388],[55.63325,-97.68616],[55.67818,-97.68386],[55.69521,-97.69613],[55.71114,-97.70061],[55.72184,-97.71909],[55.7236,-97.74243],[55.74694,-97.80327],[55.74764,-97.81879],[55.74,-97.83126],[55.74795,-97.81795],[55.74719,-97.80423],[55.72389,-97.74352],[55.72184,-97.71909],[55.71114,-97.70061],[55.69521,-97.69613],[55.67818,-97.68386],[55.63325,-97.68616],[55.62365,-97.67388],[55.61578,-97.67381],[55.61196,-97.66227],[55.59557,-97.65605],[55.57131,-97.6207],[55.56798,-97.57864],[55.55879,-97.55563],[55.5509,-97.54892],[55.5467,-97.52928],[55.52021,-97.53217],[55.51487,-97.51673],[55.50874,-97.51386],[55.50422,-97.49031],[55.49266,-97.48045],[55.49094,-97.45566],[55.45996,-97.39589],[55.46897,-97.37117],[55.4742,-97.33562],[55.49075,-97.30235],[55.51983,-97.27055],[55.52569,-97.25613],[55.54931,-97.22904],[55.57228,-97.19193],[55.58537,-97.15448],[55.59442,-97.13859],[55.60376,-97.13033],[55.63375,-97.06517],[55.64542,-97.05137],[55.6542,-97.02949],[55.67189,-97.0089],[55.67281,-96.98702],[55.68419,-96.92484],[55.69084,-96.90739],[55.71866,-96.86615],[55.72537,-96.81616],[55.74821,-96.75373],[55.75409,-96.72331],[55.7707,-96.67694],[55.77127,-96.6586],[55.7775,-96.63981],[55.79928,-96.61484],[55.80433,-96.61314],[55.80643,-96.60175],[55.81643,-96.60042],[55.83067,-96.58914],[55.8419,-96.5741],[55.85585,-96.54526],[55.87224,-96.52617],[55.87773,-96.47282],[55.89441,-96.42263],[55.90408,-96.37192],[55.90734,-96.32547],[55.91872,-96.2875],[55.92921,-96.20287],[55.95176,-96.12506],[55.98591,-95.95907],[56.00742,-95.87168],[56.01005,-95.83919],[56.02286,-95.81607],[56.03122,-95.76529],[56.03218,-95.69649],[56.07571,-95.5751],[56.09153,-95.50313],[56.09808,-95.44487],[56.14322,-95.34051],[56.23165,-94.99756],[56.31904,-94.80284],[56.37115,-94.6107],[56.39413,-94.58633],[56.4205,-94.49549],[56.43482,-94.41936],[56.50723,-94.19815],[56.50913,-94.17278],[56.51587,-94.1577],[56.51794,-94.13893],[56.56434,-94.06385],[56.73812,-94.07462],[56.90667,-94.11395],[56.94069,-94.11449],[56.96401,-94.12051],[56.99278,-94.13493],[57.10845,-94.14957],[57.14568,-94.16042],[57.2739,-94.18079],[57.31041,-94.17294],[57.3362,-94.18187],[57.4441,-94.19813],[57.51365,-94.19977],[57.53348,-94.20437],[57.56532,-94.20099],[57.61673,-94.21544],[57.63703,-94.21421],[57.69291,-94.23153],[57.73965,-94.23139],[57.76062,-94.21963],[57.78346,-94.21335],[57.80529,-94.2144],[57.83476,-94.20892],[57.84986,-94.20191],[57.86589,-94.205],[57.92574,-94.17332],[57.93776,-94.17174],[57.98068,-94.15399],[58.02582,-94.15883],[58.05376,-94.15305],[58.08215,-94.14217],[58.12991,-94.13856],[58.16675,-94.14619],[58.2134,-94.14747],[58.27426,-94.15788],[58.33727,-94.15787],[58.41572,-94.13675],[58.56132,-94.12911],[58.62037,-94.11819],[58.70692,-94.12451],[58.73007,-94.1233],[58.75199,-94.13253],[58.76763,-94.17445]]]}],"stops":[[49.88939,-97.13358,"Winnipeg",""],[49.97738,-98.28826,"Portage la Prairie",""],[50.22521,-98.94793,"Gladstone",""],[50.38787,-99.0894,"Plumas",""],[50.55418,-99.19292,"Glenella",""],[50.77195,-99.48863,"McCreary",""],[50.88989,-99.56203,"Laurier",""],[51.0614,-99.78187,"Ochre River",""],[51.15024,-100.05232,"Dauphin",""],[51.1478,-100.48908,"Gilbert Plains",""],[51.17287,-100.70064,"Grandview",""],[51.23031,-101.35257,"Roblin",""],[51.40505,-101.58971,"Togo",""],[51.56178,-101.90363,"Kamsack",""],[51.58137,-102.07686,"Veregin",""],[51.60918,-102.2657,"Mikado",""],[51.63754,-102.43578,"Canora",""],[51.93983,-102.54568,"Sturgis",""],[52.15831,-102.65245,"Endeavour",""],[52.47089,-102.64731,"Reserve",""],[52.86315,-102.39676,"Hudson Bay",""],[53.82396,-101.24754,"The Pas",""],[53.90903,-101.1717,"Tremaudan",""],[53.96061,-101.04967,"Orok",""],[53.98705,-100.93453,"Atikameg Lake",""],[54.00694,-100.87389,"Finger",""],[54.04879,-100.80507,"Budd",""],[54.16956,-100.64901,"Halcrow",""],[54.22345,-100.60259,"Cormorant",""],[54.2542,-100.53365,"Dering",""],[54.30329,-100.33959,"Rawebb",""],[54.36849,-100.15927,"Dyce",""],[54.42635,-99.99666,"Paterson",""],[54.50238,-99.75568,"Wekusko",""],[54.56567,-99.48069,"Turnbull",""],[54.65229,-99.12437,"Ponton",""],[54.68096,-98.98642,"Button",""],[54.74169,-98.86423,"Dunlop",""],[54.80053,-98.79778,"Pipun",""],[54.90913,-98.63058,"Wabowden",""],[55.02942,-98.41453,"Lyddal",""],[55.10869,-98.22347,"Odhill",""],[55.15842,-98.1052,"Earchman",""],[55.22603,-97.96794,"La Perouse",""],[55.27593,-97.83263,"Hockin",""],[55.319,-97.68807,"Thicket Portage",""],[55.38129,-97.5413,"Leven",""],[55.74072,-97.8301,"Thompson",""],[55.46272,-97.38853,"Sipiwesk",""],[55.58565,-97.15407,"Pikwitonei",""],[55.63684,-97.06135,"Bridgar",""],[55.72559,-96.81548,"Wilde",""],[55.76647,-96.68792,"Arnot",""],[55.88281,-96.45675,"Boyd",""],[55.90889,-96.31775,"Pit Siding",""],[55.97941,-95.99057,"Munk",""],[56.06524,-95.60506,"Ilford",""],[56.12633,-95.37733,"Nonsuch",""],[56.17655,-95.21376,"Wivenhoe",""],[56.2911,-94.86535,"Luke",""],[56.34718,-94.69956,"Gillam",""],[56.505,-94.20513,"Bird",""],[56.55904,-94.0719,"Amery",""],[56.81782,-94.09329,"Weir River",""],[57.08288,-94.14645,"Thibaudeau",""],[57.37111,-94.18705,"Herchmer",""],[57.59759,-94.21019,"O'Day",""],[57.80109,-94.21434,"M'Clintock",""],[58.1602,-94.14485,"Chesnaye",""],[58.66001,-94.12078,"Tidal",""],[58.76769,-94.17477,"Churchill",""]]}</script>
+  </section>
+  <div class="lp-wrap">
+    <section class="lp-card" id="live" aria-labelledby="live-title">
+      <h2 id="live-title">Live Trains</h2>
+      <p class="lp-sub">Live VIA Rail trains are on the <a href="/map/">Live Map</a>.</p>
+      <div id="lp-live"><p class="lp-msg">Open the Live Map to see trains on this line.</p></div>
+    </section>
+    <section class="lp-card" id="alerts" aria-labelledby="alerts-title" hidden>
+      <h2 id="alerts-title">Service Alerts</h2>
+      <p class="lp-sub">Current alerts from VIA Rail for this line.</p>
+      <div id="lp-alerts"><p class="lp-msg">Loading alerts...</p></div>
+    </section>
+    <section class="lp-card wide" id="history" aria-labelledby="history-title" hidden>
+      <h2 id="history-title">How Is the Line Doing</h2>
+      <p class="lp-sub" id="lp-history-range"></p>
+      <div id="lp-history"></div>
+      <p class="lp-note">From RailroadRadar's own samples of live train feeds. On time means 5 minutes late or less. Not official railroad statistics.</p>
+    </section>
+    <section class="lp-card wide" id="stations" aria-labelledby="stations-title">
+      <h2 id="stations-title">Stations on the VIA Rail Winnipeg to Churchill</h2>
+      <p class="lp-sub">71 stations, in order, from the VIA Rail schedule data.</p>
+      <h3>Winnipeg to Churchill</h3><ol class="lp-stops lp-cols"><li>Winnipeg</li><li>Portage la Prairie</li><li>Gladstone</li><li>Plumas</li><li>Glenella</li><li>McCreary</li><li>Laurier</li><li>Ochre River</li><li>Dauphin</li><li>Gilbert Plains</li><li>Grandview</li><li>Roblin</li><li>Togo</li><li>Kamsack</li><li>Veregin</li><li>Mikado</li><li>Canora</li><li>Sturgis</li><li>Endeavour</li><li>Reserve</li><li>Hudson Bay</li><li>The Pas</li><li>Tremaudan</li><li>Orok</li><li>Atikameg Lake</li><li>Finger</li><li>Budd</li><li>Halcrow</li><li>Cormorant</li><li>Dering</li><li>Rawebb</li><li>Dyce</li><li>Paterson</li><li>Wekusko</li><li>Turnbull</li><li>Ponton</li><li>Button</li><li>Dunlop</li><li>Pipun</li><li>Wabowden</li><li>Lyddal</li><li>Odhill</li><li>Earchman</li><li>La Perouse</li><li>Hockin</li><li>Thicket Portage</li><li>Leven</li><li>Thompson</li><li>Sipiwesk</li><li>Pikwitonei</li><li>Bridgar</li><li>Wilde</li><li>Arnot</li><li>Boyd</li><li>Pit Siding</li><li>Munk</li><li>Ilford</li><li>Nonsuch</li><li>Wivenhoe</li><li>Luke</li><li>Gillam</li><li>Bird</li><li>Amery</li><li>Weir River</li><li>Thibaudeau</li><li>Herchmer</li><li>O'Day</li><li>M'Clintock</li><li>Chesnaye</li><li>Tidal</li><li>Churchill</li></ol>
+    </section>
+    <section class="lp-card wide" aria-labelledby="facts-title">
+      <h2 id="facts-title">About the Line</h2>
+      <dl class="lp-facts">
+        <div><dt>Railroad</dt><dd>VIA Rail Canada</dd></div>
+        <div><dt>Stations</dt><dd>71</dd></div>
+        <div><dt>Ends</dt><dd>Winnipeg and Churchill</dd></div>
+      </dl>
+      <p class="lp-official"><a href="https://www.viarail.ca/en/plan/train-schedules" rel="noopener">Official VIA Rail Schedule</a></p>
+      <h3>Other VIA Rail Routes</h3><ul class="lp-index"><li style="--c:#FFC20E"><a href="/lines/via-rail-toronto-to-sarnia/">VIA Rail Toronto to Sarnia</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-toronto-to-windsor/">VIA Rail Toronto to Windsor</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-ottawa-to-quebec/">VIA Rail Ottawa to Québec</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-sudbury-to-white-river/">VIA Rail Sudbury to White River</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-montreal-to-jonquiere/">VIA Rail Montréal to Jonquière</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-montreal-to-senneterre/">VIA Rail Montréal to Senneterre</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-jasper-to-prince-rupert/">VIA Rail Jasper to Prince Rupert</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-toronto-to-london/">VIA Rail Toronto to London</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-vancouver-to-toronto/">VIA Rail Vancouver to Toronto</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-the-pas-to-churchill/">VIA Rail The Pas to Churchill</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-ottawa-to-toronto/">VIA Rail Ottawa to Toronto</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-montreal-to-toronto/">VIA Rail Montréal to Toronto</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-ottawa-to-montreal/">VIA Rail Ottawa to Montréal</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-montreal-to-halifax/">VIA Rail Montréal to Halifax</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-toronto-to-new-york/">VIA Rail Toronto to New York</a></li><li style="--c:#FFC20E"><a href="/lines/via-rail-quebec-to-montreal/">VIA Rail Québec to Montréal</a></li></ul>
+    </section>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="copy">© 2026 RailroadRadar</span>
+    <a href="/map/">Live Map</a>
+    <a href="/timetables/">Timetables</a>
+    <a href="/mytrips/">MyTrips</a>
+    <a href="/favorites/">Favorites</a>
+    <a href="/roster/">Roster</a>
+    <a href="/press/">Press</a>
+    <a href="/survey/">Survey</a>
+    <a href="/policies/privacy/">Privacy Policy</a>
+    <a href="/policies/terms-of-use/">Terms of Use</a>
+    <a href="/sitemap/">Sitemap</a>
+    <button type="button" id="footer-cookie-settings">Cookie Settings</button>
+  </div>
+</footer>
+
+<div id="rr-cookie-bar" hidden role="dialog" aria-live="polite" aria-label="Cookie notice">
+  <p>We use cookies to keep you signed in and, if you agree, for analytics with Microsoft Clarity, Google Analytics and Better Stack. <a href="/policies/privacy/#cookies">Learn more</a></p>
+  <div class="rr-cookie-actions">
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-decline">Decline</button>
+    <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-customize">Customize</button>
+    <button type="button" class="rr-cookie-btn" id="rr-cookie-accept">Agree</button>
+  </div>
+</div>
+<div id="rr-cookie-modal" hidden aria-hidden="true">
+  <div class="rr-cookie-modal-backdrop" id="rr-cookie-modal-backdrop"></div>
+  <div class="rr-cookie-modal-card" role="dialog" aria-modal="true" aria-labelledby="rr-cookie-modal-title">
+    <h3 id="rr-cookie-modal-title">Cookie Preferences</h3>
+    <p class="rr-cookie-modal-lead">Analytics stays off unless you turn it on. You can change this any time with Cookie Settings at the bottom of the page.</p>
+    <ul class="rr-cookie-list">
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Essential</strong><span>Keeps you signed in and remembers your settings in this browser.</span></div>
+        <label class="rr-cookie-switch is-locked"><input type="checkbox" id="rr-cookie-essential" checked disabled><span>Always on</span></label>
+      </li>
+      <li class="rr-cookie-row">
+        <div class="rr-cookie-row-text"><strong>Analytics</strong><span>Microsoft Clarity shows us how people use the site, using cookies from clarity.ms. Google Analytics counts visits and page views, using its own cookies on our site. Better Stack reports page errors and performance.</span></div>
+        <label class="rr-cookie-switch"><input type="checkbox" id="rr-cookie-clarity"><span>Allow</span></label>
+      </li>
+    </ul>
+    <div class="rr-cookie-modal-actions">
+      <button type="button" class="rr-cookie-btn secondary" id="rr-cookie-cancel">Cancel</button>
+      <button type="button" class="rr-cookie-btn" id="rr-cookie-save">Save</button>
+    </div>
+  </div>
+</div>
+<script src="/assets/js/app-cookie-consent.js?v=ce091d5bf9"></script>
+<script src="/assets/js/site-nav.js?v=c29aa03154" defer></script>
+<script src="/assets/js/survey-prompt.js?v=985e8f67cb" defer></script>
+<script src="/assets/js/line-pages.js?v=9deb021265" defer></script>
+</body>
+</html>
