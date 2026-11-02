@@ -15,6 +15,21 @@ function pageUrls(dir = siteDir, out = []) {
   return out.sort();
 }
 
+// The line and station pages are all built from one template by tools/seo-pages.mjs, and testing every one of them
+// (several hundred, five seconds each) runs past the CI time limit. Test the index pages and the first page of each
+// kind for each railroad.
+function samplePages(urls) {
+  const seen = new Set();
+  return urls.filter((url) => {
+    if (!/^\/(lines|stations)\/[^/]+\/$/.test(url)) return true;
+    const main = fs.readFileSync(path.join(siteDir, url, 'index.html'), 'utf8').match(/<main id="lp-main"[^>]*>/);
+    const key = main ? [/data-page="([^"]*)"/, /data-rr="([^"]*)"/].map((re) => (main[0].match(re) || [])[1]).join(':') + (/data-amtrak="[^"]/.test(main[0]) ? ':amtrak' : '') : url;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 let problems = [];
 function watch(page, origin) {
   problems = [];
@@ -62,7 +77,7 @@ test.afterAll(() => {
   else if (misses.size) console.log(`Worker requests with no recording (answered 404):\n  ${[...misses].sort().join('\n  ')}`);
 });
 
-for (const url of pageUrls()) {
+for (const url of samplePages(pageUrls())) {
   test(`page ${url}`, async ({ page, baseURL }) => {
     const { visited } = watch(page, baseURL);
     await page.goto(url, { waitUntil: 'load' });
