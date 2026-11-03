@@ -10212,6 +10212,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             (meta ? ('<div class="loco-report-meta">' + meta + '</div>') : '') +
             (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '');
         }
+        // Acela popups fold the unit into the one Reported Equipment box (assets/js/acela-equipment.js).
+        if (opts.acelaMerge) {
+          let unitHtml = '';
+          if (hasUnit && !trainReportsLoadFailed) {
+            const whenTs = rep.updatedAt || rep.createdAt;
+            const when = [formatReportDayNy(whenTs), formatReportTimeNy(whenTs)].filter(Boolean).join(', ');
+            const byHtml = formatReportByAttribution(rep);
+            let meta = when ? escFn(when) : '';
+            if (byHtml) meta = meta ? (meta + ' · ' + byHtml) : byHtml;
+            const comment = String(rep.comment || '').trim();
+            unitHtml = '<div class="acela-equip-pop-unit">Unit ' + escFn(formatTrainReportLocoLabel(rep)) + '</div>' +
+              (meta ? ('<div class="loco-report-meta">' + meta + '</div>') : '') +
+              (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '');
+          }
+          return { hasUnit: !!(hasUnit && !trainReportsLoadFailed), unitHtml: unitHtml, onclick: onclick };
+        }
         let actionsHtml;
         if (stale) {
           const confirmClick = (a === 'mbta')
@@ -13629,7 +13645,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           ? '<span class="cape-badge" style="background:#EA0D2A;">CTrail Hartford Line</span>'
           : '';
         const amtrakSpecial = isViaPopup ? null : (getSpecialForVehicle('amtrak', (t.specialUnit && t.specialUnit.vehicleId) || null, num) || t.specialUnit || null);
-        const amtrakPairingBlock = isViaPopup ? '' : buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial });
+        let amtrakPairingBlock = isViaPopup ? '' : buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial });
         const refreshBtn = `<button class="popup-action-btn refresh-btn" data-vid="${escapeHtmlLite(vid)}" onclick="refreshAmtrakTrain(this.dataset.vid)">Refresh</button>`;
         const shareBtn = rrShareTrainBtnHtml('amtrak', vid, num);
         const logTripBtn = isViaPopup ? '' : rrLogTripBtnHtml('amtrak', vid, num);
@@ -13644,7 +13660,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const acelaHeader = !isViaPopup && !onHartfordLine && isAcelaTrain(t);
         // Rider-reported Acela equipment (NextGen or Legacy) for this train today. assets/js/acela-equipment.js
         let acelaEquipBlock = '';
-        try { if (!isViaPopup && window.rrAcelaEquipPopupHtml) acelaEquipBlock = window.rrAcelaEquipPopupHtml(num, route); } catch (_) {}
+        try {
+          if (!isViaPopup && window.rrAcelaEquipPopupHtml) {
+            const acelaUnit = buildLocoReportPairingBlockHtml('amtrak', { trainNumber: num, special: amtrakSpecial, acelaMerge: true });
+            acelaEquipBlock = window.rrAcelaEquipPopupHtml(num, route, acelaUnit);
+            // One box for Acela: the unit report lives inside Reported Equipment.
+            if (acelaEquipBlock) amtrakPairingBlock = '';
+          }
+        } catch (_) {}
         // Acela keeps white text on Acela blue by request, an exception to the 3:1 rule.
         const headerAttrs = rrPopupHeaderAttrs(isViaPopup ? VIA_COLOR : (onHartfordLine ? CTRAIL_LINE_COLOR : (acelaHeader ? ACELA_LINE_COLOR : AMTRAK_LINE_COLOR)), acelaHeader ? 'dark' : '');
         return `

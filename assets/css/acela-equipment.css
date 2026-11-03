@@ -74,3 +74,8 @@ html.rr-mytrips-page #btn-acela-equip-menu { display: none !important; }
   .acela-equip-backdrop { padding: 10px; align-items: flex-end; }
   .acela-equip-modal { max-height: 94vh; }
 }
+/* Reported unit inside the Acela Reported Equipment box */
+.acela-equip-pop-unit { margin-top: 6px; font-size: 13px; font-weight: 700; color: #07093e; }
+.acela-equip-pop .loco-report-meta,
+.acela-equip-pop .loco-report-comment { font-size: 11px; }
+.acela-equip-pop-unit-link { display: block; margin: 8px auto 0; padding: 4px 6px; background: none; border: 0; font: inherit; font-size: 12px; font-weight: 600; color: #07093e; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }

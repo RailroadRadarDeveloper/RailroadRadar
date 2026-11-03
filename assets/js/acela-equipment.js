@@ -150,29 +150,34 @@
 
   // ---- Live map popup block (Acela trains) ----
   // app-main.js createAmtrakPopupContent calls this; returns '' for non-Acela trains.
+  var unitByTrain = {};
   function popupBlockInner(num) {
     var today = easternDate(new Date());
     var sum = loaded ? summarize(num, today) : null;
     var body;
     if (!loaded) {
-      body = '<div class="acela-equip-pop-label">Equipment Today</div><div class="acela-equip-pop-type is-empty">Checking Reports...</div>';
+      body = '<div class="acela-equip-pop-label">Reported Equipment</div><div class="acela-equip-pop-type is-empty">Checking Reports...</div>';
     } else if (!sum) {
-      body = '<div class="acela-equip-pop-label">Equipment Today</div><div class="acela-equip-pop-type is-empty">No Reports Yet</div>';
+      body = '<div class="acela-equip-pop-label">Reported Equipment</div><div class="acela-equip-pop-type is-empty">No Reports Yet</div>';
     } else {
       var main = sum.tie ? 'NextGen or Legacy' : TYPES[sum.type];
-      body = '<div class="acela-equip-pop-label">Equipment Today</div>' +
+      body = '<div class="acela-equip-pop-label">Reported Equipment</div>' +
         '<div class="acela-equip-pop-type" data-type="' + (sum.tie ? 'split' : sum.type) + '">' + esc(main) + '</div>' +
         '<div class="acela-equip-pop-src">' + sourceHtml(sum) + '</div>' +
         (splitText(sum) ? '<div class="acela-equip-pop-split">' + esc(splitText(sum)) + '</div>' : '');
     }
+    var unit = unitByTrain[num];
+    if (unit && unit.unitHtml) body += unit.unitHtml;
     if (sampleMode()) body += '<div class="acela-equip-pop-sample"><span class="acela-equip-sample">Sample Data</span></div>';
     var safe = String(num).replace(/[^0-9]/g, '');
     return '<div class="loco-report-text">' + body + '</div>' +
-      '<button type="button" class="popup-action-btn update-pairing-btn acela-equip-pop-btn" onclick="rrAcelaEquipReport(\'' + safe + '\')">Report Equipment</button>';
+      '<button type="button" class="popup-action-btn update-pairing-btn acela-equip-pop-btn" onclick="rrAcelaEquipReport(\'' + safe + '\')">Report Equipment</button>' +
+      (unit && unit.onclick ? '<button type="button" class="acela-equip-pop-unit-link" onclick="' + esc(unit.onclick) + '">' + (unit.hasUnit ? 'Update Unit Number' : 'Report Unit Number') + '</button>' : '');
   }
-  function popupHtml(num, route) {
+  function popupHtml(num, route, unit) {
     num = String(num || '').trim();
     if (!num || !isAcela(num, route)) return '';
+    if (unit && typeof unit === 'object') unitByTrain[num] = unit;
     if (!loaded) load().then(refreshPopups);
     return '<div class="loco-report-block acela-equip-pop" data-acela-train="' + esc(num) + '">' + popupBlockInner(num) + '</div>';
   }
