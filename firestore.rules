@@ -313,6 +313,44 @@ service cloud.firestore {
       allow delete: if adminHasPerm('deleteReports');
     }
 
+    // Acela equipment (NextGen or Legacy) that riders report ahead of time for a date range.
+    // The reporter's name is the label from their report display setting, as on trainReports;
+    // no email or raw account name. Reports are public, never edited, and deleted by their reporter
+    // or a deleteReports admin.
+    function ymdOk(v) {
+      return v is string && v.matches('20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])');
+    }
+
+    function ymdTime(v) {
+      return timestamp.date(int(v[0:4]), int(v[5:7]), int(v[8:10]));
+    }
+
+    // From may be today in any US time zone; Until at most 180 days ahead; one report covers at most 120 days.
+    function acelaEquipmentOk(d) {
+      return d.keys().hasOnly(['trainNumber', 'from', 'until', 'type', 'uid', 'reportedByLabel',
+          'reportedByDisplayMode', 'reportedByVerified', 'createdAt'])
+        && d.keys().hasAll(['trainNumber', 'from', 'until', 'type', 'uid', 'reportedByLabel',
+          'reportedByDisplayMode', 'reportedByVerified', 'createdAt'])
+        && d.uid == request.auth.uid
+        && d.trainNumber is string && d.trainNumber.matches('2[12][0-9]{2}')
+        && d.type in ['nextgen', 'legacy']
+        && ymdOk(d.from) && ymdOk(d.until) && d.from <= d.until
+        && ymdTime(d.from) >= request.time - duration.value(2, 'd')
+        && ymdTime(d.until) <= request.time + duration.value(182, 'd')
+        && ymdTime(d.until) <= ymdTime(d.from) + duration.value(120, 'd')
+        && d.reportedByLabel is string && d.reportedByLabel.matches('.{1,120}')
+        && displayModeOk(d.reportedByDisplayMode)
+        && (d.reportedByVerified == false || (d.reportedByVerified == true && isVerifiedReporter()))
+        && d.createdAt == request.time;
+    }
+
+    match /acelaEquipment/{id} {
+      allow read: if true;
+      allow create: if activeUser() && !isReportHeld() && acelaEquipmentOk(request.resource.data);
+      allow update: if false;
+      allow delete: if (activeUser() && resource.data.uid == request.auth.uid) || adminHasPerm('deleteReports');
+    }
+
     match /pendingReports/{id} {
       allow read: if adminHasPerm('viewReports')
         || (activeUser() && resource.data.reportedByUid == request.auth.uid);

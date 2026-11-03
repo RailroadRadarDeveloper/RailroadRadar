@@ -63,6 +63,12 @@ const pending = (uid, extra) => {
   const { createdAt, ...r } = report(uid);
   return { ...r, status: 'pending', submittedAt: now(), ...extra };
 };
+// An Acela equipment report as the site writes it.
+const ymd = (days) => new Date(Date.now() + days * 86400e3).toISOString().slice(0, 10);
+const equip = (uid, extra) => ({
+  trainNumber: '2153', from: ymd(0), until: ymd(30), type: 'legacy', uid,
+  reportedByLabel: 'A.', reportedByDisplayMode: 'first_initial', reportedByVerified: false, createdAt: now(), ...extra
+});
 const auditEntry = (uid, extra) => ({ uid, email: USERS[uid].email, name: 'N', label: 'A.', displayMode: 'first_initial', at: Date.now(), verified: false, ...extra });
 
 before(async () => {
@@ -89,6 +95,7 @@ beforeEach(async () => {
     set('reportHold/alice', { required: true });
     set('pairings/1700', pairing('alice'));
     set('trainReports/r1', { reportedByUid: 'alice', trainNumber: '371' });
+    set('acelaEquipment/e1', { ...equip('bob'), createdAt: Timestamp.now() });
     set('pendingReports/p1', { reportedByUid: 'alice' });
     set('reportAudit/a1', { reportedByUid: 'alice' });
     set('actionLog/l1', { action: 'x', uid: 'alice', at: 1 });
@@ -182,6 +189,54 @@ describe('trainReports', () => {
     await no(as('bob').doc('trainReports/r1').update({ reportedByUid: 'bob' }));
     await no(as('bob').doc('reportAudit/a1').update({ reportedByUid: 'bob' }));
   });
+});
+
+describe('acelaEquipment', () => {
+  it('anyone can read', () => ok(anon().doc('acelaEquipment/e1').get()));
+  it('verified user creates a report in the site\'s shape', async () => {
+    await ok(as('bob').collection('acelaEquipment').add(equip('bob')));
+    await ok(as('bob').collection('acelaEquipment').add(equip('bob', { type: 'nextgen', from: ymd(10), until: ymd(10), reportedByDisplayMode: 'anonymous', reportedByLabel: 'Anonymous' })));
+  });
+  it('denies another uid, extra or missing fields, emails and bad values', async () => {
+    const c = as('bob').collection('acelaEquipment');
+    await no(c.add(equip('alice')));
+    await no(c.add(equip('bob', { reportedByEmail: 'bob@example.com' })));
+    const { reportedByLabel, ...noName } = equip('bob');
+    await no(c.add(noName));
+    await no(c.add(equip('bob', { reportedByLabel: 'x'.repeat(121) })));
+    await no(c.add(equip('bob', { reportedByLabel: '' })));
+    await no(c.add(equip('bob', { reportedByLabel: ['A.'] })));
+    await no(c.add(equip('bob', { reportedByDisplayMode: 'email' })));
+    await no(c.add(equip('bob', { type: 'amfleet' })));
+    await no(c.add(equip('bob', { trainNumber: '171' })));
+    await no(c.add(equip('bob', { createdAt: Timestamp.now() })));
+  });
+  it('enforces the date window', async () => {
+    const c = as('bob').collection('acelaEquipment');
+    await no(c.add(equip('bob', { from: ymd(-5), until: ymd(1) })));
+    await no(c.add(equip('bob', { from: ymd(5), until: ymd(4) })));
+    await no(c.add(equip('bob', { from: ymd(100), until: ymd(190) })));
+    await no(c.add(equip('bob', { from: ymd(1), until: ymd(130) })));
+    await no(c.add(equip('bob', { from: '2026-13-01' })));
+  });
+  it('the verified badge needs a verifiedReporters doc', async () => {
+    await no(as('bob').collection('acelaEquipment').add(equip('bob', { reportedByVerified: true })));
+    await ok(as('ver').collection('acelaEquipment').add(equip('ver', { reportedByVerified: true })));
+  });
+  it('denies anonymous, unverified, banned and held users', async () => {
+    await no(anon().collection('acelaEquipment').add(equip(null)));
+    await no(as('unverified').collection('acelaEquipment').add(equip('unverified')));
+    await no(as('banned').collection('acelaEquipment').add(equip('banned')));
+    await no(as('bannedMail').collection('acelaEquipment').add(equip('bannedMail')));
+    await no(as('alice').collection('acelaEquipment').add(equip('alice')));
+  });
+  it('nobody edits; the reporter or a deleteReports admin deletes', async () => {
+    await no(as('bob').doc('acelaEquipment/e1').update({ type: 'nextgen' }));
+    await no(as('alice').doc('acelaEquipment/e1').delete());
+    await no(as('viewer').doc('acelaEquipment/e1').delete());
+    await ok(as('bob').doc('acelaEquipment/e1').delete());
+  });
+  it('a deleteReports admin deletes', () => ok(as('admin').doc('acelaEquipment/e1').delete()));
 });
 
 describe('pendingReports', () => {
