@@ -12158,6 +12158,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         // m: marker; lat/lng: new fix; pollMs: that feed's poll interval;
         // o: { agency, mph } (mph null = not reported, 0 = stopped).
+        const STALE_MS = 180000;
         function to(m, lat, lng, pollMs, o) {
           o = o || {};
           const now = performance.now();
@@ -12172,11 +12173,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Same report again (feeds repeat a position until the train sends a new one): keep the
           // running estimate and its fix time; it stops at its horizon.
           if (prev && prev.ag === ag && prev.fix.lat === fix.lat && prev.fix.lng === fix.lng) return;
+          // The vehicle's own report time decides whether it is shown as live: an old report is
+          // placed where it was, never moved forward.
+          const age = o.ts != null && isFinite(o.ts) ? Date.now() - o.ts : null;
+          const stale = age != null && age > Math.max(3 * pollMs, STALE_MS);
           const st = { ag: ag, fix: fix, tFix: now, dr: false, ease: null, horizon: Math.min(2 * pollMs / 1000, 180) };
           st.prevFix = prev ? { p: prev.fix, t: prev.tFix } : null;
           st.lastDir = prev ? prev.dir : 0;
           m._rrDR = st;
           const map0 = m._map;
+          if (stale) { st.stale = true; m.setLatLng(fix); active.delete(m); stats.stale = (stats.stale || 0) + 1; return; }
           if (!map0 || !cur || reduce.matches || !pollMs) { m.setLatLng(fix); active.delete(m); return; }
           if (miles(cur, fix) > MAX_MI) { m.setLatLng(fix); active.delete(m); return; }
           // Dead-reckoning along the shape.
@@ -14110,7 +14116,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 nextStop: info.eventName || info.eventCode || ''
               });
               if (amtrakMarkers[vid]) {
-                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
+                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { ts: rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, null), agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
                 rrSetMarkerIcon(amtrakMarkers[vid], icon);
                 rrRefreshOpenPopup(amtrakMarkers[vid]);
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
@@ -14751,7 +14757,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (mnrMarkers[vid]) {
-              rrGlide.to(mnrMarkers[vid], info.lat, info.lng, 25000, { agency: 'mnr', mph: info.speedMph, stops: info.stopLLs });
+              rrGlide.to(mnrMarkers[vid], info.lat, info.lng, 25000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'mnr', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(mnrMarkers[vid], icon);
               rrRefreshOpenPopup(mnrMarkers[vid]);
               applyCyclingLabel(mnrMarkers[vid], mnrLabelInfo, false);
@@ -15178,7 +15184,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (lirrMarkers[vid]) {
-              rrGlide.to(lirrMarkers[vid], info.lat, info.lng, 25000, { agency: 'lirr', mph: info.speedMph, stops: info.stopLLs });
+              rrGlide.to(lirrMarkers[vid], info.lat, info.lng, 25000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'lirr', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(lirrMarkers[vid], icon);
               rrRefreshOpenPopup(lirrMarkers[vid]);
               applyCyclingLabel(lirrMarkers[vid], lirrLabelInfo, false);
@@ -15553,7 +15559,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (metraMarkers[vid]) {
-              rrGlide.to(metraMarkers[vid], info.lat, info.lng, 30000, { agency: 'metra', mph: info.speedMph, stops: info.stopLLs });
+              rrGlide.to(metraMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'metra', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(metraMarkers[vid], icon);
               rrRefreshOpenPopup(metraMarkers[vid]);
               applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
@@ -16224,7 +16230,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               statusText: info.statusText, lat: info.lat, lng: info.lng
             }) : null;
             if (marcMarkers[vid]) {
-              rrGlide.to(marcMarkers[vid], info.lat, info.lng, 30000, { agency: 'marc', mph: info.speedMph != null ? info.speedMph : null, stops: info.stopLLs });
+              rrGlide.to(marcMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'marc', mph: info.speedMph != null ? info.speedMph : null, stops: info.stopLLs });
               marcMarkers[vid].setIcon(icon);
               if (marcMarkers[vid].getPopup()) marcMarkers[vid].setPopupContent(createMarcPopupContent(vid, info));
               if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(marcMarkers[vid], labelInfo, false);
@@ -16669,7 +16675,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               isCapeFlyer 
             };
             if (markers[vid]) {
-              rrGlide.to(markers[vid], lat, lng, 60000, { agency: 'mbta', mph: status === 'STOPPED_AT' ? 0 : (speedMps != null ? speedMps * 2.23694 : null), stops: rrMbtaNextStopLL(data, stopId) });
+              rrGlide.to(markers[vid], lat, lng, 60000, { ts: rrSeenMs(v.attributes && v.attributes.updated_at, null), agency: 'mbta', mph: status === 'STOPPED_AT' ? 0 : (speedMps != null ? speedMps * 2.23694 : null), stops: rrMbtaNextStopLL(data, stopId) });
               rrSetMarkerIcon(markers[vid], createTrainIcon(delay, vid));
               updated++;
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, displayRouteName, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
@@ -21139,8 +21145,27 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           delete rrRailPolls[key];
         }
       }
+      // Rough service areas (S, W, N, E), padded. A railroad wholly outside the view is not
+      // fetched; its markers are off-screen anyway. Amtrak/VIA span the continent and always poll.
+      const RR_POLL_AREAS = {
+        mbta: [40.7, -72.5, 43.7, -69.5], mnr: [40.1, -74.8, 42.3, -72.3], lirr: [40.0, -74.6, 41.7, -71.3],
+        metra: [40.7, -89.1, 43.1, -86.9], njt: [38.8, -75.9, 41.9, -73.3], marc: [38.3, -78.5, 40.3, -75.9]
+      };
+      window.rrPollSkips = window.rrPollSkips || {};
+      function rrRailPollInView(key) {
+        const a = RR_POLL_AREAS[key];
+        if (!a || typeof map === 'undefined' || !map || !map.getBounds) return true;
+        if (typeof rrIsMyTripsPage === 'function' && rrIsMyTripsPage()) return true;
+        if (typeof window.rrNotifyShouldBackgroundPoll === 'function' && window.rrNotifyShouldBackgroundPoll()) return true;
+        let b;
+        try { b = map.getBounds(); } catch (_) { return true; }
+        if (!b || !b.isValid || !b.isValid()) return true;
+        return !(b.getNorth() < a[0] || b.getSouth() > a[2] || b.getEast() < a[1] || b.getWest() > a[3]);
+      }
       function runRailPoll(key) {
         const poll = rrRailPolls[key];
+        if (!rrRailPollInView(key)) { poll.skipped = true; window.rrPollSkips[key] = (window.rrPollSkips[key] || 0) + 1; return; }
+        poll.skipped = false;
         poll.last = Date.now();
         const p = poll.fn();
         if (p && typeof p.then === 'function') {
@@ -21155,6 +21180,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function startRailPoll(key, fn, ms) {
         if (rrRailPollTimers[key]) return;
         rrRailPolls[key] = { fn: fn, ms: ms, last: Date.now(), busy: false };
+        if (!rrRailPollMoveHooked && typeof map !== 'undefined' && map && map.on) { rrRailPollMoveHooked = true; map.on('moveend', rrRailPollCatchUp); }
         armRailPollTimer(key);
       }
       // Hidden tabs skip their ticks, so catch up on return. The timer is re-armed
@@ -21169,6 +21195,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           runRailPoll(key);
         });
       });
+      // Panning into a skipped railroad's area fetches it at once instead of waiting a tick.
+      function rrRailPollCatchUp() {
+        Object.keys(rrRailPolls).forEach(function(key) {
+          const poll = rrRailPolls[key];
+          if (!poll.skipped || poll.busy || document.hidden || !rrRailPollInView(key)) return;
+          clearInterval(rrRailPollTimers[key]);
+          armRailPollTimer(key);
+          runRailPoll(key);
+        });
+      }
+      let rrRailPollMoveHooked = false;
       function startEnabledRailPolls() {
         if (showMbta) startRailPoll('mbta', fetchTrains, 60000);
         else stopRailPoll('mbta');
