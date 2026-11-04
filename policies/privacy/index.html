@@ -313,10 +313,14 @@
       <div class="policy">
         <h1>Privacy Policy</h1>
         <div class="meta-row">
-          <span class="pill">Effective October 31, 2026</span>
+          <span class="pill">Effective November 4, 2026</span>
         </div>
         <div class="note">
-          <p><strong>Last updated October 31, 2026.</strong> What changed:</p>
+          <p><strong>Last updated November 4, 2026.</strong> What changed:</p>
+          <ul>
+            <li><a href="#collect">Technical and log data</a>: the 24-Hour Train Replay on the map loads past train positions from a third RailroadRadar Worker, railroadradar-replay.railroadradar.workers.dev. It stores only public train positions and speeds from railroad feeds for about a day and holds no personal information.</li>
+          </ul>
+          <p>Earlier changes, October 31, 2026:</p>
           <ul>
             <li><a href="#collect">Technical and log data</a>: Ask questions about train history, line status, holidays, and events go to a second RailroadRadar Worker, railroadradar-history.railroadradar.workers.dev. Its delay history and event calendar are built from public train feeds and public event calendars and hold no personal information.</li>
           </ul>
@@ -384,7 +388,7 @@
 
         <h3>2.2 Information Collected Automatically</h3>
         <ul>
-          <li><strong>Technical and log data.</strong> Servers and content-delivery networks may record IP address, browser type, device type, pages requested, referring URL, date and time, and similar diagnostic data needed to operate and secure the Service. Live train data, trip lookups, and Ask questions go through our own proxy servers (Cloudflare Workers at railroadradar-proxy.railroadradar.workers.dev, and railroadradar-history.railroadradar.workers.dev for Ask questions about train history, line status, holidays, and events), which receive your IP address and the request.</li>
+          <li><strong>Technical and log data.</strong> Servers and content-delivery networks may record IP address, browser type, device type, pages requested, referring URL, date and time, and similar diagnostic data needed to operate and secure the Service. Live train data, trip lookups, and Ask questions go through our own proxy servers (Cloudflare Workers at railroadradar-proxy.railroadradar.workers.dev, railroadradar-history.railroadradar.workers.dev for Ask questions about train history, line status, holidays, and events, and railroadradar-replay.railroadradar.workers.dev for the 24-Hour Train Replay), which receive your IP address and the request.</li>
           <li><strong>Map usage.</strong> The live map loads tiles and geographic data from map providers. Those providers may receive your IP address and the map area you view.</li>
           <li><strong>Approximate or precise location (optional).</strong> If you allow location access, your browser can share coordinates with RailroadRadar so we can center the map on you and list nearby trains. That calculation runs in your browser, unless you choose to start a live location share (see section 2.1). You can deny or later revoke location permission in your device or browser settings. We do not require location to use the map; it is needed only to log a new special move, which starts a live location share.</li>
           <li><strong>Local device storage.</strong> The Service stores preferences on your device (for example cookie consent, map theme, whether train labels or clusters are shown, which railroads are visible, notification choices, and whether you answered or dismissed the survey invitation along with how long you have spent on the site so far, which decides when we show it). During a live location share it also keeps the share’s details and your last shared position, so the share can continue if you reload the page.</li>
@@ -500,7 +504,7 @@
           <li><strong>Microsoft Clarity</strong> — optional analytics and session insights, loaded only after consent.</li>
           <li><strong>Google Analytics</strong> — optional visit and page-view statistics, loaded only after consent, with advertising features off. It may be linked with Microsoft Clarity.</li>
           <li><strong>Better Stack</strong> — optional error and performance monitoring, loaded only after consent; receives only your account ID if signed in.</li>
-          <li><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, and Ask; they see your IP address and requests.</li>
+          <li><strong>Cloudflare Workers</strong> — our proxy servers for live data, trip lookups, Ask, and the 24-Hour Train Replay; they see your IP address and requests.</li>
           <li><strong>Groq</strong>: the AI provider that writes some Ask answers. It receives the question and the facts or page excerpts sent with it from our proxy server, not your IP address or account details.</li>
           <li><strong>Discord</strong> — when we publish a press release, its title and link may be posted to our Discord server through a webhook. No visitor or account data is sent.</li>
           <li><strong>Mapbox / OpenStreetMap / Leaflet</strong> — map display. OpenStreetMap Nominatim may also receive approximate coordinates from a live viewer’s browser to look up a town name.</li>
