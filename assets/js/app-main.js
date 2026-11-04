@@ -11966,6 +11966,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return out;
       }
       // MBTA vehicles name the stop they are at or heading to; that is the only stop we know for sure.
+      // MBTA's vehicle feed refreshes every ~10-30 s; only polled while Boston is in view.
+      const RR_MBTA_POLL_MS = 15000;
       function rrMbtaNextStopLL(data, stopId) {
         if (!stopId || !data || !data.included) return null;
         const st = data.included.find(function(i) { return i.type === 'stop' && i.id === stopId; });
@@ -12053,7 +12055,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const poly = net.polys[pi];
               const r = projSeg(p, poly.pts[s], poly.pts[s + 1], coslat);
               if (r.d <= maxM && (!best || r.d < best.d)) {
-                best = { poly: pi, d: r.d, along: poly.cum[s] + (poly.cum[s + 1] - poly.cum[s]) * r.t };
+                best = { poly: pi, seg: s, d: r.d, along: poly.cum[s] + (poly.cum[s + 1] - poly.cum[s]) * r.t };
               }
             }
           }
@@ -12159,6 +12161,39 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         // m: marker; lat/lng: new fix; pollMs: that feed's poll interval;
         // o: { agency, mph } (mph null = not reported, 0 = stopped).
         const STALE_MS = 180000;
+        // Compass bearing in degrees from a number or a compass word (Amtrak sends "NE").
+        const COMPASS = { N: 0, NNE: 22.5, NE: 45, ENE: 67.5, E: 90, ESE: 112.5, SE: 135, SSE: 157.5, S: 180, SSW: 202.5, SW: 225, WSW: 247.5, W: 270, WNW: 292.5, NW: 315, NNW: 337.5 };
+        function rrBearingDeg(h) {
+          if (h == null || h === '') return null;
+          const n = Number(h);
+          if (isFinite(n)) return ((n % 360) + 360) % 360;
+          const c = COMPASS[String(h).trim().toUpperCase()];
+          return c != null ? c : null;
+        }
+        // +1/-1 when the bearing clearly runs with/against the shape segment, else 0.
+        function dirFromBearing(poly, seg, deg) {
+          if (deg == null || seg == null) return 0;
+          const a = poly.pts[seg], b = poly.pts[seg + 1];
+          if (!a || !b) return 0;
+          const coslat = Math.cos(a[0] * Math.PI / 180);
+          const segDeg = Math.atan2((b[1] - a[1]) * coslat, b[0] - a[0]) * 180 / Math.PI;
+          const c = Math.cos((deg - segDeg) * Math.PI / 180);
+          return c > 0.5 ? 1 : c < -0.5 ? -1 : 0;
+        }
+        // Markers placed before their railroad's shapes arrived: try again once shapes load.
+        const waiting = new Set();
+        function retry() {
+          const now = performance.now();
+          waiting.forEach(function (m) {
+            waiting.delete(m);
+            const st = m._rrDR;
+            if (!st || st.dr || st.stale || !st.args || !m._map) return;
+            if (now - st.tFix > st.horizon * 1000) return;
+            const a = st.args;
+            m._rrDR = st.prior;
+            to(m, a[0], a[1], a[2], Object.assign({}, a[3], { _tFix: st.tFix }));
+          });
+        }
         function to(m, lat, lng, pollMs, o) {
           o = o || {};
           const now = performance.now();
@@ -12177,8 +12212,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // placed where it was, never moved forward.
           const age = o.ts != null && isFinite(o.ts) ? Date.now() - o.ts : null;
           const stale = age != null && age > Math.max(3 * pollMs, STALE_MS);
-          const st = { ag: ag, fix: fix, tFix: now, dr: false, ease: null, horizon: Math.min(2 * pollMs / 1000, 180) };
+          const st = { ag: ag, fix: fix, tFix: o._tFix != null ? o._tFix : now, args: [lat, lng, pollMs, o], prior: prev, dr: false, ease: null, horizon: Math.min(2 * pollMs / 1000, 180) };
           st.prevFix = prev ? { p: prev.fix, t: prev.tFix } : null;
+          if (prev) { prev.prior = null; prev.args = null; }
           st.lastDir = prev ? prev.dir : 0;
           m._rrDR = st;
           const map0 = m._map;
@@ -12188,6 +12224,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Dead-reckoning along the shape.
           const net = ag ? getNet(ag) : null;
           const hit = net && project(net, fix, null, SHAPE_M);
+          if (!net && ag) waiting.add(m);
           if (hit) {
             st.net = net; st.poly = hit.poly; st.along = hit.along;
             const poly = net.polys[hit.poly];
@@ -12198,6 +12235,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (ph) { dAlong = hit.along - ph.along; if (Math.abs(dAlong) >= 15) dir = dAlong > 0 ? 1 : -1; }
             }
             if (!dir && st.lastDir && prev && prev.poly === hit.poly) dir = st.lastDir;
+            // First report (or no movement yet): the feed's own heading, then its next stop.
+            if (!dir) { dir = dirFromBearing(poly, hit.seg, rrBearingDeg(o.bearing)); if (dir) st.dirSrc = 'bearing'; }
+            if (!dir && Array.isArray(o.next) && o.next.length === 2) {
+              const nh = project(net, { lat: +o.next[0], lng: +o.next[1] }, hit.poly, 300);
+              if (nh && Math.abs(nh.along - hit.along) > PASS_M) { dir = nh.along > hit.along ? 1 : -1; st.dirSrc = 'next'; }
+            }
             let v = 0;
             const mph = o.mph;
             if (mph != null && isFinite(mph)) {
@@ -12265,7 +12308,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           });
           return out;
         }
-        return { to: to, active: function () { return active.size; }, stats: stats, report: report, perf: perf, distrust: distrust, _nets: nets };
+        return { to: to, retry: retry, active: function () { return active.size; }, stats: stats, report: report, perf: perf, distrust: distrust, _nets: nets };
       })();
       try { window.rrGlide = rrGlide; } catch (_) {}
       // setIcon replaces the marker's DOM node, so skip it unless the icon options differ.
@@ -14116,7 +14159,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 nextStop: info.eventName || info.eventCode || ''
               });
               if (amtrakMarkers[vid]) {
-                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { ts: rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, null), agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
+                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { ts: rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, null), bearing: info.heading != null ? info.heading : t.heading, agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
                 rrSetMarkerIcon(amtrakMarkers[vid], icon);
                 rrRefreshOpenPopup(amtrakMarkers[vid]);
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
@@ -14757,7 +14800,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (mnrMarkers[vid]) {
-              rrGlide.to(mnrMarkers[vid], info.lat, info.lng, 25000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'mnr', mph: info.speedMph, stops: info.stopLLs });
+              rrGlide.to(mnrMarkers[vid], info.lat, info.lng, 25000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), bearing: entity.vehicle && entity.vehicle.position ? entity.vehicle.position.bearing : null, agency: 'mnr', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(mnrMarkers[vid], icon);
               rrRefreshOpenPopup(mnrMarkers[vid]);
               applyCyclingLabel(mnrMarkers[vid], mnrLabelInfo, false);
@@ -15184,7 +15227,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (lirrMarkers[vid]) {
-              rrGlide.to(lirrMarkers[vid], info.lat, info.lng, 25000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'lirr', mph: info.speedMph, stops: info.stopLLs });
+              rrGlide.to(lirrMarkers[vid], info.lat, info.lng, 25000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), bearing: entity.vehicle && entity.vehicle.position ? entity.vehicle.position.bearing : null, agency: 'lirr', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(lirrMarkers[vid], icon);
               rrRefreshOpenPopup(lirrMarkers[vid]);
               applyCyclingLabel(lirrMarkers[vid], lirrLabelInfo, false);
@@ -15559,7 +15602,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (metraMarkers[vid]) {
-              rrGlide.to(metraMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'metra', mph: info.speedMph, stops: info.stopLLs });
+              rrGlide.to(metraMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), bearing: entity.vehicle && entity.vehicle.position ? entity.vehicle.position.bearing : null, agency: 'metra', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(metraMarkers[vid], icon);
               rrRefreshOpenPopup(metraMarkers[vid]);
               applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
@@ -15939,7 +15982,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (njtMarkers[vid]) {
-              rrGlide.to(njtMarkers[vid], info.lat, info.lng, 30000, { agency: 'njt', mph: null });
+              rrGlide.to(njtMarkers[vid], info.lat, info.lng, 30000, { agency: 'njt', mph: null, bearing: info.bearing != null ? info.bearing : info.heading });
               rrSetMarkerIcon(njtMarkers[vid], icon);
               rrRefreshOpenPopup(njtMarkers[vid]);
               applyCyclingLabel(njtMarkers[vid], labelInfo, false);
@@ -16230,7 +16273,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               statusText: info.statusText, lat: info.lat, lng: info.lng
             }) : null;
             if (marcMarkers[vid]) {
-              rrGlide.to(marcMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), agency: 'marc', mph: info.speedMph != null ? info.speedMph : null, stops: info.stopLLs });
+              rrGlide.to(marcMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), bearing: entity.vehicle && entity.vehicle.position ? entity.vehicle.position.bearing : null, agency: 'marc', mph: info.speedMph != null ? info.speedMph : null, stops: info.stopLLs });
               marcMarkers[vid].setIcon(icon);
               if (marcMarkers[vid].getPopup()) marcMarkers[vid].setPopupContent(createMarcPopupContent(vid, info));
               if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(marcMarkers[vid], labelInfo, false);
@@ -16514,6 +16557,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
           }
         });
+        try { if (window.rrGlide) window.rrGlide.retry(); } catch (_) {}
         if (agencies.length) console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
         return { routes: totalRoutes, polylines: totalPolys };
       }
@@ -16628,7 +16672,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           const tripIds = data.data.map(v => v.relationships.trip.data?.id).filter(Boolean);
           const routeIds = data.data.map(v => v.relationships.route.data?.id).filter(Boolean);
-          const [onTime, alerts] = await Promise.all([getOnTimeStatus(tripIds), fetchTrainAlerts(tripIds, routeIds)]);
+          // Positions poll every 15 s; on-time status and alerts change slowly, so refresh them once a minute.
+          let onTime, alerts;
+          const side = window.__rrMbtaSide;
+          if (side && Date.now() - side.t < 55000) { onTime = side.onTime; alerts = side.alerts; }
+          else {
+            [onTime, alerts] = await Promise.all([getOnTimeStatus(tripIds), fetchTrainAlerts(tripIds, routeIds)]);
+            window.__rrMbtaSide = { t: Date.now(), onTime: onTime, alerts: alerts };
+          }
           const now = Date.now();
           Object.keys(tripStopsCache).forEach(k => delete tripStopsCache[k]);
           rrNoteMbtaTrips(data.included);
@@ -16675,7 +16726,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               isCapeFlyer 
             };
             if (markers[vid]) {
-              rrGlide.to(markers[vid], lat, lng, 60000, { ts: rrSeenMs(v.attributes && v.attributes.updated_at, null), agency: 'mbta', mph: status === 'STOPPED_AT' ? 0 : (speedMps != null ? speedMps * 2.23694 : null), stops: rrMbtaNextStopLL(data, stopId) });
+              rrGlide.to(markers[vid], lat, lng, RR_MBTA_POLL_MS, { ts: rrSeenMs(v.attributes && v.attributes.updated_at, null), bearing: v.attributes ? v.attributes.bearing : null, next: status !== 'STOPPED_AT' ? (rrMbtaNextStopLL(data, stopId) || [])[0] : null, agency: 'mbta', mph: status === 'STOPPED_AT' ? 0 : (speedMps != null ? speedMps * 2.23694 : null), stops: rrMbtaNextStopLL(data, stopId) });
               rrSetMarkerIcon(markers[vid], createTrainIcon(delay, vid));
               updated++;
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, displayRouteName, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
@@ -21207,7 +21258,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       let rrRailPollMoveHooked = false;
       function startEnabledRailPolls() {
-        if (showMbta) startRailPoll('mbta', fetchTrains, 60000);
+        if (showMbta) startRailPoll('mbta', fetchTrains, RR_MBTA_POLL_MS);
         else stopRailPoll('mbta');
         if (showAmtrak || showVia) startRailPoll('amtrak', fetchAmtrakTrains, 60000);
         else stopRailPoll('amtrak');
@@ -21243,7 +21294,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (enabled) {
           loadEnabledRailStatic();
           try {
-            if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, 60000); fetchTrains(); }
+            if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, RR_MBTA_POLL_MS); fetchTrains(); }
             else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
             else if (agency === 'mnr') { startRailPoll('mnr', fetchMnrTrains, 25000); fetchMnrTrains(); }
             else if (agency === 'lirr') { startRailPoll('lirr', fetchLirrTrains, 25000); fetchLirrTrains(); }
@@ -21815,6 +21866,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             // First paint: live trains (+ MBTA stations) in parallel. Route shapes load in background
             // so splash is not blocked on the MBTA shapes waterfall / large amtrak.json.
             setLoadingProgress(35, 'Loading live trains...');
+            // Route shapes start now (not after first paint) so trains can glide from their first report.
+            window.__rrShapesP = withTimeout(fetchRouteShapes(), 60000, 'fetchRouteShapes');
             const firstPaint = [];
             firstPaint.push(withTimeout(fetchStations(), 8000, 'fetchStations'));
             if (showMbta) firstPaint.push(withTimeout(fetchTrains(), 12000, 'fetchTrains'));
@@ -21848,7 +21901,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           } else {
             const bg = [];
             // Shapes are non-blocking for map usability; parallelized inside fetchRouteShapes.
-            bg.push(withTimeout(fetchRouteShapes(), 60000, 'fetchRouteShapes'));
+            bg.push(window.__rrShapesP || withTimeout(fetchRouteShapes(), 60000, 'fetchRouteShapes'));
             // Live agencies already fetched on first paint; polls keep them fresh.
             if (bg.length) await Promise.allSettled(bg);
           }
