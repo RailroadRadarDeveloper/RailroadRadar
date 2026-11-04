@@ -1,0 +1,32 @@
+# Commuter sampler (MBTA, MNR, LIRR, Metra every 30 s) + /api/replay/hour. Deploy: npx wrangler deploy -c workers/replay/wrangler.toml
+name = "railroadradar-replay"
+main = "railroadradar-replay.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+ROLE = "commuter"
+
+[triggers]
+crons = ["* * * * *"]
+
+# Feeds come from railroadradar-proxy (unchanged) through a service binding.
+[[services]]
+binding = "PROXY"
+service = "railroadradar-proxy"
+
+# Itself, so each feed-pair sample runs in its own invocation (keeps CPU per invocation small).
+[[services]]
+binding = "SELF"
+service = "railroadradar-replay"
+entrypoint = "Sampler"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "railroadradar-history"
+database_id = "155b2e51-b59a-481f-8d07-8491b8fca7bb"
+migrations_dir = "migrations"
+migrations_table = "replay_migrations"
+
+[observability]
+enabled = true
