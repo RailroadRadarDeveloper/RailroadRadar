@@ -52,27 +52,29 @@ try {
     await shot(page, `live-${tag}-2b-playing-zoomed`);
     await page.click('.rr-replay-play');                       // pause for steady popups
     for (const kind of ['amtrak', 'derived']) {
-      // Widen to the Northeast so every railroad loads, then pick a train.
+      // Widen to the Northeast so every railroad loads, then try trains until one shows a moving speed.
       await page.evaluate(() => { window.rrMainMap.setView([41.3, -73.2], 7, { animate: false }); });
       await page.waitForTimeout(2500);
-      const id = await page.evaluate((kind) => {
-        const ts = window.rrReplay.trains();
-        const v = kind === 'amtrak'
-          ? (ts.find((t) => t.rr === 'amtrak' && /acela/i.test(t.route) && t.rec[2] > 20) || ts.find((t) => t.rr === 'amtrak' && t.rec[2] > 20))
-          : ts.find((t) => (t.rr === 'mnr' || t.rr === 'lirr') && t.rec[2] == null && window.rrReplayTestDerived && false) ||
-            ts.find((t) => (t.rr === 'mnr' || t.rr === 'lirr' || t.rr === 'metra') && t.rec[2] == null);
-        if (!v) return null;
-        window.rrMainMap.setView([v.lat, v.lon], 11, { animate: false });
-        return v.id;
-      }, kind);
-      if (!id) { errors.push(`${tag}: no ${kind} train`); continue; }
-      await page.waitForTimeout(1200);
-      const ok = await page.evaluate((id) => { const m = window.rrReplay.markers()[id]; if (m) { m.openPopup(); return true; } return false; }, id);
-      if (!ok) { errors.push(`${tag}: no marker for ${id}`); continue; }
-      await page.waitForTimeout(1500);
-      await shot(page, `live-${tag}-3-popup-${kind}`);
-      const txt = await page.evaluate(() => (document.querySelector('.rr-replay-popup') || {}).innerText || '');
-      console.log(tag, kind, id, JSON.stringify(txt.replace(/\s+/g, ' ').slice(0, 200)));
+      const cands = await page.evaluate((kind) => window.rrReplay.trains()
+        .filter((t) => kind === 'amtrak' ? t.rr === 'amtrak' && t.rec[2] > 20 : (t.rr === 'lirr' || t.rr === 'mnr' || t.rr === 'mbta') && t.rec[2] == null && t.rec[4] != null && t.rec[4] < 120)
+        .sort((x, y) => (kind === 'amtrak' ? (/acela/i.test(y.route) - /acela/i.test(x.route)) : (x.rr === 'lirr' ? -1 : 1)))
+        .slice(0, 30).map((t) => ({ id: t.id, lat: t.lat, lon: t.lon })), kind);
+      let done = false;
+      for (const c of cands) {
+        await page.evaluate((c) => { window.rrMainMap.closePopup(); window.rrMainMap.setView([c.lat, c.lon], 11, { animate: false }); }, c);
+        await page.waitForTimeout(1000);
+        const ok = await page.evaluate((id) => { const m = window.rrReplay.markers()[id]; if (m) { m.openPopup(); return true; } return false; }, c.id);
+        if (!ok) continue;
+        await page.waitForTimeout(800);
+        const txt = await page.evaluate(() => (document.querySelector('.rr-replay-popup') || {}).innerText || '');
+        const mph = parseInt((txt.match(/(\d+)\s*mph/i) || [])[1] || '0', 10);
+        if (mph < 10) continue;
+        await page.waitForTimeout(700);
+        await shot(page, `live-${tag}-3-popup-${kind}`);
+        console.log(tag, kind, c.id, JSON.stringify(txt.replace(/\s+/g, ' ').slice(0, 200)));
+        done = true; break;
+      }
+      if (!done) errors.push(`${tag}: no moving ${kind} train`);
       await page.evaluate(() => { window.rrMainMap.closePopup(); });
     }
     const info = await page.evaluate(() => ({ markers: Object.keys(window.rrReplay.markers()).length, trains: window.rrReplay.trains().length, loaded: window.rrReplay.loaded(), status: (document.querySelector('.rr-replay-status') || {}).textContent }));
