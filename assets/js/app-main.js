@@ -11950,6 +11950,318 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         specialIcons = {};
         console.log('%c[SpecialIcons] Apps Script icon feed disabled — using roster + local HSP/F40 assets', 'color:#27ae60');
       }
+      // Smooth live movement: a train marker glides from where it is shown to its newest reported
+      // position over about one poll interval, then stops there until the next report. It never
+      // goes past the reported position (no extrapolation). Snaps instead when the jump is long
+      // (> 3 mi), the train was stale, it is off screen, the tab is hidden, or reduced motion is on.
+      // [lat, lng] of every stop a GTFS-rt trip update says the train makes (skipped stops left out).
+      function rrTuStopLLs(tu, coordFn) {
+        const out = [];
+        ((tu && tu.stop_time_update) || []).forEach(function(stu) {
+          if (!stu || stu.schedule_relationship === 1 || stu.schedule_relationship === 'SKIPPED') return;
+          let c = null;
+          try { c = coordFn(stu.stop_id); } catch (_) {}
+          if (c && isFinite(c.lat) && isFinite(c.lon)) out.push([c.lat, c.lon]);
+        });
+        return out;
+      }
+      // MBTA vehicles name the stop they are at or heading to; that is the only stop we know for sure.
+      function rrMbtaNextStopLL(data, stopId) {
+        if (!stopId || !data || !data.included) return null;
+        const st = data.included.find(function(i) { return i.type === 'stop' && i.id === stopId; });
+        const a = st && st.attributes;
+        return a && isFinite(a.latitude) && isFinite(a.longitude) ? [[a.latitude, a.longitude]] : null;
+      }
+      // Live train motion. Between feed polls a moving train is advanced along its railroad's
+      // GTFS shape at its reported (or derived) speed; it never passes the next station ahead,
+      // stops after min(2 polls, 3 min), and a new fix is eased in over ~1.5 s (snap if > 3 mi).
+      // Trains with no shape nearby (or no trusted speed/direction) just glide to the new fix.
+      const rrGlide = (function () {
+        const active = new Set();
+        const MAX_MI = 3, EASE_MS = 1500, SHAPE_M = 150, STOP_M = 120, PASS_M = 40;
+        const M_LAT = 110540, M_LNG = 111320, CELL = 0.01;
+        let raf = 0;
+        const reduce = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)')) || { matches: false };
+        const nets = {};
+        const stats = {};
+        // Railroads whose estimates have been landing farther from the next fix than the last fix
+        // itself (e.g. a feed that only moves trains at stations) stop extrapolating.
+        const distrust = {};
+        const MAX_MPH = { amtrak: 160, via: 110 };
+        function miles(a, b) {
+          const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+          const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+          return 7917.6 * Math.asin(Math.min(1, Math.sqrt(x)));
+        }
+        function meters(a, b) { return miles(a, b) * 1609.344; }
+        function cellKey(i, j) { return i + ':' + j; }
+        // Every polyline of one railroad, with cumulative meters and a ~1 km grid of segments.
+        function buildNet(ag) {
+          const polys = [], grid = new Map();
+          const pre = 'gtfs-' + ag + '-';
+          let n = 0;
+          Object.keys(routeLines).forEach(function (k) {
+            if (k.indexOf(pre) !== 0) return;
+            routeLines[k].eachLayer(function (pl) {
+              let lls = pl.getLatLngs && pl.getLatLngs();
+              if (lls && lls.length && Array.isArray(lls[0])) lls = lls[0];
+              if (!lls || lls.length < 2) return;
+              const pts = [], cum = [0];
+              lls.forEach(function (p, i) {
+                pts.push([p.lat, p.lng]);
+                if (i) cum.push(cum[i - 1] + meters({ lat: pts[i - 1][0], lng: pts[i - 1][1] }, p));
+              });
+              const pi = polys.length;
+              polys.push({ pts: pts, cum: cum, stops: [] });
+              for (let s = 0; s < pts.length - 1; s++) {
+                const a = pts[s], b = pts[s + 1];
+                const i0 = Math.floor(Math.min(a[0], b[0]) / CELL), i1 = Math.floor(Math.max(a[0], b[0]) / CELL);
+                const j0 = Math.floor(Math.min(a[1], b[1]) / CELL), j1 = Math.floor(Math.max(a[1], b[1]) / CELL);
+                if ((i1 - i0 + 1) * (j1 - j0 + 1) > 400) continue;   // pathological long segment
+                for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+                  const key = cellKey(i, j);
+                  let arr = grid.get(key);
+                  if (!arr) grid.set(key, arr = []);
+                  arr.push(pi, s);
+                }
+              }
+              n++;
+            });
+          });
+          return { polys: polys, grid: grid, layers: n, hubs: -1, hubsAt: 0 };
+        }
+        function projSeg(p, a, b, coslat) {
+          const ax = a[1] * coslat * M_LNG, ay = a[0] * M_LAT, bx = b[1] * coslat * M_LNG, by = b[0] * M_LAT;
+          const px = p.lng * coslat * M_LNG, py = p.lat * M_LAT;
+          const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+          let t = L2 ? ((px - ax) * dx + (py - ay) * dy) / L2 : 0;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const qx = ax + dx * t - px, qy = ay + dy * t - py;
+          return { t: t, d: Math.sqrt(qx * qx + qy * qy) };
+        }
+        // Nearest point on the net (optionally one polyline) within maxM.
+        function project(net, p, onlyPoly, maxM) {
+          const coslat = Math.cos(p.lat * Math.PI / 180);
+          const ci = Math.floor(p.lat / CELL), cj = Math.floor(p.lng / CELL);
+          let best = null;
+          for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+            const arr = net.grid.get(cellKey(i, j));
+            if (!arr) continue;
+            for (let k = 0; k < arr.length; k += 2) {
+              const pi = arr[k], s = arr[k + 1];
+              if (onlyPoly != null && pi !== onlyPoly) continue;
+              const poly = net.polys[pi];
+              const r = projSeg(p, poly.pts[s], poly.pts[s + 1], coslat);
+              if (r.d <= maxM && (!best || r.d < best.d)) {
+                best = { poly: pi, d: r.d, along: poly.cum[s] + (poly.cum[s + 1] - poly.cum[s]) * r.t };
+              }
+            }
+          }
+          return best;
+        }
+        // Station positions along each polyline (any railroad's station dot within STOP_M).
+        function placeStops(net) {
+          net.polys.forEach(function (pl) { pl.stops = []; });
+          (rrStationHubs || []).forEach(function (h) {
+            const p = { lat: h.lat, lng: h.lng };
+            const coslat = Math.cos(p.lat * Math.PI / 180);
+            const ci = Math.floor(p.lat / CELL), cj = Math.floor(p.lng / CELL);
+            const best = new Map();
+            for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+              const arr = net.grid.get(cellKey(i, j));
+              if (!arr) continue;
+              for (let k = 0; k < arr.length; k += 2) {
+                const pi = arr[k], s = arr[k + 1], poly = net.polys[pi];
+                const r = projSeg(p, poly.pts[s], poly.pts[s + 1], coslat);
+                if (r.d > STOP_M) continue;
+                const b = best.get(pi);
+                if (!b || r.d < b.d) best.set(pi, { d: r.d, along: poly.cum[s] + (poly.cum[s + 1] - poly.cum[s]) * r.t });
+              }
+            }
+            best.forEach(function (b, pi) { net.polys[pi].stops.push(b.along); });
+          });
+          net.polys.forEach(function (pl) { pl.stops.sort(function (a, b) { return a - b; }); });
+          net.hubs = (rrStationHubs || []).length;
+          net.hubsAt = Date.now();
+        }
+        function getNet(ag) {
+          const pre = 'gtfs-' + ag + '-';
+          let layers = 0;
+          Object.keys(routeLines).forEach(function (k) { if (k.indexOf(pre) === 0) layers += routeLines[k].getLayers().length; });
+          if (!layers) return null;
+          let net = nets[ag];
+          if (!net || net.layers !== layers) net = nets[ag] = buildNet(ag);
+          const hubs = (rrStationHubs || []).length;
+          if (net.hubs !== hubs && (net.hubs < 0 || Date.now() - net.hubsAt > 30000)) placeStops(net);
+          return net;
+        }
+        function pointAt(poly, s) {
+          const cum = poly.cum, pts = poly.pts;
+          if (s <= 0) return L.latLng(pts[0][0], pts[0][1]);
+          const end = cum[cum.length - 1];
+          if (s >= end) return L.latLng(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+          let lo = 0, hi = cum.length - 1;
+          while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= s) lo = mid; else hi = mid; }
+          const f = (s - cum[lo]) / ((cum[hi] - cum[lo]) || 1);
+          return L.latLng(pts[lo][0] + (pts[hi][0] - pts[lo][0]) * f, pts[lo][1] + (pts[hi][1] - pts[lo][1]) * f);
+        }
+        // Where the train should be now, ignoring the correction ease.
+        function estimate(st, now, raw) {
+          if (!st.dr || (!raw && distrust[st.ag])) return st.fix;
+          const dt = Math.min((now - st.tFix) / 1000, st.horizon);
+          let s = st.along + st.dir * st.v * dt;
+          s = st.dir > 0 ? Math.min(s, st.limit) : Math.max(s, st.limit);
+          return pointAt(st.net.polys[st.poly], s);
+        }
+        function display(st, now) {
+          const base = estimate(st, now);
+          if (!st.ease) return base;
+          let f = (now - st.ease.t0) / st.ease.dur;
+          if (f >= 1) { st.ease = null; return base; }
+          f = st.ease.linear ? f : f * f * (3 - 2 * f);
+          return L.latLng(st.ease.from.lat + (base.lat - st.ease.from.lat) * f, st.ease.from.lng + (base.lng - st.ease.from.lng) * f);
+        }
+        function done(st, now) { return !st.ease && (!st.dr || distrust[st.ag] || now - st.tFix >= st.horizon * 1000); }
+        function frame(now) {
+          raf = 0;
+          const map0 = (typeof map !== 'undefined') ? map : null;
+          if (map0 && map0._animatingZoom) { raf = requestAnimationFrame(frame); return; }
+          let b = null;
+          try { if (map0) b = map0.getBounds().pad(0.2); } catch (_) {}
+          const t0 = performance.now();
+          active.forEach(function (m) {
+            const st = m._rrDR;
+            if (!st || !m._map) { active.delete(m); return; }
+            const fin = done(st, now);
+            const cur = m.getLatLng();
+            // Off-screen trains are only placed when their motion ends (they jump into view correctly).
+            if (!fin && b && !b.contains(cur)) return;
+            const p = display(st, now);
+            if (!cur || Math.abs(cur.lat - p.lat) > 1e-7 || Math.abs(cur.lng - p.lng) > 1e-7) m.setLatLng(p);
+            if (fin) active.delete(m);
+          });
+          perf.frames++; perf.ms += performance.now() - t0;
+          if (active.size) raf = requestAnimationFrame(frame);
+        }
+        const perf = { frames: 0, ms: 0 };
+        function kick() { if (!raf && active.size && !document.hidden) raf = requestAnimationFrame(frame); }
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) kick(); });
+        function record(ag, est, held, real) {
+          const s = stats[ag] || (stats[ag] = { est: [], hold: [] });
+          s.est.push(Math.round(meters(est, real)));
+          s.hold.push(Math.round(meters(held, real)));
+          if (s.est.length > 5000) { s.est.shift(); s.hold.shift(); }
+          if (s.est.length >= 8 && s.est.length % 4 === 0) {
+            const k = Math.max(0, s.est.length - 60);
+            distrust[ag] = median(s.est.slice(k), 0.5) > median(s.hold.slice(k), 0.5);
+          }
+        }
+        // m: marker; lat/lng: new fix; pollMs: that feed's poll interval;
+        // o: { agency, mph } (mph null = not reported, 0 = stopped).
+        function to(m, lat, lng, pollMs, o) {
+          o = o || {};
+          const now = performance.now();
+          const fix = L.latLng(lat, lng);
+          const prev = m._rrDR;
+          const cur = m.getLatLng();
+          const ag = o.agency || (prev && prev.ag) || '';
+          // Error of the estimate (and of simply holding the last fix) against this new fix.
+          if (prev && prev.dr && prev.ag === ag && now - prev.tFix < prev.horizon * 1000 + pollMs) {
+            if (fix.lat !== prev.fix.lat || fix.lng !== prev.fix.lng) record(ag, estimate(prev, now, true), prev.fix, fix);
+          }
+          // Same report again (feeds repeat a position until the train sends a new one): keep the
+          // running estimate and its fix time; it stops at its horizon.
+          if (prev && prev.ag === ag && prev.fix.lat === fix.lat && prev.fix.lng === fix.lng) return;
+          const st = { ag: ag, fix: fix, tFix: now, dr: false, ease: null, horizon: Math.min(2 * pollMs / 1000, 180) };
+          st.prevFix = prev ? { p: prev.fix, t: prev.tFix } : null;
+          st.lastDir = prev ? prev.dir : 0;
+          m._rrDR = st;
+          const map0 = m._map;
+          if (!map0 || !cur || reduce.matches || !pollMs) { m.setLatLng(fix); active.delete(m); return; }
+          if (miles(cur, fix) > MAX_MI) { m.setLatLng(fix); active.delete(m); return; }
+          // Dead-reckoning along the shape.
+          const net = ag ? getNet(ag) : null;
+          const hit = net && project(net, fix, null, SHAPE_M);
+          if (hit) {
+            st.net = net; st.poly = hit.poly; st.along = hit.along;
+            const poly = net.polys[hit.poly];
+            let dir = 0, dAlong = 0, dt = 0;
+            if (st.prevFix) {
+              const ph = project(net, st.prevFix.p, hit.poly, SHAPE_M);
+              dt = (now - st.prevFix.t) / 1000;
+              if (ph) { dAlong = hit.along - ph.along; if (Math.abs(dAlong) >= 15) dir = dAlong > 0 ? 1 : -1; }
+            }
+            if (!dir && st.lastDir && prev && prev.poly === hit.poly) dir = st.lastDir;
+            let v = 0;
+            const mph = o.mph;
+            if (mph != null && isFinite(mph)) {
+              v = mph > 1 && mph <= (MAX_MPH[ag] || 90) ? mph * 0.44704 : 0;
+              // A reported speed with no movement over 20+ s isn't trusted.
+              if (v && st.prevFix && dt > 20 && Math.abs(dAlong) < 15) v = 0;
+            } else if (dt >= 10 && dt <= 600 && Math.abs(dAlong) >= 15) {
+              v = Math.abs(dAlong) / dt;
+              if (v < 0.9 || v > (MAX_MPH[ag] || 90) * 0.44704) v = 0;
+            }
+            st.dir = dir; st.v = v;
+            if (dir && v) {
+              let limit = dir > 0 ? poly.cum[poly.cum.length - 1] : 0;
+              // The train's own stops when the feed gives them (expresses run through skipped
+              // stations); otherwise every station dot along the line.
+              let stops = poly.stops;
+              if (Array.isArray(o.stops) && o.stops.length) {
+                stops = [];
+                o.stops.forEach(function (ll) {
+                  const h = project(net, { lat: +ll[0], lng: +ll[1] }, hit.poly, 300);
+                  if (h) stops.push(h.along);
+                });
+                stops.sort(function (a, b) { return a - b; });
+                st.stopSrc = 'train';
+              } else st.stopSrc = 'all';
+              for (let i = 0; i < stops.length; i++) {
+                const s = stops[i];
+                if (dir > 0 && s > hit.along + PASS_M) { limit = s; break; }
+                if (dir < 0 && s < hit.along - PASS_M) limit = s;
+              }
+              st.limit = limit;
+              st.dr = true;
+            }
+          }
+          let bnd = null;
+          try { bnd = map0.getBounds().pad(0.2); } catch (_) {}
+          const visible = !bnd || bnd.contains(cur) || bnd.contains(fix);
+          if (document.hidden || !visible) {
+            // Nobody sees it: put it on its estimate now and keep it moving if it is extrapolating.
+            m.setLatLng(estimate(st, now));
+            if (st.dr) { active.add(m); kick(); } else active.delete(m);
+            return;
+          }
+          if (st.dr) {
+            st.ease = { from: cur, t0: now, dur: EASE_MS };
+          } else if (!prev) {
+            m.setLatLng(fix); active.delete(m); return;
+          } else if (cur.lat === fix.lat && cur.lng === fix.lng) {
+            active.delete(m); return;
+          } else {
+            // No shape / speed: glide to the reported spot over the poll interval (or ease if the
+            // previous fix is stale).
+            const fresh = now - prev.tFix < pollMs * 3;
+            st.ease = { from: cur, t0: now, dur: fresh ? pollMs : EASE_MS, linear: fresh };
+          }
+          active.add(m);
+          kick();
+        }
+        function median(a, q) { if (!a.length) return null; const s = a.slice().sort(function (x, y) { return x - y; }); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; }
+        function report() {
+          const out = {};
+          Object.keys(stats).forEach(function (ag) {
+            const s = stats[ag];
+            out[ag] = { n: s.est.length, estMedian: median(s.est, 0.5), estP90: median(s.est, 0.9), holdMedian: median(s.hold, 0.5), holdP90: median(s.hold, 0.9) };
+          });
+          return out;
+        }
+        return { to: to, active: function () { return active.size; }, stats: stats, report: report, perf: perf, distrust: distrust, _nets: nets };
+      })();
+      try { window.rrGlide = rrGlide; } catch (_) {}
       // setIcon replaces the marker's DOM node, so skip it unless the icon options differ.
       function rrSetMarkerIcon(m, icon) {
         const cur = m.options.icon;
@@ -13798,7 +14110,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 nextStop: info.eventName || info.eventCode || ''
               });
               if (amtrakMarkers[vid]) {
-                amtrakMarkers[vid].setLatLng([lat, lng]);
+                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
                 rrSetMarkerIcon(amtrakMarkers[vid], icon);
                 rrRefreshOpenPopup(amtrakMarkers[vid]);
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
@@ -14397,6 +14709,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           statusPillClass: statusPillClass,
           delayMinutes: maxDelay,
           vehicleStatus: vehicleStatus,
+          stopLLs: rrTuStopLLs(tu, mnrStopCoords),
           currentStopName: currentStopName,
           speedMph: speedMph,
           tripId: trip.trip_id || null,
@@ -14438,7 +14751,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (mnrMarkers[vid]) {
-              mnrMarkers[vid].setLatLng([info.lat, info.lng]);
+              rrGlide.to(mnrMarkers[vid], info.lat, info.lng, 25000, { agency: 'mnr', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(mnrMarkers[vid], icon);
               rrRefreshOpenPopup(mnrMarkers[vid]);
               applyCyclingLabel(mnrMarkers[vid], mnrLabelInfo, false);
@@ -14820,6 +15133,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           statusPillClass: statusPillClass,
           delayMinutes: maxDelay,
           vehicleStatus: vehicleStatus,
+          stopLLs: rrTuStopLLs(tu, lirrStopCoords),
           currentStopName: currentStopName,
           speedMph: speedMph,
           tripId: tripId || null,
@@ -14864,7 +15178,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (lirrMarkers[vid]) {
-              lirrMarkers[vid].setLatLng([info.lat, info.lng]);
+              rrGlide.to(lirrMarkers[vid], info.lat, info.lng, 25000, { agency: 'lirr', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(lirrMarkers[vid], icon);
               rrRefreshOpenPopup(lirrMarkers[vid]);
               applyCyclingLabel(lirrMarkers[vid], lirrLabelInfo, false);
@@ -15167,6 +15481,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           statusPillClass: statusPillClass,
           delayMinutes: maxDelay,
           vehicleStatus: vehicleStatus,
+          stopLLs: rrTuStopLLs(tu, metraStopCoords),
           currentStopName: currentStopName,
           speedMph: speedMph,
           tripId: tripId || null,
@@ -15238,7 +15553,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (metraMarkers[vid]) {
-              metraMarkers[vid].setLatLng([info.lat, info.lng]);
+              rrGlide.to(metraMarkers[vid], info.lat, info.lng, 30000, { agency: 'metra', mph: info.speedMph, stops: info.stopLLs });
               rrSetMarkerIcon(metraMarkers[vid], icon);
               rrRefreshOpenPopup(metraMarkers[vid]);
               applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
@@ -15618,7 +15933,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               nextStop: info.currentStopName || ''
             });
             if (njtMarkers[vid]) {
-              njtMarkers[vid].setLatLng([info.lat, info.lng]);
+              rrGlide.to(njtMarkers[vid], info.lat, info.lng, 30000, { agency: 'njt', mph: null });
               rrSetMarkerIcon(njtMarkers[vid], icon);
               rrRefreshOpenPopup(njtMarkers[vid]);
               applyCyclingLabel(njtMarkers[vid], labelInfo, false);
@@ -15856,7 +16171,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           lat: lat, lng: lon, coordSource: 'gps', stops: stops, destName: destName, origName: origName,
           statusText: statusText, statusPillClass: statusPillClass, delayMinutes: maxDelay,
           vehicleStatus: (v.current_status != null) ? Number(v.current_status) : null,
-          currentStopName: currentStopName, speedMph: speedMph, tripId: tripId || null,
+          stopLLs: rrTuStopLLs(tu, marcStopCoords), currentStopName: currentStopName, speedMph: speedMph, tripId: tripId || null,
           hasAlert: false, alertHeader: ''
         };
       }
@@ -15909,7 +16224,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               statusText: info.statusText, lat: info.lat, lng: info.lng
             }) : null;
             if (marcMarkers[vid]) {
-              marcMarkers[vid].setLatLng([info.lat, info.lng]);
+              rrGlide.to(marcMarkers[vid], info.lat, info.lng, 30000, { agency: 'marc', mph: info.speedMph != null ? info.speedMph : null, stops: info.stopLLs });
               marcMarkers[vid].setIcon(icon);
               if (marcMarkers[vid].getPopup()) marcMarkers[vid].setPopupContent(createMarcPopupContent(vid, info));
               if (labelInfo && typeof applyCyclingLabel === 'function') applyCyclingLabel(marcMarkers[vid], labelInfo, false);
@@ -16354,7 +16669,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               isCapeFlyer 
             };
             if (markers[vid]) {
-              markers[vid].setLatLng([lat, lng]);
+              rrGlide.to(markers[vid], lat, lng, 60000, { agency: 'mbta', mph: status === 'STOPPED_AT' ? 0 : (speedMps != null ? speedMps * 2.23694 : null), stops: rrMbtaNextStopLL(data, stopId) });
               rrSetMarkerIcon(markers[vid], createTrainIcon(delay, vid));
               updated++;
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, displayRouteName, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
