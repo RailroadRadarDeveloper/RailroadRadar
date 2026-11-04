@@ -1,0 +1,88 @@
+/* 24-Hour Train Replay (mockup, ?replaySample=1). Opaque colors only; navy #07093e, Acela #00B3E3. */
+.rr-replay-open {
+  position: absolute; z-index: 1001; right: 10px; bottom: calc(var(--rr-footer-h, 0px) + 30px);
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
+  border: 0; border-radius: 8px; background: #07093e; color: #ffffff;
+  font: 600 14px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+}
+.rr-replay-open[aria-pressed="true"] { display: none; }
+.rr-replay-on .leaflet-marker-pane, .rr-replay-on .leaflet-tooltip-pane { visibility: hidden; }
+
+.rr-replay-mk { background: none; border: 0; }
+.rr-replay-dot {
+  position: absolute; left: 0; top: 0; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #ffffff; box-sizing: border-box; box-shadow: 0 0 0 1px #07093e;
+}
+.rr-replay-tag {
+  display: none; position: absolute; left: 16px; top: -3px; white-space: nowrap; padding: 2px 5px; border-radius: 4px;
+  background: #ffffff; color: #07093e; border: 1px solid #c9cbe0;
+  font: 500 11px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.rr-replay-tags .rr-replay-tag { display: block; }
+.rr-replay-tag b { font-weight: 700; }
+
+.rr-replay-bar {
+  position: absolute; z-index: 1000; left: 50%; bottom: calc(var(--rr-footer-h, 0px) + 12px); transform: translateX(-50%);
+  width: min(760px, calc(100% - 20px)); box-sizing: border-box; padding: 8px 10px 6px;
+  background: #ffffff; color: #07093e; border-radius: 12px; border: 1px solid #d5d7e6;
+  box-shadow: 0 4px 16px rgb(7 9 62 / 22%);
+  font: 14px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.rr-replay-bar[hidden] { display: none; }
+.rr-replay-row { display: flex; align-items: center; gap: 8px; }
+.rr-replay-play {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; background: #07093e; color: #ffffff;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.rr-replay-time { display: flex; flex-direction: column; min-width: 92px; }
+.rr-replay-clock { white-space: nowrap; font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+.rr-replay-day { font-size: 12px; color: #4a4d72; }
+.rr-replay-rates { display: inline-flex; border: 1px solid #c9cbe0; border-radius: 8px; overflow: hidden; margin-left: auto; }
+.rr-replay-rate {
+  border: 0; background: #ffffff; color: #07093e; padding: 7px 9px; font: 600 13px/1 inherit; cursor: pointer;
+  font-family: inherit; min-width: 38px;
+}
+.rr-replay-rate + .rr-replay-rate { border-left: 1px solid #c9cbe0; }
+.rr-replay-rate[aria-pressed="true"] { background: #07093e; color: #ffffff; }
+.rr-replay-jump { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #4a4d72; }
+.rr-replay-jump input { font: inherit; font-size: 13px; color: #07093e; border: 1px solid #c9cbe0; border-radius: 6px; padding: 5px 4px; }
+.rr-replay-close {
+  flex: none; width: 32px; height: 32px; border: 0; border-radius: 8px; background: #eef0f7; color: #07093e;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.rr-replay-row-slider { margin-top: 6px; }
+.rr-replay-edge { flex: none; font-size: 11px; color: #4a4d72; }
+.rr-replay-slider {
+  flex: 1; min-width: 0; height: 22px; margin: 0; accent-color: #07093e; cursor: pointer;
+}
+.rr-replay-sample-note, .rr-replay-sample {
+  display: inline-block; margin-top: 4px; padding: 2px 6px; border-radius: 4px;
+  background: #fff6db; color: #6b4e00; border: 1px solid #f1d27a; font-size: 11px; font-weight: 600;
+}
+.rr-replay-sample { margin: 0 0 8px; }
+.rr-replay-sample-note { position: absolute; left: 10px; top: -26px; margin: 0; }
+
+.rr-replay-speed { display: flex; align-items: baseline; gap: 6px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+.rr-replay-speed-num { font-size: 30px; font-weight: 800; color: #07093e; font-variant-numeric: tabular-nums; }
+.rr-replay-speed-unit { font-size: 15px; font-weight: 600; color: #07093e; }
+.rr-replay-speed-kind { margin-left: auto; font-size: 12px; color: #4a4d72; }
+.rr-replay-note { font-size: 12px; color: #4a4d72; }
+
+/* Phones: two short rows (~84px) so the map stays visible; Jump To moves into row 1 as a compact field. */
+@media (max-width: 520px) {
+  .rr-replay-bar { bottom: calc(var(--rr-footer-h, 0px) + 8px); padding: 6px 8px 4px; width: calc(100% - 16px); }
+  .rr-replay-row { gap: 6px; }
+  .rr-replay-play { width: 34px; height: 34px; }
+  .rr-replay-time { min-width: 0; }
+  .rr-replay-clock { font-size: 14px; }
+  .rr-replay-day { font-size: 11px; }
+  .rr-replay-rate { padding: 6px 4px; min-width: 0; font-size: 12px; }
+  .rr-replay-jump span { display: none; }
+  .rr-replay-jump input { width: 84px; font-size: 12px; padding: 4px 2px; }
+  .rr-replay-close { width: 28px; height: 28px; }
+  .rr-replay-row-slider { margin-top: 4px; }
+  .rr-replay-open { bottom: calc(var(--rr-footer-h, 0px) + 22px); }
+}
+.rr-replay-status { margin: 6px 2px 0; font-size: 13px; font-weight: 600; color: #07093e; text-align: center; }
+.rr-replay-status[hidden] { display: none; }
