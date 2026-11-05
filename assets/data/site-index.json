@@ -5,7 +5,7 @@
       "id": "live-map", "title": "Live Map", "url": "/map/", "src": ["map/index.html", "index.html"],
       "k": ["live map", "where are the trains", "see trains", "track a train", "train tracker", "which railroads", "railroads covered", "what railroads"],
       "s": [
-        { "t": "See where the trains are right now. Tap one to find out where it's going and when it gets to each stop." },
+        { "t": "Tap any train to see where it's headed and when it reaches each stop." },
         { "t": "Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.", "k": ["data source", "where does data come from", "railroads", "accurate", "inaccurate", "wrong"] }
       ],
       "rel": ["map-settings", "timetables"]
@@ -49,7 +49,7 @@
       "id": "mytrips", "title": "MyTrips", "url": "/mytrips/", "src": ["map/index.html", "index.html"],
       "k": ["mytrips", "my trips", "log a trip", "log trip", "log my trip", "log a ride", "trip log", "record a trip", "save a trip", "miles", "how far", "add a trip"],
       "s": [
-        { "t": "Keep track of the trains you ride. Save each trip and look back on everywhere you've been." },
+        { "t": "Log every train you ride, watch your miles add up and look back on everywhere you've been." },
         { "t": "Log trains, keep your miles, and share trips with a public MyTrips page." },
         { "t": "Log a ride to start your miles and see routes on the map.", "k": ["log", "start"] },
         { "t": "Miles are approximate station-to-station estimates.", "k": ["miles", "distance", "how far"] }
