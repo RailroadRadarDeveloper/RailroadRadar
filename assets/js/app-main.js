@@ -12492,6 +12492,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const ACELA_LINE_COLOR = '#00B3E3';
       const CTRAIL_LINE_COLOR = '#EA0D2A';
       const amtrakMarkers = {};
+      const amtrakMissingSince = {}; // vid -> ms when the train first went missing from the feed
+      const AMTRAK_MISSING_HOLD_MS = 3 * 60 * 1000;
       const amtrakTrainInfo = {};
       const amtrakLastSeen = {};
       let showMnr = true;
@@ -14201,9 +14203,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               amtrakLastSeen[vid] = rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, now);
             });
           });
-          // Drop markers no longer present / filtered out
+          // Amtraker often drops a train for a poll or two and then lists it again. Keep a missing
+          // train on the map, held still at its last fix, for AMTRAK_MISSING_HOLD_MS before removing it.
           Object.keys(amtrakMarkers).forEach(function(vid) {
-            if (!seen.has(vid)) {
+            if (seen.has(vid)) { delete amtrakMissingSince[vid]; return; }
+            if (!amtrakMissingSince[vid]) {
+              amtrakMissingSince[vid] = now;
+              try {
+                const ll = amtrakMarkers[vid].getLatLng();
+                rrGlide.to(amtrakMarkers[vid], ll.lat, ll.lng, 60000, { agency: (amtrakTrainInfo[vid] && amtrakTrainInfo[vid].isVia) ? 'via' : 'amtrak' });
+              } catch (_) {}
+            }
+            if (now - amtrakMissingSince[vid] < AMTRAK_MISSING_HOLD_MS) return;
+            {
+              delete amtrakMissingSince[vid];
               map.removeLayer(amtrakMarkers[vid]);
               delete amtrakMarkers[vid];
               delete amtrakTrainInfo[vid];
