@@ -32,7 +32,7 @@
     if (delayMin == null || isNaN(delayMin)) return '';
     var d = Math.round(delayMin);
     if (d <= 1) return '<span class="lp-pill ok">On Time</span>';
-    return '<span class="lp-pill' + (d > 5 ? ' late' : '') + '">' + d + ' Min Late</span>';
+    return '<span class="lp-pill' + (d > 5 ? ' late' : '') + '">' + (d >= 60 ? Math.floor(d / 60) + ' Hr' + (d % 60 ? ' ' + (d % 60) + ' Min' : '') : d + ' Min') + ' Late</span>';
   }
   function mapLink(num, label) {
     return num ? '<a href="/map/?focus=' + encodeURIComponent(RR + ':' + num) + '">' + esc(label) + '</a>' : esc(label);
