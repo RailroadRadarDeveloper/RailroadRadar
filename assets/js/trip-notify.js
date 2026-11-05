@@ -159,7 +159,7 @@
 
   function fmtDelay(min) {
     var h = Math.floor(min / 60), m = min % 60;
-    return h ? h + ' hr' + (m ? ' ' + m + ' min' : '') : m + ' min';
+    return h ? h + ' Hr' + (m ? ' ' + m + ' Min' : '') : m + ' min';
   }
   var HEADSUP_MS = 30 * 60 * 1000;
   var LATE_MIN = 5;
@@ -274,7 +274,7 @@
     if (!f[item.key + '-30'] && !gone && sched - now <= HEADSUP_MS && (hit || sched - now <= 15 * 60000)) {
       var mins = Math.max(1, Math.round((leaves - now) / 60000));
       var body = lateMin >= LATE_MIN
-        ? line + ' ' + item.train + toDest + ' is expected to depart ' + lateMin + ' min late at ' + fmtTime(pred) + fromOrigin
+        ? line + ' ' + item.train + toDest + ' is expected to depart ' + fmtDelay(lateMin) + ' late at ' + fmtTime(pred) + fromOrigin
         : line + ' ' + item.train + toDest + ' is expected to depart On Time at ' + fmtTime(sched) + fromOrigin;
       markFired(item.key + '-30');
       if (lateMin >= LATE_MIN) markFired(item.key + '-late');

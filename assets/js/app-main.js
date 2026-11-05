@@ -1,4 +1,20 @@
 
+    /* Delay text: under 60 stays "10 min" (unit case as given); 60+ reads "1 Hr 25 Min" or "2 Hr". rrSpeakDelay is the spoken form. */
+    function rrFmtDelay(min, unit) {
+      var n = Math.round(Number(min) || 0), a = Math.abs(n);
+      if (a < 60) return n + " " + (unit || "min");
+      var h = Math.floor(a / 60), m = a % 60;
+      return (n < 0 ? "-" : "") + h + " Hr" + (m ? " " + m + " Min" : "");
+    }
+    function rrSpeakDelay(min) {
+      var a = Math.abs(Math.round(Number(min) || 0)), h = Math.floor(a / 60), m = a % 60, p = [];
+      if (h) p.push(h + (h === 1 ? " hour" : " hours"));
+      if (m || !h) p.push(m + (m === 1 ? " minute" : " minutes"));
+      return p.join(" ");
+    }
+    window.rrFmtDelay = rrFmtDelay;
+    window.rrSpeakDelay = rrSpeakDelay;
+
     /* Halloween (Oct 31 by the visitor's own clock): the MBTA Newburyport/Rockport Line draws orange. Date only, so it reverts on Nov 1. */
     function rrHalloweenLineColor(agency, routeId, color) {
       var d = new Date();
@@ -3429,10 +3445,10 @@ function tripCardStationDotIcon() {
       let state = 'on-time';
       let delayBit = '';
       if (cls.indexOf('very-delay') >= 0 || (delayMin != null && delayMin > 15) || /hours?/i.test(raw)) {
-        delayBit = (delayMin != null && delayMin > 0) ? (delayMin + ' min late') : 'Running late';
+        delayBit = (delayMin != null && delayMin > 0) ? (rrFmtDelay(delayMin) + ' late') : 'Running late';
         state = 'very-late';
       } else if (cls.indexOf('delay') >= 0 || (delayMin != null && delayMin > 5) || /late|delay/i.test(raw)) {
-        delayBit = (delayMin != null && delayMin > 0) ? (delayMin + ' min late') : 'Late';
+        delayBit = (delayMin != null && delayMin > 0) ? (rrFmtDelay(delayMin) + ' late') : 'Late';
         state = 'late';
       } else if (/on.?time/i.test(raw) || cls.indexOf('on-time') >= 0 || (delayMin != null && Math.abs(delayMin) <= 5)) {
         delayBit = 'On time';
@@ -12756,7 +12772,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let status = 'Scheduled';
         if (pred) {
           const delay = (pred - sched) / 60000;
-          status = Math.abs(delay) <= 5 ? 'On Time' : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+          status = Math.abs(delay) <= 5 ? 'On Time' : delay > 5 ? `Delayed ${rrFmtDelay(Math.round(delay))}` : `Early ${Math.round(Math.abs(delay))} min`;
         }
         const mins = Math.floor(((pred || sched) - now) / 60000);
         if (mins > 0 && mins < 60) status = `in ${mins} min`;
@@ -13006,7 +13022,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 else if (useDep) { pred = new Date(p.attributes.departure_time); schedTime = new Date(sched.attributes.departure_time); }
                 if (pred && schedTime) {
                   delayMinutes = (pred - schedTime) / 60000;
-                  status = Math.abs(delayMinutes) <= 5 ? "On Time" : delayMinutes > 5 ? `Delayed ${Math.round(delayMinutes)} min` : `Early ${Math.round(Math.abs(delayMinutes))} min`;
+                  status = Math.abs(delayMinutes) <= 5 ? "On Time" : delayMinutes > 5 ? `Delayed ${rrFmtDelay(Math.round(delayMinutes))}` : `Early ${Math.round(Math.abs(delayMinutes))} min`;
                 }
               }
             }
@@ -13317,7 +13333,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               let delay = null, status = "Scheduled", isLive = !!predTime;
               if (predTime && schedTime) {
                 delay = (predTime - schedTime) / 60000;
-                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${rrFmtDelay(Math.round(delay))}` : `Early ${Math.round(Math.abs(delay))} min`;
               }
               let track = rrStopTrack(predStopInfo) || rrStopTrack(stopInfo);
               const isHub = rrIsMbtaHubStop(stopId);
@@ -13430,7 +13446,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (sched?.attributes.departure_time) {
                 schedDep = new Date(sched.attributes.departure_time);
                 delay = (depTime - schedDep) / 60000;
-                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${Math.round(delay)} min` : `Early ${Math.round(Math.abs(delay))} min`;
+                status = Math.abs(delay) <= 5 ? "On Time" : delay > 5 ? `Delayed ${rrFmtDelay(Math.round(delay))}` : `Early ${Math.round(Math.abs(delay))} min`;
               }
               const mins = Math.floor((depTime - now) / 60000);
               if (mins > 0 && mins < 60) status = `in ${mins} min`;
@@ -13923,7 +13939,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rrMbtaStyleDelayStatus(delayMinutes) {
         const d = Number(delayMinutes);
         if (delayMinutes == null || !isFinite(d)) return null;
-        const text = Math.abs(d) <= 5 ? 'On Time' : d > 5 ? ('Delayed ' + Math.round(d) + ' min') : ('Early ' + Math.round(Math.abs(d)) + ' min');
+        const text = Math.abs(d) <= 5 ? 'On Time' : d > 5 ? ('Delayed ' + rrFmtDelay(Math.round(d))) : ('Early ' + Math.round(Math.abs(d)) + ' min');
         const cls = Math.abs(d) <= 5 ? 'status-on-time' : (d <= 15) ? 'status-delayed' : 'status-very-delayed';
         return { text: text, cls: cls };
       }
@@ -14722,13 +14738,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let statusText = 'On Time';
         let statusPillClass = 'status-on-time';
         if (maxDelay != null && Math.abs(maxDelay) > 15) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
         } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
         } else if (maxDelay != null && maxDelay > 0) {
-          statusText = maxDelay + ' min late';
+          statusText = rrFmtDelay(maxDelay) + ' late';
         }
         const vehicleStatus = (v && v.current_status != null) ? Number(v.current_status) : null;
         let currentStopName = null;
@@ -15141,13 +15157,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let statusText = 'On Time';
         let statusPillClass = 'status-on-time';
         if (maxDelay != null && Math.abs(maxDelay) > 15) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
         } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
         } else if (maxDelay != null && maxDelay > 0) {
-          statusText = maxDelay + ' min late';
+          statusText = rrFmtDelay(maxDelay) + ' late';
         }
         const vehicleStatus = (v && v.current_status != null) ? Number(v.current_status) : null;
         let currentStopName = null;
@@ -15485,13 +15501,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let statusText = 'On Time';
         let statusPillClass = 'status-on-time';
         if (maxDelay != null && Math.abs(maxDelay) > 15) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
         } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
         } else if (maxDelay != null && maxDelay > 0) {
-          statusText = maxDelay + ' min late';
+          statusText = rrFmtDelay(maxDelay) + ' late';
         } else if (!tu) {
           statusText = 'Live';
           statusPillClass = 'status-scheduled';
@@ -15698,8 +15714,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!isFinite(sec)) return { minutes: null, text: 'Live', pill: 'status-scheduled' };
         const minutes = Math.round(sec / 60);
         if (Math.abs(minutes) <= 5) return { minutes: minutes, text: 'On Time', pill: 'status-on-time' };
-        if (minutes > 15) return { minutes: minutes, text: minutes + ' min late', pill: 'status-very-delayed' };
-        if (minutes > 5) return { minutes: minutes, text: minutes + ' min late', pill: 'status-delayed' };
+        if (minutes > 15) return { minutes: minutes, text: rrFmtDelay(minutes) + ' late', pill: 'status-very-delayed' };
+        if (minutes > 5) return { minutes: minutes, text: rrFmtDelay(minutes) + ' late', pill: 'status-delayed' };
         if (minutes < -5) return { minutes: minutes, text: 'Early', pill: 'status-on-time' };
         return { minutes: minutes, text: 'On Time', pill: 'status-on-time' };
       }
@@ -16190,13 +16206,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let statusText = 'On Time';
         let statusPillClass = 'status-on-time';
         if (maxDelay != null && Math.abs(maxDelay) > 15) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
         } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
-          statusText = maxDelay > 0 ? (maxDelay + ' min late') : 'On Time';
+          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
           statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
         } else if (maxDelay != null && maxDelay > 0) {
-          statusText = maxDelay + ' min late';
+          statusText = rrFmtDelay(maxDelay) + ' late';
         } else if (!tu) {
           statusText = 'Live';
           statusPillClass = 'status-scheduled';
@@ -16399,7 +16415,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         let label, tone;
         if (d.status === 'Departed') { label = 'Departed'; tone = 'gone'; }
         else if (!d.predictedDeparture) { label = 'Scheduled'; tone = 'sched'; }
-        else if (delay != null && delay > 5) { label = 'Delayed ' + delay + ' Min'; tone = delay >= 15 ? 'late' : 'warn'; }
+        else if (delay != null && delay > 5) { label = 'Delayed ' + rrFmtDelay(delay, 'Min'); tone = delay >= 15 ? 'late' : 'warn'; }
         // A train never leaves a station early, so an early estimate still reads On Time.
         else { label = 'On Time'; tone = 'ok'; }
         const track = d.trackNumber ? 'Track ' + d.trackNumber : (d.trackTbd ? 'Track TBD' : '');
@@ -17510,10 +17526,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           statusText = 'On Time';
         } else if (delay <= 15) {
           statusClass = 'status-delayed';
-          statusText = 'Delayed ' + Math.round(delay) + ' min';
+          statusText = 'Delayed ' + rrFmtDelay(Math.round(delay));
         } else {
           statusClass = 'status-very-delayed';
-          statusText = 'Delayed ' + Math.round(delay) + ' min';
+          statusText = 'Delayed ' + rrFmtDelay(Math.round(delay));
         }
         return { statusClass: statusClass, statusText: statusText };
       }
@@ -19837,7 +19853,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function rrAskLiveNote(row) {
         if (!row) return '';
-        if (row.delayMinutes != null && row.delayMinutes > 5) return ', running ' + Math.round(row.delayMinutes) + ' min late';
+        if (row.delayMinutes != null && row.delayMinutes > 5) return ', running ' + rrFmtDelay(row.delayMinutes) + ' late';
         return ', on the map now';
       }
       function rrAskDepCard(t, fromName, st, rows) {
@@ -20465,7 +20481,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (l.rr === 'lirr' || l.rr === 'mnr') return n === k || n === k + ' branch' || n === k + ' line';
         return n === k || n.indexOf(k) >= 0;
       }
-      function rrStatusMins(m) { return m >= 60 ? Math.floor(m / 60) + ' hr ' + (m % 60) + ' min' : m + ' min'; }
+      function rrStatusMins(m) { return rrFmtDelay(m); }
       async function rrStatusMbtaAlerts(ids) {
         return rrAskCached('alerts:' + ids.join(','), 2 * 60 * 1000, async function() {
           const j = await rrAskMbta('/alerts?filter[route]=' + ids.join(',') + '&filter[datetime]=NOW');
