@@ -160,6 +160,7 @@ betterstack('init', { environment: 'production' });
 <script src="/assets/js/clarity.js?v=a614ddb074"></script>
 <script src="/assets/js/analytics.js?v=591f430b27"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/assets/css/zing-font.css?v=37c598bb61">
 <link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
 <style>
 :root{
@@ -278,6 +279,33 @@ body{background:var(--navy)}
   .feature-lead,.feature-note{margin-left:0}
   .feature .hero-points{margin-left:0}
 }
+
+
+main h1,main h2,main h3{font-family:"Zing","Google Sans",Roboto,Arial,sans-serif;font-weight:400;letter-spacing:.01em}
+/* Redesign: eyebrow, community section */
+.eyebrow{margin:0 0 6px;color:#0ac700;font:700 13px/1 var(--font);letter-spacing:.06em;text-transform:uppercase}
+.feature-predict .feature-media{flex:0 1 34%;max-width:360px;margin:0 auto}
+.feature-predict .feature-copy{flex:1 1 60%}
+.more-tail{padding-top:72px}
+.community{background:#f5f6f8;color:#07093e;padding:64px 18px}
+.community-inner{width:min(1080px,100%);margin:0 auto}
+.community-head{text-align:center;margin-bottom:32px}
+.community h2{margin:0 0 10px;font-size:clamp(26px,4.8vw,36px);line-height:1.2}
+.community .feature-lead{color:#3c4358;margin:0 auto}
+.community-grid{display:grid;gap:24px}
+.community-shot{margin:0}
+.community-shot img{display:block;width:100%;height:auto;border-radius:6px;border:1px solid #e3e6eb;box-shadow:0 12px 30px rgba(7,9,62,.12)}
+.community-shot figcaption{margin-top:8px;color:#5b6275;font-size:13px;text-align:center}
+.community-cards{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.card{background:#fff;border:1px solid #e3e6eb;border-radius:6px;overflow:hidden}
+.card h3{margin:0;padding:12px 16px;background:#07093e;color:#fff;font-size:16px}
+.card p{margin:0;padding:12px 16px 16px;color:#3c4358;font-size:14px;line-height:1.5}
+.card-acela h3{background:#00B3E3;color:#fff}
+.community-cta{text-align:center;margin-top:36px}
+.community-cta p{margin:0 0 14px;font-size:16px;font-weight:600}
+.community-cta .rr-btn{background:#07093e;color:#fff;border-color:#07093e}
+.community-cta .rr-btn:hover{background:#1a1f6b}
+@media (min-width:860px){.community{padding:88px 24px}.community-grid{grid-template-columns:1fr 1fr;align-items:start;gap:40px}.community-cards{grid-template-columns:1fr 1fr}}
 
 /* Footer */
 .footer{background:var(--navy);color:#fff;border-top:1px solid rgba(255,255,255,.14)}
@@ -481,9 +509,9 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
         paint();
       })();
       </script>
-      <p class="banner-lead">RailroadRadar takes live railroad data and integrates it with our tools to track trains and log your trips.</p>
+      <p class="banner-lead">Live trains, smooth tracking and a friendly community of riders, all in one place.</p>
       <div class="hero-actions">
-        <a class="rr-btn" href="/map/">Open live map</a>
+        <a class="rr-btn" href="/map/">Open Live Map</a>
         <a class="rr-btn secondary" href="/mytrips/">MyTrips</a>
       </div>
     </div>
@@ -507,33 +535,81 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
       </ul>
     </div>
     <div class="feature">
-      <div class="feature-media rr-reveal"><img src="/assets/home/feature-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map" width="960" height="750" loading="lazy"></div>
+      <div class="feature-media rr-reveal"><img src="/assets/home/shot-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map, each labeled with its number and destination" width="1400" height="849" loading="lazy" decoding="async"></div>
       <div class="feature-copy rr-reveal rr-reveal-late">
-        <h2>Stay in the&nbsp;know on&nbsp;the&nbsp;go.</h2>
-        <p class="feature-lead">See where the trains are right now. Tap one to find out where it's going and when it gets to each stop.</p>
+        <h2>Every Train, Live on One Map</h2>
+        <p class="feature-lead">MBTA, Amtrak, Metro-North, LIRR, Metra, NJ Transit, MARC and VIA Rail, all together on one map. Tap any train to see where it's headed and when it reaches each stop.</p>
         <ul class="hero-points">
-          <li>Find your train in a few taps</li>
-          <li>Watch it move along the line</li>
+          <li>See delays at a glance</li>
+          <li>Find any train or station fast</li>
         </ul>
-        <div class="hero-actions"><a class="rr-btn" href="/map/">Open live map</a></div>
+        <div class="hero-actions"><a class="rr-btn" href="/map/">Open Live Map</a></div>
       </div>
     </div>
+    <div class="feature is-flip feature-predict">
+      <div class="feature-media rr-reveal"><img src="/assets/home/shot-popup.svg" alt="A train popup showing an MBTA Framingham/Worcester train stopped at Newtonville, its speed, track and next stops" width="640" height="880" loading="lazy" decoding="async"></div>
+      <div class="feature-copy rr-reveal rr-reveal-late">
+        <p class="eyebrow">New</p>
+        <h2>Predictive Location</h2>
+        <p class="feature-lead">Trains move smoothly in real time, even between updates.</p>
+        <p class="feature-note">No more trains jumping around the map.</p>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature-media rr-reveal"><img src="/assets/home/shot-replay.svg" alt="24-Hour Train Replay on the map with play controls and 1x, 10x, 60x and 300x speeds" width="1200" height="519" loading="lazy" decoding="async"></div>
+      <div class="feature-copy rr-reveal rr-reveal-late">
+        <h2>24-Hour Replay</h2>
+        <p class="feature-lead">Missed the morning rush? Rewind the last day on the map and watch it play back as fast as you like.</p>
+        <div class="hero-actions"><a class="rr-btn" href="/map/">Try Replay</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="community" aria-labelledby="community-title">
+    <div class="community-inner">
+      <div class="community-head rr-reveal">
+        <h2 id="community-title">Built by Riders, for Riders</h2>
+        <p class="feature-lead">RailroadRadar gets better every time a rider shares what they see. Spot something cool? Let everyone know.</p>
+      </div>
+      <div class="community-grid">
+        <figure class="community-shot rr-reveal"><img src="/assets/home/shot-reports.svg" alt="Recent rider reports on RailroadRadar, each listing the train, the locomotive and the rider who reported it" width="820" height="784" loading="lazy" decoding="async"><figcaption>Real reports from riders this week.</figcaption></figure>
+        <ul class="community-cards">
+          <li class="card rr-reveal"><h3>Report a Train</h3><p>Share which locomotive is on your train. Everyone sees it, with your name.</p></li>
+          <li class="card card-acela rr-reveal"><h3>Acela Equipment</h3><p>NextGen or Legacy? Tell riders which Acela it is and see how many agree.</p></li>
+          <li class="card rr-reveal"><h3>Verified Reporters</h3><p>Trusted reporters get a badge next to their name.</p></li>
+          <li class="card rr-reveal"><h3>Special Moves</h3><p>Chasing a special? Share where it is so everyone can follow along.</p></li>
+        </ul>
+      </div>
+      <div class="community-cta rr-reveal">
+        <p>Join riders across the Northeast, Chicago and Canada.</p>
+        <div class="hero-actions"><a class="rr-btn" href="/map/">Sign In and Contribute</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="more more-tail" aria-label="More tools">
     <div class="feature is-flip">
-      <div class="feature-media has-phone rr-reveal"><img src="/assets/home/feature-mytrips.svg" alt="MyTrips showing saved trips" width="960" height="476" loading="lazy"><img class="feature-phone" src="/assets/brand/mytrips-phone.png" alt="MyTrips on a phone" width="645" height="800" loading="lazy"></div>
+      <div class="feature-media has-phone rr-reveal"><img src="/assets/home/shot-mytrips.svg" alt="The MyTrips page: log trains, keep your miles and share trips with a public profile" width="1200" height="728" loading="lazy" decoding="async"></div>
       <div class="feature-copy rr-reveal rr-reveal-late">
         <h2 class="feature-logo"><img src="/assets/brand/mytrips-logo-wide.png" alt="MyTrips" width="1280" height="182" loading="lazy"></h2>
-        <p class="feature-lead">Keep track of the trains you ride. Save each trip and look back on everywhere you've been.</p>
+        <p class="feature-lead">Log every train you ride, watch your miles add up and look back on everywhere you've been.</p>
         <ul class="hero-points">
-          <li>See how far you've traveled</li>
-          <li>Look back on every ride</li>
+          <li>Log a trip in a few taps</li>
+          <li>Share your profile with friends</li>
         </ul>
         <p class="feature-note" id="home-signup-note">Sign in with Google to get started.</p>
         <script>
-        /* Signed-in visitors don't need the sign-in prompt. The greeting's cached signed-in hint hides it from the first
-           paint; home-auth.js then shows or hides it for the real sign-in state. */
         try { var rrG = JSON.parse(localStorage.getItem('rrHomeGreet') || 'null'); if (rrG && rrG.on) document.getElementById('home-signup-note').hidden = true; } catch (_) {}
         </script>
         <div class="hero-actions"><a class="rr-btn" href="/mytrips/">Open MyTrips</a></div>
+      </div>
+    </div>
+    <div class="feature">
+      <div class="feature-media rr-reveal"><img src="/assets/home/shot-stationaudio.svg" alt="Station Audio: pick a station and a voice to hear announcements" width="1000" height="540" loading="lazy" decoding="async"></div>
+      <div class="feature-copy rr-reveal rr-reveal-late">
+        <h2>Station Audio</h2>
+        <p class="feature-lead">Hear station announcements for your stop, right from your phone.</p>
+        <div class="hero-actions"><a class="rr-btn" href="/stationaudio/">Open Station Audio</a></div>
       </div>
     </div>
   </section>
