@@ -12207,7 +12207,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (now - st.tFix > st.horizon * 1000) return;
             const a = st.args;
             m._rrDR = st.prior;
-            to(m, a[0], a[1], a[2], Object.assign({}, a[3], { _tFix: st.tFix }));
+            to(m, a[0], a[1], a[2], Object.assign({}, a[3], { _tFix: st.tFix, _h: st.horizon }));
           });
         }
         function to(m, lat, lng, pollMs, o) {
@@ -12218,17 +12218,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const cur = m.getLatLng();
           const ag = o.agency || (prev && prev.ag) || '';
           // Error of the estimate (and of simply holding the last fix) against this new fix.
-          if (prev && prev.dr && prev.ag === ag && now - prev.tFix < prev.horizon * 1000 + pollMs) {
-            if (fix.lat !== prev.fix.lat || fix.lng !== prev.fix.lng) record(ag, estimate(prev, now, true), prev.fix, fix);
+          // Report age: the estimate runs from the GPS time, not from when the poll arrived, so a
+          // feed that is minutes old is carried forward to now at the train's speed.
+          const age = o.ts != null && isFinite(o.ts) ? Date.now() - o.ts : null;
+          const lagMs = age != null && age > 0 && o._tFix == null ? age : 0;
+          const tFix = o._tFix != null ? o._tFix : now - lagMs;
+          if (prev && prev.dr && prev.ag === ag && tFix - prev.tFix < prev.horizon * 1000 + pollMs) {
+            if (fix.lat !== prev.fix.lat || fix.lng !== prev.fix.lng) record(ag, estimate(prev, tFix, true), prev.fix, fix);
           }
           // Same report again (feeds repeat a position until the train sends a new one): keep the
           // running estimate and its fix time; it stops at its horizon.
           if (prev && prev.ag === ag && prev.fix.lat === fix.lat && prev.fix.lng === fix.lng) return;
           // The vehicle's own report time decides whether it is shown as live: an old report is
           // placed where it was, never moved forward.
-          const age = o.ts != null && isFinite(o.ts) ? Date.now() - o.ts : null;
-          const stale = age != null && age > Math.max(3 * pollMs, STALE_MS);
-          const st = { ag: ag, fix: fix, tFix: o._tFix != null ? o._tFix : now, args: [lat, lng, pollMs, o], prior: prev, dr: false, ease: null, horizon: Math.min(2 * pollMs / 1000, 180) };
+          const stale = age != null && age > Math.max(3 * pollMs, STALE_MS, o.staleMs || 0);
+          const st = { ag: ag, fix: fix, tFix: tFix, args: [lat, lng, pollMs, o], prior: prev, dr: false, ease: null, horizon: o._h != null ? o._h : Math.min(2 * pollMs / 1000, 180) + Math.min((now - tFix) / 1000, 600) };
           st.prevFix = prev ? { p: prev.fix, t: prev.tFix } : null;
           if (prev) { prev.prior = null; prev.args = null; }
           st.lastDir = prev ? prev.dir : 0;
@@ -12247,7 +12251,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             let dir = 0, dAlong = 0, dt = 0;
             if (st.prevFix) {
               const ph = project(net, st.prevFix.p, hit.poly, SHAPE_M);
-              dt = (now - st.prevFix.t) / 1000;
+              dt = (tFix - st.prevFix.t) / 1000;
               if (ph) { dAlong = hit.along - ph.along; if (Math.abs(dAlong) >= 15) dir = dAlong > 0 ? 1 : -1; }
             }
             if (!dir && st.lastDir && prev && prev.poly === hit.poly) dir = st.lastDir;
@@ -14177,7 +14181,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 nextStop: info.eventName || info.eventCode || ''
               });
               if (amtrakMarkers[vid]) {
-                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { ts: rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, null), bearing: info.heading != null ? info.heading : t.heading, agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
+                rrGlide.to(amtrakMarkers[vid], lat, lng, 60000, { staleMs: 600000, ts: rrSeenMs(t.lastValTS || t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, null), bearing: info.heading != null ? info.heading : t.heading, agency: isVia ? 'via' : 'amtrak', mph: info.velocity != null && info.velocity !== '' ? Number(info.velocity) : null, stops: (info.stations || []).filter(function(x) { return x && !x.bus && x.status !== 'Departed'; }).map(rrAmtrakStopLatLng).filter(function(ll) { return ll[0] != null && isFinite(ll[0]) && isFinite(ll[1]); }) });
                 rrSetMarkerIcon(amtrakMarkers[vid], icon);
                 rrRefreshOpenPopup(amtrakMarkers[vid]);
                 applyCyclingLabel(amtrakMarkers[vid], amtrakLabelInfo, false);
