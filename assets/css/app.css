@@ -5556,7 +5556,7 @@
         gap: 6px;
       }
       .header-logo {
-        height: 30px !important;
+        height: 34px !important;
         margin-right: 4px;
         flex-shrink: 0;
       }
@@ -5656,7 +5656,7 @@
         padding: 0 6px;
       }
       .header-logo {
-        height: 26px !important;
+        height: 30px !important;
         margin-right: 2px;
       }
       .header-search-input {
