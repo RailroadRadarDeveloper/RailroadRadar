@@ -5687,7 +5687,7 @@
     .rr-loading-card { display: flex; flex-direction: column; align-items: center; width: min(360px, 100%); text-align: center; }
     .rr-loading-logo { width: min(220px, 62vw); height: auto; margin-bottom: 28px; }
     .rr-loading-bar { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 4px; overflow: hidden; }
-    .rr-loading-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.35s ease; }
+    .rr-loading-bar-fill { width: 0%; height: 100%; background: #0ac700; transition: width 0.35s ease; }
     .rr-loading-status { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 42px; margin: 12px 0 0; font-size: 15px; line-height: 1.35; color: #fff; }
     .rr-loading-status #loading-text { text-align: left; }
     .rr-loading-percent { font-variant-numeric: tabular-nums; color: #c9d4ea; }
