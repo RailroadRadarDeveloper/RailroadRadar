@@ -12488,6 +12488,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // VIA Rail trains arrive in the Amtraker feed (train numbers 'v1', provider 'Via'); own toggle.
       let showVia = true;
       try { showVia = localStorage.getItem('rr_showVia') !== '0'; } catch (_) {}
+      // Brightline route lines (Florida); own toggle, yellow #FFD100.
+      let showBrightline = true;
+      try { showBrightline = localStorage.getItem('rr_showBrightline') !== '0'; } catch (_) {}
       // A share link to a VIA train shows it even if the visitor turned the layer off; the saved choice is not touched.
       try {
         const rrShareQ = new URLSearchParams(location.search);
@@ -16540,6 +16543,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agency === 'ctrail') return showCtrail;
         if (agency === 'marc') return showMarc;
         if (agency === 'via') return !!showVia;
+        if (agency === 'brightline') return !!showBrightline;
         return true;
       }
       function updateGtfsShapeVisibility() {
@@ -16563,10 +16567,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: CTRAIL_LINE_COLOR },
           { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' },
           // VIA Rail (yellow, same as the VIA badge); precomputed from VIA's GTFS shapes.txt
-          { id: 'via', file: rrAssetUrl('/assets/shapes/via.json'), fallback: VIA_COLOR }
+          { id: 'via', file: rrAssetUrl('/assets/shapes/via.json'), fallback: VIA_COLOR },
+          // Brightline (Florida); yellow #FFD100
+          { id: 'brightline', file: rrAssetUrl('/assets/shapes/brightline.json'), fallback: '#FFD100' }
         ].filter(function(ag) {
           if (gtfsShapesRequested[ag.id]) return false;
           if (ag.id === 'via') return !!showVia;
+          if (ag.id === 'brightline') return !!showBrightline;
           if (ag.id === 'mbta') return !!showMbta;
           if (ag.id === 'mnr') return !!showMnr;
           if (ag.id === 'lirr') return !!showLirr;
@@ -21120,7 +21127,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       };
       const RR_MAP_RAIL_KEY = 'rr_map_railroads';
-      const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc'];
+      const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc', 'brightline'];
       const rrRailPollTimers = {};
       const rrRailPolls = {};
       function defaultMapRailPrefs() {
@@ -21192,6 +21199,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         showNjt = !!p.njt;
         showCtrail = !!p.ctrail;
         showMarc = !!p.marc;
+        showBrightline = !!p.brightline;
+        try { localStorage.setItem('rr_showBrightline', showBrightline ? '1' : '0'); } catch (_) {}
         const setCb = function(id, on) {
           const el = document.getElementById(id);
           if (el) el.checked = !!on;
@@ -21204,6 +21213,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         setCb('show-njt', showNjt);
         setCb('show-ctrail', showCtrail);
         setCb('show-marc', showMarc);
+        setCb('show-brightline', showBrightline);
         try { if (typeof updateTrainVisibility === 'function') updateTrainVisibility(); } catch (_) {}
         try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch (_) {}
         try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch (_) {}
@@ -21355,7 +21365,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           metra: !!showMetra,
           njt: !!showNjt,
           ctrail: !!showCtrail,
-          marc: !!showMarc
+          marc: !!showMarc,
+          brightline: !!showBrightline
         });
       }
       function loadEnabledRailStatic() {
@@ -21376,6 +21387,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             else if (agency === 'marc') { startRailPoll('marc', fetchMarcTrains, 30000); fetchMarcTrains(); }
             else if (agency === 'ctrail') {
               // No dedicated vehicle feed — station/shape visibility only
+            } else if (agency === 'brightline') {
+              // Brightline: route shapes only (no live vehicle feed here)
             }
           } catch (_) {}
         } else {
@@ -21591,6 +21604,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
         onMapRailToggle('ctrail', showCtrail);
       });
+      (function() {
+        const blCb = document.getElementById('show-brightline');
+        if (!blCb) return;
+        blCb.checked = !!showBrightline;
+        blCb.addEventListener('change', e => {
+          showBrightline = e.target.checked;
+          try { localStorage.setItem('rr_showBrightline', showBrightline ? '1' : '0'); } catch (_) {}
+          try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
+          if (showBrightline) loadStaticGtfsShapes();
+          onMapRailToggle('brightline', showBrightline);
+        });
+      })();
       document.getElementById('show-marc').addEventListener('change', e => {
         showMarc = e.target.checked;
         if (typeof updateMarcVisibility === 'function') updateMarcVisibility();
