@@ -572,13 +572,18 @@
       return n * RR_POINTS_PER_REPORT;
     }
     function paintHeaderReportPoints(stats) {
-      const el = document.getElementById('header-report-points');
-      if (!el) return;
       const pts = reportPointsFromStats(stats);
-      el.textContent = String(pts);
-      el.title = pts + ' report points (' + RR_POINTS_PER_REPORT + ' per report)';
-      if (pts > 0) el.hidden = false;
-      else el.hidden = true;
+      const el = document.getElementById('header-report-points');
+      if (el) {
+        el.textContent = String(pts);
+        el.title = pts + ' report points (' + RR_POINTS_PER_REPORT + ' per report)';
+        if (pts > 0) el.hidden = false;
+        else el.hidden = true;
+      }
+      const acctPts = document.getElementById('account-report-points');
+      if (acctPts) {
+        acctPts.textContent = pts + ' report points';
+      }
     }
     function paintAccountReportStats(stats) {
       const trainsEl = document.getElementById('account-stat-trains');
@@ -8990,6 +8995,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const btnSettings = document.getElementById('btn-account-settings');
       if (btnOut) btnOut.addEventListener('click', function() { closeAccountMenu(); signOutGoogle(); });
       if (btnSettings) btnSettings.addEventListener('click', openAccountSettingsLightbox);
+      const menuMapSettings = document.getElementById('header-menu-map-settings');
+      if (menuMapSettings) menuMapSettings.addEventListener('click', function(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (typeof closeAccountMenu === 'function') closeAccountMenu();
+        try {
+          const panel = document.getElementById('control-panel');
+          const overlay = document.getElementById('overlay');
+          const menuBtn = document.getElementById('menu-button');
+          if (panel) panel.classList.add('open');
+          if (overlay) overlay.classList.add('open');
+          if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
+        } catch (_) {}
+      });
       const menuSettings = document.getElementById('header-menu-account-settings');
       if (menuSettings) menuSettings.addEventListener('click', function(e) {
         if (typeof closeAccountMenu === 'function') closeAccountMenu();

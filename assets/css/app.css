@@ -6822,3 +6822,8 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 /* The alert triangle keeps its own yellow and dark "!"; a thin black edge keeps it crisp on the orange. */
 .leaflet-popup .train-popup:has(.rr-salem-stop) > .train-popup-header img[src*="/icons/alert"] { filter: drop-shadow(0 0 0.6px #000) drop-shadow(0 0 0.6px #000) !important; }
 .leaflet-popup:has(.train-popup .rr-salem-stop) .leaflet-popup-close-button { color: #000 !important; }
+
+@media (max-width: 859px) {
+  #menu-button { display: none !important; }
+  #header-report-points { display: none !important; }
+}
