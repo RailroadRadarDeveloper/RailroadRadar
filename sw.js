@@ -1,7 +1,7 @@
 /* RailroadRadar service worker — home-screen notifications */
 /* Failsafe: cached "currently unavailable" page for failed / 5xx navigations. */
 var RR_SW_VERSION = 'rr-sw-v2';
-var RR_FAILSAFE_CACHE = 'rr-failsafe-v115';
+var RR_FAILSAFE_CACHE = 'rr-failsafe-v116';
 var RR_UNAVAILABLE_URL = '/unavailable.html';
 
 self.addEventListener('install', function (e) {
@@ -36,9 +36,14 @@ function rrUnavailableResponse(fallback) {
 
 self.addEventListener('fetch', function (event) {
   var req = event.request;
-  if (req.mode !== 'navigate' || req.method !== 'GET') return;
   var url;
   try { url = new URL(req.url); } catch (_) { return; }
+  /* Self-hosted Roboto: any leftover Google Fonts links resolve same-origin. */
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    event.respondWith(fetch(self.location.origin + '/assets/fonts/roboto.css', { credentials: 'omit' }));
+    return;
+  }
+  if (req.mode !== 'navigate' || req.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
   event.respondWith(
     fetch(req).then(function (res) {
