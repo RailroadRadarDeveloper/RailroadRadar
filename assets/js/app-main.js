@@ -12547,12 +12547,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const LABEL_MIN_ZOOM = 9; // Labels will auto-hide when zoomed out beyond this level
       // ---- Loading progress helper ----
       const RR_LOADING_TIPS = window.RR_LOADING_TIPS || [
-        'Check the weekly leaderboard to see if you’re reporting the most!'
+        'Check the weekly leaderboard to see if you are reporting the most!'
       ]
       let loadingTipTimer = null;
       let loadingTipIdx = 0;
       function setLoadingTip(msg) {
-        const txt = document.getElementById('loading-text');
+        const txt = document.getElementById('loading-tip') || document.getElementById('loading-text');
         if (txt) txt.textContent = msg;
       }
       function startLoadingTips() {
@@ -12563,16 +12563,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           loadingTipIdx = Math.floor(Math.random() * RR_LOADING_TIPS.length);
         }
         setLoadingTip(RR_LOADING_TIPS[loadingTipIdx]);
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         try { clearInterval(loadingTipTimer); } catch (_) {}
         loadingTipTimer = setInterval(function() {
           loadingTipIdx = (loadingTipIdx + 1) % RR_LOADING_TIPS.length;
           setLoadingTip(RR_LOADING_TIPS[loadingTipIdx]);
-        }, 2800);
+        }, 6000);
       }
       function setLoadingProgress(percent, message) {
         const bar = document.getElementById('loading-bar');
         const p = Math.round(Math.min(100, Math.max(0, Number(percent) || 0)));
         if (bar) bar.style.width = p + '%';
+        const progress = document.getElementById('loading-progress');
+        if (progress) progress.setAttribute('aria-valuenow', String(p));
+        const pct = document.getElementById('loading-percent');
+        if (pct) pct.textContent = p + '%';
         const text = document.getElementById('loading-text');
         if (text && message) text.textContent = message;
       }
@@ -12585,13 +12590,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!loadingScreen) return;
         const skipWait = document.documentElement.classList.contains('rr-train-page') || document.documentElement.classList.contains('rr-mytrips-page') || !!(new URLSearchParams(location.search).get('train') || new URLSearchParams(location.search).get('t'));
         if (skipWait) {
+          loadingScreen.setAttribute('aria-hidden', 'true');
           loadingScreen.style.display = 'none';
         try { rrRefreshMapTiles(); } catch (_) {}
           loadingScreen.style.opacity = '0';
           return;
         }
-        setLoadingProgress(100, 'Ready!');
-        try { setLoadingTip('No defects. Detector out. ✌️'); } catch (_) {}
+        setLoadingProgress(100, 'Ready');
+        loadingScreen.setAttribute('aria-hidden', 'true');
         loadingScreen.style.opacity = '0';
         loadingScreen.style.pointerEvents = 'none';
         setTimeout(function() {

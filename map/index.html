@@ -130,7 +130,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=99f0e0c481">
+  <link rel="stylesheet" href="/assets/css/app.css?v=50130cc5b0">
   <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
   <link rel="stylesheet" href="/assets/css/settings.css?v=9a0dfeb2f7">
   <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98">
@@ -211,7 +211,7 @@
     </div>
   </div>
         <div class="header">
-    <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img src="/assets/logo-halloween.png" alt="RailroadRadar" class="header-logo" data-rr-main-logo="1"></a>
+    <a class="header-logo-link" href="/" aria-label="RailroadRadar home"><img src="/assets/logo.png" alt="RailroadRadar" class="header-logo"></a>
     <nav class="rr-site-nav" aria-label="RailroadRadar">
       <a href="/map/" data-nav="map">Live Map</a>
       <a href="/timetables/" data-nav="timetables">Timetables</a>
@@ -302,24 +302,25 @@
   </div>
   <div id="rr-train-page-actions" hidden></div>
   <!-- Loading Screen -->
-  <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #07093e; display: flex; align-items: center; justify-content: center; z-index: 100000; flex-direction: column; color: white; font-family: 'Segoe UI', sans-serif; transition: opacity 0.4s ease;">
-    <img src="/assets/logo-halloween.png" alt="RailroadRadar" data-rr-main-logo="1" style="height: 80px; margin-bottom: 30px; filter: brightness(1.1);">
-    <script>
-      (function() {
-        var end = new Date('2026-11-01T00:00:00-04:00');
-        if (Date.now() < end.getTime()) return;
-        document.querySelectorAll('[data-rr-main-logo]').forEach(function(img) {
-          img.src = '/assets/logo.png';
-        });
-      })();
-    </script>
-    <div style="width: 280px; height: 8px; background: rgba(255,255,255,0.18); border-radius: 4px; overflow: hidden; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.22);">
-      <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #27ae60, #f1c40f); transition: width 0.35s ease;"></div>
+  <div id="loading-screen" class="rr-loading">
+    <div class="rr-loading-card">
+      <img class="rr-loading-logo" src="/assets/logo.png" alt="RailroadRadar" width="220" height="52">
+      <div id="loading-progress" class="rr-loading-bar" role="progressbar" aria-label="Loading live map" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="loading-bar" class="rr-loading-bar-fill"></div>
+      </div>
+      <p class="rr-loading-status"><span id="loading-text" role="status">Starting...</span><span id="loading-percent" class="rr-loading-percent" aria-hidden="true">0%</span></p>
+      <p id="loading-tip" class="rr-loading-tip" aria-hidden="true"></p>
     </div>
-        <div id="loading-text" style="font-size: 15px; opacity: 0.9; max-width: 320px; text-align: center; padding: 0 16px; min-height: 42px; line-height: 1.35;"></div>
+    <div class="rr-loading-skeleton" aria-hidden="true">
+      <span class="rr-loading-skel-route"></span>
+      <span class="rr-loading-skel-route rr-loading-skel-route-2"></span>
+      <span class="rr-loading-skel-dot rr-loading-skel-dot-1"></span>
+      <span class="rr-loading-skel-dot rr-loading-skel-dot-2"></span>
+      <span class="rr-loading-skel-dot rr-loading-skel-dot-3"></span>
+    </div>
     <script>
       window.RR_LOADING_TIPS = window.RR_LOADING_TIPS || [
-        'Check the weekly leaderboard to see if you’re reporting the most!',
+        'Check the weekly leaderboard to see if you are reporting the most!',
         'Guys where is the Readville Switcher??',
         'Worcester Line on time? Screenshot that.',
         'Booking a ticket on the concert train.',
@@ -327,7 +328,7 @@
       ];
       (function () {
         var t = window.RR_LOADING_TIPS;
-        var el = document.getElementById('loading-text');
+        var el = document.getElementById('loading-tip');
         if (!el || !t || !t.length) return;
         window.__rrLoadingTipIdx = Math.floor(Math.random() * t.length);
         el.textContent = t[window.__rrLoadingTipIdx];
@@ -1042,7 +1043,7 @@
   <script src="/assets/js/trip-miles.js?v=16ff83d4dd"></script>
   <script src="/assets/js/trip-notify.js?v=8a6cfdca0c"></script>
   <script src="/assets/js/trip-connections.js?v=496c6c0bac"></script>
-  <script src="/assets/js/app-main.js?v=7bd8efdfcc"></script>
+  <script src="/assets/js/app-main.js?v=b00b7558f5"></script>
   <script src="/assets/js/acela-equipment.js?v=f4e3888269"></script>
   <script src="/assets/js/train-replay.js?v=bf0a91c7fb"></script>
   <script src="/assets/js/mytrips-stats.js?v=ae86c850e7"></script>
