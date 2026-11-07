@@ -1,27 +1,15 @@
-/* Live trip marker on the main map.
-   Reuses the live-share document and the same marker artwork as /live/user.html.
+/* Public live-trip markers on the main map.
+   Uses the same public Firestore shares and marker artwork as /live/user.html.
    No map controls, layout, or existing train markers are changed. */
 (function () {
   'use strict';
-  if (window.__rrMainLiveTripMarker) return;
-  window.__rrMainLiveTripMarker = true;
+  if (window.__rrMainLiveTripMarkers) return;
+  window.__rrMainLiveTripMarkers = true;
 
-  var KEY = 'rrSpecialMoveShareV1';
-  var STOP = 'rrSpecialShareStopped';
   var WARN_MS = 150000;
   var DROP_MS = 30 * 60 * 1000;
-  var map = null, marker = null, unsubscribe = null, activeCode = '';
-  var latest = null;
-
-  function readShare() {
-    try {
-      if (localStorage.getItem(STOP) === '1') return null;
-      var raw = localStorage.getItem(KEY);
-      var o = raw ? JSON.parse(raw) : null;
-      if (!o || !o.shareCode || Number(o.expiresAt) <= Date.now()) return null;
-      return o;
-    } catch (_) { return null; }
-  }
+  var map = null, unsubscribe = null;
+  var markers = Object.create(null), shares = Object.create(null);
 
   function ensureStyle() {
     if (document.getElementById('rr-main-live-marker-style')) return;
@@ -61,69 +49,60 @@
     });
   }
 
-  function removeMarker() {
+  function removeMarker(id) {
+    var marker = markers[id];
     if (marker && map) {
       try { map.removeLayer(marker); } catch (_) {}
     }
-    marker = null;
+    delete markers[id];
+    delete shares[id];
   }
 
-  function paint(d) {
-    latest = d || null;
+  function paint(id, d) {
     if (!d || d.active !== true || Number(d.expiresAt) <= Date.now() ||
         !isFinite(Number(d.lat)) || !isFinite(Number(d.lon))) {
-      removeMarker();
+      removeMarker(id);
       return;
     }
     var age = Date.now() - (Number(d.updatedAt) || 0);
     if (!Number(d.updatedAt) || age > DROP_MS) {
-      removeMarker();
+      removeMarker(id);
       return;
     }
+    shares[id] = d;
     ensureStyle();
     var ll = [Number(d.lat), Number(d.lon)];
     var icon = makeIcon(d, age > WARN_MS);
-    if (!marker) marker = L.marker(ll, { icon: icon, zIndexOffset: 2000, keyboard: false }).addTo(map);
-    else {
-      marker.setLatLng(ll);
-      marker.setIcon(icon);
+    if (!markers[id]) {
+      markers[id] = L.marker(ll, { icon: icon, zIndexOffset: 2000, keyboard: false }).addTo(map);
+    } else {
+      markers[id].setLatLng(ll);
+      markers[id].setIcon(icon);
     }
   }
 
-  function stopListening() {
-    if (unsubscribe) {
-      try { unsubscribe(); } catch (_) {}
-    }
-    unsubscribe = null;
-    activeCode = '';
-    latest = null;
-    removeMarker();
-  }
-
-  function sync() {
-    var next = readShare();
-    var code = next && String(next.shareCode || '').toLowerCase();
-    if (!code || !/^[a-z0-9]{8,20}$/.test(code)) {
-      if (activeCode) stopListening();
-      return;
-    }
-    if (code === activeCode) {
-      if (latest) paint(latest);
-      return;
-    }
-    stopListening();
-    activeCode = code;
-    unsubscribe = firebase.firestore().collection('specialMoveShares').doc(code).onSnapshot(function (doc) {
-      paint(doc.exists ? (doc.data() || null) : null);
-    }, function () {
-      removeMarker();
+  function syncSnapshot(snapshot) {
+    var seen = Object.create(null);
+    snapshot.forEach(function (doc) {
+      seen[doc.id] = true;
+      paint(doc.id, doc.data() || null);
+    });
+    Object.keys(markers).forEach(function (id) {
+      if (!seen[id]) removeMarker(id);
     });
   }
 
   function boot() {
     if (!window.L || !window.firebase || !firebase.firestore || !window.rrMainMap) return false;
     map = window.rrMainMap;
-    try { sync(); } catch (_) {}
+    var db = firebase.firestore();
+    var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 9 * 60 * 1000);
+    unsubscribe = db.collection('specialMoveShares')
+      .where('active', '==', true)
+      .where('expireAt', '>', cutoff)
+      .onSnapshot(syncSnapshot, function () {
+        Object.keys(markers).forEach(removeMarker);
+      });
     return true;
   }
 
@@ -132,15 +111,13 @@
     attempts++;
     if (boot() || attempts >= 60) clearInterval(timer);
   }, 500);
-  window.addEventListener('storage', function (event) {
-    if (!event || event.key === KEY || event.key === STOP) {
-      try { sync(); } catch (_) {}
-    }
-  });
   setInterval(function () {
-    if (map) {
-      try { sync(); if (latest) paint(latest); } catch (_) {}
-    }
+    Object.keys(shares).forEach(function (id) { paint(id, shares[id]); });
   }, 5000);
-  window.addEventListener('beforeunload', stopListening);
+  window.addEventListener('beforeunload', function () {
+    if (unsubscribe) {
+      try { unsubscribe(); } catch (_) {}
+    }
+    Object.keys(markers).forEach(removeMarker);
+  });
 })();
