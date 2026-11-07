@@ -502,6 +502,24 @@ describe('specialMoveShares', () => {
     await no(as('bob').doc('specialMoveShares/aliceshr01').set(share('alice')));
   });
   it('denies creating a doc keyed by a uid', () => no(as(LEGACY).doc('specialMoveShares/' + LEGACY + 'x').set(share(LEGACY))));
+  it('signed-in viewers can publish fresh presence only for themselves', async () => {
+    const viewers = as('alice').collection('specialMoveShares/aliceshr01/viewers');
+    await ok(viewers.doc('bob').set({ uid: 'bob', displayName: 'Bob', lastSeen: now() }));
+    await ok(anon().doc('specialMoveShares/aliceshr01/viewers/bob').get());
+    await no(viewers.doc('alice').set({ uid: 'bob', displayName: 'Bob', lastSeen: now() }));
+    await no(viewers.doc('bob').set({ uid: 'bob', displayName: 'bob@example.com', lastSeen: now() }));
+    await no(as('unverified').collection('specialMoveShares/aliceshr01/viewers').doc('unverified').set({ uid: 'unverified', displayName: 'Guest', lastSeen: now() }));
+    await no(as('bob').collection('specialMoveShares/bobshare01/viewers').doc('bob').set({ uid: 'bob', displayName: 'Bob', lastSeen: now() }));
+  });
+  it('verified users can comment on active live shares without exposing email', async () => {
+    const comments = as('bob').collection('specialMoveShares/aliceshr01/comments');
+    await ok(comments.doc('c1').set(comment('bob')));
+    await ok(anon().doc('specialMoveShares/aliceshr01/comments/c1').get());
+    await no(comments.doc('c2').set(comment('bob', { email: 'bob@example.com' })));
+    await no(comments.doc('c3').set(comment('bob', { displayName: 'bob@example.com' })));
+    await no(as('unverified').collection('specialMoveShares/aliceshr01/comments').doc('c4').set(comment('unverified')));
+    await no(as('bob').collection('specialMoveShares/bobshare01/comments').doc('c5').set(comment('bob')));
+  });
   it('legacy owner can end and delete their uid-keyed doc, nobody else can', async () => {
     const legacy = (who) => as(who).doc('specialMoveShares/' + LEGACY);
     await no(legacy('bob').set({ active: false, updatedAt: Date.now(), uid: 'bob' }, { merge: true }));
