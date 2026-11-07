@@ -10004,13 +10004,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       function formatReportByAttribution(rep) {
         if (!rep) return '';
-        let first = '';
-        let count = 0;
-        let badgeOpts = {};
-        if (Array.isArray(rep.contributors) && rep.contributors.length) {
-          const c0 = rep.contributors[0] || {};
-          first = formatContributorShortName(c0);
-          count = rep.contributors.length;
+        // Attribute the displayed report to the latest submitter, not the first-ever contributor.
+        let latest = formatReporterShortName(rep);
+        let badgeOpts = {
+          uid: rep.reportedByUid,
+          verified: !!rep.reportedByVerified,
+          email: rep.reportedByEmail,
+          isAdmin: !!(rep.reportedByEmail && isBootstrapAdmin(rep.reportedByEmail))
+        };
+        const contributors = Array.isArray(rep.contributors) ? rep.contributors : [];
+        let count = contributors.length;
+        if (!latest && contributors.length) {
+          const c0 = contributors[0] || {};
+          latest = formatContributorShortName(c0);
           badgeOpts = {
             uid: c0.uid,
             verified: !!c0.verified,
@@ -10018,23 +10024,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             isAdmin: !!(c0.email && isBootstrapAdmin(c0.email))
           };
         }
-        if (!first) {
-          const snapLabel = String(rep.firstReportedByLabel || '').trim();
-          if (snapLabel) {
-            first = snapLabel;
-            badgeOpts = {
-              uid: rep.firstReportedByUid,
-              verified: !!(rep.firstReportedByVerified || rep.reportedByVerified),
-              email: rep.firstReportedByEmail,
-              isAdmin: !!(rep.firstReportedByEmail && isBootstrapAdmin(rep.firstReportedByEmail))
-            };
-          } else if (rep.firstReportedByUid || rep.firstReportedByName || rep.firstReportedByEmail || rep.firstReportedByDisplayMode) {
-            first = formatContributorShortName({
+        if (!latest) {
+          latest = String(rep.firstReportedByLabel || '').trim() ||
+            formatContributorShortName({
               label: rep.firstReportedByLabel,
               displayMode: rep.firstReportedByDisplayMode,
               name: rep.firstReportedByName,
               email: rep.firstReportedByEmail
             });
+          if (!rep.reportedByUid) {
             badgeOpts = {
               uid: rep.firstReportedByUid,
               verified: !!(rep.firstReportedByVerified || rep.reportedByVerified),
@@ -10043,31 +10041,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             };
           }
         }
-        if (!first) {
-          first = formatReporterShortName(rep);
-          badgeOpts = {
-            uid: rep.reportedByUid,
-            verified: !!rep.reportedByVerified,
-            email: rep.reportedByEmail,
-            isAdmin: !!(rep.reportedByEmail && isBootstrapAdmin(rep.reportedByEmail))
-          };
-        }
-        if (!count) {
-          if (Array.isArray(rep.contributors) && rep.contributors.length) {
-            count = rep.contributors.length;
-          } else if (first) {
-            count = 1;
-          } else {
-            count = 0;
-          }
-        }
-        if (!first) return '';
-        const firstHtml = reporterNameWithBadgeHtml(first, badgeOpts);
+        if (!count) count = latest ? 1 : 0;
+        if (!latest) return '';
+        const latestHtml = reporterNameWithBadgeHtml(latest, badgeOpts);
         if (count >= 2) {
           const n = count - 1;
-          return firstHtml + ' and ' + n + (n === 1 ? ' other' : ' others');
+          return latestHtml + ' and ' + n + (n === 1 ? ' other' : ' others');
         }
-        return firstHtml;
+        return latestHtml;
       }
       function formatOneLocoLabel(locoId, locoType, unitName, vehicleId) {
         locoId = String(locoId || '').trim();
