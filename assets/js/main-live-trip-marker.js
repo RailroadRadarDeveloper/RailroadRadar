@@ -34,15 +34,13 @@
   }
 
   function makeIcon(d, stale) {
-    var heading = Number(d.heading);
-    var rot = isFinite(heading) ? heading : 90;
     var src = /^\/assets\/[A-Za-z0-9-]+\.png$/.test(d.icon || '') ? d.icon : '/assets/hsp46.png';
     var title = esc(String(d.title || 'Live trip').slice(0, 40));
     return L.divIcon({
       className: 'rr-live-train',
       html: '<div class="rr-live-pin' + (stale ? ' is-stale' : '') + '">' +
         '<span class="rr-live-halo" aria-hidden="true"></span>' +
-        '<img src="' + src + '" alt="" style="transform:rotate(' + rot + 'deg)">' +
+        '<img src="' + src + '" alt="">' +
         '<span class="rr-live-pin-label">' + title + '</span></div>',
       iconSize: [76, 70],
       iconAnchor: [38, 32]
@@ -82,13 +80,22 @@
   }
 
   function syncSnapshot(snapshot) {
-    var seen = Object.create(null);
+    var latestByOwner = Object.create(null);
     snapshot.forEach(function (doc) {
-      seen[doc.id] = true;
-      paint(doc.id, doc.data() || null);
+      var data = doc.data() || {};
+      var owner = String(data.uid || doc.id);
+      var updated = Number(data.updatedAt) || 0;
+      if (!latestByOwner[owner] || updated > (Number(latestByOwner[owner].updatedAt) || 0)) {
+        latestByOwner[owner] = data;
+      }
     });
-    Object.keys(markers).forEach(function (id) {
-      if (!seen[id]) removeMarker(id);
+    var seen = Object.create(null);
+    Object.keys(latestByOwner).forEach(function (owner) {
+      seen[owner] = true;
+      paint(owner, latestByOwner[owner]);
+    });
+    Object.keys(markers).forEach(function (owner) {
+      if (!seen[owner]) removeMarker(owner);
     });
   }
 
