@@ -159,13 +159,13 @@
     <span id="live-speed">Speed</span>
     <span id="live-place">Location</span>
     <span id="live-updated">Updated</span>
-    <span id="live-viewer-count">Viewers: 0</span>
+    <span id="live-viewer-count">Signed-in viewers: 0</span>
     <p id="live-stale" hidden role="status"></p>
   </div>
   <div id="map" hidden></div>
   <button id="live-community-toggle" type="button" hidden>Viewers &amp; comments</button>
   <section id="live-community" hidden aria-label="Live trip community">
-    <div class="rr-community-top"><span>Viewers</span><button id="live-community-close" type="button" aria-label="Close">×</button></div>
+    <div class="rr-community-top"><span>Signed-in viewers</span><button id="live-community-close" type="button" aria-label="Close">×</button></div>
     <div id="live-viewer-list">No signed-in viewers yet</div>
     <div class="rr-community-top"><span>Comments</span></div>
     <div id="live-comment-list">Loading comments…</div>
@@ -224,7 +224,7 @@
       var map = null, baseLayer = null, marker = null, shapesLoaded = false;
       var shareIsLive = false, lastDoc = null, tickTimer = null;
       var placeKey = '', placeCache = Object.create(null), placeQueue = Promise.resolve(), placeLastAt = 0;
-      var ownerLoadUid = '', viewerUnsub = null, commentsUnsub = null, viewerHeartbeat = null, viewerDocRef = null;
+      var ownerLoadUid = '', viewerUnsub = null, commentsUnsub = null, viewerHeartbeat = null, viewerRefreshTimer = null, viewerDocRef = null;
       var viewerUid = '', currentShareRef = null;
 
       var elStatus = document.getElementById('status');
@@ -411,22 +411,34 @@
         });
       }
 
-      function stopCommunity() {
-        if (viewerUnsub) { try { viewerUnsub(); } catch (e) {} viewerUnsub = null; }
-        if (commentsUnsub) { try { commentsUnsub(); } catch (e) {} commentsUnsub = null; }
+      function stopViewerPresence() {
         if (viewerHeartbeat) { clearInterval(viewerHeartbeat); viewerHeartbeat = null; }
+        if (viewerRefreshTimer) { clearInterval(viewerRefreshTimer); viewerRefreshTimer = null; }
         if (viewerDocRef) {
           var ref = viewerDocRef;
           viewerDocRef = null;
           ref.delete().catch(function () {});
         }
+        viewerUid = '';
+      }
+
+      function stopCommunity() {
+        if (viewerUnsub) { try { viewerUnsub(); } catch (e) {} viewerUnsub = null; }
+        if (commentsUnsub) { try { commentsUnsub(); } catch (e) {} commentsUnsub = null; }
+        stopViewerPresence();
+      }
+
+      function safeDisplayName(user) {
+        var name = String(user && user.displayName || 'Rider').replace(/@.*/, '').trim();
+        return (name || 'Rider').slice(0, 80);
       }
 
       function startCommunity(d) {
         if (!shareCode) return;
         currentShareRef = firebase.firestore().collection('specialMoveShares').doc(shareCode);
         elCommunityToggle.hidden = false;
-        if (!viewerUnsub) {
+        function refreshViewerList() {
+          if (viewerUnsub) { try { viewerUnsub(); } catch (e) {} viewerUnsub = null; }
           viewerUnsub = currentShareRef.collection('viewers')
             .where('lastSeen', '>', firebase.firestore.Timestamp.fromMillis(Date.now() - 90000))
             .onSnapshot(function (snap) {
@@ -435,7 +447,8 @@
                 var v = doc.data() || {};
                 names.push(String(v.displayName || 'Rider').slice(0, 80));
               });
-              elViewerCount.textContent = 'Viewers: ' + snap.size;
+              elViewerCount.textContent = 'Signed-in viewers: ' + snap.size;
+              elCommunityToggle.textContent = 'Viewers (' + snap.size + ') & comments';
               elViewerList.textContent = '';
               if (!names.length) elViewerList.textContent = 'No signed-in viewers yet';
               names.sort(function (a,b) { return a.localeCompare(b); }).forEach(function (name) {
@@ -449,6 +462,8 @@
               elViewerList.textContent = 'Viewer list unavailable';
             });
         }
+        if (!viewerUnsub) refreshViewerList();
+        if (!viewerRefreshTimer) viewerRefreshTimer = setInterval(refreshViewerList, 30000);
         if (!commentsUnsub) {
           commentsUnsub = currentShareRef.collection('comments').orderBy('createdAt', 'desc').limit(50)
             .onSnapshot(function (snap) {
@@ -470,14 +485,16 @@
         }
         var user = firebase.auth().currentUser;
         updateCommentAccess(user);
+        if (user && user.uid && viewerDocRef && viewerUid !== user.uid) stopViewerPresence();
         if (user && user.uid && !viewerDocRef) {
           viewerUid = user.uid;
           viewerDocRef = currentShareRef.collection('viewers').doc(viewerUid);
           function heartbeat() {
-            if (!firebase.auth().currentUser || firebase.auth().currentUser.uid !== viewerUid) return;
+            var current = firebase.auth().currentUser;
+            if (!current || current.uid !== viewerUid || !viewerDocRef) return;
             viewerDocRef.set({
               uid: viewerUid,
-              displayName: String(firebase.auth().currentUser.displayName || 'Rider').replace(/@.*/, '').slice(0, 80),
+              displayName: safeDisplayName(current),
               lastSeen: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true }).catch(function () {});
           }
@@ -504,7 +521,7 @@
         elCommentSend.disabled = true;
         currentShareRef.collection('comments').add({
           uid: user.uid,
-          displayName: String(user.displayName || 'Rider').replace(/@.*/, '').slice(0, 80),
+          displayName: safeDisplayName(user),
           text: message.slice(0, 1000),
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         }).then(function () {
@@ -516,7 +533,7 @@
       firebase.auth().onAuthStateChanged(function (user) {
         updateCommentAccess(user);
         if (shareIsLive && lastDoc) startCommunity(lastDoc);
-        if (!user && viewerDocRef) stopCommunity();
+        if (!user && viewerDocRef) stopViewerPresence();
       });
       window.addEventListener('pagehide', stopCommunity);
 
