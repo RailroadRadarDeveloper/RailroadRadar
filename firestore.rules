@@ -645,7 +645,7 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.expireAt is timestamp
             && get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.expireAt > request.time;
         }
-        allow read: if true;
+        allow read: if shareIsActive();
         allow create: if activeUser()
           && verifiedEmail()
           && shareIsActive()
