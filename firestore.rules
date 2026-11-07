@@ -680,8 +680,9 @@ service cloud.firestore {
           && strOk(d.title, 120)
           && iconIsAsset(d)
           && d.active is bool
-          && d.lat is number && d.lat >= -90 && d.lat <= 90
-          && d.lon is number && d.lon >= -180 && d.lon <= 180
+          && d.lat is number && d.lon is number
+          && ((d.active == true && d.lat >= -90 && d.lat <= 90 && d.lon >= -180 && d.lon <= 180)
+              || (d.active == false && d.lat == 0 && d.lon == 0))
           && d.startedAt is int && d.expiresAt is int
           && d.expiresAt > 0
           && d.expireAt is timestamp && d.expireAt > request.time
@@ -691,8 +692,7 @@ service cloud.firestore {
       allow get: if isAdmin()
         || (resource.data.active == true && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
       allow list: if isAdmin()
-        || (resource.data.active == true && resource.data.expireAt is timestamp
-            && resource.data.expireAt > request.time - duration.value(10, 'm'));
+        || (resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
       allow create: if isAdmin()
         && activeUser()
         && shareId.matches('[a-z0-9]{8,20}')
