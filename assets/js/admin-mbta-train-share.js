@@ -86,7 +86,7 @@
       return nativeFetch.apply(this, args).then(function (response) {
         var url = '';
         try { url = String(args[0] && args[0].url ? args[0].url : args[0]); } catch (_) {}
-        if (/api-v3\.mbta\.com\/vehicles(?:\?|$)/i.test(url)) {
+        if (url.indexOf('/vehicles') !== -1) {
           try {
             response.clone().json().then(function (payload) {
               (payload && Array.isArray(payload.data) ? payload.data : []).forEach(function (vehicle) {
