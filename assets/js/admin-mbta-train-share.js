@@ -170,6 +170,9 @@
     placeholder.disabled = true;
     placeholder.selected = true;
     select.insertBefore(placeholder, select.firstChild);
+    // The shared Go Live selector may have its first real icon selected by default.
+    // Force an empty value so an admin must actively choose an icon before sharing.
+    select.value = '';
     select.style.maxWidth = '145px';
     select.style.marginRight = '6px';
     var button = document.createElement('button');
