@@ -90,6 +90,12 @@
       link.href = '/assets/css/report-mobile.css?v=1';
       document.head.appendChild(link);
     }
+    if (!document.getElementById('rr-greeting-font')) {
+      var gs = document.createElement('style');
+      gs.id = 'rr-greeting-font';
+      gs.textContent = '.banner h1.is-greeting{font-family:"Google Sans",Roboto,Arial,sans-serif!important;font-weight:700!important;letter-spacing:normal!important}';
+      document.head.appendChild(gs);
+    }
     if (document.getElementById('rr-site-nav-style')) return;
     var style = document.createElement('style');
     style.id = 'rr-site-nav-style';
