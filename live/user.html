@@ -42,9 +42,25 @@
     header a { color: #fff; font-weight: 800; text-decoration: none; display: flex; align-items: center; flex: 0 0 auto; }
     header img { height: 40px; width: auto; display: block; }
     .rr-live-head-main { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-    #status {
-      font-size: 14px; font-weight: 800; line-height: 1.2; white-space:nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
-    }
+    #status { display: none; }
+    .rr-live-head-main { min-height: 18px; }
+    #live-owner .rr-verified-check { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; margin-left:5px; border-radius:50%; background:#1d9bf0; color:#fff; font:900 10px/1 sans-serif; vertical-align:middle; }
+    #live-community-toggle { position:fixed; right:14px; bottom:14px; z-index:9100; border:0; border-radius:4px; padding:10px 14px; background:var(--rr-live-bg); color:var(--rr-live-ink); font:800 13px/1.2 system-ui,sans-serif; box-shadow:0 2px 10px rgba(0,0,0,.3); cursor:pointer; }
+    #live-community { position:fixed; left:0; right:0; bottom:0; z-index:9200; max-height:42vh; overflow:auto; padding:12px 16px 18px; background:var(--rr-live-card); color:var(--rr-live-card-ink); box-shadow:0 -4px 18px rgba(0,0,0,.28); }
+    #live-community[hidden], #live-community-toggle[hidden] { display:none !important; }
+    .rr-community-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; font-weight:800; }
+    .rr-community-top button { border:0; background:transparent; color:inherit; font-size:20px; cursor:pointer; }
+    #live-viewer-list, #live-comment-list { font-size:13px; line-height:1.45; }
+    #live-viewer-list { display:flex; flex-wrap:wrap; gap:6px 12px; margin:6px 0 12px; }
+    .rr-live-viewer { font-weight:700; }
+    #live-comment-list { max-height:130px; overflow:auto; margin:8px 0; }
+    .rr-live-comment { padding:7px 0; border-top:1px solid rgba(127,127,127,.25); overflow-wrap:anywhere; }
+    .rr-live-comment strong { margin-right:6px; }
+    #live-comment-form { display:flex; gap:8px; align-items:flex-end; margin-top:8px; }
+    #live-comment-text { flex:1; min-width:0; min-height:38px; max-height:90px; resize:vertical; border:1px solid rgba(127,127,127,.45); border-radius:4px; padding:8px; color:var(--rr-live-card-ink); background:transparent; font:inherit; }
+    #live-comment-form button { border:0; border-radius:4px; padding:9px 13px; background:var(--rr-live-bg); color:#fff; font-weight:800; cursor:pointer; }
+    #live-comment-form button:disabled { opacity:.5; cursor:not-allowed; }
+    #live-comment-hint { margin:5px 0 0; color:var(--rr-live-muted); font-size:12px; }
     .rr-live-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 18px; }
     .rr-badge {
       display: inline-flex; align-items: center; gap: 5px; border-radius: 4px; padding: 2px 7px;
@@ -139,12 +155,26 @@
   </header>
   <div id="live-share-banner" hidden>Sharing live location <button type="button" id="live-share-stop">Stop sharing</button></div>
   <div id="live-stats" hidden>
+    <span id="live-owner">Shared by Rider</span>
     <span id="live-speed">Speed</span>
     <span id="live-place">Location</span>
     <span id="live-updated">Updated</span>
+    <span id="live-viewer-count">Viewers: 0</span>
     <p id="live-stale" hidden role="status"></p>
   </div>
   <div id="map" hidden></div>
+  <button id="live-community-toggle" type="button" hidden>Viewers &amp; comments</button>
+  <section id="live-community" hidden aria-label="Live trip community">
+    <div class="rr-community-top"><span>Viewers</span><button id="live-community-close" type="button" aria-label="Close">×</button></div>
+    <div id="live-viewer-list">No signed-in viewers yet</div>
+    <div class="rr-community-top"><span>Comments</span></div>
+    <div id="live-comment-list">Loading comments…</div>
+    <form id="live-comment-form">
+      <textarea id="live-comment-text" maxlength="1000" placeholder="Add a comment…" aria-label="Add a comment"></textarea>
+      <button type="submit" id="live-comment-send">Send</button>
+    </form>
+    <p id="live-comment-hint">Sign in with a verified email to comment.</p>
+  </section>
   <div id="ended-card" hidden>
     <div class="rr-ended-inner">
       <h1 id="ended-title">This trip has ended</h1>
@@ -194,6 +224,8 @@
       var map = null, baseLayer = null, marker = null, shapesLoaded = false;
       var shareIsLive = false, lastDoc = null, tickTimer = null;
       var placeKey = '', placeCache = Object.create(null), placeQueue = Promise.resolve(), placeLastAt = 0;
+      var ownerLoadUid = '', viewerUnsub = null, commentsUnsub = null, viewerHeartbeat = null, viewerDocRef = null;
+      var viewerUid = '', currentShareRef = null;
 
       var elStatus = document.getElementById('status');
       var elBadges = document.getElementById('live-badges');
@@ -207,6 +239,16 @@
       var elEndedTitle = document.getElementById('ended-title');
       var elEndedDetail = document.getElementById('ended-detail');
       var elBanner = document.getElementById('live-share-banner');
+      var elOwner = document.getElementById('live-owner');
+      var elViewerCount = document.getElementById('live-viewer-count');
+      var elCommunityToggle = document.getElementById('live-community-toggle');
+      var elCommunity = document.getElementById('live-community');
+      var elViewerList = document.getElementById('live-viewer-list');
+      var elCommentList = document.getElementById('live-comment-list');
+      var elCommentForm = document.getElementById('live-comment-form');
+      var elCommentText = document.getElementById('live-comment-text');
+      var elCommentHint = document.getElementById('live-comment-hint');
+      var elCommentSend = document.getElementById('live-comment-send');
 
       function isDark() {
         return document.documentElement.classList.contains('rr-theme-dark');
@@ -253,12 +295,11 @@
       }
 
       function icon(heading, src, title, stale) {
-        var rot = isFinite(Number(heading)) ? Number(heading) : 90;
         if (!/^\/assets\/[A-Za-z0-9-]+\.png$/.test(src || '')) src = '/assets/hsp46.png';
         var label = escapeHtml(String(title || 'Live trip').slice(0, 40));
         var html = '<div class="rr-live-pin' + (stale ? ' is-stale' : '') + '">' +
           '<span class="rr-live-halo" aria-hidden="true"></span>' +
-          '<img src="' + src + '" alt="" style="transform:rotate(' + rot + 'deg)">' +
+          '<img src="' + src + '" alt="">' +
           '<span class="rr-live-pin-label">' + label + '</span></div>';
         return L.divIcon({
           className: 'rr-live-train',
@@ -327,6 +368,9 @@
         document.body.classList.remove('rr-live-has-stale');
         if (marker && map) { try { map.removeLayer(marker); } catch (e) {} marker = null; }
         elStatus.textContent = title || 'Trip ended';
+        elCommunityToggle.hidden = true;
+        elCommunity.hidden = true;
+        stopCommunity();
         elEndedTitle.textContent = title || 'This trip has ended';
         elEndedDetail.textContent = detail || 'The live share is no longer active.';
         elEnded.hidden = false;
@@ -336,8 +380,145 @@
         elEnded.hidden = true;
         elStats.hidden = false;
         elBadges.hidden = false;
+        elCommunityToggle.hidden = false;
         ensureMap();
       }
+
+      function loadOwner(d) {
+        var uid = String(d.uid || '');
+        if (!uid) { elOwner.textContent = 'Shared by ' + String(d.displayName || 'Rider'); return; }
+        if (ownerLoadUid === uid) return;
+        ownerLoadUid = uid;
+        var fallback = String(d.displayName || 'Rider');
+        elOwner.textContent = 'Shared by ' + fallback;
+        var db = firebase.firestore();
+        Promise.all([
+          db.collection('publicProfiles').doc(uid).get().catch(function () { return null; }),
+          db.collection('verifiedReporters').doc(uid).get().catch(function () { return null; })
+        ]).then(function (docs) {
+          if (ownerLoadUid !== uid) return;
+          var profile = docs[0] && docs[0].exists ? (docs[0].data() || {}) : {};
+          var name = String(profile.displayName || fallback || 'Rider').slice(0, 80);
+          elOwner.textContent = 'Shared by ' + name;
+          if (docs[1] && docs[1].exists) {
+            var check = document.createElement('span');
+            check.className = 'rr-verified-check';
+            check.setAttribute('title', 'Verified');
+            check.setAttribute('aria-label', 'Verified');
+            check.textContent = '✓';
+            elOwner.appendChild(check);
+          }
+        });
+      }
+
+      function stopCommunity() {
+        if (viewerUnsub) { try { viewerUnsub(); } catch (e) {} viewerUnsub = null; }
+        if (commentsUnsub) { try { commentsUnsub(); } catch (e) {} commentsUnsub = null; }
+        if (viewerHeartbeat) { clearInterval(viewerHeartbeat); viewerHeartbeat = null; }
+        if (viewerDocRef) {
+          var ref = viewerDocRef;
+          viewerDocRef = null;
+          ref.delete().catch(function () {});
+        }
+      }
+
+      function startCommunity(d) {
+        if (!shareCode) return;
+        currentShareRef = firebase.firestore().collection('specialMoveShares').doc(shareCode);
+        elCommunityToggle.hidden = false;
+        if (!viewerUnsub) {
+          viewerUnsub = currentShareRef.collection('viewers')
+            .where('lastSeen', '>', firebase.firestore.Timestamp.fromMillis(Date.now() - 90000))
+            .onSnapshot(function (snap) {
+              var names = [];
+              snap.forEach(function (doc) {
+                var v = doc.data() || {};
+                names.push(String(v.displayName || 'Rider').slice(0, 80));
+              });
+              elViewerCount.textContent = 'Viewers: ' + snap.size;
+              elViewerList.textContent = '';
+              if (!names.length) elViewerList.textContent = 'No signed-in viewers yet';
+              names.sort(function (a,b) { return a.localeCompare(b); }).forEach(function (name) {
+                var item = document.createElement('span');
+                item.className = 'rr-live-viewer';
+                item.textContent = name;
+                elViewerList.appendChild(item);
+              });
+            }, function () {
+              elViewerCount.textContent = 'Viewers unavailable';
+              elViewerList.textContent = 'Viewer list unavailable';
+            });
+        }
+        if (!commentsUnsub) {
+          commentsUnsub = currentShareRef.collection('comments').orderBy('createdAt', 'desc').limit(50)
+            .onSnapshot(function (snap) {
+              elCommentList.textContent = '';
+              if (snap.empty) { elCommentList.textContent = 'No comments yet'; return; }
+              snap.forEach(function (doc) {
+                var item = doc.data() || {};
+                var row = document.createElement('div');
+                row.className = 'rr-live-comment';
+                var name = document.createElement('strong');
+                name.textContent = String(item.displayName || 'Rider').slice(0, 80);
+                var body = document.createElement('span');
+                body.textContent = String(item.text || '');
+                row.appendChild(name);
+                row.appendChild(body);
+                elCommentList.appendChild(row);
+              });
+            }, function () { elCommentList.textContent = 'Comments unavailable'; });
+        }
+        var user = firebase.auth().currentUser;
+        updateCommentAccess(user);
+        if (user && user.uid && !viewerDocRef) {
+          viewerUid = user.uid;
+          viewerDocRef = currentShareRef.collection('viewers').doc(viewerUid);
+          function heartbeat() {
+            if (!firebase.auth().currentUser || firebase.auth().currentUser.uid !== viewerUid) return;
+            viewerDocRef.set({
+              uid: viewerUid,
+              displayName: String(firebase.auth().currentUser.displayName || 'Rider').replace(/@.*/, '').slice(0, 80),
+              lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(function () {});
+          }
+          heartbeat();
+          viewerHeartbeat = setInterval(heartbeat, 30000);
+        }
+      }
+
+      function updateCommentAccess(user) {
+        var canComment = !!(user && user.uid && user.emailVerified);
+        elCommentText.disabled = !canComment;
+        elCommentSend.disabled = !canComment;
+        elCommentHint.textContent = canComment ? 'Comments are visible to anyone with this live link.' :
+          (user ? 'Verify your email to comment.' : 'Sign in with a verified email to comment.');
+      }
+
+      elCommunityToggle.onclick = function () { elCommunity.hidden = !elCommunity.hidden; };
+      document.getElementById('live-community-close').onclick = function () { elCommunity.hidden = true; };
+      elCommentForm.onsubmit = function (ev) {
+        ev.preventDefault();
+        var user = firebase.auth().currentUser;
+        var message = String(elCommentText.value || '').trim();
+        if (!user || !user.uid || !user.emailVerified || !message || !currentShareRef) return;
+        elCommentSend.disabled = true;
+        currentShareRef.collection('comments').add({
+          uid: user.uid,
+          displayName: String(user.displayName || 'Rider').replace(/@.*/, '').slice(0, 80),
+          text: message.slice(0, 1000),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function () {
+          elCommentText.value = '';
+        }).catch(function () {
+          elCommentHint.textContent = 'Comment could not be posted. Please try again.';
+        }).finally(function () { updateCommentAccess(firebase.auth().currentUser); });
+      };
+      firebase.auth().onAuthStateChanged(function (user) {
+        updateCommentAccess(user);
+        if (shareIsLive && lastDoc) startCommunity(lastDoc);
+        if (!user && viewerDocRef) stopCommunity();
+      });
+      window.addEventListener('pagehide', stopCommunity);
 
       function updateStopBanner() {
         var user = firebase.auth().currentUser;
@@ -379,8 +560,10 @@
         updateStopBanner();
 
         var title = String(d.title || 'Live trip');
-        document.title = title + ' | RailroadRadar';
-        elStatus.textContent = title;
+        document.title = 'Live tracker | RailroadRadar';
+        elStatus.textContent = '';
+        loadOwner(d);
+        startCommunity(d);
 
         var stale = age > STALE_WARN_MS;
         elBadges.innerHTML = stale
@@ -405,7 +588,7 @@
         }
 
         var ll = [Number(d.lat), Number(d.lon)];
-        var ic = icon(d.heading, d.icon, title, stale);
+        var ic = icon(null, d.icon, title, stale);
         if (!marker) {
           marker = L.marker(ll, { icon: ic, zIndexOffset: 2000 }).addTo(map);
           map.setView(ll, 14);
