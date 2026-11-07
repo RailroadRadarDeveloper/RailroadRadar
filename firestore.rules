@@ -683,8 +683,7 @@ service cloud.firestore {
           && d.lat is number && d.lat >= -90 && d.lat <= 90
           && d.lon is number && d.lon >= -180 && d.lon <= 180
           && d.startedAt is int && d.expiresAt is int
-          && d.expiresAt > request.time.toMillis()
-          && d.expiresAt <= request.time.toMillis() + duration.value(6, 'h')
+          && d.expiresAt > 0
           && d.expireAt is timestamp
           && d.expireAt <= request.time + duration.value(6, 'h')
           && d.updatedAt is int;
