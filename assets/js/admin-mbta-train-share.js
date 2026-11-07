@@ -1,14 +1,13 @@
-/* Admin-only GPS fallback for MBTA timetable trains without a native location feed. */
+/* GPS fallback for MBTA timetable trains without a native location feed. */
 (function () {
   'use strict';
   if (window.__rrAdminMbtaTrainShare) return;
   window.__rrAdminMbtaTrainShare = true;
 
-  var db = null, auth = null, adminPromise = null, currentShare = null, watchId = null;
+  var db = null, auth = null, currentShare = null, watchId = null;
   var markers = Object.create(null), suppressed = Object.create(null), feedPositions = Object.create(null), nativeTripIds = Object.create(null);
   var nativeFetch = window.fetch;
   var MAP = function () { return window.rrMainMap || null; };
-  var BOOTSTRAP = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
 
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -28,25 +27,11 @@
     db = firebase.firestore();
     return db;
   }
-  function isAdmin() {
-    if (adminPromise) return adminPromise;
-    adminPromise = Promise.resolve().then(async function () {
-      if (!window.firebase || !firebase.auth) return false;
-      auth = firebase.auth();
-      var user = auth.currentUser;
-      if (!user || !user.email) return false;
-      var email = String(user.email).trim().toLowerCase();
-      if (BOOTSTRAP.indexOf(email) !== -1) return true;
-      var store = getDb();
-      if (!store) return false;
-      try {
-        var snap = await store.collection('admins').doc(email).get();
-        if (!snap.exists) return false;
-        var perms = (snap.data() || {}).perms || {};
-        return Object.keys(perms).some(function (key) { return perms[key] === true; });
-      } catch (_) { return false; }
-    }).finally(function () { setTimeout(function () { adminPromise = null; }, 15000); });
-    return adminPromise;
+  function canShareLocation() {
+    if (!window.firebase || !firebase.auth) return false;
+    auth = firebase.auth();
+    var user = auth.currentUser;
+    return !!(user && user.email && user.emailVerified);
   }
   function iconUrl(value) {
     return /^\/assets\/[A-Za-z0-9-]+\.png$/.test(String(value || '')) ? value : '/assets/hsp46.png';
@@ -202,9 +187,9 @@
 
   function startShare(args, icon, button) {
     var store = getDb(), user = auth && auth.currentUser;
-    if (!store || !user || !navigator.geolocation) {
+    if (!store || !user || !user.emailVerified || !navigator.geolocation) {
       button.disabled = false; button.textContent = 'Share Location';
-      alert('Sign in and allow location access to share this train.');
+      alert('Sign in with a verified email and allow location access to share this train.');
       return;
     }
     if (currentShare && currentShare.active) {
@@ -250,7 +235,7 @@
         button.disabled = true;
       }).catch(function (err) {
         console.warn('[admin-mbta-share] publish failed', err);
-        fail('Could not publish this train location. Check your admin access and try again.');
+        fail('Could not publish this train location. Make sure your account is verified and try again.');
       });
     }
     timer = setTimeout(function () {
@@ -273,11 +258,10 @@
         trainNumber: String(tripId || '')
       };
       var result = await original.apply(this, arguments);
-      isAdmin().then(function (admin) {
-        if (!admin) return;
+      if (canShareLocation()) {
         setTimeout(function () { addShareControls(args); }, 250);
         setTimeout(function () { addShareControls(args); }, 1700);
-      });
+      }
       return result;
     };
     wrapped.__rrAdminWrapped = true;
@@ -298,8 +282,7 @@
   }, 500);
   if (window.firebase && firebase.auth) {
     firebase.auth().onAuthStateChanged(function () {
-      adminPromise = null;
-    });
+      });
   }
   window.addEventListener('pagehide', function () {
     stopGps();
