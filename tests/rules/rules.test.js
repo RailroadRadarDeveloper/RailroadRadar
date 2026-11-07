@@ -503,7 +503,7 @@ describe('specialMoveShares', () => {
   });
   it('denies creating a doc keyed by a uid', () => no(as(LEGACY).doc('specialMoveShares/' + LEGACY + 'x').set(share(LEGACY))));
   it('signed-in viewers can publish fresh presence only for themselves', async () => {
-    const viewers = as('alice').collection('specialMoveShares/aliceshr01/viewers');
+    const viewers = as('bob').collection('specialMoveShares/aliceshr01/viewers');
     await ok(viewers.doc('bob').set({ uid: 'bob', displayName: 'Bob', lastSeen: now() }));
     await ok(anon().doc('specialMoveShares/aliceshr01/viewers/bob').get());
     await no(viewers.doc('alice').set({ uid: 'bob', displayName: 'Bob', lastSeen: now() }));
