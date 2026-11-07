@@ -12606,7 +12606,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }, 400);
       }
       startLoadingTips();
-      setLoadingProgress(8, 'Starting...');
+      setLoadingProgress(8, 'Loading...');
       loadSpecialIcons();
       setLoadingProgress(18, 'Ready for reports...');
       wireAuthUI();
