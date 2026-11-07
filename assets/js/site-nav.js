@@ -87,7 +87,7 @@
       var link = document.createElement('link');
       link.id = 'rr-report-mobile-css';
       link.rel = 'stylesheet';
-      link.href = '/assets/css/report-mobile.css?v=1';
+      link.href = '/assets/css/report-mobile.css?v=2';
       document.head.appendChild(link);
     }
     if (!document.getElementById('rr-greeting-font')) {
