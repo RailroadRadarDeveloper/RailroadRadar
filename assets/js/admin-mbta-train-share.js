@@ -154,7 +154,7 @@
 
   function addShareControls(args) {
     var popup = document.querySelector('.leaflet-popup .train-popup');
-    if (!popup || !popup.querySelector('.status-scheduled')) return;
+    if (!popup || !popup.querySelector('.quick-status .status-pill.status-scheduled')) return;
     var footer = popup.querySelector('.train-popup-footer');
     if (!footer || footer.querySelector('.rr-admin-mbta-share')) return;
     var source = document.getElementById('trip-log-live-icon');
