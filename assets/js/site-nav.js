@@ -83,6 +83,13 @@
     else if (darkMq.addListener) darkMq.addListener(onOsTheme);
   }
   function ensureStyle() {
+    if (!document.getElementById('rr-report-mobile-css')) {
+      var link = document.createElement('link');
+      link.id = 'rr-report-mobile-css';
+      link.rel = 'stylesheet';
+      link.href = '/assets/css/report-mobile.css?v=1';
+      document.head.appendChild(link);
+    }
     if (document.getElementById('rr-site-nav-style')) return;
     var style = document.createElement('style');
     style.id = 'rr-site-nav-style';
