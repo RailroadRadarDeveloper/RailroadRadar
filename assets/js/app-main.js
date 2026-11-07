@@ -9634,6 +9634,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} }; // agency -> reports
       let trainReportsLoadFailed = false;
       let reportTrainExtraMode = false;
+      let reportTrainSubmitting = false;
       let reportTrainSelectToken = 0;
       let reportTrainPreferNumber = '';
 
@@ -11123,6 +11124,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!isMbta) {
           vehicleId = vehicleId || resolved[0].locomotiveId || '';
         }
+        if (reportTrainSubmitting) return;
+        reportTrainSubmitting = true;
+        const submitButton = document.getElementById('report-train-submit');
+        if (submitButton) submitButton.disabled = true;
         try {
           const first = resolved[0];
           const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
@@ -11167,6 +11172,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           setErr(msg);
           showNotification(msg, 'error');
+        } finally {
+          reportTrainSubmitting = false;
+          if (submitButton) submitButton.disabled = false;
         }
       }
       function wireReportTrainUI() {
