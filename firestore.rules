@@ -664,6 +664,48 @@ service cloud.firestore {
       }
     }
 
+    // Admin-provided MBTA location fallback for scheduled trains without a native feed.
+    match /adminMbtaTrainShares/{shareId} {
+      function validAdminTrainShare(d) {
+        return d.keys().hasOnly(['uid', 'tripId', 'trainNumber', 'routeName', 'destination', 'serviceDate',
+            'title', 'icon', 'active', 'lat', 'lon', 'startedAt', 'expiresAt', 'expireAt', 'updatedAt'])
+          && d.keys().hasAll(['uid', 'tripId', 'routeName', 'destination', 'serviceDate', 'title', 'icon',
+            'active', 'lat', 'lon', 'startedAt', 'expiresAt', 'expireAt', 'updatedAt'])
+          && d.uid is string && d.uid.size() > 0 && d.uid.size() <= 128
+          && d.tripId is string && d.tripId.size() > 0 && d.tripId.size() <= 128
+          && strOk(d.trainNumber, 32)
+          && d.routeName is string && d.routeName.size() > 0 && d.routeName.size() <= 100
+          && strOk(d.destination, 100)
+          && (d.serviceDate == '' || d.serviceDate.matches('\\d{4}-\\d{2}-\\d{2}'))
+          && strOk(d.title, 120)
+          && iconIsAsset(d)
+          && d.active is bool
+          && d.lat is number && d.lon is number
+          && ((d.active == true && d.lat >= -90 && d.lat <= 90 && d.lon >= -180 && d.lon <= 180)
+              || (d.active == false && d.lat == 0 && d.lon == 0))
+          && d.startedAt is int && d.expiresAt is int
+          && d.expiresAt > 0
+          && d.expireAt is timestamp && d.expireAt > request.time
+          && d.expireAt <= request.time + duration.value(6, 'h')
+          && d.updatedAt is int;
+      }
+      allow get: if isAdmin()
+        || (resource.data.active == true && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
+      allow list: if isAdmin()
+        || (resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
+      allow create: if isAdmin()
+        && activeUser()
+        && shareId.matches('[a-z0-9]{8,20}')
+        && request.resource.data.uid == request.auth.uid
+        && validAdminTrainShare(request.resource.data);
+      allow update: if isAdmin()
+        && activeUser()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && validAdminTrainShare(request.resource.data);
+      allow delete: if isAdmin() && resource.data.uid == request.auth.uid;
+    }
+
     match /tracksideFavorites/{id} {
       allow read: if true;
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
