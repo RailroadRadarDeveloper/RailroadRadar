@@ -18,3 +18,10 @@
     padding: 6px 10px;
   }
 }
+
+/* Signed-in home greeting: site font, not Zing */
+.banner h1.is-greeting {
+  font-family: "Google Sans", Roboto, Arial, sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+}
