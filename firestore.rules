@@ -30,7 +30,11 @@ service cloud.firestore {
     // Same test as the admin page: an admins doc with every perm off is not an admin.
     function isAdmin() {
       return isBootstrapAdmin()
-        || (verifiedEmail() && exists(adminDocPath()) && adminPerms().values().hasAny([true]));
+        || (verifiedEmail() && exists(adminDocPath())
+            && (adminPerms().get('viewReports', false) == true
+                || adminPerms().get('banUsers', false) == true
+                || adminPerms().get('manageAdmins', false) == true
+                || adminPerms().get('deleteReports', false) == true));
     }
 
     function adminHasPerm(perm) {
