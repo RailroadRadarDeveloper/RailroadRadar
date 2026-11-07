@@ -58,7 +58,6 @@ document.addEventListener('click', function(ev) {
     writes.push(db.collection('specialMoveShares').doc(shareCode).set({
       uid: user.uid, displayName: (user.displayName || 'Rider').split(' ')[0], tripId: share.tripId, title: title, icon: icon, active: true,
       lat: pos.coords.latitude, lon: pos.coords.longitude, heading: pos.coords.heading, speed: pos.coords.speed,
-      accuracy: pos.coords.accuracy, locationTimestamp: Number(pos.timestamp) || now,
       startedAt: share.startedAt, expiresAt: share.expiresAt,
       expireAt: firebase.firestore.Timestamp.fromMillis(Number(share.expiresAt)), updatedAt: now
     }, { merge: true }));
