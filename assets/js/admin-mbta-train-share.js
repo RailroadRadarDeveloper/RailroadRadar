@@ -5,7 +5,7 @@
   window.__rrAdminMbtaTrainShare = true;
 
   var db = null, auth = null, adminPromise = null, currentShare = null, watchId = null;
-  var markers = Object.create(null), suppressed = Object.create(null), feedPositions = Object.create(null);
+  var markers = Object.create(null), suppressed = Object.create(null), feedPositions = Object.create(null), nativeTripIds = Object.create(null);
   var nativeFetch = window.fetch;
   var MAP = function () { return window.rrMainMap || null; };
   var BOOTSTRAP = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
@@ -95,6 +95,7 @@
                 var lat = Number(a.latitude), lon = Number(a.longitude);
                 if (!trip || !isFinite(lat) || !isFinite(lon) || !lat || !lon || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
                 var key = String(trip), pos = lat.toFixed(5) + ',' + lon.toFixed(5);
+                nativeTripIds[key] = true;
                 var state = feedPositions[key] || (feedPositions[key] = { last: '', points: Object.create(null), count: 0 });
                 if (state.last !== pos && !state.points[pos]) {
                   state.last = pos; state.points[pos] = true; state.count++;
@@ -153,7 +154,7 @@
 
   function addShareControls(args) {
     var popup = document.querySelector('.leaflet-popup .train-popup');
-    if (!popup || !popup.querySelector('.quick-status .status-pill.status-scheduled')) return;
+    if (!popup || !popup.querySelector('.quick-status .status-pill.status-scheduled') || nativeTripIds[String(args.tripId || '')]) return;
     var footer = popup.querySelector('.train-popup-footer');
     if (!footer || footer.querySelector('.rr-admin-mbta-share')) return;
     var source = document.getElementById('trip-log-live-icon');
@@ -162,18 +163,26 @@
     select.removeAttribute('id');
     select.removeAttribute('name');
     select.className = 'rr-admin-mbta-icon-select';
-    select.setAttribute('aria-label', 'Train icon');
+    select.setAttribute('aria-label', 'Select train icon');
+    var placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select icon…';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.insertBefore(placeholder, select.firstChild);
     select.style.maxWidth = '145px';
     select.style.marginRight = '6px';
     var button = document.createElement('button');
     button.type = 'button';
     button.className = 'popup-action-btn rr-admin-mbta-share';
     button.textContent = 'Share Location';
+    button.disabled = true;
+    select.addEventListener('change', function () { button.disabled = !select.value; });
     button.addEventListener('click', function () {
-      if (button.disabled) return;
+      if (button.disabled || !select.value) return;
       button.disabled = true;
       button.textContent = 'Getting GPS…';
-      startShare(args, iconUrl(select.value), button);
+      startShare(args, select.value, button);
     });
     footer.appendChild(select);
     footer.appendChild(button);
