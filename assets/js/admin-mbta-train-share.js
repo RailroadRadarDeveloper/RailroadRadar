@@ -96,6 +96,11 @@
                 if (!trip || !isFinite(lat) || !isFinite(lon) || !lat || !lon || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
                 var key = String(trip), pos = lat.toFixed(5) + ',' + lon.toFixed(5);
                 nativeTripIds[key] = true;
+                // If native tracking appears after the timetable popup was opened,
+                // remove the fallback controls so admins cannot start a duplicate share.
+                document.querySelectorAll('.rr-admin-mbta-share, .rr-admin-mbta-icon-select').forEach(function (el) {
+                  if (String(el.dataset.tripId || '') === key) el.remove();
+                });
                 var state = feedPositions[key] || (feedPositions[key] = { last: '', points: Object.create(null), count: 0 });
                 if (state.last !== pos && !state.points[pos]) {
                   state.last = pos; state.points[pos] = true; state.count++;
@@ -154,7 +159,9 @@
 
   function addShareControls(args) {
     var popup = document.querySelector('.leaflet-popup .train-popup');
-    if (!popup || !popup.querySelector('.quick-status .status-pill.status-scheduled') || nativeTripIds[String(args.tripId || '')]) return;
+    // Station departure rows can include trains that left within the last hour;
+    // their timetable popup is still eligible for admin fallback sharing.
+    if (!popup || nativeTripIds[String(args.tripId || '')]) return;
     var footer = popup.querySelector('.train-popup-footer');
     if (!footer || footer.querySelector('.rr-admin-mbta-share')) return;
     var source = document.getElementById('trip-log-live-icon');
@@ -163,6 +170,7 @@
     select.removeAttribute('id');
     select.removeAttribute('name');
     select.className = 'rr-admin-mbta-icon-select';
+    select.dataset.tripId = String(args.tripId || '');
     select.setAttribute('aria-label', 'Select train icon');
     var placeholder = document.createElement('option');
     placeholder.value = '';
@@ -178,6 +186,7 @@
     var button = document.createElement('button');
     button.type = 'button';
     button.className = 'popup-action-btn rr-admin-mbta-share';
+    button.dataset.tripId = String(args.tripId || '');
     button.textContent = 'Share Location';
     button.disabled = true;
     select.addEventListener('change', function () { button.disabled = !select.value; });
