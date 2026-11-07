@@ -618,6 +618,50 @@ service cloud.firestore {
         );
       // Owner deletes (code or legacy doc); admins clean up expired shares in case no TTL policy is set.
       allow delete: if ownsExisting() || isAdmin();
+
+      match /viewers/{viewerUid} {
+        function shareIsActive() {
+          return get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.active == true
+            && get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.expireAt is timestamp
+            && get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.expireAt > request.time;
+        }
+        allow read: if shareIsActive();
+        allow create, update: if activeUser()
+          && shareIsActive()
+          && viewerUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid', 'displayName', 'lastSeen'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.lastSeen == request.time
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() > 0
+          && request.resource.data.displayName.size() <= 80
+          && !request.resource.data.displayName.matches('.*@.*');
+        allow delete: if activeUser() && viewerUid == request.auth.uid;
+      }
+
+      match /comments/{commentId} {
+        function shareIsActive() {
+          return get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.active == true
+            && get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.expireAt is timestamp
+            && get(/databases/$(database)/documents/specialMoveShares/$(shareId)).data.expireAt > request.time;
+        }
+        allow read: if shareIsActive();
+        allow create: if activeUser()
+          && verifiedEmail()
+          && shareIsActive()
+          && request.resource.data.keys().hasOnly(['uid', 'displayName', 'text', 'createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() > 0
+          && request.resource.data.displayName.size() <= 80
+          && !request.resource.data.displayName.matches('.*@.*');
+        allow delete: if activeUser() && request.auth.uid == resource.data.uid || isAdmin();
+        allow update: if false;
+      }
     }
 
     match /tracksideFavorites/{id} {
