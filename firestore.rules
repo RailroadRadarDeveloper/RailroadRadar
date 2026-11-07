@@ -668,7 +668,8 @@ service cloud.firestore {
       }
     }
 
-    // Admin-provided MBTA location fallback for scheduled trains without a native feed.
+    // User-provided MBTA location fallback for scheduled trains without a native feed.
+    // Any signed-in, verified, non-banned user may publish; only the owner may update/end it.
     match /adminMbtaTrainShares/{shareId} {
       function validAdminTrainShare(d) {
         return d.keys().hasOnly(['uid', 'tripId', 'trainNumber', 'routeName', 'destination', 'serviceDate',
@@ -697,17 +698,15 @@ service cloud.firestore {
         || (resource.data.active == true && resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
       allow list: if isAdmin()
         || (resource.data.expireAt is timestamp && resource.data.expireAt > request.time);
-      allow create: if isAdmin()
-        && activeUser()
+      allow create: if activeUser()
         && shareId.matches('[a-z0-9]{8,20}')
         && request.resource.data.uid == request.auth.uid
         && validAdminTrainShare(request.resource.data);
-      allow update: if isAdmin()
-        && activeUser()
+      allow update: if activeUser()
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == request.auth.uid
         && validAdminTrainShare(request.resource.data);
-      allow delete: if isAdmin() && resource.data.uid == request.auth.uid;
+      allow delete: if activeUser() && resource.data.uid == request.auth.uid;
     }
 
     match /tracksideFavorites/{id} {
