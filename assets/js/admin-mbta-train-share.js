@@ -219,6 +219,7 @@
       };
       ref.set(payload, { merge: true }).then(function () {
         saved = true;
+        if (timer) clearTimeout(timer);
         currentShare = { tripId: tripId, ref: ref, active: true };
         button.textContent = 'Sharing Location';
         button.disabled = true;
