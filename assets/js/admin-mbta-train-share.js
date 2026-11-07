@@ -143,7 +143,6 @@
   function listenShares() {
     var store = getDb();
     if (!store) return;
-    var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
     store.collection('adminMbtaTrainShares').where('expireAt', '>', firebase.firestore.Timestamp.fromMillis(Date.now() + 60 * 1000))
       .onSnapshot(function (snap) {
         var seen = Object.create(null);
@@ -210,7 +209,7 @@
       if (!isFinite(lat) || !isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180 ||
           !isFinite(accuracy) || accuracy <= 0 || accuracy > 1500 || age < -5000 || age > 60000) return;
       var now = Date.now();
-      if (saved && now - lastWrite < 10000) return;
+      if (now - lastWrite < 10000) return;
       lastWrite = now;
       var payload = {
         uid: user.uid, tripId: tripId,
