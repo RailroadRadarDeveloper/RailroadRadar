@@ -13442,7 +13442,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           stationIds.forEach(id => { const p = RR_MBTA_HUB_PARENT[rrMbtaStopBase(id)] || id; if (predStops.indexOf(p) === -1) predStops.push(p); });
           const hubQuery = predStops.some(p => p.indexOf('place-') === 0);
           const predRes = await fetch(apiUrl('/api/mbta' + `/predictions?filter[stop]=${predStops.join(',')}${hubQuery ? '&filter[route_type]=2' : ''}&include=trip,route,schedule,stop&sort=departure_time`));
-          const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time`))));
+          const schedResList = await Promise.all(dates.map(dt => fetch(apiUrl('/api/mbta' + `/schedules?filter[stop]=${stopQ}&filter[date]=${encodeURIComponent(dt)}&include=trip,route,stop&sort=departure_time&page[limit]=1000`))));
           const predData = await predRes.json();
           rrNoteMbtaTrips(predData && predData.included);
           const schedData = { data: [], included: [] };
