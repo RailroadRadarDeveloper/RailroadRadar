@@ -77,6 +77,14 @@
       if (isFinite(sch) && isFinite(pred)) return Math.max(sch, pred);
       return isFinite(pred) ? pred : (isFinite(sch) ? sch : Infinity);
     }
+    // Recent departures lead the station list (newest first); upcoming trains remain chronological.
+    function rrStationDepartureCompare(a, b) {
+      const aPast = !!(a && a.status === 'Departed');
+      const bPast = !!(b && b.status === 'Departed');
+      if (aPast !== bPast) return aPast ? -1 : 1;
+      const at = rrDepartureSortTime(a), bt = rrDepartureSortTime(b);
+      return aPast ? bt - at : at - bt;
+    }
     // Global error handler
     window.addEventListener('error', function(e) {
       console.error('%c[Global Error]', 'color:#e74c3c', e.message);
@@ -12893,7 +12901,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         const lists = await Promise.all(jobs.map(function(p) { return p.catch(function() { return []; }); }));
         const all = [].concat.apply([], lists);
-        all.sort(function(x, y) { return rrDepartureSortTime(x) - rrDepartureSortTime(y); });
+        all.sort(rrStationDepartureCompare);
         return all;
       }
       function rrHubPopupContent(hub, deps) {
@@ -13495,7 +13503,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             schedData.data.forEach(s => {
               if (!s.attributes.departure_time) return;
               const depTime = new Date(s.attributes.departure_time);
-              if (depTime < now || depTime > horizon) return;
+              const recentlyDeparted = depTime < now && (now - depTime) <= 60 * 60 * 1000;
+              if ((depTime < now && !recentlyDeparted) || depTime > horizon) return;
               const tripId = s.relationships.trip.data?.id;
               const stopId = s.relationships.stop.data?.id;
               const tKey = `${tripId}-${rrMbtaStopBase(stopId)}`;
@@ -13508,7 +13517,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const track = isHub ? rrHubTrack(tripId, stopId, null, depTime) : rrStopTrack(stopInfo);
               const isLive = liveTrainTrips.has(tripId);
               const mins = Math.floor((depTime - now) / 60000);
-              let status = (mins > 0 && mins < 60) ? `in ${mins} min` : "Scheduled";
+              let status = recentlyDeparted ? 'Departed' : ((mins > 0 && mins < 60) ? `in ${mins} min` : "Scheduled");
               departures.push({
                 tripId, routeId: s.relationships.route.data?.id, stopId,
                 stopName: stopInfo?.attributes.name || "Unknown",
@@ -13526,7 +13535,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               });
             });
           }
-          departures.sort((a,b) => rrDepartureSortTime(a) - rrDepartureSortTime(b));
+          departures.sort(rrStationDepartureCompare);
           const limited = departures;
           stationDeparturesCache[key] = { departures: limited, timestamp: Date.now() };
           return limited;
