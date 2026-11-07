@@ -8,7 +8,7 @@
 
   var WARN_MS = 150000;
   var DROP_MS = 30 * 60 * 1000;
-  var map = null, unsubscribe = null;
+  var map = null, unsubscribe = null, retryTimer = null;
   var markers = Object.create(null), shares = Object.create(null);
 
   function ensureStyle() {
@@ -97,19 +97,24 @@
     map = window.rrMainMap;
     var db = firebase.firestore();
     var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 9 * 60 * 1000);
-    unsubscribe = db.collection('specialMoveShares')
-      .where('active', '==', true)
-      .where('expireAt', '>', cutoff)
-      .onSnapshot(syncSnapshot, function () {
-        Object.keys(markers).forEach(removeMarker);
-      });
+    function listen() {
+      if (unsubscribe) { try { unsubscribe(); } catch (_) {} unsubscribe = null; }
+      var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 9 * 60 * 1000);
+      unsubscribe = db.collection('specialMoveShares')
+        .where('active', '==', true)
+        .where('expireAt', '>', cutoff)
+        .onSnapshot(syncSnapshot, function () {
+          Object.keys(markers).forEach(removeMarker);
+          if (retryTimer) clearTimeout(retryTimer);
+          retryTimer = setTimeout(listen, 10000);
+        });
+    }
+    listen();
     return true;
   }
 
-  var attempts = 0;
   var timer = setInterval(function () {
-    attempts++;
-    if (boot() || attempts >= 60) clearInterval(timer);
+    if (boot()) clearInterval(timer);
   }, 500);
   setInterval(function () {
     Object.keys(shares).forEach(function (id) { paint(id, shares[id]); });

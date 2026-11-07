@@ -385,7 +385,8 @@
         var stale = age > STALE_WARN_MS;
         elBadges.innerHTML = stale
           ? '<span class="rr-badge rr-badge-stale">Signal may be lost</span>'
-          : '<span class="rr-badge rr-badge-live">Live</span>';
+          : '';
+        elBadges.hidden = !stale;
 
         var mph = d.speed == null ? null : Math.round(Number(d.speed) * 2.23694);
         elSpeed.textContent = mph == null || !isFinite(mph) ? 'Speed unavailable' : ('Speed ' + Math.max(0, mph) + ' mph');
