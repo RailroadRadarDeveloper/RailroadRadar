@@ -73,7 +73,7 @@
     if (currentShare && currentShare.tripId === tripId) {
       stopGps();
       currentShare.active = false;
-      if (currentShare.ref) currentShare.ref.update({ active: false, updatedAt: Date.now() }).catch(function () {});
+      if (currentShare.ref) currentShare.ref.update({ active: false, lat: 0, lon: 0, updatedAt: Date.now() }).catch(function () {});
       currentShare = null;
     }
   }
@@ -144,7 +144,7 @@
     var store = getDb();
     if (!store) return;
     var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
-    store.collection('adminMbtaTrainShares').where('active', '==', true).where('expireAt', '>', cutoff)
+    store.collection('adminMbtaTrainShares').where('expireAt', '>', firebase.firestore.Timestamp.fromMillis(Date.now() + 60 * 1000))
       .onSnapshot(function (snap) {
         var seen = Object.create(null);
         snap.forEach(function (doc) { seen[doc.id] = true; paint(doc); });
@@ -185,6 +185,11 @@
     if (!store || !user || !navigator.geolocation) {
       button.disabled = false; button.textContent = 'Share Location';
       alert('Sign in and allow location access to share this train.');
+      return;
+    }
+    if (currentShare && currentShare.active) {
+      button.disabled = false; button.textContent = 'Share Location';
+      alert('A train is already being shared from this admin session. Reload the map to end it before sharing another train.');
       return;
     }
     var tripId = String(args.tripId || '');
@@ -276,5 +281,11 @@
       adminPromise = null;
     });
   }
-  window.addEventListener('beforeunload', stopGps);
+  window.addEventListener('pagehide', function () {
+    stopGps();
+    if (currentShare && currentShare.ref) {
+      currentShare.ref.update({ active: false, lat: 0, lon: 0, updatedAt: Date.now() }).catch(function () {});
+      currentShare = null;
+    }
+  });
 })();
