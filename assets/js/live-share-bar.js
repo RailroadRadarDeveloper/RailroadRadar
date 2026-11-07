@@ -358,11 +358,15 @@
   window.rrLiveShareViewerUrl = function (o) { return liveViewerUrl(o || read()); };
   if (document.body) boot(); else document.addEventListener('DOMContentLoaded', boot);
   window.addEventListener('resize', reserve);
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState !== 'visible') return;
+  function resumeWakeAfterReturn() {
+    if (document.visibilityState === 'hidden') return;
     wakeRefused = false;
     var o = read();
     if (o) show(o);
-  });
+  }
+  document.addEventListener('visibilitychange', resumeWakeAfterReturn);
+  window.addEventListener('pageshow', resumeWakeAfterReturn);
+  window.addEventListener('focus', resumeWakeAfterReturn);
+  window.addEventListener('online', resumeWakeAfterReturn);
   setInterval(tick, 2000);
 })();
