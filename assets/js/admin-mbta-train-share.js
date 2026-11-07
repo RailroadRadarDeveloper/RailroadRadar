@@ -34,7 +34,7 @@
       if (!window.firebase || !firebase.auth) return false;
       auth = firebase.auth();
       var user = auth.currentUser;
-      if (!user || !user.email || !user.emailVerified) return false;
+      if (!user || !user.email) return false;
       var email = String(user.email).trim().toLowerCase();
       if (BOOTSTRAP.indexOf(email) !== -1) return true;
       var store = getDb();
