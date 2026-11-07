@@ -413,7 +413,6 @@
 
       function stopViewerPresence() {
         if (viewerHeartbeat) { clearInterval(viewerHeartbeat); viewerHeartbeat = null; }
-        if (viewerRefreshTimer) { clearInterval(viewerRefreshTimer); viewerRefreshTimer = null; }
         if (viewerDocRef) {
           var ref = viewerDocRef;
           viewerDocRef = null;
@@ -425,6 +424,7 @@
       function stopCommunity() {
         if (viewerUnsub) { try { viewerUnsub(); } catch (e) {} viewerUnsub = null; }
         if (commentsUnsub) { try { commentsUnsub(); } catch (e) {} commentsUnsub = null; }
+        if (viewerRefreshTimer) { clearInterval(viewerRefreshTimer); viewerRefreshTimer = null; }
         stopViewerPresence();
       }
 
