@@ -11,440 +11,500 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="/assets/fonts/roboto.css">
   <style>
-
-    :root { --primary-color: #07093e; --text-color: #333; --light-text: #fff; }
+    :root {
+      --navy: #07093e;
+      --font: "Google Sans", Roboto, Arial, sans-serif;
+      --bg: #f5f6f8;
+      --surface: #fff;
+      --line: #e3e6eb;
+      --field: #7c8295;
+      --ink: #07093e;
+      --text: #1f2433;
+      --muted: #5b6275;
+      --focus: #0B57D0;
+      --tint: #eef1fa;
+      --danger: #b3261e;
+      --header-h: 60px;
+    }
     * { box-sizing: border-box; }
     html, body {
-      margin: 0; height: 100%; overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #e8ebf2;
-      color: #1a1a2e;
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font: 400 14px/1.45 var(--font);
+      -webkit-font-smoothing: antialiased;
     }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .header {
-      position: fixed; top: 0; left: 0; right: 0; height: 60px;
-      background: var(--primary-color); color: #fff;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 16px; z-index: 40; gap: 12px;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: #07093e;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      z-index: 40;
     }
-    .header-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; min-width: 0; flex-shrink: 1; }
-    .header-brand img, .header-logo { height: 40px; width: auto; display: block; }
-    .header-right { display: flex; align-items: center; gap: 8px; }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      flex: none;
+      min-width: 0;
+      color: #fff;
+      text-decoration: none;
+      line-height: 0;
+    }
+    .header-brand img, .header-logo {
+      height: 40px;
+      width: auto;
+      max-width: min(220px, 42vw);
+      display: block;
+    }
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: none;
+      position: relative;
+    }
     .header-auth { display: flex; align-items: center; gap: 8px; }
     .header-auth-btn {
-      background: #fff; color: #07093e; border: none; padding: 7px 12px;
-      font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 32px;
+      margin: 0;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 4px;
+      background: #fff;
+      color: #07093e;
+      font: 700 13px/1 var(--font);
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
     }
-    a.header-auth-btn { line-height: 1.2; }
-    .header-auth-btn:hover { background: #e8eaf0; }
-    .header-auth-user { display: flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; font-weight: 700; }
-    .header-user-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.85); }
+    .header-auth-btn:hover { background: #dfe3f7; }
+    a.header-auth-btn { line-height: 1; }
+    .header-auth-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+      font: 700 14px/1.2 var(--font);
+    }
+    .header-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #2c3e6b;
+      flex: none;
+    }
+    #header-account-name-text {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     #notification {
-      display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: #07093e; color: #fff; padding: 12px 18px; z-index: 80; font-weight: 700;
-      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+      display: none;
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      max-width: min(440px, calc(100% - 24px));
+      padding: 12px 16px;
+      border-radius: 4px;
+      background: #07093e;
+      color: #fff;
+      font: 700 14px/1.35 var(--font);
+      box-shadow: 0 8px 24px rgba(7,9,62,.28);
+      z-index: 80;
     }
+    .rr-gate {
+      max-width: 440px;
+      margin: calc(var(--header-h) + var(--rr-live-bar-h, 0px) + 64px) 16px 0;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 32px 28px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--surface);
+      text-align: center;
+      box-shadow: 0 12px 32px rgba(7,9,62,.08);
+    }
+    .rr-gate h1 {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font: 700 24px/1.2 var(--font);
+    }
+    .rr-gate p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    #admin-dashboard { display: none; }
+    #admin-dashboard.is-open { display: flex; flex-direction: column; }
     .rr-admin-shell {
-      position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
-      width: 100%; max-width: none; margin: 0;
-      background: #fff; box-shadow: none; z-index: 20;
+      position: fixed;
+      top: calc(var(--header-h) + var(--rr-live-bar-h, 0px));
+      left: 0; right: 0; bottom: 0;
+      background: var(--bg);
+      z-index: 20;
     }
     .rr-admin-shell .rr-lightbox {
-      display: flex; flex-direction: column;
-      flex: 1; min-height: 0;
-      width: 100%; max-width: none; height: 100%; max-height: none;
-      box-shadow: none; overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: none;
+      height: 100%;
+      background: transparent;
+      box-shadow: none;
+      overflow: hidden;
+      font-family: var(--font);
     }
-    .rr-admin-shell .rr-modal-header { flex-shrink: 0; }
-    .rr-admin-shell .rr-admin-tabs {
+    .rr-admin-shell .rr-modal-header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 20px 4px;
+      background: transparent;
+      color: var(--ink);
+    }
+    #admin-dashboard-title {
+      font: 700 22px/1.2 var(--font);
+      color: var(--ink);
+    }
+    .rr-modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--navy);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--navy);
+      font: 700 13px/1 var(--font);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .rr-modal-close:hover { background: var(--tint); }
+    .rr-admin-shell .rr-admin-tabs,
+    .rr-admin-tabs {
       flex-shrink: 0;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin: 0;
-      padding: 10px 24px;
-      border-bottom: 1px solid #e8eaef;
-      background: #f4f6fa;
+      padding: 10px 20px 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg);
       position: static;
       overflow: visible;
+      z-index: 2;
     }
-    .rr-admin-shell .rr-lightbox-body {
-      max-height: none; overflow: auto; flex: 1; min-height: 0;
-      padding: 16px 24px 28px;
+    .rr-admin-tab {
+      appearance: none;
+      flex: none;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--navy);
+      font: 700 13px/1 var(--font);
+      padding: 8px 12px;
+      cursor: pointer;
+      white-space: nowrap;
     }
-    .rr-gate {
-      max-width: 520px; margin: 120px auto; background: #fff; padding: 28px 24px;
-      text-align: center; box-shadow: 0 10px 40px rgba(7,9,62,.12);
+    .rr-admin-tab:hover { background: var(--tint); }
+    .rr-admin-tab.active {
+      background: var(--navy);
+      border-color: var(--navy);
+      color: #fff;
     }
-    .rr-gate h1 { margin: 0 0 8px; color: #07093e; font-size: 22px; }
-    .rr-gate p { color: #5a6577; margin: 0 0 18px; }
-    .rr-gate .rr-btn { min-width: 160px; }
-    #admin-dashboard { display: none; }
-    #admin-dashboard.is-open { display: flex; flex-direction: column; }
-    .rr-modal-close { text-decoration: none; }
-    @media (max-width: 700px) {
-      .header-brand img, .header-logo { height: 28px; }
-      .rr-admin-shell { margin: 0; }
-      .rr-admin-shell .rr-lightbox-body { padding: 12px 12px 24px; }
-      .rr-admin-shell .rr-admin-tabs { padding: 10px 12px; }
-      .rr-admin-table { font-size: 11px; }
+    .rr-admin-shell .rr-lightbox-body,
+    .rr-lightbox-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 16px 20px 32px;
     }
-
-   .rr-modal-backdrop {
-     display: none;
-     position: fixed;
-     inset: 0;
-     background: rgba(7,9,62,0.55);
-     z-index: 100050;
-     align-items: center;
-     justify-content: center;
-     padding: 16px;
-   }
-   .rr-modal-backdrop.open { display: flex; }
-   .rr-modal {
-     background: #fff;
-     width: min(420px, 100%);
-     max-height: 90vh;
-     overflow: auto;
-     border-radius: 0;
-     box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-     font-family: 'Segoe UI', sans-serif;
-   }
-   .rr-modal-header {
-     background: #07093e;
-     color: #fff;
-     padding: 14px 16px;
-     display: flex;
-     align-items: center;
-     justify-content: space-between;
-     font-weight: 700;
-     font-size: 16px;
-   }
-   .rr-modal-close {
-     background: transparent;
-     border: none;
-     color: #fff;
-     font-size: 22px;
-     cursor: pointer;
-     line-height: 1;
-   }
-   .rr-modal-body { padding: 16px; }
-   .rr-modal-body label {
-     display: block;
-     font-size: 12px;
-     font-weight: 700;
-     color: #07093e;
-     margin: 10px 0 4px;
-   }
-   .rr-modal-body select,
-   .rr-modal-body input[type="text"],
-   .rr-modal-body input[type="date"] {
-     width: 100%;
-     box-sizing: border-box;
-     padding: 10px;
-     border: 1px solid #c5cad3;
-     font-size: 14px;
-     font-family: inherit;
-     min-height: 44px;
-   }
-   #report-train-pick-row {
-     display: flex;
-     gap: 8px;
-     align-items: flex-end;
-     margin-top: 0;
-   }
-   #report-train-select-wrap {
-     flex: 1;
-     min-width: 0;
-   }
-   #report-train-extra-btn {
-     flex-shrink: 0;
-     min-height: 44px;
-     padding: 8px 12px;
-     border: 1px solid #07093e;
-     background: #fff;
-     color: #07093e;
-     font-size: 13px;
-     font-family: inherit;
-     font-weight: 600;
-     cursor: pointer;
-     white-space: nowrap;
-   }
-   #report-train-extra-btn.active {
-     background: #07093e;
-     color: #fff;
-   }
-   #report-train-select:disabled {
-     opacity: 0.55;
-   }
-   .rr-modal-hint {
-     font-size: 12px;
-     color: #5a6577;
-     margin-top: 8px;
-   }
-   .rr-modal-error {
-     display: none;
-     margin-top: 10px;
-     padding: 10px;
-     background: #fdecea;
-     color: #c0392b;
-     font-size: 13px;
-   }
-
-   .rr-modal-error.visible { display: block; }
-
-   .rr-lightbox {
-     background: #fff;
-     width: min(900px, 100%);
-     max-height: 90vh;
-     overflow: hidden;
-     display: flex;
-     flex-direction: column;
-     border-radius: 0;
-     box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-     font-family: 'Segoe UI', sans-serif;
-   }
-   .rr-lightbox .rr-modal-header { flex-shrink: 0; }
-   .rr-lightbox-body {
-     padding: 16px;
-     overflow: auto;
-     flex: 1;
-     min-height: 0;
-   }
-   .rr-lightbox-section {
-     margin-bottom: 18px;
-     padding-bottom: 14px;
-     border-bottom: 1px solid #e8eaef;
-   }
-   .rr-lightbox-section:last-child { border-bottom: none; margin-bottom: 0; }
-   .rr-lightbox-section h3 {
-     margin: 0 0 10px;
-     font-size: 14px;
-     color: #07093e;
-     text-transform: uppercase;
-     letter-spacing: 0.03em;
-   }
-   .rr-profile-row {
-     display: flex;
-     gap: 14px;
-     align-items: center;
-   }
-   .rr-profile-avatar {
-     width: 64px;
-     height: 64px;
-     border-radius: 50%;
-     object-fit: cover;
-     background: #2c3e6b;
-     flex-shrink: 0;
-   }
-   .rr-profile-meta { font-size: 14px; color: #1a1a2e; line-height: 1.45; }
-   .rr-profile-meta .rr-muted { color: #5a6577; font-size: 13px; }
-   .rr-report-stats {
-     display: grid;
-     grid-template-columns: 1fr 1fr;
-     gap: 10px;
-   }
-   .rr-report-stat {
-     background: #f4f6fa;
-     border: 1px solid #e8eaef;
-     border-radius: 8px;
-     padding: 12px 14px;
-   }
-   .rr-report-stat-value {
-     display: block;
-     font-size: 22px;
-     font-weight: 700;
-     color: #07093e;
-     line-height: 1.15;
-     word-break: break-word;
-   }
-   .rr-report-stat-label {
-     display: block;
-     margin-top: 4px;
-     font-size: 12px;
-     color: #5a6577;
-     font-weight: 600;
-   }
-   .rr-radio-row {
-     display: flex;
-     flex-direction: column;
-     gap: 8px;
-     margin: 8px 0;
-   }
-   .rr-radio-row label {
-     display: flex;
-     align-items: center;
-     gap: 8px;
-     font-weight: 500;
-     font-size: 14px;
-     color: #1a1a2e;
-     margin: 0;
-     cursor: pointer;
-   }
-   .rr-preview-box {
-     margin-top: 10px;
-     padding: 10px 12px;
-     background: #f4f6fa;
-     border: 1px solid #dfe3ea;
-     font-size: 14px;
-     color: #07093e;
-   }
-   .rr-preview-box strong { font-weight: 700; }
-   .rr-lightbox-actions {
-     display: flex;
-     flex-wrap: wrap;
-     gap: 8px;
-     margin-top: 8px;
-   }
-   .rr-btn {
-     appearance: none;
-     border: 1px solid #07093e;
-     background: #07093e;
-     color: #fff;
-     font-family: inherit;
-     font-size: 13px;
-     font-weight: 700;
-     padding: 10px 14px;
-     cursor: pointer;
-     text-transform: uppercase;
-   }
-   .rr-btn:hover { filter: brightness(1.08); }
-   .rr-btn.secondary {
-     background: #fff;
-     color: #07093e;
-   }
-   .rr-btn.danger {
-     background: #c0392b;
-     border-color: #c0392b;
-   }
-   .rr-btn.danger.secondary {
-     background: #fff;
-     color: #c0392b;
-     border-color: #c0392b;
-   }
-   .rr-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-   .rr-admin-tabs {
-     display: flex;
-     flex-wrap: wrap;
-     gap: 6px;
-     margin: 0 0 14px;
-     border-bottom: 1px solid #e8eaef;
-     padding: 4px 0 10px;
-     position: sticky;
-     top: 0;
-     background: #fff;
-     z-index: 4;
-   }
-   .rr-admin-tab {
-     appearance: none;
-     border: 1px solid #c5cad3;
-     background: #f4f6fa;
-     color: #07093e;
-     font-family: inherit;
-     font-size: 13px;
-     font-weight: 700;
-     padding: 8px 12px;
-     cursor: pointer;
-   }
-   .rr-admin-tab.active {
-     background: #07093e;
-     color: #fff;
-     border-color: #07093e;
-   }
-   .rr-admin-pane { display: none; }
-   .rr-admin-pane.active { display: block; }
-   .rr-admin-toolbar {
-     display: flex;
-     flex-wrap: wrap;
-     gap: 8px;
-     margin-bottom: 12px;
-     align-items: center;
-   }
-   .rr-admin-toolbar input[type="text"],
-   .rr-admin-toolbar input[type="search"],
-   .rr-lightbox-body input[type="text"],
-   .rr-lightbox-body input[type="email"],
-   .rr-lightbox-body input[type="url"],
-   .rr-lightbox-body select,
-   .rr-lightbox-body textarea {
-     box-sizing: border-box;
-     padding: 9px 10px;
-     border: 1px solid #c5cad3;
-     font-size: 14px;
-     font-family: inherit;
-     width: 100%;
-   }
-   .rr-lightbox-body label {
-     display: block;
-     font-size: 12px;
-     font-weight: 700;
-     color: #07093e;
-     margin: 10px 0 4px;
-   }
-   .rr-admin-table-wrap { overflow: auto; }
-   .rr-admin-table {
-     width: 100%;
-     border-collapse: collapse;
-     font-size: 12px;
-   }
-   .rr-admin-table th,
-   .rr-admin-table td {
-     border: 1px solid #e8eaef;
-     padding: 8px;
-     text-align: left;
-     vertical-align: top;
-   }
-   .rr-admin-table th {
-     background: #f4f6fa;
-     color: #07093e;
-     font-weight: 700;
-     white-space: nowrap;
-     position: sticky;
-     top: 0;
-     z-index: 1;
-   }
-   .rr-admin-table tr:nth-child(even) td { background: #fafbfc; }
-   .rr-admin-card {
-     border: 1px solid #e8eaef;
-     padding: 10px 12px;
-     margin-bottom: 8px;
-     font-size: 13px;
-   }
-   .rr-admin-card .meta { color: #5a6577; font-size: 12px; margin-top: 4px; }
-   .rr-perm-grid {
-     display: grid;
-     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-     gap: 6px 12px;
-     margin: 8px 0;
-   }
-   .rr-perm-grid label {
-     display: flex;
-     align-items: center;
-     gap: 6px;
-     font-weight: 500;
-     font-size: 13px;
-     margin: 0;
-     cursor: pointer;
-   }
-   .rr-badge {
-     display: inline-block;
-     font-size: 10px;
-     font-weight: 700;
-     padding: 2px 6px;
-     background: #8e44ad;
-     color: #fff;
-     margin-left: 6px;
-     vertical-align: middle;
-   }
-   .rr-badge.locked { background: #2c3e6b; }
-   .rr-badge.admin { background: #07093e; }
-   .rr-badge.verified { background: #27ae60; }
-   .rr-badge.banned { background: #c0392b; }
-   .rr-admin-acct-photo {
-     width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
-     vertical-align: middle; background: #e8ecf3;
-   }
-
+    .rr-admin-pane { display: none; }
+    .rr-admin-pane.active { display: block; }
+    .rr-lightbox-section {
+      margin: 0 0 16px;
+      padding: 18px 20px 20px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--surface);
+    }
+    .rr-lightbox-section:last-child { margin-bottom: 0; }
+    .rr-lightbox-section h3 {
+      margin: 0 0 12px;
+      color: var(--ink);
+      font: 700 17px/1.25 var(--font);
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    .rr-lightbox-body label,
+    .rr-modal-body label {
+      display: block;
+      margin: 12px 0 6px;
+      color: var(--ink);
+      font: 600 14px/1.3 var(--font);
+    }
+    .rr-admin-toolbar input[type="text"],
+    .rr-admin-toolbar input[type="search"],
+    .rr-lightbox-body input[type="text"],
+    .rr-lightbox-body input[type="email"],
+    .rr-lightbox-body input[type="url"],
+    .rr-lightbox-body input[type="search"],
+    .rr-lightbox-body select,
+    .rr-lightbox-body textarea {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--field);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--text);
+      font: 400 15px/1.3 var(--font);
+    }
+    .rr-lightbox-body select {
+      appearance: none;
+      padding-right: 36px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2307093e' stroke-width='2'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .rr-lightbox-body input:focus,
+    .rr-lightbox-body select:focus,
+    .rr-lightbox-body textarea:focus,
+    .rr-admin-toolbar input:focus {
+      outline: none;
+      border-color: var(--focus);
+      box-shadow: 0 0 0 1px var(--focus);
+    }
+    .rr-lightbox-body input::placeholder,
+    .rr-admin-toolbar input::placeholder { color: var(--muted); opacity: 1; }
+    .rr-admin-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .rr-admin-toolbar input[type="text"],
+    .rr-admin-toolbar input[type="search"] {
+      flex: 1 1 220px;
+      width: auto;
+      min-width: 0;
+    }
+    .rr-lightbox-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .rr-btn {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      margin: 0;
+      padding: 8px 16px;
+      border: 1px solid var(--navy);
+      border-radius: 4px;
+      background: var(--navy);
+      color: #fff;
+      font: 700 14px/1.2 var(--font);
+      letter-spacing: normal;
+      text-transform: none;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .rr-btn:hover { background: #1a1f6b; border-color: #1a1f6b; }
+    .rr-btn.secondary { background: #fff; color: var(--navy); }
+    .rr-btn.secondary:hover { background: var(--tint); border-color: var(--navy); color: var(--navy); }
+    .rr-btn.danger { background: var(--danger); border-color: var(--danger); }
+    .rr-btn.danger:hover { background: #8c1d18; border-color: #8c1d18; }
+    .rr-btn.danger.secondary { background: #fff; color: var(--danger); border-color: var(--danger); }
+    .rr-btn.danger.secondary:hover { background: #fdecea; color: var(--danger); border-color: var(--danger); }
+    .rr-btn:disabled { background: var(--bg); border-color: var(--field); color: var(--muted); opacity: 1; cursor: not-allowed; }
+    .rr-modal-hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font: 400 13px/1.45 var(--font);
+    }
+    .rr-modal-hint:empty { display: none; }
+    .rr-modal-error {
+      display: none;
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 4px;
+      background: #fdecea;
+      color: var(--danger);
+      font: 600 14px/1.4 var(--font);
+    }
+    .rr-modal-error.visible { display: block; }
+    .rr-admin-table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--surface);
+      -webkit-overflow-scrolling: touch;
+    }
+    .rr-admin-table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .rr-admin-table th,
+    .rr-admin-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .rr-admin-table tr:last-child td { border-bottom: 0; }
+    .rr-admin-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f4f6fa;
+      color: var(--ink);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .rr-admin-table code {
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .rr-admin-table .meta,
+    .rr-admin-card .meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .rr-admin-table .rr-btn { min-height: 32px; }
+    .rr-admin-empty { color: var(--muted); }
+    .rr-admin-card {
+      margin-bottom: 8px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--bg);
+      font-size: 14px;
+    }
+    .rr-admin-card strong { color: var(--ink); }
+    .rr-perm-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .rr-perm-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      margin: 0;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .rr-perm-grid label:hover { background: var(--tint); }
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      flex: none;
+      accent-color: var(--navy);
+      cursor: pointer;
+    }
+    .rr-badge {
+      display: inline-block;
+      margin: 0 4px 0 0;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--tint);
+      color: var(--navy);
+      font-size: 11px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+    .rr-badge.locked { background: #e8eaf6; color: #2c3e6b; }
+    .rr-badge.admin { background: var(--navy); color: #fff; }
+    .rr-badge.verified { background: #e7f6ee; color: #0d6b3a; }
+    .rr-badge.banned { background: #fdecea; color: var(--danger); }
+    img.admin-badge-icon {
+      width: 15px;
+      height: 15px;
+      margin-left: 4px;
+      vertical-align: -2px;
+    }
+    .rr-admin-acct-photo {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      vertical-align: middle;
+      background: #e8ecf3;
+    }
+    @media (max-width: 720px) {
+      .header { padding: 0 10px; gap: 6px; }
+      .header-brand img, .header-logo { height: 30px; }
+      #header-account-name-text { max-width: 72px; }
+      .rr-admin-shell .rr-modal-header { padding: 14px 12px 2px; }
+      #admin-dashboard-title { font-size: 20px; }
+      .rr-admin-shell .rr-admin-tabs,
+      .rr-admin-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 8px 12px 12px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .rr-admin-shell .rr-lightbox-body,
+      .rr-lightbox-body { padding: 12px 12px 28px; }
+      .rr-lightbox-section { padding: 14px; }
+      .rr-admin-toolbar { align-items: stretch; }
+      .rr-admin-toolbar .rr-btn { width: 100%; }
+      .rr-gate {
+        margin-top: calc(var(--header-h) + var(--rr-live-bar-h, 0px) + 24px);
+        margin-left: 12px;
+        margin-right: 12px;
+        padding: 24px 16px;
+      }
+      .rr-admin-shell .rr-modal-header { align-items: flex-start; }
+      .rr-modal-close { height: 34px; padding: 0 10px; }
+      .rr-admin-table { min-width: 640px; font-size: 12px; }
+      .rr-admin-table th,
+      .rr-admin-table td { padding: 8px 10px; }
+    }
   </style>
   <script>
     !function(b,e,t,r){
@@ -460,8 +520,8 @@
 </head>
 <body>
   <div class="header">
-    <a class="header-brand" href="/">
-      <img class="header-logo" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar">
+    <a class="header-brand" href="/" aria-label="RailroadRadar home">
+      <img class="header-logo" src="/assets/logo.png" alt="RailroadRadar" width="671" height="160">
     </a>
     <div class="header-right">
       <div class="header-auth" id="header-auth">
@@ -469,7 +529,7 @@
         <div class="header-auth-user" id="header-auth-user" style="display:none;">
           <img class="header-user-avatar" id="header-user-avatar" alt="Account" width="34" height="34" referrerpolicy="no-referrer">
           <span id="header-account-name-text">Account</span>
-          <button type="button" class="header-auth-btn" id="btn-google-signout">Sign out</button>
+          <button type="button" class="header-auth-btn" id="btn-google-signout">Sign Out</button>
         </div>
       </div>
     </div>
@@ -487,25 +547,25 @@
   <div class="rr-gate" id="gate-forbidden" style="display:none;">
     <h1>Access Denied</h1>
     <p>You do not have permission to access this page.</p>
-    <a class="rr-btn secondary" href="/map/" style="display:inline-block;text-decoration:none;">Back to map</a>
+    <a class="rr-btn secondary" href="/map/">Back to Map</a>
   </div>
 
   <div class="rr-admin-shell" id="admin-dashboard" aria-hidden="true">
     <div class="rr-lightbox" role="main" aria-labelledby="admin-dashboard-title">
       <div class="rr-modal-header">
         <span id="admin-dashboard-title">Admin Dashboard</span>
-        <a class="rr-modal-close" id="admin-dashboard-close" href="/map/" aria-label="Back to map">×</a>
+        <a class="rr-modal-close" id="admin-dashboard-close" href="/map/" aria-label="Back to Map">Back to Map</a>
       </div>
       <div class="rr-admin-tabs" role="tablist">
-        <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report logs</button>
+        <button type="button" class="rr-admin-tab active" data-admin-tab="reports" id="admin-tab-reports">Report Logs</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="pending" id="admin-tab-pending">Pending</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="audit" id="admin-tab-audit">Audit</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="bans" id="admin-tab-bans">Bans</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="admins" id="admin-tab-admins">Admins</button>
-        <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special locos</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Special Locos</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
-        <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip logs</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip Logs</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="survey" id="admin-tab-survey">Survey</button>
       </div>
       <div class="rr-lightbox-body">
@@ -513,7 +573,7 @@
 
         <div class="rr-admin-pane active" id="admin-pane-reports" data-admin-pane="reports">
           <div class="rr-admin-toolbar">
-            <input type="search" id="admin-reports-search" placeholder="Filter by email, vehicle, agency…" aria-label="Filter reports" style="flex:1; min-width:180px;">
+            <input type="search" id="admin-reports-search" placeholder="Filter by Email, Vehicle, Agency…" aria-label="Filter Reports">
             <button type="button" class="rr-btn secondary" id="admin-reports-refresh">Refresh</button>
           </div>
           <div class="rr-admin-table-wrap">
@@ -522,10 +582,10 @@
                 <tr>
                   <th>When</th>
                   <th>Agency</th>
-                  <th>Vehicle / train</th>
+                  <th>Vehicle / Train</th>
                   <th>Locomotives</th>
                   <th>Reporter</th>
-                  <th>Doc id</th>
+                  <th>Doc ID</th>
                   <th></th>
                 </tr>
               </thead>
@@ -546,7 +606,7 @@
                 <tr>
                   <th>When</th>
                   <th>Agency</th>
-                  <th>Vehicle / train</th>
+                  <th>Vehicle / Train</th>
                   <th>Locomotives</th>
                   <th>Note</th>
                   <th>Reporter</th>
@@ -562,7 +622,7 @@
         <div class="rr-admin-pane" id="admin-pane-audit" data-admin-pane="audit">
           <p class="rr-modal-hint" style="margin-top:0;">Actions users take on RailroadRadar — sign-in, reports, settings, and admin decisions. Stored for 7 days; older entries are deleted at midnight Eastern.</p>
           <div class="rr-admin-toolbar">
-            <input type="search" id="admin-audit-search" placeholder="Filter by email, action, detail…" aria-label="Filter audit log" style="flex:1; min-width:180px;">
+            <input type="search" id="admin-audit-search" placeholder="Filter by Email, Action, Detail…" aria-label="Filter Audit Log">
             <button type="button" class="rr-btn secondary" id="admin-audit-refresh">Refresh</button>
           </div>
           <div class="rr-admin-table-wrap">
@@ -586,12 +646,12 @@
             <h3>Ban a User</h3>
             <label for="admin-ban-email">Email</label>
             <input type="email" id="admin-ban-email" placeholder="user@example.com" autocomplete="off">
-            <label for="admin-ban-uid">UID (optional if email matches a recent report)</label>
-            <input type="text" id="admin-ban-uid" placeholder="Firebase uid" autocomplete="off">
+            <label for="admin-ban-uid">UID (Optional If Email Matches a Recent Report)</label>
+            <input type="text" id="admin-ban-uid" placeholder="Firebase UID" autocomplete="off">
             <label for="admin-ban-reason">Reason</label>
-            <input type="text" id="admin-ban-reason" placeholder="Reason for ban" autocomplete="off">
+            <input type="text" id="admin-ban-reason" placeholder="Reason for Ban" autocomplete="off">
             <div class="rr-lightbox-actions" style="margin-top:10px;">
-              <button type="button" class="rr-btn danger" id="admin-ban-submit">Ban user</button>
+              <button type="button" class="rr-btn danger" id="admin-ban-submit">Ban User</button>
             </div>
           </div>
           <div class="rr-lightbox-section">
@@ -614,13 +674,13 @@
             <label for="admin-add-email">Email</label>
             <input type="email" id="admin-add-email" placeholder="admin@example.com" autocomplete="off">
             <div class="rr-perm-grid" id="admin-add-perms">
-              <label><input type="checkbox" data-perm="viewReports" checked> viewReports</label>
-              <label><input type="checkbox" data-perm="banUsers" checked> banUsers</label>
-              <label><input type="checkbox" data-perm="manageAdmins"> manageAdmins</label>
-              <label><input type="checkbox" data-perm="deleteReports" checked> deleteReports</label>
+              <label><input type="checkbox" data-perm="viewReports" checked> View Reports</label>
+              <label><input type="checkbox" data-perm="banUsers" checked> Ban Users</label>
+              <label><input type="checkbox" data-perm="manageAdmins"> Manage Admins</label>
+              <label><input type="checkbox" data-perm="deleteReports" checked> Delete Reports</label>
             </div>
             <div class="rr-lightbox-actions">
-              <button type="button" class="rr-btn" id="admin-add-submit">Add admin</button>
+              <button type="button" class="rr-btn" id="admin-add-submit">Add Admin</button>
             </div>
           </div>
           <div class="rr-lightbox-section">
@@ -646,16 +706,16 @@
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
             </select>
-            <label for="admin-roster-id">Loco / unit ID</label>
+            <label for="admin-roster-id">Loco / Unit ID</label>
             <input type="text" id="admin-roster-id" placeholder="e.g. 999" autocomplete="off">
             <label for="admin-roster-name">Name</label>
             <input type="text" id="admin-roster-name" placeholder="e.g. Test Paint" autocomplete="off">
-            <label for="admin-roster-icon">Icon URL (optional)</label>
+            <label for="admin-roster-icon">Icon URL (Optional)</label>
             <input type="url" id="admin-roster-icon" placeholder="https://… or /assets/…" autocomplete="off">
             <p class="rr-modal-hint">Prefer local <code>/assets/…</code> or a non-postimg URL. Explicit roster icons are used as-is on the map.</p>
             <div class="rr-lightbox-actions" style="margin-top:10px;">
-              <button type="button" class="rr-btn" id="admin-roster-submit">Add / update</button>
-              <button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear form</button>
+              <button type="button" class="rr-btn" id="admin-roster-submit">Add / Update</button>
+              <button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear Form</button>
             </div>
           </div>
           <div class="rr-lightbox-section">
@@ -687,10 +747,10 @@
             <h3>Mark Verified Reporter</h3>
             <label for="admin-verified-email">Email</label>
             <input type="email" id="admin-verified-email" placeholder="user@example.com" autocomplete="off">
-            <label for="admin-verified-uid">UID (optional if email matches a recent report)</label>
-            <input type="text" id="admin-verified-uid" placeholder="Firebase uid" autocomplete="off">
+            <label for="admin-verified-uid">UID (Optional If Email Matches a Recent Report)</label>
+            <input type="text" id="admin-verified-uid" placeholder="Firebase UID" autocomplete="off">
             <div class="rr-lightbox-actions" style="margin-top:10px;">
-              <button type="button" class="rr-btn" id="admin-verified-submit">Verify reporter</button>
+              <button type="button" class="rr-btn" id="admin-verified-submit">Verify Reporter</button>
             </div>
           </div>
           <div class="rr-lightbox-section">
@@ -703,7 +763,7 @@
 
         <div class="rr-admin-pane" id="admin-pane-accounts" data-admin-pane="accounts">
           <div class="rr-admin-toolbar">
-            <input type="search" id="admin-accounts-search" placeholder="Filter by email, name, uid…" aria-label="Filter accounts" style="flex:1; min-width:180px;">
+            <input type="search" id="admin-accounts-search" placeholder="Filter by Email, Name, UID…" aria-label="Filter Accounts">
             <button type="button" class="rr-btn secondary" id="admin-accounts-refresh">Refresh</button>
           </div>
           <div class="rr-admin-table-wrap">
@@ -715,10 +775,10 @@
                   <th>Email</th>
                   <th>UID</th>
                   <th>Created</th>
-                  <th>Last login</th>
+                  <th>Last Login</th>
                   <th>Terms / Privacy</th>
                   <th>Cookies</th>
-                  <th>Interested railroads</th>
+                  <th>Interested Railroads</th>
                   <th>Badges</th>
                   <th></th>
                 </tr>
@@ -732,9 +792,9 @@
 
         <div class="rr-admin-pane" id="admin-pane-trips" data-admin-pane="trips">
           <div class="rr-admin-toolbar">
-            <input type="search" id="admin-trips-search" placeholder="Filter by email, uid, railroad, train, station…" aria-label="Filter trip logs" style="flex:1; min-width:180px;">
+            <input type="search" id="admin-trips-search" placeholder="Filter by Email, UID, Railroad, Train, Station…" aria-label="Filter Trip Logs">
             <button type="button" class="rr-btn secondary" id="admin-trips-refresh">Refresh</button>
-            <button type="button" class="rr-btn secondary" id="admin-trips-backfill">Fill missing hiddenPublic</button>
+            <button type="button" class="rr-btn secondary" id="admin-trips-backfill">Fill Missing hiddenPublic</button>
           </div>
           <div class="rr-admin-table-wrap">
             <table class="rr-admin-table" id="admin-trips-table">
@@ -748,7 +808,7 @@
                   <th>Miles</th>
                   <th>Legs</th>
                   <th>Notes</th>
-                  <th>Doc id</th>
+                  <th>Doc ID</th>
                 </tr>
               </thead>
               <tbody id="admin-trips-tbody"></tbody>
@@ -760,9 +820,9 @@
 
         <div class="rr-admin-pane" id="admin-pane-survey" data-admin-pane="survey">
           <div class="rr-admin-toolbar">
-            <input type="search" id="admin-survey-search" placeholder="Filter by text, email, railroad, feature..." aria-label="Filter survey responses" style="flex:1; min-width:180px;">
+            <input type="search" id="admin-survey-search" placeholder="Filter by Text, Email, Railroad, Feature…" aria-label="Filter Survey Responses">
             <button type="button" class="rr-btn secondary" id="admin-survey-refresh">Refresh</button>
-            <button type="button" class="rr-btn danger secondary" id="admin-survey-purge">Delete older than 2 years</button>
+            <button type="button" class="rr-btn danger secondary" id="admin-survey-purge">Delete Older Than 2 Years</button>
           </div>
           <p class="rr-modal-hint" id="admin-survey-summary"></p>
           <div class="rr-admin-table-wrap">
@@ -772,15 +832,15 @@
                   <th>When</th>
                   <th>Rating</th>
                   <th>Recommend</th>
-                  <th>Uses it</th>
-                  <th>Heard from</th>
+                  <th>Uses It</th>
+                  <th>Heard From</th>
                   <th>Uses</th>
                   <th>Railroads</th>
-                  <th>Build next</th>
-                  <th>Favorite part</th>
-                  <th>Couldn't figure out</th>
+                  <th>Build Next</th>
+                  <th>Favorite Part</th>
+                  <th>Couldn't Figure Out</th>
                   <th>Improve</th>
-                  <th>Email / account</th>
+                  <th>Email / Account</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1113,6 +1173,14 @@
         console.warn('[bannedEmails] check failed', err);
       }
       return null;
+    }
+    function adminPermLabel(key) {
+      return ({
+        viewReports: 'View Reports',
+        banUsers: 'Ban Users',
+        manageAdmins: 'Manage Admins',
+        deleteReports: 'Delete Reports'
+      })[key] || key;
     }
     function escapeHtmlLite(s) {
       return String(s == null ? '' : s)
@@ -1888,17 +1956,17 @@
               const checked = isBoot ? true : !!p[k];
               const disabled = isBoot ? ' disabled' : '';
               return '<label><input type="checkbox" data-edit-perm="' + k + '" data-admin-email="' + escapeHtmlLite(a.email) + '"' +
-                (checked ? ' checked' : '') + disabled + '> ' + k + '</label>';
+                (checked ? ' checked' : '') + disabled + '> ' + adminPermLabel(k) + '</label>';
             }).join('');
             const actions = isBoot
-              ? '<span class="rr-badge locked">Seed admin (locked)</span>'
+              ? '<span class="rr-badge locked">Seed Admin (Locked)</span>'
               : ('<div class="rr-lightbox-actions" style="margin-top:8px;">' +
-                 '<button type="button" class="rr-btn secondary" data-admin-save-perms="' + escapeHtmlLite(a.email) + '">Save perms</button>' +
+                 '<button type="button" class="rr-btn secondary" data-admin-save-perms="' + escapeHtmlLite(a.email) + '">Save Perms</button>' +
                  '<button type="button" class="rr-btn danger secondary" data-admin-remove="' + escapeHtmlLite(a.email) + '">Remove</button>' +
                  '</div>');
             return '<div class="rr-admin-card" data-admin-card="' + escapeHtmlLite(a.email) + '">' +
               '<div><strong>' + escapeHtmlLite(a.email) + '</strong>' +
-              (isBoot ? '<span class="rr-badge locked">bootstrap</span>' : '') + '</div>' +
+              (isBoot ? '<span class="rr-badge locked">Bootstrap</span>' : '') + '</div>' +
               '<div class="meta">Added by ' + escapeHtmlLite(a.addedBy || '—') +
               ' · ' + escapeHtmlLite(formatAdminWhen(a.addedAt)) + '</div>' +
               '<div class="rr-perm-grid">' + permBits + '</div>' +
@@ -2048,11 +2116,11 @@
         const isBuiltin = !!u.builtin || !!builtinKeys[key];
         const overridden = !!(u._overridden || (isBuiltin && u._fromFirestore));
         const source = isBuiltin
-          ? (overridden ? 'Built-in (override)' : 'Built-in')
+          ? (overridden ? 'Built-in (Override)' : 'Built-in')
           : 'Custom';
         const icon = u.iconUrl ? String(u.iconUrl) : '';
         const iconCell = icon
-          ? ('<a href="' + escapeAdminHtml(icon) + '" target="_blank" rel="noopener">icon</a>')
+          ? ('<a href="' + escapeAdminHtml(icon) + '" target="_blank" rel="noopener">Icon</a>')
           : '—';
         let actions = '<button type="button" class="rr-btn secondary" data-admin-roster-edit="' +
           escapeAdminHtml(agency) + '|' + escapeAdminHtml(id) + '">Edit</button> ';
@@ -2336,10 +2404,10 @@
       const when = a && a.cookieDecidedAt ? formatAdminWhen(a.cookieDecidedAt) : '';
       const extra = when && when !== '—' ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(when) + '</div>') : '';
       if (status === 'accepted_all') {
-        return '<span class="rr-badge verified" title="Accepted all cookies (analytics + preferences)">Accepted all</span>' + extra;
+        return '<span class="rr-badge verified" title="Accepted all cookies (analytics + preferences)">Accepted All</span>' + extra;
       }
       if (status === 'rejected_all') {
-        return '<span class="rr-badge banned" title="Rejected all optional cookies">Rejected all</span>' + extra;
+        return '<span class="rr-badge banned" title="Rejected all optional cookies">Rejected All</span>' + extra;
       }
       if (status === 'custom') {
         const bits = [];
@@ -2360,7 +2428,7 @@
         return '<span class="rr-badge verified" title="Agreed to Terms of Use and Privacy Policy' + (ver ? (' (' + escapeHtmlLite(ver) + ')') : '') + (when && when !== '—' ? (' on ' + escapeHtmlLite(when)) : '') + '">Accepted</span>' +
           (extra ? ('<div style="font-size:11px;opacity:.8;margin-top:3px;">' + escapeHtmlLite(extra) + '</div>') : '');
       }
-      return '<span class="rr-badge banned" title="Has not accepted the current Terms of Use and Privacy Policy">Not accepted</span>';
+      return '<span class="rr-badge banned" title="Has not accepted the current Terms of Use and Privacy Policy">Not Accepted</span>';
     }
     function renderAdminAccounts() {
       const tbody = document.getElementById('admin-accounts-tbody');
@@ -2392,13 +2460,13 @@
         if (isAdm) badges.push('<span class="rr-badge admin">Admin</span>');
         if (isVer) badges.push('<span class="rr-badge verified">Verified</span>');
         if (isBan) badges.push('<span class="rr-badge banned">Banned</span>');
-        if (needsHold) badges.push('<span class="rr-badge">Approval required</span>');
+        if (needsHold) badges.push('<span class="rr-badge">Approval Required</span>');
         let actions = '';
         if (!isVer) {
           actions += '<button type="button" class="rr-btn secondary" data-admin-acct-verify="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Verify</button>';
         }
         if (uid) {
-          actions += '<button type="button" class="rr-btn secondary" data-admin-acct-hold="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" data-hold="' + (needsHold ? '1' : '0') + '" style="padding:6px 8px;font-size:11px;margin:2px;">' + (needsHold ? 'Stop approval' : 'Require approval') + '</button>';
+          actions += '<button type="button" class="rr-btn secondary" data-admin-acct-hold="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" data-hold="' + (needsHold ? '1' : '0') + '" style="padding:6px 8px;font-size:11px;margin:2px;">' + (needsHold ? 'Stop Approval' : 'Require Approval') + '</button>';
         }
         if (canBan && !isBan) {
           actions += '<button type="button" class="rr-btn danger secondary" data-admin-acct-ban="' + escapeHtmlLite(uid) + '" data-email="' + escapeHtmlLite(email) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Ban</button>';
