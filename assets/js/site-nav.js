@@ -116,6 +116,22 @@
       '.rr-theme-pick-opts button:hover{background:rgba(255,255,255,.1)}',
       '.rr-theme-pick-opts button.is-active{background:#fff;color:#07093e}',
       '.rr-theme-pick-opts button:focus-visible{outline:2px solid #8fd3ff;outline-offset:-2px}',
+      /* Navigation refresh: preserve the RailroadRadar navy/white palette while giving links and menus clearer hierarchy. */
+      '.rr-site-nav{gap:6px;margin-left:16px}',
+      '.rr-site-nav a{padding:10px 11px;border-radius:8px;font:600 13px/1 "Google Sans",Roboto,Arial,sans-serif;transition:background .16s ease,color .16s ease}',
+      '.rr-site-nav a:hover{background:rgba(255,255,255,.12)}',
+      '.rr-site-nav a[aria-current="page"]{background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}',
+      '.header-tools-panel,.rr-page-menu-panel{min-width:250px;max-width:min(340px,calc(100vw - 16px));padding:9px;background:#090d48;border:1px solid rgba(255,255,255,.2);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.3);gap:5px}',
+      '.header-tools-panel .header-auth-btn,.rr-page-menu-panel a{display:flex;align-items:center;min-height:40px;box-sizing:border-box;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:#fff;text-decoration:none;text-align:left;font:600 13px/1.25 "Google Sans",Roboto,Arial,sans-serif;transition:background .15s ease}',
+      '.header-tools-panel .header-auth-btn:hover,.rr-page-menu-panel a:hover,.rr-page-menu-panel a[aria-current="page"]{background:rgba(255,255,255,.12)}',
+      '.header-tools-panel .rr-mobile-nav{gap:3px;padding-bottom:7px;margin-bottom:3px;border-bottom:1px solid rgba(255,255,255,.16)}',
+      '.header-tools-panel .rr-menu-legal{gap:3px;padding-top:8px;margin-top:4px;border-top:1px solid rgba(255,255,255,.16)}',
+      '.header-tools-panel #btn-report-train-menu{background:#fff;color:#07093e;justify-content:center;font-weight:700}',
+      '.header-tools-panel #btn-report-train-menu:hover{background:#e8eaf0}',
+      '.rr-page-menu-btn,.header-tools #btn-header-tools{min-height:36px;padding:8px 13px;border:1px solid rgba(255,255,255,.38);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font:650 12px/1 "Google Sans",Roboto,Arial,sans-serif;transition:background .15s ease}',
+      '.rr-page-menu-btn:hover,.header-tools #btn-header-tools:hover{background:rgba(255,255,255,.2)}',
+      '@media(max-width:980px){#btn-report-train-header{display:inline-flex!important;align-items:center;justify-content:center;order:0;min-height:36px;padding:0 11px;border:0;border-radius:8px;background:#fff;color:#07093e;font:700 11px/1 "Google Sans",Roboto,Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.16)}#btn-report-train-header:hover{background:#e8eaf0}#btn-report-train-menu{display:none!important}.header-tools-panel{right:0;top:calc(100% + 9px)}}',
+      '@media(max-width:420px){#btn-report-train-header{padding:0 9px;font-size:10px}.header-tools-panel{min-width:230px}}',
       '@media (max-width:760px){.rr-site-nav{gap:0;margin-left:6px}.rr-site-nav a{font-size:12px;padding:7px 6px}}'
     ].join('');
     document.head.appendChild(style);
