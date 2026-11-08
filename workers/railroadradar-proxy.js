@@ -274,7 +274,7 @@ function amtrakRecordTime(record) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 function amtrakGtfsLocalTimeToIso(ymd, rawTime, timezone) {
-  const m = /^(\\d{1,2}):(\\d{2}):(\\d{2})$/.exec(String(rawTime || ""));
+  const m = /^(\d{1,2}):(\d{2}):(\d{2})$/.exec(String(rawTime || ""));
   const p = ymdToDateParts(ymd);
   if (!m || !p) return null;
   const wall = Date.UTC(p.y, p.mo - 1, p.d) + ((Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) * 1000);
@@ -598,7 +598,8 @@ var SPECIAL_ROSTER = [
   ["mnr", "214"],
   ["mnr", "216"],
   ["mnr", "217"],
-  ["mnr", "218"],  ["mnr", "222"],
+  ["mnr", "218"],
+  ["mnr", "222"],
   ["mnr", "250"],
   ["lirr", "521"]
 ];
@@ -1097,7 +1098,8 @@ async function fetchLiveSpecials(env, extra) {
         const id = String(v && v.id || "").trim();
         if (!id)
           return;
-        if (!isWatchedUnit("mbta", id, extra))          return;
+        if (!isWatchedUnit("mbta", id, extra))
+          return;
         const label = v.attributes && (v.attributes.label || v.attributes.current_status) || id;
         live["live|mbta|" + id] = {
           type: "active",
@@ -1596,7 +1598,8 @@ async function cachePutText(url, body, maxAge, contentType) {
 }
 __name(cachePutText, "cachePutText");
 async function cacheGetBuf(url) {
-  try {    const hit = await caches.default.match(new Request(url));
+  try {
+    const hit = await caches.default.match(new Request(url));
     if (!hit)
       return null;
     return await hit.arrayBuffer();
@@ -2095,7 +2098,8 @@ var worker_default = {
       }
       if (path === "/api/amtrak/alerts" || path === "/amtrak/alerts") {
         return await proxyBinary(AMTRAK_ALERTS_URL, {}, cors, 20);
-      }      if (path === "/api/mbta" || path.startsWith("/api/mbta/")) {
+      }
+      if (path === "/api/mbta" || path.startsWith("/api/mbta/")) {
         const key = env.MBTA_API_KEY;
         if (!key) {
           return new Response("MBTA_API_KEY secret not set", { status: 500, headers: cors });
