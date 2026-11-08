@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#07093e">
 <title>Train Line Tracker: Live Maps, Delays and On-Time Stats | RailroadRadar</title>
-<meta name="description" content="Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for 120 lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail.">
+<meta name="description" content="Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for 109 lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail.">
 <link rel="canonical" href="https://railroadradar.com/lines/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="RailroadRadar">
 <meta property="og:title" content="Train Line Tracker: Live Maps, Delays and On-Time Stats | RailroadRadar">
-<meta property="og:description" content="Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for 120 lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail.">
+<meta property="og:description" content="Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for 109 lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail.">
 <meta property="og:url" content="https://railroadradar.com/lines/">
 <meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Train Line Tracker: Live Maps, Delays and On-Time Stats | RailroadRadar">
-<meta name="twitter:description" content="Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for 120 lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail.">
+<meta name="twitter:description" content="Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for 109 lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail.">
 <meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
@@ -45,14 +45,14 @@ betterstack('init', { environment: 'production' });
   --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
   --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
   --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
-  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+  --rail-marc:#FF8000; --rail-ctrail:#003865; --rail-via:#FFC20E;
 }
 html.rr-theme-dark{
   color-scheme:dark;
   --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
   --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
   --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
-  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+  --rail-marc:#ff9a3d; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -228,13 +228,13 @@ html.rr-theme-dark .lp-pill.late{background:#5a1a26;color:#ffd6dc}html.rr-theme-
     <div class="lp-hero-inner">
       <ol class="lp-crumbs" aria-label="Breadcrumb"><li><a href="/">Home</a></li><li aria-current="page">Lines</li></ol>
       <h1 id="lp-title">Train Lines</h1>
-      <p class="lp-lead">Pick a line to see its trains live, current alerts and every station in order. 120 lines across 9 railroads.</p>
+      <p class="lp-lead">Pick a line to see its trains live, current alerts and every station in order. 109 lines across 8 railroads.</p>
       <div class="lp-actions"><a class="rr-btn" href="/map/">Open the Live Map</a><a class="rr-btn secondary" href="/stations/">All Stations</a></div>
     </div>
   </section>
   <div class="lp-wrap">
     <section class="lp-card wide" aria-label="Railroads">
-      <ul class="lp-jump"><li><a href="#mbta">MBTA Commuter Rail</a></li><li><a href="#amtrak">Amtrak</a></li><li><a href="#mnr">Metro-North Railroad</a></li><li><a href="#lirr">Long Island Rail Road</a></li><li><a href="#njt">NJ Transit Rail</a></li><li><a href="#marc">MARC Train</a></li><li><a href="#metra">Metra</a></li><li><a href="#ctrail">CTrail</a></li><li><a href="#via">VIA Rail Canada</a></li></ul>
+      <ul class="lp-jump"><li><a href="#mbta">MBTA Commuter Rail</a></li><li><a href="#amtrak">Amtrak</a></li><li><a href="#mnr">Metro-North Railroad</a></li><li><a href="#lirr">Long Island Rail Road</a></li><li><a href="#njt">NJ Transit Rail</a></li><li><a href="#marc">MARC Train</a></li><li><a href="#ctrail">CTrail</a></li><li><a href="#via">VIA Rail Canada</a></li></ul>
     </section>
     <section class="lp-card wide" id="mbta" aria-labelledby="mbta-title" style="--line-color:var(--rail-mbta)">
       <h2 id="mbta-title">MBTA Commuter Rail</h2>
@@ -265,11 +265,6 @@ html.rr-theme-dark .lp-pill.late{background:#5a1a26;color:#ffd6dc}html.rr-theme-
       <h2 id="marc-title">MARC Train</h2>
       <p class="lp-sub">3 lines</p>
       <ul class="lp-index"><li style="--c:#FF8000"><a href="/lines/marc-brunswick-line/">MARC Brunswick Line</a><small>22 stations</small></li><li style="--c:#FF8000"><a href="/lines/marc-camden-line/">MARC Camden Line</a><small>12 stations</small></li><li style="--c:#FF8000"><a href="/lines/marc-penn-line/">MARC Penn Line</a><small>13 stations</small></li></ul>
-    </section>
-    <section class="lp-card wide" id="metra" aria-labelledby="metra-title" style="--line-color:var(--rail-metra)">
-      <h2 id="metra-title">Metra</h2>
-      <p class="lp-sub">11 lines</p>
-      <ul class="lp-index"><li style="--c:#29C233"><a href="/lines/metra-bnsf-line/">Metra BNSF Line</a><small>26 stations</small></li><li style="--c:#EB5C00"><a href="/lines/metra-electric-line/">Metra Electric Line</a><small>48 stations</small></li><li style="--c:#550E0C"><a href="/lines/metra-heritage-corridor/">Metra Heritage Corridor</a><small>7 stations</small></li><li style="--c:#CC5500"><a href="/lines/metra-milwaukee-north-line/">Metra Milwaukee North Line</a><small>22 stations</small></li><li style="--c:#F1AD0E"><a href="/lines/metra-milwaukee-west-line/">Metra Milwaukee West Line</a><small>22 stations</small></li><li style="--c:#9785BC"><a href="/lines/metra-north-central-service/">Metra North Central Service</a><small>18 stations</small></li><li style="--c:#E02400"><a href="/lines/metra-rock-island-line/">Metra Rock Island Line</a><small>26 stations</small></li><li style="--c:#0042A8"><a href="/lines/metra-southwest-service/">Metra Southwest Service</a><small>13 stations</small></li><li style="--c:#008000"><a href="/lines/metra-union-pacific-north-line/">Metra Union Pacific North Line</a><small>27 stations</small></li><li style="--c:#FFE600"><a href="/lines/metra-union-pacific-northwest-line/">Metra Union Pacific Northwest Line</a><small>23 stations</small></li><li style="--c:#FE8D81"><a href="/lines/metra-union-pacific-west-line/">Metra Union Pacific West Line</a><small>19 stations</small></li></ul>
     </section>
     <section class="lp-card wide" id="ctrail" aria-labelledby="ctrail-title" style="--line-color:var(--rail-ctrail)">
       <h2 id="ctrail-title">CTrail</h2>

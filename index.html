@@ -122,21 +122,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#07093e">
 <title>RailroadRadar | Live Train Map and Trip Log</title>
-<meta name="description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains, with MyTrips trip logs.">
+<meta name="description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail trains, with MyTrips trip logs.">
 <link rel="canonical" href="https://railroadradar.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="RailroadRadar">
 <meta property="og:title" content="RailroadRadar | Live Train Map and Trip Log">
-<meta property="og:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains, with MyTrips trip logs.">
+<meta property="og:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail trains, with MyTrips trip logs.">
 <meta property="og:url" content="https://railroadradar.com/">
 <meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="RailroadRadar | Live Train Map and Trip Log">
-<meta name="twitter:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains, with MyTrips trip logs.">
+<meta name="twitter:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail trains, with MyTrips trip logs.">
 <meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
 <link rel="manifest" href="/manifest.json">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"RailroadRadar","url":"https://railroadradar.com/","description":"Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail trains."},{"@type":"Organization","name":"RailroadRadar","url":"https://railroadradar.com/","logo":"https://railroadradar.com/assets/icons/icon-512.png"}]}
+{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"RailroadRadar","url":"https://railroadradar.com/","description":"Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail trains."},{"@type":"Organization","name":"RailroadRadar","url":"https://railroadradar.com/","logo":"https://railroadradar.com/assets/icons/icon-512.png"}]}
 </script>
 <link rel="icon" href="/assets/icons/favicon-32.png?v=3" type="image/png">
 <script>
@@ -169,14 +169,14 @@ betterstack('init', { environment: 'production' });
   --bg:#f5f6f8; --surface:#fff; --line:#e3e6eb; --field:#c5cad3;
   --ink:#07093e; --muted:#5b6275; --focus:#0B57D0;
   --rail-mbta:#9d1c80; --rail-amtrak:#003b5c; --rail-mnr:#ee0034; --rail-lirr:#0039A6; --rail-njt:#FF671F;
-  --rail-marc:#FF8000; --rail-metra:#0055A4; --rail-ctrail:#003865; --rail-via:#FFC20E;
+  --rail-marc:#FF8000; --rail-ctrail:#003865; --rail-via:#FFC20E;
 }
 html.rr-theme-dark{
   color-scheme:dark;
   --bg:#0b0b3b; --surface:#151a52; --line:#2a3172; --field:#646cb5;
   --ink:#eef0fa; --muted:#aab0d4; --focus:#8fd3ff;
   --rail-mbta:#c862b4; --rail-amtrak:#4fa3d9; --rail-mnr:#ff5570; --rail-lirr:#5b8cf0; --rail-njt:#ff8a4d;
-  --rail-marc:#ff9a3d; --rail-metra:#5596e6; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
+  --rail-marc:#ff9a3d; --rail-ctrail:#5a92cc; --rail-via:#ffd24d;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -521,8 +521,8 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     <div class="stats rr-reveal" id="home-stats">
       <h2>RailroadRadar by the Numbers</h2>
       <ul class="stats-list stats-hero">
-        <!-- Same feeds and filters as the map; the label says how many of the 7 railroads answered. -->
-        <li class="stat stat-big is-loading" data-live="trains"><span class="stat-num">0</span><span class="stat-label">Trains Live Across 7 Railroads</span></li>
+        <!-- Same feeds and filters as the map; the label says how many of the 6 railroads answered. -->
+        <li class="stat stat-big is-loading" data-live="trains"><span class="stat-num">0</span><span class="stat-label">Trains Live Across 6 Railroads</span></li>
         <!-- Hidden until the Worker serves /api/stats; no stored history of every tracked train exists before that counter starts. -->
         <li class="stat stat-big is-loading" data-live="tracked" hidden><span class="stat-num">0</span><span class="stat-label">Trains Tracked</span></li>
       </ul>
@@ -537,7 +537,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
       <div class="feature-media rr-reveal"><img src="/assets/home/shot-map.svg" alt="Live MBTA trains around Boston on the RailroadRadar map, each labeled with its number and destination" width="1400" height="849" loading="lazy" decoding="async"></div>
       <div class="feature-copy rr-reveal rr-reveal-late">
         <h2>Every Train, Live on One Map</h2>
-        <p class="feature-lead">MBTA, Amtrak, Metro-North, LIRR, Metra, NJ Transit, MARC and VIA Rail, all together on one map. Tap any train to see where it's headed and when it reaches each stop.</p>
+        <p class="feature-lead">MBTA, Amtrak, Metro-North, LIRR, NJ Transit, MARC and VIA Rail, all together on one map. Tap any train to see where it's headed and when it reaches each stop.</p>
         <ul class="hero-points">
           <li>See delays at a glance</li>
           <li>Find any train or station fast</li>
@@ -794,7 +794,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
   var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
   // When true, the live counts and Trains Tracked come from /api/stats in one small response.
   var SUMMARY = true;
-  var RAILROADS = 7;
+  var RAILROADS = 6;
   var LIVE = {
     lines: ['/api/mbta/routes?filter[type]=2', function (j) { return Array.isArray(j.data) && j.data.length ? j.data.length : null; }],
     roster: ['/api/roster', function (j) { return j && j.vehicles ? Object.keys(j.vehicles).length : null; }]
@@ -890,11 +890,6 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
         if (hasCoords(lat, lon)) seen.add(num);
       });
       return { njt: seen.size };
-    }],
-    ['/api/metra/positions', 'pb', function (list) {
-      var n = 0;
-      list.forEach(function (e) { if (e.vehicle && hasCoords(e.lat, e.lon)) n++; });
-      return { metra: n };
     }]
   ];
   function liveFromFeeds() {

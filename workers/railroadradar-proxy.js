@@ -2,7 +2,6 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // worker.js
-var METRA_BASE = "https://gtfspublic.metrarr.com/gtfs/public";
 var MTA_BASE = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds";
 var MBTA_BASE = "https://api-v3.mbta.com";
 var MAPBOX_BASE = "https://api.mapbox.com";
@@ -11,14 +10,6 @@ var AMTRAK_ALERTS_URL = "https://asm-backend.transitdocs.com/gtfs/amtrak";
 var NJT_BASE = "https://raildata.njtransit.com/api/TrainData";
 var NJT_TOKEN_CACHE_URL = "https://railroadradar.internal/njt-token";
 var NJT_VEHICLES_CACHE_URL = "https://railroadradar.internal/njt-vehicles";
-var METRA_ROUTES = {
-  "/api/metra/positions": "/positions",
-  "/api/metra/tripupdates": "/tripupdates",
-  "/api/metra/alerts": "/alerts",
-  "/metra/positions": "/positions",
-  "/metra/tripupdates": "/tripupdates",
-  "/metra/alerts": "/alerts"
-};
 var MTA_ROUTES = {
   "/api/mta/mnr": "/mnr%2Fgtfs-mnr",
   "/api/mta/lirr": "/lirr%2Fgtfs-lirr",
@@ -421,7 +412,7 @@ function reportLocoIds(r) {
 }
 __name(reportLocoIds, "reportLocoIds");
 function agencyPretty(a) {
-  return { mbta: "MBTA", amtrak: "Amtrak", mnr: "Metro-North", lirr: "LIRR", metra: "Metra", njt: "NJ Transit" }[String(a || "").toLowerCase()] || String(a || "").toUpperCase();
+  return { mbta: "MBTA", amtrak: "Amtrak", mnr: "Metro-North", lirr: "LIRR", njt: "NJ Transit" }[String(a || "").toLowerCase()] || String(a || "").toUpperCase();
 }
 __name(agencyPretty, "agencyPretty");
 async function importVapidKey(env) {
@@ -1713,15 +1704,6 @@ async function warmLiveCaches(env) {
     if (MTA_ROUTES["/api/mta/lirr"])
       jobs.push(proxyBinary(MTA_BASE + MTA_ROUTES["/api/mta/lirr"], h, cors, 15));
   }
-  if (env.METRA_API_TOKEN) {
-    const auth = { Authorization: "Bearer " + env.METRA_API_TOKEN };
-    if (METRA_ROUTES["/api/metra/positions"]) {
-      jobs.push(proxyBinary(METRA_BASE + METRA_ROUTES["/api/metra/positions"], auth, cors, 15));
-    }
-    if (METRA_ROUTES["/api/metra/tripupdates"]) {
-      jobs.push(proxyBinary(METRA_BASE + METRA_ROUTES["/api/metra/tripupdates"], auth, cors, 15));
-    }
-  }
   if (env.MBTA_API_KEY) {
     jobs.push(
       proxyBinary(
@@ -1786,7 +1768,6 @@ var worker_default = {
             "/api/mta/mnr",
             "/api/mta/lirr",
             "/api/mta/alerts",
-            "/api/metra/positions|tripupdates|alerts",
             "/api/mapbox/*",
             "/api/amtrak/trains",
             "/api/amtrak/alerts",
@@ -1805,18 +1786,6 @@ var worker_default = {
       );
     }
     try {
-      if (METRA_ROUTES[path]) {
-        const token = env.METRA_API_TOKEN;
-        if (!token) {
-          return new Response("METRA_API_TOKEN secret not set", { status: 500, headers: cors });
-        }
-        return await proxyBinary(
-          METRA_BASE + METRA_ROUTES[path],
-          { Authorization: "Bearer " + token },
-          cors,
-          15
-        );
-      }
       if (MTA_ROUTES[path]) {
         const headers = {};
         if (env.MTA_API_KEY)
@@ -1934,7 +1903,7 @@ var worker_default = {
         }
       }
       return new Response(
-        "Not found. Try /health, /api/mbta/*, /api/mta/mnr, /api/mta/lirr, /api/mta/alerts, /api/metra/*, /api/mapbox/*, /api/amtrak/trains, /api/amtrak/alerts, /api/njt/*, /api/schedules",
+        "Not found. Try /health, /api/mbta/*, /api/mta/mnr, /api/mta/lirr, /api/mta/alerts, /api/mapbox/*, /api/amtrak/trains, /api/amtrak/alerts, /api/njt/*, /api/schedules",
         { status: 404, headers: cors }
       );
     } catch (err) {

@@ -63,7 +63,7 @@ test.beforeEach(async ({ context, baseURL }) => {
   if (!RECORD) await context.clock.install({ time: new Date(fixtures.recordedAt) });
   // Every railroad on, and the first-visit picker and cookie banner already answered.
   await context.addInitScript(() => {
-    localStorage.setItem('rr_map_railroads', JSON.stringify({ mbta: true, amtrak: true, mnr: true, lirr: true, metra: true, njt: true, ctrail: true, marc: true }));
+    localStorage.setItem('rr_map_railroads', JSON.stringify({ mbta: true, amtrak: true, mnr: true, lirr: true, njt: true, ctrail: true, marc: true }));
     localStorage.setItem('rr_cookie_prefs', JSON.stringify({ decided: true, clarity: false, preferences: true }));
   });
 });

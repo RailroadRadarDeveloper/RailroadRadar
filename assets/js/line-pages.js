@@ -27,7 +27,7 @@
   function clock(ms) {
     return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: RR_TZ() });
   }
-  function RR_TZ() { return RR === 'metra' ? 'America/Chicago' : 'America/New_York'; }
+  function RR_TZ() { return 'America/New_York'; }
   function pill(delayMin) {
     if (delayMin == null || isNaN(delayMin)) return '';
     var d = Math.round(delayMin);
@@ -315,7 +315,7 @@
     }).catch(function () {});
   }
 
-  /* ---------- Metro-North, LIRR and Metra (GTFS-realtime through the Worker) ---------- */
+  /* ---------- Metro-North and LIRR (GTFS-realtime through the Worker) ---------- */
   function rtLine(tripUrl, vehicleUrl, onlyMap) {
     var names = stopNames();
     Promise.all([getBytes(tripUrl), vehicleUrl ? getBytes(vehicleUrl).catch(function () { return null; }) : Promise.resolve(null)]).then(function (res) {
@@ -392,7 +392,7 @@
       : rr === 'mnr' ? (String(t.route) === '3' ? '/assets/mnr-new-haven.png' : '/assets/mnr.png')
       : rr === 'lirr' ? '/assets/lirr.png' : '';
     if (url) return L.icon({ iconUrl: url, iconSize: [44, 44], iconAnchor: [22, 22], popupAnchor: [0, -22], className: 'train-icon' });
-    return L.divIcon({ className: 'metra-icon', html: '<div style="width:16px;height:16px;background:#0055A4;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>', iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8] });
+    return L.divIcon({ className: 'lp-rail-dot', html: '<div style="width:16px;height:16px;background:#0055A4;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>', iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8] });
   }
   function drawTrains() {
     if (!M.map) return;
@@ -468,7 +468,6 @@
     else if (RR === 'amtrak') amtrakLine(onlyMap);
     else if (RR === 'mnr') rtLine(API + '/api/mta/mnr', null, onlyMap);
     else if (RR === 'lirr') rtLine(API + '/api/mta/lirr', null, onlyMap);
-    else if (RR === 'metra') rtLine(API + '/api/metra/tripupdates', API + '/api/metra/positions', onlyMap);
   }
   function alertsOnce() {
     function fail() { msg($('lp-alerts'), 'Alerts are not available right now.'); }
@@ -476,7 +475,6 @@
     else if (RR === 'amtrak') amtrakAlerts();
     else if (RR === 'mnr') rtAlerts(API + '/api/mta/alerts', ['MNR']).then(alertsOut).catch(fail);
     else if (RR === 'lirr') rtAlerts(API + '/api/mta/alerts', ['LI', 'LIRR']).then(alertsOut).catch(fail);
-    else if (RR === 'metra') rtAlerts(API + '/api/metra/alerts', null).then(alertsOut).catch(fail);
   }
 
   try {

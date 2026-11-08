@@ -1,4 +1,4 @@
-// Paste into railroadradar-proxy (same worker as Metra/NJT).
+// Paste into railroadradar-proxy (same worker as NJT).
 // After deploy, you can put these URLs first in MARC_POSITIONS_URLS / MARC_TRIPUPDATES_URLS.
 // Official MDOT S3 has no CORS, so the browser cannot fetch these directly.
 

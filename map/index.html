@@ -69,21 +69,21 @@
   <title>Live Map | RailroadRadar</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
+  <meta name="description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
   <link rel="canonical" href="https://railroadradar.com/map/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="RailroadRadar">
   <meta property="og:title" content="Live Map | RailroadRadar">
-  <meta property="og:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
+  <meta property="og:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
   <meta property="og:url" content="https://railroadradar.com/map/">
   <meta property="og:image" content="https://railroadradar.com/assets/icons/icon-512.png">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Live Map | RailroadRadar">
-  <meta name="twitter:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
+  <meta name="twitter:description" content="Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, CTrail, and MARC trains, with delays, station departures, alerts, and trip logs.">
   <meta name="twitter:image" content="https://railroadradar.com/assets/icons/icon-512.png">
   <meta name="application-name" content="RailroadRadar">
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"RailroadRadar","url":"https://railroadradar.com/","description":"Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains."},{"@type":"Organization","name":"RailroadRadar","url":"https://railroadradar.com/","logo":"https://railroadradar.com/assets/icons/icon-512.png"}]}
+  {"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"RailroadRadar","url":"https://railroadradar.com/","description":"Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, CTrail, and MARC trains."},{"@type":"Organization","name":"RailroadRadar","url":"https://railroadradar.com/","logo":"https://railroadradar.com/assets/icons/icon-512.png"}]}
   </script>
   <script>
   (function () {
@@ -130,7 +130,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=bb17ef5647">
+  <link rel="stylesheet" href="/assets/css/app.css?v=bb3eee0a2b">
   <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
   <link rel="stylesheet" href="/assets/css/settings.css?v=9a0dfeb2f7">
   <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98">
@@ -339,7 +339,6 @@
         <li><label><input type="checkbox" data-rail="amtrak" checked> <span>Amtrak</span></label></li>
         <li><label><input type="checkbox" data-rail="mnr" checked> <span>Metro-North</span></label></li>
         <li><label><input type="checkbox" data-rail="lirr" checked> <span>Long Island Rail Road</span></label></li>
-        <li><label><input type="checkbox" data-rail="metra" checked> <span>Metra</span></label></li>
         <li><label><input type="checkbox" data-rail="njt" checked> <span>NJ Transit</span></label></li>
         <li><label><input type="checkbox" data-rail="ctrail" checked> <span>CTrail</span></label></li>
         <li><label><input type="checkbox" data-rail="marc" checked> <span>MARC (paused)</span></label></li>
@@ -390,7 +389,6 @@
         <div><input type="checkbox" id="show-brightline" checked><label for="show-brightline">Show Brightline</label></div>
         <div><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North Trains</label></div>
         <div><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR Trains</label></div>
-        <div><input type="checkbox" id="show-metra" checked><label for="show-metra">Show Metra Trains</label></div>
         <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
         <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
         <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains (Paused)</label></div>
@@ -457,7 +455,7 @@
         <div id="closest-trains" class="closest-trains-list"></div>
       </div>
     </div>
-      <div class="disclaimer rr-set-foot"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, Metra, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.</p></div>
+      <div class="disclaimer rr-set-foot"><p>Train data is provided by MassDOT, MBTA, Amtrak, MTA, NJ Transit, CTrail, and MARC. RailroadRadar is not responsible for inaccuracies.</p></div>
     </div>
   </div>
 
@@ -855,7 +853,6 @@
               <option value="amtrak">Amtrak</option>
               <option value="mnr">Metro-North</option>
               <option value="lirr">LIRR</option>
-              <option value="metra">Metra</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
@@ -878,7 +875,6 @@
               <option value="amtrak">Amtrak</option>
               <option value="mnr">Metro-North</option>
               <option value="lirr">LIRR</option>
-              <option value="metra">Metra</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
@@ -903,7 +899,6 @@
               <option value="amtrak">Amtrak</option>
               <option value="mnr">Metro-North</option>
               <option value="lirr">LIRR</option>
-              <option value="metra">Metra</option>
               <option value="njt">NJ Transit</option>
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
@@ -1053,10 +1048,10 @@
   <script src="/assets/js/trip-miles.js?v=16ff83d4dd"></script>
   <script src="/assets/js/trip-notify.js?v=8a6cfdca0c"></script>
   <script src="/assets/js/trip-connections.js?v=496c6c0bac"></script>
-  <script src="/assets/js/app-main.js?v=23fc0af107"></script>
+  <script src="/assets/js/app-main.js?v=509f1f381e"></script>
   <script src="/assets/js/main-live-trip-marker.js?v=967157a2c9"></script>
   <script src="/assets/js/acela-equipment.js?v=f4e3888269"></script>
-  <script src="/assets/js/train-replay.js?v=bf0a91c7fb"></script>
+  <script src="/assets/js/train-replay.js?v=eb9ee5bf72"></script>
   <script src="/assets/js/mytrips-stats.js?v=ae86c850e7"></script>
   <script>
     try {
