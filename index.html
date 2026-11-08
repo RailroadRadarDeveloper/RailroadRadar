@@ -13,112 +13,67 @@
    colors blend between phases. Runs in the head so the first paint already has the right sky; re-checks every
    few minutes and when the tab comes back. Preview: ?sky=dawn|morning|day|sunset|dusk|night or ?sky=HH:MM. */
 (function () {
-  var root = document.documentElement, rad = Math.PI / 180;
-  var ZONES = {
-    'America/New_York': [40.71, -74.01], 'America/Detroit': [42.33, -83.05], 'America/Chicago': [41.88, -87.63],
-    'America/Denver': [39.74, -104.99], 'America/Phoenix': [33.45, -112.07], 'America/Los_Angeles': [34.05, -118.24],
-    'America/Toronto': [43.65, -79.38], 'America/Montreal': [45.5, -73.57], 'America/Vancouver': [49.28, -123.12],
-    'America/Halifax': [44.65, -63.57], 'America/Anchorage': [61.22, -149.9], 'Pacific/Honolulu': [21.31, -157.86]
-  };
-  /* top / middle / above the rooftops / horizon, horizon glow (rgba) and its x position, back buildings, text scrim, lead text */
-  var P = {
-    night:   { top: '#07093e', mid: '#0d1263', low: '#121975', hz: '#1a228e', glow: [255, 255, 255, 0],   gx: 50, back: '#1a2390', scrim: 0,   lead: '#c9d4ea' },
-    dawn:    { top: '#1d1f6b', mid: '#4b3c8c', low: '#e0785e', hz: '#ffd06a', glow: [255, 196, 92, .85], gx: 24, back: '#2b2468', scrim: .22, lead: '#eceef8' },
-    morning: { top: '#1d3f8f', mid: '#3a66b8', low: '#e6c2a4', hz: '#ffe4b5', glow: [255, 228, 170, .55], gx: 32, back: '#33498f', scrim: .26, lead: '#eef2fb' },
-    day:     { top: '#173f8f', mid: '#2d68ba', low: '#86bdea', hz: '#c3e2f7', glow: [255, 255, 255, .3],  gx: 50, back: '#3557a3', scrim: .28, lead: '#eef2fb' },
-    sunset:  { top: '#251f6a', mid: '#613889', low: '#e2627c', hz: '#ffa04a', glow: [255, 146, 64, .8],   gx: 76, back: '#3a2462', scrim: .22, lead: '#eceef8' },
-    dusk:    { top: '#0b0d48', mid: '#261f6a', low: '#5b3a84', hz: '#b05a78', glow: [220, 100, 110, .3],  gx: 80, back: '#1f1b66', scrim: .08, lead: '#d8dcef' }
-  };
-  /* Halloween (Oct 31 by the visitor's own clock): one orange-and-black sky all day. The navy veil in the CSS still
-     fades it softly into the solid navy header. Gated on the date only, so it reverts on its own on Nov 1. */
-  var HALLOWEEN = { top: '#0a0505', mid: '#6b2310', low: '#d4561a', hz: '#ff9a2e', glow: [255, 140, 40, .7], gx: 50, back: '#1a0c08', scrim: .3, lead: '#f6e6d6' };
-  window.rrIsHalloween = function () { var d = new Date(); return d.getMonth() === 9 && d.getDate() === 31; };
-  var COLORS = ['top', 'mid', 'low', 'hz', 'back', 'lead'];
-  function rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
-  function place() {
-    var tz = '';
-    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
-    if (ZONES[tz]) return ZONES[tz];
-    var y = new Date().getFullYear(), jan = new Date(y, 0, 1).getTimezoneOffset(), jul = new Date(y, 6, 1).getTimezoneOffset();
-    /* Standard offset is the larger one; summer time in January means the southern hemisphere */
-    return [jan < jul ? -35 : 42, -Math.max(jan, jul) / 4];
+  var box = document.getElementById('home-stats');
+  if (!box) return;
+  var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
+  var FIRESTORE_COUNT = 'https://firestore.googleapis.com/v1/projects/railroadradar-accounts/databases/(default)/documents:runAggregationQuery?key=AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs';
+  var motion = document.documentElement.classList.contains('rr-motion');
+  function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+  function show(num, n) {
+    if (!motion) { num.textContent = fmt(n); return; }
+    var t0 = 0;
+    var step = function (t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / 900);
+      num.textContent = fmt(n * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    num.textContent = '0';
+    requestAnimationFrame(step);
   }
-  /* Sunrise equation (NOAA/Wikipedia form, -0.833 deg for refraction and the sun's disc); times in ms */
-  function sun(d, lat, lon) {
-    var noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime();
-    var n = Math.round(noon / 864e5 + 2440587.5 - 2451545 + lon / 360), J = n - lon / 360;
-    var M = (357.5291 + 0.98560028 * J) % 360;
-    var C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
-    var L = (M + C + 180 + 102.9372) % 360;
-    var Jt = 2451545 + J + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * L * rad);
-    var dec = Math.asin(Math.sin(L * rad) * Math.sin(23.4397 * rad));
-    var cw = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec));
-    var ms = function (j) { return (j - 2440587.5) * 864e5; };
-    if (cw > 1) return { polar: 'night', noon: ms(Jt) };
-    if (cw < -1) return { polar: 'day', noon: ms(Jt) };
-    var w = Math.acos(cw) / rad / 360;
-    return { rise: ms(Jt - w), set: ms(Jt + w), noon: ms(Jt) };
+  function fill(li, n) {
+    if (typeof n !== 'number' || !isFinite(n) || n < 0) { li.hidden = true; return; }
+    li.classList.remove('is-loading');
+    li.hidden = false;
+    show(li.querySelector('.stat-num'), n);
   }
-  var MIN = 6e4;
-  /* Phase keyframes around the day's sunrise (R) and sunset (S); between two keyframes the colors ease across */
-  function frames(s) {
-    if (s.polar) return [[s.noon, s.polar]];
-    var R = s.rise, S = s.set, d1 = R + 200 * MIN, d2 = S - 150 * MIN;
-    if (d1 > d2) d1 = d2 = (R + S) / 2;
-    return [[R - 90 * MIN, 'night'], [R + 5 * MIN, 'dawn'], [R + 80 * MIN, 'morning'], [d1, 'day'], [d2, 'day'],
-      [S, 'sunset'], [S + 40 * MIN, 'dusk'], [S + 90 * MIN, 'night']];
+  function start() {
+    var trackedLi = box.querySelector('[data-live="tracked"]');
+    var reportsLi = box.querySelector('[data-live="reports"]');
+    fetch(API + '/api/stats').then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (s) {
+      var tracked = s && s.tracked;
+      if (tracked && typeof tracked.total === 'number') fill(trackedLi, tracked.total);
+      else trackedLi.hidden = true;
+    }).catch(function () { trackedLi.hidden = true; });
+
+    fetch(FIRESTORE_COUNT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        structuredAggregationQuery: {
+          structuredQuery: { from: [{ collectionId: 'trainReports' }] },
+          aggregations: [{ alias: 'n', count: {} }]
+        }
+      })
+    }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (rows) {
+      var fields = Array.isArray(rows) && rows[0] && rows[0].result && rows[0].result.aggregateFields;
+      var raw = fields && fields.n && (fields.n.integerValue != null ? fields.n.integerValue : fields.n.doubleValue);
+      var count = raw == null ? NaN : Number(raw);
+      fill(reportsLi, count);
+    }).catch(function () { reportsLi.hidden = true; });
   }
-  function at(t, f) {
-    if (f.length === 1) return [f[0][1], f[0][1], 0];
-    if (t <= f[0][0] || t >= f[f.length - 1][0]) return ['night', 'night', 0];
-    for (var i = 0; i < f.length - 1; i++) {
-      if (t < f[i + 1][0]) { var k = (t - f[i][0]) / (f[i + 1][0] - f[i][0]); return [f[i][1], f[i + 1][1], k * k * (3 - 2 * k)]; }
-    }
-    return ['night', 'night', 0];
-  }
-  var loc = place(), fake = null;
-  try {
-    var q = new URLSearchParams(location.search).get('sky');
-    if (q) fake = q.toLowerCase();
-  } catch (_) {}
-  function now() {
-    var d = new Date();
-    if (!fake) return d;
-    var m = /^(\d{1,2}):(\d{2})$/.exec(fake);
-    if (m) return new Date(d.getFullYear(), d.getMonth(), d.getDate(), +m[1], +m[2]);
-    var f = frames(sun(d, loc[0], loc[1])), pick = { night: f[0][0] - 60 * MIN };
-    f.forEach(function (x, i) { if (!(x[1] in pick) || x[1] === 'day') pick[x[1]] = x[0]; });
-    if (f.length > 1) pick.day = (f[3][0] + f[4][0]) / 2;
-    return pick[fake] != null ? new Date(pick[fake]) : d;
-  }
-  window.rrSkyNow = now;
-  function update() {
-    var d = now(), s = sun(d, loc[0], loc[1]), f = frames(s), r = at(d.getTime(), f);
-    var hw = window.rrIsHalloween();
-    root.classList.toggle('is-halloween', hw);
-    var tc = document.querySelector('meta[name=theme-color]'); if (tc) tc.setAttribute('content', hw ? '#000000' : '#07093e');
-    var a = hw ? HALLOWEEN : P[r[0]], b = hw ? HALLOWEEN : P[r[1]], k = r[2], st = root.style;
-    COLORS.forEach(function (c) {
-      var x = rgb(a[c]), y = rgb(b[c]);
-      st.setProperty('--sky-' + c, 'rgb(' + x.map(function (v, i) { return Math.round(v + (y[i] - v) * k); }).join(',') + ')');
-    });
-    var g = a.glow.map(function (v, i) { return v + (b.glow[i] - v) * k; });
-    st.setProperty('--sky-glow', 'rgba(' + g.slice(0, 3).map(Math.round).join(',') + ',' + g[3].toFixed(3) + ')');
-    st.setProperty('--sky-gx', (a.gx + (b.gx - a.gx) * k).toFixed(1) + '%');
-    st.setProperty('--sky-scrim', (a.scrim + (b.scrim - a.scrim) * k).toFixed(3));
-    root.setAttribute('data-sky', k < 0.5 ? r[0] : r[1]);
-    window.rrSky = { lat: loc[0], lon: loc[1], rise: s.rise, set: s.set, polar: s.polar || null, frames: f, phase: root.getAttribute('data-sky') };
-  }
-  try {
-    update();
-    setInterval(update, 3 * MIN);
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) update(); });
-    document.addEventListener('DOMContentLoaded', update);
-    /* Ease later changes (every few minutes) instead of stepping; not on first paint, and never with reduced motion */
-    requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.add('rr-sky-anim'); }); });
-  } catch (_) {}
-})();
-</script>
+  if (!('IntersectionObserver' in window)) { start(); return; }
+  var io = new IntersectionObserver(function (entries) {
+    if (entries.some(function (e) { return e.isIntersecting; })) { io.disconnect(); start(); }
+  }, { threshold: 0.1 });
+  io.observe(box);
+})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#07093e">
 <title>RailroadRadar | Live Train Map and Trip Log</title>
@@ -522,16 +477,8 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
     <div class="stats rr-reveal" id="home-stats">
       <h2>RailroadRadar by the Numbers</h2>
       <ul class="stats-list stats-hero">
-        <!-- Same feeds and filters as the map; the label says how many of the 6 railroads answered. -->
-        <li class="stat stat-big is-loading" data-live="trains"><span class="stat-num">0</span><span class="stat-label">Trains Live Across 6 Railroads</span></li>
-        <!-- Hidden until the Worker serves /api/stats; no stored history of every tracked train exists before that counter starts. -->
-        <li class="stat stat-big is-loading" data-live="tracked" hidden><span class="stat-num">0</span><span class="stat-label">Trains Tracked</span></li>
-      </ul>
-      <ul class="stats-list">
-        <!-- Routes in assets/shapes/*.json; tests/static/check.js fails if this stops matching. -->
-        <li class="stat"><span class="stat-num" data-count="110" data-stat="routes">110</span><span class="stat-label">Routes Drawn on the Live Map</span></li>
-        <li class="stat is-loading" data-live="lines"><span class="stat-num">0</span><span class="stat-label">Commuter Rail Lines in Timetables</span></li>
-        <li class="stat is-loading" data-live="roster"><span class="stat-num">0</span><span class="stat-label">Roster Vehicles Seen in the Last 4 Days</span></li>
+        <li class="stat stat-big is-loading" data-live="tracked"><span class="stat-num">0</span><span class="stat-label">Trains Tracked</span></li>
+        <li class="stat stat-big is-loading" data-live="reports"><span class="stat-num">0</span><span class="stat-label">User Reports</span></li>
       </ul>
     </div>
     <div class="feature">
