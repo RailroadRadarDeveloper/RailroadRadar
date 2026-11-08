@@ -10818,7 +10818,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const title = (i === 0)
             ? ('Locomotive 1 (used for map icon)')
             : ('Locomotive ' + (i + 1));
-          const unitLabel = isMbta ? 'Special Locomotive (Optional)' : 'Special Unit (Roster)';
+          const unitLabel = 'Special Unit (Roster)';
           const customLabel = isMbta ? 'Locomotive Number' : 'Or Custom Vehicle ID';
           const customPh = isMbta ? 'e.g. 1030 or RSTX' : 'Optional — custom vehicle ID';
           const canUp = i > 0;
@@ -10834,8 +10834,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   '<button type="button" class="report-loco-remove" data-loco-act="remove" data-idx="' + i + '"' + (canRemove ? '' : ' disabled') + '>Remove</button>' +
                 '</div>' +
               '</div>' +
-              '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
-              '<select id="report-unit-select-' + i + '">' + reportRosterOptionsHtml(agency, slot.rosterId || '') + '</select>' +
+              (isMbta ? '' : (
+                '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
+                '<select id="report-unit-select-' + i + '">' + reportRosterOptionsHtml(agency, slot.rosterId || '') + '</select>'
+              )) +
               '<label for="report-custom-vehicle-' + i + '">' + customLabel + '</label>' +
               (isMbta
                 ? ('<div class="rr-report-combo">' +
@@ -11289,12 +11291,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         state.rows = rows;
         reportLocoSuggestState[idx] = state;
         list.innerHTML = rows.map(function (row, i) {
-          const paint = row.paint ? row.paint : 'No Special Paint';
+          const meta = row.paint ? (row.type + ' · ' + row.paint) : row.type;
           const active = i === state.active;
           return '<li role="presentation"><button type="button" class="rr-report-opt' + (active ? ' is-active' : '') + '" role="option" id="report-loco-opt-' + idx + '-' + i + '" data-suggest-idx="' + idx + '" data-suggest-row="' + i + '" aria-selected="' + (active ? 'true' : 'false') + '">' +
             '<img src="' + escapeHtmlLite(reportLocoSuggestIcon(row.number)) + '" alt="">' +
             '<span class="rr-report-opt-text"><span class="rr-report-opt-num">' + escapeHtmlLite(row.number) + '</span>' +
-            '<span class="rr-report-opt-meta">' + escapeHtmlLite(row.type) + ' · ' + escapeHtmlLite(paint) + '</span></span></button></li>';
+            '<span class="rr-report-opt-meta">' + escapeHtmlLite(meta) + '</span></span></button></li>';
         }).join('');
         list.hidden = false;
         input.setAttribute('aria-expanded', 'true');
