@@ -1,13 +1,36 @@
-/* Survey invitation: a small card after about a minute on the site (time adds up across pages).
-   Shown once per visitor. "Maybe Later" or opening the survey asks again after 90 days; finishing
-   the survey (survey/index.html sets state "done") stops it for good. */
+/* Discord invitation. Same timing as the old survey card: about a minute on the site,
+   counted across pages, then once per visitor. "Maybe Later" asks again after 90 days.
+   Storage keys are rr_discord / rr_discord_time, separate from the old survey keys, so
+   someone who already dismissed the survey still sees this once.
+   Survey links stay in the markup. Set RR_SHOW_SURVEY_LINKS to true to show them again. */
 (function () {
   'use strict';
-  var K_STATE = 'rr_survey';
-  var K_TIME = 'rr_survey_time';
+  var RR_SHOW_SURVEY_LINKS = false;
+  var DISCORD_INVITE = 'https://discord.gg/6MbvNyv3yv';
+  var K_STATE = 'rr_discord';
+  var K_TIME = 'rr_discord_time';
   var NEED_S = 60;
   var REASK_MS = 90 * 24 * 60 * 60 * 1000;
   var TICK_MS = 2000;
+
+  function hideSurveyLinks() {
+    if (RR_SHOW_SURVEY_LINKS) return;
+    var nodes = document.querySelectorAll('a[href="/survey/"], a[href^="/survey/"], a[href="https://railroadradar.com/survey/"], a[href^="https://railroadradar.com/survey/"]');
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      var first = '';
+      for (var n = a.firstChild; n; n = n.nextSibling) {
+        if (n.nodeType === 3 && n.textContent.trim()) { first = n.textContent.trim(); break; }
+      }
+      if (first !== 'Survey') continue;
+      a.hidden = true;
+      a.setAttribute('aria-hidden', 'true');
+      var li = a.parentElement;
+      if (li && li.tagName === 'LI' && li.querySelectorAll('a').length === 1) li.hidden = true;
+    }
+  }
+  hideSurveyLinks();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideSurveyLinks);
 
   var path = location.pathname;
   if (/^\/(survey|admin|unavailable)/.test(path)) return;
@@ -83,6 +106,8 @@
       '.rr-survey-pop{position:fixed;right:16px;bottom:16px;z-index:10050;width:320px;max-width:calc(100vw - 24px);box-sizing:border-box;' +
       'background:#07093e;color:#fff;border:1px solid #2a4a7a;border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);padding:16px 16px 14px;' +
       "font:14px/1.45 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;animation:rrSurveyIn .28s ease-out}" +
+      '.rr-survey-pop .rr-dc-badge{width:56px;height:56px;border-radius:50%;background:#5865F2;display:flex;align-items:center;justify-content:center;margin:0 0 10px}' +
+      '.rr-survey-pop .rr-dc-badge img{width:34px;height:auto;display:block}' +
       '.rr-survey-pop h2{margin:0 0 6px;font-size:16px;font-weight:700;color:#fff;letter-spacing:0}' +
       '.rr-survey-pop p{margin:0 0 12px;color:#c9d6ec}' +
       '.rr-survey-pop .rr-sp-row{display:flex;gap:8px}' +
@@ -116,17 +141,22 @@
     card.setAttribute('role', 'dialog');
     card.setAttribute('aria-labelledby', 'rr-survey-pop-title');
     card.setAttribute('aria-describedby', 'rr-survey-pop-text');
+    var join = '';
+    if (DISCORD_INVITE) {
+      join = '<a href="' + DISCORD_INVITE + '" id="rr-survey-pop-go" target="_blank" rel="noopener noreferrer">Join Discord</a>';
+    }
     card.innerHTML =
-      '<h2 id="rr-survey-pop-title">We\'d Love Your Feedback</h2>' +
-      '<p id="rr-survey-pop-text">We\'re making RailroadRadar better for riders like you. Tell us how you use it and what you\'d like to see next. It only takes about two minutes.</p>' +
-      '<div class="rr-sp-row">' +
-      '<a href="/survey/?from=popup" id="rr-survey-pop-go">Sure, Let\'s Go</a>' +
+      '<div class="rr-dc-badge"><img src="/assets/img/discord-logo-white.png" alt="" width="128" height="98"></div>' +
+      '<h2 id="rr-survey-pop-title">Join our Discord Server!</h2>' +
+      '<p id="rr-survey-pop-text">Meet the RailroadRadar community and help shape the future of the platform</p>' +
+      '<div class="rr-sp-row">' + join +
       '<button type="button" id="rr-survey-pop-no">Maybe Later</button>' +
       '</div>';
     var fh = fixedFooterHeight();
     if (fh) card.style.bottom = Math.round(fh + 12) + 'px';
     document.body.appendChild(card);
-    card.querySelector('#rr-survey-pop-go').addEventListener('click', function () { close('opened'); });
+    var go = card.querySelector('#rr-survey-pop-go');
+    if (go) go.addEventListener('click', function () { close('opened'); });
     card.querySelector('#rr-survey-pop-no').addEventListener('click', function () { close('dismissed'); });
     card.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') close('dismissed');
