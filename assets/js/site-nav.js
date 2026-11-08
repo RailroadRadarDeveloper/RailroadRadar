@@ -132,6 +132,7 @@
       '.rr-page-menu-btn:hover,.header-tools #btn-header-tools:hover{background:rgba(255,255,255,.2)}',
       '@media(max-width:980px){#btn-report-train-header{display:inline-flex!important;align-items:center;justify-content:center;order:0;min-height:36px;padding:0 11px;border:0;border-radius:8px;background:#fff;color:#07093e;font:700 11px/1 "Google Sans",Roboto,Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.16)}#btn-report-train-header:hover{background:#e8eaf0}#btn-report-train-menu{display:none!important}.header-tools-panel{right:0;top:calc(100% + 9px)}}',
       '@media(max-width:420px){#btn-report-train-header{padding:0 9px;font-size:10px}.header-tools-panel{min-width:230px}}',
+      'html.rr-report-in-menu #btn-report-train-header{display:inline-flex!important}',
       '@media (max-width:760px){.rr-site-nav{gap:0;margin-left:6px}.rr-site-nav a{font-size:12px;padding:7px 6px}}'
     ].join('');
     document.head.appendChild(style);
