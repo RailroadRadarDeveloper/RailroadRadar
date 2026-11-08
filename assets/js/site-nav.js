@@ -3,7 +3,6 @@
     { id: 'map', href: '/map/', label: 'Live Map' },
     { id: 'timetables', href: '/timetables/', label: 'Timetables' },
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
-    { id: 'favorites', href: '/favorites/', label: 'Favorites' },
     { id: 'roster', href: '/roster/', label: 'Roster' },
     { id: 'press', href: '/press/', label: 'Press' },
     { id: 'survey', href: '/survey/', label: 'Survey' }
@@ -130,6 +129,8 @@
   function mount() {
     ensureStyle();
     applyTheme(getTheme());
+    // Temporarily hide Trackside Favorites from every header navigation variant.
+    document.querySelectorAll('header a[href="/favorites/"], .header a[href="/favorites/"]').forEach(function (a) { a.remove(); });
     var existing = document.querySelector('.rr-site-nav');
     if (existing) {
       var here = current();
