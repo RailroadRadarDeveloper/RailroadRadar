@@ -104,7 +104,7 @@
       "rel": ["account-settings", "privacy"]
     },
     {
-      "id": "report-train", "title": "Report a Train", "label": "Report a Train", "url": "/map/", "click": "btn-report-train-header", "src": ["map/index.html", "policies/privacy/index.html"],
+      "id": "report-train", "title": "Report a Train", "label": "Report a Train", "url": "/map/", "click": "btn-report-train-menu", "src": ["map/index.html", "policies/privacy/index.html"],
       "k": ["report a train", "report", "pair", "pairing", "locomotive", "consist", "which engine", "leaderboard", "specials", "recent reports"],
       "s": [
         { "t": "Sign in with Google to pair locomotives to live trains and share what you see." },
