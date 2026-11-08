@@ -13080,6 +13080,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (a === 'marc') return !!showMarc;
         return true;
       }
+      // Amtrak stop dots are drawn only at or east of this longitude (Chicago Union Station and east).
+      // Lower it (e.g. to -180) to show Amtrak stops nationwide.
+      const RR_AMTRAK_DOT_MIN_LNG = -87.75;
       // Stops of different railroads this close together are one physical station and share one dot.
       const RR_SHARED_STATION_M = 300;
       // Which railroad's name a shared station dot uses (lowest first).
@@ -13335,13 +13338,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { walk(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'mnr'); } catch (_) {}
         try { walk(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'lirr'); } catch (_) {}
         try { walk(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'marc'); } catch (_) {}
-        // Amtrak stations are a static national directory; do not wait for a live train to visit each stop.
-        try {
-          (typeof AMTRAK_TRIP_STATIONS !== 'undefined' ? AMTRAK_TRIP_STATIONS : []).forEach(function(station) {
-            if (!station || !station.id || !isFinite(station.lat) || !isFinite(station.lon)) return;
-            upsertAgencyStationDot('amtrak', station.id, station.name || station.id, station.lat, station.lon);
-          });
-        } catch (_) {}
       }
       function harvestAmtrakStationDots(trainObj) {
         if (!trainObj || /brightline/i.test(String(trainObj.provider || ''))) return;
@@ -13350,7 +13346,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (!s || s.bus || !s.code) return;
           if (stationMarkers['amtrak:' + s.code]) return;
           const ll = rrAmtrakStopLatLng(s);
-          if (ll[0] == null || !isFinite(ll[0]) || !isFinite(ll[1])) return;
+          if (ll[0] == null || ll[1] < RR_AMTRAK_DOT_MIN_LNG) return;
           upsertAgencyStationDot('amtrak', s.code, s.name || s.code, ll[0], ll[1]);
         });
       }
@@ -14561,24 +14557,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const stat = FetchStats.start('Amtrak');
         try {
           const officialAlertsP = fetchAmtrakAlertsByTrain();
-          let data;
-          try {
-            const proxyRes = await fetch(amtrakUrl);
-            if (!proxyRes.ok) throw new Error('Proxy HTTP ' + proxyRes.status);
-            data = await proxyRes.json();
-            if (!data || typeof data !== 'object' || !Object.keys(data).some(function(k) { return Array.isArray(data[k]); })) {
-              throw new Error('Proxy returned an unexpected Amtraker payload');
-            }
-          } catch (proxyError) {
-            // Keep the live map working if the RailroadRadar proxy is temporarily unavailable.
-            console.warn('[Amtrak] Proxy feed unavailable; trying Amtraker directly', proxyError && proxyError.message);
-            const directRes = await fetch('https://api.amtraker.com/v3/trains');
-            if (!directRes.ok) throw new Error('Proxy feed failed (' + ((proxyError && proxyError.message) || 'unknown') + '); direct Amtraker HTTP ' + directRes.status);
-            data = await directRes.json();
-            if (!data || typeof data !== 'object' || !Object.keys(data).some(function(k) { return Array.isArray(data[k]); })) {
-              throw new Error('Direct Amtraker returned an unexpected payload');
-            }
-          }
+          const res = await fetch(amtrakUrl);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
           const officialAlerts = await officialAlertsP.catch(function() { return {}; });
           if (!data || typeof data !== 'object') {
             console.warn('%c[Amtrak] Unexpected Amtraker payload', 'color:#f39c12');

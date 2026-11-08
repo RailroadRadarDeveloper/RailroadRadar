@@ -96,9 +96,6 @@ function checkVersions(file, text) {
     const hashed = /^[0-9a-f]{10}$/.test(value) || /\.(js|css)$/.test(ref);
     if (!hashed) continue;
     if (!fs.existsSync(target)) { fail(where, `${ref}?v=${value} points to a missing file`); continue; }
-    // The generated station pages still carry the previous site-nav cache key.
-    // Keep validating every other asset while those static pages are regenerated.
-    if (ref === '/assets/js/site-nav.js' && value === '169d54ad33') continue;
     const want = shortHash(target);
     if (value !== want) fail(where, `${ref}?v=${value} should be ?v=${want}`);
   }
