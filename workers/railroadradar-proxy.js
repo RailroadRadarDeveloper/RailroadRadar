@@ -5,7 +5,7 @@ var __name = (target, value) => __defProp(target, "name", { value, configurable:
 var MTA_BASE = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds";
 var MBTA_BASE = "https://api-v3.mbta.com";
 var MAPBOX_BASE = "https://api.mapbox.com";
-var AMTRAK_URL = "https://api-v3.amtraker.com/v3/trains";
+var AMTRAK_URL = "https://api.amtraker.com/v3/trains";
 var AMTRAK_ALERTS_URL = "https://asm-backend.transitdocs.com/gtfs/amtrak";
 var NJT_BASE = "https://raildata.njtransit.com/api/TrainData";
 var NJT_TOKEN_CACHE_URL = "https://railroadradar.internal/njt-token";

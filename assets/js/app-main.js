@@ -14572,7 +14572,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           } catch (proxyError) {
             // Keep the live map working if the RailroadRadar proxy is temporarily unavailable.
             console.warn('[Amtrak] Proxy feed unavailable; trying Amtraker directly', proxyError && proxyError.message);
-            const directRes = await fetch('https://api-v3.amtraker.com/v3/trains');
+            const directRes = await fetch('https://api.amtraker.com/v3/trains');
             if (!directRes.ok) throw new Error('Proxy feed failed (' + ((proxyError && proxyError.message) || 'unknown') + '); direct Amtraker HTTP ' + directRes.status);
             data = await directRes.json();
             if (!data || typeof data !== 'object' || !Object.keys(data).some(function(k) { return Array.isArray(data[k]); })) {
