@@ -314,7 +314,11 @@ async function proxyAmtrakTrains(cors) {
     if (!trainNum) { ignored++; continue; }
     let bucket = data[trainNum];
     if (!Array.isArray(bucket)) bucket = data[trainNum] = [];
-    let record = bucket.find((item) => String(item && (item.trainNum || item.trainNumRaw) || "").replace(/^0+/, "") === trainNum);
+    // Amtraker buckets are keyed by train number; some records omit trainNum internally.
+    // Reuse that schedule-rich record instead of adding an empty TransitDocs-only duplicate.
+    const normalizeTrainNum = (value) => String(value == null ? "" : value).replace(/^0+/, "") || "0";
+    let record = bucket.find((item) => normalizeTrainNum(item && (item.trainNum || item.trainNumRaw)) === trainNum);
+    if (!record && bucket.length === 1) record = bucket[0];
     if (!record) {
       record = {
         trainNum,
