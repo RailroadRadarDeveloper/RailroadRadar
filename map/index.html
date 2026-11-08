@@ -272,7 +272,6 @@
             <a class="header-auth-btn" href="/survey/">Survey</a>
           </div>
           <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
-          <button type="button" class="header-auth-btn" id="btn-acela-equip-menu">Report Acela Equipment</button>
           <a class="header-auth-btn" id="btn-specials-header" href="/specials/">Recent Reports</a>
           <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
             <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
@@ -745,80 +744,6 @@
     </div>
   </div>
 
-  <!-- Report Acela Equipment (live map) -->
-  <div class="rr-modal-backdrop acela-equip-backdrop" id="acela-equip-modal" aria-hidden="true">
-    <div class="rr-modal acela-equip-modal" role="dialog" aria-modal="true" aria-labelledby="acela-equip-title">
-      <div class="rr-modal-header acela-equip-header">
-        <span id="acela-equip-title">Report Acela Equipment</span>
-        <button type="button" class="rr-modal-close" id="acela-equip-close" aria-label="Close">×</button>
-      </div>
-      <div class="rr-modal-body">
-        <p class="acela-equip-lead">Heard which trainset is running? Share it so riders know what to expect.</p>
-        <p class="acela-equip-sample-note" id="acela-equip-sample-note" hidden>Sample Data: this preview saves nothing.</p>
-        <label for="acela-equip-train">Acela Train Number</label>
-        <input type="text" id="acela-equip-train" inputmode="numeric" maxlength="4" placeholder="2153" autocomplete="off">
-        <div class="acela-equip-dates">
-          <div>
-            <label for="acela-equip-from">From</label>
-            <input type="date" id="acela-equip-from">
-          </div>
-          <div>
-            <label for="acela-equip-until">Until</label>
-            <input type="date" id="acela-equip-until">
-          </div>
-        </div>
-        <label id="acela-equip-type-label">Equipment</label>
-        <div class="acela-equip-choices" role="group" aria-labelledby="acela-equip-type-label">
-          <button type="button" class="acela-equip-choice" data-type="nextgen" aria-pressed="false"><span class="acela-equip-choice-name">NextGen</span><span class="acela-equip-choice-sub">Avelia Liberty</span></button>
-          <button type="button" class="acela-equip-choice" data-type="legacy" aria-pressed="false"><span class="acela-equip-choice-name">Legacy</span><span class="acela-equip-choice-sub">Original Acela</span></button>
-        </div>
-        <div class="acela-equip-current-box" id="acela-equip-current-box"></div>
-        <div class="rr-modal-error" id="acela-equip-error"></div>
-        <div class="acela-equip-actions">
-          <button type="button" class="acela-equip-submit" id="acela-equip-save">Submit Report</button>
-          <button type="button" class="acela-equip-cancel" id="acela-equip-cancel">Cancel</button>
-        </div>
-        <p class="acela-equip-fine">Reports show in Acela train popups on the live map. Plans can change, so check with Amtrak too.</p>
-      </div>
-    </div>
-  </div>
-  <!-- Trip detail overlay (MyTrips click → beautiful full trip view) -->
-  <div id="trip-detail-overlay" class="trip-detail-overlay" aria-hidden="true" hidden>
-    <div id="trip-detail-map" class="trip-detail-map is-loading" role="img" aria-label="Trip route map"></div>
-    <div class="trip-detail-panel" role="dialog" aria-modal="true" aria-labelledby="trip-detail-route">
-      <div class="trip-detail-accent" id="trip-detail-accent"></div>
-      <img class="trip-detail-share-logo" id="trip-detail-share-logo" alt="RailroadRadar" decoding="async" src="">
-      <button type="button" class="trip-detail-share-btn" id="trip-detail-share" aria-label="Share trip image" title="Share / download image">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-        </button>
-      <div class="trip-detail-toolbar">
-        <h2 class="trip-detail-route" id="trip-detail-route" tabindex="-1">—</h2>
-      </div>
-      <div class="trip-detail-body">
-        <div class="trip-detail-badges" id="trip-detail-badges"></div>
-        <p class="trip-detail-relative" id="trip-detail-relative" hidden></p>
-        <p class="trip-detail-live" id="trip-detail-live" hidden></p>
-        <p class="trip-detail-line" id="trip-detail-line"></p>
-        <p class="trip-detail-when" id="trip-detail-when" hidden></p>
-        <p class="trip-detail-actual" id="trip-detail-actual" hidden></p>
-        <div class="trip-detail-special-share" id="trip-detail-special-share" hidden>
-          <p class="trip-detail-special-title" id="trip-detail-special-title">Share location on the live map</p>
-          <div class="trip-detail-special-actions">
-            <button type="button" class="rr-btn" id="trip-detail-share-loc">Share location</button>
-            <button type="button" class="rr-btn secondary" id="trip-detail-stop-share" hidden>Stop sharing</button>
-          </div>
-          <p class="trip-detail-share-status" id="trip-detail-share-status" aria-live="polite"></p>
-        </div>
-        <p class="trip-detail-notes" id="trip-detail-notes" hidden></p>
-        <div class="trip-detail-seg-title" id="trip-detail-seg-heading" hidden>Segments</div>
-        <div class="trip-detail-segs" id="trip-detail-segs"></div>
-        <div class="trip-detail-facts" id="trip-detail-meta" aria-label="Trip facts"></div>
-        <p class="trip-detail-stock" id="trip-detail-stock" hidden></p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Admin Dashboard lightbox -->
   <div class="rr-modal-backdrop" id="report-train-modal" aria-hidden="true">
     <div class="rr-modal" role="dialog" aria-modal="true" aria-labelledby="report-train-title">
       <div class="rr-modal-header">
@@ -856,6 +781,19 @@
         <div id="report-mbta-vehicle-wrap" style="display:none;">
           <label for="report-mbta-vehicle-id">Vehicle ID (from MBTA)</label>
           <input type="text" id="report-mbta-vehicle-id" placeholder="MBTA API vehicle-id" autocomplete="off">
+        </div>
+        <div id="rr-acela-equipment-fields" hidden>
+          <p class="rr-modal-hint" style="margin:10px 0 4px;">Acela equipment (optional)</p>
+          <div class="acela-equip-dates">
+            <div><label for="rr-acela-equipment-from">Equipment from</label><input type="date" id="rr-acela-equipment-from"></div>
+            <div><label for="rr-acela-equipment-until">Equipment until</label><input type="date" id="rr-acela-equipment-until"></div>
+          </div>
+          <label id="rr-acela-equipment-type-label">Equipment type</label>
+          <div class="acela-equip-choices" role="group" aria-labelledby="rr-acela-equipment-type-label">
+            <button type="button" class="acela-equip-choice" data-type="nextgen" aria-pressed="false"><span class="acela-equip-choice-name">NextGen</span><span class="acela-equip-choice-sub">Avelia Liberty</span></button>
+            <button type="button" class="acela-equip-choice" data-type="legacy" aria-pressed="false"><span class="acela-equip-choice-name">Legacy</span><span class="acela-equip-choice-sub">Original Acela</span></button>
+          </div>
+          <div class="acela-equip-current-box" id="rr-acela-equipment-summary"></div>
         </div>
         <div id="report-locos-list"></div>
         <button type="button" class="rr-link-btn" id="report-add-loco-btn" style="margin:8px 0 4px; background:none; border:none; color:#07093e; text-decoration:underline; cursor:pointer; padding:0; font-size:13px;">+ Add another locomotive</button>
@@ -1085,9 +1023,9 @@
   <script src="/assets/js/trip-notify.js?v=8a6cfdca0c"></script>
   <script src="/assets/js/trip-connections.js?v=496c6c0bac"></script>
   <script src="/assets/js/mbta-locomotives.js?v=a37784c796"></script>
-  <script src="/assets/js/app-main.js?v=632c6fe984"></script>
+  <script src="/assets/js/app-main.js?v=0a53ee17a2"></script>
   <script src="/assets/js/main-live-trip-marker.js?v=967157a2c9"></script>
-  <script src="/assets/js/acela-equipment.js?v=f4e3888269"></script>
+  <script src="/assets/js/acela-equipment.js?v=b60bf5bf67"></script>
   <script src="/assets/js/train-replay.js?v=eb9ee5bf72"></script>
   <script src="/assets/js/mytrips-stats.js?v=ae86c850e7"></script>
   <script>

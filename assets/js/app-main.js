@@ -11131,6 +11131,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           serviceDateInput.value = today;
         }
         populateReportUnitSelect();
+        if (typeof window.rrAcelaEquipResetForm === 'function') window.rrAcelaEquipResetForm();
+        else if (typeof window.rrAcelaEquipRefreshForm === 'function') window.rrAcelaEquipRefreshForm();
         if (modal) {
           modal.classList.add('open');
           modal.setAttribute('aria-hidden', 'false');
@@ -11178,6 +11180,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
         }
         const mbtaApiVehicleId = ((document.getElementById('report-mbta-vehicle-id') || {}).value || '').trim();
+        const acelaEquipment = (typeof window.rrAcelaEquipGetFormData === 'function') ? window.rrAcelaEquipGetFormData(agency, trainNumber) : null;
+        if (acelaEquipment && acelaEquipment.error) { setErr(acelaEquipment.error); return; }
         syncReportLocoSlotsFromDom();
         if (!isMbta) {
           if (!serviceDate) { setErr('Pick a service date.'); return; }
@@ -11201,38 +11205,39 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (r.error) { setErr(r.error); return; }
           resolved.push(r);
         }
-        if (!resolved.length) {
+        if (!resolved.length && !acelaEquipment) {
           setErr(agency === 'mbta'
             ? 'Add at least one locomotive (special list or number + type).'
             : 'Add at least one roster unit or custom vehicle ID.');
           return;
         }
-        if (!isMbta) {
-          vehicleId = vehicleId || resolved[0].locomotiveId || '';
-        }
+        if (!isMbta && resolved.length) vehicleId = vehicleId || resolved[0].locomotiveId || '';
         if (reportTrainSubmitting) return;
         reportTrainSubmitting = true;
         const submitButton = document.getElementById('report-train-submit');
         if (submitButton) submitButton.disabled = true;
         try {
-          const first = resolved[0];
-          const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
-          const saved = await submitTrainReport({
-            agency: agency,
-            trainNumber: trainNumber,
-            vehicleId: vehicleId,
-            locomotiveId: first.locomotiveId,
-            unitName: first.unitName,
-            serviceDate: serviceDate,
-            locoType: first.locoType,
-            locoIconUrl: first.locoIconUrl,
-            specialOverride: first.specialOverride,
-            customLoco: first.customLoco,
-            locomotives: resolved,
-            comment: comment
-          });
+          let saved = null;
+          if (resolved.length) {
+            const first = resolved[0];
+            const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
+            saved = await submitTrainReport({
+              agency: agency, trainNumber: trainNumber, vehicleId: vehicleId,
+              locomotiveId: first.locomotiveId, unitName: first.unitName, serviceDate: serviceDate,
+              locoType: first.locoType, locoIconUrl: first.locoIconUrl,
+              specialOverride: first.specialOverride, customLoco: first.customLoco,
+              locomotives: resolved, comment: comment
+            });
+          }
+          if (acelaEquipment) {
+            try { await window.rrAcelaEquipSave(acelaEquipment); }
+            catch (equipmentError) { throw new Error((saved ? 'Train report saved, but ' : '') + 'Acela equipment report could not be saved: ' + ((equipmentError && equipmentError.message) || equipmentError)); }
+          }
           const savedLabel = resolved.map(function(L) { return L.unitName || L.locomotiveId; }).join(' + ');
-          showNotification((saved && saved.pending) ? ('Report sent for approval: ' + savedLabel) : ('Report saved for ' + savedLabel));
+          if (saved && saved.pending) showNotification('Report sent for approval: ' + savedLabel);
+          else if (saved && acelaEquipment) showNotification('Train and Acela equipment reports saved');
+          else if (acelaEquipment && !saved) showNotification('Acela equipment report saved');
+          else showNotification('Report saved for ' + savedLabel);
           closeReportTrainModal();
           await loadTrainReports();
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch(_){}
