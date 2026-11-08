@@ -106,8 +106,8 @@
       '.rr-survey-pop{position:fixed;right:16px;bottom:16px;z-index:10050;width:320px;max-width:calc(100vw - 24px);box-sizing:border-box;' +
       'background:#07093e;color:#fff;border:1px solid #2a4a7a;border-radius:4px;box-shadow:0 8px 28px rgba(0,0,0,.35);padding:16px 16px 14px;' +
       "font:14px/1.45 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;animation:rrSurveyIn .28s ease-out}" +
-      '.rr-survey-pop .rr-dc-badge{width:56px;height:56px;border-radius:50%;background:#5865F2;display:flex;align-items:center;justify-content:center;margin:0 0 10px}' +
-      '.rr-survey-pop .rr-dc-badge img{width:34px;height:auto;display:block}' +
+      '.rr-survey-pop .rr-dc-badge{margin:0 0 10px}' +
+      '.rr-survey-pop .rr-dc-badge img{width:40px;height:auto;display:block}' +
       '.rr-survey-pop h2{margin:0 0 6px;font-size:16px;font-weight:700;color:#fff;letter-spacing:0}' +
       '.rr-survey-pop p{margin:0 0 12px;color:#c9d6ec}' +
       '.rr-survey-pop .rr-sp-row{display:flex;gap:8px}' +
