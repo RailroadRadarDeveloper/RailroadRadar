@@ -11,6 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <script src="/assets/js/mbta-locomotives.js?v=e649a9d0be"></script>
   <link rel="stylesheet" href="/assets/fonts/roboto.css">
   <style>
     :root {
@@ -709,10 +710,28 @@
             <label for="admin-roster-id">Loco / Unit ID</label>
             <input type="text" id="admin-roster-id" placeholder="e.g. 999" autocomplete="off">
             <label for="admin-roster-name">Name</label>
-            <input type="text" id="admin-roster-name" placeholder="e.g. Test Paint" autocomplete="off">
+            <input type="text" id="admin-roster-name" placeholder="Paint or Feature" autocomplete="off">
+            <label for="admin-roster-type">Type</label>
+            <input type="text" id="admin-roster-type" placeholder="Filled from the Roster" autocomplete="off">
+            <label for="admin-roster-icon-select">Icon</label>
+            <select id="admin-roster-icon-select">
+              <option value="">Automatic from Roster</option>
+              <option value="/assets/hsp46.png">HSP46</option>
+              <option value="/assets/f40ph.png">F40PH</option>
+              <option value="/assets/gp40mc.png">GP40MC</option>
+              <option value="/assets/mbta-1030.png">MBTA 1030</option>
+              <option value="/assets/mbta-1036.png">MBTA 1036</option>
+              <option value="/assets/mbta-1071.png">MBTA 1071</option>
+              <option value="/assets/mbta-1072.png">MBTA 1072</option>
+              <option value="/assets/mbta-1129.png">MBTA 1129</option>
+              <option value="/assets/mbta-1130.png">MBTA 1130</option>
+              <option value="/assets/mbta-1776.png">MBTA 1776</option>
+              <option value="/assets/mbta-massdot.png">MassDOT Blue</option>
+            </select>
             <label for="admin-roster-icon">Icon URL (Optional)</label>
-            <input type="url" id="admin-roster-icon" placeholder="https://… or /assets/…" autocomplete="off">
-            <p class="rr-modal-hint">Prefer local <code>/assets/…</code> or a non-postimg URL. Explicit roster icons are used as-is on the map.</p>
+            <input type="text" id="admin-roster-icon" placeholder="/assets/… or https://…" autocomplete="off">
+            <img id="admin-roster-icon-preview" alt="Icon Preview" width="44" height="44" hidden style="display:none;width:44px;height:44px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
+            <p class="rr-modal-hint">Typing an MBTA number fills the type, name, and icon from the roster. Change any field to override. Clear the icon to keep the automatic roster icon. A saved locomotive replaces the roster for that number.</p>
             <div class="rr-lightbox-actions" style="margin-top:10px;">
               <button type="button" class="rr-btn" id="admin-roster-submit">Add / Update</button>
               <button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear Form</button>
@@ -2069,25 +2088,116 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+    let adminRosterAuto = { name: '', type: '', icon: '' };
+    function adminRosterIconPreview() {
+      const img = document.getElementById('admin-roster-icon-preview');
+      const iconEl = document.getElementById('admin-roster-icon');
+      const sel = document.getElementById('admin-roster-icon-select');
+      const url = String((iconEl && iconEl.value) || (sel && sel.value) || '').trim();
+      if (!img) return;
+      if (!url) {
+        img.hidden = true;
+        img.style.display = 'none';
+        img.removeAttribute('src');
+        return;
+      }
+      img.hidden = false;
+      img.style.display = 'block';
+      img.alt = 'Icon Preview';
+      img.src = url;
+    }
+    function adminRosterSyncIconSelect(url) {
+      const sel = document.getElementById('admin-roster-icon-select');
+      if (!sel) return;
+      const v = String(url || '');
+      let match = false;
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === v) { match = true; break; }
+      }
+      sel.value = match ? v : '';
+    }
+    function adminMbtaRosterSuggestion(id) {
+      const row = (typeof window.rrMbtaLocoByNumber === 'function') ? window.rrMbtaLocoByNumber(id) : null;
+      let saved = null;
+      const roster = (typeof window.getSpecialUnitsRoster === 'function') ? (window.getSpecialUnitsRoster() || []) : [];
+      const want = String(id || '').trim();
+      roster.forEach(function (u) {
+        if (saved || !u || String(u.agency) !== 'mbta') return;
+        if (String(u.id) === want) saved = u;
+      });
+      if (!saved && row && typeof window.rrMbtaLocoByNumber === 'function') {
+        roster.forEach(function (u) {
+          if (saved || !u || String(u.agency) !== 'mbta' || !u._fromFirestore) return;
+          const other = window.rrMbtaLocoByNumber(u.id);
+          if (other && row && other.number === row.number) saved = u;
+        });
+      }
+      let name = '';
+      let type = row ? row.type : '';
+      let icon = '';
+      if (saved && saved._fromFirestore) {
+        if (saved.name) name = String(saved.name);
+        if (saved.locoType) type = String(saved.locoType);
+        if (saved.iconUrl) icon = String(saved.iconUrl);
+      }
+      if (!name) name = (row && (row.paint || row.type)) || '';
+      if (!icon && typeof window.rrMbtaLocoIconFor === 'function') icon = window.rrMbtaLocoIconFor(id) || '';
+      return { name: name, type: type || '', icon: icon || '' };
+    }
+    function applyAdminMbtaRosterSuggestion() {
+      const agency = String((document.getElementById('admin-roster-agency') || {}).value || '').toLowerCase();
+      const idEl = document.getElementById('admin-roster-id');
+      if (agency !== 'mbta' || !idEl) return;
+      const sug = adminMbtaRosterSuggestion(idEl.value);
+      const nameEl = document.getElementById('admin-roster-name');
+      const typeEl = document.getElementById('admin-roster-type');
+      const iconEl = document.getElementById('admin-roster-icon');
+      function fill(el, key, next) {
+        if (!el) return;
+        if (el.value === '' || el.value === adminRosterAuto[key]) {
+          el.value = next || '';
+          adminRosterAuto[key] = el.value;
+        }
+      }
+      fill(nameEl, 'name', sug.name);
+      fill(typeEl, 'type', sug.type);
+      fill(iconEl, 'icon', sug.icon);
+      if (iconEl && iconEl.value === (sug.icon || '')) adminRosterSyncIconSelect(sug.icon);
+      adminRosterIconPreview();
+    }
     function clearAdminRosterForm() {
       const agencyEl = document.getElementById('admin-roster-agency');
       const idEl = document.getElementById('admin-roster-id');
       const nameEl = document.getElementById('admin-roster-name');
+      const typeEl = document.getElementById('admin-roster-type');
       const iconEl = document.getElementById('admin-roster-icon');
       if (agencyEl) agencyEl.value = 'mbta';
       if (idEl) { idEl.value = ''; idEl.disabled = false; }
       if (nameEl) nameEl.value = '';
+      if (typeEl) typeEl.value = '';
       if (iconEl) iconEl.value = '';
+      adminRosterSyncIconSelect('');
+      adminRosterAuto = { name: '', type: '', icon: '' };
+      adminRosterIconPreview();
     }
-    function fillAdminRosterForm(agency, id, name, iconUrl) {
+    function fillAdminRosterForm(agency, id, name, iconUrl, locoType) {
       const agencyEl = document.getElementById('admin-roster-agency');
       const idEl = document.getElementById('admin-roster-id');
       const nameEl = document.getElementById('admin-roster-name');
+      const typeEl = document.getElementById('admin-roster-type');
       const iconEl = document.getElementById('admin-roster-icon');
       if (agencyEl) agencyEl.value = agency || 'mbta';
       if (idEl) { idEl.value = id || ''; idEl.disabled = false; }
       if (nameEl) nameEl.value = name || '';
+      if (typeEl) typeEl.value = locoType || '';
       if (iconEl) iconEl.value = iconUrl || '';
+      adminRosterSyncIconSelect(iconUrl || '');
+      adminRosterAuto = {
+        name: nameEl ? nameEl.value : '',
+        type: typeEl ? typeEl.value : '',
+        icon: iconEl ? iconEl.value : ''
+      };
+      adminRosterIconPreview();
     }
     function renderAdminRoster() {
       const tbody = document.getElementById('admin-roster-tbody');
@@ -2171,7 +2281,9 @@
       const agency = String((document.getElementById('admin-roster-agency') || {}).value || '').toLowerCase().trim();
       const id = String((document.getElementById('admin-roster-id') || {}).value || '').trim();
       const name = String((document.getElementById('admin-roster-name') || {}).value || '').trim();
+      const locoType = String((document.getElementById('admin-roster-type') || {}).value || '').trim();
       let iconUrl = String((document.getElementById('admin-roster-icon') || {}).value || '').trim();
+      if (!iconUrl) iconUrl = String((document.getElementById('admin-roster-icon-select') || {}).value || '').trim();
       if (!agency || ['mbta', 'amtrak', 'mnr', 'lirr', 'njt'].indexOf(agency) === -1) {
         setAdminError('Pick a valid agency.');
         return;
@@ -2187,6 +2299,7 @@
           id: id,
           name: name,
           iconUrl: iconUrl,
+          locoType: locoType || null,
           builtin: false,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedByEmail: user.email || null,
@@ -3210,6 +3323,32 @@
       if (rosterRefresh) rosterRefresh.addEventListener('click', loadAdminRoster);
       if (rosterSubmit) rosterSubmit.addEventListener('click', adminSaveSpecialUnit);
       if (rosterClear) rosterClear.addEventListener('click', clearAdminRosterForm);
+      const rosterIdInput = document.getElementById('admin-roster-id');
+      const rosterAgencyInput = document.getElementById('admin-roster-agency');
+      const rosterIconInput = document.getElementById('admin-roster-icon');
+      const rosterIconSelect = document.getElementById('admin-roster-icon-select');
+      if (rosterIdInput) rosterIdInput.addEventListener('input', applyAdminMbtaRosterSuggestion);
+      if (rosterAgencyInput) rosterAgencyInput.addEventListener('change', applyAdminMbtaRosterSuggestion);
+      if (rosterIconSelect) rosterIconSelect.addEventListener('change', function () {
+        if (rosterIconInput) rosterIconInput.value = rosterIconSelect.value || '';
+        adminRosterAuto.icon = '\u0000';
+        adminRosterIconPreview();
+      });
+      if (rosterIconInput) rosterIconInput.addEventListener('input', function () {
+        adminRosterSyncIconSelect(rosterIconInput.value);
+        adminRosterAuto.icon = '\u0000';
+        adminRosterIconPreview();
+      });
+      const rosterNameInput = document.getElementById('admin-roster-name');
+      const rosterTypeInput = document.getElementById('admin-roster-type');
+      if (rosterNameInput) rosterNameInput.addEventListener('input', function () {
+        if (rosterNameInput.value !== adminRosterAuto.name) adminRosterAuto.name = '\u0000';
+      });
+      if (rosterTypeInput) rosterTypeInput.addEventListener('input', function () {
+        if (rosterTypeInput.value !== adminRosterAuto.type) adminRosterAuto.type = '\u0000';
+      });
+      window.rrMbtaLocoRosterLoaded = function () { applyAdminMbtaRosterSuggestion(); };
+      if (window.rrMbtaLocoRosterIsReady) applyAdminMbtaRosterSuggestion();
       const rosterTbody = document.getElementById('admin-roster-tbody');
       if (rosterTbody) {
         rosterTbody.addEventListener('click', function(e) {
@@ -3226,7 +3365,7 @@
             const u = roster.find(function(x) {
               return String(x.agency) === agency && String(x.id) === id;
             }) || { agency: agency, id: id, name: '', iconUrl: '' };
-            fillAdminRosterForm(u.agency, u.id, u.name, u.iconUrl);
+            fillAdminRosterForm(u.agency, u.id, u.name, u.iconUrl, u.locoType);
             const nameEl = document.getElementById('admin-roster-name');
             if (nameEl) nameEl.focus();
             return;
@@ -3437,6 +3576,7 @@
               id: id,
               name: d.name || id,
               iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : null,
+              locoType: (d.locoType != null && String(d.locoType).trim()) ? String(d.locoType).trim() : null,
               builtin: false,
               _fromFirestore: true
             };
@@ -3451,6 +3591,7 @@
                 id: String(u.id),
                 name: overlay.name || u.name,
                 iconUrl: overlay.iconUrl != null ? overlay.iconUrl : (u.iconUrl || null),
+                locoType: overlay.locoType || null,
                 builtin: true,
                 _overridden: true,
                 _fromFirestore: true
