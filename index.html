@@ -64,8 +64,7 @@
     }).then(function (rows) {
       var fields = Array.isArray(rows) && rows[0] && rows[0].result && rows[0].result.aggregateFields;
       var raw = fields && fields.n && (fields.n.integerValue != null ? fields.n.integerValue : fields.n.doubleValue);
-      var count = raw == null ? NaN : Number(raw);
-      fill(reportsLi, count);
+      fill(reportsLi, raw == null ? NaN : Number(raw));
     }).catch(function () { reportsLi.hidden = true; });
   }
   if (!('IntersectionObserver' in window)) { start(); return; }
