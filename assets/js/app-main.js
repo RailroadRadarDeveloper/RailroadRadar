@@ -11626,23 +11626,160 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           showNotification('That train is not on the map right now');
         }
       }
+      function boardSafePhotoUrl(url) {
+        const u = String(url || '').trim();
+        return /^https:\/\/lh[0-9]+\.googleusercontent\.com\//.test(u) ? u : '';
+      }
+      function boardReporterView(rep) {
+        const mode = String((rep && rep.reportedByDisplayMode) || '').trim();
+        const label = (typeof formatReporterShortName === 'function' ? formatReporterShortName(rep) : '') || String((rep && rep.reportedByLabel) || '').trim();
+        const anonymous = mode === 'anonymous' || /^anonymous$/i.test(label);
+        if (anonymous || !rep) {
+          return { name: 'Anonymous', anonymous: true, photo: '', verified: false, uid: '' };
+        }
+        const uid = String(rep.reportedByUid || '').trim();
+        const verified = rep.reportedByVerified === true || (uid && typeof isVerifiedReporterUid === 'function' && isVerifiedReporterUid(uid));
+        return { name: label, anonymous: false, photo: boardSafePhotoUrl(rep.reportedByPhotoURL), verified: !!verified, uid: uid };
+      }
+      function boardInitials(name) {
+        if (typeof rrLeaderboardInitials === 'function') return rrLeaderboardInitials(name);
+        const p = String(name || '').replace(/\./g, '').trim().split(/\s+/).filter(Boolean);
+        if (!p.length) return '?';
+        if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+        return (p[0].charAt(0) + p[p.length - 1].charAt(0)).toUpperCase();
+      }
+      function boardAvatarHtml(who) {
+        if (!who || who.anonymous) {
+          return '<span class="rr-board-pfp is-neutral" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.2 19.2c1.3-3.1 3.7-4.6 6.8-4.6s5.5 1.5 6.8 4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>';
+        }
+        if (who.photo) {
+          return '<img class="rr-board-pfp" src="' + escapeHtmlLite(who.photo) + '" alt="" referrerpolicy="no-referrer" data-initials="' + escapeHtmlLite(boardInitials(who.name)) + '">';
+        }
+        return '<span class="rr-board-pfp is-initials" aria-hidden="true">' + escapeHtmlLite(boardInitials(who.name)) + '</span>';
+      }
+      function boardIconOk(url) {
+        const u = String(url || '').trim();
+        if (!u || /postimg|i\.postimg\.cc/i.test(u)) return '';
+        if (/^data:image\//i.test(u)) return u;
+        if (/^https?:\/\//i.test(u)) return u;
+        if (/^\/assets\//i.test(u)) return (typeof rrAssetUrl === 'function') ? rrAssetUrl(u) : u;
+        if (/^assets\//i.test(u)) {
+          const abs = '/' + u.replace(/^\/+/, '');
+          return (typeof rrAssetUrl === 'function') ? rrAssetUrl(abs) : abs;
+        }
+        return '';
+      }
+      function boardLocoIconUrl(opts) {
+        try {
+          const agency = normalizeAgency(opts.agency);
+          const rep = opts.rep || {};
+          const locoId = String(opts.locoId || (rep.locomotiveId) || '').trim();
+          const locos = (typeof normalizeReportLocomotives === 'function') ? normalizeReportLocomotives(rep) : [];
+          const L = locos.filter(function(x) { return locoId && String(x.locomotiveId || '') === locoId; })[0] || locos[0] || null;
+          const stored = boardIconOk(L && L.locoIconUrl) || boardIconOk(rep.locoIconUrl);
+          if (stored) return stored;
+          if (locoId && typeof specialIcons !== 'undefined' && specialIcons[locoId] && specialIcons[locoId].iconUrl) {
+            const s = boardIconOk(specialIcons[locoId].iconUrl);
+            if (s) return s;
+          }
+          const re = locoId && typeof rosterEntry === 'function' ? rosterEntry(agency, locoId) : null;
+          if (re && re.iconUrl) {
+            const s = boardIconOk(re.iconUrl);
+            if (s) return s;
+          }
+          if (agency === 'mbta' && locoId && typeof mbtaResolvedIcon === 'function') {
+            const s = boardIconOk(mbtaResolvedIcon(locoId, null, (L && L.locoType) || null));
+            if (s) return s;
+          }
+          if (agency === 'mbta' && L && L.locoType && typeof resolveMbtaLocoIconUrl === 'function') {
+            const s = boardIconOk(resolveMbtaLocoIconUrl(null, L.locoType));
+            if (s) return s;
+          }
+          if (agency === 'njt' && L && L.locoType && typeof resolveNjtLocoIconUrl === 'function') {
+            const s = boardIconOk(resolveNjtLocoIconUrl(L.locoType));
+            if (s) return s;
+          }
+          if (typeof rrReportIconUrl === 'function') {
+            const s = boardIconOk(rrReportIconUrl(agency, opts.vehicleId, opts.trainNumber));
+            if (s) return s;
+          }
+          if (typeof currentMapIconUrl === 'function') {
+            const s = boardIconOk(currentMapIconUrl(agency, opts.vehicleId, opts.trainNumber));
+            if (s) return s;
+          }
+          if ((agency === 'amtrak' || agency === 'via' || agency === 'brightline') && opts.trainNumber && typeof createAmtrakIcon === 'function') {
+            const trainObj = { trainNum: opts.trainNumber, routeName: agency === 'brightline' ? 'Brightline' : (agency === 'via' ? 'VIA Rail' : '') };
+            const icon = createAmtrakIcon(opts.trainNumber, '', trainObj);
+            const s = boardIconOk(icon && icon.options && icon.options.iconUrl);
+            if (s) return s;
+          }
+        } catch (_) {}
+        return '';
+      }
+      function boardLiveTrip(opts) {
+        const agency = normalizeAgency(opts && opts.agency);
+        const tn = String((opts && opts.trainNumber) || '').replace(/^0+/, '');
+        const vid = String((opts && opts.vehicleId) || '').trim();
+        const bags = [];
+        if (agency === 'mbta' && typeof trainInfo !== 'undefined') bags.push(trainInfo);
+        if ((agency === 'amtrak' || agency === 'via' || agency === 'brightline') && typeof amtrakTrainInfo !== 'undefined') bags.push(amtrakTrainInfo);
+        if (agency === 'mnr' && typeof mnrTrainInfo !== 'undefined') bags.push(mnrTrainInfo);
+        if (agency === 'lirr' && typeof lirrTrainInfo !== 'undefined') bags.push(lirrTrainInfo);
+        if (agency === 'njt' && typeof njtTrainInfo !== 'undefined') bags.push(njtTrainInfo);
+        if (agency === 'marc' && typeof marcTrainInfo !== 'undefined') bags.push(marcTrainInfo);
+        let hit = null;
+        bags.forEach(function(dict) {
+          if (hit || !dict) return;
+          if (vid && dict[vid]) { hit = dict[vid]; return; }
+          if (vid && dict[agency + '-' + vid]) { hit = dict[agency + '-' + vid]; return; }
+          if (!tn) return;
+          Object.keys(dict).some(function(k) {
+            const t = dict[k];
+            if (!t) return false;
+            const num = String(t.trainNum || t.trainNumber || '').replace(/^0+/, '');
+            if (num && num === tn) { hit = t; return true; }
+            return false;
+          });
+        });
+        if (!hit) return { line: '', dest: '' };
+        const line = String(hit.routeName || hit.routeText || hit.lineName || '').trim();
+        let dest = String(hit.destination || hit.destName || '').trim();
+        if (!dest || dest === '—' || /^unknown$/i.test(dest)) dest = '';
+        return { line: /^unknown$/i.test(line) ? '' : line, dest: dest };
+      }
       function boardCardHtml(opts) {
+        opts = opts || {};
         const agency = escapeHtmlLite(agencyPrettyName(opts.agency));
         const time = escapeHtmlLite(formatBoardTime(opts.ms));
         const title = escapeHtmlLite(opts.title || '');
+        const trip = boardLiveTrip(opts);
         const bits = [];
+        if (trip.line) bits.push(trip.line);
         if (opts.trainNumber) bits.push('Train ' + opts.trainNumber);
+        if (trip.dest) bits.push('to ' + trip.dest);
         if (opts.vehicleId && opts.vehicleId !== opts.trainNumber) bits.push('Vehicle ' + opts.vehicleId);
-        if (opts.reporter) bits.push('by ' + opts.reporter);
         if (opts.extra) bits.push(opts.extra);
         const note = String(opts.note || '').trim();
+        const who = boardReporterView(opts.rep);
+        const showWho = !!(opts.rep && (who.anonymous || who.name));
+        const nameHtml = showWho
+          ? (who.anonymous
+            ? escapeHtmlLite(who.name)
+            : reporterNameWithBadgeHtml(who.name, { uid: who.uid, verified: who.verified }))
+          : '';
+        const icon = boardLocoIconUrl(opts);
         return '<button type="button" class="rr-board-card" data-rep-id="' + escapeHtmlLite(opts.id || '') + '">' +
+          '<div class="rr-board-card-main">' +
+          (icon ? '<img class="rr-board-loco" src="' + escapeHtmlLite(icon) + '" alt="">' : '') +
+          '<div class="rr-board-card-body">' +
           '<div class="rr-board-card-top"><span class="rr-board-agency">' + agency + '</span><span class="rr-board-time">' + time + '</span></div>' +
           '<div class="rr-board-title">' + title + '</div>' +
           (bits.length ? '<div class="rr-board-meta">' + escapeHtmlLite(bits.join(' · ')) + '</div>' : '') +
+          (showWho ? ('<div class="rr-board-reporter">' + boardAvatarHtml(who) + '<span class="rr-board-reporter-name">' + nameHtml + '</span></div>') : '') +
           (note ? '<div class="rr-board-note">“' + escapeHtmlLite(note) + '”</div>' : '') +
-          '</button>';
+          '</div></div></button>';
       }
+      try { window.rrFormatBoardCard = boardCardHtml; } catch (_) {}
       function bindBoardCards(container, byId) {
         if (!container) return;
         container.querySelectorAll('.rr-board-card').forEach(function(el) {
@@ -11650,6 +11787,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const id = el.getAttribute('data-rep-id');
             const row = byId[id];
             if (row && row.rep) focusReportedTrain(row.rep);
+          });
+        });
+        container.querySelectorAll('img.rr-board-pfp').forEach(function(img) {
+          img.addEventListener('error', function() {
+            const initials = img.getAttribute('data-initials') || '?';
+            const span = document.createElement('span');
+            span.className = 'rr-board-pfp is-initials';
+            span.setAttribute('aria-hidden', 'true');
+            span.textContent = initials;
+            if (img.parentNode) img.parentNode.replaceChild(span, img);
           });
         });
       }
@@ -11685,7 +11832,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             title: r.title,
             trainNumber: r.trainNumber,
             vehicleId: r.vehicleId,
-            reporter: r.reporter,
+            locoId: r.locoId,
+            rep: r.rep,
             note: r.comment
           });
         });
@@ -11731,7 +11879,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             title: r.locoTxt,
             trainNumber: r.trainNumber,
             vehicleId: r.vehicleId,
-            reporter: r.reporter,
+            locoId: r.locoId,
+            rep: r.rep,
             extra: '',
             note: r.comment
           });
@@ -11792,7 +11941,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             title: r.locoTxt,
             trainNumber: r.trainNumber,
             vehicleId: '',
-            reporter: r.reporter,
+            locoId: r.locoId,
+            rep: r.rep,
             extra: r.serviceDate ? ('Service ' + r.serviceDate) : '',
             note: r.comment
           });
@@ -12127,8 +12277,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           const panel = document.getElementById('control-panel');
           const overlay = document.getElementById('overlay');
+          const tools = document.getElementById('header-tools-panel');
+          const toolsBtn = document.getElementById('btn-header-tools');
           if (panel) panel.classList.remove('open');
           if (overlay) overlay.classList.remove('open');
+          if (tools) tools.hidden = true;
+          if (toolsBtn) toolsBtn.setAttribute('aria-expanded', 'false');
         } catch (_) {}
       }
       function closeSpecialsBoard() {
