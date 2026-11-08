@@ -11046,6 +11046,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } finally {
           if (token === reportTrainSelectToken) {
             sel.disabled = reportTrainExtraMode;
+            if (typeof window.rrAcelaEquipRefreshForm === 'function') window.rrAcelaEquipRefreshForm();
           }
         }
       }
@@ -11131,6 +11132,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           serviceDateInput.value = today;
         }
         populateReportUnitSelect();
+        if (typeof window.rrAcelaEquipResetForm === 'function') window.rrAcelaEquipResetForm();
+        else if (typeof window.rrAcelaEquipRefreshForm === 'function') window.rrAcelaEquipRefreshForm();
         if (modal) {
           modal.classList.add('open');
           modal.setAttribute('aria-hidden', 'false');
@@ -11178,6 +11181,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
         }
         const mbtaApiVehicleId = ((document.getElementById('report-mbta-vehicle-id') || {}).value || '').trim();
+        const acelaEquipment = (typeof window.rrAcelaEquipGetFormData === 'function') ? window.rrAcelaEquipGetFormData(agency, trainNumber) : null;
+        if (acelaEquipment && acelaEquipment.error) { setErr(acelaEquipment.error); return; }
         syncReportLocoSlotsFromDom();
         if (!isMbta) {
           if (!serviceDate) { setErr('Pick a service date.'); return; }
@@ -11201,38 +11206,46 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (r.error) { setErr(r.error); return; }
           resolved.push(r);
         }
-        if (!resolved.length) {
+        if (!resolved.length && !acelaEquipment) {
           setErr(agency === 'mbta'
             ? 'Add at least one locomotive (special list or number + type).'
             : 'Add at least one roster unit or custom vehicle ID.');
           return;
         }
-        if (!isMbta) {
-          vehicleId = vehicleId || resolved[0].locomotiveId || '';
-        }
+        if (!isMbta && resolved.length) vehicleId = vehicleId || resolved[0].locomotiveId || '';
         if (reportTrainSubmitting) return;
         reportTrainSubmitting = true;
         const submitButton = document.getElementById('report-train-submit');
         if (submitButton) submitButton.disabled = true;
         try {
-          const first = resolved[0];
-          const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
-          const saved = await submitTrainReport({
-            agency: agency,
-            trainNumber: trainNumber,
-            vehicleId: vehicleId,
-            locomotiveId: first.locomotiveId,
-            unitName: first.unitName,
-            serviceDate: serviceDate,
-            locoType: first.locoType,
-            locoIconUrl: first.locoIconUrl,
-            specialOverride: first.specialOverride,
-            customLoco: first.customLoco,
-            locomotives: resolved,
-            comment: comment
-          });
+          let saved = null;
+          if (resolved.length) {
+            const first = resolved[0];
+            const comment = ((document.getElementById('report-comment') || {}).value || '').trim();
+            saved = await submitTrainReport({
+              agency: agency, trainNumber: trainNumber, vehicleId: vehicleId,
+              locomotiveId: first.locomotiveId, unitName: first.unitName, serviceDate: serviceDate,
+              locoType: first.locoType, locoIconUrl: first.locoIconUrl,
+              specialOverride: first.specialOverride, customLoco: first.customLoco,
+              locomotives: resolved, comment: comment
+            });
+          }
+          if (acelaEquipment && !(saved && saved.pending)) {
+            try { await window.rrAcelaEquipSave(acelaEquipment); }
+            catch (equipmentError) {
+              const equipmentMessage = (saved ? 'Train report saved. ' : '') + 'Acela equipment report could not be saved: ' + ((equipmentError && equipmentError.message) || equipmentError);
+              setErr(equipmentMessage);
+              showNotification(equipmentMessage, 'error');
+              if (saved) closeReportTrainModal();
+              return;
+            }
+          }
           const savedLabel = resolved.map(function(L) { return L.unitName || L.locomotiveId; }).join(' + ');
-          showNotification((saved && saved.pending) ? ('Report sent for approval: ' + savedLabel) : ('Report saved for ' + savedLabel));
+          if (saved && saved.pending && acelaEquipment) showNotification('Train report sent for approval; Acela equipment was not submitted.');
+          else if (saved && saved.pending) showNotification('Report sent for approval: ' + savedLabel);
+          else if (saved && acelaEquipment) showNotification('Train and Acela equipment reports saved');
+          else if (acelaEquipment && !saved) showNotification('Acela equipment report saved');
+          else showNotification('Report saved for ' + savedLabel);
           closeReportTrainModal();
           await loadTrainReports();
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch(_){}
@@ -20061,7 +20074,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       /* General, how-to and policy questions are answered from assets/data/site-index.json: hand-picked
          sentences quoted word for word from RailroadRadar's own pages (tests/static/check.js keeps them true).
          The file is fetched once, the first time Ask gets this far, and costs no MBTA or worker request. */
-      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=cba6d25b7d';
+      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=2465bf3bba';
       const RR_ASK_SITE_STOP = new Set(('a about am an and any are as at be been by can could d did do does dont for from get got have '
         + 'how i if im in is it its ll me my number of on or our phone please re s should so t tell that the there this to us use using '
         + 've want was we what whats when where which who why will with would you your railroadradar site website app page').split(' '));

@@ -3,7 +3,7 @@
    `acelaEquipment`; Acela train popups show today's majority with the newest agreeing reporter,
    e.g. "Reported by Arturo K. and 2 Others". Names follow the rider's report display setting and
    the verified badge, the same as Reported Unit reports (reportedByLabel / reportedByVerified).
-   Report from the popup's Report Equipment button or the Menu's Report Acela Equipment.
+   Report from an Acela popup through the shared Report a Train form.
    ?equipSample=1 (or window.rrAcelaEquipSample) uses clearly marked sample data and writes nothing. */
 (function () {
   'use strict';
@@ -171,7 +171,7 @@
     if (sampleMode()) body += '<div class="acela-equip-pop-sample"><span class="acela-equip-sample">Sample Data</span></div>';
     var safe = String(num).replace(/[^0-9]/g, '');
     return '<div class="loco-report-text">' + body + '</div>' +
-      '<button type="button" class="popup-action-btn update-pairing-btn acela-equip-pop-btn" onclick="rrAcelaEquipReport(\'' + safe + '\')">Report Equipment</button>' +
+      '<button type="button" class="popup-action-btn update-pairing-btn acela-equip-pop-btn" onclick="rrAcelaEquipReport(\'' + safe + '\')">Report Train</button>' +
       (unit && unit.onclick ? '<button type="button" class="acela-equip-pop-unit-link" onclick="' + esc(unit.onclick) + '">' + (unit.hasUnit ? 'Update Unit Number' : 'Report Unit Number') + '</button>' : '');
   }
   function popupHtml(num, route, unit) {
@@ -206,27 +206,19 @@
     return false;
   }
   function reportFromPopup(num) {
-    if (!requireSignIn()) return;
-    var today = easternDate(new Date());
-    openForm({ trainNumber: String(num || ''), from: today, until: today });
-  }
-  function reportFromMenu() {
-    try {
-      var panel = document.getElementById('header-tools-panel');
-      var tb = document.getElementById('btn-header-tools');
-      if (panel && !panel.hidden && tb) tb.click();
-    } catch (_) {}
-    if (!requireSignIn()) return;
-    openForm({});
+    if (typeof window.openReportTrainModal === 'function') {
+      window.openReportTrainModal({ agency: 'amtrak', trainNumber: String(num || '') });
+      if (typeof window.rrAcelaEquipRefreshForm === 'function') window.rrAcelaEquipRefreshForm();
+    }
   }
 
-  // ---- Report Equipment form ----
+  // Acela equipment selection is embedded in the shared Report a Train form.
   function el(id) { return document.getElementById(id); }
   var chosenType = '';
 
   function setType(t) {
     chosenType = t;
-    document.querySelectorAll('#acela-equip-modal .acela-equip-choice').forEach(function (b) {
+    document.querySelectorAll('#rr-acela-equipment-fields .acela-equip-choice').forEach(function (b) {
       var on = b.getAttribute('data-type') === t;
       b.classList.toggle('is-on', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -247,8 +239,48 @@
   }
 
   function refreshFormSummary() {
-    var box = el('acela-equip-current-box');
-    if (box) box.innerHTML = currentSummaryHtml(String(el('acela-equip-train').value || '').trim());
+    var box = el('rr-acela-equipment-summary');
+    if (box) box.innerHTML = currentSummaryHtml(reportTrainNumber());
+  }
+  function reportTrainNumber() {
+    var extra = el('report-train-extra-btn');
+    if (extra && extra.getAttribute('aria-pressed') === 'true') return String((el('report-train-number') || {}).value || '').trim();
+    return String((el('report-train-select') || {}).value || '').trim();
+  }
+  function refreshEquipmentFields() {
+    var wrap = el('rr-acela-equipment-fields');
+    if (!wrap) return;
+    var agency = String((el('report-agency') || {}).value || '').toLowerCase();
+    var active = agency === 'amtrak' && isAcelaNumber(reportTrainNumber());
+    wrap.hidden = !active;
+    if (!active) { setType(''); return; }
+    var today = easternDate(new Date());
+    [el('rr-acela-equipment-from'), el('rr-acela-equipment-until')].forEach(function (input) {
+      if (!input) return;
+      input.min = today; input.max = addDays(today, MAX_DAYS_AHEAD);
+      if (!input.value) input.value = today;
+    });
+    refreshFormSummary();
+  }
+  function resetEquipmentForm() {
+    var today = easternDate(new Date());
+    setType('');
+    [el('rr-acela-equipment-from'), el('rr-acela-equipment-until')].forEach(function (input) {
+      if (input) input.value = today;
+    });
+    refreshEquipmentFields();
+  }
+  function getEquipmentFormData(agency, trainNumber) {
+    if (String(agency || '').toLowerCase() !== 'amtrak' || !isAcelaNumber(trainNumber) || !TYPES[chosenType]) return null;
+    var from = String((el('rr-acela-equipment-from') || {}).value || '');
+    var until = String((el('rr-acela-equipment-until') || {}).value || '');
+    var today = easternDate(new Date());
+    if (!from || !until) return { error: 'Choose the Acela equipment date range.' };
+    if (from < today) return { error: 'Equipment reports can start today or later.' };
+    if (until < from) return { error: 'Equipment Until must be on or after From.' };
+    if (daysBetween(today, until) > MAX_DAYS_AHEAD) return { error: 'Equipment reports can reach up to ' + MAX_DAYS_AHEAD + ' days ahead.' };
+    if (daysBetween(from, until) > MAX_SPAN_DAYS) return { error: 'One equipment report can cover up to ' + MAX_SPAN_DAYS + ' days.' };
+    return { trainNumber: String(trainNumber), from: from, until: until, type: chosenType };
   }
 
   function setError(msg) {
@@ -256,34 +288,6 @@
     if (!e) return;
     e.textContent = msg || '';
     e.classList.toggle('visible', !!msg);
-  }
-
-  function openForm(opts) {
-    opts = opts || {};
-    var modal = el('acela-equip-modal');
-    if (!modal) return;
-    var today = easternDate(new Date());
-    var train = el('acela-equip-train'), from = el('acela-equip-from'), until = el('acela-equip-until');
-    train.value = opts.trainNumber || '';
-    from.min = today; until.min = today;
-    from.max = addDays(today, MAX_DAYS_AHEAD); until.max = addDays(today, MAX_DAYS_AHEAD);
-    from.value = opts.from || today;
-    until.value = opts.until || opts.from || today;
-    setType(opts.type || '');
-    setError('');
-    el('acela-equip-sample-note').hidden = !sampleMode();
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden', 'false');
-    load().then(refreshFormSummary);
-    refreshFormSummary();
-    try { (opts.trainNumber ? from : train).focus({ preventScroll: true }); } catch (_) {}
-  }
-
-  function closeForm() {
-    var modal = el('acela-equip-modal');
-    if (!modal) return;
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
   }
 
   function currentUid() {
@@ -307,58 +311,51 @@
     return { label: label, mode: mode, verified: verified };
   }
 
-  function submit() {
-    var num = String(el('acela-equip-train').value || '').trim();
-    var from = el('acela-equip-from').value, until = el('acela-equip-until').value;
+  function saveEquipmentReport(data) {
+    data = data || {};
+    var num = String(data.trainNumber || '').trim(), from = String(data.from || ''), until = String(data.until || '');
     var today = easternDate(new Date());
-    if (!isAcelaNumber(num)) return setError('Enter an Acela train number, like 2153.');
-    if (!from || !until) return setError('Pick a From date and an Until date.');
-    if (from < today) return setError('From can be today or later.');
-    if (until < from) return setError('Until has to be on or after From.');
-    if (daysBetween(today, until) > MAX_DAYS_AHEAD) return setError('Reports can reach up to ' + MAX_DAYS_AHEAD + ' days ahead.');
-    if (daysBetween(from, until) > MAX_SPAN_DAYS) return setError('One report can cover up to ' + MAX_SPAN_DAYS + ' days.');
-    if (!TYPES[chosenType]) return setError('Choose NextGen or Legacy.');
+    if (!isAcelaNumber(num)) return Promise.reject(new Error('Enter an Acela train number, like 2153.'));
+    if (!from || !until) return Promise.reject(new Error('Choose the Acela equipment date range.'));
+    if (from < today) return Promise.reject(new Error('Equipment reports can start today or later.'));
+    if (until < from) return Promise.reject(new Error('Equipment Until must be on or after From.'));
+    if (daysBetween(today, until) > MAX_DAYS_AHEAD) return Promise.reject(new Error('Equipment reports can reach up to ' + MAX_DAYS_AHEAD + ' days ahead.'));
+    if (daysBetween(from, until) > MAX_SPAN_DAYS) return Promise.reject(new Error('One equipment report can cover up to ' + MAX_SPAN_DAYS + ' days.'));
+    if (!TYPES[data.type]) return Promise.reject(new Error('Choose NextGen or Legacy.'));
     var uid = currentUid();
-    if (!uid) { setError('Sign in to report equipment.'); requireSignIn(); return; }
-    setError('');
+    if (!uid) return Promise.reject(new Error('Sign in to report Acela equipment.'));
     var who = reporterIdentity();
-    var doc = { trainNumber: num, from: from, until: until, type: chosenType, uid: uid,
+    var doc = { trainNumber: num, from: from, until: until, type: data.type, uid: uid,
       reportedByLabel: who.label, reportedByDisplayMode: who.mode, reportedByVerified: who.verified };
-    var done = function () {
+    function done() {
       reports.push(Object.assign({ id: 'local-' + Date.now(), createdAtMs: Date.now() }, doc));
-      closeForm();
       refreshPopups();
-      try { showNotification(sampleMode() ? 'Sample report added on this page only' : 'Thanks! Your report helps other riders.'); } catch (_) {}
-    };
-    if (sampleMode()) return done();
-    var btn = el('acela-equip-save');
-    btn.disabled = true;
-    firebase.firestore().collection(COLLECTION).add(Object.assign({}, doc, { createdAt: firebase.firestore.FieldValue.serverTimestamp() }))
-      .then(done)
-      .catch(function (e) { console.warn('[acela-equip] save failed', e); setError('Could not save your report. Try again in a moment.'); })
-      .then(function () { btn.disabled = false; });
+      return { sample: sampleMode() };
+    }
+    if (sampleMode()) return Promise.resolve(done());
+    return firebase.firestore().collection(COLLECTION).add(Object.assign({}, doc, { createdAt: firebase.firestore.FieldValue.serverTimestamp() })).then(done);
   }
 
   function wire() {
-    var modal = el('acela-equip-modal');
-    if (!modal || modal.getAttribute('data-wired') === '1') return;
-    modal.setAttribute('data-wired', '1');
-    el('acela-equip-close').addEventListener('click', closeForm);
-    el('acela-equip-cancel').addEventListener('click', closeForm);
-    el('acela-equip-save').addEventListener('click', submit);
-    el('acela-equip-train').addEventListener('input', refreshFormSummary);
-    modal.addEventListener('click', function (e) { if (e.target === modal) closeForm(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('open')) closeForm(); });
-    modal.querySelectorAll('.acela-equip-choice').forEach(function (b) {
-      b.addEventListener('click', function () { setType(b.getAttribute('data-type')); });
+    var wrap = el('rr-acela-equipment-fields');
+    if (!wrap || wrap.getAttribute('data-wired') === '1') return;
+    wrap.setAttribute('data-wired', '1');
+    wrap.querySelectorAll('.acela-equip-choice').forEach(function (b) {
+      b.addEventListener('click', function () { setType(b.getAttribute('data-type')); refreshFormSummary(); });
     });
-    var entry = el('btn-acela-equip-menu');
-    if (entry) entry.addEventListener('click', reportFromMenu);
+    ['report-agency', 'report-train-select', 'report-train-number', 'report-train-extra-btn'].forEach(function (id) {
+      var node = el(id);
+      if (node) node.addEventListener(id === 'report-train-number' ? 'input' : 'change', refreshEquipmentFields);
+      if (node && id === 'report-train-extra-btn') node.addEventListener('click', refreshEquipmentFields);
+    });
+    window.rrAcelaEquipRefreshForm = refreshEquipmentFields;
+    window.rrAcelaEquipResetForm = resetEquipmentForm;
+    refreshEquipmentFields();
   }
-
   window.rrAcelaEquipPopupHtml = popupHtml;
   window.rrAcelaEquipReport = reportFromPopup;
-  window.rrAcelaEquipOpen = openForm;
+  window.rrAcelaEquipGetFormData = getEquipmentFormData;
+  window.rrAcelaEquipSave = saveEquipmentReport;
   window.rrAcelaEquipSummarize = summarize;
   window.rrAcelaEquipIsLegacy = isLegacyToday;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();

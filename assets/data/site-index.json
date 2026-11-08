@@ -108,7 +108,7 @@
       "k": ["report a train", "report", "pair", "pairing", "locomotive", "consist", "which engine", "leaderboard", "specials", "recent reports"],
       "s": [
         { "t": "Sign in with Google to pair locomotives to live trains and share what you see." },
-        { "t": "Signed-in users can pair locomotives or special units to live or scheduled trains and add comments.", "k": ["pair", "comment"] },
+        { "t": "Signed-in users can pair locomotives or special units to live or scheduled trains, add comments, and report whether an Acela train will run with NextGen or Legacy equipment over a range of dates.", "k": ["pair", "comment", "acela", "equipment", "nextgen", "legacy"] },
         { "t": "No train reports this week yet. Report a consist to get on the board.", "k": ["leaderboard", "board", "points"] }
       ],
       "rel": ["sign-in", "terms", "recent-reports"]
