@@ -10441,6 +10441,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { if (typeof onTrainReportsUpdated === 'function') onTrainReportsUpdated(trainReports); } catch (_) {}
           try { if (typeof rrReapplyReportIcons === 'function') rrReapplyReportIcons(); } catch (_) {}
           try { if (typeof renderUpcomingBoard === 'function') renderUpcomingBoard(); } catch (_) {}
+          try {
+            const board = document.getElementById('specials-board-modal');
+            if (board && board.classList.contains('open') && typeof renderSpecialsBoard === 'function') renderSpecialsBoard();
+          } catch (_) {}
           console.log('%c[trainReports] Loaded ' + allTrainReports.length + ' total (' + trainReports.length + ' map-active)', 'color:#27ae60');
         } catch (e) {
           allTrainReports = [];
@@ -11086,7 +11090,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const future = isFutureServiceDate(sd);
         if (hint) {
           if (future) {
-            hint.textContent = "We'll show this pairing under Specials until that service day. First locomotive sets the icon.";
+            hint.textContent = "We'll show this pairing under Recent Reports until that service day. First locomotive sets the icon.";
           } else {
             hint.textContent = 'These units are linked to that trip on the selected date. First locomotive sets the map icon.';
           }
@@ -12139,8 +12143,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const btnP = document.getElementById('btn-specials-panel');
         const btnC = document.getElementById('specials-board-close');
         const modal = document.getElementById('specials-board-modal');
-        if (btnH) btnH.addEventListener('click', openSpecialsBoard);
-        if (btnP) btnP.addEventListener('click', openSpecialsBoard);
+        function openFromLink(e) {
+          if (e && e.preventDefault) e.preventDefault();
+          openSpecialsBoard();
+        }
+        if (btnH) btnH.addEventListener('click', openFromLink);
+        if (btnP) btnP.addEventListener('click', openFromLink);
         if (btnC) btnC.addEventListener('click', closeSpecialsBoard);
         if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeSpecialsBoard(); });
         document.querySelectorAll('[data-board-tab]').forEach(function(btn) {
@@ -12168,6 +12176,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             e.stopPropagation();
           }
         });
+        try {
+          var reportsPath = (location.pathname || '/').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
+          if (reportsPath === '/specials' || reportsPath === '/recent-reports') openSpecialsBoard();
+        } catch (_) {}
       }
 
       // ============================================================
@@ -19895,7 +19907,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       /* General, how-to and policy questions are answered from assets/data/site-index.json: hand-picked
          sentences quoted word for word from RailroadRadar's own pages (tests/static/check.js keeps them true).
          The file is fetched once, the first time Ask gets this far, and costs no MBTA or worker request. */
-      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=15a8d57426';
+      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=cba6d25b7d';
       const RR_ASK_SITE_STOP = new Set(('a about am an and any are as at be been by can could d did do does dont for from get got have '
         + 'how i if im in is it its ll me my number of on or our phone please re s should so t tell that the there this to us use using '
         + 've want was we what whats when where which who why will with would you your railroadradar site website app page').split(' '));

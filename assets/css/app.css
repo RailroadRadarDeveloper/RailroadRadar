@@ -2075,6 +2075,9 @@
      background: #07093e;
    }
    /* On mobile, Report a train, Specials, and Leaderboard also live in the settings panel */
+   #btn-specials-header,
+   #btn-specials-panel { text-decoration: none; box-sizing: border-box; color: #07093e; }
+   #btn-specials-header { display: block; text-align: left; }
    @media (max-width: 767px) {
      #btn-report-train-header { display: none !important; }
      #btn-report-train-panel, #btn-specials-panel, #btn-leaderboard-panel { display: block; }

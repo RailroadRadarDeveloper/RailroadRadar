@@ -105,13 +105,21 @@
     },
     {
       "id": "report-train", "title": "Report a Train", "label": "Report a Train", "url": "/map/", "click": "btn-report-train-header", "src": ["map/index.html", "policies/privacy/index.html"],
-      "k": ["report a train", "report", "pair", "pairing", "locomotive", "consist", "which engine", "leaderboard", "specials"],
+      "k": ["report a train", "report", "pair", "pairing", "locomotive", "consist", "which engine", "leaderboard", "specials", "recent reports"],
       "s": [
         { "t": "Sign in with Google to pair locomotives to live trains and share what you see." },
         { "t": "Signed-in users can pair locomotives or special units to live or scheduled trains and add comments.", "k": ["pair", "comment"] },
         { "t": "No train reports this week yet. Report a consist to get on the board.", "k": ["leaderboard", "board", "points"] }
       ],
-      "rel": ["sign-in", "terms"]
+      "rel": ["sign-in", "terms", "recent-reports"]
+    },
+    {
+      "id": "recent-reports", "title": "Recent Reports", "label": "Recent Reports", "url": "/specials/", "click": "btn-specials-header", "src": ["map/index.html", "index.html", "sitemap/index.html"],
+      "k": ["recent reports", "specials", "specials and reports", "active specials", "upcoming pairings", "reports"],
+      "s": [
+        { "t": "Recent locomotive reports, active specials, and upcoming pairings." }
+      ],
+      "rel": ["live-map", "report-train"]
     },
     {
       "id": "station-audio", "title": "Station Audio", "url": "/stationaudio/", "src": ["stationaudio/index.html"],
