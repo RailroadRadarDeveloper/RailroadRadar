@@ -11229,12 +11229,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               locomotives: resolved, comment: comment
             });
           }
-          if (acelaEquipment) {
+          if (acelaEquipment && !(saved && saved.pending)) {
             try { await window.rrAcelaEquipSave(acelaEquipment); }
-            catch (equipmentError) { throw new Error((saved ? 'Train report saved, but ' : '') + 'Acela equipment report could not be saved: ' + ((equipmentError && equipmentError.message) || equipmentError)); }
+            catch (equipmentError) {
+              const equipmentMessage = (saved ? 'Train report saved. ' : '') + 'Acela equipment report could not be saved: ' + ((equipmentError && equipmentError.message) || equipmentError);
+              setErr(equipmentMessage);
+              showNotification(equipmentMessage, 'error');
+              if (saved) closeReportTrainModal();
+              return;
+            }
           }
           const savedLabel = resolved.map(function(L) { return L.unitName || L.locomotiveId; }).join(' + ');
-          if (saved && saved.pending) showNotification('Report sent for approval: ' + savedLabel);
+          if (saved && saved.pending && acelaEquipment) showNotification('Train report sent for approval; Acela equipment was not submitted.');
+          else if (saved && saved.pending) showNotification('Report sent for approval: ' + savedLabel);
           else if (saved && acelaEquipment) showNotification('Train and Acela equipment reports saved');
           else if (acelaEquipment && !saved) showNotification('Acela equipment report saved');
           else showNotification('Report saved for ' + savedLabel);
