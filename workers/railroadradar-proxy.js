@@ -297,14 +297,14 @@ function amtrakGtfsLocalTimeToIso(ymd, rawTime, timezone) {
   }
 }
 async function amtrakStaticStopsByTrain(ymd) {
-  const cacheKey = schedulesCacheUrl("amtrak-stops", "amtrak", ymd);
+  const cacheKey = schedulesCacheUrl("amtrak-stops-v2", "amtrak", ymd);
   const cached = await cacheGetText(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (_) {}
   }
   const zip = await fetchGtfsZip("amtrak");
   const files = await unzipNamedFiles(zip, [
-    "trips.txt", "stops.txt", "stop_times.txt", "calendar.txt", "calendar_dates.txt"
+    "trips.txt", "routes.txt", "stops.txt", "stop_times.txt", "calendar.txt", "calendar_dates.txt"
   ]);
   if (!files["trips.txt"] || !files["stops.txt"] || !files["stop_times.txt"])
     throw new Error("Amtrak GTFS is missing trips.txt, stops.txt, or stop_times.txt");
@@ -317,12 +317,25 @@ async function amtrakStaticStopsByTrain(ymd) {
   parseCsv(files["stops.txt"]).forEach((s) => {
     stopById[String(s.stop_id)] = s;
   });
+  const routeById = {};
+  parseCsv(files["routes.txt"] || "").forEach((r) => {
+    routeById[String(r.route_id)] = r;
+  });
   const tripById = {};
+  const metaByTrain = {};
   parseCsv(files["trips.txt"]).forEach((t) => {
     if (!services.has(String(t.service_id))) return;
     const num = String(t.trip_short_name || "").trim();
     if (!num || tripById[String(t.trip_id)]) return;
     tripById[String(t.trip_id)] = num;
+    const route = routeById[String(t.route_id)] || {};
+    if (!metaByTrain[num]) {
+      metaByTrain[num] = {
+        routeName: String(route.route_long_name || route.route_short_name || "Amtrak").trim(),
+        destName: String(t.trip_headsign || "").trim(),
+        tripId: String(t.trip_id || "")
+      };
+    }
   });
   const grouped = {};
   parseCsv(files["stop_times.txt"]).forEach((st) => {
@@ -343,6 +356,7 @@ async function amtrakStaticStopsByTrain(ymd) {
     grouped[num].sort((a, b) => a._sequence - b._sequence);
     grouped[num].forEach((s) => { delete s._sequence; });
   });
+  grouped.__meta = metaByTrain;
   await cachePutText(cacheKey, JSON.stringify(grouped), GTFS_CACHE_TTL_SEC);
   return grouped;
 }
@@ -441,6 +455,24 @@ async function proxyAmtrakTrains(cors) {
         const stops = schedules[trainNum];
         if (!stops || !stops.length) return;
         record.stations = stops.map((stop) => ({ ...stop }));
+        const meta = schedules.__meta && schedules.__meta[trainNum];
+        if (meta) {
+          if (!record.routeName || record.routeName === "Amtrak") record.routeName = meta.routeName || "Amtrak";
+          if (!record.destName && !record.destCode) {
+            record.destName = meta.destName || stops[stops.length - 1].name || "";
+            record.destCode = stops[stops.length - 1].code || "";
+          }
+          if (!record.origName && !record.origCode) {
+            record.origName = stops[0].name || "";
+            record.origCode = stops[0].code || "";
+          }
+        } else if (!record.destName && !record.destCode) {
+          record.destName = stops[stops.length - 1].name || "";
+          record.destCode = stops[stops.length - 1].code || "";
+        }
+        if (!record.trainState || /^(unknown|—|-)$/.test(String(record.trainState).trim().toLowerCase())) {
+          record.trainState = "Active";
+        }
         scheduledTrainCount++;
       });
     });
