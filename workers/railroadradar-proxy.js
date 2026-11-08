@@ -5,7 +5,7 @@ var __name = (target, value) => __defProp(target, "name", { value, configurable:
 var MTA_BASE = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds";
 var MBTA_BASE = "https://api-v3.mbta.com";
 var MAPBOX_BASE = "https://api.mapbox.com";
-var AMTRAK_URL = "https://api-v3.amtraker.com/v3/trains";
+var AMTRAK_URL = "https://api.amtraker.com/v3/trains";
 var AMTRAK_ALERTS_URL = "https://asm-backend.transitdocs.com/gtfs/amtrak";
 var NJT_BASE = "https://raildata.njtransit.com/api/TrainData";
 var NJT_TOKEN_CACHE_URL = "https://railroadradar.internal/njt-token";
@@ -164,6 +164,197 @@ async function proxyBinary(upstreamUrl, headers, cors, cacheTtl) {
   });
 }
 __name(proxyBinary, "proxyBinary");
+// Decode TransitDocs GTFS-Realtime vehicle positions as a backup to Amtraker.
+function gtfsVarint(bytes, offset) {
+  let value = 0, multiplier = 1, byte;
+  do {
+    if (offset >= bytes.length) throw new Error("Truncated GTFS-RT varint");
+    byte = bytes[offset++];
+    value += (byte & 127) * multiplier;
+    multiplier *= 128;
+  } while (byte & 128);
+  return [value, offset];
+}
+function gtfsFields(bytes, start, end, visit) {
+  let offset = start;
+  while (offset < end) {
+    let tag;
+    [tag, offset] = gtfsVarint(bytes, offset);
+    const field = Math.floor(tag / 8), wire = tag & 7;
+    if (wire === 0) {
+      let value;
+      [value, offset] = gtfsVarint(bytes, offset);
+      visit(field, wire, value, value);
+    } else if (wire === 1) {
+      if (offset + 8 > end) throw new Error("Truncated GTFS-RT fixed64");
+      offset += 8;
+    } else if (wire === 5) {
+      if (offset + 4 > end) throw new Error("Truncated GTFS-RT fixed32");
+      visit(field, wire, offset, offset + 4);
+      offset += 4;
+    } else if (wire === 2) {
+      let length;
+      [length, offset] = gtfsVarint(bytes, offset);
+      const finish = offset + length;
+      if (finish > end) throw new Error("Truncated GTFS-RT message");
+      visit(field, wire, offset, finish);
+      offset = finish;
+    } else {
+      throw new Error("Unsupported GTFS-RT wire type " + wire);
+    }
+  }
+}
+function gtfsText(bytes, start, end) {
+  return new TextDecoder().decode(bytes.subarray(start, end));
+}
+function decodeTransitDocsPositions(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const vehicles = [];
+  gtfsFields(bytes, 0, bytes.length, (field, wire, start, end) => {
+    if (field !== 2 || wire !== 2) return;
+    const vehicle = { entityId: "", tripId: "", routeId: "", vehicleId: "", label: "", lat: null, lon: null, bearing: null, speed: null, timestamp: 0 };
+    let hasPosition = false;
+    gtfsFields(bytes, start, end, (entityField, entityWire, entityStart, entityEnd) => {
+      if (entityField === 1 && entityWire === 2) vehicle.entityId = gtfsText(bytes, entityStart, entityEnd);
+      if (entityField !== 4 || entityWire !== 2) return;
+      gtfsFields(bytes, entityStart, entityEnd, (vpField, vpWire, vpStart, vpEnd) => {
+        if (vpField === 1 && vpWire === 2) {
+          gtfsFields(bytes, vpStart, vpEnd, (tripField, tripWire, tripStart, tripEnd) => {
+            if (tripWire !== 2) return;
+            if (tripField === 1) vehicle.tripId = gtfsText(bytes, tripStart, tripEnd);
+            if (tripField === 5) vehicle.routeId = gtfsText(bytes, tripStart, tripEnd);
+          });
+        } else if (vpField === 2 && vpWire === 2) {
+          gtfsFields(bytes, vpStart, vpEnd, (posField, posWire, posStart) => {
+            if (posWire !== 5) return;
+            const value = view.getFloat32(posStart, true);
+            if (posField === 1) vehicle.lat = value;
+            if (posField === 2) vehicle.lon = value;
+            if (posField === 3) vehicle.bearing = value;
+            if (posField === 5) vehicle.speed = value;
+          });
+          hasPosition = true;
+        } else if (vpField === 5 && vpWire === 0) {
+          vehicle.timestamp = vpStart;
+        } else if (vpField === 8 && vpWire === 2) {
+          gtfsFields(bytes, vpStart, vpEnd, (descField, descWire, descStart, descEnd) => {
+            if (descWire !== 2) return;
+            if (descField === 1) vehicle.vehicleId = gtfsText(bytes, descStart, descEnd);
+            if (descField === 2) vehicle.label = gtfsText(bytes, descStart, descEnd);
+          });
+        }
+      });
+    });
+    if (hasPosition && Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon) &&
+        vehicle.lat >= 15 && vehicle.lat <= 75 && vehicle.lon >= -180 && vehicle.lon <= -45) vehicles.push(vehicle);
+  });
+  return vehicles;
+}
+function amtrakNumberFromTransitDocs(vehicle) {
+  const candidates = [vehicle.tripId, vehicle.entityId, vehicle.vehicleId, vehicle.label, vehicle.routeId];
+  for (const raw of candidates) {
+    const value = String(raw || "");
+    const match = value.match(/(?:AMTRAK|AMTK)[_-]?0*(\d{1,4})(?!\d)/i) ||
+      value.match(/(?:TRAIN|TRN)[ _-]?0*(\d{1,4})(?!\d)/i);
+    if (match) return String(Number(match[1]));
+  }
+  const label = String(vehicle.label || "").trim();
+  if (/^\d{1,4}$/.test(label)) return String(Number(label));
+  return "";
+}
+function amtrakRecordTime(record) {
+  const raw = record && (record.lastValTS || record.updatedAt || record.lastUpdated || record.updated || record.lastVal || record.timestamp);
+  if (raw == null || raw === "") return 0;
+  if (typeof raw === "number" || /^\d+$/.test(String(raw))) {
+    const n = Number(raw);
+    return n > 1e12 ? n : n > 1e9 ? n * 1000 : 0;
+  }
+  const parsed = Date.parse(String(raw));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+async function proxyAmtrakTrains(cors) {
+  const [amtrakResponse, transitResponse] = await Promise.all([
+    proxyBinary(AMTRAK_URL, {}, cors, 30),
+    proxyBinary(AMTRAK_ALERTS_URL, {}, cors, 20)
+  ]);
+  let data = null, amtrakError = "";
+  if (amtrakResponse.ok) {
+    try {
+      data = await amtrakResponse.json();
+      if (!data || typeof data !== "object" || !Object.keys(data).some((key) => Array.isArray(data[key]))) data = null;
+    } catch (error) {
+      amtrakError = String(error && error.message || error);
+      data = null;
+    }
+  } else {
+    amtrakError = "Amtraker HTTP " + amtrakResponse.status;
+  }
+  let positions = [];
+  let transitError = "";
+  if (transitResponse.ok) {
+    try {
+      positions = decodeTransitDocsPositions(await transitResponse.arrayBuffer());
+    } catch (error) {
+      transitError = String(error && error.message || error);
+    }
+  } else {
+    transitError = "TransitDocs HTTP " + transitResponse.status;
+  }
+  const now = Date.now();
+  const maxAgeMs = 10 * 60 * 1000;
+  const freshPositions = positions.filter((position) => {
+    const age = now - Number(position.timestamp || 0) * 1000;
+    return position.timestamp > 0 && age <= maxAgeMs && age >= -2 * 60 * 1000;
+  });
+  if (!data) data = {};
+  let added = 0, refreshed = 0, ignored = 0;
+  for (const position of freshPositions) {
+    const trainNum = amtrakNumberFromTransitDocs(position);
+    if (!trainNum) { ignored++; continue; }
+    let bucket = data[trainNum];
+    if (!Array.isArray(bucket)) bucket = data[trainNum] = [];
+    let record = bucket.find((item) => String(item && (item.trainNum || item.trainNumRaw) || "").replace(/^0+/, "") === trainNum);
+    if (!record) {
+      record = {
+        trainNum,
+        trainNumRaw: trainNum,
+        trainID: position.vehicleId || position.tripId || ("transitdocs-" + trainNum),
+        provider: "Amtrak",
+        routeName: "Amtrak",
+        trainState: "Active",
+        stations: [],
+        dataSource: "TransitDocs"
+      };
+      bucket.push(record);
+      added++;
+    } else {
+      const currentTime = amtrakRecordTime(record);
+      if (currentTime && currentTime >= Number(position.timestamp) * 1000) { ignored++; continue; }
+      refreshed++;
+      record.dataSource = "Amtraker+TransitDocs";
+    }
+    record.lat = position.lat;
+    record.lon = position.lon;
+    record.heading = position.bearing;
+    record.velocity = position.speed != null ? position.speed * 2.23693629 : null;
+    record.lastValTS = new Date(Number(position.timestamp) * 1000).toISOString();
+    record.updatedAt = record.lastValTS;
+    if (!record.trainNum) record.trainNum = trainNum;
+    if (!record.trainID) record.trainID = position.vehicleId || position.tripId || ("transitdocs-" + trainNum);
+  }
+  if (!Object.keys(data).some((key) => Array.isArray(data[key]) && data[key].length)) {
+    return new Response("Amtraker unavailable (" + (amtrakError || "no train data") + "); TransitDocs unavailable (" + (transitError || "no matching fresh positions") + ")", {
+      status: 502, headers: { ...cors, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=15",
+      "X-RR-Amtrak-Fallback": added || refreshed ? "transitdocs" : "amtraker" }
+  });
+}
+
 async function njtReadCache(url) {
   try {
     const hit = await caches.default.match(new Request(url));
@@ -1798,7 +1989,7 @@ var worker_default = {
         return jsonResponse({ publicKey: env.VAPID_PUBLIC_KEY }, 200, cors);
       }
       if (path === "/api/amtrak/trains" || path === "/amtrak/trains") {
-        return await proxyBinary(AMTRAK_URL, {}, cors, 30);
+        return await proxyAmtrakTrains(cors);
       }
       if (path === "/api/amtrak/alerts" || path === "/amtrak/alerts") {
         return await proxyBinary(AMTRAK_ALERTS_URL, {}, cors, 20);
