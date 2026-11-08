@@ -10797,7 +10797,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const wrap = document.getElementById('report-loco-type-wrap-' + i);
           const customEl = document.getElementById('report-custom-vehicle-' + i);
           const customId = ((customEl || {}).value || '').trim();
-          const show = (agency === 'mbta' && !!customId) || agency === 'njt';
+          const show = agency === 'njt';
           if (wrap) wrap.style.display = show ? '' : 'none';
           if (!show) {
             const lt = document.getElementById('report-loco-type-' + i);
@@ -10818,9 +10818,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const title = (i === 0)
             ? ('Locomotive 1 (used for map icon)')
             : ('Locomotive ' + (i + 1));
-          const unitLabel = isMbta ? 'Special locomotive (optional list)' : 'Special unit (roster)';
-          const customLabel = isMbta ? 'Or different locomotive number' : 'Or custom vehicle ID';
-          const customPh = isMbta ? 'Loco number not on the list' : 'Optional — custom vehicle ID';
+          const unitLabel = isMbta ? 'Special Locomotive (Optional)' : 'Special Unit (Roster)';
+          const customLabel = isMbta ? 'Locomotive Number' : 'Or Custom Vehicle ID';
+          const customPh = isMbta ? 'e.g. 1030 or RSTX' : 'Optional — custom vehicle ID';
           const canUp = i > 0;
           const canDown = i < reportLocoSlots.length - 1;
           const canRemove = reportLocoSlots.length > 1;
@@ -10837,11 +10837,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
               '<select id="report-unit-select-' + i + '">' + reportRosterOptionsHtml(agency, slot.rosterId || '') + '</select>' +
               '<label for="report-custom-vehicle-' + i + '">' + customLabel + '</label>' +
-              '<input type="text" id="report-custom-vehicle-' + i + '" placeholder="' + customPh + '" autocomplete="off" value="' + String(slot.customId || '').replace(/"/g, '&quot;') + '">' +
-              '<div id="report-loco-type-wrap-' + i + '" style="display:none;">' +
-                '<label for="report-loco-type-' + i + '">Locomotive type (icon)</label>' +
-                '<select id="report-loco-type-' + i + '">' + reportLocoTypeOptionsHtml(slot.locoType || '') + '</select>' +
-              '</div>' +
+              (isMbta
+                ? ('<div class="rr-report-combo">' +
+                    '<input type="text" id="report-custom-vehicle-' + i + '" placeholder="' + customPh + '" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="report-loco-suggest-' + i + '" aria-haspopup="listbox" value="' + String(slot.customId || '').replace(/"/g, '&quot;') + '">' +
+                    '<ul class="rr-report-suggest" id="report-loco-suggest-' + i + '" role="listbox" hidden></ul>' +
+                  '</div>')
+                : ('<input type="text" id="report-custom-vehicle-' + i + '" placeholder="' + customPh + '" autocomplete="off" value="' + String(slot.customId || '').replace(/"/g, '&quot;') + '">' +
+                  '<div id="report-loco-type-wrap-' + i + '" style="display:none;">' +
+                    '<label for="report-loco-type-' + i + '">Locomotive Type</label>' +
+                    '<select id="report-loco-type-' + i + '">' + reportLocoTypeOptionsHtml(slot.locoType || '') + '</select>' +
+                  '</div>')) +
             '</div>'
           );
         }).join('');
@@ -10886,27 +10891,26 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agency === 'mbta') {
           if (customId) {
             const row = (typeof rrMbtaLocoByNumber === 'function') ? rrMbtaLocoByNumber(customId) : null;
-            const family = row ? normalizeMbtaLocoType(row.type) : '';
-            const overridden = !!(row && locoType && family && locoType !== family);
-            if (row && !overridden) {
+            if (row) {
               const display = rrMbtaLocoDisplay(customId, row.type);
               const icon = mbtaResolvedIcon(customId, null, display.type);
-              const label = display.type ? (display.type + ' #' + (display.number || customId)) : (display.number || customId);
+              const num = display.number || customId;
+              const label = display.type ? (display.type + ' #' + num) : num;
+              const named = display.paint ? (label + ' · ' + display.paint) : label;
               return {
-                locomotiveId: display.number || customId,
-                locoType: display.type || null,
-                unitName: display.paint ? (label + ' · ' + display.paint) : label,
+                locomotiveId: num,
+                locoType: String(display.type || '').slice(0, 32),
+                unitName: named.slice(0, 120),
                 locoIconUrl: icon || null,
                 specialOverride: !!rosterEntry('mbta', customId),
                 customLoco: !rosterEntry('mbta', customId)
               };
             }
-            if (!locoType) return { error: 'Select a locomotive type for each custom locomotive number.' };
             return {
               locomotiveId: customId,
-              locoType: locoType,
-              unitName: (MBTA_LOCO_TYPE_LABELS[locoType] || locoType) + ' #' + customId,
-              locoIconUrl: resolveMbtaLocoIconUrl(MBTA_LOCO_TYPES[locoType] || MBTA_LOCO_TYPES['HSP-46'], locoType),
+              locoType: '',
+              unitName: customId.slice(0, 120),
+              locoIconUrl: null,
               specialOverride: false,
               customLoco: true
             };
@@ -11057,7 +11061,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (tnWrap) tnWrap.style.display = 'none';
           if (mbtaVehWrap) mbtaVehWrap.style.display = '';
           if (hint) {
-            hint.textContent = 'Pairs locomotives to this vehicle ID until reported differently. First locomotive sets the map icon.';
+            hint.textContent = 'Type a locomotive number. The type comes from the roster when it is listed. The first locomotive sets the map icon.';
           }
           syncReportLocoSlotsFromDom();
           renderReportLocosList();
@@ -11251,6 +11255,75 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (submitButton) submitButton.disabled = false;
         }
       }
+      const reportLocoSuggestState = {};
+      function reportLocoSuggestIcon(number) {
+        const icon = (typeof rrMbtaLocoIconFor === 'function') ? rrMbtaLocoIconFor(number) : '';
+        return icon || '/assets/hsp46.png';
+      }
+      function closeReportLocoSuggest(idx) {
+        const list = document.getElementById('report-loco-suggest-' + idx);
+        const input = document.getElementById('report-custom-vehicle-' + idx);
+        delete reportLocoSuggestState[idx];
+        if (list) { list.hidden = true; list.innerHTML = ''; }
+        if (input) {
+          input.setAttribute('aria-expanded', 'false');
+          input.removeAttribute('aria-activedescendant');
+        }
+      }
+      function renderReportLocoSuggest(idx) {
+        const input = document.getElementById('report-custom-vehicle-' + idx);
+        const list = document.getElementById('report-loco-suggest-' + idx);
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        if (!input || !list || agency !== 'mbta' || typeof rrMbtaLocoSearch !== 'function') {
+          closeReportLocoSuggest(idx);
+          return;
+        }
+        const q = String(input.value || '').trim();
+        const rows = q ? rrMbtaLocoSearch(q, 8) : [];
+        if (!rows.length) {
+          closeReportLocoSuggest(idx);
+          return;
+        }
+        const state = reportLocoSuggestState[idx] || { active: -1 };
+        if (state.active >= rows.length) state.active = -1;
+        state.rows = rows;
+        reportLocoSuggestState[idx] = state;
+        list.innerHTML = rows.map(function (row, i) {
+          const paint = row.paint ? row.paint : 'No Special Paint';
+          const active = i === state.active;
+          return '<li role="presentation"><button type="button" class="rr-report-opt' + (active ? ' is-active' : '') + '" role="option" id="report-loco-opt-' + idx + '-' + i + '" data-suggest-idx="' + idx + '" data-suggest-row="' + i + '" aria-selected="' + (active ? 'true' : 'false') + '">' +
+            '<img src="' + escapeHtmlLite(reportLocoSuggestIcon(row.number)) + '" alt="">' +
+            '<span class="rr-report-opt-text"><span class="rr-report-opt-num">' + escapeHtmlLite(row.number) + '</span>' +
+            '<span class="rr-report-opt-meta">' + escapeHtmlLite(row.type) + ' · ' + escapeHtmlLite(paint) + '</span></span></button></li>';
+        }).join('');
+        list.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+        if (state.active >= 0) input.setAttribute('aria-activedescendant', 'report-loco-opt-' + idx + '-' + state.active);
+        else input.removeAttribute('aria-activedescendant');
+      }
+      function moveReportLocoSuggest(idx, dir) {
+        const state = reportLocoSuggestState[idx];
+        if (!state || !state.rows || !state.rows.length) {
+          renderReportLocoSuggest(idx);
+        }
+        const live = reportLocoSuggestState[idx];
+        if (!live || !live.rows || !live.rows.length) return;
+        const n = live.rows.length;
+        live.active = live.active < 0 ? (dir > 0 ? 0 : n - 1) : (live.active + dir + n) % n;
+        renderReportLocoSuggest(idx);
+        const el = document.getElementById('report-loco-opt-' + idx + '-' + live.active);
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+      }
+      function pickReportLocoSuggest(idx, rowIndex) {
+        const state = reportLocoSuggestState[idx];
+        const row = state && state.rows && state.rows[rowIndex];
+        const input = document.getElementById('report-custom-vehicle-' + idx);
+        if (!row || !input) return;
+        input.value = row.number;
+        closeReportLocoSuggest(idx);
+        syncReportLocoSlotsFromDom();
+        input.focus();
+      }
       function wireReportTrainUI() {
         const btnHeader = document.getElementById('btn-report-train-header');
         const btnMenu = document.getElementById('btn-report-train-menu');
@@ -11300,12 +11373,51 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           list.addEventListener('input', function(e) {
             if (e.target && e.target.id && e.target.id.indexOf('report-custom-vehicle-') === 0) {
               const idx = e.target.id.slice('report-custom-vehicle-'.length);
-              const row = (typeof rrMbtaLocoByNumber === 'function') ? rrMbtaLocoByNumber(e.target.value) : null;
-              const typeSel = document.getElementById('report-loco-type-' + idx);
-              if (row && typeSel) typeSel.value = normalizeMbtaLocoType(row.type) || '';
+              if (reportLocoSuggestState[idx]) reportLocoSuggestState[idx].active = -1;
               syncReportLocoSlotsFromDom();
               updateReportLocoTypeVisibility();
+              renderReportLocoSuggest(idx);
             }
+          });
+          list.addEventListener('keydown', function(e) {
+            const t = e.target;
+            if (!t || !t.id || t.id.indexOf('report-custom-vehicle-') !== 0) return;
+            const idx = t.id.slice('report-custom-vehicle-'.length);
+            const box = document.getElementById('report-loco-suggest-' + idx);
+            const open = box && !box.hidden;
+            const state = reportLocoSuggestState[idx];
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              moveReportLocoSuggest(idx, 1);
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              moveReportLocoSuggest(idx, -1);
+            } else if (e.key === 'Enter' && open && state && state.active >= 0) {
+              e.preventDefault();
+              pickReportLocoSuggest(idx, state.active);
+            } else if (e.key === 'Escape' && open) {
+              e.preventDefault();
+              e.stopPropagation();
+              closeReportLocoSuggest(idx);
+            }
+          });
+          list.addEventListener('pointerdown', function(e) {
+            if (e.target.closest('.rr-report-opt')) e.preventDefault();
+          });
+          list.addEventListener('click', function(e) {
+            const opt = e.target.closest('.rr-report-opt');
+            if (!opt) return;
+            pickReportLocoSuggest(opt.getAttribute('data-suggest-idx'), parseInt(opt.getAttribute('data-suggest-row'), 10));
+          });
+          list.addEventListener('focusout', function(e) {
+            const t = e.target;
+            if (!t || !t.id || t.id.indexOf('report-custom-vehicle-') !== 0) return;
+            const idx = t.id.slice('report-custom-vehicle-'.length);
+            setTimeout(function() {
+              const box = document.getElementById('report-loco-suggest-' + idx);
+              if (box && box.contains(document.activeElement)) return;
+              closeReportLocoSuggest(idx);
+            }, 150);
           });
           list.addEventListener('change', function(e) {
             if (e.target && e.target.id && (

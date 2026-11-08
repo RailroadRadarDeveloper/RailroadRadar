@@ -94,10 +94,35 @@
     return NUMBER_ICONS[row.number];
   }
 
+  // Prefix matches first, then any number that contains the query (RSTX / PNLX included).
+  function search(query, limit) {
+    var q = String(query || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+    if (!q || !list.length) return [];
+    var cap = limit > 0 ? limit : 12;
+    var scored = [];
+    list.forEach(function (row) {
+      var n = String(row.number).toUpperCase().replace(/[\s_-]+/g, '');
+      var bare = /^\d+$/.test(n) ? String(parseInt(n, 10)) : '';
+      var idx = n.indexOf(q);
+      var bareIdx = bare ? bare.indexOf(q) : -1;
+      if (idx === -1 && bareIdx === -1) return;
+      var rank = 2;
+      if (n === q || bare === q) rank = 0;
+      else if (idx === 0 || bareIdx === 0) rank = 1;
+      scored.push({ row: row, rank: rank });
+    });
+    scored.sort(function (a, b) {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return a.row.number < b.row.number ? -1 : a.row.number > b.row.number ? 1 : 0;
+    });
+    return scored.slice(0, cap).map(function (s) { return s.row; });
+  }
+
   root.rrMbtaLocoByNumber = byNumber;
   root.rrMbtaLocoIconFor = iconFor;
   root.rrMbtaLocoPaintIconFor = paintIconFor;
   root.rrMbtaLocoTypeIcon = typeIcon;
+  root.rrMbtaLocoSearch = search;
   root.rrMbtaLocoRosterList = function () { return list.slice(); };
   root.rrMbtaLocoIndexRoster = indexRoster;
   root.rrMbtaLocoRosterIsReady = false;
