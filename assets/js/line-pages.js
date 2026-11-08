@@ -481,7 +481,7 @@
     if (document.readyState === 'complete') lazyMap(); else window.addEventListener('load', lazyMap);
     if (D.page === 'station') { mbtaStation(); amtrakAtStation(); trains(true); }
     else { trains(false); alertsOnce(); history(); }
-    /* Trains move, so the list and the map refresh every 30 seconds while the page is open. */
-    setInterval(function () { if (!document.hidden) trains(D.page === 'station'); }, 30000);
+    /* Reduce Worker invocations on line/station pages while keeping live data refreshed. */
+    setInterval(function () { if (!document.hidden) trains(D.page === 'station'); }, 60000);
   } catch (_) {}
 })();
