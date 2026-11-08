@@ -13338,6 +13338,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { walk(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'mnr'); } catch (_) {}
         try { walk(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'lirr'); } catch (_) {}
         try { walk(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'marc'); } catch (_) {}
+        // Amtrak's national station directory renders independently of live train visits.
+        try {
+          (typeof AMTRAK_TRIP_STATIONS !== 'undefined' ? AMTRAK_TRIP_STATIONS : []).forEach(function(station) {
+            if (!station || !station.id || !isFinite(station.lat) || !isFinite(station.lon)) return;
+            upsertAgencyStationDot('amtrak', station.id, station.name || station.id, station.lat, station.lon);
+          });
+        } catch (_) {}
       }
       function harvestAmtrakStationDots(trainObj) {
         if (!trainObj || /brightline/i.test(String(trainObj.provider || ''))) return;
@@ -13346,7 +13353,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (!s || s.bus || !s.code) return;
           if (stationMarkers['amtrak:' + s.code]) return;
           const ll = rrAmtrakStopLatLng(s);
-          if (ll[0] == null || ll[1] < RR_AMTRAK_DOT_MIN_LNG) return;
+          if (ll[0] == null || !isFinite(ll[0]) || !isFinite(ll[1])) return;
           upsertAgencyStationDot('amtrak', s.code, s.name || s.code, ll[0], ll[1]);
         });
       }
