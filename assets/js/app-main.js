@@ -13080,9 +13080,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (a === 'marc') return !!showMarc;
         return true;
       }
-      // Amtrak stop dots are drawn only at or east of this longitude (Chicago Union Station and east).
-      // Lower it (e.g. to -180) to show Amtrak stops nationwide.
-      const RR_AMTRAK_DOT_MIN_LNG = -87.75;
       // Stops of different railroads this close together are one physical station and share one dot.
       const RR_SHARED_STATION_M = 300;
       // Which railroad's name a shared station dot uses (lowest first).
