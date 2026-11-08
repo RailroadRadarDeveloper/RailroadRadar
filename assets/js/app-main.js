@@ -11046,6 +11046,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } finally {
           if (token === reportTrainSelectToken) {
             sel.disabled = reportTrainExtraMode;
+            if (typeof window.rrAcelaEquipRefreshForm === 'function') window.rrAcelaEquipRefreshForm();
           }
         }
       }
