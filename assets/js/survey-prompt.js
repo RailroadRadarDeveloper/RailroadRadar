@@ -109,7 +109,7 @@
       '.rr-survey-pop .rr-dc-badge{margin:0 0 10px}' +
       '.rr-survey-pop .rr-dc-badge img{width:40px;height:auto;display:block}' +
       '.rr-survey-pop h2{margin:0 0 6px;font-size:16px;font-weight:700;color:#fff;letter-spacing:0}' +
-      '.rr-survey-pop p{margin:0 0 12px;color:#c9d6ec}' +
+      '.rr-survey-pop p{margin:0 0 12px;color:#c9d6ec;font-weight:700}' +
       '.rr-survey-pop .rr-sp-row{display:flex;gap:8px}' +
       '.rr-survey-pop a,.rr-survey-pop button{flex:1;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 10px;box-sizing:border-box;' +
       'border-radius:3px;font-family:inherit;font-size:14px;font-weight:700;line-height:1.2;cursor:pointer;text-decoration:none;border:1px solid #fff}' +
@@ -148,7 +148,7 @@
     card.innerHTML =
       '<div class="rr-dc-badge"><img src="/assets/img/discord-logo-white.png" alt="" width="128" height="98"></div>' +
       '<h2 id="rr-survey-pop-title">Join our Discord Server!</h2>' +
-      '<p id="rr-survey-pop-text">Meet the RailroadRadar community and help shape the future of the platform</p>' +
+      '<p id="rr-survey-pop-text">Meet the RailroadRadar community and help shape the future of the platform.</p>' +
       '<div class="rr-sp-row">' + join +
       '<button type="button" id="rr-survey-pop-no">Maybe Later</button>' +
       '</div>';
