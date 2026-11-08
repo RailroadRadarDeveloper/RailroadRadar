@@ -1,0 +1,589 @@
+{
+  "locomotives": [
+    {
+      "number": "010",
+      "paint": "",
+      "type": "MP36PH-3C"
+    },
+    {
+      "number": "011",
+      "paint": "",
+      "type": "MP36PH-3C"
+    },
+    {
+      "number": "1008",
+      "paint": "",
+      "type": "F40PH"
+    },
+    {
+      "number": "1013",
+      "paint": "",
+      "type": "F40PH"
+    },
+    {
+      "number": "1025",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1026",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1027",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1028",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1029",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1030",
+      "paint": "Boston & Maine Maroon Minuteman Paint",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1031",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1032",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1033",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1034",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1035",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1036",
+      "paint": "New York Central Gray Lightning-Stripe Paint",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1050",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1051",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1052",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1053",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1054",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1055",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1056",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1057",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1058",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1059",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1060",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1061",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1062",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1063",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1064",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1065",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1066",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1067",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1068",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1069",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1070",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1071",
+      "paint": "New Haven Orange/Black/White McGinnis Paint",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1072",
+      "paint": "Boston & Maine Blue/Black/White McGinnis Paint",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1074",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1075",
+      "paint": "",
+      "type": "F40PH-3C"
+    },
+    {
+      "number": "1115",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1116",
+      "paint": "Modified for Switching",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1117",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1118",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1119",
+      "paint": "Modified for Switching",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1120",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1121",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1122",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1123",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1124",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1125",
+      "paint": "MassDOT Blue Paint",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1126",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1127",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1128",
+      "paint": "New Haven Orange/Green \"Pumpkin\" Paint",
+      "type": "GP40MC-3"
+    },
+    {
+      "number": "1129",
+      "paint": "MBTA \"Cranberry\" Paint",
+      "type": "GP40MC-3"
+    },
+    {
+      "number": "1130",
+      "paint": "Retro MBTA Purple/Yellow-Front Paint",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1132",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1133",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1134",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1135",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1136",
+      "paint": "MassDOT Blue Paint",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1137",
+      "paint": "MassDOT Blue Paint",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1138",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1139",
+      "paint": "",
+      "type": "GP40MC"
+    },
+    {
+      "number": "1776",
+      "paint": "America 250 Red/White/Blue Paint",
+      "type": "GP40MC-3"
+    },
+    {
+      "number": "2000",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2001",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2002",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2003",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2004",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2005",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2006",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2007",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2008",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2009",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2010",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2011",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2012",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2013",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2014",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2015",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2016",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2017",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2018",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2019",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2020",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2021",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2022",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2023",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2024",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2025",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2026",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2027",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2028",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2029",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2030",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2031",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2032",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2033",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2034",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2035",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2036",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2037",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2038",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "2039",
+      "paint": "",
+      "type": "HSP46"
+    },
+    {
+      "number": "3247",
+      "paint": "Work Engine",
+      "type": "GP40"
+    },
+    {
+      "number": "3248",
+      "paint": "Three-Engine Genset Work Switchers",
+      "type": "3GS21B"
+    },
+    {
+      "number": "3249",
+      "paint": "Three-Engine Genset Work Switchers",
+      "type": "3GS21B"
+    },
+    {
+      "number": "RSTX 1001",
+      "paint": "Leased Passenger Engines",
+      "type": "F40PH-4C"
+    },
+    {
+      "number": "RSTX 1002",
+      "paint": "Leased Passenger Engines",
+      "type": "F40PH-4C"
+    },
+    {
+      "number": "RSTX 1003",
+      "paint": "Leased Passenger Engines",
+      "type": "F40PH-4C"
+    },
+    {
+      "number": "RSTX 1005",
+      "paint": "Leased Passenger Engines",
+      "type": "F40PH-4C"
+    },
+    {
+      "number": "RSTX 1006",
+      "paint": "Leased Passenger Engines",
+      "type": "F40PH-4C"
+    },
+    {
+      "number": "RSTX 1008",
+      "paint": "Leased Passenger Engines",
+      "type": "F40PH-4C"
+    },
+    {
+      "number": "PNLX 2107",
+      "paint": "Leased Work Engine",
+      "type": "MP20GP-3 / MP20B-3"
+    },
+    {
+      "number": "PNLX 9619",
+      "paint": "Canadian Wide Cab; Leased Work Engine",
+      "type": "GP40-2LW"
+    }
+  ]
+}
