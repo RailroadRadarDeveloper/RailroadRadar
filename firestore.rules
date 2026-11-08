@@ -737,7 +737,7 @@ service cloud.firestore {
           && (!('frequency' in d) || d.frequency in ['daily', 'weekly', 'monthly', 'rarely', 'first'])
           && (!('heardFrom' in d) || d.heardFrom in ['friend', 'search', 'social', 'forum', 'other'])
           && surveyPicks(d, 'uses', ['map', 'mytrips', 'timetables', 'stationaudio', 'roster', 'ask', 'other'])
-          && surveyPicks(d, 'railroads', ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'metra', 'ctrail', 'marc', 'none', 'other'])
+          && surveyPicks(d, 'railroads', ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'ctrail', 'marc', 'none', 'other'])
           && surveyPicks(d, 'features', ['alerts', 'railroads', 'crowding', 'app', 'offline', 'stats', 'photos', 'other'])
           && surveyText(d, 'usesOther', 120)
           && surveyText(d, 'railroadsOther', 120)

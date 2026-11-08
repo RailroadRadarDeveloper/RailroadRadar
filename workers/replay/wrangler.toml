@@ -1,4 +1,4 @@
-# Commuter sampler (MBTA, MNR, LIRR, Metra every 30 s) + /api/replay/hour. Deploy: npx wrangler deploy -c workers/replay/wrangler.toml
+# Commuter sampler (MBTA, MNR and LIRR every 30 s) + /api/replay/hour. Deploy: npx wrangler deploy -c workers/replay/wrangler.toml
 name = "railroadradar-replay"
 main = "railroadradar-replay.js"
 compatibility_date = "2026-10-01"

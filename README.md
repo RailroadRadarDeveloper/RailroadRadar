@@ -1,6 +1,6 @@
 # RailroadRadar
 
-Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, Metra, CTrail, and MARC trains, with MyTrips trip logs and public profiles. It is a static site on GitHub Pages. Train data comes through the `railroadradar-proxy` Cloudflare Worker, and accounts and trip logs live in Firebase.
+Live map of MBTA, Amtrak, Metro-North, LIRR, NJ Transit, CTrail, and MARC trains, with MyTrips trip logs and public profiles. It is a static site on GitHub Pages. Train data comes through the `railroadradar-proxy` Cloudflare Worker, and accounts and trip logs live in Firebase.
 
 ## Run locally
 

@@ -1,7 +1,7 @@
 /* 24-Hour Train Replay (live map). Plays back the last 24 hours of train positions with a time slider (Play/Pause,
    1x/10x/60x/300x, Jump To a time). Speed is part of the replay: each marker's tag and popup show the speed at that
-   moment. Feeds that report speed (Amtrak, VIA, MBTA when it sends one) show "Reported"; the others (Metro-North, LIRR,
-   Metra) show "Derived" speed from consecutive positions (haversine over the vehicle report times, skip an unchanged
+   moment. Feeds that report speed (Amtrak, VIA, MBTA when it sends one) show "Reported"; the others (Metro-North, LIRR)
+   show "Derived" speed from consecutive positions (haversine over the vehicle report times, skip an unchanged
    report time, 30 s to 6 min apart, drop anything over 150 mph).
    Data: railroadradar-replay Worker, GET /api/replay/hour?h=<UTC hour = epoch ms / 3600000>&rr=<railroads in view>.
    Commuter railroads are sampled every 30 s, Amtrak and VIA every 60 s. One hour is loaded at a time (the next hour is
@@ -13,11 +13,11 @@
   var SPAN_S = 24 * 3600;          // replay window
   var RATES = [1, 10, 60, 300];
   var NAVY = '#07093e', ACELA = '#00B3E3';
-  var STEP = { mbta: 30, mnr: 30, lirr: 30, metra: 30, amtrak: 60, via: 60 };
-  var AGENCY = { amtrak: 'Amtrak', via: 'VIA Rail', mbta: 'MBTA', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra' };
+  var STEP = { mbta: 30, mnr: 30, lirr: 30, amtrak: 60, via: 60 };
+  var AGENCY = { amtrak: 'Amtrak', via: 'VIA Rail', mbta: 'MBTA', mnr: 'Metro-North', lirr: 'LIRR' };
   // Rough service areas [south, west, north, east]; a railroad loads only when its area overlaps the map view.
   var AREA = { mbta: [41.2, -72.2, 43.3, -69.8], mnr: [40.6, -74.4, 41.9, -72.7], lirr: [40.5, -74.1, 41.2, -71.8],
-               metra: [41.1, -88.7, 42.7, -87.3], via: [41.5, -128, 60, -52], amtrak: [24, -125, 50, -66] };
+               via: [41.5, -128, 60, -52], amtrak: [24, -125, 50, -66] };
   var MAX_GAP_S = 200;             // hide a train when its nearest sample is older than this
 
   var SAMPLE = (function () { try { return !!window.rrReplaySample || /[?&]replaySample=1(&|$)/.test(location.search); } catch (_) { return false; } })();
@@ -42,7 +42,7 @@
   // Each train runs a repeating stop → speed up → cruise → slow down cycle back and forth along a short stretch,
   // ending at its current map spot. Encoded in the same text format the Worker returns.
   var REPORTS_SPEED = { 'Amtrak': true, 'VIA Rail': true, 'MBTA': true };
-  var RR_OF = { 'Amtrak': 'amtrak', 'VIA Rail': 'via', 'MBTA': 'mbta', 'MNR': 'mnr', 'LIRR': 'lirr', 'Metra': 'metra' };
+  var RR_OF = { 'Amtrak': 'amtrak', 'VIA Rail': 'via', 'MBTA': 'mbta', 'MNR': 'mnr', 'LIRR': 'lirr' };
   var REPORTS_SPEED = { 'Amtrak': true, 'VIA Rail': true, 'MBTA': true };
   function makeTrack(row, endS) {
     var h = hash(row.id);

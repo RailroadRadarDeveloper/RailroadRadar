@@ -150,7 +150,6 @@
       { id: 'amtrak', label: 'Amtrak' },
       { id: 'mnr', label: 'Metro-North' },
       { id: 'lirr', label: 'Long Island Rail Road' },
-      { id: 'metra', label: 'Metra' },
       { id: 'njt', label: 'NJ Transit' },
       { id: 'ctrail', label: 'CTrail' },
         { id: 'exploring', label: "I'm just exploring" }
@@ -1406,7 +1405,7 @@
     const TRIP_LOG_PAGE_SIZE = 20;
     const TRIP_LOG_RAIL_LABELS = {
       mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
-      metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC'
+      njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC'
     };
     /* MyTrips railroad badge colors (user-specified + existing app brand accents) */
     const TRIP_LOG_RAIL_COLORS = {
@@ -1415,7 +1414,6 @@
       mnr: '#ee0034',
       lirr: '#0039A6',
       njt: '#FF671F',
-      metra: '#0055A4',
       marc: '#FF8000',
       ctrail: '#003865'
     };
@@ -1430,7 +1428,6 @@
       mnr: '#ff5570',
       lirr: '#5b8cf0',
       njt: '#ff8a4d',
-      metra: '#5596e6',
       marc: '#ff9a3d',
       ctrail: '#5a92cc'
     };
@@ -1499,7 +1496,6 @@
       { id: 'amtrak', name: 'Amtrak' },
       { id: 'mnr', name: 'Metro-North' },
       { id: 'lirr', name: 'LIRR' },
-      { id: 'metra', name: 'Metra' },
       { id: 'njt', name: 'NJ Transit' },
       { id: 'ctrail', name: 'CTrail' },
       { id: 'marc', name: 'MARC' }
@@ -2173,7 +2169,7 @@
     function ensureTripShapesForMiles(railroad, lineId) {
       const ag = String(railroad || '').toLowerCase();
       const lid = String(lineId || '');
-      if (!ag || ag === 'metra') return Promise.resolve(null);
+      if (!ag) return Promise.resolve(null);
       if (lid && rrGetCachedTripPolylines(ag, lid)) {
         return Promise.resolve(rrGetCachedTripPolylines(ag, lid));
       }
@@ -4273,20 +4269,16 @@ function closeTripDetailView(opts) {
       });
     }
 
-    // Console self-check: CT rail NHV→HFD polyline miles should exceed great-circle;
-    // also logs stop-chain (CT + Metra BNSF) when shapes are unavailable.
+    // Console self-check: CT rail NHV→HFD polyline miles should exceed great-circle.
     // Usage: rrTripMilesSelfCheck()
     window.rrTripMilesSelfCheck = function() {
       const gc = estimateTripMilesHaversine('ctrail', 'NHV', 'HFD');
       const stopCt = estimateTripMilesAlongStopChain('ctrail', 'HART', 'NHV', 'HFD');
-      const gcMetra = estimateTripMilesHaversine('metra', 'CUS', 'NAPERVILLE');
-      const stopMetra = estimateTripMilesAlongStopChain('metra', 'BNSF', 'CUS', 'NAPERVILLE');
       return ensureTripShapesForMiles('ctrail', 'HART').then(function() {
         const along = estimateTripMiles('ctrail', 'NHV', 'HFD', 'HART');
         const ok = along != null && gc != null && along > gc;
         console.log('[TripMiles self-check] NHV→HFD great-circle=', gc, 'polyline=', along, 'stop-chain=', stopCt, ok ? 'OK' : 'CHECK');
-        console.log('[TripMiles self-check] Metra CUS→NAPERVILLE gc=', gcMetra, 'stop-chain=', stopMetra);
-        return { greatCircle: gc, polyline: along, stopChain: stopCt, metraGc: gcMetra, metraStopChain: stopMetra, ok: ok };
+        return { greatCircle: gc, polyline: along, stopChain: stopCt, ok: ok };
       });
     };
 
@@ -9203,7 +9195,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       try { window.rrMainMap = map; } catch (_) {}
       try { window.__rrMarkBootReady && window.__rrMarkBootReady(); } catch (_) {}
       // Leaflet moves every marker on every frame of a pinch zoom, including the hundreds far off
-      // screen (all of Metra when looking at New York), which made zooming stutter on phones.
+      // screen, which made zooming stutter on phones.
       // Markers more than half a screen outside the view are hidden and left where they are.
       const rrMarkerSetPos = L.Marker.prototype._setPos;
       const rrOffscreenMarkers = new Set();
@@ -9734,7 +9726,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rebuildTrainReportIndexes() {
         trainReportsById = {};
         activeReportVehicleIds = new Set();
-        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {}, metra: {} };
+        activeTrainNumberReports = { amtrak: {}, mnr: {}, lirr: {}, mbta: {}, njt: {}, ctrail: {}, marc: {} };
         const today = nyServiceDateToday();
         (trainReports || []).forEach(function(rep) {
           if (!rep || !rep.id) return;
@@ -9822,7 +9814,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           return null;
         }
-        if (a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'njt' || a === 'metra' || a === 'marc') {
+        if (a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'njt' || a === 'marc') {
           let rep = null;
           if (tn && activeTrainNumberReports[a]) {
             rep = activeTrainNumberReports[a][tn] || activeTrainNumberReports[a][tnAlt] || null;
@@ -9888,10 +9880,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const special = getSpecialForVehicle('njt', null, info.trainNum);
           const locoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
           rrSetMarkerIcon(njtMarkers[vid], createNjtIcon(locoType, info.trainNum));
-        });
-        each(typeof metraMarkers !== 'undefined' ? metraMarkers : null, function(vid) {
-          const info = (typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) || {};
-          rrSetMarkerIcon(metraMarkers[vid], createMetraIcon(info.trainNum));
         });
         each(typeof marcMarkers !== 'undefined' ? marcMarkers : null, function(vid) {
           const info = (typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) || {};
@@ -10129,7 +10117,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { if (typeof amtrakMarkers !== 'undefined' && amtrakMarkers) dicts.push(amtrakMarkers); } catch (_) {}
           try { if (typeof mnrMarkers !== 'undefined' && mnrMarkers) dicts.push(mnrMarkers); } catch (_) {}
           try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
-          try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
           try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
           const keys = [vid];
           if (tn) {
@@ -10138,7 +10125,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (a === 'mnr') keys.push('mnr-' + tn);
             if (a === 'lirr') keys.push('lirr-' + tn);
             if (a === 'njt') keys.push('njt-' + tn);
-            if (a === 'metra') keys.push('metra-' + tn);
           }
           if (vid) keys.push(a + '-' + vid);
           let found = null;
@@ -10316,7 +10302,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch (_) {}
           try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch (_) {}
           try { if (typeof fetchLirrTrains === 'function') fetchLirrTrains(); } catch (_) {}
-          try { if (typeof fetchMetraTrains === 'function') fetchMetraTrains(); } catch (_) {}
           try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch (_) {}
           try { if (typeof fetchMarcTrains === 'function') fetchMarcTrains(); } catch (_) {}
         } catch (e) {
@@ -11142,14 +11127,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch(_){}
           try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch(_){}
           try { if (typeof fetchLirrTrains === 'function') fetchLirrTrains(); } catch(_){}
-          try { if (typeof fetchMetraTrains === 'function') fetchMetraTrains(); } catch(_){}
           try { if (typeof fetchNjtTrains === 'function') fetchNjtTrains(); } catch(_){}
           try { if (typeof fetchMarcTrains === 'function') fetchMarcTrains(); } catch(_){}
           try { if (typeof updateTrainVisibility === 'function') updateTrainVisibility(); } catch(_){}
           try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch(_){}
           try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch(_){}
           try { if (typeof updateLirrVisibility === 'function') updateLirrVisibility(); } catch(_){}
-          try { if (typeof updateMetraVisibility === 'function') updateMetraVisibility(); } catch(_){}
           try { if (typeof updateNjtVisibility === 'function') updateNjtVisibility(); } catch(_){}
           try { if (typeof updateMarcVisibility === 'function') updateMarcVisibility(); } catch(_){}
         } catch (e) {
@@ -11244,7 +11227,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
 
 
       function agencyPrettyName(a) {
-        const map = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', metra: 'Metra', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
+        const map = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', njt: 'NJ Transit', ctrail: 'CTrail', marc: 'MARC' };
         return map[normalizeAgency(a)] || String(a || '').toUpperCase();
       }
       function reportTimeMs(r) {
@@ -11385,7 +11368,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { if (typeof amtrakMarkers !== 'undefined' && amtrakMarkers) dicts.push(amtrakMarkers); } catch (_) {}
         try { if (typeof mnrMarkers !== 'undefined' && mnrMarkers) dicts.push(mnrMarkers); } catch (_) {}
         try { if (typeof lirrMarkers !== 'undefined' && lirrMarkers) dicts.push(lirrMarkers); } catch (_) {}
-        try { if (typeof metraMarkers !== 'undefined' && metraMarkers) dicts.push(metraMarkers); } catch (_) {}
         try { if (typeof njtMarkers !== 'undefined' && njtMarkers) dicts.push(njtMarkers); } catch (_) {}
         try { if (typeof marcMarkers !== 'undefined' && marcMarkers) dicts.push(marcMarkers); } catch (_) {}
         let found = null;
@@ -12527,10 +12509,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       const lirrMarkers = {};
       const lirrTrainInfo = {};
       const lirrLastSeen = {};
-      let showMetra = true;
-      const metraMarkers = {};
-      const metraTrainInfo = {};
-      const metraLastSeen = {};
       let showNjt = true;
       let showCtrail = true;
       let showMarc = true;
@@ -12613,7 +12591,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Train fetches don't wait for these. Markers built before they finish are rebuilt by refetching, which the browser usually serves from cache (the Worker sends max-age 15 to 30 s on feeds).
       Promise.allSettled([loadTrainReports(), loadSpecialUnitsFromFirestore(), loadVerifiedReporters()]).then(function() {
         [[markers, fetchTrains], [amtrakMarkers, fetchAmtrakTrains], [mnrMarkers, fetchMnrTrains], [lirrMarkers, fetchLirrTrains],
-         [metraMarkers, fetchMetraTrains], [njtMarkers, fetchNjtTrains], [marcMarkers, fetchMarcTrains]].forEach(function(pair) {
+         [njtMarkers, fetchNjtTrains], [marcMarkers, fetchMarcTrains]].forEach(function(pair) {
           if (Object.keys(pair[0]).length) pair[1]();
         });
       });
@@ -12692,7 +12670,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (a === 'amtrak') return !!showAmtrak;
         if (a === 'mnr') return !!showMnr;
         if (a === 'lirr') return !!showLirr;
-        if (a === 'metra') return !!showMetra;
         if (a === 'njt') return !!showNjt;
         if (a === 'ctrail') return !!showCtrail;
         if (a === 'marc') return !!showMarc;
@@ -12704,7 +12681,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Stops of different railroads this close together are one physical station and share one dot.
       const RR_SHARED_STATION_M = 300;
       // Which railroad's name a shared station dot uses (lowest first).
-      const RR_STATION_NAME_RANK = { mbta: 0, mnr: 1, metra: 2, amtrak: 3, lirr: 4, marc: 5, ctrail: 6, njt: 7 };
+      const RR_STATION_NAME_RANK = { mbta: 0, mnr: 1, amtrak: 3, lirr: 4, marc: 5, ctrail: 6, njt: 7 };
       const rrStationHubs = [];
       let rrAmtrakCoordsByCode = null;
       function rrAmtrakCoords(code) {
@@ -12861,13 +12838,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         return out;
       }
-      // Live trains from a GTFS-RT feed (Metro-North, LIRR, Metra, MARC) due to leave these stops.
+      // Live trains from a GTFS-RT feed (Metro-North, LIRR, MARC) due to leave these stops.
       function rrFeedHubDepartures(agency, stopIds) {
         let info = null;
         try {
           if (agency === 'mnr') info = mnrTrainInfo;
           else if (agency === 'lirr') info = lirrTrainInfo;
-          else if (agency === 'metra') info = metraTrainInfo;
           else if (agency === 'marc') info = marcTrainInfo;
         } catch (_) {}
         if (!info) return [];
@@ -12956,7 +12932,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         try { walk(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'mnr'); } catch (_) {}
         try { walk(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'lirr'); } catch (_) {}
-        try { walk(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'metra'); } catch (_) {}
         try { walk(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'marc'); } catch (_) {}
       }
       function harvestAmtrakStationDots(trainObj) {
@@ -14440,7 +14415,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
         }
       };
-      // Metro-North, LIRR, Metra, and MARC all publish standard GTFS-realtime feeds.
+      // Metro-North, LIRR, and MARC all publish standard GTFS-realtime feeds.
       let feedMessageType = null;
       function getFeedMessageType() {
         if (feedMessageType) return feedMessageType;
@@ -14451,7 +14426,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         feedMessageType = root.lookupType('transit_realtime.FeedMessage');
         return feedMessageType;
       }
-      // Shared GTFS-RT ServiceAlert helpers (Metra / MNR / LIRR). Escape for popup HTML.
+      // Shared GTFS-RT ServiceAlert helpers (MNR / LIRR / MARC). Escape for popup HTML.
       function gtfsRtTranslatedText(ts) {
         if (!ts || !ts.translation || !ts.translation.length) return '';
         let pick = null;
@@ -15352,383 +15327,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       }
 
-      // ==================== METRA (GTFS-RT via Cloudflare Worker proxy) ====================
-      const METRA_POSITIONS_URL = apiUrl('/api/metra/positions');
-      const METRA_TRIPUPDATES_URL = apiUrl('/api/metra/tripupdates');
-      const METRA_ALERTS_URL = apiUrl('/api/metra/alerts');
-      const METRA_STATIC = {"stops":{"GENEVA":{"name":"Geneva","lat":41.8816667,"lon":-88.31,"code":"GENEVA"},"WCHICAGO":{"name":"West Chicago","lat":41.8811111,"lon":-88.1988889,"code":"WCHICAGO"},"WINFIELD":{"name":"Winfield","lat":41.87,"lon":-88.1569444,"code":"WINFIELD"},"WHEATON":{"name":"Wheaton","lat":41.8644444,"lon":-88.1119444,"code":"WHEATON"},"COLLEGEAVE":{"name":"College Ave","lat":41.8683333,"lon":-88.0902778,"code":"COLLEGEAVE"},"GLENELLYN":{"name":"Glen Ellyn","lat":41.8766667,"lon":-88.0647222,"code":"GLENELLYN"},"LOMBARD":{"name":"Lombard","lat":41.8866667,"lon":-88.0186111,"code":"LOMBARD"},"VILLAPARK":{"name":"Villa Park","lat":41.8963889,"lon":-87.9775,"code":"VILLAPARK"},"ELMHURST":{"name":"Elmhurst","lat":41.8997222,"lon":-87.9408333,"code":"ELMHURST"},"BERKELEY":{"name":"Berkeley","lat":41.8961111,"lon":-87.9152778,"code":"BERKELEY"},"BELLWOOD":{"name":"Bellwood","lat":41.8913889,"lon":-87.8825,"code":"BELLWOOD"},"MELROSEPK":{"name":"Melrose Park","lat":41.8902778,"lon":-87.8555556,"code":"MELROSEPK"},"MAYWOOD":{"name":"Maywood","lat":41.8883333,"lon":-87.8386111,"code":"MAYWOOD"},"RIVRFOREST":{"name":"River Forest","lat":41.8869444,"lon":-87.825,"code":"RIVRFOREST"},"OAKPARK":{"name":"Oak Park","lat":41.8869444,"lon":-87.8011111,"code":"OAKPARK"},"KEDZIE":{"name":"Kedzie","lat":41.8883333,"lon":-87.7069444,"code":"KEDZIE"},"AURORA":{"name":"Aurora","lat":41.7608333,"lon":-88.3083333,"code":"AURORA"},"ROUTE59":{"name":"Route 59","lat":41.7777778,"lon":-88.2086111,"code":"ROUTE59"},"NAPERVILLE":{"name":"Naperville","lat":41.7797222,"lon":-88.1455556,"code":"NAPERVILLE"},"LISLE":{"name":"Lisle","lat":41.7977778,"lon":-88.0719444,"code":"LISLE"},"BELMONT":{"name":"Belmont","lat":41.7952778,"lon":-88.0380556,"code":"BELMONT"},"MAINST-DG":{"name":"Downers Grove","lat":41.7952778,"lon":-88.0097222,"code":"MAINST-DG"},"FAIRVIEWDG":{"name":"Fairview Ave.","lat":41.7952778,"lon":-87.9936111,"code":"FAIRVIEWDG"},"WESTMONT":{"name":"Westmont","lat":41.7955556,"lon":-87.9763889,"code":"WESTMONT"},"CLARNDNHIL":{"name":"Clarendon Hills","lat":41.7969444,"lon":-87.9536111,"code":"CLARNDNHIL"},"WHINSDALE":{"name":"West Hinsdale","lat":41.7988889,"lon":-87.9452778,"code":"WHINSDALE"},"HINSDALE":{"name":"Hinsdale","lat":41.8027778,"lon":-87.9283333,"code":"HINSDALE"},"HIGHLANDS":{"name":"Highlands","lat":41.805,"lon":-87.9183333,"code":"HIGHLANDS"},"WESTSPRING":{"name":"Western Springs","lat":41.8088889,"lon":-87.9011111,"code":"WESTSPRING"},"STONEAVE":{"name":"Stone Ave.","lat":41.8141667,"lon":-87.8783333,"code":"STONEAVE"},"LAGRANGE":{"name":"LaGrange Road","lat":41.8158333,"lon":-87.8711111,"code":"LAGRANGE"},"CONGRESSPK":{"name":"Congress Park","lat":41.8188889,"lon":-87.8575,"code":"CONGRESSPK"},"BROOKFIELD":{"name":"Brookfield","lat":41.8219444,"lon":-87.8430556,"code":"BROOKFIELD"},"HOLLYWOOD":{"name":"Hollywood","lat":41.8244444,"lon":-87.8338889,"code":"HOLLYWOOD"},"RIVERSIDE":{"name":"Riverside","lat":41.8272222,"lon":-87.82,"code":"RIVERSIDE"},"HARLEM":{"name":"Harlem Ave.","lat":41.8313889,"lon":-87.8019444,"code":"HARLEM"},"BERWYN":{"name":"Berwyn","lat":41.8330556,"lon":-87.7936111,"code":"BERWYN"},"LAVERGNE":{"name":"Lavergne","lat":41.8355556,"lon":-87.7833333,"code":"LAVERGNE"},"CICERO":{"name":"Cicero","lat":41.8441667,"lon":-87.7455556,"code":"CICERO"},"BNWESTERN":{"name":"Western Avenue","lat":41.8577778,"lon":-87.6852778,"code":"BNWESTERN"},"HALSTED":{"name":"Halsted Street","lat":41.8602778,"lon":-87.6472222,"code":"HALSTED"},"JOLIET":{"name":"Joliet","lat":41.5244444,"lon":-88.0797222,"code":"JOLIET"},"LOCKPORT":{"name":"Lockport","lat":41.585,"lon":-88.0602778,"code":"LOCKPORT"},"LEMONT":{"name":"Lemont","lat":41.6736111,"lon":-88.0025,"code":"LEMONT"},"WILLOWSPRN":{"name":"Willow Springs","lat":41.7333333,"lon":-87.8783333,"code":"WILLOWSPRN"},"SUMMIT":{"name":"Summit","lat":41.795,"lon":-87.8097222,"code":"SUMMIT"},"179TH-SWS":{"name":"Orland Park 179th","lat":41.5638889,"lon":-87.9025,"code":"179TH-SWS"},"153RD-SWS":{"name":"Orland Park 153rd","lat":41.6094444,"lon":-87.8733333,"code":"153RD-SWS"},"143RD-SWS":{"name":"Orland Park 143rd","lat":41.6305556,"lon":-87.8591667,"code":"143RD-SWS"},"PALOSPARK":{"name":"Palos Park","lat":41.6688889,"lon":-87.8202778,"code":"PALOSPARK"},"WORTH":{"name":"Worth","lat":41.6913889,"lon":-87.7958333,"code":"WORTH"},"CHICRIDGE":{"name":"Chicago Ridge","lat":41.7033333,"lon":-87.7802778,"code":"CHICRIDGE"},"OAKLAWN":{"name":"Oak Lawn Patriot","lat":41.7194444,"lon":-87.7486111,"code":"OAKLAWN"},"ASHBURN":{"name":"Ashburn","lat":41.7416667,"lon":-87.7125,"code":"ASHBURN"},"WRIGHTWOOD":{"name":"Wrightwood","lat":41.7488889,"lon":-87.7036111,"code":"WRIGHTWOOD"},"CLYBOURN":{"name":"Clybourn","lat":41.9169444,"lon":-87.6680556,"code":"CLYBOURN"},"RAVENSWOOD":{"name":"Ravenswood","lat":41.9683333,"lon":-87.6744444,"code":"RAVENSWOOD"},"ROGERPK":{"name":"Rogers Park","lat":42.0094444,"lon":-87.6755556,"code":"ROGERPK"},"MAINST":{"name":"Main St.","lat":42.0333333,"lon":-87.68,"code":"MAINST"},"EVANSTON":{"name":"Evanston (Davis St.)","lat":42.0480556,"lon":-87.6847222,"code":"EVANSTON"},"CENTRALST":{"name":"Central St.","lat":42.0641667,"lon":-87.6980556,"code":"CENTRALST"},"WILMETTE":{"name":"Wilmette","lat":42.0772222,"lon":-87.7091667,"code":"WILMETTE"},"KENILWORTH":{"name":"Kenilworth","lat":42.0863889,"lon":-87.7166667,"code":"KENILWORTH"},"WINNETKA":{"name":"Winnetka","lat":42.1052778,"lon":-87.7327778,"code":"WINNETKA"},"HUBARDWOOD":{"name":"Hubbard Woods","lat":42.1180556,"lon":-87.7436111,"code":"HUBARDWOOD"},"GLENCOE":{"name":"Glencoe","lat":42.1355556,"lon":-87.7580556,"code":"GLENCOE"},"BRAESIDE":{"name":"Braeside","lat":42.1527778,"lon":-87.7725,"code":"BRAESIDE"},"RAVINIA":{"name":"Ravinia","lat":42.165,"lon":-87.7827778,"code":"RAVINIA"},"HIGHLANDPK":{"name":"Highland Park","lat":42.1833333,"lon":-87.7975,"code":"HIGHLANDPK"},"HIGHWOOD":{"name":"Highwood","lat":42.2033333,"lon":-87.8105556,"code":"HIGHWOOD"},"FTSHERIDAN":{"name":"Fort Sheridan","lat":42.2175,"lon":-87.8208333,"code":"FTSHERIDAN"},"LKFOREST":{"name":"Lake Forest.","lat":42.2525,"lon":-87.8397222,"code":"LKFOREST"},"LAKEBLUFF":{"name":"Lake Bluff","lat":42.2797222,"lon":-87.8466667,"code":"LAKEBLUFF"},"GRTLAKES":{"name":"Great Lakes","lat":42.3069444,"lon":-87.8463889,"code":"GRTLAKES"},"NCHICAGO":{"name":"North Chicago","lat":42.3286111,"lon":-87.8369444,"code":"NCHICAGO"},"WAUKEGAN":{"name":"Waukegan","lat":42.3605556,"lon":-87.8283333,"code":"WAUKEGAN"},"ZION":{"name":"Zion","lat":42.4491667,"lon":-87.8180556,"code":"ZION"},"WINTHROP":{"name":"Winthrop Harbor","lat":42.4827778,"lon":-87.8161111,"code":"WINTHROP"},"FOXLAKE":{"name":"Fox Lake","lat":42.3983333,"lon":-88.1822222,"code":"FOXLAKE"},"INGLESIDE":{"name":"Ingleside","lat":42.3838889,"lon":-88.1536111,"code":"INGLESIDE"},"LONGLAKE":{"name":"Long Lake","lat":42.3680556,"lon":-88.1280556,"code":"LONGLAKE"},"ROUNDLAKE":{"name":"Round Lake","lat":42.3544444,"lon":-88.0941667,"code":"ROUNDLAKE"},"GRAYSLAKE":{"name":"Grayslake","lat":42.3336111,"lon":-88.0433333,"code":"GRAYSLAKE"},"LIBERTYVIL":{"name":"Libertyville","lat":42.2911111,"lon":-87.9563889,"code":"LIBERTYVIL"},"LAKEFRST":{"name":"Lake Forest","lat":42.2236111,"lon":-87.8747222,"code":"LAKEFRST"},"DEERFIELD":{"name":"Deerfield","lat":42.1680556,"lon":-87.85,"code":"DEERFIELD"},"LAKECOOKRD":{"name":"Lake-Cook","lat":42.1516667,"lon":-87.8413889,"code":"LAKECOOKRD"},"NBROOK":{"name":"Northbrook","lat":42.1269444,"lon":-87.8277778,"code":"NBROOK"},"NGLENVIEW":{"name":"Glen/N. Glenview","lat":42.0975,"lon":-87.8158333,"code":"NGLENVIEW"},"GLENVIEW":{"name":"Glenview","lat":42.075,"lon":-87.8055556,"code":"GLENVIEW"},"GOLF":{"name":"Golf","lat":42.0583333,"lon":-87.7969444,"code":"GOLF"},"MORTONGRV":{"name":"Morton Grove","lat":42.035,"lon":-87.7852778,"code":"MORTONGRV"},"EDGEBROOK":{"name":"Edgebrook","lat":41.9977778,"lon":-87.7655556,"code":"EDGEBROOK"},"FORESTGLEN":{"name":"Forest Glen","lat":41.9780556,"lon":-87.7555556,"code":"FORESTGLEN"},"MAYFAIR":{"name":"Mayfair","lat":41.9597222,"lon":-87.7458333,"code":"MAYFAIR"},"GRAYLAND":{"name":"Grayland","lat":41.9488889,"lon":-87.7402778,"code":"GRAYLAND"},"HEALY":{"name":"Healy","lat":41.9247222,"lon":-87.7277778,"code":"HEALY"},"WESTERNAVE":{"name":"Western Ave","lat":41.8891667,"lon":-87.6880556,"code":"WESTERNAVE"},"RAVINIAPK":{"name":"Ravinia Park","lat":42.1580556,"lon":-87.7769444,"code":"RAVINIAPK"},"INDIANHILL":{"name":"Indian Hill","lat":42.0944444,"lon":-87.7238889,"code":"INDIANHILL"},"KENOSHA":{"name":"Kenosha","lat":42.5858333,"lon":-87.8258333,"code":"KENOSHA"},"HARVARD":{"name":"Harvard","lat":42.4197222,"lon":-88.6175,"code":"HARVARD"},"WOODSTOCK":{"name":"Woodstock","lat":42.3169444,"lon":-88.4475,"code":"WOODSTOCK"},"CRYSTAL":{"name":"Crystal Lake","lat":42.2441667,"lon":-88.3172222,"code":"CRYSTAL"},"MCHENRY":{"name":"McHenry","lat":42.3433333,"lon":-88.2761111,"code":"MCHENRY"},"CARY":{"name":"Cary","lat":42.2088889,"lon":-88.2413889,"code":"CARY"},"FOXRG":{"name":"Fox River Grove","lat":42.1977778,"lon":-88.2194444,"code":"FOXRG"},"BARRINGTON":{"name":"Barrington","lat":42.1527778,"lon":-88.1319444,"code":"BARRINGTON"},"PALATINE":{"name":"Palatine","lat":42.1130556,"lon":-88.0483333,"code":"PALATINE"},"ARLINGTNPK":{"name":"Arlington Park","lat":42.0952778,"lon":-88.0091667,"code":"ARLINGTNPK"},"ARLINGTNHT":{"name":"Arlington Heights","lat":42.0841667,"lon":-87.9836111,"code":"ARLINGTNHT"},"MTPROSPECT":{"name":"Mt. Prospect","lat":42.0630556,"lon":-87.9361111,"code":"MTPROSPECT"},"CUMBERLAND":{"name":"Cumberland","lat":42.0525,"lon":-87.9122222,"code":"CUMBERLAND"},"DESPLAINES":{"name":"Des Plaines","lat":42.0408333,"lon":-87.8866667,"code":"DESPLAINES"},"DEEROAD":{"name":"Dee Road","lat":42.0241667,"lon":-87.8561111,"code":"DEEROAD"},"PARKRIDGE":{"name":"Park Ridge","lat":42.0102778,"lon":-87.8316667,"code":"PARKRIDGE"},"IRVINGPK":{"name":"Irving Park","lat":41.9525,"lon":-87.7297222,"code":"IRVINGPK"},"BIGTIMBER":{"name":"Big Timber","lat":42.0586111,"lon":-88.3277778,"code":"BIGTIMBER"},"ELGIN":{"name":"Elgin","lat":42.0361111,"lon":-88.2861111,"code":"ELGIN"},"NATIONALS":{"name":"National St","lat":42.0263889,"lon":-88.2788889,"code":"NATIONALS"},"HANOVERP":{"name":"Hanover Park","lat":41.9880556,"lon":-88.1491667,"code":"HANOVERP"},"SCHAUM":{"name":"Schaumburg","lat":41.9891667,"lon":-88.1180556,"code":"SCHAUM"},"ROSELLE":{"name":"Roselle","lat":41.9813889,"lon":-88.0672222,"code":"ROSELLE"},"MEDINAH":{"name":"Medinah","lat":41.9780556,"lon":-88.0508333,"code":"MEDINAH"},"ITASCA":{"name":"Itasca","lat":41.9713889,"lon":-88.0141667,"code":"ITASCA"},"WOODDALE":{"name":"Wood Dale","lat":41.9625,"lon":-87.9752778,"code":"WOODDALE"},"BENSENVIL":{"name":"Bensenville","lat":41.9569444,"lon":-87.9419444,"code":"BENSENVIL"},"MANNHEIM":{"name":"Mannheim","lat":41.9416667,"lon":-87.8833333,"code":"MANNHEIM"},"FRANKLIN":{"name":"Franklin Park","lat":41.9366667,"lon":-87.8663889,"code":"FRANKLIN"},"MONTCLARE":{"name":"Mont Clare","lat":41.9216667,"lon":-87.8016667,"code":"MONTCLARE"},"MARS":{"name":"Mars","lat":41.9191667,"lon":-87.7944444,"code":"MARS"},"GALEWOOD":{"name":"Galewood","lat":41.9163889,"lon":-87.7858333,"code":"GALEWOOD"},"HANSONPK":{"name":"Hanson Park","lat":41.9166667,"lon":-87.7669444,"code":"HANSONPK"},"GRAND-CIC":{"name":"Grand/Cicero","lat":41.9144444,"lon":-87.7461111,"code":"GRAND-CIC"},"OHARE":{"name":"O'Hare Transfer","lat":41.995,"lon":-87.8805556,"code":"OHARE"},"PROSPECTHG":{"name":"Prospect Hts","lat":42.0922222,"lon":-87.9080556,"code":"PROSPECTHG"},"WHEELING":{"name":"Wheeling","lat":42.1363889,"lon":-87.9272222,"code":"WHEELING"},"BUFFGROVE":{"name":"Buffalo Grove","lat":42.1686111,"lon":-87.9413889,"code":"BUFFGROVE"},"PRAIRIEVW":{"name":"Prairie View","lat":42.1980556,"lon":-87.9558333,"code":"PRAIRIEVW"},"VERNON":{"name":"Vernon Hills","lat":42.2155556,"lon":-87.9644444,"code":"VERNON"},"MUNDELEIN":{"name":"Mundelein","lat":42.2669444,"lon":-87.9980556,"code":"MUNDELEIN"},"PRAIRCROSS":{"name":"Prairie Crossing.","lat":42.3180556,"lon":-88.0172222,"code":"PRAIRCROSS"},"ROUNDLKBCH":{"name":"Round Lake Beach","lat":42.385,"lon":-88.0655556,"code":"ROUNDLKBCH"},"LAKEVILLA":{"name":"Lake Villa","lat":42.4175,"lon":-88.0794444,"code":"LAKEVILLA"},"ANTIOCH":{"name":"Antioch","lat":42.4811111,"lon":-88.0925,"code":"ANTIOCH"},"NEWLENOX":{"name":"New Lenox","lat":41.5144444,"lon":-87.9652778,"code":"NEWLENOX"},"MOKENA":{"name":"Mokena","lat":41.5308333,"lon":-87.8866667,"code":"MOKENA"},"HICKORYCRK":{"name":"Hickory Creek","lat":41.5486111,"lon":-87.8455556,"code":"HICKORYCRK"},"TINLEY80TH":{"name":"Tinley-80th","lat":41.5644444,"lon":-87.8094444,"code":"TINLEY80TH"},"TINLEYPARK":{"name":"Tinley Park","lat":41.5758333,"lon":-87.7827778,"code":"TINLEYPARK"},"OAKFOREST":{"name":"Oak Forest","lat":41.6044444,"lon":-87.7383333,"code":"OAKFOREST"},"MIDLOTHIAN":{"name":"Midlothian","lat":41.6263889,"lon":-87.7116667,"code":"MIDLOTHIAN"},"ROBBINS":{"name":"Robbins","lat":41.6408333,"lon":-87.6944444,"code":"ROBBINS"},"KENSINGTN":{"name":"Kensington","lat":41.6858333,"lon":-87.6122222,"code":"KENSINGTN"},"59TH-UP":{"name":"59th St. (U. of Chicago)","lat":41.7880556,"lon":-87.5886111,"code":"59TH-UP"},"UNIVERSITY":{"name":"University Park","lat":41.4594444,"lon":-87.7233333,"code":"UNIVERSITY"},"RICHTON":{"name":"Richton Park","lat":41.4855556,"lon":-87.7094444,"code":"RICHTON"},"MATTESON":{"name":"Matteson","lat":41.4986111,"lon":-87.7022222,"code":"MATTESON"},"211TH-UP":{"name":"211th St.","lat":41.5061111,"lon":-87.6983333,"code":"211TH-UP"},"OLYMPIA":{"name":"Olympia Fields","lat":41.5213889,"lon":-87.69,"code":"OLYMPIA"},"FLOSSMOOR":{"name":"Flossmoor","lat":41.5430556,"lon":-87.6786111,"code":"FLOSSMOOR"},"HOMEWOOD":{"name":"Homewood","lat":41.5622222,"lon":-87.6686111,"code":"HOMEWOOD"},"CALUMET":{"name":"Calumet","lat":41.5736111,"lon":-87.6625,"code":"CALUMET"},"EDISONPK":{"name":"Edison Park","lat":42.0022222,"lon":-87.8175,"code":"EDISONPK"},"NORWOODP":{"name":"Norwood Park","lat":41.9916667,"lon":-87.7988889,"code":"NORWOODP"},"GLADSTONEP":{"name":"Gladstone Park","lat":41.9797222,"lon":-87.7780556,"code":"GLADSTONEP"},"JEFFERSONP":{"name":"Jefferson Park","lat":41.9713889,"lon":-87.7633333,"code":"JEFFERSONP"},"BARTLETT":{"name":"Bartlett","lat":41.9922222,"lon":-88.1838889,"code":"BARTLETT"},"47TH-UP":{"name":"47th St. (Kenwood)","lat":41.8097222,"lon":-87.5913889,"code":"47TH-UP"},"51ST-53RD":{"name":"51st/53rd St. (Hyde Park)","lat":41.8,"lon":-87.5869444,"code":"51ST-53RD"},"55-56-57TH":{"name":"55th - 56th - 57th St.","lat":41.7933333,"lon":-87.5875,"code":"55-56-57TH"},"63RD-UP":{"name":"63rd St.","lat":41.7802778,"lon":-87.5905556,"code":"63RD-UP"},"PRAIRIEXNG":{"name":"Prairie Crossing","lat":42.3208333,"lon":-88.0152778,"code":"PRAIRIEXNG"},"RIVERGROVE":{"name":"River Grove","lat":41.9311111,"lon":-87.8361111,"code":"RIVERGROVE"},"ELMWOODPK":{"name":"Elmwood Park","lat":41.9247222,"lon":-87.8147222,"code":"ELMWOODPK"},"RIVERDALE":{"name":"Riverdale","lat":41.6466667,"lon":-87.6233333,"code":"RIVERDALE"},"IVANHOE":{"name":"Ivanhoe","lat":41.6333333,"lon":-87.6302778,"code":"IVANHOE"},"147TH-UP":{"name":"147th St.","lat":41.6227778,"lon":-87.6361111,"code":"147TH-UP"},"HARVEY":{"name":"Harvey","lat":41.6083333,"lon":-87.6438889,"code":"HARVEY"},"HAZELCREST":{"name":"Hazel Crest","lat":41.5808333,"lon":-87.6586111,"code":"HAZELCREST"},"MILLENNIUM":{"name":"Millennium Station","lat":41.8841667,"lon":-87.6230556,"code":"MILLENNIUM"},"VANBUREN":{"name":"Van Buren St.","lat":41.8769444,"lon":-87.6230556,"code":"VANBUREN"},"MUSEUM":{"name":"Museum Campus/11th St.","lat":41.8686111,"lon":-87.6213889,"code":"MUSEUM"},"18TH-UP":{"name":"18th St.","lat":41.8583333,"lon":-87.6180556,"code":"18TH-UP"},"MCCORMICK":{"name":"McCormick Place","lat":41.8513889,"lon":-87.6163889,"code":"MCCORMICK"},"27TH-UP":{"name":"27th St.","lat":41.8441667,"lon":-87.6133333,"code":"27TH-UP"},"75TH-UP":{"name":"75th St. (Grand Crossing)","lat":41.7588889,"lon":-87.5952778,"code":"75TH-UP"},"79TH-UP":{"name":"79th St. (Chatham)","lat":41.7508333,"lon":-87.5972222,"code":"79TH-UP"},"83RD-UP":{"name":"83rd St. (Avalon Park)","lat":41.7441667,"lon":-87.5986111,"code":"83RD-UP"},"87TH-UP":{"name":"87th St. (Woodruff)","lat":41.7369444,"lon":-87.6002778,"code":"87TH-UP"},"91ST-UP":{"name":"91st St.","lat":41.7294444,"lon":-87.6019444,"code":"91ST-UP"},"95TH-UP":{"name":"95th St.","lat":41.7219444,"lon":-87.6038889,"code":"95TH-UP"},"103RD-UP":{"name":"103rd St. (Rosemoor)","lat":41.7069444,"lon":-87.6072222,"code":"103RD-UP"},"107TH-UP":{"name":"107th St.","lat":41.6997222,"lon":-87.6088889,"code":"107TH-UP"},"111TH-UP":{"name":"111th St. (Pullman)","lat":41.6927778,"lon":-87.6105556,"code":"111TH-UP"},"STONYISLND":{"name":"Stony Island","lat":41.7661111,"lon":-87.5869444,"code":"STONYISLND"},"BRYNMAWR":{"name":"Bryn Mawr","lat":41.7661111,"lon":-87.5766667,"code":"BRYNMAWR"},"SOUTHSHORE":{"name":"South Shore","lat":41.7652778,"lon":-87.5658333,"code":"SOUTHSHORE"},"WINDSORPK":{"name":"Windsor Park","lat":41.7586111,"lon":-87.5594444,"code":"WINDSORPK"},"79TH-SC":{"name":"Cheltenham (79th St.)","lat":41.7522222,"lon":-87.5525,"code":"79TH-SC"},"83RD-SC":{"name":"83rd St.","lat":41.745,"lon":-87.5516667,"code":"83RD-SC"},"87TH-SC":{"name":"87th St.","lat":41.7377778,"lon":-87.5483333,"code":"87TH-SC"},"93RD-SC":{"name":"South Chicago (93rd)","lat":41.7266667,"lon":-87.5477778,"code":"93RD-SC"},"LSS":{"name":"LaSalle Street","lat":41.8763889,"lon":-87.6322222,"code":"LSS"},"GRESHAM":{"name":"Gresham","lat":41.7363889,"lon":-87.6447222,"code":"GRESHAM"},"VERMONT":{"name":"Blue Island-Vermont","lat":41.6547222,"lon":-87.6777778,"code":"VERMONT"},"LONGWOOD":{"name":"95th St.-Longwood","lat":41.7211111,"lon":-87.6502778,"code":"LONGWOOD"},"WASHHGTS":{"name":"103rd St.-Washington Hts.","lat":41.7055556,"lon":-87.6558333,"code":"WASHHGTS"},"BRAINERD":{"name":"Brainerd","lat":41.7322222,"lon":-87.6588889,"code":"BRAINERD"},"91ST-BEV":{"name":"91st St. - Beverly Hills","lat":41.7280556,"lon":-87.6672222,"code":"91ST-BEV"},"PRAIRIEST":{"name":"Prairie St.","lat":41.6625,"lon":-87.675,"code":"PRAIRIEST"},"123RD-BEV":{"name":"123rd St.","lat":41.67,"lon":-87.6736111,"code":"123RD-BEV"},"119TH-BEV":{"name":"119th St.","lat":41.6763889,"lon":-87.6725,"code":"119TH-BEV"},"115TH-BEV":{"name":"115th St. - Morgan Park","lat":41.685,"lon":-87.6716667,"code":"115TH-BEV"},"111TH-BEV":{"name":"111th St. - Morgan Park","lat":41.6927778,"lon":-87.6705556,"code":"111TH-BEV"},"107TH-BEV":{"name":"107th St. - Beverly Hills","lat":41.6988889,"lon":-87.67,"code":"107TH-BEV"},"103RD-BEV":{"name":"103rd St. - Beverly Hills","lat":41.7061111,"lon":-87.6688889,"code":"103RD-BEV"},"99TH-BEV":{"name":"99th St. - Beverly Hills","lat":41.7136111,"lon":-87.6675,"code":"99TH-BEV"},"95TH-BEV":{"name":"95th St. - Beverly Hills","lat":41.7213889,"lon":-87.6672222,"code":"95TH-BEV"},"BLUEISLAND":{"name":"Blue Island","lat":41.6561111,"lon":-87.6758333,"code":"BLUEISLAND"},"BURROAK":{"name":"Burr Oak","lat":41.6622222,"lon":-87.6688889,"code":"BURROAK"},"ASHLAND":{"name":"Ashland","lat":41.6694444,"lon":-87.6605556,"code":"ASHLAND"},"RACINE":{"name":"Racine","lat":41.6741667,"lon":-87.6519444,"code":"RACINE"},"WPULLMAN":{"name":"West Pullman","lat":41.6741667,"lon":-87.6422222,"code":"WPULLMAN"},"STEWARTRID":{"name":"Stewart Ridge","lat":41.6744444,"lon":-87.6316667,"code":"STEWARTRID"},"STATEST":{"name":"State St.","lat":41.6744444,"lon":-87.6219444,"code":"STATEST"},"SCHILLERPK":{"name":"Schiller Park","lat":41.9627778,"lon":-87.8705556,"code":"SCHILLERPK"},"PALOSHTS":{"name":"Palos Heights","lat":41.6819444,"lon":-87.8069444,"code":"PALOSHTS"},"PINGREE":{"name":"Pingree Road","lat":42.2341667,"lon":-88.2980556,"code":"PINGREE"},"CUS":{"name":"Chicago Union Station","lat":41.8788889,"lon":-87.6388889,"code":"CUS"},"OTC":{"name":"Chicago OTC","lat":41.8822222,"lon":-87.6405556,"code":"OTC"},"LARAWAY":{"name":"Laraway Road","lat":41.4847222,"lon":-87.9597222,"code":"LARAWAY"},"MANHATTAN":{"name":"Manhattan","lat":41.4183333,"lon":-87.9891667,"code":"MANHATTAN"},"NCSGRAYSLK":{"name":"Washington St (Grayslake)","lat":42.3591667,"lon":-88.0505556,"code":"NCSGRAYSLK"},"ROSEMONT":{"name":"Rosemont","lat":41.9761111,"lon":-87.8738889,"code":"ROSEMONT"},"FRANKLINPK":{"name":"Franklin Pk","lat":41.9377778,"lon":-87.86,"code":"FRANKLINPK"},"LAFOX":{"name":"La Fox","lat":41.8866667,"lon":-88.4122222,"code":"LAFOX"},"ELBURN":{"name":"Elburn","lat":41.8905556,"lon":-88.4638889,"code":"ELBURN"},"35TH":{"name":"35th St. - Lou Jones","lat":41.8313889,"lon":-87.6291667,"code":"35TH"},"ROMEOVILLE":{"name":"Romeoville","lat":41.6372222,"lon":-88.0494444,"code":"ROMEOVILLE"},"PETERSON":{"name":"Peterson/Ridge","lat":41.9911111,"lon":-87.675,"code":"PETERSON"}},"routes":{"BNSF":{"name":"BNSF Railway","color":"#29C233","text":"#000000"},"HC":{"name":"Heritage Corridor","color":"#550E0C","text":"#FFFFFF"},"MD-N":{"name":"Milwaukee District North","color":"#CC5500","text":"#FFFFFF"},"MD-W":{"name":"Milwaukee District West","color":"#F1AD0E","text":"#000000"},"ME":{"name":"Metra Electric","color":"#EB5C00","text":"#FFFFFF"},"NCS":{"name":"North Central Service","color":"#9785BC","text":"#FFFFFF"},"RI":{"name":"Rock Island","color":"#E02400","text":"#FFFFFF"},"SWS":{"name":"SouthWest Service","color":"#0042A8","text":"#FFFFFF"},"UP-N":{"name":"Union Pacific North","color":"#008000","text":"#FFFFFF"},"UP-NW":{"name":"Union Pacific Northwest","color":"#FFE600","text":"#000000"},"UP-W":{"name":"Union Pacific West","color":"#FE8D81","text":"#000000"}}};
-      function metraUnixToDate(t) {
-        if (t == null || t === '') return null;
-        let n = (typeof t === 'object' && t !== null && typeof t.toNumber === 'function') ? t.toNumber() : Number(t);
-        if (!isFinite(n) || n <= 0) return null;
-        if (n > 1e12) n = Math.floor(n / 1000);
-        const d = new Date(n * 1000);
-        return isNaN(d.getTime()) ? null : d;
-      }
-      function metraFormatTime(d) {
-        if (!d) return null;
-        return rrClockTime(d);
-      }
-      function metraStopCoords(stopId) {
-        if (!stopId) return null;
-        const s = METRA_STATIC.stops[String(stopId)];
-        if (!s || s.lat == null || s.lon == null) return null;
-        const lat = Number(s.lat), lon = Number(s.lon);
-        if (!lat && !lon) return null;
-        return { lat, lon, name: s.name || String(stopId) };
-      }
-      function metraRouteInfo(routeId) {
-        const r = METRA_STATIC.routes[String(routeId || '')] || null;
-        return {
-          id: String(routeId || ''),
-          name: (r && r.name) || (routeId ? String(routeId) : 'Metra'),
-          color: (r && r.color) || '#0055A4',
-          text: (r && r.text) || '#FFFFFF'
-        };
-      }
-      function metraEventTime(ev) {
-        if (!ev) return null;
-        return metraUnixToDate(ev.time);
-      }
-      function metraEventDelayMin(ev) {
-        if (!ev || ev.delay == null) return null;
-        const sec = Number(ev.delay);
-        if (!isFinite(sec)) return null;
-        return Math.round(sec / 60);
-      }
-      function metraBuildStopsFromTripUpdate(tu) {
-        const now = Date.now();
-        const list = (tu && tu.stop_time_update) || [];
-        return list.map(function(stu) {
-          const stopId = stu.stop_id != null ? String(stu.stop_id) : '';
-          const staticStop = METRA_STATIC.stops[stopId] || null;
-          const name = (staticStop && staticStop.name) || stopId || 'Unknown';
-          const arr = metraEventTime(stu.arrival);
-          const dep = metraEventTime(stu.departure);
-          const primary = dep || arr;
-          const delayMin = metraEventDelayMin(stu.departure);
-          const delayMin2 = delayMin != null ? delayMin : metraEventDelayMin(stu.arrival);
-          const isCompleted = primary ? primary.getTime() < now : false;
-          return {
-            name: name,
-            stopId: stopId,
-            scheduledTime: primary,
-            predictedTime: primary,
-            delayMinutes: delayMin2,
-            trackNumber: null,
-            formattedScheduledTime: metraFormatTime(primary) || '—',
-            formattedPredictedTime: metraFormatTime(primary),
-            formattedActualTime: null,
-            isCompleted: isCompleted,
-            lat: staticStop ? Number(staticStop.lat) : null,
-            lng: staticStop ? Number(staticStop.lon) : null
-          };
-        });
-      }
-      function metraDisplayTrainNum(tripId, vehicleId) {
-        const s = String(tripId || '').trim();
-        if (s) {
-          const parts = s.split('_');
-          // Prefer second segment if it contains digits (e.g. RI_RI234_V1_D → RI234)
-          if (parts.length >= 2 && /\d/.test(parts[1])) return parts[1];
-          // Fallback: any segment with digits
-          for (let i = 0; i < parts.length; i++) {
-            if (/\d/.test(parts[i])) return parts[i];
-          }
-        }
-        return vehicleId ? String(vehicleId) : '?';
-      }
-      function createMetraIcon(trainNum) {
-        const reported = rrReportIconUrl('metra', null, trainNum);
-        if (reported) return rrIconFromUrl(reported, 'train-icon metra-icon');
-        return L.divIcon({
-          className: 'metra-icon',
-          html: '<div style="width:16px;height:16px;background:#0055A4;border:2px solid #ffffff;border-radius:50%;box-sizing:border-box;"></div>',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
-          popupAnchor: [0, -8]
-        });
-      }
-      function createMetraPopupContent(vid, info) {
-        const num = info.trainNum || String(vid).replace(/^metra-/, '');
-        const route = info.routeName || 'Metra';
-        const dest = info.destName || '—';
-        const origin = info.origName || '—';
-        const status = info.statusText || 'On Time';
-        const statusPillClass = info.statusPillClass || 'status-on-time';
-        const speed = info.speedMph != null ? Math.round(Number(info.speedMph)) : null;
-        const lastSeenTime = metraLastSeen[vid]
-          ? rrClockTime(new Date(metraLastSeen[vid]))
-          : '—';
-        const metraBadge = '<span class="cape-badge" style="background:#0055A4;">Metra</span>';
-        const metraSpecial = getSpecialForVehicle('metra', info.vehicleId || null, num) || info.specialUnit || null;
-        const refreshBtn = '<button class="popup-action-btn refresh-btn" data-vid="' + escapeHtmlLite(vid) + '" onclick="refreshMetraTrain(this.dataset.vid)">Refresh</button>';
-        const shareBtn = rrShareTrainBtnHtml('metra', vid, num);
-        const logTripBtn = rrLogTripBtnHtml('metra', vid, num);
-        const hasAlert = !!info.hasAlert;
-        const al = trainAlertBannerHtml(hasAlert, info.alertHeader);
-        const alertIcon = trainAlertHeaderIconHtml(hasAlert);
-        const stopsHtml = (info.stops && info.stops.length)
-          ? buildStopsHtml(info.stops, info.lat, info.lng)
-          : '<div class="no-departures">No stop data</div>';
-        let statusDesc = 'On the way to ' + dest;
-        if (info.vehicleStatus === 1 && info.currentStopName) statusDesc = 'Stopped at ' + info.currentStopName;
-        else if (info.vehicleStatus === 0 && info.currentStopName) statusDesc = 'Arriving at ' + info.currentStopName;
-        else if (!info.stops || !info.stops.length) statusDesc = 'Live position';
-        const speedHtml = speed != null
-          ? ('<div class="info-item"><span class="info-label">Speed</span><span class="info-value">' + speed + ' mph</span></div>')
-          : '';
-        const headerAttrs = rrPopupHeaderAttrs(METRA_STATIC.routes[String(info.routeId || '')] ? info.routeColor : '');
-        return `
-          <div class="train-popup">
-            <div class="train-popup-header"${headerAttrs}>
-              <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:14.5px; line-height:1.25; color:#ffffff; font-style:italic; letter-spacing:0; word-spacing:-0.06em;">
-                ${metraBadge}
-                ${rrPopupRailroadNameHtml('Metra', route)}
-                <span style="font-size:14.5px; font-weight:700; color:#ffffff; font-style:italic;">${rrPopupLineHtml('Metra', route)}</span><span data-rr-num style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(num)}</span>
-                <span style="color:#ffffff; font-weight:500; font-style:italic;">to</span>
-                <span style="font-weight:700; color:#ffffff; font-style:italic;">${escapeHtmlLite(dest)}</span>
-                ${alertIcon}
-              </div>
-            </div>
-            <div class="train-popup-body">
-              <div class="quick-status" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #eee;">
-                <p class="status-desc" style="margin:0;">${escapeHtmlLite(statusDesc)}</p>
-                <span class="status-pill ${statusPillClass}">${escapeHtmlLite(status)}</span>
-              </div>
-              <div class="info-grid">
-                <div class="info-item">
-                  <span class="info-label">Train</span>
-                  <span class="info-value">${escapeHtmlLite(num)}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Route</span>
-                  <span class="info-value">${escapeHtmlLite(route)}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Status</span>
-                  <span class="info-value">${escapeHtmlLite(status)}</span>
-                </div>
-                ${speedHtml}
-              </div>
-              ${al}
-              <div class="meta-row">
-                ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
-              </div>
-              <div class="stops-wrapper">
-                ${stopsHtml}
-              </div>
-            </div>
-            <div class="train-popup-footer">
-              ${logTripBtn}${shareBtn}${refreshBtn}
-            </div>
-          </div>
-        `;
-      }
-      window.refreshMetraTrain = async function() { return fetchMetraTrains(); };
-      function updateMetraVisibility() {
-        Object.keys(metraMarkers).forEach(function(vid) {
-          const m = metraMarkers[vid];
-          const info = metraTrainInfo[vid] || {};
-          const special = getSpecialForVehicle('metra', info.vehicleId || null, info.trainNum);
-          if (showMetra && (!showOnlySpecial || !!special)) map.addLayer(m);
-          else if (map.hasLayer(m)) map.removeLayer(m);
-        });
-        if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
-      }
-      function metraParseJoined(vehicleEntity, tripUpdate, usedTrainNums) {
-        const v = (vehicleEntity && vehicleEntity.vehicle) || null;
-        if (!v || !v.position) return null;
-        const lat = Number(v.position.latitude);
-        const lon = Number(v.position.longitude);
-        if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) return null;
-        const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
-        const tu = tripUpdate || null;
-        const tripV = (v && v.trip) || {};
-        const tripU = (tu && tu.trip) || {};
-        const trip = Object.assign({}, tripV, tripU);
-        const tripId = trip.trip_id != null ? String(trip.trip_id) : '';
-        const trainNum = metraDisplayTrainNum(tripId, vehicleId);
-        if (!trainNum) return null;
-        const routeId = (tripU.route_id != null && tripU.route_id !== '')
-          ? String(tripU.route_id)
-          : (tripV.route_id != null ? String(tripV.route_id) : '');
-        const route = routeId ? metraRouteInfo(routeId) : { id: '', name: 'Metra', color: '#0055A4', text: '#FFFFFF' };
-        const stops = metraBuildStopsFromTripUpdate(tu);
-        const destName = stops.length ? stops[stops.length - 1].name : '—';
-        const origName = stops.length ? stops[0].name : '—';
-        let maxDelay = null;
-        stops.forEach(function(s) {
-          if (s.delayMinutes == null) return;
-          if (maxDelay == null || Math.abs(s.delayMinutes) > Math.abs(maxDelay)) maxDelay = s.delayMinutes;
-        });
-        let statusText = 'On Time';
-        let statusPillClass = 'status-on-time';
-        if (maxDelay != null && Math.abs(maxDelay) > 15) {
-          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
-          statusPillClass = maxDelay > 0 ? 'status-very-delayed' : 'status-on-time';
-        } else if (maxDelay != null && Math.abs(maxDelay) > 5) {
-          statusText = maxDelay > 0 ? (rrFmtDelay(maxDelay) + ' late') : 'On Time';
-          statusPillClass = maxDelay > 0 ? 'status-delayed' : 'status-on-time';
-        } else if (maxDelay != null && maxDelay > 0) {
-          statusText = rrFmtDelay(maxDelay) + ' late';
-        } else if (!tu) {
-          statusText = 'Live';
-          statusPillClass = 'status-scheduled';
-        }
-        const vehicleStatus = (v && v.current_status != null) ? Number(v.current_status) : null;
-        let currentStopName = null;
-        if (v && v.stop_id) {
-          const cs = metraStopCoords(v.stop_id);
-          if (cs) currentStopName = cs.name;
-        }
-        let speedMph = null;
-        if (v.position.speed != null) {
-          const mps = Number(v.position.speed);
-          if (isFinite(mps) && mps >= 0) speedMph = mps * 2.23693629;
-        }
-        let markerKey = 'metra-' + (vehicleId || trainNum);
-        if (usedTrainNums && usedTrainNums.has(markerKey)) {
-          markerKey = 'metra-' + String((vehicleEntity && vehicleEntity.id) || vehicleId || trainNum);
-        }
-        if (usedTrainNums) usedTrainNums.add(markerKey);
-        return {
-          id: markerKey,
-          trainNum: trainNum,
-          vehicleId: vehicleId || null,
-          routeId: routeId,
-          routeName: route.name,
-          routeColor: route.color,
-          routeText: route.text,
-          lat: lat,
-          lng: lon,
-          coordSource: 'gps',
-          stops: stops,
-          destName: destName,
-          origName: origName,
-          statusText: statusText,
-          statusPillClass: statusPillClass,
-          delayMinutes: maxDelay,
-          vehicleStatus: vehicleStatus,
-          stopLLs: rrTuStopLLs(tu, metraStopCoords),
-          currentStopName: currentStopName,
-          speedMph: speedMph,
-          tripId: tripId || null,
-          hasAlert: false,
-          alertHeader: ''
-        };
-      }
-      async function fetchMetraTrains() {
-        if (!showMetra) return;
-        const stat = FetchStats.start('Metra');
-        try {
-          const FeedMessage = getFeedMessageType();
-          const [posRes, tuRes, alRes] = await Promise.all([
-            fetch(METRA_POSITIONS_URL),
-            fetch(METRA_TRIPUPDATES_URL),
-            fetch(METRA_ALERTS_URL).catch(function() { return null; })
-          ]);
-          if (!posRes.ok) throw new Error('positions HTTP ' + posRes.status);
-          if (!tuRes.ok) throw new Error('tripupdates HTTP ' + tuRes.status);
-          const [posBuf, tuBuf, alBuf] = await Promise.all([
-            posRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
-            tuRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }),
-            (alRes && alRes.ok) ? alRes.arrayBuffer().then(function(b) { return new Uint8Array(b); }) : Promise.resolve(null)
-          ]);
-          const posFeed = FeedMessage.decode(posBuf);
-          const tuFeed = FeedMessage.decode(tuBuf);
-          let alertIndex = { byTrip: {}, byRoute: {} };
-          if (alBuf) {
-            try {
-              const alFeed = FeedMessage.decode(alBuf);
-              alertIndex = indexGtfsRtServiceAlerts(alFeed, ['METRA']);
-            } catch (alErr) {
-              console.warn('[Metra alerts] decode failed', alErr);
-            }
-          }
-          // Index trip updates by trip_update.vehicle.id
-          const tuByVehicleId = {};
-          (tuFeed.entity || []).forEach(function(entity) {
-            const tu = entity.trip_update;
-            if (!tu || !tu.vehicle || tu.vehicle.id == null || tu.vehicle.id === '') return;
-            tuByVehicleId[String(tu.vehicle.id)] = tu;
-          });
-          const now = Date.now();
-          let created = 0, updated = 0, skipped = 0, joined = 0, gpsOnly = 0;
-          const seen = new Set();
-          const usedTrainNums = new Set();
-          const posEntities = posFeed.entity || [];
-          posEntities.forEach(function(entity) {
-            const v = entity.vehicle;
-            if (!v || !v.position) { skipped++; return; }
-            const vehicleId = (v.vehicle && v.vehicle.id != null) ? String(v.vehicle.id) : '';
-            const tu = vehicleId ? (tuByVehicleId[vehicleId] || null) : null;
-            if (tu) joined++; else gpsOnly++;
-            const info = metraParseJoined(entity, tu, usedTrainNums);
-            if (!info) { skipped++; return; }
-            applyGtfsRtAlertFields(info, alertIndex);
-            const vid = info.id;
-            seen.add(vid);
-            metraTrainInfo[vid] = info;
-            metraLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createMetraIcon(info.trainNum);
-            const metraLabelInfo = buildCyclingTrainInfo({
-              route: info.routeName || 'Metra',
-              trainNum: info.trainNum,
-              dest: info.destName || '',
-              vehicle: info.vehicleId || '',
-              speedMph: info.speedMph,
-              status: info.statusText || '',
-              nextStop: info.currentStopName || ''
-            });
-            if (metraMarkers[vid]) {
-              rrGlide.to(metraMarkers[vid], info.lat, info.lng, 30000, { ts: rrSeenMs(entity.vehicle && entity.vehicle.timestamp, null), bearing: entity.vehicle && entity.vehicle.position ? entity.vehicle.position.bearing : null, agency: 'metra', mph: info.speedMph, stops: info.stopLLs });
-              rrSetMarkerIcon(metraMarkers[vid], icon);
-              rrRefreshOpenPopup(metraMarkers[vid]);
-              applyCyclingLabel(metraMarkers[vid], metraLabelInfo, false);
-              updated++;
-            } else {
-              const m = L.marker([info.lat, info.lng], { icon: icon });
-              m.bindPopup(function() { return createMetraPopupContent(vid, metraTrainInfo[vid]); }, rrPopupOpts());
-              applyCyclingLabel(m, metraLabelInfo, true);
-              const zoom = map.getZoom();
-              if (showTrainLabels && zoom >= LABEL_MIN_ZOOM) {
-                m.bindTooltip('', { permanent: true, direction: 'bottom', offset: [0, 16], className: 'train-label' });
-                if (m._info.length) m.getTooltip().setContent(escapeHtmlLite(m._info[0]));
-              }
-              metraMarkers[vid] = m;
-              if (showMetra && rrOnlyTrainAllows(metraMarkers, vid)) m.addTo(map);
-              created++;
-            }
-          });
-          Object.keys(metraMarkers).forEach(function(vid) {
-            if (!seen.has(vid)) {
-              map.removeLayer(metraMarkers[vid]);
-              delete metraMarkers[vid];
-              delete metraTrainInfo[vid];
-              delete metraLastSeen[vid];
-            }
-          });
-          rrFeedOkAt.metra = Date.now();
-          FetchStats.end(stat, {
-            positions: posEntities.length,
-            tripupdates: (tuFeed.entity || []).length,
-            joined: joined,
-            gpsOnly: gpsOnly,
-            created: created,
-            updated: updated,
-            skipped: skipped,
-            active: Object.keys(metraMarkers).length
-          });
-          updateMetraVisibility();
-          if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
-        } catch (e) {
-          FetchStats.error('Metra', e);
-          rrFeedFailed('metra', metraMarkers, metraLastSeen, [metraTrainInfo]);
-          console.warn('%c[Metra] GTFS-RT fetch failed', 'color:#f39c12', e);
-        }
-      }
-
       const NJT_VEHICLES_URL = apiUrl('/api/njt/vehicles');
       const NJT_STOPS_URL = apiUrl('/api/njt/stops');
       const NJT_COLOR = '#FF671F';
@@ -16389,7 +15987,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let mbtaStationsRequested = false;
       async function fetchStations() {
         if (!showMbta) {
-          if (showMnr || showLirr || showMetra || showMarc) plotStaticAgencyStationDots();
+          if (showMnr || showLirr || showMarc) plotStaticAgencyStationDots();
           return;
         }
         if (mbtaStationsRequested) return;
@@ -16437,7 +16035,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
       let amtrakAllTrains = [];
       window.stationDepartureClick = function(agency, tripId, rname, dest, svcDate) {
-        const feedMarkers = { amtrak: amtrakMarkers, mnr: mnrMarkers, lirr: lirrMarkers, metra: metraMarkers, marc: marcMarkers }[agency];
+        const feedMarkers = { amtrak: amtrakMarkers, mnr: mnrMarkers, lirr: lirrMarkers, marc: marcMarkers }[agency];
         if (feedMarkers) {
           const m = feedMarkers[tripId] || (agency === 'amtrak' ? amtrakMarkers['amtrak-' + tripId] : null);
           if (m && m.getLatLng) {
@@ -17225,15 +16823,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             pushItem(vid, m);
           });
         }
-        if (showMetra) {
-          Object.keys(metraMarkers).forEach(function(vid) {
-            const m = metraMarkers[vid];
-            const info = metraTrainInfo[vid] || {};
-            const special = getSpecialForVehicle('metra', info.vehicleId || null, info.trainNum);
-            if (showOnlySpecial && !special) return;
-            pushItem(vid, m);
-          });
-        }
         if (showNjt) {
           Object.keys(njtMarkers).forEach(function(vid) {
             const m = njtMarkers[vid];
@@ -17363,7 +16952,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         unbindIfNotInView(amtrakMarkers);
         unbindIfNotInView(mnrMarkers);
         unbindIfNotInView(lirrMarkers);
-        unbindIfNotInView(metraMarkers);
         unbindIfNotInView(njtMarkers);
         unbindIfNotInView(marcMarkers);
         applyTrainLabelCollision(inView, shouldShowLabels);
@@ -17401,7 +16989,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         unbindOutside(amtrakMarkers);
         unbindOutside(mnrMarkers);
         unbindOutside(lirrMarkers);
-        unbindOutside(metraMarkers);
         unbindOutside(njtMarkers);
         unbindOutside(marcMarkers);
 
@@ -17696,25 +17283,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
         } catch (_) {}
         try {
-          for (const vid in metraTrainInfo) {
-            const t = metraTrainInfo[vid];
-            const num = t.trainNum || String(vid).replace(/^metra-/, '');
-            const st = delayStatusParts(t.delayMinutes, t.statusText, t.statusPillClass);
-            let stopLabel = 'Next', stopName = t.currentStopName || '—';
-            if (t.vehicleStatus === 1) stopLabel = 'At';
-            else if (t.vehicleStatus === 0) stopLabel = 'Arriving';
-            res.push({
-              agency: 'Metra', agencyColor: '#0055A4', id: vid, markerMap: metraMarkers,
-              routeName: t.routeName || 'Metra', trainNum: num, dest: t.destName || '—',
-              vehicleLabel: t.vehicleId || num, speedMph: t.speedMph, stopLabel: stopLabel, stopName: stopName,
-              statusClass: st.statusClass, statusText: st.statusText,
-              hasAlert: !!t.hasAlert, lat: t.lat, lng: t.lng,
-              matchFields: [vid, num, t.tripId, t.vehicleId, t.routeName, t.destName, t.origName]
-            });
-          }
-        } catch (_) {}
-
-        try {
           for (const vid in marcTrainInfo) {
             const t = marcTrainInfo[vid];
             const num = t.trainNum || String(vid).replace(/^marc-/, '');
@@ -17741,14 +17309,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (k.indexOf('mbta') >= 0) return 'mbta';
         if (k.indexOf('metronorth') >= 0 || k === 'mnr') return 'mnr';
         if (k.indexOf('lirr') >= 0 || k.indexOf('longisland') >= 0) return 'lirr';
-        if (k.indexOf('metra') >= 0) return 'metra';
         if (k.indexOf('njtransit') >= 0 || k === 'njt') return 'njt';
         if (k.indexOf('ctrail') >= 0) return 'ctrail';
         if (k.indexOf('marc') >= 0) return 'marc';
         return k;
       }
       function rrNormShareId(s) {
-        return String(s || '').trim().toLowerCase().replace(/^(amtrak|mbta|mnr|lirr|metra|njt|ctrail|marc)[-:]/, '');
+        return String(s || '').trim().toLowerCase().replace(/^(amtrak|mbta|mnr|lirr|njt|ctrail|marc)[-:]/, '');
       }
       function rrTrainShareKey(agency, vid, trainNum) {
         const a = rrNormShareAgency(agency);
@@ -17823,14 +17390,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             prefill.scheduleStops = tinfo.stops || null;
           } else if (a === 'njt' && typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) {
             const tinfo = njtTrainInfo[vid];
-            prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
-            prefill.routeName = tinfo.routeName || '';
-            prefill.lineName = tinfo.routeName || '';
-            prefill.originName = tinfo.origName || '';
-            prefill.destName = tinfo.destName || '';
-            prefill.scheduleStops = tinfo.stops || null;
-          } else if (a === 'metra' && typeof metraTrainInfo !== 'undefined' && metraTrainInfo[vid]) {
-            const tinfo = metraTrainInfo[vid];
             prefill.trainNumber = String(tinfo.trainNum || trainNum || '').trim();
             prefill.routeName = tinfo.routeName || '';
             prefill.lineName = tinfo.routeName || '';
@@ -17977,7 +17536,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (a === 'amtrak' && amtrakTrainInfo[vid]) return createAmtrakPopupContent(vid, amtrakTrainInfo[vid]);
           if (a === 'mnr' && mnrTrainInfo[vid]) return createMnrPopupContent(vid, mnrTrainInfo[vid]);
           if (a === 'lirr' && lirrTrainInfo[vid]) return createLirrPopupContent(vid, lirrTrainInfo[vid]);
-          if (a === 'metra' && metraTrainInfo[vid]) return createMetraPopupContent(vid, metraTrainInfo[vid]);
           if (a === 'njt' && njtTrainInfo[vid]) return createNjtPopupContent(vid, njtTrainInfo[vid]);
           if (a === 'mbta' && trainInfo[vid]) {
             const t = trainInfo[vid];
@@ -18016,9 +17574,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } else if (a === 'lirr' && lirrTrainInfo[vid]) {
           addId(lirrTrainInfo[vid].routeId);
           addName(lirrTrainInfo[vid].routeName);
-        } else if (a === 'metra' && metraTrainInfo[vid]) {
-          addId(metraTrainInfo[vid].routeId);
-          addName(metraTrainInfo[vid].routeName);
         } else if (a === 'njt' && njtTrainInfo[vid]) {
           addId(njtTrainInfo[vid].routeId);
           addName(njtTrainInfo[vid].routeName);
@@ -18067,7 +17622,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         sweep(amtrakMarkers);
         sweep(mnrMarkers);
         sweep(lirrMarkers);
-        sweep(metraMarkers);
         sweep(njtMarkers);
         sweep(marcMarkers);
         Object.keys(stationMarkers || {}).forEach(function(key) {
@@ -18447,7 +18001,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         { id: 'amtrak', label: 'Amtrak' },
         { id: 'mnr', label: 'Metro-North' },
         { id: 'lirr', label: 'LIRR' },
-        { id: 'metra', label: 'Metra' },
         { id: 'njt', label: 'NJ Transit' },
         { id: 'ctrail', label: 'CTrail' }
       ];
@@ -19139,7 +18692,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (s.indexOf('mbta') >= 0) return 'MBTA';
         if (s.indexOf('metronorth') >= 0 || s === 'mnr') return 'MNR';
         if (s.indexOf('lirr') >= 0 || s.indexOf('longisland') >= 0) return 'LIRR';
-        if (s.indexOf('metra') >= 0) return 'Metra';
         if (s.indexOf('njtransit') >= 0 || s === 'njt') return 'NJT';
         return '';
       }
@@ -19202,7 +18754,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else if (/\bamtrak\b/.test(q)) agencyHint = 'Amtrak';
           else if (/\b(metro-?north|\bmnr\b)/.test(q)) agencyHint = 'MNR';
           else if (/\b(lirr|long island)\b/.test(q)) agencyHint = 'LIRR';
-          else if (/\bmetra\b/.test(q)) agencyHint = 'Metra';
           else if (/\b(nj\s*transit|\bnjt\b)/.test(q)) agencyHint = 'NJT';
         }
         const wantDelay = /delay|late|disrupt|problem|issue|trouble|cancel/.test(q);
@@ -19363,7 +18914,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         try { addStatic(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR'); } catch (_) {}
         try { addStatic(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR'); } catch (_) {}
-        try { addStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra'); } catch (_) {}
         return out;
       }
       window.rrCollectTripStations = function(railroad) {
@@ -19432,8 +18982,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             fromStatic(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null);
           } else if (rr === 'lirr') {
             fromStatic(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null);
-          } else if (rr === 'metra') {
-            fromStatic(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null);
           } else if (rr === 'marc') {
             fromStatic(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null);
           } else if (rr === 'ctrail') {
@@ -19840,7 +19388,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const q = rrAskNorm(raw)
           .replace(/\b(where|is|the|a|train|number|no|status|of|find|track|show|me|right|now|whats|what|s|running|late|delayed|on|time|today|at|currently)\b/g, ' ')
           .replace(/\s+/g, ' ').trim();
-        const m = q.match(/^(?:(amtrak|mbta|via rail|via|lirr|mnr|metro north|metra|njt|nj transit|marc)\s*)?v?(\d{1,5})$/);
+        const m = q.match(/^(?:(amtrak|mbta|via rail|via|lirr|mnr|metro north|njt|nj transit|marc)\s*)?v?(\d{1,5})$/);
         if (!m) return null;
         let agency = '';
         if (m[1]) agency = /^via/.test(m[1]) ? 'VIA Rail' : (m[1] === 'marc' ? 'MARC' : askAgencyKey(m[1]));
@@ -20119,7 +19667,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       /* General, how-to and policy questions are answered from assets/data/site-index.json: hand-picked
          sentences quoted word for word from RailroadRadar's own pages (tests/static/check.js keeps them true).
          The file is fetched once, the first time Ask gets this far, and costs no MBTA or worker request. */
-      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=d9bfc00e86';
+      const RR_ASK_SITE_INDEX_URL = '/assets/data/site-index.json?v=15a8d57426';
       const RR_ASK_SITE_STOP = new Set(('a about am an and any are as at be been by can could d did do does dont for from get got have '
         + 'how i if im in is it its ll me my number of on or our phone please re s should so t tell that the there this to us use using '
         + 've want was we what whats when where which who why will with would you your railroadradar site website app page').split(' '));
@@ -20293,7 +19841,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rrHistoryRail(raw) {
         const q = String(raw || '');
         if (/\bvia rail\b|\bVIA\b/.test(q)) return 'via';
-        if (/\b(red line|orange line|blue line|green line|silver line|mattapan|metra|marc|ctrail|septa)\b/i.test(q)) return 'none';
+        if (/\b(red line|orange line|blue line|green line|silver line|mattapan|marc|ctrail|septa)\b/i.test(q)) return 'none';
         if (/\b(mbta|commuter rail)\b/i.test(q)) return 'mbta';
         if (/\bmnr\b/i.test(q)) return 'mnr';
         if (/\bnjt\b/i.test(q)) return 'njt';
@@ -21048,7 +20596,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         // Other-agency stations from in-memory static GTFS (same map dots as MBTA)
         try { addStaticStops(typeof MNR_STATIC !== 'undefined' ? MNR_STATIC : null, 'MNR', 'mnr'); } catch (e) {}
         try { addStaticStops(typeof LIRR_STATIC !== 'undefined' ? LIRR_STATIC : null, 'LIRR', 'lirr'); } catch (e) {}
-        try { addStaticStops(typeof METRA_STATIC !== 'undefined' ? METRA_STATIC : null, 'Metra', 'metra'); } catch (e) {}
         try { addStaticStops(typeof MARC_STATIC !== 'undefined' ? MARC_STATIC : null, 'MARC', 'marc'); } catch (e) {}
         if (res.length === 0) return;
         const header = document.createElement('div');
@@ -21100,7 +20647,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         cycleDict(amtrakMarkers);
         cycleDict(mnrMarkers);
         cycleDict(lirrMarkers);
-        cycleDict(metraMarkers);
         cycleDict(njtMarkers);
         cycleDict(marcMarkers);
       }
@@ -21131,7 +20677,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       };
       const RR_MAP_RAIL_KEY = 'rr_map_railroads';
-      const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'metra', 'njt', 'ctrail', 'marc', 'brightline'];
+      const RR_MAP_RAIL_IDS = ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'ctrail', 'marc', 'brightline'];
       const rrRailPollTimers = {};
       const rrRailPolls = {};
       function defaultMapRailPrefs() {
@@ -21199,7 +20745,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         showAmtrak = !!p.amtrak;
         showMnr = !!p.mnr;
         showLirr = !!p.lirr;
-        showMetra = !!p.metra;
         showNjt = !!p.njt;
         showCtrail = !!p.ctrail;
         showMarc = !!p.marc;
@@ -21213,7 +20758,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         setCb('show-amtrak', showAmtrak);
         setCb('show-mnr', showMnr);
         setCb('show-lirr', showLirr);
-        setCb('show-metra', showMetra);
         setCb('show-njt', showNjt);
         setCb('show-ctrail', showCtrail);
         setCb('show-marc', showMarc);
@@ -21222,7 +20766,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch (_) {}
         try { if (typeof updateMnrVisibility === 'function') updateMnrVisibility(); } catch (_) {}
         try { if (typeof updateLirrVisibility === 'function') updateLirrVisibility(); } catch (_) {}
-        try { if (typeof updateMetraVisibility === 'function') updateMetraVisibility(); } catch (_) {}
         try { if (typeof updateNjtVisibility === 'function') updateNjtVisibility(); } catch (_) {}
         try { if (typeof updateMarcVisibility === 'function') updateMarcVisibility(); } catch (_) {}
         try { if (typeof updateStationVisibility === 'function') updateStationVisibility(); } catch (_) {}
@@ -21287,7 +20830,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // fetched; its markers are off-screen anyway. Amtrak/VIA span the continent and always poll.
       const RR_POLL_AREAS = {
         mbta: [40.7, -72.5, 43.7, -69.5], mnr: [40.1, -74.8, 42.3, -72.3], lirr: [40.0, -74.6, 41.7, -71.3],
-        metra: [40.7, -89.1, 43.1, -86.9], njt: [38.8, -75.9, 41.9, -73.3], marc: [38.3, -78.5, 40.3, -75.9]
+        njt: [38.8, -75.9, 41.9, -73.3], marc: [38.3, -78.5, 40.3, -75.9]
       };
       window.rrPollSkips = window.rrPollSkips || {};
       function rrRailPollInView(key) {
@@ -21353,8 +20896,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         else stopRailPoll('mnr');
         if (showLirr) startRailPoll('lirr', fetchLirrTrains, 25000);
         else stopRailPoll('lirr');
-        if (showMetra) startRailPoll('metra', fetchMetraTrains, 30000);
-        else stopRailPoll('metra');
         if (showNjt) startRailPoll('njt', fetchNjtTrains, 30000);
         else stopRailPoll('njt');
         if (showMarc) startRailPoll('marc', fetchMarcTrains, 30000);
@@ -21366,7 +20907,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           amtrak: !!showAmtrak,
           mnr: !!showMnr,
           lirr: !!showLirr,
-          metra: !!showMetra,
           njt: !!showNjt,
           ctrail: !!showCtrail,
           marc: !!showMarc,
@@ -21386,7 +20926,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
             else if (agency === 'mnr') { startRailPoll('mnr', fetchMnrTrains, 25000); fetchMnrTrains(); }
             else if (agency === 'lirr') { startRailPoll('lirr', fetchLirrTrains, 25000); fetchLirrTrains(); }
-            else if (agency === 'metra') { startRailPoll('metra', fetchMetraTrains, 30000); fetchMetraTrains(); }
             else if (agency === 'njt') { startRailPoll('njt', fetchNjtTrains, 30000); fetchNjtTrains(); }
             else if (agency === 'marc') { startRailPoll('marc', fetchMarcTrains, 30000); fetchMarcTrains(); }
             else if (agency === 'ctrail') {
@@ -21400,7 +20939,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else if (agency === 'amtrak') { if (!showVia) stopRailPoll('amtrak'); }
           else if (agency === 'mnr') stopRailPoll('mnr');
           else if (agency === 'lirr') stopRailPoll('lirr');
-          else if (agency === 'metra') stopRailPoll('metra');
           else if (agency === 'njt') stopRailPoll('njt');
           else if (agency === 'marc') stopRailPoll('marc');
         }
@@ -21411,7 +20949,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           amtrak: !!showAmtrak,
           mnr: !!showMnr,
           lirr: !!showLirr,
-          metra: !!showMetra,
           njt: !!showNjt,
           ctrail: !!showCtrail,
           marc: !!showMarc
@@ -21464,7 +21001,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (prefs.amtrak) fetchAmtrakTrains();
             if (prefs.mnr) fetchMnrTrains();
             if (prefs.lirr) fetchLirrTrains();
-            if (prefs.metra) fetchMetraTrains();
             if (prefs.njt) fetchNjtTrains();
             if (prefs.marc) fetchMarcTrains();
           } catch (_) {}
@@ -21541,7 +21077,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility();
         if (typeof updateMnrVisibility === 'function') updateMnrVisibility();
         if (typeof updateLirrVisibility === 'function') updateLirrVisibility();
-        if (typeof updateMetraVisibility === 'function') updateMetraVisibility();
         if (typeof updateNjtVisibility === 'function') updateNjtVisibility();
         if (typeof updateMarcVisibility === 'function') updateMarcVisibility();
         safeStorage.set('rr_showOnlySpecial', e.target.checked);
@@ -21588,12 +21123,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (typeof updateStationVisibility === 'function') updateStationVisibility();
         if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility();
         onMapRailToggle('lirr', showLirr);
-      });
-      document.getElementById('show-metra').addEventListener('change', e => {
-        showMetra = e.target.checked;
-        updateMetraVisibility();
-        if (typeof updateStationVisibility === 'function') updateStationVisibility();
-        onMapRailToggle('metra', showMetra);
       });
       document.getElementById('show-njt').addEventListener('change', e => {
         showNjt = e.target.checked;
@@ -21645,7 +21174,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (showAmtrak) await fetchAmtrakTrains();
         if (showMnr) await fetchMnrTrains();
         if (showLirr) await fetchLirrTrains();
-        if (showMetra) await fetchMetraTrains();
         if (showNjt) await fetchNjtTrains();
         if (showMarc && typeof fetchMarcTrains === 'function') await fetchMarcTrains();
         this.disabled = false; this.textContent = 'Refresh Data';
@@ -21916,7 +21444,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                     ? tripNormalizeAgency(s.railroad || data.railroad)
                     : String(s.railroad || data.railroad || '').toLowerCase();
                   if (a === 'ctrail') a = 'amtrak';
-                  if (a === 'mbta' || a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'metra' || a === 'njt' || a === 'marc') need[a] = 1;
+                  if (a === 'mbta' || a === 'amtrak' || a === 'mnr' || a === 'lirr' || a === 'njt' || a === 'marc') need[a] = 1;
                 }
               }
               try {
@@ -21941,7 +21469,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               arm('amtrak', function() { showAmtrak = true; }, fetchAmtrakTrains, 60000, fetchAmtrakTrains);
               arm('mnr', function() { showMnr = true; }, fetchMnrTrains, 25000, fetchMnrTrains);
               arm('lirr', function() { showLirr = true; }, fetchLirrTrains, 25000, fetchLirrTrains);
-              arm('metra', function() { showMetra = true; }, fetchMetraTrains, 30000, fetchMetraTrains);
               arm('njt', function() { showNjt = true; }, fetchNjtTrains, 30000, fetchNjtTrains);
               arm('marc', function() { showMarc = true; }, fetchMarcTrains, 30000, fetchMarcTrains);
               if (!jobs.length) return;
@@ -21976,10 +21503,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (showAmtrak) firstPaint.push(withTimeout(fetchAmtrakTrains(), 12000, 'fetchAmtrakTrains'));
             if (showMnr) firstPaint.push(withTimeout(fetchMnrTrains(), 10000, 'fetchMnrTrains'));
             if (showLirr) firstPaint.push(withTimeout(fetchLirrTrains(), 10000, 'fetchLirrTrains'));
-            if (showMetra) firstPaint.push(withTimeout(fetchMetraTrains(), 10000, 'fetchMetraTrains'));
             if (showNjt) firstPaint.push(withTimeout(fetchNjtTrains(), 10000, 'fetchNjtTrains'));
             if (showMarc) firstPaint.push(withTimeout(fetchMarcTrains(), 10000, 'fetchMarcTrains'));
-            // Wait at most 3 s: one slow feed (often Metra) used to hold the splash for up to 12 s.
+            // Wait at most 3 s: one slow feed used to hold the splash for up to 12 s.
             // Feeds that answer later still add their trains to the map.
             if (firstPaint.length) {
               await Promise.race([
@@ -22101,7 +21627,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (showAmtrak && typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains();
         if (showMnr && typeof fetchMnrTrains === 'function') fetchMnrTrains();
         if (showLirr && typeof fetchLirrTrains === 'function') fetchLirrTrains();
-        if (showMetra && typeof fetchMetraTrains === 'function') fetchMetraTrains();
         if (showNjt && typeof fetchNjtTrains === 'function') fetchNjtTrains();
         if (showMarc && typeof fetchMarcTrains === 'function') fetchMarcTrains();
       });
@@ -22177,14 +21702,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               destName: t.destName || ''
             };
           });
-          pushAgency('metra', typeof metraTrainInfo !== 'undefined' ? metraTrainInfo : null, function(t) {
-            return {
-              trainNumber: t.trainNum || '',
-              routeName: t.routeName || '',
-              routeId: t.routeId || '',
-              destName: t.destName || ''
-            };
-          });
           pushAgency('njt', typeof njtTrainInfo !== 'undefined' ? njtTrainInfo : null, function(t) {
             return {
               trainNumber: t.trainNum || '',
@@ -22234,7 +21751,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (_) {}
         const fallback = {
           mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR',
-          metra: 'Metra', njt: 'NJ Transit', marc: 'MARC', ctrail: 'CTrail'
+          njt: 'NJ Transit', marc: 'MARC', ctrail: 'CTrail'
         };
         return fallback[agency] || String(agency || 'Railroad');
       }

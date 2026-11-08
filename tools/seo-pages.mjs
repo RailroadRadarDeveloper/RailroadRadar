@@ -28,7 +28,6 @@ const RAILROADS = [
   { rr: 'lirr', label: 'Long Island Rail Road', short: 'LIRR', gtfs: 'https://rrgtfsfeeds.s3.amazonaws.com/gtfslirr.zip' },
   { rr: 'njt', label: 'NJ Transit Rail', short: 'NJ Transit', gtfs: 'https://www.njtransit.com/rail_data.zip' },
   { rr: 'marc', label: 'MARC Train', short: 'MARC', gtfs: 'https://feeds.mta.maryland.gov/gtfs/marc' },
-  { rr: 'metra', label: 'Metra', short: 'Metra', gtfs: 'https://schedules.metrarail.com/gtfs/schedule.zip' },
   { rr: 'ctrail', label: 'CTrail', short: 'CTrail', gtfs: 'https://ctrides.com/hlgtfs.zip' },
   { rr: 'via', label: 'VIA Rail Canada', short: 'VIA Rail', gtfs: 'https://www.viarail.ca/sites/all/files/gtfs/viarail.zip' }
 ];
@@ -37,7 +36,7 @@ const MARC_PAGES = { 'MARC Penn Line': 'marc-penn', 'MARC Camden Line': 'marc-ca
 function officialLink(rr, l) {
   const url = rr === 'mbta' ? (l ? `https://www.mbta.com/schedules/${encodeURIComponent(l.key)}/timetable` : 'https://www.mbta.com/schedules/commuter-rail')
     : rr === 'marc' ? `https://www.mta.maryland.gov/schedule${l && MARC_PAGES[l.name] ? '/' + MARC_PAGES[l.name] : '?type=marc-train'}`
-    : { amtrak: 'https://www.amtrak.com/train-schedules-timetables', mnr: 'https://www.mta.info/schedules', lirr: 'https://www.mta.info/schedules', njt: 'https://www.njtransit.com/schedules', metra: 'https://metra.com/schedules', ctrail: 'https://hartfordline.com/fares-schedules/', via: 'https://www.viarail.ca/en/plan/train-schedules' }[rr];
+    : { amtrak: 'https://www.amtrak.com/train-schedules-timetables', mnr: 'https://www.mta.info/schedules', lirr: 'https://www.mta.info/schedules', njt: 'https://www.njtransit.com/schedules', ctrail: 'https://hartfordline.com/fares-schedules/', via: 'https://www.viarail.ca/en/plan/train-schedules' }[rr];
   return { url, label: `Official ${RAILROADS.find((r) => r.rr === rr).short} Schedule` };
 }
 function simplify(pts, tol) {
@@ -187,8 +186,6 @@ function stopName(rr, name, id) {
   n = titleCase(n);
   if (rr === 'marc' && n === 'Union Station') return 'Washington Union Station';
   if (rr === 'marc' && n === 'Penn Station') return 'Baltimore Penn Station';
-  /* Metra marks a second stop of the same name with a trailing period. */
-  if (rr === 'metra') n = n.replace(/([A-Za-z]{4,})\.$/, '$1');
   return n;
 }
 const plainDash = (s) => String(s).replace(/\s+-\s+/g, ' to ');
@@ -199,10 +196,6 @@ function lineDisplay(rr, name, gtfsShort) {
   if (rr === 'lirr') return 'LIRR ' + name;
   if (rr === 'njt') return 'NJ Transit ' + name;
   if (rr === 'marc') return 'MARC ' + name;
-  if (rr === 'metra') {
-    const base = (name === 'Burlington Northern' && gtfsShort ? gtfsShort : name).replace(/^Metra\s+/, '');
-    return 'Metra ' + (/(Line|Service|Corridor)$/.test(base) ? base : base + ' Line');
-  }
   if (rr === 'ctrail') return 'CTrail ' + name;
   if (rr === 'via') return 'VIA Rail ' + plainDash(name);
   return name;
@@ -541,7 +534,7 @@ for (const r of RAILROADS) {
   const known = shapes[r.rr];
   const byName = known ? new Map(known.map((s) => [s.name.toLowerCase(), s])) : null;
   const byId = known ? new Map(known.map((s) => [String(s.id), s])) : null;
-  /* The site's own route list (assets/shapes) decides which lines get pages. Metra has no shapes file, so its GTFS routes are used. */
+  /* The site's own route list (assets/shapes) decides which lines get pages. */
   const shapeFor = (route) => {
     if (!known) return null;
     const nm = String(route.route_long_name || route.route_short_name).toLowerCase();
@@ -607,8 +600,8 @@ function write(rel, html) {
   fs.writeFileSync(f, html);
   OUT.push(rel);
 }
-const RAIL_ORDER = ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'marc', 'metra', 'ctrail', 'via'];
-const LIVE = { mbta: 'live trains, delays and alerts', amtrak: 'live trains, delays and alerts', mnr: 'live trains, delays and alerts', lirr: 'live trains, delays and alerts', metra: 'live trains, delays and alerts' };
+const RAIL_ORDER = ['mbta', 'amtrak', 'mnr', 'lirr', 'njt', 'marc', 'ctrail', 'via'];
+const LIVE = { mbta: 'live trains, delays and alerts', amtrak: 'live trains, delays and alerts', mnr: 'live trains, delays and alerts', lirr: 'live trains, delays and alerts' };
 const HISTORY_KEY = (l) => {
   if (l.rr === 'mbta' || l.rr === 'amtrak') return l.baseName;
   if (l.rr === 'mnr') return l.baseName;
@@ -683,7 +676,7 @@ for (const l of lines) {
   const jsonld = [crumbsLd(crumbs, path_)];
   const attrs = `id="lp-main" data-page="line" data-rr="${l.rr}" data-route="${esc(l.ids.join(','))}" data-name="${esc(l.baseName)}" data-history="${esc(hist)}" `;
   let names = '';
-  if (['mnr', 'lirr', 'metra'].includes(l.rr)) {
+  if (['mnr', 'lirr'].includes(l.rr)) {
     const m = {};
     for (const s of l.all) for (const k of s.kids) m[k] = s.name;
     names = `<script type="application/json" id="lp-stop-names">${JSON.stringify(m).replace(/</g, '\\u003c')}</script>\n`;
@@ -706,7 +699,7 @@ ${groups.map(([rr, ls]) => `    <section class="lp-card wide" id="${rr}" aria-la
   const crumbs = [home, ['Lines', '/lines/']];
   const jsonld = [crumbsLd(crumbs, '/lines/')];
   write('lines/index.html', page(T, { path: '/lines/', title: 'Train Line Tracker: Live Maps, Delays and On-Time Stats', h1: 'Train Lines',
-    description: `Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for ${lines.length} lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, Metra, CTrail and VIA Rail.`,
+    description: `Follow trains on the RailroadRadar live map, with delays, on-time history and station lists for ${lines.length} lines on MBTA Commuter Rail, Amtrak, Metro-North, LIRR, NJ Transit, MARC, CTrail and VIA Rail.`,
     lead: `Pick a line to see its trains live, current alerts and every station in order. ${lines.length} lines across ${groups.length} railroads.`, color: '#07093e', crumbs, jsonld, body,
     actions: '<a class="rr-btn" href="/map/">Open the Live Map</a><a class="rr-btn secondary" href="/stations/">All Stations</a>' }));
 }

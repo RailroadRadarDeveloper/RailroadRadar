@@ -1,7 +1,7 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 /* RailroadRadar 24-Hour Train Replay sampler + API (Cloudflare Workers Free).
    Two Workers run this file:
-   - railroadradar-replay (ROLE=commuter, cron every minute): MBTA, MNR, LIRR, Metra sampled at :00 and :30 of each
+   - railroadradar-replay (ROLE=commuter, cron every minute): MBTA, MNR and LIRR sampled at :00 and :30 of each
      minute (30 s), hourly booking/pruning, and GET /api/replay/hour for the map.
    - railroadradar-replay-amtrak (ROLE=amtrak, cron every minute): Amtrak and VIA sampled once a minute (60 s).
    Feeds come from railroadradar-proxy through a service binding (no API keys here; a workers.dev-to-workers.dev
@@ -20,7 +20,7 @@ const PROXY = 'https://railroadradar-proxy.railroadradar.workers.dev';
 const PROXY_HEADERS = { Origin: 'https://railroadradar.com', Referer: 'https://railroadradar.com/', 'User-Agent': 'railroadradar-replay' };
 const STOP_AT = 85000;
 const KEEP_HOURS = 25;            // hour rows kept besides the current one (24 h window spans 25 buckets)
-const RRS = ['amtrak', 'via', 'mbta', 'mnr', 'lirr', 'metra'];
+const RRS = ['amtrak', 'via', 'mbta', 'mnr', 'lirr'];
 
 // ---------- tiny protobuf reader for GTFS-RT VehiclePosition ----------
 function varint(b, i) {
@@ -84,13 +84,6 @@ function lirrNum(eid, tripId) {
   let id = String(eid || '').trim(); if (id.endsWith('_V') || id.endsWith('_T')) id = id.slice(0, -2);
   return fromId(tripId) || fromId(id) || id || '?';
 }
-function metraNum(tripId, vid) {
-  const parts = String(tripId || '').trim().split('_');
-  if (parts.length >= 2 && /\d/.test(parts[1])) return parts[1];
-  for (const p of parts) if (/\d/.test(p)) return p;
-  return vid || '?';
-}
-
 // ---------- feeds → [{key,label,route,lat,lon,mph,hdg,ts}] ----------
 let proxyFetcher = null;   // env.PROXY service binding, set per invocation
 async function getFeed(path, kind) {
@@ -111,9 +104,6 @@ const FEEDS = {
       return { key, label: num, route: v.routeId, lat: v.lat, lon: v.lon, mph: v.speed != null ? v.speed * MPS_TO_MPH : null, hdg: v.bearing, ts: v.ts };
     });
   },
-  metra: async () => gtfsVehicles(await getFeed('/api/metra/positions', 'bin')).map((v) => ({
-    key: v.vid || v.eid, label: metraNum(v.tripId, v.vid), route: v.routeId, lat: v.lat, lon: v.lon,
-    mph: v.speed != null ? v.speed * MPS_TO_MPH : null, hdg: v.bearing, ts: v.ts })),
   mbta: async () => {
     const j = await getFeed('/api/mbta/vehicles?filter%5Broute_type%5D=2&include=trip&fields%5Btrip%5D=name&fields%5Bvehicle%5D=latitude,longitude,bearing,speed,updated_at,label', 'json');
     const names = {};
@@ -238,7 +228,7 @@ const settle = (p) => p.then((v) => ({ ok: true, v }), (e) => ({ ok: false, e: S
 // The commuter cron keeps its own CPU small: each 30 s sample of each feed pair runs in its own
 // invocation (RPC on the Sampler entrypoint through the SELF service binding), so no single
 // invocation parses more than two feeds once. Sampler is RPC-only, not reachable over HTTP.
-const GROUPS = [['mbta', 'mnr'], ['lirr', 'metra']];
+const GROUPS = [['mbta', 'mnr'], ['lirr']];
 async function sampleGroup(env, hour, sec, rrs) {
   proxyFetcher = env.PROXY;
   const got = await Promise.all(rrs.map((n) => settle(FEEDS[n]())));
@@ -308,7 +298,7 @@ async function handleHour(request, env, ctx, url) {
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
   const r = await env.DB.prepare('SELECT rr, ids, data, n FROM replay_hour WHERE hour = ? AND rr IN (' + rrs.map(() => '?').join(',') + ')').bind(h, ...rrs).all();
-  const out = { h, step: { mbta: 30, mnr: 30, lirr: 30, metra: 30, amtrak: 60, via: 60 }, complete: done, rr: {} };
+  const out = { h, step: { mbta: 30, mnr: 30, lirr: 30, amtrak: 60, via: 60 }, complete: done, rr: {} };
   for (const row of r.results) out.rr[row.rr] = { ids: row.ids, data: row.data, n: row.n };
   const res = json(out, 200, done ? 'public, max-age=86400' : 'public, max-age=30');
   ctx.waitUntil(cache.put(cacheKey, res.clone()));

@@ -6,8 +6,7 @@
   "VIA Rail": 64,
   "MNR": 215,
   "LIRR": 150,
-  "NJT": 64,
-  "Metra": 183
+  "NJT": 64
  },
  "responses": {
   "/api/amtrak/alerts": {
@@ -129,21 +128,6 @@
    "status": 200,
    "contentType": "application/vnd.api+json; charset=utf-8",
    "file": "mbta-vehicles-8cea39a8.br"
-  },
-  "/api/metra/alerts": {
-   "status": 200,
-   "contentType": "application/octet-stream",
-   "file": "metra-alerts-9831623b.br"
-  },
-  "/api/metra/positions": {
-   "status": 200,
-   "contentType": "application/octet-stream",
-   "file": "metra-positions-2fd482cd.br"
-  },
-  "/api/metra/tripupdates": {
-   "status": 200,
-   "contentType": "application/octet-stream",
-   "file": "metra-tripupdates-ec013067.br"
   },
   "/api/mta/alerts": {
    "status": 200,
