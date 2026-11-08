@@ -2176,12 +2176,12 @@
       }
       if (adminRosterSuggestActive >= adminRosterSuggest.length) adminRosterSuggestActive = -1;
       list.innerHTML = adminRosterSuggest.map(function (row, i) {
-        const paint = row.paint ? row.paint : 'No Special Paint';
+        const meta = row.paint ? (row.type + ' · ' + row.paint) : row.type;
         const active = i === adminRosterSuggestActive ? ' is-active' : '';
         return '<li role="presentation"><button type="button" class="rr-roster-opt' + active + '" role="option" id="admin-roster-opt-' + i + '" data-roster-idx="' + i + '" aria-selected="' + (i === adminRosterSuggestActive ? 'true' : 'false') + '">' +
           '<img src="' + escapeAdminHtml(adminRosterSuggestIcon(row.number)) + '" alt="">' +
           '<span class="rr-roster-opt-text"><span class="rr-roster-opt-num">' + escapeAdminHtml(row.number) + '</span>' +
-          '<span class="rr-roster-opt-meta">' + escapeAdminHtml(row.type) + ' · ' + escapeAdminHtml(paint) + '</span></span></button></li>';
+          '<span class="rr-roster-opt-meta">' + escapeAdminHtml(meta) + '</span></span></button></li>';
       }).join('');
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
