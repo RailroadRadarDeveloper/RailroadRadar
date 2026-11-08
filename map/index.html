@@ -110,6 +110,29 @@
     if (seo) seo.remove();
   })();
   </script>
+  <script>
+  (function () {
+    var path = (location.pathname || '/').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
+    if (path !== '/specials' && path !== '/recent-reports') return;
+    var title = 'Recent Reports | RailroadRadar';
+    var desc = 'Recent locomotive reports, active specials, and upcoming pairings.';
+    var url = 'https://railroadradar.com' + path + '/';
+    document.title = title;
+    var d = document.querySelector('meta[name="description"]');
+    if (d) d.setAttribute('content', desc);
+    var c = document.querySelector('link[rel="canonical"]');
+    if (c) c.setAttribute('href', url);
+    function setMeta(sel, val) {
+      var m = document.querySelector(sel);
+      if (m) m.setAttribute('content', val);
+    }
+    setMeta('meta[property="og:title"]', title);
+    setMeta('meta[property="og:description"]', desc);
+    setMeta('meta[property="og:url"]', url);
+    setMeta('meta[name="twitter:title"]', title);
+    setMeta('meta[name="twitter:description"]', desc);
+  })();
+  </script>
   <meta name="theme-color" content="#07093e">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -130,7 +153,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=dd27c80e0f">
+  <link rel="stylesheet" href="/assets/css/app.css?v=7b5c1dde83">
   <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
   <link rel="stylesheet" href="/assets/css/settings.css?v=243d5a8d85">
   <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98">
@@ -250,7 +273,7 @@
           </div>
           <button type="button" class="header-auth-btn" id="btn-report-train-menu">Report a train</button>
           <button type="button" class="header-auth-btn" id="btn-acela-equip-menu">Report Acela Equipment</button>
-          <button type="button" class="header-auth-btn" id="btn-specials-header">Specials</button>
+          <a class="header-auth-btn" id="btn-specials-header" href="/specials/">Recent Reports</a>
           <button type="button" class="header-auth-btn header-leaderboard-btn" id="btn-leaderboard-header" title="Weekly Leaderboard" aria-label="Weekly Leaderboard">
             <span class="header-leaderboard-icon"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18"></span>
             <span class="header-leaderboard-label">Weekly Leaderboard</span>
@@ -399,7 +422,7 @@
       <div class="rr-set-card rr-set-tools">
         <h3>Reports &amp; Data</h3>
         <button type="button" id="btn-report-train-panel" class="cabcar-report-btn">Report a Train</button>
-        <button type="button" id="btn-specials-panel" class="cabcar-report-btn rr-set-btn-secondary">Specials &amp; Reports</button>
+        <a id="btn-specials-panel" class="cabcar-report-btn rr-set-btn-secondary" href="/specials/">Recent Reports</a>
         <button type="button" id="btn-leaderboard-panel" class="cabcar-report-btn rr-set-btn-secondary"><img src="/assets/icons/leaderboard-bars.png" alt="" width="18" height="18">Weekly Leaderboard</button>
         <button id="refresh-button" class="refresh-button rr-set-btn-secondary">Refresh Data</button>
         <div id="last-updated" class="last-updated">Last updated: Never</div>
@@ -848,19 +871,19 @@
   <div class="rr-modal-backdrop" id="specials-board-modal" aria-hidden="true">
     <div class="rr-modal rr-lightbox" role="dialog" aria-modal="true" aria-labelledby="specials-board-title">
       <div class="rr-modal-header">
-        <span id="specials-board-title">Specials & Reports</span>
+        <span id="specials-board-title">Recent Reports</span>
         <button type="button" class="rr-modal-close" id="specials-board-close" aria-label="Close">×</button>
       </div>
       <div class="rr-lightbox-body">
         <div class="rr-admin-tabs" role="tablist">
-          <button type="button" class="rr-admin-tab active" data-board-tab="specials" id="board-tab-specials">Active specials</button>
-          <button type="button" class="rr-admin-tab" data-board-tab="reports" id="board-tab-reports">Recent reports</button>
+          <button type="button" class="rr-admin-tab active" data-board-tab="specials" id="board-tab-specials">Active Specials</button>
+          <button type="button" class="rr-admin-tab" data-board-tab="reports" id="board-tab-reports">Recent Reports</button>
           <button type="button" class="rr-admin-tab" data-board-tab="upcoming" id="board-tab-upcoming">Upcoming</button>
         </div>
         <div class="rr-admin-pane active" id="board-pane-specials" data-board-pane="specials">
           <div class="rr-board-toolbar">
-            <select id="board-specials-agency" aria-label="Filter railroad">
-              <option value="all">All railroads</option>
+            <select id="board-specials-agency" aria-label="Filter Railroad">
+              <option value="all">All Railroads</option>
               <option value="mbta">MBTA</option>
               <option value="amtrak">Amtrak</option>
               <option value="mnr">Metro-North</option>
@@ -869,9 +892,9 @@
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
             </select>
-            <select id="board-specials-sort" aria-label="Sort specials">
-              <option value="railroad">Sort by railroad</option>
-              <option value="newest">Newest first</option>
+            <select id="board-specials-sort" aria-label="Sort Active Specials">
+              <option value="railroad">Sort by Railroad</option>
+              <option value="newest">Newest First</option>
               <option value="loco">Locomotive</option>
             </select>
           </div>
@@ -880,9 +903,9 @@
         </div>
         <div class="rr-admin-pane" id="board-pane-reports" data-board-pane="reports">
           <div class="rr-board-toolbar">
-            <input type="search" id="board-reports-search" placeholder="Search train, loco, reporter…" aria-label="Search reports">
-            <select id="board-reports-agency" aria-label="Filter railroad">
-              <option value="all">All railroads</option>
+            <input type="search" id="board-reports-search" placeholder="Search train, loco, reporter…" aria-label="Search Reports">
+            <select id="board-reports-agency" aria-label="Filter Railroad">
+              <option value="all">All Railroads</option>
               <option value="mbta">MBTA</option>
               <option value="amtrak">Amtrak</option>
               <option value="mnr">Metro-North</option>
@@ -891,12 +914,12 @@
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
             </select>
-            <select id="board-reports-sort" aria-label="Sort reports">
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
+            <select id="board-reports-sort" aria-label="Sort Reports">
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
               <option value="railroad">Railroad</option>
               <option value="loco">Locomotive</option>
-              <option value="train">Train number</option>
+              <option value="train">Train Number</option>
               <option value="reporter">Reporter</option>
             </select>
           </div>
@@ -905,8 +928,8 @@
         </div>
         <div class="rr-admin-pane" id="board-pane-upcoming" data-board-pane="upcoming">
           <div class="rr-board-toolbar">
-            <select id="board-upcoming-agency" aria-label="Filter railroad">
-              <option value="all">All railroads</option>
+            <select id="board-upcoming-agency" aria-label="Filter Railroad">
+              <option value="all">All Railroads</option>
               <option value="mbta">MBTA</option>
               <option value="amtrak">Amtrak</option>
               <option value="mnr">Metro-North</option>
@@ -915,10 +938,10 @@
               <option value="ctrail">CTrail</option>
               <option value="marc">MARC</option>
             </select>
-            <select id="board-upcoming-sort" aria-label="Sort upcoming">
-              <option value="date">Sort by date</option>
+            <select id="board-upcoming-sort" aria-label="Sort Upcoming">
+              <option value="date">Sort by Date</option>
               <option value="railroad">Railroad</option>
-              <option value="train">Train number</option>
+              <option value="train">Train Number</option>
             </select>
           </div>
           <div class="rr-board-list" id="board-upcoming-list"></div>
@@ -1006,6 +1029,7 @@
       <span style="color:#4a6fa5;">|</span>
       <a href="/policies/terms-of-use/" target="_blank">Terms of Use</a>
       <a href="/press/">Press</a>
+      <a href="/specials/">Recent Reports</a>
       <a href="/survey/">Survey</a>
       <a href="/policies/privacy/" target="_blank">Privacy Policy</a>
       <button type="button" class="footer-link" id="footer-cookie-settings">Cookie Settings</button>
@@ -1061,7 +1085,7 @@
   <script src="/assets/js/trip-notify.js?v=8a6cfdca0c"></script>
   <script src="/assets/js/trip-connections.js?v=496c6c0bac"></script>
   <script src="/assets/js/mbta-locomotives.js?v=a37784c796"></script>
-  <script src="/assets/js/app-main.js?v=4353aeef4f"></script>
+  <script src="/assets/js/app-main.js?v=632c6fe984"></script>
   <script src="/assets/js/main-live-trip-marker.js?v=967157a2c9"></script>
   <script src="/assets/js/acela-equipment.js?v=f4e3888269"></script>
   <script src="/assets/js/train-replay.js?v=eb9ee5bf72"></script>
