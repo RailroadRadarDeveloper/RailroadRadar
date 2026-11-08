@@ -449,31 +449,33 @@ async function proxyAmtrakTrains(cors) {
       const bucket = data[bucketNum];
       if (!Array.isArray(bucket)) return;
       bucket.forEach((record) => {
-        if (!record || (Array.isArray(record.stations) && record.stations.length)) return;
+        if (!record) return;
         const rawNum = record.trainNum || record.trainNumRaw || bucketNum;
         const trainNum = String(rawNum || "").replace(/^0+/, "") || "0";
-        const stops = schedules[trainNum];
-        if (!stops || !stops.length) return;
-        record.stations = stops.map((stop) => ({ ...stop }));
+        const stops = schedules[trainNum] || [];
         const meta = schedules.__meta && schedules.__meta[trainNum];
+        if ((!Array.isArray(record.stations) || !record.stations.length) && stops.length) {
+          record.stations = stops.map((stop) => ({ ...stop }));
+          scheduledTrainCount++;
+        }
+        const stationList = Array.isArray(record.stations) && record.stations.length ? record.stations : stops;
         if (meta) {
           if (!record.routeName || record.routeName === "Amtrak") record.routeName = meta.routeName || "Amtrak";
-          if (!record.destName && !record.destCode) {
-            record.destName = meta.destName || stops[stops.length - 1].name || "";
-            record.destCode = stops[stops.length - 1].code || "";
-          }
-          if (!record.origName && !record.origCode) {
-            record.origName = stops[0].name || "";
-            record.origCode = stops[0].code || "";
-          }
-        } else if (!record.destName && !record.destCode) {
-          record.destName = stops[stops.length - 1].name || "";
-          record.destCode = stops[stops.length - 1].code || "";
+          if (!record.destName && !record.destCode) record.destName = meta.destName || "";
+        }
+        if (!record.destName && !record.destCode && stationList.length) {
+          const last = stationList[stationList.length - 1];
+          record.destName = last.name || "";
+          record.destCode = last.code || "";
+        }
+        if (!record.origName && !record.origCode && stationList.length) {
+          const first = stationList[0];
+          record.origName = first.name || "";
+          record.origCode = first.code || "";
         }
         if (!record.trainState || /^(unknown|—|-)$/.test(String(record.trainState).trim().toLowerCase())) {
           record.trainState = "Active";
         }
-        scheduledTrainCount++;
       });
     });
   } catch (_) {
