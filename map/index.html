@@ -132,7 +132,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <link rel="stylesheet" href="/assets/css/app.css?v=dd27c80e0f">
   <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
-  <link rel="stylesheet" href="/assets/css/settings.css?v=9a0dfeb2f7">
+  <link rel="stylesheet" href="/assets/css/settings.css?v=243d5a8d85">
   <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98">
   <link rel="stylesheet" href="/assets/css/train-replay.css?v=c533c1afbd">
   <script>
@@ -363,36 +363,38 @@
     </div>
     <div class="rr-set-body">
     <div class="rr-set-col">
-      <div class="toggle-section rr-set-card rr-set-layers">
-        <h3>Map Layers</h3>
+      <div class="toggle-section rr-set-card rr-set-display">
+        <h3>Map Display</h3>
         <div class="map-theme-row">
           <span class="map-theme-label">Map Theme</span>
-          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-dark" value="dark"><span>Dark</span></label>
-          <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-light" value="light" checked><span>Light</span></label>
+          <div class="map-theme-options">
+            <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-dark" value="dark"><span>Dark</span></label>
+            <label class="map-theme-option"><input type="radio" name="map-theme" id="map-theme-light" value="light" checked><span>Light</span></label>
+          </div>
         </div>
-        <div><input type="checkbox" id="show-routes" checked><label for="show-routes">Show Routes</label></div>
-        <button type="button" id="btn-fullscreen" class="location-btn rr-set-btn-secondary">Full Screen</button>
-      </div>
-      <div class="toggle-section rr-set-card rr-set-markers">
-        <h3>Markers</h3>
-        <div class="station-toggle">
+        <div class="rr-toggle-row"><input type="checkbox" id="show-routes" checked><label for="show-routes">Show Routes</label></div>
+        <div class="station-toggle rr-toggle-row">
           <input type="checkbox" id="show-stations" checked>
           <img src="/assets/station.png" class="station-icon" alt="Station">
           <label for="show-stations">Show Stations</label>
         </div>
-        <div><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
-        <div><input type="checkbox" id="show-clusters"><label for="show-clusters">Cluster Overlapping Trains</label></div>
-        <div><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
-        <div><input type="checkbox" id="show-mbta" checked><label for="show-mbta">Show MBTA Commuter Rail</label></div>
-        <div><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
-        <div><input type="checkbox" id="show-via" checked><label for="show-via">Show VIA Rail Trains</label></div>
-        <div><input type="checkbox" id="show-brightline" checked><label for="show-brightline">Show Brightline</label></div>
-        <div><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North Trains</label></div>
-        <div><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR Trains</label></div>
-        <div><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
-        <div><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
-        <div><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains (Paused)</label></div>
-        <button type="button" id="rr-change-railroads">Change Railroads…</button>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-labels" checked><label for="show-labels">Show Train Labels</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-clusters"><label for="show-clusters">Cluster Overlapping Trains</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-only-special"><label for="show-only-special">Show Only Special Units</label></div>
+        <button type="button" id="btn-fullscreen" class="location-btn rr-set-btn-secondary">Full Screen</button>
+      </div>
+      <div class="toggle-section rr-set-card rr-set-rails">
+        <h3>Railroads</h3>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-mbta" checked><label for="show-mbta">Show MBTA Commuter Rail</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-amtrak" checked><label for="show-amtrak">Show Amtrak Trains</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-via" checked><label for="show-via">Show VIA Rail Trains</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-brightline" checked><label for="show-brightline">Show Brightline</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-mnr" checked><label for="show-mnr">Show Metro-North Trains</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-lirr" checked><label for="show-lirr">Show LIRR Trains</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-njt" checked><label for="show-njt">Show NJ Transit Trains</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-ctrail" checked><label for="show-ctrail">Show CTrail</label></div>
+        <div class="rr-toggle-row"><input type="checkbox" id="show-marc" checked><label for="show-marc">Show MARC Trains (Paused)</label></div>
+        <button type="button" id="rr-change-railroads" class="rr-set-btn-secondary">Change Railroads…</button>
       </div>
       <div class="rr-set-card rr-set-tools">
         <h3>Reports &amp; Data</h3>
@@ -415,7 +417,7 @@
           <p class="settings-account-email" id="settings-account-email"></p>
           <div class="settings-account-actions">
             <button type="button" id="btn-account-settings-panel" class="cabcar-report-btn">Account Settings</button>
-            <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn">Trip Log</button>
+            <button type="button" id="btn-trip-log-panel" class="cabcar-report-btn rr-set-btn-secondary">Trip Log</button>
           </div>
         </div>
       </div>
@@ -423,30 +425,36 @@
         <h3>Notifications</h3>
         <p class="rr-modal-hint rr-set-note">On iPhone: open RailroadRadar from the Home Screen icon (not Safari), then turn these on. Safari itself cannot receive alerts after you leave the page.</p>
         <p class="rr-modal-hint" id="notify-status"></p>
-        <div><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable Notifications</label></div>
-        <div class="notify-subhead">When</div>
-        <div><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">A Watched Unit Goes Live</label></div>
-        <div><input type="checkbox" id="notify-special-report" checked><label for="notify-special-report">New Report on a Watched Unit</label></div>
-        <div class="notify-subhead">Railroads</div>
-        <div class="notify-rail-list" id="notify-railroads"></div>
-        <p class="rr-modal-hint">Leave them all on for every railroad.</p>
-        <div class="notify-subhead">Locomotives</div>
-        <select id="notify-train-select" aria-label="Add a special unit">
-          <option value="">Specials — pick one to add</option>
-        </select>
-        <p class="rr-modal-hint rr-set-or">Or type any locomotive number:</p>
-        <div class="notify-loco-add">
-          <select id="notify-loco-agency" aria-label="Railroad for locomotive"></select>
-          <input type="text" id="notify-loco-number" placeholder="Loco number" maxlength="16" autocomplete="off" aria-label="Locomotive number">
-          <button type="button" id="notify-loco-add" class="notify-add-btn">Add</button>
+        <div class="rr-toggle-row"><input type="checkbox" id="notify-enable"><label for="notify-enable">Enable Notifications</label></div>
+        <div class="rr-set-subgroup">
+          <div class="notify-subhead">When</div>
+          <div class="rr-toggle-row"><input type="checkbox" id="notify-special-active" checked><label for="notify-special-active">A Watched Unit Goes Live</label></div>
+          <div class="rr-toggle-row"><input type="checkbox" id="notify-special-report" checked><label for="notify-special-report">New Report on a Watched Unit</label></div>
         </div>
-        <div class="notify-train-chips" id="notify-train-chips"></div>
-        <p class="rr-modal-hint" id="notify-train-hint">No locos picked means every special on the railroads above. Pick a special, or type any number.</p>
-        <div class="notify-save-row">
-          <button type="button" id="notify-save" class="cabcar-report-btn">Save</button>
-          <button type="button" id="notify-confirm" class="notify-confirm-btn" disabled>Confirm</button>
+        <div class="rr-set-subgroup">
+          <div class="notify-subhead">Railroads</div>
+          <div class="notify-rail-list" id="notify-railroads"></div>
+          <p class="rr-modal-hint">Leave them all on for every railroad.</p>
         </div>
-        <p class="rr-modal-hint" id="notify-save-hint"></p>
+        <div class="rr-set-subgroup">
+          <div class="notify-subhead">Locomotives</div>
+          <select id="notify-train-select" aria-label="Add a special unit">
+            <option value="">Specials — pick one to add</option>
+          </select>
+          <p class="rr-modal-hint rr-set-or">Or type any locomotive number:</p>
+          <div class="notify-loco-add">
+            <select id="notify-loco-agency" aria-label="Railroad for locomotive"></select>
+            <input type="text" id="notify-loco-number" placeholder="Loco number" maxlength="16" autocomplete="off" aria-label="Locomotive number">
+            <button type="button" id="notify-loco-add" class="notify-add-btn">Add</button>
+          </div>
+          <div class="notify-train-chips" id="notify-train-chips"></div>
+          <p class="rr-modal-hint" id="notify-train-hint">No locos picked means every special on the railroads above. Pick a special, or type any number.</p>
+          <div class="notify-save-row">
+            <button type="button" id="notify-save" class="cabcar-report-btn">Save</button>
+            <button type="button" id="notify-confirm" class="notify-confirm-btn" disabled>Confirm</button>
+          </div>
+          <p class="rr-modal-hint" id="notify-save-hint"></p>
+        </div>
       </div>
       <div class="location-section rr-set-card rr-set-location">
         <h3>My Location</h3>
@@ -477,7 +485,7 @@
                 <img class="admin-badge-icon" id="account-profile-admin-badge" src="/assets/admin-badge.png" alt="Admin" title="Admin" width="18" height="18">
               </div>
               <div class="rr-muted" id="account-profile-email">—</div>
-              <div class="rr-muted" id="account-report-points" style="margin-top:6px;font-weight:700;color:#07093e;">0 report points</div>
+              <div class="rr-muted rr-acct-points" id="account-report-points">0 report points</div>
             </div>
           </div>
         </div>
@@ -489,8 +497,10 @@
             <label><input type="radio" name="report-display-mode" value="anonymous"> Anonymous</label>
             <label><input type="radio" name="report-display-mode" value="custom"> Custom Label</label>
           </div>
-          <label for="account-custom-label">Custom Label</label>
-          <input type="text" id="account-custom-label" maxlength="40" placeholder="e.g. Railfan42" autocomplete="off">
+          <div class="rr-field">
+            <label for="account-custom-label">Custom Label</label>
+            <input type="text" id="account-custom-label" maxlength="40" placeholder="e.g. Railfan42" autocomplete="off">
+          </div>
           <div class="rr-preview-box">Preview: <strong id="account-report-preview">by Anonymous</strong></div>
           <div class="rr-modal-error" id="account-settings-error"></div>
         </div>
@@ -510,10 +520,13 @@
           <h3>Username &amp; Public Profile</h3>
           <p class="rr-modal-hint">Share a public page with your name, photo, and trip log. Email stays private.</p>
           <label class="rr-checkbox-row">
-            <input type="checkbox" id="account-public-profile-toggle"> Make My Profile Public
+            <span>Make My Profile Public</span>
+            <input type="checkbox" id="account-public-profile-toggle">
           </label>
-          <label for="account-username">Username</label>
-          <input type="text" id="account-username" maxlength="24" placeholder="yourname" autocomplete="off" spellcheck="false">
+          <div class="rr-field">
+            <label for="account-username">Username</label>
+            <input type="text" id="account-username" maxlength="24" placeholder="yourname" autocomplete="off" spellcheck="false">
+          </div>
           <p class="rr-modal-hint" id="account-username-hint">railroadradar.com/user/yourname · 3–24 chars, letters, numbers, underscore</p>
           <div id="account-public-link-row" style="display:none;">
             <label for="account-public-link">Your Public Link</label>
@@ -523,14 +536,13 @@
             </div>
           </div>
         </div>
-
-        <div class="rr-lightbox-section rr-acct-actions-section">
-          <div class="rr-lightbox-actions">
-            <button type="button" class="rr-btn" id="account-save-settings">Save Settings</button>
-            <button type="button" class="rr-btn secondary" id="account-sign-out">Sign Out</button>
-            <button type="button" class="rr-btn danger secondary" id="account-delete">Delete Account</button>
-            <button type="button" class="rr-btn secondary" id="account-close-btn">Close</button>
-          </div>
+      </div>
+      <div class="rr-lightbox-section rr-acct-actions-section">
+        <div class="rr-lightbox-actions">
+          <button type="button" class="rr-btn" id="account-save-settings">Save Settings</button>
+          <button type="button" class="rr-btn secondary" id="account-sign-out">Sign Out</button>
+          <button type="button" class="rr-btn secondary" id="account-close-btn">Close</button>
+          <button type="button" class="rr-btn danger secondary" id="account-delete">Delete Account</button>
         </div>
       </div>
     </div>
