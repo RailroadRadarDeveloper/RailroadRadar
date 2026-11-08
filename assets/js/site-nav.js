@@ -132,9 +132,8 @@
       '.rr-page-menu-btn:hover,.header-tools #btn-header-tools:hover{background:rgba(255,255,255,.2)}',
       '.rr-page-menu-btn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 11px;border:0;border-radius:8px;background:#fff;color:#07093e;font:700 11px/1 "Google Sans",Roboto,Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.16);transition:background .15s ease}',
       '.rr-page-menu-btn:hover{background:#e8eaf0}',
-      '@media(max-width:980px){#btn-report-train-header{display:inline-flex!important;align-items:center;justify-content:center;order:0;min-height:36px;padding:0 11px;border:0;border-radius:8px;background:#fff;color:#07093e;font:700 11px/1 "Google Sans",Roboto,Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.16)}#btn-report-train-header:hover{background:#e8eaf0}#btn-report-train-menu{display:none!important}.header-tools-panel{right:0;top:calc(100% + 9px)}}',
-      '@media(max-width:420px){#btn-report-train-header{padding:0 9px;font-size:10px}.header-tools-panel{min-width:230px}}',
-      'html.rr-report-in-menu #btn-report-train-header{display:inline-flex!important}',
+      '@media(max-width:980px){.header-tools-panel{right:0;top:calc(100% + 9px)}}',
+      '@media(max-width:420px){.header-tools-panel{min-width:230px}}',
       '@media (max-width:760px){.rr-site-nav{gap:0;margin-left:6px}.rr-site-nav a{font-size:12px;padding:7px 6px}}'
     ].join('');
     document.head.appendChild(style);
@@ -219,7 +218,7 @@
           button.setAttribute('aria-expanded', 'false');
         }
       });
-      // When the header is too full, move Report a train into Menu, then the page links too.
+      // When the header is too full, move the page links into Menu.
       var nav = document.querySelector('.rr-site-nav');
       var root = document.documentElement;
       var crowded = function () {
@@ -229,8 +228,7 @@
         return false;
       };
       var fit = new ResizeObserver(function () {
-        root.classList.remove('rr-report-in-menu', 'rr-nav-in-menu');
-        if (crowded()) root.classList.add('rr-report-in-menu');
+        root.classList.remove('rr-nav-in-menu');
         if (crowded()) root.classList.add('rr-nav-in-menu');
         try { if (typeof window.rrLayoutHeaderSearch === 'function') window.rrLayoutHeaderSearch(); } catch (_) {}
       });
