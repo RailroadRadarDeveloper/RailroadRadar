@@ -273,6 +273,79 @@ function amtrakRecordTime(record) {
   const parsed = Date.parse(String(raw));
   return Number.isFinite(parsed) ? parsed : 0;
 }
+function amtrakGtfsLocalTimeToIso(ymd, rawTime, timezone) {
+  const m = /^(\\d{1,2}):(\\d{2}):(\\d{2})$/.exec(String(rawTime || ""));
+  const p = ymdToDateParts(ymd);
+  if (!m || !p) return null;
+  const wall = Date.UTC(p.y, p.mo - 1, p.d) + ((Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) * 1000);
+  const tz = timezone || "America/New_York";
+  let guess = wall;
+  try {
+    for (let i = 0; i < 2; i++) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+      }).formatToParts(new Date(guess));
+      const v = {};
+      parts.forEach((x) => { if (x.type !== "literal") v[x.type] = Number(x.value); });
+      const represented = Date.UTC(v.year, v.month - 1, v.day, v.hour, v.minute, v.second);
+      guess = wall - (represented - guess);
+    }
+    return new Date(guess).toISOString();
+  } catch (_) {
+    return new Date(wall).toISOString();
+  }
+}
+async function amtrakStaticStopsByTrain(ymd) {
+  const cacheKey = schedulesCacheUrl("amtrak-stops", "amtrak", ymd);
+  const cached = await cacheGetText(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (_) {}
+  }
+  const zip = await fetchGtfsZip("amtrak");
+  const files = await unzipNamedFiles(zip, [
+    "trips.txt", "stops.txt", "stop_times.txt", "calendar.txt", "calendar_dates.txt"
+  ]);
+  if (!files["trips.txt"] || !files["stops.txt"] || !files["stop_times.txt"])
+    throw new Error("Amtrak GTFS is missing trips.txt, stops.txt, or stop_times.txt");
+  const services = serviceIdsForDate(
+    parseCsv(files["calendar.txt"] || ""),
+    parseCsv(files["calendar_dates.txt"] || ""),
+    ymd
+  );
+  const stopById = {};
+  parseCsv(files["stops.txt"]).forEach((s) => {
+    stopById[String(s.stop_id)] = s;
+  });
+  const tripById = {};
+  parseCsv(files["trips.txt"]).forEach((t) => {
+    if (!services.has(String(t.service_id))) return;
+    const num = String(t.trip_short_name || "").trim();
+    if (!num || tripById[String(t.trip_id)]) return;
+    tripById[String(t.trip_id)] = num;
+  });
+  const grouped = {};
+  parseCsv(files["stop_times.txt"]).forEach((st) => {
+    const num = tripById[String(st.trip_id)];
+    const stop = stopById[String(st.stop_id)];
+    if (!num || !stop) return;
+    const row = {
+      code: String(stop.stop_code || stop.stop_id || ""),
+      name: String(stop.stop_name || stop.stop_id || ""),
+      schArr: st.arrival_time ? amtrakGtfsLocalTimeToIso(ymd, st.arrival_time, stop.stop_timezone) : null,
+      schDep: st.departure_time ? amtrakGtfsLocalTimeToIso(ymd, st.departure_time, stop.stop_timezone) : null,
+      status: "Scheduled",
+      _sequence: Number(st.stop_sequence) || 0
+    };
+    (grouped[num] = grouped[num] || []).push(row);
+  });
+  Object.keys(grouped).forEach((num) => {
+    grouped[num].sort((a, b) => a._sequence - b._sequence);
+    grouped[num].forEach((s) => { delete s._sequence; });
+  });
+  await cachePutText(cacheKey, JSON.stringify(grouped), GTFS_CACHE_TTL_SEC);
+  return grouped;
+}
 async function proxyAmtrakTrains(cors) {
   const [amtrakResponse, transitResponse] = await Promise.all([
     proxyBinary(AMTRAK_URL, {}, cors, 30),
@@ -347,6 +420,33 @@ async function proxyAmtrakTrains(cors) {
     if (!record.trainNum) record.trainNum = trainNum;
     if (!record.trainID) record.trainID = position.vehicleId || position.tripId || ("transitdocs-" + trainNum);
   }
+  // Fill missing Amtraker/TransitDocs station schedules from Amtrak's official static GTFS.
+  // This is cached per service date, so the 15-second live endpoint does not re-download/reparse it.
+  let scheduledTrainCount = 0;
+  try {
+    const easternParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(new Date(now));
+    const eastern = {};
+    easternParts.forEach((part) => { if (part.type !== "literal") eastern[part.type] = part.value; });
+    const serviceDate = eastern.year + "-" + eastern.month + "-" + eastern.day;
+    const schedules = await amtrakStaticStopsByTrain(serviceDate);
+    Object.keys(data).forEach((bucketNum) => {
+      const bucket = data[bucketNum];
+      if (!Array.isArray(bucket)) return;
+      bucket.forEach((record) => {
+        if (!record || (Array.isArray(record.stations) && record.stations.length)) return;
+        const rawNum = record.trainNum || record.trainNumRaw || bucketNum;
+        const trainNum = String(rawNum || "").replace(/^0+/, "") || "0";
+        const stops = schedules[trainNum];
+        if (!stops || !stops.length) return;
+        record.stations = stops.map((stop) => ({ ...stop }));
+        scheduledTrainCount++;
+      });
+    });
+  } catch (_) {
+    // Keep live positions available even if the static timetable is temporarily unavailable.
+  }
   if (!Object.keys(data).some((key) => Array.isArray(data[key]) && data[key].length)) {
     return new Response("Amtraker unavailable (" + (amtrakError || "no train data") + "); TransitDocs unavailable (" + (transitError || "no matching fresh positions") + ")", {
       status: 502, headers: { ...cors, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
@@ -355,7 +455,8 @@ async function proxyAmtrakTrains(cors) {
   return new Response(JSON.stringify(data), {
     status: 200,
     headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=15",
-      "X-RR-Amtrak-Fallback": added || refreshed ? "transitdocs" : "amtraker" }
+      "X-RR-Amtrak-Fallback": added || refreshed ? "transitdocs" : "amtraker",
+      "X-RR-Amtrak-Schedules": scheduledTrainCount ? "gtfs:" + scheduledTrainCount : "unavailable-or-existing" }
   });
 }
 
@@ -497,8 +598,7 @@ var SPECIAL_ROSTER = [
   ["mnr", "214"],
   ["mnr", "216"],
   ["mnr", "217"],
-  ["mnr", "218"],
-  ["mnr", "222"],
+  ["mnr", "218"],  ["mnr", "222"],
   ["mnr", "250"],
   ["lirr", "521"]
 ];
@@ -997,8 +1097,7 @@ async function fetchLiveSpecials(env, extra) {
         const id = String(v && v.id || "").trim();
         if (!id)
           return;
-        if (!isWatchedUnit("mbta", id, extra))
-          return;
+        if (!isWatchedUnit("mbta", id, extra))          return;
         const label = v.attributes && (v.attributes.label || v.attributes.current_status) || id;
         live["live|mbta|" + id] = {
           type: "active",
@@ -1497,8 +1596,7 @@ async function cachePutText(url, body, maxAge, contentType) {
 }
 __name(cachePutText, "cachePutText");
 async function cacheGetBuf(url) {
-  try {
-    const hit = await caches.default.match(new Request(url));
+  try {    const hit = await caches.default.match(new Request(url));
     if (!hit)
       return null;
     return await hit.arrayBuffer();
@@ -1997,8 +2095,7 @@ var worker_default = {
       }
       if (path === "/api/amtrak/alerts" || path === "/amtrak/alerts") {
         return await proxyBinary(AMTRAK_ALERTS_URL, {}, cors, 20);
-      }
-      if (path === "/api/mbta" || path.startsWith("/api/mbta/")) {
+      }      if (path === "/api/mbta" || path.startsWith("/api/mbta/")) {
         const key = env.MBTA_API_KEY;
         if (!key) {
           return new Response("MBTA_API_KEY secret not set", { status: 500, headers: cors });
