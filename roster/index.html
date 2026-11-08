@@ -152,6 +152,30 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
 .trip-where .trip-num{color:var(--ink);font:500 13px/1.35 var(--font);font-variant-numeric:tabular-nums}
 .trip-where span{color:var(--muted);font-size:12px}
 .trip-time{color:var(--ink);font:500 13px/1.3 var(--font);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.pairs{display:flex;flex-direction:column;gap:8px;padding:0 14px 12px}
+.pairs-title{margin:0;font:700 13px/1.3 var(--font);color:var(--muted)}
+.pair{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:inherit;text-decoration:none}
+a.pair:hover{border-color:var(--navy)}
+.pair-loco{width:36px;height:36px;object-fit:contain;flex:none}
+.pair-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+.pair-unit{font:700 14px/1.3 var(--font);color:var(--ink)}
+.pair-line{font:700 14px/1.3 var(--font);color:var(--ink)}
+.pair-num{font:500 13px/1.35 var(--font);color:var(--ink);font-variant-numeric:tabular-nums}
+.pair-dest,.pair-time{font-size:12px;color:var(--muted)}
+.pair-reporter{display:flex;align-items:center;gap:8px;margin-top:8px;min-width:0}
+.pair-pfp{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none;background:#eef1fa}
+.pair-pfp.is-initials{display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 var(--font);color:#07093e}
+.pair-pfp.is-neutral{display:inline-flex;align-items:center;justify-content:center;background:#e8eaef;color:#5b6275}
+.pair-pfp.is-neutral svg{width:16px;height:16px;display:block}
+.pair-pfp.is-neutral svg circle{fill:currentColor}
+.pair-name{font:700 13px/1.3 var(--font);color:#07093e;min-width:0}
+.pair-badge{width:14px;height:14px;margin-left:4px;vertical-align:-2px}
+html.rr-theme-dark .pair-name,html.rr-theme-dark .pair-pfp.is-initials{color:var(--ink)}
+@media (max-width:560px){
+  .pairs{padding:0 12px 12px}
+  .pair{padding:8px 10px;gap:8px}
+  .pair-loco{width:32px;height:32px}
+}
 .roster-more{margin:14px auto 0;display:flex}
 .rr-btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--field)}
 .rr-btn.ghost:hover{background:var(--bg)}
@@ -266,6 +290,9 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
     </div>
   </div>
 </div>
+<script src="/assets/js/mbta-locomotives.js?v=a37784c796"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="/assets/js/app-cookie-consent.js?v=ce091d5bf9"></script>
 <script src="/assets/js/site-nav.js?v=169d54ad33" defer></script>
 <script src="/assets/js/survey-prompt.js?v=985e8f67cb" defer></script>
@@ -281,8 +308,9 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
   var TZ = 'America/New_York', PAGE = 40;
   var list = document.getElementById('roster-list'), q = document.getElementById('roster-q');
   var msg = document.getElementById('roster-msg'), count = document.getElementById('roster-count');
-  var data = null, open = {}, shown = PAGE, loadedAt = 0;
+  var data = null, open = {}, shown = PAGE, loadedAt = 0, pairings = {}, pairingsLocked = false;
   var fmtTime = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+  var fmtWhen = new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   var fmtDay = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
   function lineName(r) { return LINES[r] || String(r || '').replace(/^CR-/, '') + (r ? ' Line' : ''); }
   function t(sec) { return fmtTime.format(new Date(sec * 1000)); }
@@ -299,6 +327,117 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
     return best;
   }
   function tripCount(v) { var n = 0; Object.keys(v.days || {}).forEach(function (d) { n += (v.days[d] || []).length; }); return n; }
+  function reportMs(rep) {
+    var t = rep && (rep.updatedAt || rep.createdAt || rep.ms);
+    if (t == null) return 0;
+    if (typeof t === 'number') return t < 1e12 ? t * 1000 : t;
+    if (typeof t.toMillis === 'function') return t.toMillis();
+    if (typeof t.seconds === 'number') return t.seconds * 1000;
+    var n = Date.parse(t);
+    return isNaN(n) ? 0 : n;
+  }
+  function locoIdsOf(rep) {
+    var out = [];
+    function add(v) { var s = String(v || '').trim(); if (s && out.indexOf(s) === -1) out.push(s); }
+    if (rep && Array.isArray(rep.locomotives)) rep.locomotives.forEach(function (L) { if (L) add(L.locomotiveId || L.id); });
+    add(rep && rep.locomotiveId);
+    return out;
+  }
+  function indexPairings(rows) {
+    var map = {};
+    (rows || []).forEach(function (rep) {
+      if (!rep || String(rep.agency || 'mbta').toLowerCase() !== 'mbta') return;
+      var vid = String(rep.vehicleId || '').trim();
+      if (!vid || !locoIdsOf(rep).length) return;
+      (map[vid] || (map[vid] = [])).push(rep);
+    });
+    Object.keys(map).forEach(function (id) { map[id].sort(function (a, b) { return reportMs(b) - reportMs(a); }); });
+    return map;
+  }
+  function matchTrip(v, train) {
+    var want = String(train || '').replace(/^0+/, '');
+    if (!want) return null;
+    var best = null;
+    Object.keys(v.days || {}).forEach(function (d) {
+      (v.days[d] || []).forEach(function (x) {
+        if (String(x.train || '').replace(/^0+/, '') !== want) return;
+        if (!best || x.lastSeen > best.lastSeen) best = x;
+      });
+    });
+    return best;
+  }
+  function locoLabel(id) {
+    var row = (typeof rrMbtaLocoByNumber === 'function') ? rrMbtaLocoByNumber(id) : null;
+    var num = String(id || '').trim();
+    if (row && row.paint) return num + ' · ' + row.paint;
+    if (row && row.type) return num + ' · ' + row.type;
+    return num;
+  }
+  function initials(name) {
+    var p = String(name || '').replace(/\./g, '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '?';
+    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+    return (p[0].charAt(0) + p[p.length - 1].charAt(0)).toUpperCase();
+  }
+  function reporterWho(rep) {
+    var mode = String(rep.reportedByDisplayMode || '');
+    var label = String(rep.reportedByLabel || '').trim();
+    if (mode === 'anonymous' || /^anonymous$/i.test(label)) return { name: 'Anonymous', anonymous: true, photo: '', verified: false };
+    var photo = String(rep.reportedByPhotoURL || '').trim();
+    if (!/^https:\/\/lh[0-9]+\.googleusercontent\.com\//.test(photo)) photo = '';
+    return { name: label || 'Anonymous', anonymous: !label, photo: photo, verified: rep.reportedByVerified === true && !!label };
+  }
+  function avatarEl(who) {
+    if (who.anonymous || !who.name) {
+      var neu = el('span', 'pair-pfp is-neutral');
+      neu.setAttribute('aria-hidden', 'true');
+      neu.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5.2 19.2c1.3-3.1 3.7-4.6 6.8-4.6s5.5 1.5 6.8 4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      return neu;
+    }
+    if (who.photo) {
+      var img = el('img', 'pair-pfp');
+      img.src = who.photo; img.alt = ''; img.referrerPolicy = 'no-referrer';
+      img.addEventListener('error', function () {
+        var s = el('span', 'pair-pfp is-initials', initials(who.name));
+        s.setAttribute('aria-hidden', 'true');
+        if (img.parentNode) img.parentNode.replaceChild(s, img);
+      });
+      return img;
+    }
+    var init = el('span', 'pair-pfp is-initials', initials(who.name));
+    init.setAttribute('aria-hidden', 'true');
+    return init;
+  }
+  function pairingNode(id, v, rep) {
+    var train = String(rep.trainNumber || '').trim();
+    var trip = matchTrip(v, train);
+    var locos = locoIdsOf(rep);
+    var icon = locos.length && typeof rrMbtaLocoIconFor === 'function' ? rrMbtaLocoIconFor(locos[0]) : '';
+    var href = train ? ('/map/?train=' + encodeURIComponent('mbta:' + train) + '&trip=' + encodeURIComponent(id)) : '';
+    var row = href ? el('a', 'pair') : el('div', 'pair');
+    if (href) row.href = href;
+    if (icon) { var im = el('img', 'pair-loco'); im.src = icon; im.alt = ''; row.appendChild(im); }
+    var body = el('span', 'pair-body');
+    if (locos.length) body.appendChild(el('span', 'pair-unit', locos.map(locoLabel).join(', ')));
+    if (trip) body.appendChild(el('span', 'pair-line', lineName(trip.route)));
+    if (train) body.appendChild(el('span', 'pair-num', 'Train ' + train));
+    if (trip && trip.headsign) body.appendChild(el('span', 'pair-dest', 'To ' + trip.headsign));
+    var ms = reportMs(rep);
+    if (ms) body.appendChild(el('span', 'pair-time', fmtWhen.format(new Date(ms))));
+    var who = reporterWho(rep);
+    var person = el('span', 'pair-reporter');
+    person.appendChild(avatarEl(who));
+    var name = el('span', 'pair-name', who.name);
+    if (who.verified) {
+      var badge = el('img', 'pair-badge');
+      badge.src = '/assets/admin-badge.png'; badge.alt = 'Verified reporter'; badge.title = 'Verified reporter'; badge.width = 14; badge.height = 14;
+      name.appendChild(badge);
+    }
+    person.appendChild(name);
+    body.appendChild(person);
+    row.appendChild(body);
+    return row;
+  }
   function renderVehicle(id, v) {
     var li = el('li', 'veh' + (open[id] ? ' open' : '')); li.id = 'vehicle-' + id;
     var head = el('button', 'veh-head'); head.type = 'button'; head.setAttribute('aria-expanded', open[id] ? 'true' : 'false');
@@ -312,6 +451,8 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
     if (running) tags.appendChild(el('span', 'pill live', 'Running now'));
     else if (last) tags.appendChild(el('span', 'pill count', 'Last seen ' + dayName(last.day).replace(/^Today$/, 'today').replace(/^Yesterday$/, 'yesterday') + ' at ' + t(v.lastSeen)));
     var n = tripCount(v); tags.appendChild(el('span', 'pill count', n + (n === 1 ? ' trip' : ' trips')));
+    var reps = pairings[id] || [];
+    if (reps.length) tags.appendChild(el('span', 'pill count', reps.length === 1 ? '1 Report' : reps.length + ' Reports'));
     head.appendChild(tags);
     head.insertAdjacentHTML('beforeend', '<svg class="veh-chev" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>');
     var body = el('div', 'veh-body'); body.hidden = !open[id]; body.id = 'veh-body-' + id; head.setAttribute('aria-controls', body.id);
@@ -331,7 +472,14 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
     head.addEventListener('click', function () {
       open[id] = !open[id]; li.classList.toggle('open', open[id]); body.hidden = !open[id]; head.setAttribute('aria-expanded', open[id] ? 'true' : 'false');
     });
-    li.appendChild(head); li.appendChild(body);
+    li.appendChild(head);
+    if (reps.length) {
+      var wrap = el('div', 'pairs');
+      wrap.appendChild(el('h3', 'pairs-title', 'Pairings'));
+      reps.slice(0, 3).forEach(function (rep) { wrap.appendChild(pairingNode(id, v, rep)); });
+      li.appendChild(wrap);
+    }
+    li.appendChild(body);
     return li;
   }
   function render() {
@@ -363,11 +511,40 @@ html.rr-theme-dark .pill.count{background:rgba(255,255,255,.08)}
       .then(function (j) { data = j; render(); })
       .catch(function () { if (!data) showMsg("We couldn't load the roster right now. Try again in a minute."); });
   }
+  function loadPairings() {
+    if (typeof firebase === 'undefined') return;
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp({
+          apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
+          authDomain: 'railroadradar-accounts.firebaseapp.com',
+          projectId: 'railroadradar-accounts',
+          storageBucket: 'railroadradar-accounts.firebasestorage.app',
+          messagingSenderId: '896370923309',
+          appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
+        });
+      }
+      firebase.firestore().collection('trainReports').where('agency', '==', 'mbta').get().then(function (snap) {
+        if (pairingsLocked) return;
+        var rows = [];
+        snap.forEach(function (doc) { var d = doc.data() || {}; d.id = doc.id; rows.push(d); });
+        pairings = indexPairings(rows);
+        if (data) render();
+      }).catch(function () {});
+    } catch (_) {}
+  }
+  window.rrRosterApplyPairings = function (rows) {
+    pairingsLocked = true;
+    pairings = indexPairings(rows);
+    if (data) render();
+  };
+  window.rrMbtaLocoRosterLoaded = function () { if (data) render(); };
   q.addEventListener('input', function () { shown = PAGE; render(); });
   try { var pre = new URLSearchParams(location.search).get('vehicle'); if (pre) q.value = pre.slice(0, 64); } catch (_) {}
   document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - loadedAt > 120000) load(); });
   showMsg('Loading vehicles\u2026');
   load();
+  loadPairings();
 })();
 </script>
 </body>
