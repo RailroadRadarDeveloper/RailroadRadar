@@ -559,7 +559,10 @@
     }
     .info-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .info-item {
+      min-width: 0;
     }
     .info-item {
       display: flex;
@@ -580,8 +583,9 @@
     .info-value {
       color: #1a1f2e;
       font-weight: 700;
-      word-break: break-all;
-      hyphens: auto;
+      min-width: 0;
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
     .alert-banner {
       background: #fff8e1;
