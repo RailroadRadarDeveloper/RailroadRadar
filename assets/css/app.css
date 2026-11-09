@@ -7023,3 +7023,57 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .leaflet-popup .train-popup .stop-name {
   font-weight: 700 !important;
 }
+
+
+/* Train popup: keep every content block inside the popup on narrow screens. */
+.leaflet-popup:has(.train-popup) .leaflet-popup-content,
+.leaflet-popup:has(.train-popup) .leaflet-popup-content-wrapper,
+.leaflet-popup .train-popup,
+.leaflet-popup .train-popup * {
+  box-sizing: border-box !important;
+}
+.leaflet-popup:has(.train-popup) .leaflet-popup-content {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.leaflet-popup .train-popup {
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+}
+.leaflet-popup .train-popup-header,
+.leaflet-popup .train-popup-body,
+.leaflet-popup .train-popup-footer,
+.leaflet-popup .train-popup .info-grid,
+.leaflet-popup .train-popup .info-item,
+.leaflet-popup .train-popup .loco-report-block,
+.leaflet-popup .train-popup .loco-report-unit {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.leaflet-popup .train-popup .info-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.leaflet-popup .train-popup .info-value,
+.leaflet-popup .train-popup .loco-report-unit,
+.leaflet-popup .train-popup .loco-report-meta {
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+}
+@media (max-width: 380px) {
+  .leaflet-popup .train-popup .info-grid {
+    gap: 5px 7px !important;
+  }
+  .leaflet-popup .train-popup .info-label,
+  .leaflet-popup .train-popup .info-value {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+  .leaflet-popup .train-popup .train-popup-header {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  .leaflet-popup .train-popup .train-popup-body {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
