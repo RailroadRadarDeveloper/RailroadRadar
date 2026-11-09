@@ -146,6 +146,7 @@
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon-precomposed.png?v=2">
   <script src="/assets/js/clarity.js?v=a614ddb074"></script>
   <script src="/assets/js/analytics.js?v=591f430b27"></script>
+  <link rel="preconnect" href="https://railroadradar-proxy.railroadradar.workers.dev" crossorigin>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
@@ -154,10 +155,21 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <link rel="stylesheet" href="/assets/css/app.css?v=a178944aa5">
-  <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
-  <link rel="stylesheet" href="/assets/css/settings.css?v=243d5a8d85">
-  <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98">
-  <link rel="stylesheet" href="/assets/css/train-replay.css?v=c533c1afbd">
+  <!-- Load fonts and feature-panel styles without blocking the map's first paint. -->
+  <link rel="stylesheet" href="/assets/fonts/roboto.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/assets/css/settings.css?v=243d5a8d85" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="/assets/css/train-replay.css?v=c533c1afbd" media="print" onload="this.media='all'">
+  <noscript>
+    <link rel="stylesheet" href="/assets/fonts/roboto.css">
+    <link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+    <link rel="stylesheet" href="/assets/css/mytrips-stats.css?v=7fc7c108e8">
+    <link rel="stylesheet" href="/assets/css/settings.css?v=243d5a8d85">
+    <link rel="stylesheet" href="/assets/css/acela-equipment.css?v=20fb38ac98">
+    <link rel="stylesheet" href="/assets/css/train-replay.css?v=c533c1afbd">
+  </noscript>
   <script>
     function rrIsMyTripsPage() {
       const p = (location.pathname || '').replace(/\/index\.html$/i, '').replace(/\/+$/, '') || '/';
