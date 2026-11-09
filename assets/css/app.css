@@ -5982,6 +5982,9 @@
        with a thick bar in that train's line color (--rr-sp-line), a status chip and a Live Times footer. */
     .leaflet-popup .station-popup { padding: 0 !important; border-radius: 6px !important; color: #07093e; font-family: 'Segoe UI', system-ui, sans-serif; }
     .leaflet-popup:has(.station-popup) .leaflet-popup-content-wrapper { border-radius: 6px !important; }
+    /* Station schedules should expand with their rows; never create an inner popup scroll area. */
+    .leaflet-popup:has(.station-popup) .leaflet-popup-content { max-height: none !important; height: auto !important; overflow: visible !important; }
+    .leaflet-popup:has(.station-popup) .leaflet-popup-content-wrapper { max-height: none !important; overflow: visible !important; }
     .leaflet-popup:has(.station-popup) a.leaflet-popup-close-button { top: 7px !important; }
     .station-popup .rr-sp-head { position: relative; background: #07093e; color: #fff; padding: 11px 74px 10px 14px; border-radius: 6px 6px 0 0; flex-shrink: 0; margin-bottom: 3px; }
     .station-popup .rr-sp-title { font-size: 16px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
