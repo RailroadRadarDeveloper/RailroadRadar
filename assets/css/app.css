@@ -6967,3 +6967,49 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .leaflet-popup .train-popup .stops-list::-webkit-scrollbar {
   display: none !important;
 }
+
+
+/* Train popup: render the stop timeline as part of the popup body, not as a separate boxed panel. */
+.leaflet-popup .train-popup .stops-wrapper,
+.leaflet-popup .train-popup .upcoming-stops {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  min-height: 0 !important;
+  height: auto !important;
+  flex: 0 0 auto !important;
+}
+.leaflet-popup .train-popup .stops-list {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+  flex: 0 0 auto !important;
+  scrollbar-width: none !important;
+}
+.leaflet-popup .train-popup .stops-list::-webkit-scrollbar { display: none !important; }
+
+
+/* Train popup: give the inline station timeline a little more horizontal room. */
+.leaflet-popup:has(.train-popup) .leaflet-popup-content {
+  max-width: 620px !important;
+}
+.leaflet-popup .train-popup {
+  max-width: 620px !important;
+  width: 100% !important;
+}
+@media (max-width: 700px) {
+  .leaflet-popup:has(.train-popup) .leaflet-popup-content,
+  .leaflet-popup .train-popup {
+    width: min(340px, calc(100vw - 32px)) !important;
+    max-width: min(340px, calc(100vw - 32px)) !important;
+  }
+}
