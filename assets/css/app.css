@@ -7013,3 +7013,9 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
     max-width: min(340px, calc(100vw - 32px)) !important;
   }
 }
+
+
+/* Train popup: emphasize station names in the stops timeline. */
+.leaflet-popup .train-popup .stop-name {
+  font-weight: 700 !important;
+}
