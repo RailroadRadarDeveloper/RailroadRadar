@@ -5989,7 +5989,7 @@
     .leaflet-popup .station-popup button.rr-sp-refresh { position: absolute; top: 50%; right: 40px; transform: translateY(-50%); width: 28px; height: 28px; padding: 0; border: none; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .leaflet-popup .station-popup button.rr-sp-refresh:hover { background: #1c2170; }
     .station-popup .rr-sp-empty { padding: 18px 14px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .station-popup ul.rr-sp-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; overflow-x: hidden; flex: 1 1 auto; min-height: 0; scrollbar-width: thin; }
+    .station-popup ul.rr-sp-list { list-style: none; margin: 0; padding: 0; overflow: visible; flex: 0 0 auto; min-height: 0; scrollbar-width: auto; }
     .station-popup li.rr-sp-row { cursor: pointer; display: grid; grid-template-columns: 64px 1fr auto; align-items: center; column-gap: 10px; margin: 0; padding: 8px 12px 8px 10px; border-left: 8px solid var(--rr-sp-line, #07093e); border-bottom: 1px solid #e6e9ef; }
     .station-popup li.rr-sp-row:hover { background: #f3f5fa; }
     .station-popup .rr-sp-time { font-size: 15px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
