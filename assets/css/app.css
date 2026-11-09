@@ -7080,3 +7080,42 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
     padding-right: 10px !important;
   }
 }
+
+/* Train popup: keep the status badge and footer actions inside the popup width. */
+.leaflet-popup .train-popup .quick-status {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.leaflet-popup .train-popup .quick-status > * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.leaflet-popup .train-popup .status-pill {
+  flex-shrink: 1 !important;
+  white-space: normal !important;
+  text-align: center !important;
+}
+.leaflet-popup .train-popup .train-popup-footer {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+.leaflet-popup .train-popup .train-popup-footer .popup-action-btn {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
