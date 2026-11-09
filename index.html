@@ -159,9 +159,15 @@ betterstack('init', { environment: 'production' });
 </script>
 <script src="/assets/js/clarity.js?v=a614ddb074"></script>
 <script src="/assets/js/analytics.js?v=591f430b27"></script>
-<link rel="stylesheet" href="/assets/fonts/roboto.css">
-<link rel="stylesheet" href="/assets/css/zing-font.css?v=37c598bb61">
-<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+<!-- Load non-critical font and sign-in styles without blocking the first paint. -->
+<link rel="stylesheet" href="/assets/fonts/roboto.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/assets/css/zing-font.css?v=37c598bb61" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e" media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="/assets/fonts/roboto.css">
+  <link rel="stylesheet" href="/assets/css/zing-font.css?v=37c598bb61">
+  <link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e">
+</noscript>
 <style>
 :root{
   --navy:#07093e;
