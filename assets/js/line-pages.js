@@ -482,6 +482,6 @@
     if (D.page === 'station') { mbtaStation(); amtrakAtStation(); trains(true); }
     else { trains(false); alertsOnce(); history(); }
     /* Reduce Worker invocations on line/station pages while keeping live data refreshed. */
-    setInterval(function () { if (!document.hidden) trains(D.page === 'station'); }, 60000);
+    setInterval(function () { if (!document.hidden) trains(D.page === 'station'); }, 30000);
   } catch (_) {}
 })();
