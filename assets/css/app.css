@@ -7004,17 +7004,17 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 
 /* Train popup: give the inline station timeline a little more horizontal room. */
 .leaflet-popup:has(.train-popup) .leaflet-popup-content {
-  max-width: 620px !important;
+  max-width: 630px !important;
 }
 .leaflet-popup .train-popup {
-  max-width: 620px !important;
+  max-width: 630px !important;
   width: 100% !important;
 }
 @media (max-width: 700px) {
   .leaflet-popup:has(.train-popup) .leaflet-popup-content,
   .leaflet-popup .train-popup {
-    width: min(340px, calc(100vw - 32px)) !important;
-    max-width: min(340px, calc(100vw - 32px)) !important;
+    width: min(350px, calc(100vw - 32px)) !important;
+    max-width: min(350px, calc(100vw - 32px)) !important;
   }
 }
 
