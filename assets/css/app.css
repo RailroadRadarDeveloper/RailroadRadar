@@ -598,13 +598,17 @@
       align-items: center;
       gap: 7px;
     }
-    /* Live train popups: the whole alert is the amber that used to be only the left accent.
-       Navy on #f39c12 is 8.57:1 (WCAG AA). White on that amber is 2.19:1. */
+    /* Live train popups: solid amber box, bold white text and icon. */
     .leaflet-popup .alert-banner {
       background: #f39c12;
       border: 0;
       border-radius: 0;
-      color: #07093e;
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .leaflet-popup .alert-banner a {
+      color: #ffffff;
+      font-weight: 700;
     }
     .alert-banner-icon { display: none; }
     .leaflet-popup .alert-banner-img { display: none !important; }
