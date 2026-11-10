@@ -14934,7 +14934,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function trainAlertBannerHtml(hasAlert, alertHeader) {
         if (!hasAlert) return '';
         const text = escapeHtmlLite(alertHeader || 'Active Service Alert');
-        return '<div class="alert-banner"><img src="/assets/icons/alert.png" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;"> ' + text + '</div>';
+        return '<div class="alert-banner"><img class="alert-banner-img" src="/assets/icons/alert.png" alt="" style="height:18px;width:auto;flex-shrink:0;margin-right:6px;">' +
+          '<svg class="alert-banner-icon" viewBox="0 0 24 22" width="18" height="18" aria-hidden="true" focusable="false">' +
+          '<path fill="currentColor" d="M12 1.2 23 20.8H1L12 1.2z"/>' +
+          '<rect fill="#f39c12" x="10.7" y="8" width="2.6" height="6.6"/>' +
+          '<rect fill="#f39c12" x="10.7" y="16.2" width="2.6" height="2.5"/>' +
+          '</svg> ' + text + '</div>';
       }
       function trainAlertHeaderIconHtml(hasAlert) {
         return hasAlert

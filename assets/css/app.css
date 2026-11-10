@@ -598,6 +598,24 @@
       align-items: center;
       gap: 7px;
     }
+    /* Live train popups: the whole alert is the amber that used to be only the left accent.
+       Navy on #f39c12 is 8.57:1 (WCAG AA). White on that amber is 2.19:1. */
+    .leaflet-popup .alert-banner {
+      background: #f39c12;
+      border: 0;
+      border-radius: 0;
+      color: #07093e;
+    }
+    .alert-banner-icon { display: none; }
+    .leaflet-popup .alert-banner-img { display: none !important; }
+    .leaflet-popup .alert-banner-icon {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      margin-right: 6px;
+      vertical-align: text-top;
+    }
     .meta-row {
       font-size: 11.5px;
       color: #7f8c9a;
@@ -7173,7 +7191,10 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
     white-space: normal !important;
     overflow-wrap: anywhere !important;
   }
-  .leaflet-popup:has(.train-popup) .alert-banner img {
+  .leaflet-popup:has(.train-popup) .alert-banner-img {
+    display: none !important;
+  }
+  .leaflet-popup:has(.train-popup) .alert-banner-icon {
     display: inline-block !important;
     vertical-align: text-top !important;
   }
