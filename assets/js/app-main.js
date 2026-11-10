@@ -15008,14 +15008,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           : '';
         const mine = !!(c.id && currentUser && (currentUser.uid === c.uid || (typeof isAdminUser === 'function' && isAdminUser(currentUser))));
         const del = mine ? '<button type="button" class="rr-comment-delete" data-rr-comments="delete" data-id="' + escapeHtmlLite(c.id) + '">Delete</button>' : '';
-        return '<article class="rr-comment"><div class="rr-comment-avatar">' + avatar + '</div><div><div class="rr-comment-who"><span class="rr-comment-name">' +
-          escapeHtmlLite(name) + badge + '</span><span class="rr-comment-when">' + escapeHtmlLite(c.ago || rrCommentAgo(c.createdAt)) +
-          '</span></div><p class="rr-comment-text">' + escapeHtmlLite(c.text || '') + '</p>' + del + '</div></article>';
+        rrCommentCardHtml._n = (rrCommentCardHtml._n || 0) + 1;
+        const textId = 'rr-cmt-' + rrCommentCardHtml._n;
+        return '<article class="rr-comment"><div class="rr-comment-avatar">' + avatar + '</div><div class="rr-comment-body"><div class="rr-comment-who"><span class="rr-comment-name">' +
+          escapeHtmlLite(name) + '</span>' + badge + '<span class="rr-comment-when">' + escapeHtmlLite(c.ago || rrCommentAgo(c.createdAt)) +
+          '</span></div><p class="rr-comment-text" id="' + textId + '">' + escapeHtmlLite(c.text || '') + '</p>' +
+          '<button type="button" class="rr-comment-more" data-rr-comments="more" aria-expanded="false" aria-controls="' + textId + '" hidden>More</button>' +
+          del + '</div></article>';
       }
       function rrCommentSamples() {
         return [
-          { displayName: 'Maya Chen', verified: true, anonymous: false, text: 'Boarded at Porter. A few seats left in the front car.', ago: '8 min ago' },
-          { displayName: 'Anonymous', verified: false, anonymous: true, text: 'Slow order leaving Wachusett. The crew mentioned slippery rail.', ago: '34 min ago' },
+          { displayName: 'Maya Chen', verified: true, anonymous: false, text: 'Boarded at Porter. A few seats left in the front car, and the conductor said we will hold briefly for a Fitchburg Line connection.', ago: '8 min ago' },
+          { displayName: 'Anonymous', verified: false, anonymous: true, text: 'Slow order leaving Wachusett.', ago: '34 min ago' },
           { displayName: 'Jordan Hale', verified: false, anonymous: false, text: 'North Station arrival is Track 2 today.', ago: '2 hr ago' }
         ];
       }
@@ -15051,6 +15055,17 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         rrCommentsSetLabel(root, rows.length);
         if (note && rrCommentsSampleOn()) note.textContent = 'Sample only. Nothing is posted.';
+        rrCommentsFitMore(root);
+      }
+      function rrCommentsFitMore(root) {
+        const texts = root.querySelectorAll('.rr-comment-text');
+        for (let i = 0; i < texts.length; i++) {
+          const text = texts[i];
+          const card = text.closest('.rr-comment');
+          const btn = card && card.querySelector('.rr-comment-more');
+          if (!btn || card.classList.contains('is-expanded')) continue;
+          btn.hidden = text.scrollHeight <= text.clientHeight + 1;
+        }
       }
       async function rrCommentsLoad(root) {
         if (root.getAttribute('data-loaded') === '1') return;
@@ -15164,6 +15179,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             try { signInWithGoogle(); } catch (_) {}
           } else if (kind === 'delete') {
             rrCommentsDelete(root, btn.getAttribute('data-id'));
+          } else if (kind === 'more') {
+            const card = btn.closest('.rr-comment');
+            if (!card) return;
+            const open = !card.classList.contains('is-expanded');
+            card.classList.toggle('is-expanded', open);
+            btn.hidden = false;
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            btn.textContent = open ? 'Less' : 'More';
           }
         });
         document.addEventListener('input', function(e) {

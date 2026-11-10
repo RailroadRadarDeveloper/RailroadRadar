@@ -7177,7 +7177,7 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   text-transform: uppercase;
 }
 .rr-comments-list {
-  max-height: 160px;
+  max-height: 168px;
   overflow-y: auto;
   border: 1px solid #e6e9ef;
   background: #f7f8fb;
@@ -7185,21 +7185,21 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .rr-comments-empty { margin: 0; padding: 10px; font-size: 14px; color: #5c6480; }
 .rr-comment {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 8px;
-  padding: 8px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px;
+  padding: 4px;
   border-bottom: 1px solid #e6e9ef;
 }
 .rr-comment:last-child { border-bottom: 0; }
 .rr-comment-avatar {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   overflow: hidden;
   background: #e8eaf6;
   color: #07093e;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7211,11 +7211,48 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   object-fit: cover;
   display: block;
 }
-.rr-comment-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
-.rr-comment-name { font-weight: 700; color: #07093e; font-size: 14px; }
-.rr-comment-name .verified-badge-icon { width: 14px; height: 14px; margin-left: 3px; vertical-align: -2px; }
-.rr-comment-when { font-size: 12px; color: #7f8c9a; font-weight: 600; }
-.rr-comment-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: #1a1f2e; overflow-wrap: anywhere; }
+.rr-comment-who { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; min-width: 0; }
+.rr-comment-name {
+  font-weight: 700;
+  color: #07093e;
+  font-size: 13px;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rr-comment-who .verified-badge-icon { width: 12px; height: 12px; flex: 0 0 auto; }
+.rr-comment-when { font-size: 11px; line-height: 1.2; color: #7f8c9a; font-weight: 600; flex: 0 0 auto; white-space: nowrap; }
+.rr-comment .rr-comment-text {
+  margin: 1px 0 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #1a1f2e;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.rr-comment.is-expanded .rr-comment-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+.rr-comment-more {
+  margin: 0;
+  padding: 10px 2px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: #07093e;
+  font: 700 12px/1 "Segoe UI", system-ui, sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.rr-comment-more[hidden] { display: none !important; }
 .rr-comment-delete {
   margin-top: 4px;
   min-height: 44px;
@@ -7279,6 +7316,13 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .train-popup .rr-comments-input {
   height: 44px !important;
   min-height: 44px !important;
+}
+.train-popup .rr-comment-more {
+  min-height: 32px !important;
+  height: auto !important;
+  padding: 10px 2px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
 }
 
 /* Phones: the card, its Leaflet wrapper, and the positioned popup are one width,

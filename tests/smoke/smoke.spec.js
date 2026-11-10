@@ -177,6 +177,28 @@ test('train popup comments', async ({ page, baseURL }) => {
   expect(round).toBe(true);
   const signInH = await page.locator('.leaflet-popup .rr-comments-signin').evaluate((el) => el.getBoundingClientRect().height);
   expect(signInH).toBeGreaterThanOrEqual(44);
+  const more = page.locator('.leaflet-popup .rr-comment-more:visible');
+  await expect(more).toHaveCount(1);
+  await expect(more).toHaveText('More');
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+  const moreH = await more.evaluate((el) => el.getBoundingClientRect().height);
+  expect(moreH).toBeGreaterThanOrEqual(32);
+  const sameLine = await page.locator('.leaflet-popup .rr-comment').first().evaluate((el) => {
+    const name = el.querySelector('.rr-comment-name').getBoundingClientRect();
+    const when = el.querySelector('.rr-comment-when').getBoundingClientRect();
+    return Math.abs(name.top - when.top) < 4;
+  });
+  expect(sameLine).toBe(true);
+  await more.click();
+  await expect(more).toHaveText('Less');
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  const openClamp = await page.locator('.leaflet-popup .rr-comment.is-expanded .rr-comment-text').evaluate((el) => getComputedStyle(el).webkitLineClamp);
+  expect(openClamp === 'none' || openClamp === 'unset').toBe(true);
+  await more.click();
+  await expect(more).toHaveText('More');
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+  const shutClamp = await page.locator('.leaflet-popup .rr-comment').first().locator('.rr-comment-text').evaluate((el) => getComputedStyle(el).webkitLineClamp);
+  expect(shutClamp).toBe('2');
   expect(realProblems(problems, '/map/')).toEqual([]);
 });
 
