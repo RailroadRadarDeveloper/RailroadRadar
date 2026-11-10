@@ -9265,15 +9265,29 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           const box = ev && ev.popup && ev.popup._container;
           if (!box) return;
-          const vw = window.innerWidth || 520; const w = (vw <= 700) ? Math.min(320, Math.max(260, vw - 40)) : 350;
-          box.style.width = w + 'px';
-          box.style.maxWidth = w + 'px';
-          const nodes = box.querySelectorAll('.leaflet-popup-content-wrapper, .leaflet-popup-content, .train-popup, .station-popup');
-          for (let i = 0; i < nodes.length; i++) {
-            nodes[i].style.width = w + 'px';
-            nodes[i].style.maxWidth = w + 'px';
-            nodes[i].style.minWidth = '0px';
+          const vw = window.innerWidth || 520;
+          const train = box.querySelector('.train-popup');
+          // Phones: one width for the Leaflet box and the card, inset 12px each side, so the
+          // delay pill, right-hand details, alert, and Refresh are not clipped.
+          const w = (train && vw <= 700) ? Math.min(360, Math.max(160, vw - 24)) : ((vw <= 700) ? Math.min(320, Math.max(260, vw - 40)) : 350);
+          const important = !!(train && vw <= 700);
+          function setW(el) {
+            if (important) {
+              el.style.setProperty('width', w + 'px', 'important');
+              el.style.setProperty('max-width', w + 'px', 'important');
+              el.style.setProperty('min-width', '0', 'important');
+              el.style.setProperty('box-sizing', 'border-box', 'important');
+            } else {
+              el.style.width = w + 'px';
+              el.style.maxWidth = w + 'px';
+              el.style.minWidth = '0px';
+            }
           }
+          setW(box);
+          if (important) box.style.setProperty('margin-left', '0', 'important');
+          const nodes = box.querySelectorAll('.leaflet-popup-content-wrapper, .leaflet-popup-content, .train-popup, .station-popup');
+          for (let i = 0; i < nodes.length; i++) setW(nodes[i]);
+          if (important && ev.popup && typeof ev.popup._adjustPan === 'function') ev.popup._adjustPan();
         } catch (_) {}
       });
 
@@ -9333,8 +9347,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         // Pan an opening (or growing) popup down far enough that its top, and the close X, sit below the
         // zoom (ends 75px down) and layers (58px) buttons in the map's top corners; otherwise on phones the layers button covers the X.
+        if (w <= 700) {
+          const boxW = Math.min(360, Math.max(160, w - 24));
+          return {
+            maxWidth: boxW,
+            minWidth: Math.min(200, boxW),
+            closeOnClick: true,
+            autoClose: true,
+            closeButton: true,
+            autoPan: true,
+            autoPanPaddingTopLeft: L.point(12, 84),
+            autoPanPaddingBottomRight: L.point(12, 12)
+          };
+        }
         const pad = { autoPan: true, autoPanPaddingTopLeft: L.point(5, 84), autoPanPaddingBottomRight: L.point(5, 5) };
-        if (w <= 700) return Object.assign({ maxWidth: Math.min(320, Math.max(240, w - 40)), minWidth: 200, closeOnClick: true, autoClose: true, closeButton: true }, pad);
         return Object.assign({ maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true }, pad);
       }
 
