@@ -15146,7 +15146,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           await rrCommentsLoad(root);
         } catch (err) {
           const msg = String(err && err.message || '');
-          if (note) note.textContent = /permission|denied|insufficient/i.test(msg) ? 'Please wait a moment before posting again.' : 'Could not post that comment.';
+          if (note) note.textContent = /permission|denied|insufficient/i.test(msg) ? 'Please wait 30 seconds before posting again.' : 'Could not post that comment.';
         }
       }
       async function rrCommentsDelete(root, id) {
