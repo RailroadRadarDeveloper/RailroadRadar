@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test, before, beforeEach } from 'node:test';
 import {
-  handleRequest, resetCommentCaches, commentIdentity, parseGuardVerdict, parseProfanity
+  handleRequest, resetCommentCaches, commentIdentity, parseGuardVerdict, parseProfanity,
+  serviceAccountCredentials
 } from './index.js';
 
 const THREAD = 'mbta_fitchburg-line_412_2026-11-10';
@@ -91,8 +92,8 @@ before(async () => {
 
 beforeEach(() => resetCommentCaches());
 
-function env(fetchImpl) {
-  return {
+function env(fetchImpl, extra) {
+  const out = {
     FIREBASE_SA_JSON: saJson,
     AI: fetchImpl.ai,
     GUARD_MODEL: '@cf/meta/llama-guard-3-8b',
@@ -101,9 +102,11 @@ function env(fetchImpl) {
     now: function() { return NOW; },
     fetch: fetchImpl
   };
+  if (extra) Object.assign(out, extra);
+  return out;
 }
 
-async function call(fetchImpl, token, body, origin) {
+async function call(fetchImpl, token, body, origin, envExtra) {
   const request = new Request('https://railroadradar-comments.railroadradar.workers.dev/comment', {
     method: 'POST',
     headers: {
@@ -113,7 +116,7 @@ async function call(fetchImpl, token, body, origin) {
     },
     body: JSON.stringify(body == null ? { threadId: THREAD, text: 'Nice ride' } : body)
   });
-  const res = await handleRequest(request, env(fetchImpl), fetchImpl);
+  const res = await handleRequest(request, env(fetchImpl, envExtra), fetchImpl);
   const text = await res.text();
   let json = {};
   try { json = JSON.parse(text); } catch (_) {}
@@ -278,4 +281,32 @@ test('identity helper strips an email-shaped custom label', () => {
   assert.equal(parseGuardVerdict({ response: 'hello' }), null);
   assert.equal(parseProfanity({ response: 'Sure {"profanity":false}' }), false);
   assert.equal(parseProfanity({ response: 'nope' }), null);
+});
+
+test('the service account can come from FIREBASE_SA_JSON or from base64 FIREBASE_SA_JSON_B64', async () => {
+  const raw = serviceAccountCredentials({ FIREBASE_SA_JSON: '  ' + saJson + '\n', FIREBASE_SA_JSON_B64: 'ignore-me' });
+  assert.equal(raw.client_email, 'comments@railroadradar-accounts.iam.gserviceaccount.com');
+  const fromB64 = serviceAccountCredentials({ FIREBASE_SA_JSON_B64: '\n' + btoa(saJson) + '  ' });
+  assert.equal(fromB64.client_email, 'comments@railroadradar-accounts.iam.gserviceaccount.com');
+  assert.equal(serviceAccountCredentials({}), null);
+  assert.equal(serviceAccountCredentials({ FIREBASE_SA_JSON: '{', FIREBASE_SA_JSON_B64: btoa(saJson) }), null);
+  assert.equal(serviceAccountCredentials({ FIREBASE_SA_JSON_B64: '@@@' }), null);
+
+  const viaB64 = router({});
+  const token = await signToken(tokenPayload());
+  const ok = await call(viaB64, token, null, null, { FIREBASE_SA_JSON: '', FIREBASE_SA_JSON_B64: btoa(saJson) });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.ok, true);
+
+  const missing = router({});
+  const res = await call(missing, token, null, null, { FIREBASE_SA_JSON: '', FIREBASE_SA_JSON_B64: '' });
+  assert.equal(res.status, 503);
+  assert.equal(res.json.error, 'Comments are temporarily unavailable.');
+  assert.equal(missing.calls.some(function(c) { return c.url.includes('documents:commit'); }), false);
+  assert.equal(missing.calls.some(function(c) { return c.url.startsWith('https://oauth2.googleapis.com/token'); }), false);
+
+  const bad = router({});
+  const res2 = await call(bad, token, null, null, { FIREBASE_SA_JSON: '', FIREBASE_SA_JSON_B64: 'not-valid-base64' });
+  assert.equal(res2.status, 503);
+  assert.equal(res2.json.error, 'Comments are temporarily unavailable.');
 });

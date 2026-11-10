@@ -171,9 +171,18 @@ export async function verifyFirebaseIdToken(token, env, fetcher, now) {
   return payload;
 }
 
+export function serviceAccountCredentials(env) {
+  const raw = env && typeof env.FIREBASE_SA_JSON === 'string' ? env.FIREBASE_SA_JSON.trim() : '';
+  if (raw) {
+    try { return JSON.parse(raw); } catch (_) { return null; }
+  }
+  const b64 = env && typeof env.FIREBASE_SA_JSON_B64 === 'string' ? env.FIREBASE_SA_JSON_B64.trim() : '';
+  if (!b64) return null;
+  try { return JSON.parse(atob(b64)); } catch (_) { return null; }
+}
+
 async function serviceAccountToken(env, fetcher, now) {
-  let sa;
-  try { sa = JSON.parse(env.FIREBASE_SA_JSON || ''); } catch (_) { sa = null; }
+  const sa = serviceAccountCredentials(env);
   if (!sa || !sa.client_email || !sa.private_key) throw new CommentError(503, UNAVAILABLE);
   if (accessCache.token && accessCache.email === sa.client_email && accessCache.exp > now + 15000) return accessCache.token;
   const header = bytesToB64url(new TextEncoder().encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
