@@ -7016,8 +7016,8 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 @media (max-width: 700px) {
   .leaflet-popup:has(.train-popup) .leaflet-popup-content,
   .leaflet-popup .train-popup {
-    width: min(360px, calc(100vw - 32px)) !important;
-    max-width: min(360px, calc(100vw - 32px)) !important;
+    width: min(336px, calc(100vw - 40px)) !important;
+    max-width: min(336px, calc(100vw - 40px)) !important;
   }
 }
 
@@ -7120,22 +7120,22 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 }
 
 /* Phones: the card, its Leaflet wrapper, and the positioned popup are one width,
-   min(360px, 100vw - 24px), so the right edge stays on screen with the same inset as the left.
+   min(336px, 100vw - 40px), so both edges stay on screen with about 20px of margin.
    A wider inner card was clipped by the wrapper's overflow:hidden (delay pill, line/speed
    column, alert text, and Refresh). */
 @media (max-width: 700px) {
   .leaflet-popup:has(.train-popup) {
     margin-left: 0 !important;
     margin-right: 0 !important;
-    width: min(360px, calc(100vw - 24px)) !important;
-    max-width: min(360px, calc(100vw - 24px)) !important;
+    width: min(336px, calc(100vw - 40px)) !important;
+    max-width: min(336px, calc(100vw - 40px)) !important;
     box-sizing: border-box !important;
   }
   .leaflet-popup:has(.train-popup) .leaflet-popup-content-wrapper,
   .leaflet-popup:has(.train-popup) .leaflet-popup-content,
   .leaflet-popup:has(.train-popup) .train-popup {
-    width: min(360px, calc(100vw - 24px)) !important;
-    max-width: min(360px, calc(100vw - 24px)) !important;
+    width: min(336px, calc(100vw - 40px)) !important;
+    max-width: min(336px, calc(100vw - 40px)) !important;
     min-width: 0 !important;
     box-sizing: border-box !important;
   }

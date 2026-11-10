@@ -9267,9 +9267,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (!box) return;
           const vw = window.innerWidth || 520;
           const train = box.querySelector('.train-popup');
-          // Phones: one width for the Leaflet box and the card, inset 12px each side, so the
+          // Phones: one width for the Leaflet box and the card, inset 20px each side, so the
           // delay pill, right-hand details, alert, and Refresh are not clipped.
-          const w = (train && vw <= 700) ? Math.min(360, Math.max(160, vw - 24)) : ((vw <= 700) ? Math.min(320, Math.max(260, vw - 40)) : 350);
+          const w = (train && vw <= 700) ? Math.min(336, Math.max(160, vw - 40)) : ((vw <= 700) ? Math.min(320, Math.max(260, vw - 40)) : 350);
           const important = !!(train && vw <= 700);
           function setW(el) {
             if (important) {
@@ -9348,7 +9348,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         // Pan an opening (or growing) popup down far enough that its top, and the close X, sit below the
         // zoom (ends 75px down) and layers (58px) buttons in the map's top corners; otherwise on phones the layers button covers the X.
         if (w <= 700) {
-          const boxW = Math.min(360, Math.max(160, w - 24));
+          const boxW = Math.min(336, Math.max(160, w - 40));
           return {
             maxWidth: boxW,
             minWidth: Math.min(200, boxW),
@@ -9356,8 +9356,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             autoClose: true,
             closeButton: true,
             autoPan: true,
-            autoPanPaddingTopLeft: L.point(12, 84),
-            autoPanPaddingBottomRight: L.point(12, 12)
+            autoPanPaddingTopLeft: L.point(20, 84),
+            autoPanPaddingBottomRight: L.point(20, 12)
           };
         }
         const pad = { autoPan: true, autoPanPaddingTopLeft: L.point(5, 84), autoPanPaddingBottomRight: L.point(5, 5) };
