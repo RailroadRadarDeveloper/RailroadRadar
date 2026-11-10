@@ -14494,6 +14494,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const logTripBtn = isViaPopup ? '' : rrLogTripBtnHtml('amtrak', vid, num);
         const amtrakLat = parseFloat(t.lat);
         const amtrakLng = parseFloat(t.lon != null ? t.lon : t.lng);
+        const commentAgency = isViaPopup ? 'via' : (/brightline/i.test(String(t.provider || '') + ' ' + String(t.routeName || '') + ' ' + String(route || '')) ? 'brightline' : (onHartfordLine ? 'ctrail' : 'amtrak'));
+        const commentsBlock = rrTrainCommentsHtml(commentAgency, route, String(dispNum));
         const stopsHtml = buildAmtrakStopsHtml(
           t.stations,
           isNaN(amtrakLat) ? null : amtrakLat,
@@ -14555,6 +14557,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               </div>
               ${acelaEquipBlock}
               ${amtrakPairingBlock}
+              ${commentsBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
@@ -14931,6 +14934,257 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         info.alertHeader = header || '';
         return info;
       }
+      function rrNyServiceDate(d) {
+        try {
+          return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d || new Date());
+        } catch (_) {
+          return new Date().toISOString().slice(0, 10);
+        }
+      }
+      function rrCommentPart(s, max) {
+        const out = String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, max);
+        return out || 'x';
+      }
+      function rrCommentThreadId(agency, line, trainNum) {
+        return [rrCommentPart(agency, 16), rrCommentPart(line, 60), rrCommentPart(trainNum, 16), rrNyServiceDate()].join('_');
+      }
+      function rrCommentsSampleOn() {
+        try {
+          const host = location.hostname;
+          if (host !== 'localhost' && host !== '127.0.0.1') return false;
+          return /(?:^|[?&])commentsSample=1(?:&|$)/.test(location.search);
+        } catch (_) { return false; }
+      }
+      function rrCommentPhoto(url) {
+        const s = String(url || '');
+        if (s.length > 500) return '';
+        return /^https:\/\/lh[0-9]+\.googleusercontent\.com\//.test(s) ? s : '';
+      }
+      function rrCommentPublicName(d) {
+        if (!d || d.anonymous) return 'Anonymous';
+        const n = String(d.displayName || '').trim();
+        if (!n || n.indexOf('@') >= 0 || n.indexOf('<') >= 0 || n.indexOf('>') >= 0) return 'Anonymous';
+        return n.slice(0, 80);
+      }
+      function rrCommentAgo(ts) {
+        let ms = NaN;
+        try {
+          if (ts && typeof ts.toDate === 'function') ms = ts.toDate().getTime();
+          else if (ts && ts.seconds) ms = ts.seconds * 1000;
+          else if (typeof ts === 'number') ms = ts;
+        } catch (_) {}
+        if (!isFinite(ms)) return '';
+        const min = Math.round((Date.now() - ms) / 60000);
+        if (min < 1) return 'just now';
+        if (min < 60) return min + ' min ago';
+        const hr = Math.round(min / 60);
+        if (hr < 24) return hr + ' hr ago';
+        return '1 day ago';
+      }
+      function rrCommentAuthorFields(user) {
+        const settings = currentUserSettings || {};
+        const anonymous = settings.reportDisplayMode === 'anonymous';
+        let label = 'Anonymous';
+        if (!anonymous) {
+          try { label = computeReporterLabel(settings, user.displayName, ''); } catch (_) {}
+        }
+        label = String(label || 'Anonymous').replace(/[<>@]/g, '').trim().slice(0, 80) || 'Anonymous';
+        const isAnon = label === 'Anonymous';
+        const verified = !isAnon && typeof isVerifiedReporterUid === 'function' && !!isVerifiedReporterUid(user.uid);
+        return {
+          displayName: label,
+          anonymous: isAnon,
+          photoURL: isAnon ? null : (rrCommentPhoto(user.photoURL) || null),
+          verified: !!verified
+        };
+      }
+      function rrCommentCardHtml(c) {
+        const name = rrCommentPublicName(c);
+        const initial = (name === 'Anonymous' ? 'A' : name.charAt(0).toUpperCase()) || '?';
+        const photo = rrCommentPhoto(c.photoURL);
+        const avatar = photo ? '<img src="' + escapeHtmlLite(photo) + '" alt="">' : escapeHtmlLite(initial);
+        const badge = (c.verified && name !== 'Anonymous')
+          ? '<img class="admin-badge-icon verified-badge-icon is-visible" src="/assets/admin-badge.png" alt="Verified">'
+          : '';
+        const mine = !!(c.id && currentUser && (currentUser.uid === c.uid || (typeof isAdminUser === 'function' && isAdminUser(currentUser))));
+        const del = mine ? '<button type="button" class="rr-comment-delete" data-rr-comments="delete" data-id="' + escapeHtmlLite(c.id) + '">Delete</button>' : '';
+        return '<article class="rr-comment"><div class="rr-comment-avatar">' + avatar + '</div><div><div class="rr-comment-who"><span class="rr-comment-name">' +
+          escapeHtmlLite(name) + badge + '</span><span class="rr-comment-when">' + escapeHtmlLite(c.ago || rrCommentAgo(c.createdAt)) +
+          '</span></div><p class="rr-comment-text">' + escapeHtmlLite(c.text || '') + '</p>' + del + '</div></article>';
+      }
+      function rrCommentSamples() {
+        return [
+          { displayName: 'Maya Chen', verified: true, anonymous: false, text: 'Boarded at Porter. A few seats left in the front car.', ago: '8 min ago' },
+          { displayName: 'Anonymous', verified: false, anonymous: true, text: 'Slow order leaving Wachusett. The crew mentioned slippery rail.', ago: '34 min ago' },
+          { displayName: 'Jordan Hale', verified: false, anonymous: false, text: 'North Station arrival is Track 2 today.', ago: '2 hr ago' }
+        ];
+      }
+      function rrTrainCommentsHtml(agency, line, trainNum) {
+        const thread = rrCommentThreadId(agency, line, trainNum);
+        const sample = rrCommentsSampleOn();
+        const label = sample ? 'Comments (3)' : 'Comments';
+        const signed = !!(typeof currentUser !== 'undefined' && currentUser);
+        const composer = signed
+          ? '<form class="rr-comments-form" data-rr-comments="form"><input class="rr-comments-input" data-rr-comments="input" type="text" maxlength="200" enterkeyhint="send" autocomplete="off" placeholder="Add a comment" aria-label="Add a comment"><button class="rr-comments-post" type="submit" disabled>Post</button></form><p class="rr-comments-count">0 / 200</p>'
+          : '<button type="button" class="rr-comments-signin" data-rr-comments="signin">Sign in to comment</button>';
+        return '<section class="rr-comments" data-thread="' + escapeHtmlLite(thread) + '">' +
+          '<button type="button" class="rr-comments-toggle" data-rr-comments="toggle" aria-expanded="false"><span class="rr-comments-label">' + label + '</span><span class="rr-comments-chev" aria-hidden="true"></span></button>' +
+          '<div class="rr-comments-panel" hidden>' + (sample ? '<p class="rr-comments-sample">Sample data — not from riders</p>' : '') +
+          '<div class="rr-comments-list"></div>' + composer + '<p class="rr-comments-note"></p></div></section>';
+      }
+      function rrCommentsRoot(el) {
+        return el && el.closest ? el.closest('.rr-comments') : null;
+      }
+      function rrCommentsSetLabel(root, n) {
+        const label = root.querySelector('.rr-comments-label');
+        if (!label) return;
+        label.textContent = n == null ? 'Comments' : ('Comments (' + (n >= 50 ? '50+' : String(n)) + ')');
+      }
+      function rrCommentsRender(root, rows) {
+        const list = root.querySelector('.rr-comments-list');
+        const note = root.querySelector('.rr-comments-note');
+        if (!list) return;
+        if (!rows.length) {
+          list.innerHTML = '<p class="rr-comments-empty">No comments yet.</p>';
+        } else {
+          list.innerHTML = rows.map(rrCommentCardHtml).join('');
+        }
+        rrCommentsSetLabel(root, rows.length);
+        if (note && rrCommentsSampleOn()) note.textContent = 'Sample only. Nothing is posted.';
+      }
+      async function rrCommentsLoad(root) {
+        if (root.getAttribute('data-loaded') === '1') return;
+        const list = root.querySelector('.rr-comments-list');
+        if (list) list.innerHTML = '<p class="rr-comments-empty">Loading…</p>';
+        if (rrCommentsSampleOn()) {
+          rrCommentsRender(root, rrCommentSamples());
+          root.setAttribute('data-loaded', '1');
+          return;
+        }
+        const thread = root.getAttribute('data-thread') || '';
+        if (!db || !thread) {
+          if (list) list.innerHTML = '<p class="rr-comments-empty">Comments are unavailable.</p>';
+          return;
+        }
+        try {
+          const snap = await db.collection('trainComments').doc(thread).collection('items').orderBy('createdAt', 'desc').limit(50).get();
+          const today = rrNyServiceDate();
+          const rows = [];
+          snap.forEach(function(doc) {
+            const d = doc.data() || {};
+            if (String(thread).slice(-10) !== today) return;
+            rows.push({
+              id: doc.id,
+              uid: d.uid,
+              text: d.text,
+              displayName: d.displayName,
+              anonymous: d.anonymous,
+              photoURL: d.photoURL,
+              verified: d.verified === true,
+              createdAt: d.createdAt
+            });
+          });
+          rrCommentsRender(root, rows);
+          root.setAttribute('data-loaded', '1');
+        } catch (err) {
+          if (list) list.innerHTML = '<p class="rr-comments-empty">Comments are unavailable.</p>';
+          console.warn('[comments] load failed', err && err.message ? err.message : err);
+        }
+      }
+      async function rrCommentsPost(root) {
+        const input = root.querySelector('.rr-comments-input');
+        const note = root.querySelector('.rr-comments-note');
+        const text = String(input && input.value || '').trim();
+        if (!text || text.length > 200) return;
+        if (rrCommentsSampleOn()) {
+          if (note) note.textContent = 'Sample only. Nothing is posted.';
+          return;
+        }
+        const user = currentUser;
+        if (!user || !db) return;
+        const thread = root.getAttribute('data-thread') || '';
+        const who = rrCommentAuthorFields(user);
+        const batch = db.batch();
+        const ref = db.collection('trainComments').doc(thread).collection('items').doc();
+        batch.set(ref, {
+          uid: user.uid,
+          text: text,
+          displayName: who.displayName,
+          anonymous: who.anonymous,
+          photoURL: who.photoURL,
+          verified: who.verified,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          expireAt: firebase.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000)
+        });
+        batch.set(db.collection('trainCommentRate').doc(user.uid), {
+          uid: user.uid,
+          lastAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        try {
+          await batch.commit();
+          if (input) input.value = '';
+          const count = root.querySelector('.rr-comments-count');
+          if (count) count.textContent = '0 / 200';
+          const post = root.querySelector('.rr-comments-post');
+          if (post) post.disabled = true;
+          root.removeAttribute('data-loaded');
+          await rrCommentsLoad(root);
+        } catch (err) {
+          const msg = String(err && err.message || '');
+          if (note) note.textContent = /permission|denied|insufficient/i.test(msg) ? 'Please wait a moment before posting again.' : 'Could not post that comment.';
+        }
+      }
+      async function rrCommentsDelete(root, id) {
+        if (rrCommentsSampleOn() || !db || !id) return;
+        const thread = root.getAttribute('data-thread') || '';
+        try {
+          await db.collection('trainComments').doc(thread).collection('items').doc(id).delete();
+          root.removeAttribute('data-loaded');
+          await rrCommentsLoad(root);
+        } catch (err) {
+          const note = root.querySelector('.rr-comments-note');
+          if (note) note.textContent = 'Could not delete that comment.';
+        }
+      }
+      if (!window.__rrCommentsBound) {
+        window.__rrCommentsBound = true;
+        document.addEventListener('click', function(e) {
+          const btn = e.target && e.target.closest ? e.target.closest('[data-rr-comments]') : null;
+          if (!btn) return;
+          const root = rrCommentsRoot(btn);
+          if (!root) return;
+          const kind = btn.getAttribute('data-rr-comments');
+          if (kind === 'toggle') {
+            const open = root.classList.toggle('is-open');
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            const panel = root.querySelector('.rr-comments-panel');
+            if (panel) panel.hidden = !open;
+            if (open) rrCommentsLoad(root);
+          } else if (kind === 'signin') {
+            try { signInWithGoogle(); } catch (_) {}
+          } else if (kind === 'delete') {
+            rrCommentsDelete(root, btn.getAttribute('data-id'));
+          }
+        });
+        document.addEventListener('input', function(e) {
+          const input = e.target;
+          if (!input || !input.classList || !input.classList.contains('rr-comments-input')) return;
+          const root = rrCommentsRoot(input);
+          if (!root) return;
+          const n = String(input.value || '').length;
+          const count = root.querySelector('.rr-comments-count');
+          if (count) count.textContent = n + ' / 200';
+          const post = root.querySelector('.rr-comments-post');
+          if (post) post.disabled = !String(input.value || '').trim() || n > 200;
+        });
+        document.addEventListener('submit', function(e) {
+          const form = e.target;
+          if (!form || !form.classList || !form.classList.contains('rr-comments-form')) return;
+          e.preventDefault();
+          const root = rrCommentsRoot(form);
+          if (root) rrCommentsPost(root);
+        });
+      }
       function trainAlertBannerHtml(hasAlert, alertHeader) {
         if (!hasAlert) return '';
         const text = escapeHtmlLite(alertHeader || 'Active Service Alert');
@@ -15136,6 +15390,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const trackHtml = track
           ? ('<div class="info-item"><span class="info-label">Track</span><span class="info-value">' + escapeHtmlLite(track) + '</span></div>')
           : ('<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + escapeHtmlLite(status) + '</span></div>');
+        const commentsBlock = rrTrainCommentsHtml('mnr', route, String(num));
         const headerAttrs = rrPopupHeaderAttrs(MNR_STATIC.routes[String(info.routeId || '')] ? info.routeColor : '');
         return `
           <div class="train-popup">
@@ -15171,6 +15426,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${mnrPairingBlock}
+              ${commentsBlock}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
@@ -15589,6 +15845,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 ${escapeHtmlLite(origin)} → ${escapeHtmlLite(dest)} · Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${lirrPairingBlock}
+              ${rrTrainCommentsHtml('lirr', route, String(num))}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
@@ -16031,6 +16288,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${njtPairingBlock}
+              ${rrTrainCommentsHtml('njt', route, String(num))}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>
@@ -16275,6 +16533,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           '<div class="info-item"><span class="info-label">Route</span><span class="info-value">' + escapeHtmlLite(route) + '</span></div>' +
           '<div class="info-item"><span class="info-label">Status</span><span class="info-value">' + escapeHtmlLite(status) + '</span></div>' + speedHtml + '</div>' +
           al + '<div class="meta-row">' + escapeHtmlLite(origin) + ' \u2192 ' + escapeHtmlLite(dest) + ' \u00b7 Last seen: <strong style="color:#07093e">' + lastSeenTime + '</strong></div>' +
+          rrTrainCommentsHtml('marc', route, String(num)) +
           ((typeof buildLocoReportPairingBlockHtml==='function') ? buildLocoReportPairingBlockHtml('mbta', { trainNumber: (typeof extractTrainNumber==='function' && extractTrainNumber(page.tid)) || page.tid }) : '') + '<div class="stops-wrapper">' + stopsHtml + '</div>' + '</div><div class="train-popup-footer">' + logTripBtn + shareBtn + refreshBtn + '</div></div>';
       }
       window.refreshMarcTrain = async function() { return fetchMarcTrains(); };
@@ -17017,6 +17276,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 Last seen: <strong style="color:#07093e">${lastSeenTime}</strong>
               </div>
               ${mbtaPairingBlock}
+              ${rrTrainCommentsHtml('mbta', rname || rid, extractTrainNumber(tid) || tid)}
               <div class="stops-wrapper">
                 ${stopsHtml}
               </div>

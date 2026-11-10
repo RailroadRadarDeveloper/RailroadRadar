@@ -152,6 +152,34 @@ test('map shows trains and popups for each railroad', async ({ page, baseURL }, 
   expect(realProblems(problems, '/map/')).toEqual([]);
 });
 
+test('train popup comments', async ({ page, baseURL }) => {
+  watch(page, baseURL);
+  await page.goto('/map/?commentsSample=1');
+  await page.waitForFunction(() => window.rrMainMap && window.rrCollectLiveTrainRows().some((r) => r.agency === 'MBTA' && r.markerMap && r.markerMap[r.id] && window.rrMainMap.hasLayer(r.markerMap[r.id])), null, { timeout: 30_000 });
+  await page.evaluate(() => {
+    const r = window.rrCollectLiveTrainRows().find((x) => x.agency === 'MBTA' && x.markerMap[x.id] && window.rrMainMap.hasLayer(x.markerMap[x.id]));
+    window.rrMainMap.closePopup();
+    window.rrMainMap.setView(r.markerMap[r.id].getLatLng(), 12, { animate: false });
+    r.markerMap[r.id].openPopup();
+  });
+  const toggle = page.locator('.leaflet-popup .rr-comments-toggle').first();
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toContainText('Comments (3)');
+  await toggle.click();
+  await expect(page.locator('.leaflet-popup .rr-comments-sample')).toContainText('Sample data');
+  await expect(page.locator('.leaflet-popup .rr-comment')).toHaveCount(3);
+  await expect(page.locator('.leaflet-popup .rr-comments-signin')).toHaveText('Sign in to comment');
+  const avatar = page.locator('.leaflet-popup .rr-comment-avatar').first();
+  const round = await avatar.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return parseFloat(s.borderRadius) * 2 >= parseFloat(s.width) - 1;
+  });
+  expect(round).toBe(true);
+  const signInH = await page.locator('.leaflet-popup .rr-comments-signin').evaluate((el) => el.getBoundingClientRect().height);
+  expect(signInH).toBeGreaterThanOrEqual(44);
+  expect(realProblems(problems, '/map/')).toEqual([]);
+});
+
 test('timetables grid and trip planner', async ({ page, baseURL }) => {
   watch(page, baseURL);
   await page.goto('/timetables/?rr=mbta&line=CR-Haverhill&date=2026-10-15');

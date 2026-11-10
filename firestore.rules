@@ -779,6 +779,70 @@ service cloud.firestore {
             || (request.resource.data.denyReason is string && request.resource.data.denyReason.size() <= 1000));
     }
 
+    function trainThreadOk(id) {
+      return id.matches('^[a-z0-9][a-z0-9-]{0,15}_[a-z0-9][a-z0-9-]{0,59}_[a-z0-9][a-z0-9-]{0,15}_[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function commentTextOk(v) {
+      return v is string && v.size() > 0 && v.size() <= 200 && !v.matches('(?s).*[<>].*');
+    }
+
+    function commentNameOk(v) {
+      return v is string && v.size() > 0 && v.size() <= 80
+        && !v.matches('.*@.*') && !v.matches('.*[<>].*');
+    }
+
+    function commentPhotoOk(v) {
+      return v == null || (v is string && v.size() <= 500
+        && v.matches('https://lh[0-9]+[.]googleusercontent[.]com/.*'));
+    }
+
+    // One post per user every 20 seconds. The comment write must update this doc in the same batch.
+    function commentRateOk() {
+      return getAfter(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid)).data.lastAt == request.time
+        && (!exists(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid))
+            || request.time > get(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid)).data.lastAt + duration.value(20, 's'));
+    }
+
+    match /trainCommentRate/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if activeUser()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'lastAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.lastAt == request.time;
+      allow delete: if false;
+    }
+
+    // One thread per agency, line, train number, and America/New_York service date.
+    // Reads are public. expireAt is a TTL timestamp about a day after the post.
+    match /trainComments/{threadId}/items/{commentId} {
+      allow read: if trainThreadOk(threadId);
+      allow create: if activeUser()
+        && trainThreadOk(threadId)
+        && request.resource.data.keys().hasOnly(['uid', 'text', 'displayName', 'anonymous', 'photoURL', 'verified', 'createdAt', 'expireAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && commentTextOk(request.resource.data.text)
+        && commentNameOk(request.resource.data.displayName)
+        && request.resource.data.anonymous is bool
+        && (request.resource.data.anonymous == false || request.resource.data.displayName == 'Anonymous')
+        && commentPhotoOk(request.resource.data.photoURL)
+        && (request.resource.data.anonymous == false || request.resource.data.photoURL == null)
+        && request.resource.data.verified is bool
+        && (request.resource.data.verified == false
+            || (request.resource.data.verified == true && isVerifiedReporter() && request.resource.data.displayName != 'Anonymous'))
+        && request.resource.data.expireAt is timestamp
+        && request.resource.data.expireAt > request.time + duration.value(20, 'h')
+        && request.resource.data.expireAt < request.time + duration.value(28, 'h')
+        && commentRateOk();
+      allow update: if false;
+      allow delete: if activeUser() && (
+        request.auth.uid == resource.data.uid || isAdmin()
+      );
+    }
+
     match /pressReleases/{id} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
