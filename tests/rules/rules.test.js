@@ -629,7 +629,7 @@ describe('train comments', () => {
     await ok(post(as('ver'), 'ver', 'c16', { verified: true, displayName: 'Vera' }));
     await no(post(as('bob'), 'bob', 'c17', { verified: true, displayName: 'Anonymous', anonymous: true }));
   });
-  it('a second post inside 20 seconds is denied', async () => {
+  it('a second post inside 30 seconds is denied', async () => {
     await ok(post(as('alice'), 'alice', 'c18'));
     await no(post(as('alice'), 'alice', 'c19'));
   });

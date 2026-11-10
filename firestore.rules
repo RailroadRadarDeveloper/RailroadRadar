@@ -797,11 +797,11 @@ service cloud.firestore {
         && v.matches('https://lh[0-9]+[.]googleusercontent[.]com/.*'));
     }
 
-    // One post per user every 20 seconds. The comment write must update this doc in the same batch.
+    // One post per user every 30 seconds. The comment write must update this doc in the same batch.
     function commentRateOk() {
       return getAfter(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid)).data.lastAt == request.time
         && (!exists(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid))
-            || request.time > get(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid)).data.lastAt + duration.value(20, 's'));
+            || request.time > get(/databases/$(database)/documents/trainCommentRate/$(request.auth.uid)).data.lastAt + duration.value(30, 's'));
     }
 
     match /trainCommentRate/{uid} {
