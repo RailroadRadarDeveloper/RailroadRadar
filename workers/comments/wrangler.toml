@@ -1,0 +1,20 @@
+# Train comments. Deploy: npx wrangler deploy -c workers/comments/wrangler.toml
+# The only secret is FIREBASE_SA_JSON. Workers AI uses the [ai] binding.
+name = "railroadradar-comments"
+main = "index.js"
+compatibility_date = "2026-11-10"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[vars]
+PROJECT_ID = "railroadradar-accounts"
+GUARD_MODEL = "@cf/meta/llama-guard-3-8b"
+PROFANITY_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true

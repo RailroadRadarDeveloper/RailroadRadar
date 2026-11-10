@@ -609,29 +609,13 @@ describe('train comments', () => {
     await ok(item(anon(), 'c0').get());
     await no(rate(anon(), 'alice').get());
   });
-  it('signed-in user posts their own comment with the rate doc', async () => {
-    await ok(post(as('bob'), 'bob', 'c2'));
-    await no(post(as('bob'), 'alice', 'c3'));
-    await no(as('bob').doc(`trainComments/${thread}/items/c4`).set(trainComment('bob')));
+  it('clients cannot create comments or write the rate doc', async () => {
+    await no(post(as('bob'), 'bob', 'c2'));
+    await no(post(as('admin'), 'admin', 'c3'));
+    await no(post(as('ver'), 'ver', 'c4', { verified: true, displayName: 'Vera' }));
     await no(post(as('unverified'), 'unverified', 'c5'));
-    await no(post(as('banned'), 'banned', 'c6'));
-    await no(post(as('bob'), 'bob', 'c7', { text: '' }));
-    await no(post(as('bob'), 'bob', 'c8', { text: 'x'.repeat(201) }));
-    await no(post(as('bob'), 'bob', 'c9', { text: '<b>hi</b>' }));
-    await no(post(as('bob'), 'bob', 'c10', { displayName: 'bob@example.com' }));
-    await no(post(as('bob'), 'bob', 'c11', { email: 'bob@example.com' }));
-    await no(post(as('bob'), 'bob', 'c12', { createdAt: Timestamp.fromMillis(1000) }));
-    await no(post(as('bob'), 'bob', 'c13', { extra: 1 }));
-    await no(post(as('bob'), 'bob', 'c14', { verified: true }));
-    await no(post(as('bob'), 'bob', 'c15', { expireAt: hoursFromNow(1) }));
-  });
-  it('verified reporter may mark themselves verified', async () => {
-    await ok(post(as('ver'), 'ver', 'c16', { verified: true, displayName: 'Vera' }));
-    await no(post(as('bob'), 'bob', 'c17', { verified: true, displayName: 'Anonymous', anonymous: true }));
-  });
-  it('a second post inside 30 seconds is denied', async () => {
-    await ok(post(as('alice'), 'alice', 'c18'));
-    await no(post(as('alice'), 'alice', 'c19'));
+    await no(rate(as('bob'), 'bob').set({ uid: 'bob', lastAt: now() }));
+    await no(rate(as('admin'), 'admin').set({ uid: 'admin', lastAt: now() }));
   });
   it('rejects a bad thread id and any edit', async () => {
     const bad = as('bob');

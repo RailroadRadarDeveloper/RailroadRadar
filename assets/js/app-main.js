@@ -15116,27 +15116,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return;
         }
         const user = currentUser;
-        if (!user || !db) return;
+        if (!user) return;
         const thread = root.getAttribute('data-thread') || '';
-        const who = rrCommentAuthorFields(user);
-        const batch = db.batch();
-        const ref = db.collection('trainComments').doc(thread).collection('items').doc();
-        batch.set(ref, {
-          uid: user.uid,
-          text: text,
-          displayName: who.displayName,
-          anonymous: who.anonymous,
-          photoURL: who.photoURL,
-          verified: who.verified,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          expireAt: firebase.firestore.Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000)
-        });
-        batch.set(db.collection('trainCommentRate').doc(user.uid), {
-          uid: user.uid,
-          lastAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
         try {
-          await batch.commit();
+          const token = await user.getIdToken();
+          const res = await fetch('https://railroadradar-comments.railroadradar.workers.dev/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ threadId: thread, text: text })
+          });
+          let data = {};
+          try { data = await res.json(); } catch (_) {}
+          if (!res.ok) {
+            const msg = data && typeof data.error === 'string' ? data.error.trim().slice(0, 200) : '';
+            if (note) note.textContent = msg || 'Comments are temporarily unavailable.';
+            return;
+          }
           if (input) input.value = '';
           const count = root.querySelector('.rr-comments-count');
           if (count) count.textContent = '0 / 200';
@@ -15144,9 +15139,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (post) post.disabled = true;
           root.removeAttribute('data-loaded');
           await rrCommentsLoad(root);
-        } catch (err) {
-          const msg = String(err && err.message || '');
-          if (note) note.textContent = /permission|denied|insufficient/i.test(msg) ? 'Please wait 30 seconds before posting again.' : 'Could not post that comment.';
+        } catch (_) {
+          if (note) note.textContent = 'Comments are temporarily unavailable.';
         }
       }
       async function rrCommentsDelete(root, id) {
