@@ -588,6 +588,75 @@ describe('unbanned and appealStatus', () => {
   });
 });
 
+describe('train comments', () => {
+  const thread = 'mbta_fitchburg-line_412_2026-11-10';
+  const item = (db, id = 'c1') => db.doc(`trainComments/${thread}/items/${id}`);
+  const rate = (db, uid) => db.doc(`trainCommentRate/${uid}`);
+  const trainComment = (uid, extra) => ({
+    uid, text: 'Nice ride', displayName: 'A.', anonymous: false, photoURL: null, verified: false,
+    createdAt: now(), expireAt: hoursFromNow(24), ...extra
+  });
+  function post(db, uid, id, extra) {
+    const batch = db.batch();
+    batch.set(item(db, id), trainComment(uid, extra));
+    batch.set(rate(db, uid), { uid, lastAt: now() });
+    return batch.commit();
+  }
+  it('anyone reads a comment and not the rate doc', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await item(ctx.firestore(), 'c0').set(trainComment('alice'));
+    });
+    await ok(item(anon(), 'c0').get());
+    await no(rate(anon(), 'alice').get());
+  });
+  it('signed-in user posts their own comment with the rate doc', async () => {
+    await ok(post(as('bob'), 'bob', 'c2'));
+    await no(post(as('bob'), 'alice', 'c3'));
+    await no(as('bob').doc(`trainComments/${thread}/items/c4`).set(trainComment('bob')));
+    await no(post(as('unverified'), 'unverified', 'c5'));
+    await no(post(as('banned'), 'banned', 'c6'));
+    await no(post(as('bob'), 'bob', 'c7', { text: '' }));
+    await no(post(as('bob'), 'bob', 'c8', { text: 'x'.repeat(201) }));
+    await no(post(as('bob'), 'bob', 'c9', { text: '<b>hi</b>' }));
+    await no(post(as('bob'), 'bob', 'c10', { displayName: 'bob@example.com' }));
+    await no(post(as('bob'), 'bob', 'c11', { email: 'bob@example.com' }));
+    await no(post(as('bob'), 'bob', 'c12', { createdAt: Timestamp.fromMillis(1000) }));
+    await no(post(as('bob'), 'bob', 'c13', { extra: 1 }));
+    await no(post(as('bob'), 'bob', 'c14', { verified: true }));
+    await no(post(as('bob'), 'bob', 'c15', { expireAt: hoursFromNow(1) }));
+  });
+  it('verified reporter may mark themselves verified', async () => {
+    await ok(post(as('ver'), 'ver', 'c16', { verified: true, displayName: 'Vera' }));
+    await no(post(as('bob'), 'bob', 'c17', { verified: true, displayName: 'Anonymous', anonymous: true }));
+  });
+  it('a second post inside 20 seconds is denied', async () => {
+    await ok(post(as('alice'), 'alice', 'c18'));
+    await no(post(as('alice'), 'alice', 'c19'));
+  });
+  it('rejects a bad thread id and any edit', async () => {
+    const bad = as('bob');
+    const batch = bad.batch();
+    batch.set(bad.doc('trainComments/nope/items/c20'), trainComment('bob'));
+    batch.set(rate(bad, 'bob'), { uid: 'bob', lastAt: now() });
+    await no(batch.commit());
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await item(ctx.firestore(), 'c21').set(trainComment('alice'));
+    });
+    await no(item(as('alice'), 'c21').update({ text: 'changed' }));
+  });
+  it('author or admin deletes, others do not', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await item(ctx.firestore(), 'c22').set(trainComment('alice'));
+    });
+    await no(item(as('bob'), 'c22').delete());
+    await ok(item(as('admin'), 'c22').delete());
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await item(ctx.firestore(), 'c23').set(trainComment('alice'));
+    });
+    await ok(item(as('alice'), 'c23').delete());
+  });
+});
+
 describe('press release comments', () => {
   const doc = (db, id = 'c2') => db.doc(`pressReleases/pr1/comments/${id}`);
   it('anyone reads', () => ok(doc(anon(), 'c1').get()));

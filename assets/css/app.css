@@ -7141,6 +7141,146 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   overflow-wrap: anywhere !important;
 }
 
+/* Train comments: one thread per run, opened only when the row is expanded. */
+.rr-comments { border-top: 1px solid #e6e9ef; margin: 8px 0 0; }
+.rr-comments-toggle {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #07093e;
+  font: 700 15px/1 "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border-radius: 0;
+}
+.rr-comments-chev {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid #07093e;
+  border-bottom: 2px solid #07093e;
+  transform: rotate(45deg);
+  margin-right: 6px;
+}
+.rr-comments.is-open .rr-comments-chev { transform: rotate(-135deg); margin-top: 6px; }
+.rr-comments-sample {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  background: #fff8e1;
+  color: #8d6e00;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.rr-comments-list {
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid #e6e9ef;
+  background: #f7f8fb;
+}
+.rr-comments-empty { margin: 0; padding: 10px; font-size: 14px; color: #5c6480; }
+.rr-comment {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid #e6e9ef;
+}
+.rr-comment:last-child { border-bottom: 0; }
+.rr-comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e8eaf6;
+  color: #07093e;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rr-comment-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.rr-comment-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+.rr-comment-name { font-weight: 700; color: #07093e; font-size: 14px; }
+.rr-comment-name .verified-badge-icon { width: 14px; height: 14px; margin-left: 3px; vertical-align: -2px; }
+.rr-comment-when { font-size: 12px; color: #7f8c9a; font-weight: 600; }
+.rr-comment-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: #1a1f2e; overflow-wrap: anywhere; }
+.rr-comment-delete {
+  margin-top: 4px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: #07093e;
+  font: 700 13px/1 "Segoe UI", system-ui, sans-serif;
+  cursor: pointer;
+}
+.rr-comments-form { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
+.rr-comments-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid #c5cad3;
+  border-radius: 0;
+  font-size: 16px;
+  font-family: inherit;
+  color: #07093e;
+}
+.rr-comments-post, .rr-comments-signin {
+  min-height: 44px;
+  border-radius: 0;
+  font: 700 15px/1 "Segoe UI", system-ui, sans-serif;
+  cursor: pointer;
+}
+.rr-comments-post {
+  min-width: 72px;
+  padding: 0 12px;
+  border: 0;
+  background: #07093e;
+  color: #fff;
+}
+.rr-comments-post:disabled { opacity: 0.45; cursor: default; }
+.rr-comments-signin {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #07093e;
+  background: #fff;
+  color: #07093e;
+  font-size: 16px;
+}
+.rr-comments-count { margin: 4px 0 0; font-size: 12px; color: #7f8c9a; text-align: right; }
+.rr-comments-note { margin: 4px 0 0; font-size: 12px; color: #7f8c9a; }
+/* Popup buttons are forced to 38px / 12.5px. Comments keep a 44px target and a 16px field. */
+.train-popup .rr-comments-toggle,
+.train-popup .rr-comments-post,
+.train-popup .rr-comments-signin,
+.train-popup .rr-comment-delete {
+  min-height: 44px !important;
+  box-sizing: border-box !important;
+}
+.train-popup .rr-comments-input,
+.train-popup .rr-comments-signin,
+.train-popup .rr-comments-post {
+  font-size: 16px !important;
+}
+.train-popup .rr-comments-input {
+  height: 44px !important;
+  min-height: 44px !important;
+}
+
 /* Phones: the card, its Leaflet wrapper, and the positioned popup are one width,
    min(336px, 100vw - 40px), so both edges stay on screen with about 20px of margin.
    A wider inner card was clipped by the wrapper's overflow:hidden (delay pill, line/speed
