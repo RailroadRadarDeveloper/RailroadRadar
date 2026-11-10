@@ -7016,8 +7016,8 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 @media (max-width: 700px) {
   .leaflet-popup:has(.train-popup) .leaflet-popup-content,
   .leaflet-popup .train-popup {
-    width: min(360px, calc(100vw - 32px)) !important;
-    max-width: min(360px, calc(100vw - 32px)) !important;
+    width: min(336px, calc(100vw - 40px)) !important;
+    max-width: min(336px, calc(100vw - 40px)) !important;
   }
 }
 
@@ -7117,5 +7117,77 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   box-sizing: border-box !important;
   white-space: normal !important;
   overflow-wrap: anywhere !important;
+}
+
+/* Phones: the card, its Leaflet wrapper, and the positioned popup are one width,
+   min(336px, 100vw - 40px), so both edges stay on screen with about 20px of margin.
+   A wider inner card was clipped by the wrapper's overflow:hidden (delay pill, line/speed
+   column, alert text, and Refresh). */
+@media (max-width: 700px) {
+  .leaflet-popup:has(.train-popup) {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: min(336px, calc(100vw - 40px)) !important;
+    max-width: min(336px, calc(100vw - 40px)) !important;
+    box-sizing: border-box !important;
+  }
+  .leaflet-popup:has(.train-popup) .leaflet-popup-content-wrapper,
+  .leaflet-popup:has(.train-popup) .leaflet-popup-content,
+  .leaflet-popup:has(.train-popup) .train-popup {
+    width: min(336px, calc(100vw - 40px)) !important;
+    max-width: min(336px, calc(100vw - 40px)) !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .leaflet-popup:has(.train-popup) .train-popup-header,
+  .leaflet-popup:has(.train-popup) .train-popup-body,
+  .leaflet-popup:has(.train-popup) .train-popup-footer,
+  .leaflet-popup:has(.train-popup) .info-grid,
+  .leaflet-popup:has(.train-popup) .quick-status,
+  .leaflet-popup:has(.train-popup) .alert-banner,
+  .leaflet-popup:has(.train-popup) .meta-row,
+  .leaflet-popup:has(.train-popup) .loco-report-block {
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .leaflet-popup:has(.train-popup) .quick-status {
+    flex-wrap: nowrap !important;
+  }
+  .leaflet-popup:has(.train-popup) .status-desc {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+  }
+  .leaflet-popup:has(.train-popup) .status-pill {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    max-width: none !important;
+  }
+  .leaflet-popup:has(.train-popup) .alert-banner {
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+  .leaflet-popup:has(.train-popup) .alert-banner img {
+    display: inline-block !important;
+    vertical-align: text-top !important;
+  }
+  .leaflet-popup:has(.train-popup) .train-popup-footer {
+    flex-wrap: wrap !important;
+  }
+  .leaflet-popup:has(.train-popup) .train-popup-footer .popup-action-btn,
+  .leaflet-popup:has(.train-popup) .train-popup-footer button {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: auto !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
 }
 
