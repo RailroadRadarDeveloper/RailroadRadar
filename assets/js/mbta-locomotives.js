@@ -130,7 +130,7 @@
   function applyFirestoreRoster() {
     if (!root.firebase) return Promise.resolve(list);
     try {
-      if ((!root.firebase.apps || !root.firebase.apps.length) && /(?:^|\\/)admin\\.html$/i.test(String(root.location && root.location.pathname || ''))) return Promise.resolve(list);
+      if ((!root.firebase.apps || !root.firebase.apps.length) && String(root.location && root.location.pathname || '').indexOf('admin.html') !== -1) return Promise.resolve(list);
       if (!root.firebase.apps || !root.firebase.apps.length) {
         root.firebase.initializeApp({
           apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
