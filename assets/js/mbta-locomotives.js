@@ -127,6 +127,35 @@
   root.rrMbtaLocoIndexRoster = indexRoster;
   root.rrMbtaLocoRosterIsReady = false;
 
+  function applyFirestoreRoster() {
+    if (!root.firebase || !root.firebase.apps || !root.firebase.apps.length) return Promise.resolve(list);
+    try {
+      return root.firebase.firestore().collection('locomotiveRoster').get().then(function (snap) {
+        var merged = Object.create(null);
+        list.forEach(function (row) { merged[String(row.number).toUpperCase()] = row; });
+        snap.forEach(function (doc) {
+          var d = doc.data() || {};
+          var number = String(d.number || '').trim();
+          if (!number) return;
+          var key = number.toUpperCase();
+          if (d.active === false) { delete merged[key]; return; }
+          merged[key] = { number: number, type: String(d.type || ''), paint: String(d.paint || '') };
+        });
+        indexRoster(Object.keys(merged).map(function (key) { return merged[key]; }));
+        return list;
+      }).catch(function (err) {
+        console.warn('[mbta locomotives] Firestore roster overlay unavailable; using built-in roster', err);
+        return list;
+      });
+    } catch (err) {
+      console.warn('[mbta locomotives] Firestore roster overlay unavailable; using built-in roster', err);
+      return Promise.resolve(list);
+    }
+  }
+  root.rrReloadMbtaLocoRoster = function () {
+    return applyFirestoreRoster().then(function () { finish(); return list; });
+  };
+
   function finish() {
     root.rrMbtaLocoRosterIsReady = true;
     if (typeof root.rrMbtaLocoRosterLoaded === 'function') {
@@ -142,8 +171,7 @@
       })
       .then(function (data) {
         indexRoster(data && data.locomotives);
-        finish();
-        return list;
+        return applyFirestoreRoster().then(function () { finish(); return list; });
       })
       .catch(function (err) {
         console.warn('[mbta locomotives] roster failed', err);
