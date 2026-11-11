@@ -741,7 +741,29 @@
 
         <div class="rr-admin-pane" id="admin-pane-roster" data-admin-pane="roster">
           <div class="rr-lightbox-section">
-            <h3>Add / Update Special Locomotive</h3>
+                      <div class="rr-lightbox-section">
+            <h3>MBTA Locomotive Roster</h3>
+            <p class="rr-modal-hint">Add, edit, or remove locomotives from the main MBTA roster. Changes sync to map lookups, autocomplete, and the roster page for everyone.</p>
+            <label for="admin-master-loco-number">Locomotive Number</label>
+            <input type="text" id="admin-master-loco-number" placeholder="e.g. 1030" autocomplete="off">
+            <label for="admin-master-loco-type">Locomotive Type</label>
+            <input type="text" id="admin-master-loco-type" placeholder="e.g. F40PH-3C" autocomplete="off">
+            <label for="admin-master-loco-paint">Paint / Notes (Optional)</label>
+            <input type="text" id="admin-master-loco-paint" placeholder="e.g. Boston &amp; Maine Minuteman paint" autocomplete="off">
+            <div class="rr-lightbox-actions" style="margin-top:10px;">
+              <button type="button" class="rr-btn" id="admin-master-loco-save">Add / Update Locomotive</button>
+              <button type="button" class="rr-btn secondary" id="admin-master-loco-clear">Clear</button>
+              <button type="button" class="rr-btn secondary" id="admin-master-loco-refresh">Refresh</button>
+            </div>
+            <div class="rr-admin-table-wrap" style="margin-top:12px;">
+              <table class="rr-admin-table">
+                <thead><tr><th>Number</th><th>Type</th><th>Paint / Notes</th><th>Source</th><th></th></tr></thead>
+                <tbody id="admin-master-loco-tbody"></tbody>
+              </table>
+            </div>
+            <p class="rr-modal-hint" id="admin-master-loco-status"></p>
+          </div>
+          <h3>Add / Update Special Locomotive</h3>
             <label for="admin-roster-agency">Agency</label>
             <select id="admin-roster-agency">
               <option value="mbta">MBTA</option>
@@ -1350,6 +1372,7 @@
         if (!perms.manageAdmins) { setAdminError('Missing manageAdmins permission.'); return; }
         await loadAdminAdmins();
       } else if (tab === 'roster') {
+        await loadAdminMasterLocomotives();
         await loadAdminRoster();
       } else if (tab === 'verified') {
         await loadAdminVerified();
@@ -2371,6 +2394,77 @@
           '</tr>';
       }).join('');
       if (status) status.textContent = roster.length + ' unit(s)';
+    }
+    let adminMasterLocoRows = [];
+    async function loadAdminMasterLocomotives() {
+      const status = document.getElementById('admin-master-loco-status');
+      const tbody = document.getElementById('admin-master-loco-tbody');
+      if (status) status.textContent = 'Loading locomotive roster…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const base = (typeof window.rrMbtaLocoRosterList === 'function') ? window.rrMbtaLocoRosterList() : [];
+        const snap = await db.collection('locomotiveRoster').get();
+        const byNumber = new Map(base.map(function(row) { return [String(row.number).toUpperCase(), Object.assign({ source: 'Built-in' }, row)]; }));
+        snap.forEach(function(doc) {
+          const d = doc.data() || {};
+          const number = String(d.number || '').trim();
+          if (!number) return;
+          if (d.active === false) { byNumber.delete(number.toUpperCase()); return; }
+          byNumber.set(number.toUpperCase(), { number: number, type: String(d.type || ''), paint: String(d.paint || ''), source: 'Admin' });
+        });
+        adminMasterLocoRows = Array.from(byNumber.values()).sort(function(x,y) { return x.number.localeCompare(y.number, undefined, {numeric:true}); });
+        if (tbody) tbody.innerHTML = adminMasterLocoRows.map(function(row) {
+          return '<tr><td><strong>' + escapeHtmlLite(row.number) + '</strong></td><td>' + escapeHtmlLite(row.type || '—') + '</td><td>' + escapeHtmlLite(row.paint || '—') + '</td><td>' + escapeHtmlLite(row.source || 'Built-in') + '</td><td><button type="button" class="rr-btn secondary" data-master-loco-edit="' + escapeHtmlLite(row.number) + '">Edit</button> <button type="button" class="rr-btn danger secondary" data-master-loco-delete="' + escapeHtmlLite(row.number) + '">Remove</button></td></tr>';
+        }).join('');
+        if (status) status.textContent = adminMasterLocoRows.length + ' locomotive(s)';
+      } catch (e) {
+        console.error('[admin] main locomotive roster load failed', e);
+        if (status) status.textContent = 'Could not load roster: ' + (e.message || e);
+      }
+    }
+    function clearAdminMasterLocoForm() {
+      ['admin-master-loco-number','admin-master-loco-type','admin-master-loco-paint'].forEach(function(id) {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+    }
+    async function saveAdminMasterLocomotive() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) { setAdminError('Admin access required.'); return; }
+      if (!db) { setAdminError('Firestore unavailable.'); return; }
+      const number = String((document.getElementById('admin-master-loco-number') || {}).value || '').trim();
+      const type = String((document.getElementById('admin-master-loco-type') || {}).value || '').trim();
+      const paint = String((document.getElementById('admin-master-loco-paint') || {}).value || '').trim();
+      if (!number || !type) { setAdminError('Locomotive number and type are required.'); return; }
+      if (number.length > 40 || type.length > 80 || paint.length > 160) { setAdminError('Please shorten the locomotive details.'); return; }
+      const docId = encodeURIComponent(number.toUpperCase()).replace(/%/g, '_');
+      try {
+        await db.collection('locomotiveRoster').doc(docId).set({
+          number: number, type: type, paint: paint, active: true,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedByUid: user.uid
+        }, { merge: true });
+        clearAdminMasterLocoForm();
+        await loadAdminMasterLocomotives();
+        if (typeof window.rrReloadMbtaLocoRoster === 'function') await window.rrReloadMbtaLocoRoster();
+        showNotification('Locomotive saved: ' + number);
+        try { await logUserAction('admin_save_locomotive', 'Saved MBTA locomotive ' + number + ' (' + type + ')'); } catch (_) {}
+      } catch (e) { console.error('[admin] locomotive save failed', e); setAdminError((e && e.message) || String(e)); }
+    }
+    async function deleteAdminMasterLocomotive(number) {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) { setAdminError('Admin access required.'); return; }
+      if (!db || !number) return;
+      if (!window.confirm('Remove locomotive ' + number + ' from the main MBTA roster?')) return;
+      const docId = encodeURIComponent(String(number).toUpperCase()).replace(/%/g, '_');
+      try {
+        await db.collection('locomotiveRoster').doc(docId).set({
+          number: String(number), active: false,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedByUid: user.uid
+        }, { merge: true });
+        await loadAdminMasterLocomotives();
+        if (typeof window.rrReloadMbtaLocoRoster === 'function') await window.rrReloadMbtaLocoRoster();
+        showNotification('Locomotive removed: ' + number);
+        try { await logUserAction('admin_remove_locomotive', 'Removed MBTA locomotive ' + number); } catch (_) {}
+      } catch (e) { console.error('[admin] locomotive remove failed', e); setAdminError((e && e.message) || String(e)); }
     }
     async function loadAdminRoster() {
       const status = document.getElementById('admin-roster-status');
@@ -3440,6 +3534,26 @@
       }
       if (adminsRefresh) adminsRefresh.addEventListener('click', loadAdminAdmins);
       if (addAdminSubmit) addAdminSubmit.addEventListener('click', adminAddAdmin);
+      const masterLocoSave = document.getElementById('admin-master-loco-save');
+      const masterLocoClear = document.getElementById('admin-master-loco-clear');
+      const masterLocoRefresh = document.getElementById('admin-master-loco-refresh');
+      const masterLocoTbody = document.getElementById('admin-master-loco-tbody');
+      if (masterLocoSave) masterLocoSave.addEventListener('click', saveAdminMasterLocomotive);
+      if (masterLocoClear) masterLocoClear.addEventListener('click', clearAdminMasterLocoForm);
+      if (masterLocoRefresh) masterLocoRefresh.addEventListener('click', loadAdminMasterLocomotives);
+      if (masterLocoTbody) masterLocoTbody.addEventListener('click', function(e) {
+        const edit = e.target.closest('[data-master-loco-edit]');
+        if (edit) {
+          const row = adminMasterLocoRows.find(function(x) { return x.number === edit.getAttribute('data-master-loco-edit'); });
+          if (!row) return;
+          document.getElementById('admin-master-loco-number').value = row.number;
+          document.getElementById('admin-master-loco-type').value = row.type || '';
+          document.getElementById('admin-master-loco-paint').value = row.paint || '';
+          return;
+        }
+        const del = e.target.closest('[data-master-loco-delete]');
+        if (del) deleteAdminMasterLocomotive(del.getAttribute('data-master-loco-delete'));
+      });
       const rosterRefresh = document.getElementById('admin-roster-refresh');
       const rosterSubmit = document.getElementById('admin-roster-submit');
       const rosterClear = document.getElementById('admin-roster-clear');
