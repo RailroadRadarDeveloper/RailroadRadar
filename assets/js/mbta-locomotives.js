@@ -128,8 +128,18 @@
   root.rrMbtaLocoRosterIsReady = false;
 
   function applyFirestoreRoster() {
-    if (!root.firebase || !root.firebase.apps || !root.firebase.apps.length) return Promise.resolve(list);
+    if (!root.firebase) return Promise.resolve(list);
     try {
+      if (!root.firebase.apps || !root.firebase.apps.length) {
+        root.firebase.initializeApp({
+          apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
+          authDomain: "railroadradar-accounts.firebaseapp.com",
+          projectId: "railroadradar-accounts",
+          storageBucket: "railroadradar-accounts.firebasestorage.app",
+          messagingSenderId: "896370923309",
+          appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
+        });
+      }
       return root.firebase.firestore().collection('locomotiveRoster').get().then(function (snap) {
         var merged = Object.create(null);
         list.forEach(function (row) { merged[String(row.number).toUpperCase()] = row; });
