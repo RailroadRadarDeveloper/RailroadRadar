@@ -2402,6 +2402,7 @@
       if (status) status.textContent = 'Loading locomotive roster…';
       if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
       try {
+        if (window.rrMbtaLocoRosterReady) await window.rrMbtaLocoRosterReady;
         const base = (typeof window.rrMbtaLocoRosterList === 'function') ? window.rrMbtaLocoRosterList() : [];
         const snap = await db.collection('locomotiveRoster').get();
         const byNumber = new Map(base.map(function(row) { return [String(row.number).toUpperCase(), Object.assign({ source: 'Built-in' }, row)]; }));
