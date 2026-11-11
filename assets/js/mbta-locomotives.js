@@ -127,6 +127,46 @@
   root.rrMbtaLocoIndexRoster = indexRoster;
   root.rrMbtaLocoRosterIsReady = false;
 
+  function applyFirestoreRoster() {
+    if (!root.firebase) return Promise.resolve(list);
+    try {
+      if ((!root.firebase.apps || !root.firebase.apps.length) && String(root.location && root.location.pathname || '').indexOf('admin.html') !== -1) return Promise.resolve(list);
+      if (!root.firebase.apps || !root.firebase.apps.length) {
+        root.firebase.initializeApp({
+          apiKey: "AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs",
+          authDomain: "railroadradar-accounts.firebaseapp.com",
+          projectId: "railroadradar-accounts",
+          storageBucket: "railroadradar-accounts.firebasestorage.app",
+          messagingSenderId: "896370923309",
+          appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
+        });
+      }
+      return root.firebase.firestore().collection('locomotiveRoster').get().then(function (snap) {
+        var merged = Object.create(null);
+        list.forEach(function (row) { merged[String(row.number).toUpperCase()] = row; });
+        snap.forEach(function (doc) {
+          var d = doc.data() || {};
+          var number = String(d.number || '').trim();
+          if (!number) return;
+          var key = number.toUpperCase();
+          if (d.active === false) { delete merged[key]; return; }
+          merged[key] = { number: number, type: String(d.type || ''), paint: String(d.paint || '') };
+        });
+        indexRoster(Object.keys(merged).map(function (key) { return merged[key]; }));
+        return list;
+      }).catch(function (err) {
+        console.warn('[mbta locomotives] Firestore roster overlay unavailable; using built-in roster', err);
+        return list;
+      });
+    } catch (err) {
+      console.warn('[mbta locomotives] Firestore roster overlay unavailable; using built-in roster', err);
+      return Promise.resolve(list);
+    }
+  }
+  root.rrReloadMbtaLocoRoster = function () {
+    return applyFirestoreRoster().then(function () { finish(); return list; });
+  };
+
   function finish() {
     root.rrMbtaLocoRosterIsReady = true;
     if (typeof root.rrMbtaLocoRosterLoaded === 'function') {
@@ -142,8 +182,7 @@
       })
       .then(function (data) {
         indexRoster(data && data.locomotives);
-        finish();
-        return list;
+        return applyFirestoreRoster().then(function () { finish(); return list; });
       })
       .catch(function (err) {
         console.warn('[mbta locomotives] roster failed', err);

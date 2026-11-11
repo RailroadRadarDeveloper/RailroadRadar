@@ -361,7 +361,7 @@ describe('admins', () => {
 });
 
 describe('public admin-managed collections', () => {
-  for (const c of ['specialUnits', 'tracksideFavorites', 'pressReleases']) {
+  for (const c of ['specialUnits', 'locomotiveRoster', 'tracksideFavorites', 'pressReleases']) {
     it(`${c}: anyone reads, only admins write`, async () => {
       await ok(anon().doc(`${c}/x`).get());
       await no(as('alice').doc(`${c}/x`).set({ a: 1 }));

@@ -440,6 +440,11 @@ service cloud.firestore {
         || adminHasPerm('manageAdmins');
     }
 
+    match /locomotiveRoster/{id} {
+      allow read: if true; // Public roster data only; needed by map and roster search.
+      allow create, update, delete: if isBootstrapAdmin() || isAdmin();
+    }
+
     match /specialUnits/{id} {
       allow read: if true; // needed for all clients to build roster
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
