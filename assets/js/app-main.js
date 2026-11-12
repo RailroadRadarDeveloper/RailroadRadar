@@ -9937,29 +9937,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         each(typeof markers !== 'undefined' ? markers : null, function(vid) {
           const info = (typeof trainInfo !== 'undefined' && trainInfo[vid]) || {};
-          rrSetMarkerIcon(markers[vid], createTrainIcon(info.delayMinutes, vid));
+          const tn = (typeof extractTrainNumber === 'function') ? extractTrainNumber(info.tripId) : '';
+          rrSetMarkerIcon(markers[vid], rrMultiLocoMarkerIcon('mbta', vid, tn, createTrainIcon(info.delayMinutes, vid)));
         });
         each(typeof amtrakMarkers !== 'undefined' ? amtrakMarkers : null, function(vid) {
           const info = (typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) || {};
-          rrSetMarkerIcon(amtrakMarkers[vid], createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
+          rrSetMarkerIcon(amtrakMarkers[vid], rrMultiLocoMarkerIcon('amtrak', null, info.trainNum, createAmtrakIcon(info.trainNum, info.statusMsg || '', info)));
         });
         each(typeof mnrMarkers !== 'undefined' ? mnrMarkers : null, function(vid) {
           const info = (typeof mnrTrainInfo !== 'undefined' && mnrTrainInfo[vid]) || {};
-          rrSetMarkerIcon(mnrMarkers[vid], createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
+          rrSetMarkerIcon(mnrMarkers[vid], rrMultiLocoMarkerIcon('mnr', null, info.trainNum, createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId)));
         });
         each(typeof lirrMarkers !== 'undefined' ? lirrMarkers : null, function(vid) {
           const info = (typeof lirrTrainInfo !== 'undefined' && lirrTrainInfo[vid]) || {};
-          rrSetMarkerIcon(lirrMarkers[vid], createLirrIcon(info.trainNum));
+          rrSetMarkerIcon(lirrMarkers[vid], rrMultiLocoMarkerIcon('lirr', null, info.trainNum, createLirrIcon(info.trainNum)));
         });
         each(typeof njtMarkers !== 'undefined' ? njtMarkers : null, function(vid) {
           const info = (typeof njtTrainInfo !== 'undefined' && njtTrainInfo[vid]) || {};
           const special = getSpecialForVehicle('njt', null, info.trainNum);
           const locoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
-          rrSetMarkerIcon(njtMarkers[vid], createNjtIcon(locoType, info.trainNum));
+          rrSetMarkerIcon(njtMarkers[vid], rrMultiLocoMarkerIcon('njt', null, info.trainNum, createNjtIcon(locoType, info.trainNum)));
         });
         each(typeof marcMarkers !== 'undefined' ? marcMarkers : null, function(vid) {
           const info = (typeof marcTrainInfo !== 'undefined' && marcTrainInfo[vid]) || {};
-          rrSetMarkerIcon(marcMarkers[vid], createMarcIcon(info.trainNum));
+          rrSetMarkerIcon(marcMarkers[vid], rrMultiLocoMarkerIcon('marc', null, info.trainNum, createMarcIcon(info.trainNum)));
         });
       }
       window.rrMbtaLocoRosterLoaded = function () {
@@ -10010,6 +10011,43 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const name = (typeof escapeHtml === 'function') ? escapeHtml(special.unitName) : String(special.unitName).replace(/</g,'&lt;');
         return '<span class="special-unit-badge" title="Special unit">' + name + '</span>';
       }
+
+      // Keep a multi-locomotive consist on one map marker and show every unit in a linked badge.
+      function rrMultiLocoMarkerIcon(agency, vehicleId, trainNumber, baseIcon) {
+        try {
+          const spec = getSpecialForVehicle(agency, vehicleId, trainNumber);
+          const locos = normalizeReportLocomotives(spec && spec.report);
+          const labels = locos.map(function(L) {
+            return String((L && (L.locomotiveId || L.unitName)) || '').trim();
+          }).filter(Boolean);
+          if (labels.length < 2) return baseIcon;
+          const imageUrl = baseIcon && baseIcon.options && baseIcon.options.iconUrl;
+          const baseHtml = baseIcon && baseIcon.options && baseIcon.options.html;
+          if (!imageUrl && !baseHtml) return baseIcon;
+          const label = labels.map(function(id) { return '#' + id; }).join('  +  ');
+          // Keep long consists readable: up to six unit numbers fit across a two-line badge.
+          const width = Math.min(190, Math.max(82, Math.ceil(label.length * 6.5 + 24)));
+          const wraps = label.length > 24;
+          const height = wraps ? 72 : 60;
+          const anchorY = wraps ? 50 : 38;
+          const iconHtml = imageUrl
+            ? '<img class="rr-multi-loco-marker__image" src="' + escapeHtmlLite(imageUrl) + '" alt="">'
+            : '<span class="rr-multi-loco-marker__fallback">' + baseHtml + '</span>';
+          const html = '<div class="rr-multi-loco-marker">' +
+            '<span class="rr-multi-loco-marker__units" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' +
+            iconHtml + '</div>';
+          return L.divIcon({
+            className: 'rr-multi-loco-marker-icon',
+            html: html,
+            iconSize: [width, height],
+            iconAnchor: [width / 2, anchorY],
+            popupAnchor: [0, -anchorY]
+          });
+        } catch (_) {
+          return baseIcon;
+        }
+      }
+
       function parseReportTimestamp(ts) {
         if (ts == null) return null;
         let d = null;
@@ -14147,7 +14185,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           Object.keys(amtrakMarkers).forEach(function (vid) {
             const info = (typeof amtrakTrainInfo !== 'undefined' && amtrakTrainInfo[vid]) || null;
             if (!info || !isAcelaTrain(info)) return;
-            rrSetMarkerIcon(amtrakMarkers[vid], createAmtrakIcon(info.trainNum, info.statusMsg || '', info));
+            rrSetMarkerIcon(amtrakMarkers[vid], rrMultiLocoMarkerIcon('amtrak', null, info.trainNum, createAmtrakIcon(info.trainNum, info.statusMsg || '', info)));
           });
         } catch (_) {}
       };
@@ -14634,7 +14672,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 isVia: isVia
               });
               amtrakTrainInfo[vid] = info;
-              const icon = createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t);
+              const icon = rrMultiLocoMarkerIcon('amtrak', null, trainNum, createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t));
               const amtrakLabelInfo = buildCyclingTrainInfo({
                 route: info.routeName || (isVia ? 'VIA Rail' : 'Amtrak'),
                 trainNum: isVia ? ('VIA ' + rrViaDisplayNum(info)) : trainNum,
@@ -15561,7 +15599,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             seen.add(vid);
             mnrTrainInfo[vid] = info;
             mnrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId);
+            const icon = rrMultiLocoMarkerIcon('mnr', null, info.trainNum, createMnrIcon(info.trainNum, info.routeColor, info.routeText, info.routeId));
             const mnrLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'Metro-North',
               trainNum: info.trainNum,
@@ -15989,7 +16027,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             seen.add(vid);
             lirrTrainInfo[vid] = info;
             lirrLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createLirrIcon(info.trainNum);
+            const icon = rrMultiLocoMarkerIcon('lirr', null, info.trainNum, createLirrIcon(info.trainNum));
             const lirrLabelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'LIRR',
               trainNum: info.trainNum,
@@ -16368,7 +16406,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             njtTrainInfo[vid] = info;
             njtLastSeen[vid] = isFinite(info.lastModifiedMs) ? info.lastModifiedMs : now;
             const njtLocoType = (special && (special.locoType || (special.report && special.report.locoType))) || info.locoType || '';
-            const icon = createNjtIcon(njtLocoType, info.trainNum);
+            const icon = rrMultiLocoMarkerIcon('njt', null, info.trainNum, createNjtIcon(njtLocoType, info.trainNum));
             const labelInfo = buildCyclingTrainInfo({
               route: info.routeName || 'NJ Transit',
               trainNum: info.trainNum,
@@ -16664,7 +16702,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             seen.add(vid);
             marcTrainInfo[vid] = info;
             marcLastSeen[vid] = rrSeenMs(entity.vehicle && entity.vehicle.timestamp, now);
-            const icon = createMarcIcon(info.trainNum);
+            const icon = rrMultiLocoMarkerIcon('marc', null, info.trainNum, createMarcIcon(info.trainNum));
             const labelInfo = (typeof buildCyclingTrainInfo === 'function') ? buildCyclingTrainInfo({
               agency: 'MARC', routeName: info.routeName, trainNum: info.trainNum, dest: info.destName,
               statusText: info.statusText, lat: info.lat, lng: info.lng
@@ -17130,7 +17168,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             };
             if (markers[vid]) {
               rrGlide.to(markers[vid], lat, lng, RR_MBTA_POLL_MS, { ts: rrSeenMs(v.attributes && v.attributes.updated_at, null), bearing: v.attributes ? v.attributes.bearing : null, next: status !== 'STOPPED_AT' ? (rrMbtaNextStopLL(data, stopId) || [])[0] : null, agency: 'mbta', mph: status === 'STOPPED_AT' ? 0 : (speedMps != null ? speedMps * 2.23694 : null), stops: rrMbtaNextStopLL(data, stopId) });
-              rrSetMarkerIcon(markers[vid], createTrainIcon(delay, vid));
+              const tn = (typeof extractTrainNumber === 'function') ? extractTrainNumber(trainInfo[vid] && trainInfo[vid].tripId) : '';
+              rrSetMarkerIcon(markers[vid], rrMultiLocoMarkerIcon('mbta', vid, tn, createTrainIcon(delay, vid)));
               updated++;
               if (markers[vid].isPopupOpen()) updateTrainPopupContent(markers[vid], vid, tripId, routeId, displayRouteName, head, status, sname, dstatus, delay, (markers[vid]._rrStops || (trainInfo[vid] && trainInfo[vid].stops) || undefined), track, mph, al.hasAlert);
               markers[vid]._info = [
@@ -17143,7 +17182,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               ];
               if (markers[vid].getTooltip()) markers[vid].getTooltip().setContent(escapeHtmlLite(markers[vid]._info[markers[vid]._infoIndex % markers[vid]._info.length]));
             } else {
-              const icon = createTrainIcon(delay, vid);
+              const tn = (typeof extractTrainNumber === 'function') ? extractTrainNumber(trainInfo[vid] && trainInfo[vid].tripId) : '';
+              const icon = rrMultiLocoMarkerIcon('mbta', vid, tn, createTrainIcon(delay, vid));
               const m = L.marker([lat, lng], { icon });
               m.bindPopup(createTrainPopupContent(vid, tripId, routeId, rname, head, status, sname, dstatus, delay, null, track, mph, al.hasAlert), rrPopupOpts());
               m.on('popupopen', async () => {
