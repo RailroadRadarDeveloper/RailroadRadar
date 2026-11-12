@@ -10061,7 +10061,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const html = '<div class="rr-multi-loco-marker">' +
             '<div class="rr-multi-loco-marker__content">' +
             '<div class="rr-multi-loco-marker__tab" style="grid-template-columns:repeat(' + columns + ', 22px)">' + iconHtml + '</div>' +
-            (label ? '<span class="rr-multi-loco-marker__units train-label" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' : '') +
+            (label ? '<span class="rr-multi-loco-marker__units" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' : '') +
             '</div></div>';
           return L.divIcon({
             className: 'rr-multi-loco-marker-icon',
