@@ -3126,6 +3126,7 @@
     }
     function formatAuditAction(action) {
       const map = {
+        sign_up: 'Signed up',
         sign_in: 'Signed in',
         sign_out: 'Signed out',
         delete_account: 'Deleted account',
@@ -3774,7 +3775,14 @@
         const provider = new firebase.auth.GoogleAuthProvider();
         const cred = await auth.signInWithPopup(provider);
         if (cred && cred.user) await upsertAccountMirror(cred.user);
-        try { await logUserAction('sign_in', 'Signed in with Google', cred && cred.user); } catch (_) {}
+        const isNewUser = !!(cred && cred.additionalUserInfo && cred.additionalUserInfo.isNewUser);
+        try {
+          await logUserAction(
+            isNewUser ? 'sign_up' : 'sign_in',
+            isNewUser ? 'Created account with Google' : 'Signed in with Google',
+            cred && cred.user
+          );
+        } catch (_) {}
         showNotification('Signed in with Google');
       } catch (e) {
         console.error('[Auth] Sign-in failed', e);
