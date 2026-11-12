@@ -10025,7 +10025,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const baseHtml = baseIcon && baseIcon.options && baseIcon.options.html;
           if (!imageUrl && !baseHtml) return baseIcon;
           const label = labels.map(function(id) { return '#' + id; }).join('  +  ');
+          // Keep long consists readable: up to six unit numbers fit across a two-line badge.
           const width = Math.min(190, Math.max(82, Math.ceil(label.length * 6.5 + 24)));
+          const wraps = label.length > 24;
+          const height = wraps ? 72 : 60;
+          const anchorY = wraps ? 50 : 38;
           const iconHtml = imageUrl
             ? '<img class="rr-multi-loco-marker__image" src="' + escapeHtmlLite(imageUrl) + '" alt="">'
             : '<span class="rr-multi-loco-marker__fallback">' + baseHtml + '</span>';
@@ -10035,9 +10039,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return L.divIcon({
             className: 'rr-multi-loco-marker-icon',
             html: html,
-            iconSize: [width, 60],
-            iconAnchor: [width / 2, 38],
-            popupAnchor: [0, -38]
+            iconSize: [width, height],
+            iconAnchor: [width / 2, anchorY],
+            popupAnchor: [0, -anchorY]
           });
         } catch (_) {
           return baseIcon;
