@@ -10013,35 +10013,52 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       }
 
       // Keep a multi-locomotive consist on one map marker and show every unit in a linked badge.
+      // Render every reported locomotive in one expandable tab, with the train label beneath.
       function rrMultiLocoMarkerIcon(agency, vehicleId, trainNumber, baseIcon) {
         try {
           const spec = getSpecialForVehicle(agency, vehicleId, trainNumber);
           const locos = normalizeReportLocomotives(spec && spec.report);
-          const labels = locos.map(function(L) {
-            return String((L && (L.locomotiveId || L.unitName)) || '').trim();
-          }).filter(Boolean);
-          if (labels.length < 2) return baseIcon;
-          const imageUrl = baseIcon && baseIcon.options && baseIcon.options.iconUrl;
+          if (locos.length < 2) return baseIcon;
+          const baseUrl = baseIcon && baseIcon.options && baseIcon.options.iconUrl;
           const baseHtml = baseIcon && baseIcon.options && baseIcon.options.html;
-          if (!imageUrl && !baseHtml) return baseIcon;
-          const label = labels.map(function(id) { return '#' + id; }).join('  +  ');
-          // Keep long consists readable: up to six unit numbers fit across a two-line badge.
-          const width = Math.min(190, Math.max(82, Math.ceil(label.length * 6.5 + 24)));
-          const wraps = label.length > 24;
-          const height = wraps ? 72 : 60;
-          const anchorY = wraps ? 50 : 38;
-          const iconHtml = imageUrl
-            ? '<img class="rr-multi-loco-marker__image" src="' + escapeHtmlLite(imageUrl) + '" alt="">'
-            : '<span class="rr-multi-loco-marker__fallback">' + baseHtml + '</span>';
+          if (!baseUrl && !baseHtml) return baseIcon;
+          const a = normalizeAgency(agency);
+          const iconHtml = locos.slice(0, 5).map(function(loco) {
+            let url = String((loco && loco.locoIconUrl) || '').trim();
+            const id = String((loco && loco.locomotiveId) || '').trim();
+            const roster = id ? rosterEntry(agency, id) : null;
+            if (!url && roster && roster.iconUrl) url = String(roster.iconUrl).trim();
+            if (!url && a === 'mbta') {
+              url = mbtaResolvedIcon(id || vehicleId, null, loco && loco.locoType) || '';
+              if (!url && loco && loco.locoType && typeof resolveMbtaLocoIconUrl === 'function') url = resolveMbtaLocoIconUrl(null, loco.locoType) || '';
+            }
+            if (!url && a === 'njt' && loco && loco.locoType && typeof resolveNjtLocoIconUrl === 'function') url = resolveNjtLocoIconUrl(loco.locoType) || '';
+            if (!url) url = baseUrl || '';
+            if (url) {
+              if (/^assets\//i.test(url)) url = '/' + url.replace(/^\/+/, '');
+              if (typeof rrAssetUrl === 'function') url = rrAssetUrl(url);
+              return '<img class="rr-multi-loco-marker__unit-icon" src="' + escapeHtmlLite(url) + '" alt="" loading="eager">';
+            }
+            return '<span class="rr-multi-loco-marker__unit-fallback">' + (baseHtml || '') + '</span>';
+          }).join('');
+          const labels = locos.map(function(loco) {
+            return String((loco && (loco.locomotiveId || loco.unitName)) || '').trim();
+          }).filter(Boolean);
+          const label = labels.map(function(id) { return '#' + id; }).join(' + ') + (locos.length > 5 ? '  +' + (locos.length - 5) + ' more' : '');
+          const columns = Math.min(5, locos.length);
+          const rows = Math.ceil(Math.min(locos.length, 5) / columns);
+          const width = Math.max(76, columns * 34 + 16);
+          const height = 42 + rows * 31 + (label ? 20 : 0);
           const html = '<div class="rr-multi-loco-marker">' +
-            '<span class="rr-multi-loco-marker__units" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' +
-            iconHtml + '</div>';
+            '<div class="rr-multi-loco-marker__tab" style="grid-template-columns:repeat(' + columns + ', 30px)">' + iconHtml + '</div>' +
+            (label ? '<span class="rr-multi-loco-marker__units train-label" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' : '') +
+            '</div>';
           return L.divIcon({
             className: 'rr-multi-loco-marker-icon',
             html: html,
             iconSize: [width, height],
-            iconAnchor: [width / 2, anchorY],
-            popupAnchor: [0, -anchorY]
+            iconAnchor: [width / 2, height],
+            popupAnchor: [0, -height]
           });
         } catch (_) {
           return baseIcon;
