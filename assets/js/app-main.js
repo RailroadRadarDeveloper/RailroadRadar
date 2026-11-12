@@ -10047,18 +10047,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const label = labels.map(function(id) { return '#' + id; }).join(' + ') + (locos.length > 5 ? '  +' + (locos.length - 5) + ' more' : '');
           const columns = Math.min(5, locos.length);
           const rows = Math.ceil(Math.min(locos.length, 5) / columns);
-          const width = Math.max(76, columns * 34 + 16);
-          const height = 42 + rows * 31 + (label ? 20 : 0);
+          // Keep the Leaflet footprint compact and centered on the reported train position.
+          const width = Math.max(58, columns * 25 + 12);
+          const height = 12 + rows * 23 + (label ? 17 : 0);
           const html = '<div class="rr-multi-loco-marker">' +
-            '<div class="rr-multi-loco-marker__tab" style="grid-template-columns:repeat(' + columns + ', 30px)">' + iconHtml + '</div>' +
+            '<div class="rr-multi-loco-marker__content">' +
+            '<div class="rr-multi-loco-marker__tab" style="grid-template-columns:repeat(' + columns + ', 22px)">' + iconHtml + '</div>' +
             (label ? '<span class="rr-multi-loco-marker__units train-label" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' : '') +
-            '</div>';
+            '</div></div>';
           return L.divIcon({
             className: 'rr-multi-loco-marker-icon',
             html: html,
             iconSize: [width, height],
-            iconAnchor: [width / 2, height],
-            popupAnchor: [0, -height]
+            iconAnchor: [width / 2, height / 2],
+            popupAnchor: [0, -height / 2]
           });
         } catch (_) {
           return baseIcon;
