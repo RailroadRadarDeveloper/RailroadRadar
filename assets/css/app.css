@@ -7446,6 +7446,8 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   color: #17212b;
   box-shadow: 0 2px 5px rgba(0,0,0,.35);
   font: 800 10px/1.2 system-ui, sans-serif;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
   letter-spacing: -.15px;
 }
