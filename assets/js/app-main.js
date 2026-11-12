@@ -10046,7 +10046,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }).filter(Boolean);
           const label = labels.map(function(id) { return '#' + id; }).join(' + ') + (locos.length > 5 ? '  +' + (locos.length - 5) + ' more' : '');
           const columns = Math.min(5, locos.length);
-          const rows = Math.ceil(locos.length / columns);
+          const rows = Math.ceil(Math.min(locos.length, 5) / columns);
           const width = Math.max(76, columns * 34 + 16);
           const height = 42 + rows * 31 + (label ? 20 : 0);
           const html = '<div class="rr-multi-loco-marker">' +
