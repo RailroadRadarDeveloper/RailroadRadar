@@ -9192,6 +9192,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Leaflet only draws lines a little past the screen edge and fills in the rest when a drag ends,
       // so route lines cover a full screen past each edge to stay drawn while dragging.
       const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
+      // Scale only the multi-locomotive artwork with zoom; keep Leaflet's geographic anchor fixed.
+      function rrUpdateMultiLocoMarkerScale() {
+        const zoom = map.getZoom();
+        const scale = Math.max(0.58, Math.min(1, 0.62 + (zoom - 7) * 0.076));
+        map.getContainer().style.setProperty('--rr-multi-loco-scale', scale.toFixed(3));
+      }
+      rrUpdateMultiLocoMarkerScale();
+      map.on('zoomend', rrUpdateMultiLocoMarkerScale);
       try { window.rrMainMap = map; } catch (_) {}
       try { window.__rrMarkBootReady && window.__rrMarkBootReady(); } catch (_) {}
       // Leaflet moves every marker on every frame of a pinch zoom, including the hundreds far off
@@ -10047,18 +10055,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const label = labels.map(function(id) { return '#' + id; }).join(' + ') + (locos.length > 5 ? '  +' + (locos.length - 5) + ' more' : '');
           const columns = Math.min(5, locos.length);
           const rows = Math.ceil(Math.min(locos.length, 5) / columns);
-          const width = Math.max(76, columns * 34 + 16);
-          const height = 42 + rows * 31 + (label ? 20 : 0);
+          // Keep the Leaflet footprint compact and centered on the reported train position.
+          const width = Math.max(58, columns * 25 + 12);
+          const height = 12 + rows * 23 + (label ? 17 : 0);
           const html = '<div class="rr-multi-loco-marker">' +
-            '<div class="rr-multi-loco-marker__tab" style="grid-template-columns:repeat(' + columns + ', 30px)">' + iconHtml + '</div>' +
-            (label ? '<span class="rr-multi-loco-marker__units train-label" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' : '') +
-            '</div>';
+            '<div class="rr-multi-loco-marker__content">' +
+            '<div class="rr-multi-loco-marker__tab" style="grid-template-columns:repeat(' + columns + ', 22px)">' + iconHtml + '</div>' +
+            (label ? '<span class="rr-multi-loco-marker__units" title="Locomotive consist">' + escapeHtmlLite(label) + '</span>' : '') +
+            '</div></div>';
           return L.divIcon({
             className: 'rr-multi-loco-marker-icon',
             html: html,
             iconSize: [width, height],
-            iconAnchor: [width / 2, height],
-            popupAnchor: [0, -height]
+            iconAnchor: [width / 2, height / 2],
+            popupAnchor: [0, -height / 2]
           });
         } catch (_) {
           return baseIcon;
