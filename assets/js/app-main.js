@@ -10023,7 +10023,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const baseHtml = baseIcon && baseIcon.options && baseIcon.options.html;
           if (!baseUrl && !baseHtml) return baseIcon;
           const a = normalizeAgency(agency);
-          const iconHtml = locos.map(function(loco) {
+          const iconHtml = locos.slice(0, 5).map(function(loco) {
             let url = String((loco && loco.locoIconUrl) || '').trim();
             const id = String((loco && loco.locomotiveId) || '').trim();
             const roster = id ? rosterEntry(agency, id) : null;
@@ -10044,8 +10044,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const labels = locos.map(function(loco) {
             return String((loco && (loco.locomotiveId || loco.unitName)) || '').trim();
           }).filter(Boolean);
-          const label = labels.map(function(id) { return '#' + id; }).join(' + ');
-          const columns = Math.min(4, locos.length);
+          const label = labels.map(function(id) { return '#' + id; }).join(' + ') + (locos.length > 5 ? '  +' + (locos.length - 5) + ' more' : '');
+          const columns = Math.min(5, locos.length);
           const rows = Math.ceil(locos.length / columns);
           const width = Math.max(76, columns * 34 + 16);
           const height = 42 + rows * 31 + (label ? 20 : 0);
