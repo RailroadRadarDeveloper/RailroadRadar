@@ -9192,6 +9192,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Leaflet only draws lines a little past the screen edge and fills in the rest when a drag ends,
       // so route lines cover a full screen past each edge to stay drawn while dragging.
       const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
+      // Scale only the multi-locomotive artwork with zoom; keep Leaflet's geographic anchor fixed.
+      function rrUpdateMultiLocoMarkerScale() {
+        const zoom = map.getZoom();
+        const scale = Math.max(0.58, Math.min(1, 0.62 + (zoom - 7) * 0.076));
+        map.getContainer().style.setProperty('--rr-multi-loco-scale', scale.toFixed(3));
+      }
+      rrUpdateMultiLocoMarkerScale();
+      map.on('zoomend', rrUpdateMultiLocoMarkerScale);
       try { window.rrMainMap = map; } catch (_) {}
       try { window.__rrMarkBootReady && window.__rrMarkBootReady(); } catch (_) {}
       // Leaflet moves every marker on every frame of a pinch zoom, including the hundreds far off
