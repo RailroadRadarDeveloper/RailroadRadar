@@ -530,6 +530,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
       <ul class="stats-list stats-hero">
         <li class="stat stat-big is-loading" data-live="tracked"><span class="stat-num">0</span><span class="stat-label">Trains Tracked</span></li>
         <li class="stat stat-big is-loading" data-live="reports"><span class="stat-num">0</span><span class="stat-label">User Reports</span></li>
+        <li class="stat stat-big is-loading" data-live="reporters"><span class="stat-num">0</span><span class="stat-label">Reporters</span></li>
       </ul>
     </div>
     <div class="feature">
@@ -815,6 +816,7 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
   function start() {
     var trackedLi = box.querySelector('[data-live="tracked"]');
     var reportsLi = box.querySelector('[data-live="reports"]');
+    var reportersLi = box.querySelector('[data-live="reporters"]');
     fetch(API + '/api/stats').then(function (r) {
       if (!r.ok) throw new Error(r.status);
       return r.json();
@@ -841,6 +843,41 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
       var raw = fields && fields.n && (fields.n.integerValue != null ? fields.n.integerValue : fields.n.doubleValue);
       fill(reportsLi, raw == null ? NaN : Number(raw));
     }).catch(function () { reportsLi.hidden = true; });
+
+    /* Count distinct people, not reports. Contributors are included so shared/combined reports
+       still credit every rider who submitted information. */
+    fetch(FIRESTORE_COUNT.replace('documents:runAggregationQuery', 'documents:runQuery'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'trainReports' }],
+          select: { fields: [
+            { fieldPath: 'reportedByUid' },
+            { fieldPath: 'firstReportedByUid' },
+            { fieldPath: 'contributors' }
+          ] }
+        }
+      })
+    }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function (rows) {
+      var people = new Set();
+      (Array.isArray(rows) ? rows : []).forEach(function (row) {
+        var fields = row && row.document && row.document.fields || {};
+        ['reportedByUid', 'firstReportedByUid'].forEach(function (key) {
+          var uid = fields[key] && fields[key].stringValue;
+          if (uid) people.add(uid);
+        });
+        var contributors = fields.contributors && fields.contributors.arrayValue && fields.contributors.arrayValue.values || [];
+        contributors.forEach(function (entry) {
+          var uid = entry && entry.mapValue && entry.mapValue.fields && entry.mapValue.fields.uid && entry.mapValue.fields.uid.stringValue;
+          if (uid) people.add(uid);
+        });
+      });
+      fill(reportersLi, people.size);
+    }).catch(function () { reportersLi.hidden = true; });
   }
   if (!('IntersectionObserver' in window)) { start(); return; }
   var io = new IntersectionObserver(function (entries) {
