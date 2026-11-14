@@ -445,7 +445,7 @@ service cloud.firestore {
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
 
-    match /railroadDefaults/{id} {
+    match /railroadIconRules/{id} {\n      allow read, create, update, delete: if isBootstrapAdmin() || isAdmin();\n    }\n\n    match /railroadDefaults/{id} {
       allow read: if true;
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
