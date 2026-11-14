@@ -62,7 +62,8 @@
       var entry = {
         number: String(row.number).trim(),
         paint: String(row.paint || '').trim(),
-        type: String(row.type || '').trim()
+        type: String(row.type || '').trim(),
+        iconUrl: String(row.iconUrl || '').trim()
       };
       if (!entry.number) return;
       list.push(entry);
@@ -84,6 +85,7 @@
   function iconFor(raw) {
     var row = byNumber(raw);
     if (!row) return '';
+    if (row.iconUrl) return row.iconUrl;
     if (NUMBER_ICONS[row.number]) return NUMBER_ICONS[row.number];
     return typeIcon(row.type) || '';
   }
@@ -141,16 +143,57 @@
           appId: "1:896370923309:web:594b0a20d3b1c6822e65a4"
         });
       }
-      return root.firebase.firestore().collection('locomotiveRoster').get().then(function (snap) {
+      var firestore = root.firebase.firestore();
+      return Promise.all([
+        firestore.collection('locomotiveRoster').get(),
+        firestore.collection('equipmentRoster').get(),
+        firestore.collection('specialUnits').get()
+      ]).then(function (snaps) {
         var merged = Object.create(null);
         list.forEach(function (row) { merged[String(row.number).toUpperCase()] = row; });
-        snap.forEach(function (doc) {
+        snaps[0].forEach(function (doc) {
           var d = doc.data() || {};
           var number = String(d.number || '').trim();
           if (!number) return;
           var key = number.toUpperCase();
           if (d.active === false) { delete merged[key]; return; }
-          merged[key] = { number: number, type: String(d.type || ''), paint: String(d.paint || '') };
+          merged[key] = Object.assign({}, merged[key] || {}, {
+            number: number,
+            type: String(d.type || (merged[key] && merged[key].type) || ''),
+            paint: String(d.paint || (merged[key] && merged[key].paint) || '')
+          });
+        });
+        // Legacy special-unit overrides remain a fallback until imported.
+        snaps[2].forEach(function (doc) {
+          var d = doc.data() || {};
+          if (String(d.agency || '').trim().toLowerCase() !== 'mbta') return;
+          var number = String(d.id || '').trim();
+          if (!number) return;
+          var key = number.toUpperCase(), prior = merged[key] || {};
+          merged[key] = Object.assign({}, prior, {
+            number: number,
+            type: String(d.locoType || prior.type || ''),
+            paint: String(d.name || prior.paint || ''),
+            iconUrl: String(d.iconUrl || prior.iconUrl || '')
+          });
+        });
+        // The unified Equipment Roster is authoritative for MBTA locomotive
+        // metadata and custom icons. Keep both legacy collections as fallbacks
+        // while older records are being migrated.
+        snaps[1].forEach(function (doc) {
+          var d = doc.data() || {};
+          if (String(d.railroad || '').trim().toUpperCase() !== 'MBTA' ||
+              String(d.type || '').trim().toLowerCase() !== 'locomotive') return;
+          var number = String(d.id || '').trim();
+          if (!number) return;
+          var key = number.toUpperCase();
+          if (d.active === false) { delete merged[key]; return; }
+          merged[key] = Object.assign({}, merged[key] || {}, {
+            number: number,
+            type: String(d.locoType || d.equipmentSubtype || (merged[key] && merged[key].type) || ''),
+            paint: String(d.paint || (merged[key] && merged[key].paint) || ''),
+            iconUrl: String(d.iconUrl || (merged[key] && merged[key].iconUrl) || '')
+          });
         });
         indexRoster(Object.keys(merged).map(function (key) { return merged[key]; }));
         return list;
