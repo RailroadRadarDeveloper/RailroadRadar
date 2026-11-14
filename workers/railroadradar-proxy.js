@@ -2053,6 +2053,7 @@ var worker_default = {
     const path = url.pathname.replace(/\/+$/, "") || "/";
     const cors = corsHeaders(request, env);
     if (path === "/api/press/notify") return handlePressNotify(request, env);
+    if (path === "/api/admin/icons/upload") return handleSpecialIconUpload(request, env);
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors });
     }
@@ -2306,6 +2307,122 @@ async function isPressAdmin(token, claims) {
   // Firestore rules let a signed-in user read their own admins/{email} doc.
   const r = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, { headers: { Authorization: `Bearer ${token}` } });
   return r.ok;
+}
+
+// Icon uploads require an active admin permission, not merely an existing admins document.
+async function isIconUploadAdmin(token, claims) {
+  const email = String(claims.email || '').toLowerCase();
+  if (!email || claims.email_verified !== true) return false;
+  if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return true;
+  const r = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!r.ok) return false;
+  const doc = await r.json();
+  const perms = doc && doc.fields && doc.fields.perms && doc.fields.perms.mapValue && doc.fields.perms.mapValue.fields;
+  return !!(perms && Object.keys(perms).some((key) => perms[key] && perms[key].booleanValue === true));
+}
+
+const ICON_UPLOAD_ALLOWED_ORIGINS = ['https://railroadradar.com', 'https://www.railroadradar.com'];
+function iconUploadCors(request) {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = ICON_UPLOAD_ALLOWED_ORIGINS.includes(origin);
+  return {
+    'Access-Control-Allow-Origin': allowed ? origin : 'null',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
+}
+
+async function handleSpecialIconUpload(request, env) {
+  const cors = iconUploadCors(request);
+  const reply = (status, payload) => new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+  });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (!ICON_UPLOAD_ALLOWED_ORIGINS.includes(request.headers.get('Origin') || '')) {
+    return reply(403, { ok: false, error: 'Origin not allowed.' });
+  }
+  if (request.method !== 'POST') return reply(405, { ok: false, error: 'POST only.' });
+
+  const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  const claims = await verifyFirebaseIdToken(idToken).catch(() => null);
+  if (!claims) return reply(401, { ok: false, error: 'Sign in again.' });
+  if (!(await isIconUploadAdmin(idToken, claims))) return reply(403, { ok: false, error: 'Admin permission required.' });
+  if (!env.GITHUB_CONTENTS_TOKEN) return reply(503, { ok: false, error: 'GitHub upload is not configured on the proxy Worker.' });
+
+  let body;
+  try { body = await request.json(); } catch (_) { return reply(400, { ok: false, error: 'Invalid upload request.' }); }
+  const contentBase64 = String(body && body.contentBase64 || '');
+  if (!contentBase64 || contentBase64.length > 2.1 * 1024 * 1024 || !/^[A-Za-z0-9+/]+={0,2}$/.test(contentBase64)) {
+    return reply(400, { ok: false, error: 'PNG data is missing or exceeds the 1.5 MB limit.' });
+  }
+  let binary;
+  try { binary = atob(contentBase64); } catch (_) { return reply(400, { ok: false, error: 'Invalid PNG data.' }); }
+  if (binary.length < 8 || binary.length > 1.5 * 1024 * 1024
+    || binary.charCodeAt(0) !== 0x89 || binary.slice(1, 4) !== 'PNG'
+    || binary.charCodeAt(4) !== 0x0D || binary.charCodeAt(5) !== 0x0A
+    || binary.charCodeAt(6) !== 0x1A || binary.charCodeAt(7) !== 0x0A) {
+    return reply(400, { ok: false, error: 'File is not a valid PNG within the 1.5 MB limit.' });
+  }
+  const stem = String(body && body.name || 'special-icon').toLowerCase()
+    .replace(/\.png$/i, '').replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-')
+    .replace(/^-|-$/g, '').slice(0, 48) || 'special-icon';
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const filename = stem + '-' + suffix + '.png';
+  const branch = 'admin/special-icon-' + Date.now() + '-' + suffix;
+  const api = 'https://api.github.com/repos/RailroadRadarDeveloper/RailroadRadar';
+  const ghHeaders = {
+    'Authorization': 'Bearer ' + env.GITHUB_CONTENTS_TOKEN,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json'
+  };
+  try {
+    const baseResponse = await fetch(api + '/git/ref/heads/main', { headers: ghHeaders });
+    if (!baseResponse.ok) return reply(502, { ok: false, error: 'Could not read the GitHub main branch (' + baseResponse.status + ').' });
+    const baseData = await baseResponse.json();
+    const branchResponse = await fetch(api + '/git/refs', {
+      method: 'POST', headers: ghHeaders,
+      body: JSON.stringify({ ref: 'refs/heads/' + branch, sha: baseData.object.sha })
+    });
+    if (!branchResponse.ok) return reply(502, { ok: false, error: 'Could not create the GitHub upload branch (' + branchResponse.status + ').' });
+    const path = 'assets/special-icons/' + filename;
+    const fileResponse = await fetch(api + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), {
+      method: 'PUT', headers: ghHeaders,
+      body: JSON.stringify({
+        message: 'Add special locomotive icon ' + filename,
+        content: contentBase64,
+        branch: branch
+      })
+    });
+    if (!fileResponse.ok) return reply(502, { ok: false, error: 'GitHub rejected the icon file (' + fileResponse.status + ').' });
+    const prResponse = await fetch(api + '/pulls', {
+      method: 'POST', headers: ghHeaders,
+      body: JSON.stringify({
+        title: 'Add special locomotive icon ' + filename,
+        head: branch,
+        base: 'main',
+        body: 'Adds an icon uploaded through RailroadRadar Admin Settings. The image will be published at /' + path + ' after this pull request is merged.'
+      })
+    });
+    if (!prResponse.ok) return reply(502, { ok: false, error: 'The image is on a GitHub branch, but GitHub could not open its pull request (' + prResponse.status + ').' });
+    const pr = await prResponse.json();
+    return reply(201, {
+      ok: true,
+      filename: filename,
+      path: '/' + path,
+      url: 'https://railroadradar.com/' + path,
+      branch: branch,
+      pullRequestNumber: pr.number,
+      pullRequestUrl: pr.html_url
+    });
+  } catch (err) {
+    return reply(502, { ok: false, error: 'GitHub upload failed. Please try again.' });
+  }
 }
 
 async function handlePressNotify(request, env) {

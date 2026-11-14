@@ -127,7 +127,7 @@ service cloud.firestore {
     }
 
     function iconUrlOk(v) {
-      return v == null || v.matches('/assets/[A-Za-z0-9-]+[.]png');
+      return v == null || v.matches('/assets/(special-icons/)?[A-Za-z0-9-]+[.]png');
     }
 
     // customLoco and specialOverride are not type-checked: for five locomotives that would go

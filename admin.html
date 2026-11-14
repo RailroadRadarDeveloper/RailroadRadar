@@ -801,6 +801,12 @@
             <label for="admin-roster-icon">Icon URL (Optional)</label>
             <input type="text" id="admin-roster-icon" placeholder="/assets/… or https://…" autocomplete="off">
             <img id="admin-roster-icon-preview" alt="Icon Preview" width="44" height="44" hidden style="display:none;width:44px;height:44px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
+            <label for="admin-roster-icon-file">Upload a PNG icon to GitHub</label>
+            <div class="rr-admin-toolbar" style="align-items:center;">
+              <input type="file" id="admin-roster-icon-file" accept="image/png,.png" style="min-width:0;flex:1;">
+              <button type="button" class="rr-btn secondary" id="admin-roster-icon-upload">Upload PNG</button>
+            </div>
+            <p class="rr-modal-hint" id="admin-roster-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload creates a GitHub pull request; merge it before the image is publicly available.</p>
             <p class="rr-modal-hint">Typing an MBTA number lists matching roster locomotives. The type and icon come from that roster. Change the icon to override. A saved locomotive replaces the roster for that number.</p>
             <div class="rr-lightbox-actions" style="margin-top:10px;">
               <button type="button" class="rr-btn" id="admin-roster-submit">Add / Update</button>
@@ -2232,6 +2238,71 @@
       applyAdminMbtaRosterSuggestion(true);
       input.focus();
     }
+    async function adminUploadSpecialIcon() {
+      const status = document.getElementById('admin-roster-icon-upload-status');
+      const fileInput = document.getElementById('admin-roster-icon-file');
+      const uploadButton = document.getElementById('admin-roster-icon-upload');
+      const user = currentUser || (auth && auth.currentUser);
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      function setStatus(message, isError) {
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#b3261e' : '';
+      }
+      if (!user || !isAdminUser(user)) { setStatus('Admin access required.', true); return; }
+      if (!file) { setStatus('Choose a PNG file first.', true); return; }
+      if (!/\.png$/i.test(file.name) || (file.type && file.type !== 'image/png')) {
+        setStatus('Only PNG images are supported.', true);
+        return;
+      }
+      if (file.size < 8 || file.size > 1.5 * 1024 * 1024) {
+        setStatus('PNG must be between 8 bytes and 1.5 MB.', true);
+        return;
+      }
+      if (uploadButton) { uploadButton.disabled = true; uploadButton.textContent = 'Uploading…'; }
+      setStatus('Uploading image to a GitHub branch…', false);
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        const token = await user.getIdToken();
+        const response = await fetch('https://railroadradar-proxy.railroadradar.workers.dev/api/admin/icons/upload', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: file.name.replace(/\.png$/i, ''),
+            contentBase64: btoa(binary)
+          })
+        });
+        const result = await response.json().catch(function() { return {}; });
+        if (!response.ok || !result.ok || !result.path || !result.pullRequestUrl) {
+          throw new Error(result.error || ('Upload failed (' + response.status + ').'));
+        }
+        const iconInput = document.getElementById('admin-roster-icon');
+        if (iconInput) iconInput.value = result.path;
+        adminRosterSyncIconSelect(result.path);
+        adminRosterAuto.icon = '\u0000';
+        adminRosterIconPreview();
+        setStatus('Uploaded to GitHub. PR #' + result.pullRequestNumber + ' must be merged before this URL is live. The URL is now in Icon URL; click Add / Update to save the locomotive.', false);
+        if (status) {
+          const link = document.createElement('a');
+          link.href = result.pullRequestUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = ' Open icon pull request';
+          status.appendChild(link);
+        }
+        showNotification('Icon uploaded; merge its GitHub pull request to publish it.');
+      } catch (err) {
+        console.error('[admin] special icon upload failed', err);
+        setStatus((err && err.message) || 'Icon upload failed.', true);
+      } finally {
+        if (uploadButton) { uploadButton.disabled = false; uploadButton.textContent = 'Upload PNG'; }
+      }
+    }
     function adminRosterIconPreview() {
       const img = document.getElementById('admin-roster-icon-preview');
       const iconEl = document.getElementById('admin-roster-icon');
@@ -2319,6 +2390,10 @@
       if (idEl) { idEl.value = ''; idEl.disabled = false; }
       if (nameEl) nameEl.value = '';
       if (iconEl) iconEl.value = '';
+      const iconFile = document.getElementById('admin-roster-icon-file');
+      const iconUploadStatus = document.getElementById('admin-roster-icon-upload-status');
+      if (iconFile) iconFile.value = '';
+      if (iconUploadStatus) { iconUploadStatus.textContent = 'PNG only, maximum 1.5 MB. Upload creates a GitHub pull request; merge it before the image is publicly available.'; iconUploadStatus.style.color = ''; }
       adminRosterSyncIconSelect('');
       adminRosterAuto = { name: '', icon: '' };
       closeAdminRosterSuggest();
@@ -3559,9 +3634,11 @@
       const rosterRefresh = document.getElementById('admin-roster-refresh');
       const rosterSubmit = document.getElementById('admin-roster-submit');
       const rosterClear = document.getElementById('admin-roster-clear');
+      const rosterIconUpload = document.getElementById('admin-roster-icon-upload');
       if (rosterRefresh) rosterRefresh.addEventListener('click', loadAdminRoster);
       if (rosterSubmit) rosterSubmit.addEventListener('click', adminSaveSpecialUnit);
       if (rosterClear) rosterClear.addEventListener('click', clearAdminRosterForm);
+      if (rosterIconUpload) rosterIconUpload.addEventListener('click', adminUploadSpecialIcon);
       const rosterIdInput = document.getElementById('admin-roster-id');
       const rosterAgencyInput = document.getElementById('admin-roster-agency');
       const rosterIconInput = document.getElementById('admin-roster-icon');
