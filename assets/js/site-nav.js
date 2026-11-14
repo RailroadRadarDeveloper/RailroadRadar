@@ -198,14 +198,14 @@
           mark.alt = 'Verified reporter';
           mark.title = 'Verified reporter';
           mark.width = 13; mark.height = 13;
-          mark.className = 'verified-badge-icon is-visible';
+          mark.classList.add('verified-badge-icon', 'is-visible');
           mark.style.cssText = 'display:none;vertical-align:middle;margin-left:5px;width:13px;height:13px;';
           host.appendChild(mark);
         }
         mark.style.display = 'inline-block';
       });
       var homeMark = document.querySelector('.home-user-badge');
-      if (homeMark) { homeMark.hidden = false; homeMark.alt = 'Verified reporter'; homeMark.title = 'Verified reporter'; }
+      if (homeMark) homeMark.hidden = true;
     }
     function clearVerifiedMark() {
       document.querySelectorAll('.rr-global-verified-badge').forEach(function(mark) { mark.style.display = 'none'; });
