@@ -4,6 +4,7 @@
     { id: 'timetables', href: '/timetables/', label: 'Timetables' },
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
     { id: 'roster', href: '/roster/', label: 'Roster' },
+    { id: 'specials', href: '/specials/', label: 'Recent Reports' },
     { id: 'press', href: '/press/', label: 'Press' },
     { id: 'survey', href: '/survey/', label: 'Survey' }
   ];
