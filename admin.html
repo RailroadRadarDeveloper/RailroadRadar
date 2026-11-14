@@ -2252,22 +2252,73 @@
         else adminRosterSyncIconSelect(result.path);
         adminRosterAuto.icon = '\u0000';
         if (!equipmentMode) adminRosterIconPreview();
-        setStatus(equipmentMode ? ('Uploaded to GitHub. PR #' + result.pullRequestNumber + ' must be merged before this icon is live. The icon is selected; save the equipment entry after merging the asset PR.') : ('Uploaded to GitHub. PR #' + result.pullRequestNumber + ' must be merged before this URL is live. The URL is now in Icon URL; click Add / Update to save the locomotive.'), false);
+        setStatus('Pull request #' + result.pullRequestNumber + ' created. Checking GitHub merge status…', false);
         if (status) {
           const link = document.createElement('a');
           link.href = result.pullRequestUrl;
           link.target = '_blank';
           link.rel = 'noopener noreferrer';
-          link.textContent = ' Open icon pull request';
+          link.textContent = ' Open pull request';
           status.appendChild(link);
         }
-        showNotification('Icon uploaded; merge its GitHub pull request to publish it.');
+        showNotification('Icon uploaded; pull request #' + result.pullRequestNumber + ' created.');
+        checkAdminIconPullRequestStatus(result.pullRequestNumber, status, equipmentMode);
       } catch (err) {
         console.error('[admin] special icon upload failed', err);
         setStatus((err && err.message) || 'Icon upload failed.', true);
       } finally {
         if (uploadButton) { uploadButton.disabled = false; uploadButton.textContent = 'Upload PNG'; }
       }
+    }
+    async function checkAdminIconPullRequestStatus(prNumber, status, equipmentMode) {
+      if (!status || !prNumber) return;
+      const apiUrl = 'https://api.github.com/repos/RailroadRadarDeveloper/RailroadRadar/pulls/' + encodeURIComponent(prNumber);
+      let attempts = 0;
+      const maxAttempts = 24;
+      async function refresh() {
+        attempts++;
+        try {
+          const response = await fetch(apiUrl, {
+            headers: { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+            cache: 'no-store'
+          });
+          if (!response.ok) throw new Error('GitHub status HTTP ' + response.status);
+          const pr = await response.json();
+          let label = status.querySelector('[data-icon-pr-status]');
+          if (!label) {
+            label = document.createElement('span');
+            label.setAttribute('data-icon-pr-status', '1');
+            status.insertBefore(label, status.querySelector('a') || null);
+          }
+          if (pr.merged) {
+            label.textContent = ' Status: Merged — the icon is now eligible to publish.';
+            label.style.color = '#0d6b3a';
+            return;
+          }
+          if (pr.state === 'closed') {
+            label.textContent = ' Status: Closed without merging — this icon will not publish.';
+            label.style.color = '#b3261e';
+            return;
+          }
+          label.textContent = ' Status: Open — awaiting merge. GitHub reports ' + (pr.draft ? 'Draft' : 'Ready for review') + '.';
+          if (attempts < maxAttempts) {
+            window.setTimeout(refresh, 10000);
+          } else {
+            label.textContent += ' Live status polling paused; open the pull request for the latest update.';
+          }
+        } catch (error) {
+          console.warn('[admin] icon pull request status check failed', error);
+          let message = status.querySelector('[data-icon-pr-status]');
+          if (!message) {
+            message = document.createElement('span');
+            message.setAttribute('data-icon-pr-status', '1');
+            status.insertBefore(message, status.querySelector('a') || null);
+          }
+          message.textContent = ' Status: Unable to refresh from GitHub right now; the pull request link is available.';
+          if (attempts < maxAttempts) window.setTimeout(refresh, 15000);
+        }
+      }
+      await refresh();
     }
     function adminRosterIconPreview() {
       const img = document.getElementById('admin-roster-icon-preview');
