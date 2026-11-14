@@ -161,7 +161,7 @@ async function removePairings(row){
  snap.docs.forEach(function(doc){
   var d=doc.data()||{};if(d.serviceDate!=null&&d.serviceDate!=='')return;var locos=Array.isArray(d.locomotives)?d.locomotives.slice():[];
   if(!locos.length&&(d.locomotiveId||d.locomotiveId2))locos=[d.locomotiveId,d.locomotiveId2].filter(Boolean).map(function(id){return {locomotiveId:String(id),unitName:String(id),locoType:'',locoIconUrl:null};});
-  var remaining=locos.filter(function(l){return !shopped.has(String((l&&l.locomotiveId)||'').trim());});
+  var remaining=locos.filter(function(l){return !shopped.has(String((l&&(l.locomotiveId||l.id))||'').trim());});
   if(remaining.length===locos.length)return;
   if(!remaining.length)batch.delete(doc.ref);
   else{var one=remaining[0],two=remaining[1]||{};batch.update(doc.ref,{locomotives:remaining,locomotiveId:one.locomotiveId||'',unitName:one.unitName||one.locomotiveId||'',locoType:one.locoType||'',locoIconUrl:one.locoIconUrl||null,locomotiveId2:two.locomotiveId||'',unitName2:two.unitName||'',locoType2:two.locoType||'',locoIconUrl2:two.locoIconUrl||null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}
