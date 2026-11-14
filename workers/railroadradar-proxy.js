@@ -2381,15 +2381,30 @@ async function handleSpecialIconUpload(request, env) {
     'X-GitHub-Api-Version': '2022-11-28',
     'Content-Type': 'application/json'
   };
+  const githubFailure = async (response, action) => {
+    let detail = '';
+    try {
+      const data = await response.clone().json();
+      if (typeof data.message === 'string') detail = data.message.slice(0, 300);
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const errors = data.errors.map((item) => typeof item === 'string' ? item : item && item.message).filter(Boolean).join('; ');
+        if (errors) detail = (detail ? detail + ': ' : '') + errors.slice(0, 300);
+      }
+    } catch (_) {}
+    return reply(502, {
+      ok: false,
+      error: action + ' (' + response.status + ')' + (detail ? ': ' + detail : '.')
+    });
+  };
   try {
     const baseResponse = await fetch(api + '/git/ref/heads/main', { headers: ghHeaders });
-    if (!baseResponse.ok) return reply(502, { ok: false, error: 'Could not read the GitHub main branch (' + baseResponse.status + ').' });
+    if (!baseResponse.ok) return await githubFailure(baseResponse, 'Could not read the GitHub main branch');
     const baseData = await baseResponse.json();
     const branchResponse = await fetch(api + '/git/refs', {
       method: 'POST', headers: ghHeaders,
       body: JSON.stringify({ ref: 'refs/heads/' + branch, sha: baseData.object.sha })
     });
-    if (!branchResponse.ok) return reply(502, { ok: false, error: 'Could not create the GitHub upload branch (' + branchResponse.status + ').' });
+    if (!branchResponse.ok) return await githubFailure(branchResponse, 'Could not create the GitHub upload branch');
     const path = 'assets/special-icons/' + filename;
     const fileResponse = await fetch(api + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), {
       method: 'PUT', headers: ghHeaders,
@@ -2399,7 +2414,7 @@ async function handleSpecialIconUpload(request, env) {
         branch: branch
       })
     });
-    if (!fileResponse.ok) return reply(502, { ok: false, error: 'GitHub rejected the icon file (' + fileResponse.status + ').' });
+    if (!fileResponse.ok) return await githubFailure(fileResponse, 'GitHub rejected the icon file');
     const prResponse = await fetch(api + '/pulls', {
       method: 'POST', headers: ghHeaders,
       body: JSON.stringify({
@@ -2409,7 +2424,7 @@ async function handleSpecialIconUpload(request, env) {
         body: 'Adds an icon uploaded through RailroadRadar Admin Settings. The image will be published at /' + path + ' after this pull request is merged.'
       })
     });
-    if (!prResponse.ok) return reply(502, { ok: false, error: 'The image is on a GitHub branch, but GitHub could not open its pull request (' + prResponse.status + ').' });
+    if (!prResponse.ok) return await githubFailure(prResponse, 'The image is on a GitHub branch, but GitHub could not open its pull request');
     const pr = await prResponse.json();
     return reply(201, {
       ok: true,
