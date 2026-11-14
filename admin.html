@@ -4021,7 +4021,7 @@
             };
           });
           function agencyForRailroad(value) {
-            const r = String(value || '').toLowerCase().replace(/[._]/g, ' ').replace(/\\s+/g, ' ').trim();
+            const r = String(value || '').toLowerCase().replace(/[._]/g, ' ').replace(/\s+/g, ' ').trim();
             if (r === 'mbta' || r.indexOf('massachusetts bay') !== -1) return 'mbta';
             if (r === 'amtrak') return 'amtrak';
             if (r === 'mnr' || r.indexOf('metro north') !== -1) return 'mnr';
