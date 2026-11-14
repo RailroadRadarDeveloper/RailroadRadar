@@ -372,6 +372,56 @@ service cloud.firestore {
         || (activeUser() && resource.data.reportedByUid == request.auth.uid);
     }
 
+    // Facility, shopped, and special-move submissions are always held for admin review.
+    function yardLocomotivesOk(v) {
+      return v is list && v.size() >= 1 && v.size() <= 5
+        && (v.size() < 1 || (v[0] is string && v[0].size() >= 1 && v[0].size() <= 64))
+        && (v.size() < 2 || (v[1] is string && v[1].size() >= 1 && v[1].size() <= 64))
+        && (v.size() < 3 || (v[2] is string && v[2].size() >= 1 && v[2].size() <= 64))
+        && (v.size() < 4 || (v[3] is string && v[3].size() >= 1 && v[3].size() <= 64))
+        && (v.size() < 5 || (v[4] is string && v[4].size() >= 1 && v[4].size() <= 64));
+    }
+    function yardReportValid(d) {
+      return d.keys().hasOnly(['reportType', 'agency', 'locomotives', 'reportedByUid',
+          'reportedByLabel', 'reportedByDisplayMode', 'reportedByVerified', 'createdAt',
+          'status', 'facility', 'location', 'reason', 'fromLocation', 'toLocation',
+          'departureAt', 'arrivalAt', 'equipment', 'notes'])
+        && d.agency == 'mbta'
+        && d.reportType in ['facility', 'shopped', 'special_move']
+        && yardLocomotivesOk(d.locomotives)
+        && d.reportedByUid == request.auth.uid
+        && d.reportedByLabel is string && d.reportedByLabel.size() >= 1 && d.reportedByLabel.size() <= 120
+        && displayModeOk(d.reportedByDisplayMode)
+        && d.reportedByVerified is bool
+        && (d.reportedByVerified == false || isVerifiedReporter())
+        && d.createdAt == request.time
+        && d.status == 'pending'
+        && (d.reportType == 'facility'
+          ? (d.facility in ['MBTA Rochester Maintenance Facility', 'Boston Engine Terminal']
+             && d.reason is string && d.reason.size() >= 1 && d.reason.size() <= 500)
+          : d.reportType == 'shopped'
+            ? (d.location is string && d.location.size() >= 1 && d.location.size() <= 160
+               && d.reason is string && d.reason.size() >= 1 && d.reason.size() <= 500)
+            : (d.fromLocation is string && d.fromLocation.size() >= 1 && d.fromLocation.size() <= 160
+               && d.toLocation is string && d.toLocation.size() >= 1 && d.toLocation.size() <= 160
+               && d.departureAt is timestamp && d.arrivalAt is timestamp && d.arrivalAt > d.departureAt
+               && d.equipment is string && d.equipment.size() >= 1 && d.equipment.size() <= 500
+               && d.notes is string && d.notes.size() <= 1000));
+    }
+
+    match /pendingYardReports/{id} {
+      allow read: if adminHasPerm('viewReports')
+        || (activeUser() && resource.data.reportedByUid == request.auth.uid);
+      allow create: if activeUser() && yardReportValid(request.resource.data);
+      allow update: if false;
+      allow delete: if adminHasPerm('viewReports');
+    }
+
+    match /yardReports/{id} {
+      allow read: if true;
+      allow create, update, delete: if adminHasPerm('viewReports');
+    }
+
     match /reportHold/{uid} {
       allow read: if isAdmin()
         || (activeUser() && request.auth.uid == uid);
@@ -445,7 +495,11 @@ service cloud.firestore {
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
 
-    match /railroadIconRules/{id} {\n      allow read, create, update, delete: if isBootstrapAdmin() || isAdmin();\n    }\n\n    match /railroadDefaults/{id} {
+    match /railroadIconRules/{id} {
+      allow read, create, update, delete: if isBootstrapAdmin() || isAdmin();
+    }
+
+    match /railroadDefaults/{id} {
       allow read: if true;
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
