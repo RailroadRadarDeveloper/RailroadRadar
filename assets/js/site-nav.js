@@ -185,8 +185,7 @@
     }
     function addVerifiedMark() {
       var targets = [
-        document.getElementById('header-account-name-text'),
-        document.querySelector('.home-user-name')
+        document.getElementById('header-account-name-text')
       ].filter(Boolean);
       targets.forEach(function(target) {
         var host = target.parentNode || target;
@@ -251,7 +250,7 @@
           else adminButton.classList.remove('is-visible');
         }
         if (isAdmin) {
-          var adminMarkTargets = [document.getElementById('header-account-name-text'), document.querySelector('.home-user-name')].filter(Boolean);
+          var adminMarkTargets = [document.getElementById('header-account-name-text')].filter(Boolean);
           adminMarkTargets.forEach(function(target) {
             var host = target.parentNode || target;
             var mark = host.querySelector('.rr-global-verified-badge');
