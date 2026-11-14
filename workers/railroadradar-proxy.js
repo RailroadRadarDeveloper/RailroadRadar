@@ -2156,8 +2156,12 @@ var worker_default = {
             upstream.searchParams.set(k, v);
         });
         upstream.searchParams.set("access_token", token);
+        // Raster tiles are tied to a versioned style/tile URL and can be reused by browsers
+        // and Cloudflare for a day. This prevents repeat visits from invoking the Worker.
+        const isRasterTile = /\/styles\/v1\/[^/]+\/[^/]+\/tiles\/256\//.test(rest);
+        const tileTtl = 86400;
         const res = await fetch(upstream.toString(), {
-          cf: { cacheTtl: 3600, cacheEverything: true }
+          cf: { cacheTtl: isRasterTile ? tileTtl : 3600, cacheEverything: true }
         });
         if (!res.ok) {
           const errText = await res.text();
@@ -2180,7 +2184,9 @@ var worker_default = {
           headers: {
             ...cors,
             "Content-Type": res.headers.get("Content-Type") || "image/png",
-            "Cache-Control": "public, max-age=3600, s-maxage=3600"
+            "Cache-Control": isRasterTile
+              ? "public, max-age=86400, s-maxage=86400, immutable"
+              : "public, max-age=3600, s-maxage=3600"
           }
         });
       }
