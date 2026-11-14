@@ -463,6 +463,35 @@
       font-size: 14px;
     }
     .rr-admin-card strong { color: var(--ink); }
+    #admin-equipment-editor.is-popup[open] {
+      position: fixed;
+      z-index: 100;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(560px, calc(100vw - 28px));
+      max-height: min(88vh, 760px);
+      overflow: auto;
+      margin: 0;
+      padding: 18px 20px 20px;
+      box-shadow: 0 0 0 100vmax rgba(7,9,62,.58), 0 18px 55px rgba(7,9,62,.28);
+      background: #fff;
+    }
+    #admin-equipment-editor.is-popup[open] > summary { padding-right: 82px; }
+    #admin-equipment-editor .rr-equipment-popup-close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      min-height: 34px;
+      padding: 6px 12px;
+    }
+    @media (max-width: 720px) {
+      #admin-equipment-editor.is-popup[open] {
+        width: calc(100vw - 20px);
+        max-height: 90vh;
+        padding: 16px 14px;
+      }
+    }
     .rr-perm-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -746,7 +775,7 @@
     <p class="rr-modal-hint" id="admin-equipment-status" role="status" aria-live="polite">Loading equipment roster…</p>
     <div id="admin-equipment-groups" style="margin-top:12px;"><p class="rr-admin-empty">Select a railroad to view its roster.</p></div>
   </div>
-  <details class="rr-lightbox-section" id="admin-equipment-editor"><summary><strong>Add / Edit Equipment</strong></summary>
+  <details class="rr-lightbox-section" id="admin-equipment-editor"><summary><strong>Add / Edit Equipment</strong></summary><button type="button" class="rr-btn secondary rr-equipment-popup-close" id="admin-equipment-popup-close" hidden>Close</button>
     <p class="rr-modal-hint">Add equipment or update its details and icon.</p>
     <label for="admin-equipment-type">Equipment Type</label><select id="admin-equipment-type"><option value="locomotive">Locomotive</option><option value="passenger_car">Passenger Car / Coach</option><option value="cab_car">Cab Car</option><option value="freight_car">Freight Car</option><option value="dmu">DMU</option><option value="emu">EMU</option><option value="trainset">Trainset</option><option value="maintenance">Maintenance of Way</option><option value="other">Other Equipment</option></select>
     <label for="admin-equipment-railroad">Railroad / Agency</label><input type="text" id="admin-equipment-railroad" placeholder="e.g. MBTA, Amtrak, Metro-North, CSX" autocomplete="off">
@@ -2503,9 +2532,9 @@
       adminEquipmentPopulateIconChoices();
     }
     async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{await loadAdminMasterLocomotives();const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];snap.forEach(doc=>{const d=doc.data()||{};if(d.active!==false)adminEquipmentRows.push(Object.assign({docId:doc.id},d));});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
-    async function saveAdminEquipment(){const user=currentUser||(auth&&auth.currentUser);if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}if(!db){setAdminError('Firestore unavailable.');return;}const val=id=>String((document.getElementById(id)||{}).value||'').trim(),type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),iconUrl=val('admin-equipment-icon-select')||null;if(!ADMIN_EQUIPMENT_TYPES[type]){setAdminError('Choose an equipment type.');return;}if(!railroad||railroad.length>80){setAdminError('Railroad / agency is required (80 characters max).');return;}if(!id||id.length>80){setAdminError('Equipment ID is required (80 characters max).');return;}if(name.length>160){setAdminError('Name / description must be 160 characters or fewer.');return;}const sec=document.getElementById('admin-equipment-roster-section'),editing=sec&&sec.getAttribute('data-edit-id'),docId=editing||encodeURIComponent((railroad+'_'+type+'_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180);try{await db.collection('equipmentRoster').doc(docId).set({type,railroad,id,name,iconUrl,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();clearAdminEquipmentForm();showNotification('Equipment saved: '+railroad+' '+id);try{await logUserAction('admin_save_equipment','Saved '+type+' '+railroad+' '+id);}catch(_){}}catch(e){console.error('[admin] equipment save failed',e);setAdminError((e&&e.message)||String(e));}}
+    async function saveAdminEquipment(){const user=currentUser||(auth&&auth.currentUser);if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}if(!db){setAdminError('Firestore unavailable.');return;}const val=id=>String((document.getElementById(id)||{}).value||'').trim(),type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),iconUrl=val('admin-equipment-icon-select')||null;if(!ADMIN_EQUIPMENT_TYPES[type]){setAdminError('Choose an equipment type.');return;}if(!railroad||railroad.length>80){setAdminError('Railroad / agency is required (80 characters max).');return;}if(!id||id.length>80){setAdminError('Equipment ID is required (80 characters max).');return;}if(name.length>160){setAdminError('Name / description must be 160 characters or fewer.');return;}const sec=document.getElementById('admin-equipment-roster-section'),editing=sec&&sec.getAttribute('data-edit-id'),docId=editing||encodeURIComponent((railroad+'_'+type+'_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180);try{await db.collection('equipmentRoster').doc(docId).set({type,railroad,id,name,iconUrl,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();const editor=document.getElementById('admin-equipment-editor');if(editor){editor.open=false;editor.classList.remove('is-popup');editor.removeAttribute('data-edit-id');}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=true;clearAdminEquipmentForm();showNotification('Equipment saved: '+railroad+' '+id);try{await logUserAction('admin_save_equipment','Saved '+type+' '+railroad+' '+id);}catch(_){}}catch(e){console.error('[admin] equipment save failed',e);setAdminError((e&&e.message)||String(e));}}
     async function deleteAdminEquipment(docId){if(!docId||!db||!isAdminUser(currentUser||(auth&&auth.currentUser)))return;const row=adminEquipmentRows.find(x=>x.docId===docId);if(!window.confirm('Delete '+(row?((row.railroad||'')+' '+(row.id||'')):'this equipment entry')+'?'))return;try{await db.collection('equipmentRoster').doc(docId).delete();await loadAdminEquipmentRoster();showNotification('Equipment entry deleted.');try{await logUserAction('admin_delete_equipment','Deleted equipment entry '+docId);}catch(_){}}catch(e){setAdminError((e&&e.message)||String(e));}}
-    function editAdminEquipment(docId){const x=adminEquipmentRows.find(r=>r.docId===docId);if(!x)return;const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};set('admin-equipment-type',x.type||'other');set('admin-equipment-railroad',x.railroad);set('admin-equipment-id',x.id);set('admin-equipment-name',x.name);adminEquipmentPopulateIconChoices(x.iconUrl||'');adminEquipmentIconPreview();const sec=document.getElementById('admin-equipment-roster-section');if(sec)sec.setAttribute('data-edit-id',docId);const b=document.getElementById('admin-equipment-save');if(b)b.textContent='Save Equipment Changes';}
+    function editAdminEquipment(docId){const x=adminEquipmentRows.find(r=>r.docId===docId);if(!x)return;const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};set('admin-equipment-type',x.type||'other');set('admin-equipment-railroad',x.railroad);set('admin-equipment-id',x.id);set('admin-equipment-name',x.name);adminEquipmentPopulateIconChoices(x.iconUrl||'');adminEquipmentIconPreview();const sec=document.getElementById('admin-equipment-editor');if(sec){sec.setAttribute('data-edit-id',docId);sec.classList.add('is-popup');sec.open=true;}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=false;const b=document.getElementById('admin-equipment-save');if(b)b.textContent='Save Changes';}
 
     async function loadAdminRoster() {
       const status = document.getElementById('admin-roster-status');
@@ -3600,7 +3629,7 @@
       const eqFilter=document.getElementById('admin-equipment-railroad-filter');if(eqFilter)eqFilter.addEventListener('change',renderAdminEquipmentRoster);const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
       if(eqRefresh)eqRefresh.addEventListener('click',loadAdminEquipmentRoster);if(eqSave)eqSave.addEventListener('click',saveAdminEquipment);if(eqClear)eqClear.addEventListener('click',clearAdminEquipmentForm);
       if(eqUpload)eqUpload.addEventListener('click',function(){adminUploadSpecialIcon({mode:'equipment',fileInputId:'admin-equipment-icon-file',buttonId:'admin-equipment-icon-upload',statusId:'admin-equipment-icon-upload-status'});});
-      if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));const ed=document.getElementById('admin-equipment-editor');if(ed)ed.open=true;return;}const mbtaEdit=e.target.closest('[data-mbta-icon-edit]');if(mbtaEdit){const id=mbtaEdit.getAttribute('data-mbta-icon-edit'),row=(adminMasterLocoRows||[]).find(x=>String(x.number)===id),agency=document.getElementById('admin-roster-agency'),rid=document.getElementById('admin-roster-id'),nm=document.getElementById('admin-roster-name');if(agency)agency.value='mbta';if(rid)rid.value=id;if(nm)nm.value=(row&&(row.paint||row.type))||('MBTA '+id);const legacy=document.getElementById('admin-legacy-overrides');if(legacy)legacy.open=true;return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
+      if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);const eqPopupClose=document.getElementById('admin-equipment-popup-close');if(eqPopupClose)eqPopupClose.addEventListener('click',function(){const ed=document.getElementById('admin-equipment-editor');if(ed){ed.open=false;ed.classList.remove('is-popup');ed.removeAttribute('data-edit-id');}eqPopupClose.hidden=true;clearAdminEquipmentForm();});if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));return;}const mbtaEdit=e.target.closest('[data-mbta-icon-edit]');if(mbtaEdit){const id=mbtaEdit.getAttribute('data-mbta-icon-edit'),row=(adminMasterLocoRows||[]).find(x=>String(x.number)===id),agency=document.getElementById('admin-roster-agency'),rid=document.getElementById('admin-roster-id'),nm=document.getElementById('admin-roster-name');if(agency)agency.value='mbta';if(rid)rid.value=id;if(nm)nm.value=(row&&(row.paint||row.type))||('MBTA '+id);const legacy=document.getElementById('admin-legacy-overrides');if(legacy)legacy.open=true;return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
       const rosterRefresh = document.getElementById('admin-roster-refresh');
       const rosterSubmit = document.getElementById('admin-roster-submit');
       const rosterClear = document.getElementById('admin-roster-clear');
