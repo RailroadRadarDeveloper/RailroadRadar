@@ -2568,15 +2568,17 @@
           addCandidate(agencyNames[agency],'locomotive',d.id,d.name||d.id,icon,'specialUnits legacy record',!!icon,d.locoType||'','');
         });
         const snap=await db.collection('equipmentRoster').get();
-        const existingByKey=new Map();
+        const existingByKey=new Map(),inactiveKeys=new Set();
         snap.forEach(function(doc){
           const d=doc.data()||{};
           const key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase();
-          if(d.active!==false&&!existingByKey.has(key))existingByKey.set(key,{docId:doc.id,data:d});
+          if(d.active===false){inactiveKeys.add(key);return;}
+          if(!existingByKey.has(key))existingByKey.set(key,{docId:doc.id,data:d});
         });
         const batch=db.batch();
         let writes=0,already=0;
         legacyByKey.forEach(function(candidate,key){
+          if(inactiveKeys.has(key)){already++;return;}
           const found=existingByKey.get(key);
           const ref=found?db.collection('equipmentRoster').doc(found.docId):db.collection('equipmentRoster').doc(encodeURIComponent((candidate.railroad+'_'+candidate.type+'_'+candidate.id).toLowerCase()).replace(/%/g,'_').slice(0,180));
           const current=found?found.data:{};
@@ -2601,8 +2603,8 @@
       }finally{if(button)button.disabled=false;}
     }
     async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{await loadAdminMasterLocomotives();const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();snap.forEach(doc=>{const d=doc.data()||{},key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase();if(d.active===false){adminEquipmentInactiveKeys.add(key);return;}adminEquipmentRows.push(Object.assign({docId:doc.id},d));});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
-    async function saveAdminEquipment(){const user=currentUser||(auth&&auth.currentUser);if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}if(!db){setAdminError('Firestore unavailable.');return;}const val=id=>String((document.getElementById(id)||{}).value||'').trim(),type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),iconUrl=val('admin-equipment-icon-select')||null;if(!ADMIN_EQUIPMENT_TYPES[type]){setAdminError('Choose an equipment type.');return;}if(!railroad||railroad.length>80){setAdminError('Railroad / agency is required (80 characters max).');return;}if(!id||id.length>80){setAdminError('Equipment ID is required (80 characters max).');return;}if(name.length>160){setAdminError('Name / description must be 160 characters or fewer.');return;}const sec=document.getElementById('admin-equipment-editor'),editing=sec&&sec.getAttribute('data-edit-id'),docId=editing||encodeURIComponent((railroad+'_'+type+'_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180);try{await db.collection('equipmentRoster').doc(docId).set({type,railroad,id,name,iconUrl,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();const editor=document.getElementById('admin-equipment-editor');if(editor){editor.open=false;editor.classList.remove('is-popup');editor.removeAttribute('data-edit-id');editor.removeAttribute('data-legacy-special');}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=true;clearAdminEquipmentForm();showNotification('Equipment saved: '+railroad+' '+id);try{await logUserAction('admin_save_equipment','Saved '+type+' '+railroad+' '+id);}catch(_){}}catch(e){console.error('[admin] equipment save failed',e);setAdminError((e&&e.message)||String(e));}}
-    async function deleteAdminEquipment(docId){const user=currentUser||(auth&&auth.currentUser);if(!docId||!db||!isAdminUser(user))return;const row=adminEquipmentRows.find(x=>x.docId===docId);if(!window.confirm('Remove '+(row?((row.railroad||'')+' '+(row.id||'')):'this equipment entry')+' from the roster?'))return;try{await db.collection('equipmentRoster').doc(docId).set({active:false,deletedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();showNotification('Equipment removed from the roster.');try{await logUserAction('admin_delete_equipment','Removed equipment entry '+docId);}catch(_){}}catch(e){setAdminError((e&&e.message)||String(e));}}
+    async function saveAdminEquipment(){const user=currentUser||(auth&&auth.currentUser);if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}if(!db){setAdminError('Firestore unavailable.');return;}const val=id=>String((document.getElementById(id)||{}).value||'').trim(),type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),iconUrl=val('admin-equipment-icon-select')||null;if(!ADMIN_EQUIPMENT_TYPES[type]){setAdminError('Choose an equipment type.');return;}if(!railroad||railroad.length>80){setAdminError('Railroad / agency is required (80 characters max).');return;}if(!id||id.length>80){setAdminError('Equipment ID is required (80 characters max).');return;}if(name.length>160){setAdminError('Name / description must be 160 characters or fewer.');return;}const sec=document.getElementById('admin-equipment-editor'),editing=sec&&sec.getAttribute('data-edit-id'),docId=editing||encodeURIComponent((railroad+'_'+type+'_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180);try{await db.collection('equipmentRoster').doc(docId).set({type,railroad,id,name,iconUrl,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();if(typeof window.loadSpecialUnitsFromFirestore==='function')await window.loadSpecialUnitsFromFirestore();if(typeof window.populateReportUnitSelect==='function'){try{window.populateReportUnitSelect();}catch(_){}}const editor=document.getElementById('admin-equipment-editor');if(editor){editor.open=false;editor.classList.remove('is-popup');editor.removeAttribute('data-edit-id');editor.removeAttribute('data-legacy-special');}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=true;clearAdminEquipmentForm();showNotification('Equipment saved: '+railroad+' '+id);try{await logUserAction('admin_save_equipment','Saved '+type+' '+railroad+' '+id);}catch(_){}}catch(e){console.error('[admin] equipment save failed',e);setAdminError((e&&e.message)||String(e));}}
+    async function deleteAdminEquipment(docId){const user=currentUser||(auth&&auth.currentUser);if(!docId||!db||!isAdminUser(user))return;const row=adminEquipmentRows.find(x=>x.docId===docId);if(!window.confirm('Remove '+(row?((row.railroad||'')+' '+(row.id||'')):'this equipment entry')+' from the roster?'))return;try{await db.collection('equipmentRoster').doc(docId).set({active:false,deletedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();if(typeof window.loadSpecialUnitsFromFirestore==='function')await window.loadSpecialUnitsFromFirestore();if(typeof window.populateReportUnitSelect==='function'){try{window.populateReportUnitSelect();}catch(_){}}showNotification('Equipment removed from the roster.');try{await logUserAction('admin_delete_equipment','Removed equipment entry '+docId);}catch(_){}}catch(e){setAdminError((e&&e.message)||String(e));}}
     function editAdminEquipment(docId){const x=adminEquipmentRows.find(r=>r.docId===docId);if(!x)return;const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};set('admin-equipment-type',x.type||'other');set('admin-equipment-railroad',x.railroad);set('admin-equipment-id',x.id);set('admin-equipment-name',x.name);adminEquipmentPopulateIconChoices(x.iconUrl||'');adminEquipmentIconPreview();const sec=document.getElementById('admin-equipment-editor');if(sec){sec.setAttribute('data-edit-id',docId);sec.classList.add('is-popup');sec.open=true;}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=false;const b=document.getElementById('admin-equipment-save');if(b)b.textContent='Save Changes';}
 
     async function loadAdminRoster() {
@@ -3998,58 +4000,72 @@
           console.warn('%c[specialUnits] Firestore not available', 'color:#f39c12');
           return;
         }
-        // The map caches the roster in localStorage for 7 minutes; drop that copy so admin edits show at once in this browser.
         try { localStorage.removeItem('rrCacheSpecialUnits'); } catch (_) {}
         try {
-          const snap = await db.collection('specialUnits').get();
-          const byKey = {};
-          snap.forEach(function(doc) {
+          const results = await Promise.all([
+            db.collection('specialUnits').get(),
+            db.collection('equipmentRoster').get()
+          ]);
+          const legacySnap = results[0], equipmentSnap = results[1];
+          const byKey = {}, inactiveKeys = new Set();
+          legacySnap.forEach(function(doc) {
             const d = doc.data() || {};
             const agency = String(d.agency || '').toLowerCase().trim();
             const id = String(d.id != null ? d.id : '').trim();
-            if (!agency || !id) return;
-            if (['mbta', 'amtrak', 'mnr', 'lirr', 'njt'].indexOf(agency) === -1) return;
+            if (!agency || !id || ['mbta', 'amtrak', 'mnr', 'lirr', 'njt'].indexOf(agency) === -1) return;
             byKey[agency + '|' + id] = {
-              agency: agency,
-              id: id,
-              name: d.name || id,
+              agency: agency, id: id, name: d.name || id,
               iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : null,
               locoType: (d.locoType != null && String(d.locoType).trim()) ? String(d.locoType).trim() : null,
-              builtin: false,
-              _fromFirestore: true
+              builtin: false, _fromFirestore: true
             };
           });
-          const merged = BUILTIN_SPECIAL_UNITS_ROSTER.map(function(u) {
-            const key = u.agency + '|' + String(u.id);
-            const overlay = byKey[key];
+          function agencyForRailroad(value) {
+            const r = String(value || '').toLowerCase().replace(/[._]/g, ' ').replace(/\\s+/g, ' ').trim();
+            if (r === 'mbta' || r.indexOf('massachusetts bay') !== -1) return 'mbta';
+            if (r === 'amtrak') return 'amtrak';
+            if (r === 'mnr' || r.indexOf('metro north') !== -1) return 'mnr';
+            if (r === 'lirr' || r.indexOf('long island') !== -1) return 'lirr';
+            if (r === 'njt' || r.indexOf('nj transit') !== -1 || r.indexOf('new jersey transit') !== -1) return 'njt';
+            return '';
+          }
+          equipmentSnap.forEach(function(doc) {
+            const d = doc.data() || {};
+            if (String(d.type || '').toLowerCase() !== 'locomotive') return;
+            const agency = agencyForRailroad(d.railroad), id = String(d.id || '').trim();
+            if (!agency || !id) return;
+            const key = agency + '|' + id;
+            if (d.active === false) { inactiveKeys.add(key); delete byKey[key]; return; }
+            byKey[key] = {
+              agency: agency, id: id, name: d.name || id,
+              iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : null,
+              locoType: d.locoType || d.equipmentSubtype || null,
+              builtin: false, _fromEquipmentRoster: true
+            };
+          });
+          const merged = BUILTIN_SPECIAL_UNITS_ROSTER.filter(function(u) {
+            return !inactiveKeys.has(u.agency + '|' + String(u.id));
+          }).map(function(u) {
+            const key = u.agency + '|' + String(u.id), overlay = byKey[key];
             if (overlay) {
               delete byKey[key];
               return {
-                agency: u.agency,
-                id: String(u.id),
-                name: overlay.name || u.name,
+                agency: u.agency, id: String(u.id), name: overlay.name || u.name,
                 iconUrl: overlay.iconUrl != null ? overlay.iconUrl : (u.iconUrl || null),
-                locoType: overlay.locoType || null,
-                builtin: true,
-                _overridden: true,
-                _fromFirestore: true
+                locoType: overlay.locoType || null, builtin: true,
+                _overridden: true, _fromFirestore: !!overlay._fromFirestore,
+                _fromEquipmentRoster: !!overlay._fromEquipmentRoster
               };
             }
-            return {
-              agency: u.agency,
-              id: String(u.id),
-              name: u.name,
-              iconUrl: u.iconUrl || null,
-              builtin: true
-            };
+            return { agency: u.agency, id: String(u.id), name: u.name, iconUrl: u.iconUrl || null, builtin: true };
           });
           Object.keys(byKey).sort().forEach(function(k) {
-            merged.push(byKey[k]);
+            if (!inactiveKeys.has(k)) merged.push(byKey[k]);
           });
           SPECIAL_UNITS_ROSTER = merged;
           rebuildRosterIndexes();
           try { if (typeof window.rrRenderNotifyTrainChips === 'function') window.rrRenderNotifyTrainChips(); } catch (_) {}
-          console.log('%c[specialUnits] Loaded roster: ' + SPECIAL_UNITS_ROSTER.length + ' unit(s) (' + snap.size + ' Firestore doc(s))', 'color:#27ae60');
+          console.log('%c[specialUnits] Loaded unified roster: ' + SPECIAL_UNITS_ROSTER.length + ' unit(s) (' + equipmentSnap.size + ' equipment record(s), ' + legacySnap.size + ' legacy fallback record(s))', 'color:#27ae60');
         } catch (e) {
           console.error('%c[specialUnits] Load failed', 'color:#e74c3c', e);
         }
