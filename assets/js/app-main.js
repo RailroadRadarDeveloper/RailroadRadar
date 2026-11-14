@@ -9377,18 +9377,20 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
         maxZoom: 20,
-        keepBuffer: 8,
-        updateWhenIdle: false,
-        updateWhenZooming: true,
+        // Keep only a small tile buffer and wait until gestures settle before fetching more tiles.
+        keepBuffer: 2,
+        updateWhenIdle: true,
+        updateWhenZooming: false,
         errorTileUrl: EMPTY_TILE
       });
       const mapboxDarkLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}'), {
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
         maxZoom: 20,
-        keepBuffer: 8,
-        updateWhenIdle: false,
-        updateWhenZooming: true,
+        // Keep only a small tile buffer and wait until gestures settle before fetching more tiles.
+        keepBuffer: 2,
+        updateWhenIdle: true,
+        updateWhenZooming: false,
         errorTileUrl: EMPTY_TILE
       });
       // Light map is the default; dark uses Mapbox dark-v11
