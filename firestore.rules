@@ -373,6 +373,14 @@ service cloud.firestore {
     }
 
     // Facility, shopped, and special-move submissions are always held for admin review.
+    function yardLocomotivesOk(v) {
+      return v is list && v.size() >= 1 && v.size() <= 5
+        && (v.size() < 1 || (v[0] is string && v[0].size() >= 1 && v[0].size() <= 64))
+        && (v.size() < 2 || (v[1] is string && v[1].size() >= 1 && v[1].size() <= 64))
+        && (v.size() < 3 || (v[2] is string && v[2].size() >= 1 && v[2].size() <= 64))
+        && (v.size() < 4 || (v[3] is string && v[3].size() >= 1 && v[3].size() <= 64))
+        && (v.size() < 5 || (v[4] is string && v[4].size() >= 1 && v[4].size() <= 64));
+    }
     function yardReportValid(d) {
       return d.keys().hasOnly(['reportType', 'agency', 'locomotives', 'reportedByUid',
           'reportedByLabel', 'reportedByDisplayMode', 'reportedByVerified', 'createdAt',
@@ -380,7 +388,7 @@ service cloud.firestore {
           'departureAt', 'arrivalAt', 'equipment', 'notes'])
         && d.agency == 'mbta'
         && d.reportType in ['facility', 'shopped', 'special_move']
-        && d.locomotives is list && d.locomotives.size() >= 1 && d.locomotives.size() <= 5
+        && yardLocomotivesOk(d.locomotives)
         && d.reportedByUid == request.auth.uid
         && d.reportedByLabel is string && d.reportedByLabel.size() >= 1 && d.reportedByLabel.size() <= 120
         && displayModeOk(d.reportedByDisplayMode)
