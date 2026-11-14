@@ -190,10 +190,10 @@
       ].filter(Boolean);
       targets.forEach(function(target) {
         var host = target.parentNode || target;
-        var mark = host.querySelector('#rr-global-verified-badge');
+        var mark = host.querySelector('.rr-global-verified-badge');
         if (!mark) {
           mark = document.createElement('img');
-          mark.id = 'rr-global-verified-badge';
+          mark.className = 'rr-global-verified-badge';
           mark.src = '/assets/admin-badge.png';
           mark.alt = 'Verified reporter';
           mark.title = 'Verified reporter';
@@ -208,8 +208,7 @@
       if (homeMark) { homeMark.hidden = false; homeMark.alt = 'Verified reporter'; homeMark.title = 'Verified reporter'; }
     }
     function clearVerifiedMark() {
-      var mark = document.getElementById('rr-global-verified-badge');
-      if (mark) mark.style.display = 'none';
+      document.querySelectorAll('.rr-global-verified-badge').forEach(function(mark) { mark.style.display = 'none'; });
       var homeMark = document.querySelector('.home-user-badge');
       if (homeMark) homeMark.hidden = true;
     }
@@ -255,10 +254,10 @@
           var adminMarkTargets = [document.getElementById('header-account-name-text'), document.querySelector('.home-user-name')].filter(Boolean);
           adminMarkTargets.forEach(function(target) {
             var host = target.parentNode || target;
-            var mark = host.querySelector('#rr-global-verified-badge');
+            var mark = host.querySelector('.rr-global-verified-badge');
             if (!mark) {
               mark = document.createElement('img');
-              mark.id = 'rr-global-verified-badge';
+              mark.className = 'rr-global-verified-badge';
               mark.src = '/assets/admin-badge.png';
               mark.alt = 'Admin';
               mark.title = 'Admin';
@@ -268,7 +267,7 @@
             } else { mark.alt = 'Admin'; mark.title = 'Admin'; mark.style.display = 'inline-block'; }
           });
           var homeBadge = document.querySelector('.home-user-badge');
-          if (homeBadge) { homeBadge.hidden = false; homeBadge.alt = 'Admin'; homeBadge.title = 'Admin'; }
+          if (homeBadge) homeBadge.hidden = true;
           return;
         }
         try {
