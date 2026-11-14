@@ -2,7 +2,8 @@
 'use strict';
 if (window.__rrYardReportsLoaded) return;
 window.__rrYardReportsLoaded = true;
-var FACILITIES = ['MBTA Rochester Maintenance Facility','Boston Engine Terminal'];
+var FACILITY_AGENCIES = {'MBTA Rochester Maintenance Facility':'mbta','Boston Engine Terminal':'mbta','Southampton Street Yard':'amtrak'};
+var FACILITIES = Object.keys(FACILITY_AGENCIES);
 var LOCATIONS = FACILITIES.concat(['South Station','Back Bay','North Station','Ruggles','Forest Hills','Readville','Braintree','Worcester','Framingham','Providence','Pawtucket/Central Falls','Newburyport','Rockport','Lowell','Haverhill','Fitchburg','Wickford Junction','Hyannis','Middleborough/Lakeville']);
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function firestore(){return window.firebase&&firebase.firestore?firebase.firestore():null;}
@@ -18,16 +19,19 @@ function style(){
 function addMapFields(){
  var list=document.getElementById('report-locos-list');if(!list||document.getElementById('rr-yard-report-fields'))return;
  var w=document.createElement('section');w.id='rr-yard-report-fields';w.className='rr-yard-report-fields';
- var opts=LOCATIONS.map(function(v){return '<option value="'+esc(v)+'"></option>';}).join('');
- w.innerHTML='<div class="rr-yard-field"><label for="rr-report-facility">Report at a facility (optional)</label><select id="rr-report-facility"><option value="">Not a facility report — normal train report</option>'+FACILITIES.map(function(v){return '<option value="'+esc(v)+'">'+esc(v)+'</option>';}).join('')+'</select><p class="rr-yard-help">Facility reports require a reason and stay private until approved by an admin.</p></div>'+
+ var opts=LOCATIONS.concat(['Southampton Street Yard']).filter(function(v,i,a){return a.indexOf(v)===i;}).map(function(v){return '<option value="'+esc(v)+'"></option>';}).join('');
+ w.innerHTML='<div class="rr-yard-field"><label for="rr-report-facility">Report at a facility (optional)</label><select id="rr-report-facility"><option value="">Not a facility report — normal train report</option>'+FACILITIES.map(function(v){return '<option value="'+esc(v)+'" data-agency="'+FACILITY_AGENCIES[v]+'">'+esc(v)+'</option>';}).join('')+'</select><p class="rr-yard-help">Facility reports require a reason and stay private until approved by an admin.</p></div>'+
  '<label class="rr-yard-toggle" for="rr-report-shopped"><input type="checkbox" id="rr-report-shopped"><span>Shopped?</span></label>'+
  '<div class="rr-yard-subfields" id="rr-report-shopped-fields" hidden><div class="rr-yard-field"><label for="rr-report-shopped-location">Current location</label><input id="rr-report-shopped-location" list="rr-yard-location-options" placeholder="Search station, town, or facility" autocomplete="off"></div><div class="rr-yard-field"><label for="rr-report-shopped-reason">Reason (required)</label><textarea id="rr-report-shopped-reason" maxlength="500" placeholder="Why is this locomotive shopped?"></textarea></div></div>'+
  '<label class="rr-yard-toggle" for="rr-report-special-move"><input type="checkbox" id="rr-report-special-move"><span>Special Move?</span></label>'+
  '<div class="rr-yard-subfields" id="rr-report-special-fields" hidden><div class="rr-yard-field"><label for="rr-report-special-from">From station, town, or facility</label><input id="rr-report-special-from" list="rr-yard-location-options" placeholder="Search origin" autocomplete="off"></div><div class="rr-yard-field"><label for="rr-report-special-to">To station, town, or facility</label><input id="rr-report-special-to" list="rr-yard-location-options" placeholder="Search destination" autocomplete="off"></div><div class="rr-yard-field"><label for="rr-report-special-departure">Estimated departure time</label><input id="rr-report-special-departure" type="datetime-local"></div><div class="rr-yard-field"><label for="rr-report-special-arrival">Estimated arrival time</label><input id="rr-report-special-arrival" type="datetime-local"></div><div class="rr-yard-field"><label for="rr-report-special-equipment">Equipment</label><textarea id="rr-report-special-equipment" maxlength="500" placeholder="Locomotive numbers and any other equipment involved"></textarea></div><div class="rr-yard-field"><label for="rr-report-special-notes">Additional notes (optional)</label><textarea id="rr-report-special-notes" maxlength="1000" placeholder="Other details about the move"></textarea></div><p class="rr-yard-help">Special moves remain public through estimated arrival; they are not removed at departure.</p></div>'+
  '<div class="rr-yard-field" id="rr-report-facility-reason-wrap" hidden><label for="rr-report-facility-reason">Reason for facility report (required)</label><textarea id="rr-report-facility-reason" maxlength="500" placeholder="Why is the locomotive at this facility?"></textarea></div><datalist id="rr-yard-location-options">'+opts+'</datalist>';
  list.insertAdjacentElement('afterend',w);
- var facility=document.getElementById('rr-report-facility'),shopped=document.getElementById('rr-report-shopped'),special=document.getElementById('rr-report-special-move');
+ var facility=document.getElementById('rr-report-facility'),shopped=document.getElementById('rr-report-shopped'),special=document.getElementById('rr-report-special-move'),agencySelect=document.getElementById('report-agency');
  function sync(){
+  var agency=String((agencySelect||{}).value||'mbta').toLowerCase();
+  Array.prototype.forEach.call(facility.options,function(option){if(option.value)option.hidden=option.dataset.agency!==agency;});
+  if(facility.value&&FACILITY_AGENCIES[facility.value]!==agency)facility.value='';
   var sp=special.checked,sh=shopped.checked&&!sp,fa=!!facility.value&&!sp&&!sh;
   document.getElementById('rr-report-shopped-fields').hidden=!sh;
   document.getElementById('rr-report-special-fields').hidden=!sp;
@@ -36,7 +40,7 @@ function addMapFields(){
   var vehicleWrap=document.getElementById('report-mbta-vehicle-wrap');if(vehicleWrap)vehicleWrap.style.display=(sp||sh||fa)?'none':'';
   if(sp){facility.value='';shopped.checked=false;}if(sh)facility.value='';
  }
- facility.addEventListener('change',sync);shopped.addEventListener('change',sync);special.addEventListener('change',sync);sync();
+ facility.addEventListener('change',sync);shopped.addEventListener('change',sync);special.addEventListener('change',sync);if(agencySelect)agencySelect.addEventListener('change',sync);sync();
 }
 function collectLocos(){
  var out=[];document.querySelectorAll('[id^="report-custom-vehicle-"],[id^="report-unit-select-"]').forEach(function(el){var v=String(el.value||'').trim();if(v&&out.indexOf(v)<0)out.push(v);});return out.slice(0,5);
@@ -62,15 +66,16 @@ async function submitYard(button){
  if(!user||!user.emailVerified)throw new Error('Sign in with a verified email address to submit a report.');
  if(!f)throw new Error('Reports are temporarily unavailable.');
  var agency=String((document.getElementById('report-agency')||{}).value||'mbta').toLowerCase();
- if(agency!=='mbta')throw new Error('Facility, shopped, and special-move reports are currently for MBTA equipment only.');
+ var kind=type();
+ if(kind!=='facility'&&agency!=='mbta')throw new Error('Shopped and special-move reports are currently for MBTA equipment only.');
  var locos=collectLocos();if(!locos.length)throw new Error('Add at least one locomotive before submitting this report.');
- var kind=type(),data={reportType:kind,agency:'mbta',locomotives:locos,reportedByUid:user.uid,reportedByLabel:'Reporter',reportedByDisplayMode:'first_initial',reportedByVerified:false,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:'pending'};
+ var data={reportType:kind,agency:agency,locomotives:locos,reportedByUid:user.uid,reportedByLabel:'Reporter',reportedByDisplayMode:'first_initial',reportedByVerified:false,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:'pending'};
  var settings={};try{var us=await f.collection('userSettings').doc(user.uid).get();if(us.exists)settings=us.data()||{};}catch(_){}
  data.reportedByLabel=labelFor(user,settings);data.reportedByDisplayMode=String(settings.reportDisplayMode||'first_initial');
  try{var vr=await f.collection('verifiedReporters').doc(user.uid).get();data.reportedByVerified=!!vr.exists;}catch(_){}
  if(kind==='facility'){
   data.facility=String(document.getElementById('rr-report-facility').value||'');data.reason=String(document.getElementById('rr-report-facility-reason').value||'').trim();
-  if(FACILITIES.indexOf(data.facility)<0)throw new Error('Choose a supported facility.');if(!data.reason)throw new Error('Enter a reason for the facility report.');
+  if(!FACILITY_AGENCIES[data.facility]||FACILITY_AGENCIES[data.facility]!==agency)throw new Error('Choose a facility supported by the selected railroad.');if(!data.reason)throw new Error('Enter a reason for the facility report.');
  }else if(kind==='shopped'){
   data.location=String(document.getElementById('rr-report-shopped-location').value||'').trim();data.reason=String(document.getElementById('rr-report-shopped-reason').value||'').trim();
   if(!data.location)throw new Error('Search for and select the locomotive location.');if(!data.reason)throw new Error('Enter a reason for marking this locomotive shopped.');
