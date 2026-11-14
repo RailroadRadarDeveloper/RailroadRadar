@@ -7456,3 +7456,25 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .rr-multi-loco-marker .rr-multi-loco-marker__units {
   display: none !important;
 }
+
+
+/* Make grouped-locomotive markers easier to see without restoring the
+   intentionally hidden locomotive-number banner. */
+.leaflet-marker-icon.rr-multi-loco-marker-icon {
+  max-width: none !important;
+  max-height: none !important;
+}
+.rr-multi-loco-marker__content {
+  transform: scale(calc(var(--rr-multi-loco-scale, 1) * 1.22));
+}
+.rr-multi-loco-marker__tab {
+  padding: 4px 7px;
+}
+.rr-multi-loco-marker__unit-icon,
+.rr-multi-loco-marker__unit-fallback {
+  width: 29px;
+  height: 27px;
+}
+.rr-multi-loco-marker .rr-multi-loco-marker__units {
+  display: none !important;
+}
