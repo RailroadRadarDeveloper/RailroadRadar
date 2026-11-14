@@ -103,6 +103,9 @@
       '.rr-site-nav a{color:#fff;text-decoration:none;font:700 13px/1 Arial,sans-serif;padding:8px 8px;border-radius:6px;white-space:nowrap}',
       '.rr-site-nav a:hover,.rr-site-nav a[aria-current="page"]{background:rgba(255,255,255,.14)}', '@media (max-width:980px){.rr-site-nav{display:none !important}.rr-page-menu{display:block}.rr-page-menu-btn{background:#fff;color:#07093e;border:0;padding:6px 10px;font:700 12px/1 Arial,sans-serif;cursor:pointer}.rr-page-menu-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:180px;background:#07093e;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px;z-index:10020}.rr-page-menu-panel[hidden]{display:none}.rr-page-menu-panel a{color:#fff;text-decoration:none;font:700 13px/1 Arial,sans-serif;padding:8px 10px;border-radius:6px}.rr-page-menu-panel a:hover,.rr-page-menu-panel a[aria-current="page"]{background:rgba(255,255,255,.14)}} @media (min-width:981px){.rr-page-menu{display:none}}',
       '.header-tools{position:relative}',
+      '#btn-admin-header{display:none;align-items:center;justify-content:center;flex:none;margin-left:6px;padding:5px;border:0;border-radius:8px;background:transparent;color:#fff;text-decoration:none;cursor:pointer}',
+      '#btn-admin-header.is-visible{display:inline-flex!important}',
+      '#btn-admin-header img{display:block;max-width:28px;max-height:31px}',
       '.header-tools-panel{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;background:#07093e;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;z-index:10020;display:flex;flex-direction:column;gap:4px}',
       '.header-tools-panel[hidden]{display:none}',
       '.header-tools-panel .header-auth-btn{width:100%;box-sizing:border-box;margin:0;justify-content:flex-start;text-align:left}',
@@ -144,8 +147,143 @@
       return '<a href="' + link.href + '"' + (link.id === here ? ' aria-current="page"' : '') + '>' + link.label + '</a>';
     }).join('') + '</nav>';
   }
+
+  // Shared account-status controls: keep admin access and verified status consistent on every page
+  // that loads the global site navigation.
+  function ensureGlobalAccountActions() {
+    var BOOTSTRAP_ADMINS = ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+    var cfg = {
+      apiKey: 'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',
+      authDomain: 'railroadradar-accounts.firebaseapp.com',
+      projectId: 'railroadradar-accounts',
+      storageBucket: 'railroadradar-accounts.firebasestorage.app',
+      messagingSenderId: '896370923309',
+      appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
+    };
+    function norm(v) { return String(v || '').trim().toLowerCase(); }
+    function loadScript(src) {
+      return new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src; s.async = true;
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    function loadFirebase() {
+      var base = 'https://www.gstatic.com/firebasejs/10.14.0/';
+      var p = Promise.resolve();
+      if (typeof firebase === 'undefined') p = p.then(function() { return loadScript(base + 'firebase-app-compat.js'); });
+      p = p.then(function() {
+        if (!firebase.auth) return loadScript(base + 'firebase-auth-compat.js');
+      }).then(function() {
+        if (!firebase.firestore) return loadScript(base + 'firebase-firestore-compat.js');
+      }).then(function() {
+        if (!firebase.apps.length) firebase.initializeApp(cfg);
+        return firebase;
+      });
+      return p;
+    }
+    function addVerifiedMark() {
+      var targets = [
+        document.getElementById('header-account-name-text'),
+        document.querySelector('.home-user-name')
+      ].filter(Boolean);
+      targets.forEach(function(target) {
+        var host = target.parentNode || target;
+        var mark = host.querySelector('#rr-global-verified-badge');
+        if (!mark) {
+          mark = document.createElement('img');
+          mark.id = 'rr-global-verified-badge';
+          mark.src = '/assets/admin-badge.png';
+          mark.alt = 'Verified reporter';
+          mark.title = 'Verified reporter';
+          mark.width = 13; mark.height = 13;
+          mark.className = 'verified-badge-icon is-visible';
+          mark.style.cssText = 'display:none;vertical-align:middle;margin-left:5px;width:13px;height:13px;';
+          host.appendChild(mark);
+        }
+        mark.style.display = 'inline-block';
+      });
+      var homeMark = document.querySelector('.home-user-badge');
+      if (homeMark) { homeMark.hidden = false; homeMark.alt = 'Verified reporter'; homeMark.title = 'Verified reporter'; }
+    }
+    function clearVerifiedMark() {
+      var mark = document.getElementById('rr-global-verified-badge');
+      if (mark) mark.style.display = 'none';
+      var homeMark = document.querySelector('.home-user-badge');
+      if (homeMark) homeMark.hidden = true;
+    }
+    function ensureAdminButton() {
+      var header = document.querySelector('.header') || document.querySelector('header');
+      if (!header || document.getElementById('btn-admin-header')) return;
+      var right = header.querySelector('.header-right') || header;
+      var b = document.createElement('a');
+      b.id = 'btn-admin-header';
+      b.className = 'header-admin-btn';
+      b.href = '/admin.html';
+      b.title = 'Admin dashboard';
+      b.setAttribute('aria-label', 'Admin dashboard');
+      b.style.display = 'none';
+      b.innerHTML = '<img src="/assets/icons/admin-dashboard.png" alt="" width="28" height="31">';
+      right.appendChild(b);
+    }
+    ensureAdminButton();
+    loadFirebase().then(function() {
+      var auth = firebase.auth();
+      var db = firebase.firestore();
+      auth.onAuthStateChanged(async function(user) {
+        var adminButton = document.getElementById('btn-admin-header');
+        clearVerifiedMark();
+        if (!user) {
+          if (adminButton) adminButton.classList.remove('is-visible');
+          return;
+        }
+        var email = norm(user.email);
+        var isAdmin = BOOTSTRAP_ADMINS.indexOf(email) !== -1;
+        if (!isAdmin && email) {
+          try {
+            var adminDoc = await db.collection('admins').doc(email).get();
+            var perms = adminDoc.exists ? ((adminDoc.data() || {}).perms || {}) : {};
+            isAdmin = !!(perms.viewReports || perms.banUsers || perms.manageAdmins || perms.deleteReports);
+          } catch (_) {}
+        }
+        if (adminButton) {
+          if (isAdmin) adminButton.classList.add('is-visible');
+          else adminButton.classList.remove('is-visible');
+        }
+        if (isAdmin) {
+          var adminMarkTargets = [document.getElementById('header-account-name-text'), document.querySelector('.home-user-name')].filter(Boolean);
+          adminMarkTargets.forEach(function(target) {
+            var host = target.parentNode || target;
+            var mark = host.querySelector('#rr-global-verified-badge');
+            if (!mark) {
+              mark = document.createElement('img');
+              mark.id = 'rr-global-verified-badge';
+              mark.src = '/assets/admin-badge.png';
+              mark.alt = 'Admin';
+              mark.title = 'Admin';
+              mark.width = 15; mark.height = 15;
+              mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:5px;width:15px;height:15px;';
+              host.appendChild(mark);
+            } else { mark.alt = 'Admin'; mark.title = 'Admin'; mark.style.display = 'inline-block'; }
+          });
+          var homeBadge = document.querySelector('.home-user-badge');
+          if (homeBadge) { homeBadge.hidden = false; homeBadge.alt = 'Admin'; homeBadge.title = 'Admin'; }
+          return;
+        }
+        try {
+          var verified = await db.collection('verifiedReporters').doc(String(user.uid)).get();
+          if (verified.exists) addVerifiedMark();
+        } catch (_) {}
+      });
+    }).catch(function(err) {
+      console.warn('[site-nav] shared account controls unavailable', err);
+    });
+  }
+
   function mount() {
     ensureStyle();
+    ensureGlobalAccountActions();
     applyTheme(getTheme());
     // Temporarily hide Trackside Favorites from every header navigation variant.
     document.querySelectorAll('header a[href="/favorites/"], .header a[href="/favorites/"]').forEach(function (a) { a.remove(); });
