@@ -4061,11 +4061,12 @@
             if (!agency || !id) return;
             const key = agency + '|' + id;
             if (d.active === false) { inactiveKeys.add(key); delete byKey[key]; return; }
+            const legacy = byKey[key] || {};
             byKey[key] = {
-              agency: agency, id: id, name: d.name || id,
-              iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : null,
-              locoType: d.locoType || d.equipmentSubtype || null,
-              builtin: false, _fromEquipmentRoster: true
+              agency: agency, id: id, name: d.name || legacy.name || id,
+              iconUrl: (d.iconUrl != null && String(d.iconUrl).trim()) ? String(d.iconUrl).trim() : (legacy.iconUrl || null),
+              locoType: d.locoType || d.equipmentSubtype || legacy.locoType || null,
+              builtin: false, _fromEquipmentRoster: true, _fromFirestore: !!legacy._fromFirestore
             };
           });
           const merged = BUILTIN_SPECIAL_UNITS_ROSTER.filter(function(u) {
