@@ -773,6 +773,7 @@
     <h3>Equipment Roster</h3><p class="rr-modal-hint">Select a railroad to view its equipment and edit locomotive icons.</p>
     <label for="admin-equipment-railroad-filter">Railroad / Agency</label><select id="admin-equipment-railroad-filter"><option value="">Select a railroad…</option></select>
     <p class="rr-modal-hint" id="admin-equipment-status" role="status" aria-live="polite">Loading equipment roster…</p>
+    <div class="rr-lightbox-actions"><button type="button" class="rr-btn secondary" id="admin-equipment-migrate-legacy">Import legacy records</button></div><p class="rr-modal-hint" id="admin-equipment-migration-status" role="status" aria-live="polite">Legacy MBTA and special-unit records can be safely imported into this roster. Existing equipment entries are preserved; legacy collections are not deleted.</p>
     <div id="admin-equipment-groups" style="margin-top:12px;"><p class="rr-admin-empty">Select a railroad to view its roster.</p></div>
   </div>
   <details class="rr-lightbox-section" id="admin-equipment-editor"><summary><strong>Add / Edit Equipment</strong></summary><button type="button" class="rr-btn secondary rr-equipment-popup-close" id="admin-equipment-popup-close" hidden>Close</button>
@@ -786,20 +787,6 @@
     <label for="admin-equipment-icon-file">Or Upload a New PNG Icon</label><div class="rr-admin-toolbar" style="align-items:center;"><input type="file" id="admin-equipment-icon-file" accept="image/png,.png" style="min-width:0;flex:1;"><button type="button" class="rr-btn secondary" id="admin-equipment-icon-upload">Upload PNG</button></div>
     <p class="rr-modal-hint" id="admin-equipment-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload opens a GitHub pull request; merge it before the icon is publicly available.</p>
     <div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-equipment-save">Add Equipment</button><button type="button" class="rr-btn secondary" id="admin-equipment-clear">Clear Form</button><button type="button" class="rr-btn secondary" id="admin-equipment-refresh">Refresh Roster</button></div>
-    <details style="margin-top:14px;"><summary><strong>MBTA master locomotive roster maintenance</strong></summary><p class="rr-modal-hint">Manage the MBTA master locomotive list. Edit its map icon from the selected railroad roster above.</p>
-      <label for="admin-master-loco-number">Locomotive Number</label><input type="text" id="admin-master-loco-number" placeholder="e.g. 1030" autocomplete="off"><label for="admin-master-loco-type">Locomotive Type</label><input type="text" id="admin-master-loco-type" placeholder="e.g. F40PH-3C" autocomplete="off"><label for="admin-master-loco-paint">Paint / Notes (Optional)</label><input type="text" id="admin-master-loco-paint" placeholder="e.g. Boston &amp; Maine Minuteman paint" autocomplete="off">
-      <div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-master-loco-save">Add / Update Locomotive</button><button type="button" class="rr-btn secondary" id="admin-master-loco-clear">Clear</button><button type="button" class="rr-btn secondary" id="admin-master-loco-refresh">Refresh</button></div>
-      <div class="rr-admin-table-wrap" style="margin-top:12px;"><table class="rr-admin-table"><thead><tr><th>Number</th><th>Type</th><th>Paint / Notes</th><th>Source</th><th></th></tr></thead><tbody id="admin-master-loco-tbody"></tbody></table></div><p class="rr-modal-hint" id="admin-master-loco-status"></p>
-    </details>
-  </details>
-  <details class="rr-lightbox-section" id="admin-legacy-overrides"><summary><strong>Advanced legacy locomotive icon overrides</strong></summary><p class="rr-modal-hint">Compatibility tools for older special-locomotive records. Use the main roster above for normal editing.</p>
-    <label for="admin-roster-agency">Agency</label><select id="admin-roster-agency"><option value="mbta">MBTA</option><option value="amtrak">Amtrak</option><option value="mnr">Metro-North</option><option value="lirr">LIRR</option><option value="njt">NJ Transit</option><option value="ctrail">CTrail</option><option value="marc">MARC</option></select>
-    <label for="admin-roster-id">Loco / Unit ID</label><div class="rr-roster-combo" id="admin-roster-combo"><input type="text" id="admin-roster-id" placeholder="e.g. 1030 or RSTX" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="admin-roster-suggest" aria-haspopup="listbox"><ul class="rr-roster-suggest" id="admin-roster-suggest" role="listbox" hidden></ul></div>
-    <label for="admin-roster-name">Name</label><input type="text" id="admin-roster-name" placeholder="Paint or Feature" autocomplete="off"><label for="admin-roster-icon-select">Icon</label><select id="admin-roster-icon-select"><option value="">Automatic from Roster</option><option value="/assets/hsp46.png">HSP46</option><option value="/assets/f40ph.png">F40PH</option><option value="/assets/gp40mc.png">GP40MC</option><option value="/assets/mbta-1030.png">MBTA 1030</option><option value="/assets/mbta-1036.png">MBTA 1036</option><option value="/assets/mbta-1071.png">MBTA 1071</option><option value="/assets/mbta-1072.png">MBTA 1072</option><option value="/assets/mbta-1129.png">MBTA 1129</option><option value="/assets/mbta-1130.png">MBTA 1130</option><option value="/assets/mbta-1776.png">MBTA 1776</option><option value="/assets/mbta-massdot.png">MassDOT Blue</option></select>
-    <label for="admin-roster-icon">Icon URL (Optional)</label><input type="text" id="admin-roster-icon" placeholder="/assets/… or https://…" autocomplete="off"><img id="admin-roster-icon-preview" alt="Icon Preview" width="44" height="44" hidden style="display:none;width:44px;height:44px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
-    <label for="admin-roster-icon-file">Upload a PNG icon to GitHub</label><div class="rr-admin-toolbar" style="align-items:center;"><input type="file" id="admin-roster-icon-file" accept="image/png,.png" style="min-width:0;flex:1;"><button type="button" class="rr-btn secondary" id="admin-roster-icon-upload">Upload PNG</button></div><p class="rr-modal-hint" id="admin-roster-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload creates a GitHub pull request; merge it before the image is publicly available.</p>
-    <div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-roster-submit">Add / Update</button><button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear Form</button><button type="button" class="rr-btn secondary" id="admin-roster-refresh">Refresh Legacy Records</button></div>
-    <h3 style="margin-top:18px;">Saved legacy overrides</h3><div class="rr-admin-table-wrap"><table class="rr-admin-table" id="admin-roster-table"><thead><tr><th>Agency</th><th>ID</th><th>Name</th><th>Icon</th><th>Source</th><th></th></tr></thead><tbody id="admin-roster-tbody"></tbody></table></div><p class="rr-modal-hint" id="admin-roster-status"></p>
   </details>
 </div>
 <div class="rr-admin-pane" id="admin-pane-verified" data-admin-pane="verified">
@@ -2542,6 +2529,67 @@
       if(status)status.textContent=rows.length+' item(s) for '+selected;
       adminEquipmentPopulateIconChoices();
     }
+    async function migrateLegacyEquipmentRecords(){
+      const user=currentUser||(auth&&auth.currentUser);
+      if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}
+      if(!db){setAdminError('Firestore unavailable.');return;}
+      const status=document.getElementById('admin-equipment-migration-status');
+      const button=document.getElementById('admin-equipment-migrate-legacy');
+      if(button)button.disabled=true;
+      if(status)status.textContent='Reading legacy records and checking for existing equipment…';
+      try{
+        await loadAdminMasterLocomotives();
+        if(typeof window.loadSpecialUnitsFromFirestore==='function')await window.loadSpecialUnitsFromFirestore();
+        const specialRows=typeof window.getSpecialUnitsRoster==='function'?(window.getSpecialUnitsRoster()||[]):[];
+        const legacyByKey=new Map();
+        const agencyNames={mbta:'MBTA',amtrak:'Amtrak',mnr:'Metro-North',lirr:'LIRR',njt:'NJ Transit'};
+        function addCandidate(railroad,type,id,name,iconUrl,source,forceIcon){
+          railroad=String(railroad||'').trim();id=String(id||'').trim();
+          if(!railroad||!id)return;
+          const key=railroad.toLowerCase()+'|'+String(type||'locomotive').toLowerCase()+'|'+id.toLowerCase();
+          const prev=legacyByKey.get(key)||{};
+          legacyByKey.set(key,{railroad,type:type||'locomotive',id,name:name||prev.name||'',iconUrl:forceIcon&&iconUrl?iconUrl:(prev.iconUrl||iconUrl||''),forceIcon:!!(forceIcon&&iconUrl),source:(prev.source?prev.source+', ':'')+source});
+        }
+        (adminMasterLocoRows||[]).forEach(function(row){
+          const id=String(row.number||'').trim();if(!id)return;
+          addCandidate('MBTA','locomotive',id,row.paint||row.type||'',typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(id):'','locomotiveRoster / built-in roster',false);
+        });
+        specialRows.forEach(function(row){
+          if(!row||!agencyNames[String(row.agency||'').toLowerCase()])return;
+          const agency=String(row.agency).toLowerCase();
+          addCandidate(agencyNames[agency],'locomotive',row.id,row.name,row.iconUrl||'',row._fromFirestore?'specialUnits override':'built-in special roster',!!row._fromFirestore);
+        });
+        const snap=await db.collection('equipmentRoster').get();
+        const existingByKey=new Map();
+        snap.forEach(function(doc){
+          const d=doc.data()||{};
+          const key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase();
+          if(d.active!==false&&!existingByKey.has(key))existingByKey.set(key,{docId:doc.id,data:d});
+        });
+        const batch=db.batch();
+        let writes=0,already=0;
+        legacyByKey.forEach(function(candidate,key){
+          const found=existingByKey.get(key);
+          const ref=found?db.collection('equipmentRoster').doc(found.docId):db.collection('equipmentRoster').doc(encodeURIComponent((candidate.railroad+'_'+candidate.type+'_'+candidate.id).toLowerCase()).replace(/%/g,'_').slice(0,180));
+          const current=found?found.data:{};
+          const patch={railroad:candidate.railroad,type:candidate.type,id:candidate.id,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid};
+          if(!String(current.name||'').trim()&&candidate.name)patch.name=candidate.name;
+          if(candidate.forceIcon&&candidate.iconUrl)patch.iconUrl=candidate.iconUrl;
+          else if(!String(current.iconUrl||'').trim()&&candidate.iconUrl)patch.iconUrl=candidate.iconUrl;
+          if(found&&!patch.name&&!patch.iconUrl){already++;return;}
+          batch.set(ref,patch,{merge:true});writes++;
+        });
+        if(writes)await batch.commit();
+        await loadAdminEquipmentRoster();
+        if(status)status.textContent='Import complete: '+writes+' record(s) added or updated; '+already+' existing record(s) already current. Legacy data was preserved.';
+        showNotification('Legacy equipment imported into the unified roster.');
+        try{await logUserAction('admin_migrate_equipment','Imported '+writes+' legacy equipment record(s) into equipmentRoster.');}catch(_){}
+      }catch(e){
+        console.error('[admin] legacy equipment migration failed',e);
+        if(status)status.textContent='Import failed: '+((e&&e.message)||e)+'. No legacy records were deleted.';
+        setAdminError((e&&e.message)||String(e));
+      }finally{if(button)button.disabled=false;}
+    }
     async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{await loadAdminMasterLocomotives();const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];snap.forEach(doc=>{const d=doc.data()||{};if(d.active!==false)adminEquipmentRows.push(Object.assign({docId:doc.id},d));});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
     async function saveAdminEquipment(){const user=currentUser||(auth&&auth.currentUser);if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}if(!db){setAdminError('Firestore unavailable.');return;}const val=id=>String((document.getElementById(id)||{}).value||'').trim(),type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),iconUrl=val('admin-equipment-icon-select')||null;if(!ADMIN_EQUIPMENT_TYPES[type]){setAdminError('Choose an equipment type.');return;}if(!railroad||railroad.length>80){setAdminError('Railroad / agency is required (80 characters max).');return;}if(!id||id.length>80){setAdminError('Equipment ID is required (80 characters max).');return;}if(name.length>160){setAdminError('Name / description must be 160 characters or fewer.');return;}const sec=document.getElementById('admin-equipment-editor'),editing=sec&&sec.getAttribute('data-edit-id'),legacySpecial=sec&&sec.getAttribute('data-legacy-special')==='true',docId=editing||encodeURIComponent((railroad+'_'+type+'_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180);try{await db.collection('equipmentRoster').doc(docId).set({type,railroad,id,name,iconUrl,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});if(legacySpecial&&railroad.toLowerCase()==='mbta'){await db.collection('specialUnits').doc(specialUnitDocId('mbta',id)).set({agency:'mbta',id,name:name||('MBTA '+id),iconUrl:iconUrl||null,locoType:(typeof window.rrMbtaLocoByNumber==='function'&&window.rrMbtaLocoByNumber(id)&&window.rrMbtaLocoByNumber(id).type)||null,builtin:false,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByEmail:user.email||null,updatedByUid:user.uid},{merge:true});if(typeof window.loadSpecialUnitsFromFirestore==='function')await window.loadSpecialUnitsFromFirestore();if(typeof window.populateReportUnitSelect==='function'){try{window.populateReportUnitSelect();}catch(_){}}}await loadAdminEquipmentRoster();const editor=document.getElementById('admin-equipment-editor');if(editor){editor.open=false;editor.classList.remove('is-popup');editor.removeAttribute('data-edit-id');editor.removeAttribute('data-legacy-special');}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=true;clearAdminEquipmentForm();showNotification('Equipment saved: '+railroad+' '+id);try{await logUserAction('admin_save_equipment','Saved '+type+' '+railroad+' '+id);}catch(_){}}catch(e){console.error('[admin] equipment save failed',e);setAdminError((e&&e.message)||String(e));}}
     async function deleteAdminEquipment(docId){if(!docId||!db||!isAdminUser(currentUser||(auth&&auth.currentUser)))return;const row=adminEquipmentRows.find(x=>x.docId===docId);if(!window.confirm('Delete '+(row?((row.railroad||'')+' '+(row.id||'')):'this equipment entry')+'?'))return;try{await db.collection('equipmentRoster').doc(docId).delete();await loadAdminEquipmentRoster();showNotification('Equipment entry deleted.');try{await logUserAction('admin_delete_equipment','Deleted equipment entry '+docId);}catch(_){}}catch(e){setAdminError((e&&e.message)||String(e));}}
@@ -3644,7 +3692,7 @@
         const del = e.target.closest('[data-master-loco-delete]');
         if (del) deleteAdminMasterLocomotive(del.getAttribute('data-master-loco-delete'));
       });
-      const eqFilter=document.getElementById('admin-equipment-railroad-filter');if(eqFilter)eqFilter.addEventListener('change',renderAdminEquipmentRoster);const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
+      const eqMigrate=document.getElementById('admin-equipment-migrate-legacy');if(eqMigrate)eqMigrate.addEventListener('click',migrateLegacyEquipmentRecords);const eqFilter=document.getElementById('admin-equipment-railroad-filter');if(eqFilter)eqFilter.addEventListener('change',renderAdminEquipmentRoster);const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
       if(eqRefresh)eqRefresh.addEventListener('click',loadAdminEquipmentRoster);if(eqSave)eqSave.addEventListener('click',saveAdminEquipment);if(eqClear)eqClear.addEventListener('click',clearAdminEquipmentForm);
       if(eqUpload)eqUpload.addEventListener('click',function(){adminUploadSpecialIcon({mode:'equipment',fileInputId:'admin-equipment-icon-file',buttonId:'admin-equipment-icon-upload',statusId:'admin-equipment-icon-upload-status'});});
       if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);const eqPopupClose=document.getElementById('admin-equipment-popup-close');if(eqPopupClose)eqPopupClose.addEventListener('click',function(){const ed=document.getElementById('admin-equipment-editor');if(ed){ed.open=false;ed.classList.remove('is-popup');ed.removeAttribute('data-edit-id');}eqPopupClose.hidden=true;clearAdminEquipmentForm();});if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));return;}const mbtaEdit=e.target.closest('[data-mbta-icon-edit]');if(mbtaEdit){const id=mbtaEdit.getAttribute('data-mbta-icon-edit'),row=(adminMasterLocoRows||[]).find(x=>String(x.number)===id),name=(row&&(row.paint||row.type))||('MBTA '+id),icon=typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(id):'';const set=(field,value)=>{const el=document.getElementById(field);if(el)el.value=value||'';};set('admin-equipment-type','locomotive');set('admin-equipment-railroad','MBTA');set('admin-equipment-id',id);set('admin-equipment-name',name);adminEquipmentPopulateIconChoices(icon);adminEquipmentIconPreview();const editor=document.getElementById('admin-equipment-editor');if(editor){editor.setAttribute('data-edit-id',encodeURIComponent(('MBTA_locomotive_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180));editor.setAttribute('data-legacy-special','true');editor.classList.add('is-popup');editor.open=true;}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=false;const save=document.getElementById('admin-equipment-save');if(save)save.textContent='Save Changes';return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
