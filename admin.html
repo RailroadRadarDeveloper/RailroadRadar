@@ -1313,14 +1313,25 @@
       err.textContent = msg;
       err.classList.add('visible');
     }
-    function switchAdminTab(tab) {
-      adminActiveTab = tab || 'reports';
+    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'trips', 'survey'];
+    function adminTabFromUrl(fallback) {
+      const params = new URLSearchParams(window.location.search);
+      const requested = String(params.get('section') || '').toLowerCase();
+      return ADMIN_TAB_KEYS.indexOf(requested) !== -1 ? requested : (fallback || 'reports');
+    }
+    function switchAdminTab(tab, options) {
+      options = options || {};
+      adminActiveTab = ADMIN_TAB_KEYS.indexOf(tab) !== -1 ? tab : 'reports';
       document.querySelectorAll('.rr-admin-tab').forEach(function(btn) {
         btn.classList.toggle('active', btn.getAttribute('data-admin-tab') === adminActiveTab);
       });
       document.querySelectorAll('.rr-admin-pane').forEach(function(pane) {
         pane.classList.toggle('active', pane.getAttribute('data-admin-pane') === adminActiveTab);
       });
+      const url = new URL(window.location.href);
+      url.searchParams.set('section', adminActiveTab);
+      if (options.replace) window.history.replaceState({ adminSection: adminActiveTab }, '', url.pathname + url.search + url.hash);
+      else if (!options.fromPopState) window.history.pushState({ adminSection: adminActiveTab }, '', url.pathname + url.search + url.hash);
     }
     async function loadAdminTab(tab) {
       const user = currentUser || (auth && auth.currentUser);
@@ -3523,6 +3534,13 @@
           await loadAdminTab(tab);
         });
       });
+      window.addEventListener('popstate', async function() {
+        const tab = adminTabFromUrl('reports');
+        const btn = document.querySelector('.rr-admin-tab[data-admin-tab="' + tab + '"]');
+        if (!btn || btn.style.display === 'none') return;
+        switchAdminTab(tab, { fromPopState: true });
+        await loadAdminTab(tab);
+      });
       const reportsRefresh = document.getElementById('admin-reports-refresh');
       const reportsSearch = document.getElementById('admin-reports-search');
       const bansRefresh = document.getElementById('admin-bans-refresh');
@@ -4031,8 +4049,11 @@
       if (tabAccounts) tabAccounts.style.display = '';
       if (tabTrips) tabTrips.style.display = '';
       let first = perms.viewReports ? 'reports' : (perms.banUsers ? 'bans' : (perms.manageAdmins ? 'admins' : 'roster'));
-      switchAdminTab(first);
-      await loadAdminTab(first);
+      const requested = adminTabFromUrl(first);
+      const requestedButton = document.querySelector('.rr-admin-tab[data-admin-tab="' + requested + '"]');
+      const initialTab = requestedButton && requestedButton.style.display !== 'none' ? requested : first;
+      switchAdminTab(initialTab, { replace: true });
+      await loadAdminTab(initialTab);
     }
     function closeAdminDashboard() { window.location.href = '/map/'; }
     function showGate(which) {
