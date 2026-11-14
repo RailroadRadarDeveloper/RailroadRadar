@@ -189,18 +189,20 @@
       ].filter(Boolean);
       targets.forEach(function(target) {
         var host = target.parentNode || target;
-        var mark = host.querySelector('.rr-global-verified-badge');
+        // The map/admin header already owns an account badge. Reuse it instead
+        // of appending a second checkmark beside the account name.
+        var mark = document.getElementById('header-admin-badge') || host.querySelector('.rr-global-verified-badge');
         if (!mark) {
           mark = document.createElement('img');
           mark.className = 'rr-global-verified-badge';
           mark.src = '/assets/admin-badge.png';
-          mark.alt = 'Verified reporter';
-          mark.title = 'Verified reporter';
           mark.width = 13; mark.height = 13;
-          mark.classList.add('verified-badge-icon', 'is-visible');
           mark.style.cssText = 'display:none;vertical-align:middle;margin-left:5px;width:13px;height:13px;';
           host.appendChild(mark);
         }
+        mark.alt = 'Verified reporter';
+        mark.title = 'Verified reporter';
+        mark.classList.add('verified-badge-icon', 'is-visible');
         mark.style.display = 'inline-block';
       });
       var homeMark = document.querySelector('.home-user-badge');
@@ -253,17 +255,21 @@
           var adminMarkTargets = [document.getElementById('header-account-name-text')].filter(Boolean);
           adminMarkTargets.forEach(function(target) {
             var host = target.parentNode || target;
-            var mark = host.querySelector('.rr-global-verified-badge');
+            // Reuse the page's built-in admin/verified badge when present.
+            var mark = document.getElementById('header-admin-badge') || host.querySelector('.rr-global-verified-badge');
             if (!mark) {
               mark = document.createElement('img');
               mark.className = 'rr-global-verified-badge';
               mark.src = '/assets/admin-badge.png';
-              mark.alt = 'Admin';
-              mark.title = 'Admin';
               mark.width = 15; mark.height = 15;
               mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:5px;width:15px;height:15px;';
               host.appendChild(mark);
-            } else { mark.alt = 'Admin'; mark.title = 'Admin'; mark.style.display = 'inline-block'; }
+            }
+            mark.alt = 'Admin';
+            mark.title = 'Admin';
+            mark.classList.remove('verified-badge-icon');
+            mark.classList.add('is-visible');
+            mark.style.display = 'inline-block';
           });
           var homeBadge = document.querySelector('.home-user-badge');
           if (homeBadge) homeBadge.hidden = true;
