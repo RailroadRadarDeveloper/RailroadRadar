@@ -386,7 +386,7 @@ service cloud.firestore {
           'reportedByLabel', 'reportedByDisplayMode', 'reportedByVerified', 'createdAt',
           'status', 'facility', 'location', 'reason', 'fromLocation', 'toLocation',
           'departureAt', 'arrivalAt', 'equipment', 'notes'])
-        && d.agency == 'mbta'
+        && d.agency in ['mbta', 'amtrak']
         && d.reportType in ['facility', 'shopped', 'special_move']
         && yardLocomotivesOk(d.locomotives)
         && d.reportedByUid == request.auth.uid
@@ -397,16 +397,17 @@ service cloud.firestore {
         && d.createdAt == request.time
         && d.status == 'pending'
         && (d.reportType == 'facility'
-          ? (d.facility in ['MBTA Rochester Maintenance Facility', 'Boston Engine Terminal']
+          ? (((d.agency == 'mbta' && d.facility in ['MBTA Rochester Maintenance Facility', 'Boston Engine Terminal'])
+              || (d.agency == 'amtrak' && d.facility == 'Southampton Street Yard'))
              && d.reason is string && d.reason.size() >= 1 && d.reason.size() <= 500)
-          : d.reportType == 'shopped'
+          : d.agency == 'mbta' && (d.reportType == 'shopped'
             ? (d.location is string && d.location.size() >= 1 && d.location.size() <= 160
                && d.reason is string && d.reason.size() >= 1 && d.reason.size() <= 500)
             : (d.fromLocation is string && d.fromLocation.size() >= 1 && d.fromLocation.size() <= 160
                && d.toLocation is string && d.toLocation.size() >= 1 && d.toLocation.size() <= 160
                && d.departureAt is timestamp && d.arrivalAt is timestamp && d.arrivalAt > d.departureAt
                && d.equipment is string && d.equipment.size() >= 1 && d.equipment.size() <= 500
-               && d.notes is string && d.notes.size() <= 1000));
+               && d.notes is string && d.notes.size() <= 1000)));
     }
 
     match /pendingYardReports/{id} {
