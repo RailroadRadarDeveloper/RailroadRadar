@@ -2348,7 +2348,7 @@ async function handleSpecialIconUpload(request, env) {
   }
   if (request.method !== 'POST') return reply(405, { ok: false, error: 'POST only.' });
 
-  const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\\s+/i, '');
+  const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const claims = await verifyFirebaseIdToken(idToken).catch(() => null);
   if (!claims) return reply(401, { ok: false, error: 'Sign in again.' });
   if (!(await isIconUploadAdmin(idToken, claims))) return reply(403, { ok: false, error: 'Admin permission required.' });
@@ -2369,7 +2369,7 @@ async function handleSpecialIconUpload(request, env) {
     return reply(400, { ok: false, error: 'File is not a valid PNG within the 1.5 MB limit.' });
   }
   const stem = String(body && body.name || 'special-icon').toLowerCase()
-    .replace(/\\.png$/i, '').replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-')
+    .replace(/\.png$/i, '').replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-')
     .replace(/^-|-$/g, '').slice(0, 48) || 'special-icon';
   const suffix = crypto.randomUUID().slice(0, 8);
   const filename = stem + '-' + suffix + '.png';
