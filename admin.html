@@ -740,118 +740,40 @@
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-roster" data-admin-pane="roster">
-          <div class="rr-lightbox-section" id="admin-equipment-roster-section">
-<h3>Equipment Roster</h3><p class="rr-modal-hint">Manage locomotives, passenger and freight cars, cab cars, DMUs, EMUs, trainsets, maintenance equipment, and other rail vehicles. Locomotive map overrides remain available below.</p>
-<label for="admin-equipment-type">Equipment Type</label><select id="admin-equipment-type"><option value="locomotive">Locomotive</option><option value="passenger_car">Passenger Car / Coach</option><option value="cab_car">Cab Car</option><option value="freight_car">Freight Car</option><option value="dmu">DMU</option><option value="emu">EMU</option><option value="trainset">Trainset</option><option value="maintenance">Maintenance of Way</option><option value="other">Other Equipment</option></select>
-<label for="admin-equipment-railroad">Railroad / Agency</label><input type="text" id="admin-equipment-railroad" placeholder="e.g. MBTA, Amtrak, Metro-North, CSX" autocomplete="off">
-<label for="admin-equipment-id">Equipment ID / Number</label><input type="text" id="admin-equipment-id" placeholder="e.g. 1030, 6100, 90215" autocomplete="off">
-<label for="admin-equipment-name">Name / Description</label><input type="text" id="admin-equipment-name" placeholder="e.g. Kawasaki bi-level coach, Heritage baggage car" autocomplete="off">
-<label for="admin-equipment-icon-select">Choose an Existing Icon</label><select id="admin-equipment-icon-select"><option value="">No icon</option></select>
-<img id="admin-equipment-icon-preview" alt="Equipment icon preview" width="48" height="48" hidden style="display:none;width:48px;height:48px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
-<label for="admin-equipment-icon-file">Or Upload a New PNG Icon</label><div class="rr-admin-toolbar" style="align-items:center;"><input type="file" id="admin-equipment-icon-file" accept="image/png,.png" style="min-width:0;flex:1;"><button type="button" class="rr-btn secondary" id="admin-equipment-icon-upload">Upload PNG</button></div>
-<p class="rr-modal-hint" id="admin-equipment-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload opens a GitHub pull request; merge it before the icon is publicly available.</p>
-<div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-equipment-save">Add Equipment</button><button type="button" class="rr-btn secondary" id="admin-equipment-clear">Clear Form</button><button type="button" class="rr-btn secondary" id="admin-equipment-refresh">Refresh</button></div>
-<p class="rr-modal-hint" id="admin-equipment-status" role="status" aria-live="polite"></p><div id="admin-equipment-groups" class="rr-admin-equipment-groups" style="margin-top:12px;"><p class="rr-admin-empty">Loading equipment…</p></div>
-<details class="rr-admin-legacy-roster" style="margin-top:14px;"><summary>MBTA locomotive roster maintenance</summary>
-<div class="rr-lightbox-section">
-            <h3>MBTA Locomotive Roster</h3>
-            <p class="rr-modal-hint">Add, edit, or remove locomotives from the main MBTA roster. Changes sync to map lookups, autocomplete, and the roster page for everyone.</p>
-            <label for="admin-master-loco-number">Locomotive Number</label>
-            <input type="text" id="admin-master-loco-number" placeholder="e.g. 1030" autocomplete="off">
-            <label for="admin-master-loco-type">Locomotive Type</label>
-            <input type="text" id="admin-master-loco-type" placeholder="e.g. F40PH-3C" autocomplete="off">
-            <label for="admin-master-loco-paint">Paint / Notes (Optional)</label>
-            <input type="text" id="admin-master-loco-paint" placeholder="e.g. Boston &amp; Maine Minuteman paint" autocomplete="off">
-            <div class="rr-lightbox-actions" style="margin-top:10px;">
-              <button type="button" class="rr-btn" id="admin-master-loco-save">Add / Update Locomotive</button>
-              <button type="button" class="rr-btn secondary" id="admin-master-loco-clear">Clear</button>
-              <button type="button" class="rr-btn secondary" id="admin-master-loco-refresh">Refresh</button>
-            </div>
-            <div class="rr-admin-table-wrap" style="margin-top:12px;">
-              <table class="rr-admin-table">
-                <thead><tr><th>Number</th><th>Type</th><th>Paint / Notes</th><th>Source</th><th></th></tr></thead>
-                <tbody id="admin-master-loco-tbody"></tbody>
-              </table>
-            </div>
-            <p class="rr-modal-hint" id="admin-master-loco-status"></p>
-          </div>
-</details>
+  <div class="rr-lightbox-section">
+    <h3>Equipment Roster</h3><p class="rr-modal-hint">Select a railroad to view its equipment and edit locomotive icons.</p>
+    <label for="admin-equipment-railroad-filter">Railroad / Agency</label><select id="admin-equipment-railroad-filter"><option value="">Select a railroad…</option></select>
+    <p class="rr-modal-hint" id="admin-equipment-status" role="status" aria-live="polite">Loading equipment roster…</p>
+    <div id="admin-equipment-groups" style="margin-top:12px;"><p class="rr-admin-empty">Select a railroad to view its roster.</p></div>
+  </div>
+  <details class="rr-lightbox-section" id="admin-equipment-editor"><summary><strong>Add / Edit Equipment</strong></summary>
+    <p class="rr-modal-hint">Add equipment or update its details and icon.</p>
+    <label for="admin-equipment-type">Equipment Type</label><select id="admin-equipment-type"><option value="locomotive">Locomotive</option><option value="passenger_car">Passenger Car / Coach</option><option value="cab_car">Cab Car</option><option value="freight_car">Freight Car</option><option value="dmu">DMU</option><option value="emu">EMU</option><option value="trainset">Trainset</option><option value="maintenance">Maintenance of Way</option><option value="other">Other Equipment</option></select>
+    <label for="admin-equipment-railroad">Railroad / Agency</label><input type="text" id="admin-equipment-railroad" placeholder="e.g. MBTA, Amtrak, Metro-North, CSX" autocomplete="off">
+    <label for="admin-equipment-id">Equipment ID / Number</label><input type="text" id="admin-equipment-id" placeholder="e.g. 1030, 6100, 90215" autocomplete="off">
+    <label for="admin-equipment-name">Name / Description</label><input type="text" id="admin-equipment-name" placeholder="e.g. F40PH-3C, Kawasaki coach" autocomplete="off">
+    <label for="admin-equipment-icon-select">Icon</label><select id="admin-equipment-icon-select"><option value="">No icon</option></select>
+    <img id="admin-equipment-icon-preview" alt="Equipment icon preview" width="48" height="48" hidden style="display:none;width:48px;height:48px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
+    <label for="admin-equipment-icon-file">Or Upload a New PNG Icon</label><div class="rr-admin-toolbar" style="align-items:center;"><input type="file" id="admin-equipment-icon-file" accept="image/png,.png" style="min-width:0;flex:1;"><button type="button" class="rr-btn secondary" id="admin-equipment-icon-upload">Upload PNG</button></div>
+    <p class="rr-modal-hint" id="admin-equipment-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload opens a GitHub pull request; merge it before the icon is publicly available.</p>
+    <div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-equipment-save">Add Equipment</button><button type="button" class="rr-btn secondary" id="admin-equipment-clear">Clear Form</button><button type="button" class="rr-btn secondary" id="admin-equipment-refresh">Refresh Roster</button></div>
+    <details style="margin-top:14px;"><summary><strong>MBTA master locomotive roster maintenance</strong></summary><p class="rr-modal-hint">Manage the MBTA master locomotive list. Edit its map icon from the selected railroad roster above.</p>
+      <label for="admin-master-loco-number">Locomotive Number</label><input type="text" id="admin-master-loco-number" placeholder="e.g. 1030" autocomplete="off"><label for="admin-master-loco-type">Locomotive Type</label><input type="text" id="admin-master-loco-type" placeholder="e.g. F40PH-3C" autocomplete="off"><label for="admin-master-loco-paint">Paint / Notes (Optional)</label><input type="text" id="admin-master-loco-paint" placeholder="e.g. Boston &amp; Maine Minuteman paint" autocomplete="off">
+      <div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-master-loco-save">Add / Update Locomotive</button><button type="button" class="rr-btn secondary" id="admin-master-loco-clear">Clear</button><button type="button" class="rr-btn secondary" id="admin-master-loco-refresh">Refresh</button></div>
+      <div class="rr-admin-table-wrap" style="margin-top:12px;"><table class="rr-admin-table"><thead><tr><th>Number</th><th>Type</th><th>Paint / Notes</th><th>Source</th><th></th></tr></thead><tbody id="admin-master-loco-tbody"></tbody></table></div><p class="rr-modal-hint" id="admin-master-loco-status"></p>
+    </details>
+  </details>
+  <details class="rr-lightbox-section" id="admin-legacy-overrides"><summary><strong>Advanced legacy locomotive icon overrides</strong></summary><p class="rr-modal-hint">Compatibility tools for older special-locomotive records. Use the main roster above for normal editing.</p>
+    <label for="admin-roster-agency">Agency</label><select id="admin-roster-agency"><option value="mbta">MBTA</option><option value="amtrak">Amtrak</option><option value="mnr">Metro-North</option><option value="lirr">LIRR</option><option value="njt">NJ Transit</option><option value="ctrail">CTrail</option><option value="marc">MARC</option></select>
+    <label for="admin-roster-id">Loco / Unit ID</label><div class="rr-roster-combo" id="admin-roster-combo"><input type="text" id="admin-roster-id" placeholder="e.g. 1030 or RSTX" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="admin-roster-suggest" aria-haspopup="listbox"><ul class="rr-roster-suggest" id="admin-roster-suggest" role="listbox" hidden></ul></div>
+    <label for="admin-roster-name">Name</label><input type="text" id="admin-roster-name" placeholder="Paint or Feature" autocomplete="off"><label for="admin-roster-icon-select">Icon</label><select id="admin-roster-icon-select"><option value="">Automatic from Roster</option><option value="/assets/hsp46.png">HSP46</option><option value="/assets/f40ph.png">F40PH</option><option value="/assets/gp40mc.png">GP40MC</option><option value="/assets/mbta-1030.png">MBTA 1030</option><option value="/assets/mbta-1036.png">MBTA 1036</option><option value="/assets/mbta-1071.png">MBTA 1071</option><option value="/assets/mbta-1072.png">MBTA 1072</option><option value="/assets/mbta-1129.png">MBTA 1129</option><option value="/assets/mbta-1130.png">MBTA 1130</option><option value="/assets/mbta-1776.png">MBTA 1776</option><option value="/assets/mbta-massdot.png">MassDOT Blue</option></select>
+    <label for="admin-roster-icon">Icon URL (Optional)</label><input type="text" id="admin-roster-icon" placeholder="/assets/… or https://…" autocomplete="off"><img id="admin-roster-icon-preview" alt="Icon Preview" width="44" height="44" hidden style="display:none;width:44px;height:44px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
+    <label for="admin-roster-icon-file">Upload a PNG icon to GitHub</label><div class="rr-admin-toolbar" style="align-items:center;"><input type="file" id="admin-roster-icon-file" accept="image/png,.png" style="min-width:0;flex:1;"><button type="button" class="rr-btn secondary" id="admin-roster-icon-upload">Upload PNG</button></div><p class="rr-modal-hint" id="admin-roster-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload creates a GitHub pull request; merge it before the image is publicly available.</p>
+    <div class="rr-lightbox-actions"><button type="button" class="rr-btn" id="admin-roster-submit">Add / Update</button><button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear Form</button><button type="button" class="rr-btn secondary" id="admin-roster-refresh">Refresh Legacy Records</button></div>
+    <h3 style="margin-top:18px;">Saved legacy overrides</h3><div class="rr-admin-table-wrap"><table class="rr-admin-table" id="admin-roster-table"><thead><tr><th>Agency</th><th>ID</th><th>Name</th><th>Icon</th><th>Source</th><th></th></tr></thead><tbody id="admin-roster-tbody"></tbody></table></div><p class="rr-modal-hint" id="admin-roster-status"></p>
+  </details>
 </div>
-          <h3>Locomotive-specific Map Overrides</h3>
-            <label for="admin-roster-agency">Agency</label>
-            <select id="admin-roster-agency">
-              <option value="mbta">MBTA</option>
-              <option value="amtrak">Amtrak</option>
-              <option value="mnr">Metro-North</option>
-              <option value="lirr">LIRR</option>
-              <option value="njt">NJ Transit</option>
-              <option value="ctrail">CTrail</option>
-              <option value="marc">MARC</option>
-              <option value="ctrail">CTrail</option>
-              <option value="marc">MARC</option>
-            </select>
-            <label for="admin-roster-id">Loco / Unit ID</label>
-            <div class="rr-roster-combo" id="admin-roster-combo">
-              <input type="text" id="admin-roster-id" placeholder="e.g. 1030 or RSTX" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="admin-roster-suggest" aria-haspopup="listbox">
-              <ul class="rr-roster-suggest" id="admin-roster-suggest" role="listbox" hidden></ul>
-            </div>
-            <label for="admin-roster-name">Name</label>
-            <input type="text" id="admin-roster-name" placeholder="Paint or Feature" autocomplete="off">
-            <label for="admin-roster-icon-select">Icon</label>
-            <select id="admin-roster-icon-select">
-              <option value="">Automatic from Roster</option>
-              <option value="/assets/hsp46.png">HSP46</option>
-              <option value="/assets/f40ph.png">F40PH</option>
-              <option value="/assets/gp40mc.png">GP40MC</option>
-              <option value="/assets/mbta-1030.png">MBTA 1030</option>
-              <option value="/assets/mbta-1036.png">MBTA 1036</option>
-              <option value="/assets/mbta-1071.png">MBTA 1071</option>
-              <option value="/assets/mbta-1072.png">MBTA 1072</option>
-              <option value="/assets/mbta-1129.png">MBTA 1129</option>
-              <option value="/assets/mbta-1130.png">MBTA 1130</option>
-              <option value="/assets/mbta-1776.png">MBTA 1776</option>
-              <option value="/assets/mbta-massdot.png">MassDOT Blue</option>
-            </select>
-            <label for="admin-roster-icon">Icon URL (Optional)</label>
-            <input type="text" id="admin-roster-icon" placeholder="/assets/… or https://…" autocomplete="off">
-            <img id="admin-roster-icon-preview" alt="Icon Preview" width="44" height="44" hidden style="display:none;width:44px;height:44px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
-            <label for="admin-roster-icon-file">Upload a PNG icon to GitHub</label>
-            <div class="rr-admin-toolbar" style="align-items:center;">
-              <input type="file" id="admin-roster-icon-file" accept="image/png,.png" style="min-width:0;flex:1;">
-              <button type="button" class="rr-btn secondary" id="admin-roster-icon-upload">Upload PNG</button>
-            </div>
-            <p class="rr-modal-hint" id="admin-roster-icon-upload-status" role="status" aria-live="polite">PNG only, maximum 1.5 MB. Upload creates a GitHub pull request; merge it before the image is publicly available.</p>
-            <p class="rr-modal-hint">Typing an MBTA number lists matching roster locomotives. The type and icon come from that roster. Change the icon to override. A saved locomotive replaces the roster for that number.</p>
-            <div class="rr-lightbox-actions" style="margin-top:10px;">
-              <button type="button" class="rr-btn" id="admin-roster-submit">Add / Update</button>
-              <button type="button" class="rr-btn secondary" id="admin-roster-clear">Clear Form</button>
-            </div>
-          </div>
-          <div class="rr-lightbox-section">
-            <h3>Legacy Special Locomotive Overrides</h3>
-            <div class="rr-admin-toolbar">
-              <button type="button" class="rr-btn secondary" id="admin-roster-refresh">Refresh</button>
-            </div>
-            <div class="rr-admin-table-wrap">
-              <table class="rr-admin-table" id="admin-roster-table">
-                <thead>
-                  <tr>
-                    <th>Agency</th>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Icon</th>
-                    <th>Source</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="admin-roster-tbody"></tbody>
-              </table>
-            </div>
-            <p class="rr-modal-hint" id="admin-roster-status"></p>
-          </div>
-        </div>
-
-        <div class="rr-admin-pane" id="admin-pane-verified" data-admin-pane="verified">
+<div class="rr-admin-pane" id="admin-pane-verified" data-admin-pane="verified">
           <div class="rr-lightbox-section">
             <h3>Mark Verified Reporter</h3>
             <label for="admin-verified-email">Email</label>
@@ -2566,27 +2488,18 @@
     function adminEquipmentIconPreview(){const img=document.getElementById('admin-equipment-icon-preview'),sel=document.getElementById('admin-equipment-icon-select'),u=String((sel&&sel.value)||'').trim();if(!img)return;if(!u){img.hidden=true;img.style.display='none';img.removeAttribute('src');return;}img.hidden=false;img.style.display='block';img.src=u;}
     function clearAdminEquipmentForm(){['admin-equipment-railroad','admin-equipment-id','admin-equipment-name'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const t=document.getElementById('admin-equipment-type');if(t)t.value='locomotive';const f=document.getElementById('admin-equipment-icon-file');if(f)f.value='';const s=document.getElementById('admin-equipment-icon-upload-status');if(s){s.textContent='PNG only, maximum 1.5 MB. Upload opens a GitHub pull request; merge it before the icon is publicly available.';s.style.color='';}adminEquipmentPopulateIconChoices('');adminEquipmentIconPreview();const b=document.getElementById('admin-equipment-save');if(b)b.textContent='Add Equipment';const sec=document.getElementById('admin-equipment-roster-section');if(sec)sec.removeAttribute('data-edit-id');}
     function renderAdminEquipmentRoster(){
-      const root=document.getElementById('admin-equipment-groups'),status=document.getElementById('admin-equipment-status');
+      const root=document.getElementById('admin-equipment-groups'),status=document.getElementById('admin-equipment-status'),filter=document.getElementById('admin-equipment-railroad-filter');
       if(!root)return;
-      const displayRows=adminEquipmentRows.slice();
-      const seen=new Set(displayRows.map(x=>String(x.railroad||'').trim().toLowerCase()+'|'+String(x.type||'').toLowerCase()+'|'+String(x.id||'').trim().toLowerCase()));
-      (adminMasterLocoRows||[]).forEach(function(row){
-        const id=String(row.number||'').trim();
-        if(!id)return;
-        const key='mbta|locomotive|'+id.toLowerCase();
-        if(seen.has(key))return;
-        const icon=(typeof window.rrMbtaLocoIconFor==='function')?window.rrMbtaLocoIconFor(id):'';
-        displayRows.push({docId:'',railroad:'MBTA',type:'locomotive',id:id,name:row.paint||row.type||'',iconUrl:icon||'',_legacyMbta:true});
-        seen.add(key);
-      });
-      const groups=new Map();
-      displayRows.forEach(x=>{const name=String(x.railroad||'Other / Unspecified').trim()||'Other / Unspecified';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(x);});
-      const names=Array.from(groups.keys()).sort((a,b)=>a.localeCompare(b));
-      root.innerHTML=names.length?names.map(name=>{
-        const rows=groups.get(name).slice().sort((a,b)=>String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));
-        return '<details class="rr-admin-equipment-group"><summary><strong>'+escapeHtmlLite(name)+'</strong><span class="rr-modal-hint" style="margin-left:8px;">'+rows.length+' item'+(rows.length===1?'':'s')+'</span></summary><div class="rr-admin-table-wrap" style="margin-top:8px;"><table class="rr-admin-table"><thead><tr><th>Type</th><th>ID</th><th>Name / Description</th><th>Icon</th><th></th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[x.type]||x.type||'Other Equipment')+'</td><td><strong>'+escapeHtmlLite(x.id||'')+'</strong></td><td>'+escapeHtmlLite(x.name||'—')+'</td><td>'+(x.iconUrl?'<a href="'+escapeHtmlLite(x.iconUrl)+'" target="_blank" rel="noopener">View icon</a>':'—')+'</td><td style="white-space:nowrap;">'+(x.docId?'<button type="button" class="rr-btn secondary" data-equipment-edit="'+escapeHtmlLite(x.docId)+'">Edit</button> <button type="button" class="rr-btn danger secondary" data-equipment-delete="'+escapeHtmlLite(x.docId)+'">Delete</button>':(x._legacyMbta?'<span class="rr-modal-hint">Managed below</span>':'—'))+'</td></tr>').join('')+'</tbody></table></div></details>';
-      }).join(''):'<p class="rr-admin-empty">No equipment entries yet. Add the first one above.</p>';
-      if(status)status.textContent=displayRows.length+' equipment item(s) across '+names.length+' railroad / agency group(s)';
+      const displayRows=adminEquipmentRows.slice(),seen=new Set(displayRows.map(x=>String(x.railroad||'').trim().toLowerCase()+'|'+String(x.type||'').toLowerCase()+'|'+String(x.id||'').trim().toLowerCase()));
+      (adminMasterLocoRows||[]).forEach(row=>{const id=String(row.number||'').trim();if(!id)return;const key='mbta|locomotive|'+id.toLowerCase();if(seen.has(key))return;const icon=typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(id):'';displayRows.push({docId:'',railroad:'MBTA',type:'locomotive',id,name:row.paint||row.type||'',iconUrl:icon||'',_legacyMbta:true});seen.add(key);});
+      const names=Array.from(new Set(displayRows.map(x=>String(x.railroad||'Other / Unspecified').trim()||'Other / Unspecified'))).sort((a,b)=>a.localeCompare(b));
+      const prior=filter?filter.value:'';
+      if(filter){filter.innerHTML='<option value="">Select a railroad…</option>'+names.map(n=>'<option value="'+escapeHtmlLite(n)+'">'+escapeHtmlLite(n)+'</option>').join('');filter.value=names.includes(prior)?prior:'';}
+      const selected=filter?filter.value:'';
+      if(!selected){root.innerHTML='<p class="rr-admin-empty">Select a railroad to view its roster.</p>';if(status)status.textContent=names.length+' railroad / agency roster(s) available';adminEquipmentPopulateIconChoices();return;}
+      const rows=displayRows.filter(x=>(String(x.railroad||'Other / Unspecified').trim()||'Other / Unspecified')===selected).sort((a,b)=>String(a.type||'').localeCompare(String(b.type||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));
+      root.innerHTML=rows.length?'<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Type</th><th>Number</th><th>Name / Description</th><th>Icon</th><th>Actions</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[x.type]||x.type||'Other Equipment')+'</td><td><strong>'+escapeHtmlLite(x.id||'')+'</strong></td><td>'+escapeHtmlLite(x.name||'—')+'</td><td>'+(x.iconUrl?'<a href="'+escapeHtmlLite(x.iconUrl)+'" target="_blank" rel="noopener">View icon</a>':'No icon')+'</td><td style="white-space:nowrap;">'+(x.docId?'<button type="button" class="rr-btn secondary" data-equipment-edit="'+escapeHtmlLite(x.docId)+'">Edit icon / details</button> <button type="button" class="rr-btn danger secondary" data-equipment-delete="'+escapeHtmlLite(x.docId)+'">Delete</button>':(x._legacyMbta?'<button type="button" class="rr-btn secondary" data-mbta-icon-edit="'+escapeHtmlLite(x.id)+'">Edit icon</button>':'—'))+'</td></tr>').join('')+'</tbody></table></div>':'<p class="rr-admin-empty">No equipment listed for '+escapeHtmlLite(selected)+'.</p>';
+      if(status)status.textContent=rows.length+' item(s) for '+selected;
       adminEquipmentPopulateIconChoices();
     }
     async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{await loadAdminMasterLocomotives();const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];snap.forEach(doc=>{const d=doc.data()||{};if(d.active!==false)adminEquipmentRows.push(Object.assign({docId:doc.id},d));});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
@@ -3684,10 +3597,10 @@
         const del = e.target.closest('[data-master-loco-delete]');
         if (del) deleteAdminMasterLocomotive(del.getAttribute('data-master-loco-delete'));
       });
-      const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
+      const eqFilter=document.getElementById('admin-equipment-railroad-filter');if(eqFilter)eqFilter.addEventListener('change',renderAdminEquipmentRoster);const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
       if(eqRefresh)eqRefresh.addEventListener('click',loadAdminEquipmentRoster);if(eqSave)eqSave.addEventListener('click',saveAdminEquipment);if(eqClear)eqClear.addEventListener('click',clearAdminEquipmentForm);
       if(eqUpload)eqUpload.addEventListener('click',function(){adminUploadSpecialIcon({mode:'equipment',fileInputId:'admin-equipment-icon-file',buttonId:'admin-equipment-icon-upload',statusId:'admin-equipment-icon-upload-status'});});
-      if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
+      if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));const ed=document.getElementById('admin-equipment-editor');if(ed)ed.open=true;return;}const mbtaEdit=e.target.closest('[data-mbta-icon-edit]');if(mbtaEdit){const id=mbtaEdit.getAttribute('data-mbta-icon-edit'),row=(adminMasterLocoRows||[]).find(x=>String(x.number)===id),agency=document.getElementById('admin-roster-agency'),rid=document.getElementById('admin-roster-id'),nm=document.getElementById('admin-roster-name');if(agency)agency.value='mbta';if(rid)rid.value=id;if(nm)nm.value=(row&&(row.paint||row.type))||('MBTA '+id);const legacy=document.getElementById('admin-legacy-overrides');if(legacy)legacy.open=true;return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
       const rosterRefresh = document.getElementById('admin-roster-refresh');
       const rosterSubmit = document.getElementById('admin-roster-submit');
       const rosterClear = document.getElementById('admin-roster-clear');
