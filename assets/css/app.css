@@ -7458,8 +7458,8 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 }
 
 
-/* Make grouped-locomotive markers easier to see and keep their blue consist
-   label centered immediately below the locomotive icons. */
+/* Make grouped-locomotive markers easier to see without restoring the
+   intentionally hidden locomotive-number banner. */
 .leaflet-marker-icon.rr-multi-loco-marker-icon {
   max-width: none !important;
   max-height: none !important;
@@ -7476,21 +7476,5 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   height: 27px;
 }
 .rr-multi-loco-marker .rr-multi-loco-marker__units {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  width: max-content;
-  max-width: min(150px, 88vw);
-  margin: 2px auto 0;
-  padding: 2px 7px;
-  border-radius: 5px;
-  background: #07093e;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: center;
-  white-space: nowrap;
-  box-sizing: border-box;
+  display: none !important;
 }
