@@ -2284,22 +2284,23 @@
           });
           if (!response.ok) throw new Error('GitHub status HTTP ' + response.status);
           const pr = await response.json();
-          const link = status.querySelector('a');
-          const label = document.createElement('span');
+          let label = status.querySelector('[data-icon-pr-status]');
+          if (!label) {
+            label = document.createElement('span');
+            label.setAttribute('data-icon-pr-status', '1');
+            status.insertBefore(label, status.querySelector('a') || null);
+          }
           if (pr.merged) {
             label.textContent = ' Status: Merged — the icon is now eligible to publish.';
             label.style.color = '#0d6b3a';
-            status.insertBefore(label, link || null);
             return;
           }
           if (pr.state === 'closed') {
             label.textContent = ' Status: Closed without merging — this icon will not publish.';
             label.style.color = '#b3261e';
-            status.insertBefore(label, link || null);
             return;
           }
           label.textContent = ' Status: Open — awaiting merge. GitHub reports ' + (pr.draft ? 'Draft' : 'Ready for review') + '.';
-          status.insertBefore(label, link || null);
           if (attempts < maxAttempts) {
             window.setTimeout(refresh, 10000);
           } else {
@@ -2307,9 +2308,13 @@
           }
         } catch (error) {
           console.warn('[admin] icon pull request status check failed', error);
-          const message = document.createElement('span');
+          let message = status.querySelector('[data-icon-pr-status]');
+          if (!message) {
+            message = document.createElement('span');
+            message.setAttribute('data-icon-pr-status', '1');
+            status.insertBefore(message, status.querySelector('a') || null);
+          }
           message.textContent = ' Status: Unable to refresh from GitHub right now; the pull request link is available.';
-          status.insertBefore(message, status.querySelector('a') || null);
           if (attempts < maxAttempts) window.setTimeout(refresh, 15000);
         }
       }
