@@ -2383,17 +2383,35 @@ async function handleSpecialIconUpload(request, env) {
   };
   const githubFailure = async (response, action) => {
     let detail = '';
+    let rawBody = '';
     try {
-      const data = await response.clone().json();
-      if (typeof data.message === 'string') detail = data.message.slice(0, 300);
-      if (Array.isArray(data.errors) && data.errors.length) {
-        const errors = data.errors.map((item) => typeof item === 'string' ? item : item && item.message).filter(Boolean).join('; ');
-        if (errors) detail = (detail ? detail + ': ' : '') + errors.slice(0, 300);
+      rawBody = await response.clone().text();
+      if (rawBody) {
+        try {
+          const data = JSON.parse(rawBody);
+          if (typeof data.message === 'string') detail = data.message.slice(0, 300);
+          if (Array.isArray(data.errors) && data.errors.length) {
+            const errors = data.errors.map((item) => typeof item === 'string' ? item : item && item.message).filter(Boolean).join('; ');
+            if (errors) detail = (detail ? detail + ': ' : '') + errors.slice(0, 300);
+          }
+        } catch (_) {
+          detail = rawBody.replace(/[\r\n\t]+/g, ' ').slice(0, 240);
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+      detail = 'GitHub returned an unreadable response body';
+    }
+    const diagnostics = [
+      ['request', response.headers.get('x-github-request-id')],
+      ['accepted-permissions', response.headers.get('x-accepted-github-permissions')],
+      ['rate-limit-remaining', response.headers.get('x-ratelimit-remaining')],
+      ['www-authenticate', response.headers.get('www-authenticate')]
+    ].filter((entry) => entry[1]).map((entry) => entry[0] + '=' + entry[1]).join(', ');
     return reply(502, {
       ok: false,
-      error: action + ' (' + response.status + ')' + (detail ? ': ' + detail : '.')
+      error: action + ' (' + response.status + ')' +
+        (detail ? ': ' + detail : ': GitHub supplied no response message') +
+        (diagnostics ? ' [' + diagnostics + ']' : '')
     });
   };
   try {
