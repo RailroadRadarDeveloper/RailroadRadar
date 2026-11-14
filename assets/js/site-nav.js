@@ -184,6 +184,7 @@
       return p;
     }
     function addVerifiedMark() {
+      var badgeGap = location.pathname === '/admin.html' ? '2px' : '5px';
       var targets = [
         document.getElementById('header-account-name-text')
       ].filter(Boolean);
@@ -203,7 +204,7 @@
         mark.alt = 'Verified reporter';
         mark.title = 'Verified reporter';
         mark.classList.add('verified-badge-icon', 'is-visible');
-        mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:5px;width:13px;height:13px;flex:none;';
+        mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:' + badgeGap + ';width:13px;height:13px;flex:none;';
         if (target.nextElementSibling !== mark) target.insertAdjacentElement('afterend', mark);
       });
       var homeMark = document.querySelector('.home-user-badge');
@@ -253,6 +254,7 @@
           else adminButton.classList.remove('is-visible');
         }
         if (isAdmin) {
+          var badgeGap = location.pathname === '/admin.html' ? '2px' : '5px';
           var adminMarkTargets = [document.getElementById('header-account-name-text')].filter(Boolean);
           adminMarkTargets.forEach(function(target) {
             var host = target.parentNode || target;
@@ -270,7 +272,7 @@
             mark.title = 'Admin';
             mark.classList.remove('verified-badge-icon');
             mark.classList.add('is-visible');
-            mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:5px;width:15px;height:15px;flex:none;';
+            mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:' + badgeGap + ';width:15px;height:15px;flex:none;';
             if (target.nextElementSibling !== mark) target.insertAdjacentElement('afterend', mark);
           });
           var homeBadge = document.querySelector('.home-user-badge');
