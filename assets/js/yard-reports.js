@@ -128,8 +128,8 @@ async function loadPublic(){
 var adminRows=[];
 function addAdminQueue(){
  var status=document.getElementById('admin-pending-status');if(!status||document.getElementById('rr-admin-yard-pending'))return;
- var section=document.createElement('section');section.id='rr-admin-yard-pending';section.innerHTML='<h3 style="margin:18px 0 6px">Facility, Shopped &amp; Special-Move Reports</h3><p class="rr-modal-hint" id="rr-admin-yard-status">Loading pending reports…</p><div id="rr-admin-yard-list"></div>';status.insertAdjacentElement('afterend',section);
- section.addEventListener('click',function(ev){var yes=ev.target.closest('[data-yard-approve]'),no=ev.target.closest('[data-yard-reject]');if(yes)review(yes.dataset.yardApprove,true);if(no)review(no.dataset.yardReject,false);});
+ var section=document.createElement('section');section.id='rr-admin-yard-pending';section.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 6px"><h3 style="margin:0">Facility, Shopped &amp; Special-Move Reports</h3><button type="button" class="rr-btn secondary" id="rr-admin-yard-refresh">Refresh</button></div><p class="rr-modal-hint" id="rr-admin-yard-status">Loading pending reports…</p><div id="rr-admin-yard-list"></div>';status.insertAdjacentElement('afterend',section);
+ section.addEventListener('click',function(ev){var yes=ev.target.closest('[data-yard-approve]'),no=ev.target.closest('[data-yard-reject]'),refresh=ev.target.closest('#rr-admin-yard-refresh');if(yes)review(yes.dataset.yardApprove,true);if(no)review(no.dataset.yardReject,false);if(refresh)loadAdmin();});
  loadAdmin();
 }
 function desc(r){
@@ -159,7 +159,7 @@ async function removePairings(row){
  var f=firestore(),shopped=new Set((row.locomotives||[]).map(function(x){return String(x).trim();}).filter(Boolean));if(!shopped.size)return;
  var snap=await f.collection('trainReports').where('agency','==','mbta').get(),batch=f.batch(),changes=0;
  snap.docs.forEach(function(doc){
-  var d=doc.data()||{},locos=Array.isArray(d.locomotives)?d.locomotives.slice():[];
+  var d=doc.data()||{};if(d.serviceDate!=null&&d.serviceDate!=='')return;var locos=Array.isArray(d.locomotives)?d.locomotives.slice():[];
   if(!locos.length&&(d.locomotiveId||d.locomotiveId2))locos=[d.locomotiveId,d.locomotiveId2].filter(Boolean).map(function(id){return {locomotiveId:String(id),unitName:String(id),locoType:'',locoIconUrl:null};});
   var remaining=locos.filter(function(l){return !shopped.has(String((l&&l.locomotiveId)||'').trim());});
   if(remaining.length===locos.length)return;
@@ -171,6 +171,7 @@ async function removePairings(row){
 }
 async function review(id,approve){
  var row=adminRows.find(function(x){return x.id===id;}),f=firestore();if(!row||!f)return;
+ if(!approve&&!window.confirm('Reject this pending yard report?'))return;
  try{
   if(approve){var data=Object.assign({},row);delete data.id;delete data.status;data.approvedAt=firebase.firestore.FieldValue.serverTimestamp();data.approvedByUid=(auth()&&auth().currentUser&&auth().currentUser.uid)||null;
    await f.collection('yardReports').doc(id).set(data);
