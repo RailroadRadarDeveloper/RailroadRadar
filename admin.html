@@ -2543,21 +2543,28 @@
         const specialRows=typeof window.getSpecialUnitsRoster==='function'?(window.getSpecialUnitsRoster()||[]):[];
         const legacyByKey=new Map();
         const agencyNames={mbta:'MBTA',amtrak:'Amtrak',mnr:'Metro-North',lirr:'LIRR',njt:'NJ Transit'};
-        function addCandidate(railroad,type,id,name,iconUrl,source,forceIcon){
+        function addCandidate(railroad,type,id,name,iconUrl,source,forceIcon,locoType,paint){
           railroad=String(railroad||'').trim();id=String(id||'').trim();
           if(!railroad||!id)return;
           const key=railroad.toLowerCase()+'|'+String(type||'locomotive').toLowerCase()+'|'+id.toLowerCase();
           const prev=legacyByKey.get(key)||{};
-          legacyByKey.set(key,{railroad,type:type||'locomotive',id,name:name||prev.name||'',iconUrl:forceIcon&&iconUrl?iconUrl:(prev.iconUrl||iconUrl||''),forceIcon:!!(forceIcon&&iconUrl),source:(prev.source?prev.source+', ':'')+source});
+          legacyByKey.set(key,{railroad,type:type||'locomotive',id,name:name||prev.name||'',iconUrl:forceIcon&&iconUrl?iconUrl:(prev.iconUrl||iconUrl||''),forceIcon:!!(forceIcon&&iconUrl),locoType:locoType||prev.locoType||'',paint:paint||prev.paint||'',source:(prev.source?prev.source+', ':'')+source});
         }
         (adminMasterLocoRows||[]).forEach(function(row){
           const id=String(row.number||'').trim();if(!id)return;
-          addCandidate('MBTA','locomotive',id,row.paint||row.type||'',typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(id):'','locomotiveRoster / built-in roster',false);
+          addCandidate('MBTA','locomotive',id,row.paint||row.type||'',typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(id):'','locomotiveRoster / built-in roster',false,row.type||'',row.paint||'');
         });
         specialRows.forEach(function(row){
           if(!row||!agencyNames[String(row.agency||'').toLowerCase()])return;
           const agency=String(row.agency).toLowerCase();
-          addCandidate(agencyNames[agency],'locomotive',row.id,row.name,row.iconUrl||'',row._fromFirestore?'specialUnits override':'built-in special roster',!!row._fromFirestore);
+          addCandidate(agencyNames[agency],'locomotive',row.id,row.name,row.iconUrl||'','built-in special roster',false,row.locoType||'','');
+        });
+        const legacySpecialSnap=await db.collection('specialUnits').get();
+        legacySpecialSnap.forEach(function(doc){
+          const d=doc.data()||{},agency=String(d.agency||'').toLowerCase();
+          if(!agencyNames[agency])return;
+          const icon=String(d.iconUrl||'').trim();
+          addCandidate(agencyNames[agency],'locomotive',d.id,d.name||d.id,icon,'specialUnits legacy record',!!icon,d.locoType||'','');
         });
         const snap=await db.collection('equipmentRoster').get();
         const existingByKey=new Map();
@@ -2576,7 +2583,9 @@
           if(!String(current.name||'').trim()&&candidate.name)patch.name=candidate.name;
           if(candidate.forceIcon&&candidate.iconUrl)patch.iconUrl=candidate.iconUrl;
           else if(!String(current.iconUrl||'').trim()&&candidate.iconUrl)patch.iconUrl=candidate.iconUrl;
-          if(found&&!patch.name&&!patch.iconUrl){already++;return;}
+          if(candidate.locoType&&!String(current.locoType||current.equipmentSubtype||'').trim())patch.locoType=candidate.locoType;
+          if(candidate.paint&&!String(current.paint||'').trim())patch.paint=candidate.paint;
+          if(found&&!patch.name&&!patch.iconUrl&&!patch.locoType&&!patch.paint){already++;return;}
           batch.set(ref,patch,{merge:true});writes++;
         });
         if(writes)await batch.commit();
