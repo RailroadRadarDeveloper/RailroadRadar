@@ -146,7 +146,8 @@
       var firestore = root.firebase.firestore();
       return Promise.all([
         firestore.collection('locomotiveRoster').get(),
-        firestore.collection('equipmentRoster').get()
+        firestore.collection('equipmentRoster').get(),
+        firestore.collection('specialUnits').get()
       ]).then(function (snaps) {
         var merged = Object.create(null);
         list.forEach(function (row) { merged[String(row.number).toUpperCase()] = row; });
@@ -162,9 +163,23 @@
             paint: String(d.paint || (merged[key] && merged[key].paint) || '')
           });
         });
+        // Legacy special-unit overrides remain a fallback until imported.
+        snaps[2].forEach(function (doc) {
+          var d = doc.data() || {};
+          if (String(d.agency || '').trim().toLowerCase() !== 'mbta') return;
+          var number = String(d.id || '').trim();
+          if (!number) return;
+          var key = number.toUpperCase(), prior = merged[key] || {};
+          merged[key] = Object.assign({}, prior, {
+            number: number,
+            type: String(d.locoType || prior.type || ''),
+            paint: String(d.name || prior.paint || ''),
+            iconUrl: String(d.iconUrl || prior.iconUrl || '')
+          });
+        });
         // The unified Equipment Roster is authoritative for MBTA locomotive
-        // metadata and custom icons. Keep locomotiveRoster as a read-only
-        // compatibility fallback while older records are being migrated.
+        // metadata and custom icons. Keep both legacy collections as fallbacks
+        // while older records are being migrated.
         snaps[1].forEach(function (doc) {
           var d = doc.data() || {};
           if (String(d.railroad || '').trim().toUpperCase() !== 'MBTA' ||
