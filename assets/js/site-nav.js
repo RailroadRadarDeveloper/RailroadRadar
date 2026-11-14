@@ -189,8 +189,8 @@
       ].filter(Boolean);
       targets.forEach(function(target) {
         var host = target.parentNode || target;
-        // The map/admin header already owns an account badge. Reuse it instead
-        // of appending a second checkmark beside the account name.
+        // Keep the badge immediately after the account name, never at the end
+        // of the header where points, controls, or other elements can separate it.
         var mark = document.getElementById('header-admin-badge') || host.querySelector('.rr-global-verified-badge');
         if (!mark) {
           mark = document.createElement('img');
@@ -203,7 +203,8 @@
         mark.alt = 'Verified reporter';
         mark.title = 'Verified reporter';
         mark.classList.add('verified-badge-icon', 'is-visible');
-        mark.style.display = 'inline-block';
+        mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:5px;width:13px;height:13px;flex:none;';
+        if (target.nextElementSibling !== mark) target.insertAdjacentElement('afterend', mark);
       });
       var homeMark = document.querySelector('.home-user-badge');
       if (homeMark) homeMark.hidden = true;
@@ -269,7 +270,8 @@
             mark.title = 'Admin';
             mark.classList.remove('verified-badge-icon');
             mark.classList.add('is-visible');
-            mark.style.display = 'inline-block';
+            mark.style.cssText = 'display:inline-block;vertical-align:middle;margin-left:5px;width:15px;height:15px;flex:none;';
+            if (target.nextElementSibling !== mark) target.insertAdjacentElement('afterend', mark);
           });
           var homeBadge = document.querySelector('.home-user-badge');
           if (homeBadge) homeBadge.hidden = true;
