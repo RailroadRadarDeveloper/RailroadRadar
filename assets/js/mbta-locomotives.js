@@ -144,55 +144,67 @@
         });
       }
       var firestore = root.firebase.firestore();
+      // Read each source independently. The unified equipment roster is
+      // authoritative; legacy collections are compatibility fallbacks only.
+      function readCollection(name) {
+        return firestore.collection(name).get().then(function (snap) {
+          return snap;
+        }).catch(function (err) {
+          console.warn('[mbta locomotives] ' + name + ' fallback read unavailable', err);
+          return null;
+        });
+      }
       return Promise.all([
-        firestore.collection('locomotiveRoster').get(),
-        firestore.collection('equipmentRoster').get(),
-        firestore.collection('specialUnits').get()
+        readCollection('locomotiveRoster'),
+        readCollection('specialUnits'),
+        readCollection('equipmentRoster')
       ]).then(function (snaps) {
         var merged = Object.create(null);
         list.forEach(function (row) { merged[String(row.number).toUpperCase()] = row; });
-        snaps[0].forEach(function (doc) {
+        // Legacy master roster: fill only data not yet present in the built-in list.
+        if (snaps[0]) snaps[0].forEach(function (doc) {
           var d = doc.data() || {};
           var number = String(d.number || '').trim();
           if (!number) return;
-          var key = number.toUpperCase();
-          if (d.active === false) { delete merged[key]; return; }
-          merged[key] = Object.assign({}, merged[key] || {}, {
-            number: number,
-            type: String(d.type || (merged[key] && merged[key].type) || ''),
-            paint: String(d.paint || (merged[key] && merged[key].paint) || '')
-          });
-        });
-        // Legacy special-unit overrides remain a fallback until imported.
-        snaps[2].forEach(function (doc) {
-          var d = doc.data() || {};
-          if (String(d.agency || '').trim().toLowerCase() !== 'mbta') return;
-          var number = String(d.id || '').trim();
-          if (!number) return;
           var key = number.toUpperCase(), prior = merged[key] || {};
+          if (d.active === false) { delete merged[key]; return; }
           merged[key] = Object.assign({}, prior, {
             number: number,
-            type: String(d.locoType || prior.type || ''),
-            paint: String(d.name || prior.paint || ''),
-            iconUrl: String(d.iconUrl || prior.iconUrl || '')
+            type: String(prior.type || d.type || ''),
+            paint: String(prior.paint || d.paint || '')
           });
         });
-        // The unified Equipment Roster is authoritative for MBTA locomotive
-        // metadata and custom icons. Keep both legacy collections as fallbacks
-        // while older records are being migrated.
-        snaps[1].forEach(function (doc) {
+        // Legacy icon overrides apply only when no unified equipment record exists.
+        var unifiedKeys = Object.create(null);
+        if (snaps[2]) snaps[2].forEach(function (doc) {
           var d = doc.data() || {};
           if (String(d.railroad || '').trim().toUpperCase() !== 'MBTA' ||
               String(d.type || '').trim().toLowerCase() !== 'locomotive') return;
           var number = String(d.id || '').trim();
           if (!number) return;
           var key = number.toUpperCase();
+          unifiedKeys[key] = true;
           if (d.active === false) { delete merged[key]; return; }
           merged[key] = Object.assign({}, merged[key] || {}, {
             number: number,
             type: String(d.locoType || d.equipmentSubtype || (merged[key] && merged[key].type) || ''),
             paint: String(d.paint || (merged[key] && merged[key].paint) || ''),
             iconUrl: String(d.iconUrl || (merged[key] && merged[key].iconUrl) || '')
+          });
+        });
+        if (snaps[1]) snaps[1].forEach(function (doc) {
+          var d = doc.data() || {};
+          if (String(d.agency || '').trim().toLowerCase() !== 'mbta') return;
+          var number = String(d.id || '').trim();
+          if (!number) return;
+          var key = number.toUpperCase();
+          if (unifiedKeys[key] && merged[key] && merged[key].iconUrl) return;
+          var prior = merged[key] || {};
+          merged[key] = Object.assign({}, prior, {
+            number: number,
+            type: String(prior.type || d.locoType || ''),
+            paint: String(prior.paint || d.name || ''),
+            iconUrl: String(prior.iconUrl || d.iconUrl || '')
           });
         });
         indexRoster(Object.keys(merged).map(function (key) { return merged[key]; }));
