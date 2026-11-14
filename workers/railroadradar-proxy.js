@@ -2379,6 +2379,7 @@ async function handleSpecialIconUpload(request, env) {
     'Authorization': 'Bearer ' + env.GITHUB_CONTENTS_TOKEN,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'RailroadRadar-Cloudflare-Worker',
     'Content-Type': 'application/json'
   };
   const githubFailure = async (response, action) => {
