@@ -741,3 +741,53 @@ describe('surveyResponses', () => {
     await ok(as('admin').doc('surveyResponses/s1').delete());
   });
 });
+
+
+const yardPending = (uid, extra) => ({
+  reportType: 'facility', agency: 'mbta', locomotives: ['1036'],
+  reportedByUid: uid, reportedByLabel: 'A.', reportedByDisplayMode: 'first_initial',
+  reportedByVerified: false, createdAt: now(), status: 'pending',
+  facility: 'MBTA Rochester Maintenance Facility', reason: 'Inspection',
+  ...extra
+});
+
+describe('yard reports', () => {
+  it('lets a verified user submit a facility report to the pending queue', async () => {
+    await ok(as('bob').doc('pendingYardReports/facility1').set(yardPending('bob')));
+    await no(as('bob').doc('yardReports/facility1').set(yardPending('bob')));
+    await no(anon().doc('pendingYardReports/facility2').get());
+  });
+  it('requires a reason and location for shopped reports', async () => {
+    await no(as('bob').doc('pendingYardReports/shopped1').set(yardPending('bob', {
+      reportType: 'shopped', location: 'Boston Engine Terminal', reason: ''
+    })));
+    await no(as('bob').doc('pendingYardReports/shopped2').set(yardPending('bob', {
+      reportType: 'shopped', location: '', reason: 'Mechanical inspection'
+    })));
+    await ok(as('bob').doc('pendingYardReports/shopped3').set(yardPending('bob', {
+      reportType: 'shopped', facility: FieldValue.delete(), reason: 'Mechanical inspection',
+      location: 'Boston Engine Terminal'
+    })));
+  });
+  it('requires a complete special move with arrival after departure', async () => {
+    const move = {
+      reportType: 'special_move', agency: 'mbta', locomotives: ['1036'],
+      reportedByUid: 'bob', reportedByLabel: 'B.', reportedByDisplayMode: 'first_initial',
+      reportedByVerified: false, createdAt: now(), status: 'pending',
+      fromLocation: 'Boston Engine Terminal', toLocation: 'South Station',
+      departureAt: hoursFromNow(1), arrivalAt: hoursFromNow(2),
+      equipment: '1036 and coach set', notes: ''
+    };
+    await ok(as('bob').doc('pendingYardReports/move1').set(move));
+    await no(as('bob').doc('pendingYardReports/move2').set({ ...move, arrivalAt: hoursFromNow(0) }));
+  });
+  it('allows admins to publish reports and makes approved reports public', async () => {
+    const published = {
+      ...yardPending('bob'),
+      approvedAt: now(), approvedByUid: 'viewer'
+    };
+    await no(as('bob').doc('yardReports/public1').set(published));
+    await ok(as('viewer').doc('yardReports/public1').set(published));
+    await ok(anon().doc('yardReports/public1').get());
+  });
+});
