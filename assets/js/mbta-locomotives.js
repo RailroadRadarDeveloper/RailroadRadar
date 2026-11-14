@@ -198,7 +198,7 @@
           var number = String(d.id || '').trim();
           if (!number) return;
           var key = number.toUpperCase();
-          if (unifiedKeys[key]) return;
+          if (unifiedKeys[key] && merged[key] && merged[key].iconUrl) return;
           var prior = merged[key] || {};
           merged[key] = Object.assign({}, prior, {
             number: number,
