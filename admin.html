@@ -3659,7 +3659,7 @@
         const del = e.target.closest('[data-master-loco-delete]');
         if (del) deleteAdminMasterLocomotive(del.getAttribute('data-master-loco-delete'));
       });
-      const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-tbody');
+      const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
       if(eqRefresh)eqRefresh.addEventListener('click',loadAdminEquipmentRoster);if(eqSave)eqSave.addEventListener('click',saveAdminEquipment);if(eqClear)eqClear.addEventListener('click',clearAdminEquipmentForm);
       if(eqUpload)eqUpload.addEventListener('click',function(){adminUploadSpecialIcon({mode:'equipment',fileInputId:'admin-equipment-icon-file',buttonId:'admin-equipment-icon-upload',statusId:'admin-equipment-icon-upload-status'});});
       if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
