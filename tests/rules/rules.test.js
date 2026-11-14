@@ -764,10 +764,11 @@ describe('yard reports', () => {
     await no(as('bob').doc('pendingYardReports/shopped2').set(yardPending('bob', {
       reportType: 'shopped', location: '', reason: 'Mechanical inspection'
     })));
-    await ok(as('bob').doc('pendingYardReports/shopped3').set(yardPending('bob', {
-      reportType: 'shopped', facility: FieldValue.delete(), reason: 'Mechanical inspection',
-      location: 'Boston Engine Terminal'
-    })));
+    const validShopped = yardPending('bob', {
+      reportType: 'shopped', reason: 'Mechanical inspection', location: 'Boston Engine Terminal'
+    });
+    delete validShopped.facility;
+    await ok(as('bob').doc('pendingYardReports/shopped3').set(validShopped));
   });
   it('requires a complete special move with arrival after departure', async () => {
     const move = {
