@@ -2301,7 +2301,7 @@
         else adminRosterSyncIconSelect(result.path);
         adminRosterAuto.icon = '\u0000';
         if (!equipmentMode) adminRosterIconPreview();
-        setStatus('Uploaded to GitHub. PR #' + result.pullRequestNumber + ' must be merged before this URL is live. The URL is now in Icon URL; click Add / Update to save the locomotive.', false);
+        setStatus(equipmentMode ? ('Uploaded to GitHub. PR #' + result.pullRequestNumber + ' must be merged before this icon is live. The icon is selected; save the equipment entry after merging the asset PR.') : ('Uploaded to GitHub. PR #' + result.pullRequestNumber + ' must be merged before this URL is live. The URL is now in Icon URL; click Add / Update to save the locomotive.'), false);
         if (status) {
           const link = document.createElement('a');
           link.href = result.pullRequestUrl;
