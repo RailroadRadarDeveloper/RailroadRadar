@@ -187,7 +187,7 @@
           if (d.active === false) { delete merged[key]; return; }
           merged[key] = Object.assign({}, merged[key] || {}, {
             number: number,
-            type: String(d.locoType || d.equipmentSubtype || d.type || (merged[key] && merged[key].type) || ''),
+            type: String(d.locoType || d.equipmentSubtype || (merged[key] && merged[key].type) || ''),
             paint: String(d.paint || (merged[key] && merged[key].paint) || ''),
             iconUrl: String(d.iconUrl || (merged[key] && merged[key].iconUrl) || '')
           });
