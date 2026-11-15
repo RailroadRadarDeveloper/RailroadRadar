@@ -21,16 +21,19 @@
   }
   var facilityMarkers = [];
   var MIN_MARKER_ZOOM = 11;
+  function setFacilityMarkersVisible(visible) {
+    facilityMarkers.forEach(function (marker) {
+      var el = marker.getElement();
+      if (el) el.style.visibility = visible ? '' : 'hidden';
+      if (!visible && marker.isPopupOpen()) marker.closePopup();
+    });
+  }
   function updateMarkerScale(map) {
     if (!map || !map.getContainer) return;
     var z = map.getZoom();
     var visible = z > MIN_MARKER_ZOOM;
     map.getContainer().style.setProperty('--rr-facility-marker-scale', Math.max(0.72, Math.min(1, Math.pow(0.88, 12 - z))).toFixed(3));
-    facilityMarkers.forEach(function (marker) {
-      var el = marker.getElement();
-      if (el) el.style.display = visible ? '' : 'none';
-      if (!visible && marker.isPopupOpen()) marker.closePopup();
-    });
+    setFacilityMarkersVisible(visible);
   }
   function message(title, text) {
     var box = document.createElement('div'); box.className = 'rr-facility-popup';
@@ -100,6 +103,9 @@
     });
     layer.addTo(map);
     updateMarkerScale(map);
+    // Hide labels for the entire zoom animation so they never sweep across the map.
+    // They reappear at their correct geographic positions once the zoom settles.
+    map.on('zoomstart', function () { setFacilityMarkersVisible(false); });
     map.on('zoomend', function () { updateMarkerScale(map); });
   }
   function start() { hookLeafletMap(); var m = getMap(); if (m) addMarkers(m); }
