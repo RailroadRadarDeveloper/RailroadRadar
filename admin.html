@@ -778,7 +778,7 @@
 
         <div class="rr-admin-pane" id="admin-pane-roster" data-admin-pane="roster">
   <div class="rr-lightbox-section">
-    <h3>Equipment Roster</h3><p class="rr-modal-hint">Select a railroad to view its equipment and edit locomotive icons.</p>
+    <h3>Equipment Roster</h3><p class="rr-modal-hint">Select a railroad to view its equipment and edit locomotive icons. Amtrak includes a built-in unit-number roster with known special paint schemes; published series ranges may include stored, retired, or not-yet-accepted numbers.</p>
     <label for="admin-equipment-railroad-filter">Railroad / Agency</label><select id="admin-equipment-railroad-filter"><option value="">Select a railroad…</option></select>
     <div class="rr-admin-toolbar" style="margin-top:10px;margin-bottom:8px;"><input type="search" id="admin-equipment-search" placeholder="Search number, name, model, type, or paint scheme…" aria-label="Search equipment roster" autocomplete="off"></div>
     <div id="admin-railroad-default-icon-panel" class="rr-admin-card" style="display:none;margin:10px 0 12px;background:#fff;"><strong id="admin-railroad-default-icon-title">Railroad default icon</strong><div class="rr-admin-toolbar" style="margin:8px 0 0;align-items:center;"><select id="admin-railroad-default-icon-select" aria-label="Railroad default icon" style="flex:1 1 220px;min-height:44px;padding:10px;border:1px solid var(--field);border-radius:4px;background:#fff;color:var(--text);font:400 15px/1.3 var(--font);"><option value="">No default icon</option></select><button type="button" class="rr-btn secondary" id="admin-railroad-default-icon-save">Save default icon</button></div><img id="admin-railroad-default-icon-preview" alt="Railroad default icon preview" hidden style="width:56px;height:56px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;"><p class="rr-modal-hint" id="admin-railroad-default-icon-status" role="status" aria-live="polite"></p></div>
@@ -3054,9 +3054,11 @@
             const special=specialById.get(id)||null;
             const paint=special?String(special.paint||''):[series.ownership,series.note].filter(Boolean).join(' · ');
             const model=(special&&special.model)||series.model||'Locomotive';
+            const ownership=series.ownership?String(series.ownership):'';
+            const name=(special&&special.name)||[model,ownership||series.note||''].filter(Boolean).join(' · ');
             const row={
               railroad:'Amtrak',type:'locomotive',id:id,
-              name:(special&&special.name)||model,
+              name:name+(special&&ownership?' · '+ownership:''),
               locoType:model,paint:paint||null,iconUrl:null,active:true,
               _builtinAmtrak:true
             };
