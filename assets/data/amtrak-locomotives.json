@@ -595,6 +595,18 @@
       "model": "NCDOT EMD F59PHI",
       "paint": "America 250 Years",
       "name": "NCDOT F59PHI · America 250"
+    },
+    {
+      "id": "2143",
+      "model": "Amtrak locomotive (model not independently verified)",
+      "paint": "America 250 Years",
+      "name": "America 250 · model to verify"
+    },
+    {
+      "id": "2147",
+      "model": "Amtrak locomotive (model not independently verified)",
+      "paint": "America 250 Years",
+      "name": "America 250 · model to verify"
     }
   ]
 }
