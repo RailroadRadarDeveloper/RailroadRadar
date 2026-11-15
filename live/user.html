@@ -466,7 +466,10 @@
             });
         }
         if (!viewerUnsub) refreshViewerList();
-        if (!viewerRefreshTimer) viewerRefreshTimer = setInterval(refreshViewerList, 30000);
+        if (!viewerRefreshTimer) viewerRefreshTimer = setInterval(function () {
+          if (document.visibilityState === 'hidden') return;
+          refreshViewerList();
+        }, 120000);
         if (!commentsUnsub) {
           commentsUnsub = currentShareRef.collection('comments').orderBy('createdAt', 'desc').limit(50)
             .onSnapshot(function (snap) {
@@ -635,22 +638,33 @@
         );
       } else {
         elStatus.textContent = 'Loading tracker';
-        firebase.firestore().collection('specialMoveShares').doc(shareCode).onSnapshot(function (doc) {
-          var d = doc.exists ? (doc.data() || {}) : null;
-          if (!d) {
+        var shareUnsub = null;
+        function watchShare() {
+          if (shareUnsub) { try { shareUnsub(); } catch (e) {} shareUnsub = null; }
+          if (document.visibilityState === 'hidden') return;
+          shareUnsub = firebase.firestore().collection('specialMoveShares').doc(shareCode).onSnapshot(function (doc) {
+            var d = doc.exists ? (doc.data() || {}) : null;
+            if (!d) {
+              showEnded('This trip has ended', 'The live share is no longer active.');
+              return;
+            }
+            paint(d);
+            if (!tickTimer) tickTimer = setInterval(tick, 15000);
+          }, function () {
             showEnded('This trip has ended', 'The live share is no longer active.');
-            return;
-          }
-          paint(d);
-          if (!tickTimer) tickTimer = setInterval(tick, 15000);
-        }, function () {
-          showEnded('This trip has ended', 'The live share is no longer active.');
+          });
+        }
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'hidden') {
+            if (shareUnsub) { try { shareUnsub(); } catch (e) {} shareUnsub = null; }
+          } else watchShare();
         });
+        watchShare();
       }
     })();
   </script>
   <script src="/assets/js/live-share-bar.js?v=259478673a"></script>
-  <script src="/assets/js/site-nav.js?v=23f149ad98" defer></script>
+  <script src="/assets/js/site-nav.js?v=79d01a5530" defer></script>
   <script src="/assets/js/survey-prompt.js?v=3daacf7dd8" defer></script>
 </body>
 </html>

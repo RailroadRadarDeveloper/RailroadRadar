@@ -11,7 +11,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <script src="/assets/js/mbta-locomotives.js?v=0cb68b2f6a"></script>
+  <script src="/assets/js/rr-fs-cache.js?v=422375c9cd"></script>
+  <script src="/assets/js/mbta-locomotives.js?v=1e33c319e2"></script>
   <link rel="stylesheet" href="/assets/fonts/roboto.css">
   <style>
     :root {
@@ -1240,7 +1241,7 @@
     async function loadVerifiedReporters() {
       if (!db) return;
       // The map caches this list in localStorage for 7 minutes; drop that copy so admin edits show at once in this browser.
-      try { localStorage.removeItem('rrCacheVerifiedReporters'); } catch (_) {}
+      try { localStorage.removeItem('rrCacheVerifiedReporters'); localStorage.removeItem('rrFs:verifiedReporters'); } catch (_) {}
       try {
         const snap = await db.collection('verifiedReporters').get();
         const next = new Set();
@@ -4129,7 +4130,7 @@
           console.warn('%c[specialUnits] Firestore not available', 'color:#f39c12');
           return;
         }
-        try { localStorage.removeItem('rrCacheSpecialUnits'); } catch (_) {}
+        try { localStorage.removeItem('rrCacheSpecialUnits'); localStorage.removeItem('rrFs:specialUnits'); localStorage.removeItem('rrFs:equipmentRoster'); localStorage.removeItem('rrFs:locomotiveRoster'); } catch (_) {}
         try {
           const results = await Promise.all([
             db.collection('specialUnits').get(),
@@ -4336,7 +4337,7 @@
 
   </script>
 <script src="/assets/js/live-share-bar.js?v=259478673a" defer></script>
-<script src="/assets/js/site-nav.js?v=admin-badge-map-spacing-20261114" defer></script>
+<script src="/assets/js/site-nav.js?v=79d01a5530" defer></script>
   <script src="/assets/js/yard-reports.js"></script>
 </body>
 </html>

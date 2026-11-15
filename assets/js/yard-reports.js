@@ -107,7 +107,7 @@ function addPublicTab(){
 async function loadPublic(){
  var host=document.getElementById('rr-yard-public-list'),f=firestore();if(!host||!f)return;host.textContent='Loading yard reports…';
  try{
-  var snap=await f.collection('yardReports').get(),rows=snap.docs.map(function(d){return Object.assign({id:d.id},d.data()||{});});
+  var snap=window.rrFsCache?await window.rrFsCache.query('yardReports',window.rrFsCache.PUBLIC_TTL,function(){return f.collection('yardReports').get();}):await f.collection('yardReports').get(),rows=snap.docs.map(function(d){return Object.assign({id:d.id},d.data()||{});});
   rows=rows.filter(function(r){return r.reportType!=='special_move'||(asDate(r.arrivalAt)&&asDate(r.arrivalAt).getTime()>Date.now());});
   rows.sort(function(x,y){return (asDate(y.approvedAt||y.createdAt)||new Date(0))-(asDate(x.approvedAt||x.createdAt)||new Date(0));});
   host.innerHTML='';if(!rows.length){host.textContent='No active yard reports.';return;}
@@ -172,6 +172,7 @@ async function review(id,approve){
  try{
   if(approve){var data=Object.assign({},row);delete data.id;delete data.status;data.approvedAt=firebase.firestore.FieldValue.serverTimestamp();data.approvedByUid=(auth()&&auth().currentUser&&auth().currentUser.uid)||null;
    await f.collection('yardReports').doc(id).set(data);
+   if(window.rrFsCache)window.rrFsCache.drop('yardReports');
    if(row.reportType==='shopped'&&row.agency==='mbta')await removePairings(row);
   }
   await f.collection('pendingYardReports').doc(id).delete();

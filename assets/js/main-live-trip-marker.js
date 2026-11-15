@@ -105,6 +105,7 @@
     var db = firebase.firestore();
     var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 9 * 60 * 1000);
     function listen() {
+      if (document.visibilityState === 'hidden') { boot._paused = true; return; }
       if (unsubscribe) { try { unsubscribe(); } catch (_) {} unsubscribe = null; }
       var cutoff = firebase.firestore.Timestamp.fromMillis(Date.now() - 9 * 60 * 1000);
       unsubscribe = db.collection('specialMoveShares')
@@ -117,6 +118,18 @@
         });
     }
     listen();
+    if (!boot._vis) {
+      boot._vis = true;
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+          if (unsubscribe) { try { unsubscribe(); } catch (_) {} unsubscribe = null; }
+          boot._paused = true;
+        } else if (boot._paused) {
+          boot._paused = false;
+          listen();
+        }
+      });
+    }
     return true;
   }
 

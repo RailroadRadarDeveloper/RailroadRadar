@@ -217,7 +217,7 @@
       const e = normalizeEmail(email);
       if (!db || !e) return null;
       try {
-        const snap = await db.collection('admins').doc(e).get();
+        const snap = await rrFsDoc('admins:' + e, function() { return db.collection('admins').doc(e).get(); }, true);
         if (!snap.exists) return null;
         return Object.assign({ email: e, id: snap.id }, snap.data() || {});
       } catch (err) {
@@ -323,6 +323,7 @@
       if (differs(currentUserSettings)) {
         try {
           await db.collection('userSettings').doc(u.uid).set(payload, { merge: true });
+          rrFsDrop('userSettings:' + u.uid);
         } catch (err) {
           console.warn('[cookies] userSettings persist failed', err);
         }
@@ -486,7 +487,7 @@
       let settings = Object.assign({}, defaults);
       if (!db || !uid) return settings;
       try {
-        const snap = await db.collection('userSettings').doc(uid).get();
+        const snap = await rrFsDoc('userSettings:' + uid, function() { return db.collection('userSettings').doc(uid).get(); }, true);
         if (snap.exists) {
           const d = snap.data() || {};
           const mode = String(d.reportDisplayMode || 'first_initial');
@@ -509,7 +510,7 @@
         }
         if (!rrLegalIsCurrent(settings)) {
           // Older and seeded accounts recorded agreement only on the accounts mirror.
-          const acct = await db.collection('accounts').doc(uid).get();
+          const acct = await rrFsDoc('accounts:' + uid, function() { return db.collection('accounts').doc(uid).get(); }, true);
           const a = acct.exists ? rrReadLegalFields(acct.data() || {}) : null;
           if (a && a.legalAccepted && (rrLegalIsCurrent(a) || !settings.legalAccepted)) Object.assign(settings, a);
         }
@@ -633,6 +634,7 @@
       if (!db || !uid) return;
       try {
         await db.collection('userSettings').doc(uid).set({ reportStats: stats }, { merge: true });
+        rrFsDrop('userSettings:' + uid);
       } catch (e) {
         console.warn('[userSettings] reportStats save failed', e);
       }
@@ -763,6 +765,21 @@
     // or tab inside that window reuses it instead of re-reading every document. admin.html clears these
     // keys whenever it reloads them after an edit.
     const RR_PUBLIC_CACHE_TTL_MS = 7 * 60 * 1000;
+    const RR_FS_PUBLIC_TTL = (window.rrFsCache && window.rrFsCache.PUBLIC_TTL) || (5 * 60 * 1000);
+    function rrFsQuery(key, ttl, run, force) {
+      if (window.rrFsCache && window.rrFsCache.query) return window.rrFsCache.query(key, ttl, run, !!force);
+      return Promise.resolve().then(run);
+    }
+    function rrFsDoc(key, run, session) {
+      if (window.rrFsCache && window.rrFsCache.doc) return window.rrFsCache.doc(key, RR_FS_PUBLIC_TTL, run, { session: !!session });
+      return Promise.resolve().then(run);
+    }
+    function rrFsDrop(key) {
+      if (window.rrFsCache && window.rrFsCache.drop) window.rrFsCache.drop(key);
+    }
+    function rrFsDropPrefix(prefix) {
+      if (window.rrFsCache && window.rrFsCache.dropPrefix) window.rrFsCache.dropPrefix(prefix);
+    }
     function rrPublicCacheGet(key, maxAgeMs) {
       try {
         const raw = localStorage.getItem(key);
@@ -784,7 +801,7 @@
         if (force !== true && verifiedReportersLoadedAt && Date.now() - verifiedReportersLoadedAt < RR_PUBLIC_CACHE_TTL_MS - 5000) return;
         let rows = force === true ? null : rrPublicCacheGet('rrCacheVerifiedReporters');
         if (!rows) {
-          const snap = await db.collection('verifiedReporters').get();
+          const snap = await rrFsQuery('verifiedReporters', RR_FS_PUBLIC_TTL, function() { return db.collection('verifiedReporters').get(); }, force === true);
           rows = [];
           snap.forEach(function(doc) {
             const data = doc.data() || {};
@@ -931,6 +948,8 @@
           displayName: (user.displayName && String(user.displayName).trim()) || null,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
+        rrFsDrop('userSettings:' + user.uid);
+        rrFsDrop('accounts:' + user.uid);
         try {
           await db.collection('accounts').doc(user.uid).set({
             uid: user.uid,
@@ -1290,6 +1309,8 @@
           username: usernameRaw || '',
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
+        rrFsDrop('userSettings:' + user.uid);
+        rrFsDrop('accounts:' + user.uid);
         try {
           await db.collection('accounts').doc(user.uid).set({
             uid: user.uid,
@@ -5248,7 +5269,8 @@ function closeTripDetailView(opts) {
         return tripLogEmptyStats();
       }
       try {
-        const snap = await db.collection('userSettings').doc(user.uid).get();
+        if (opts && opts.force) rrFsDrop('userSettings:' + user.uid);
+        const snap = await rrFsDoc('userSettings:' + user.uid, function() { return db.collection('userSettings').doc(user.uid).get(); }, true);
         const stored = snap.exists ? (snap.data() || {}).tripLogStats : null;
         if (!(opts && opts.force) && tripLogStatsUsable(stored)) {
           const stats = normalizeTripLogStats(stored);
@@ -7494,7 +7516,7 @@ function closeTripDetailView(opts) {
         console.warn('[special-share] listener start failed', e);
         rrSpecialShareMapStarted = false;
       }
-      // A hidden tab keeps a listener billed for every location ping; detach after a minute hidden and
+      // A hidden tab keeps a listener billed for every location ping. Detach while hidden and
       // re-attach (which re-reads the current shares) as soon as the tab is visible again.
       if (!S._visBound) {
         S._visBound = true;
@@ -7508,7 +7530,7 @@ function closeTripDetailView(opts) {
               rrSpecialShareUnsub = null;
               rrSpecialShareMapStarted = false;
               S._paused = true;
-            }, 60000);
+            }, 0);
           } else {
             clearTimeout(S._hideTimer);
             S._hideTimer = null;
@@ -8833,6 +8855,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           displayName: (u.displayName && String(u.displayName).trim()) || null,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
+        rrFsDrop('userSettings:' + u.uid);
+        rrFsDrop('accounts:' + u.uid);
         try {
           await db.collection('accounts').doc(u.uid).set({
             legalAccepted: true,
@@ -9519,7 +9543,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           let docs = (arguments[0] === true) ? null : rrPublicCacheGet('rrCacheSpecialUnits');
           if (!docs) {
-            const fsSnap = await db.collection('specialUnits').get();
+            const fsSnap = await rrFsQuery('specialUnits', (window.rrFsCache && window.rrFsCache.ROSTER_TTL) || (10 * 60 * 1000), function() { return db.collection('specialUnits').get(); }, arguments[0] === true);
             docs = [];
             fsSnap.forEach(function(doc) {
               const d = doc.data() || {};
@@ -10455,7 +10479,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             comment: rep.comment || ''
           });
           showNotification((saved && saved.pending) ? 'Confirmation sent for approval' : 'Locomotive confirmed');
-          await loadTrainReports();
+          await loadTrainReports(true);
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch (_) {}
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch (_) {}
           try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch (_) {}
@@ -10492,7 +10516,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         allTrainReports = list;
       }
       // Reads only what the map and upcoming board need: today's dated reports, undated live MBTA pairings, and future-dated pairings.
-      async function loadTrainReports() {
+      async function loadTrainReports(force) {
+        if (force) rrFsDropPrefix('trainReports:');
         if (!db) {
           trainReportsLoadFailed = true;
           console.warn('%c[trainReports] Firestore not available', 'color:#f39c12');
@@ -10502,9 +10527,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const col = db.collection('trainReports');
           const today = nyServiceDateToday();
           const snaps = await Promise.all([
-            col.where('serviceDate', '==', today).get(),
-            col.where('serviceDate', '==', null).get(),
-            col.where('serviceDate', '>', today).get()
+            rrFsQuery('trainReports:day:' + today, RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '==', today).get(); }, !!force),
+            rrFsQuery('trainReports:undated', RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '==', null).get(); }, !!force),
+            rrFsQuery('trainReports:future:' + today, RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '>', today).get(); }, !!force)
           ]);
           trainReportsBaseRows = trainReportRows(snaps);
           rebuildAllTrainReports();
@@ -10544,8 +10569,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const col = db.collection('trainReports');
           const win = rrWeekWindow(-1);
           const snaps = await Promise.all([
-            col.where('updatedAt', '>=', new Date(win.startMs)).get(),
-            col.where('serviceDate', '>=', win.weekId).get()
+            rrFsQuery('trainReports:updated:' + win.weekId, RR_FS_PUBLIC_TTL, function() { return col.where('updatedAt', '>=', new Date(win.startMs)).get(); }, !!force),
+            rrFsQuery('trainReports:service:' + win.weekId, RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '>=', win.weekId).get(); }, !!force)
           ]);
           trainReportsHistoryRows = trainReportRows(snaps);
           trainReportsHistoryFetchedAt = Date.now();
@@ -10558,7 +10583,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       async function loadAllTrainReports() {
         if (!db || Date.now() - trainReportsFullFetchedAt < 60000) return;
         try {
-          trainReportsFullRows = trainReportRows([await db.collection('trainReports').get()]);
+          trainReportsFullRows = trainReportRows([await rrFsQuery('trainReports:all', RR_FS_PUBLIC_TTL, function() { return db.collection('trainReports').get(); }, !!force)]);
           trainReportsFullFetchedAt = Date.now();
           rebuildAllTrainReports();
         } catch (e) {
@@ -11323,7 +11348,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else if (acelaEquipment && !saved) showNotification('Acela equipment report saved');
           else showNotification('Report saved for ' + savedLabel);
           closeReportTrainModal();
-          await loadTrainReports();
+          await loadTrainReports(true);
           try { if (typeof fetchTrains === 'function') fetchTrains(); } catch(_){}
           try { if (typeof fetchAmtrakTrains === 'function') fetchAmtrakTrains(); } catch(_){}
           try { if (typeof fetchMnrTrains === 'function') fetchMnrTrains(); } catch(_){}

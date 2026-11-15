@@ -141,7 +141,10 @@
       popup.setContent(shell(facility, '<div class="rr-sp-empty">Equipment Reports Are Temporarily Unavailable</div>'));
       return;
     }
-    db.collection('yardReports').get().then(function (snap) {
+    var yardRead = (window.rrFsCache && rrFsCache.query)
+      ? rrFsCache.query('yardReports', rrFsCache.PUBLIC_TTL, function () { return db.collection('yardReports').get(); })
+      : db.collection('yardReports').get();
+    yardRead.then(function (snap) {
       if (!marker.isPopupOpen()) return;
       var rows = snap.docs.map(function (d) { return d.data() || {}; }).filter(function (r) { return atFacility(r, facility.name); });
       rows.sort(function (a, b) {

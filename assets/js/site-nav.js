@@ -183,6 +183,26 @@
       });
       return p;
     }
+    // One admins/verifiedReporters doc per tab session, shared with rr-fs-cache.js when that file is loaded.
+    function sessionDoc(key, run) {
+      if (window.rrFsCache && window.rrFsCache.doc) return window.rrFsCache.doc(key, 0, run, { session: true });
+      var storageKey = 'rrFsSess:' + key;
+      try {
+        var raw = sessionStorage.getItem(storageKey);
+        if (raw) {
+          var hit = JSON.parse(raw);
+          if (hit && hit.doc) {
+            var data = hit.doc.data || {};
+            return Promise.resolve({ id: hit.doc.id || '', exists: !!hit.doc.exists, data: function () { return data; } });
+          }
+        }
+      } catch (_) {}
+      return Promise.resolve().then(run).then(function (snap) {
+        var row = { id: snap && snap.id, exists: !!(snap && snap.exists), data: (snap && snap.exists && snap.data) ? (snap.data() || {}) : {} };
+        try { sessionStorage.setItem(storageKey, JSON.stringify({ at: Date.now(), doc: row })); } catch (_) {}
+        return snap;
+      });
+    }
     function addVerifiedMark() {
       var targets = [
         document.getElementById('header-account-name-text')
@@ -243,7 +263,7 @@
         var isAdmin = BOOTSTRAP_ADMINS.indexOf(email) !== -1;
         if (!isAdmin && email) {
           try {
-            var adminDoc = await db.collection('admins').doc(email).get();
+            var adminDoc = await sessionDoc('admins:' + email, function () { return db.collection('admins').doc(email).get(); });
             var perms = adminDoc.exists ? ((adminDoc.data() || {}).perms || {}) : {};
             isAdmin = !!(perms.viewReports || perms.banUsers || perms.manageAdmins || perms.deleteReports);
           } catch (_) {}
@@ -278,7 +298,7 @@
           return;
         }
         try {
-          var verified = await db.collection('verifiedReporters').doc(String(user.uid)).get();
+          var verified = await sessionDoc('verifiedReporters:' + String(user.uid), function () { return db.collection('verifiedReporters').doc(String(user.uid)).get(); });
           if (verified.exists) addVerifiedMark();
         } catch (_) {}
       });
