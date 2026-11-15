@@ -2285,8 +2285,13 @@
     // All trip card/detail maps use the same free light style as the main map.
     function rrTripMapTileLayer(opts) {
       if (window.RRFreeLightLayer) return window.RRFreeLightLayer(opts);
-      return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20, detectRetina: false
+      var o = opts || {};
+      var base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev').replace(/\/+$/, '');
+      return L.tileLayer(base + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: false,
+        maxZoom: o.maxZoom != null ? o.maxZoom : 20,
+        opacity: o.opacity != null ? o.opacity : 1
       });
     }
     const tripLogDataById = Object.create(null); // tripId -> trip data (for detail view)
@@ -9385,7 +9390,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           "Alt Light": freeLightLayer
         }
       ).addTo(map);
-      // Dark raster failures fall back to CARTO, then OSM. Light handles its own fallback.
+      // Dark stays on Mapbox. The free light map falls back to Mapbox only if OpenFreeMap fails.
       let mapboxTileErrorTimes = [];
       let mapboxTileErrorLogged = false;
       function onMapboxTileError(e) {
@@ -9401,24 +9406,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (usingMapboxFallback || mapboxTileErrorTimes.length <= 1) return;
         usingMapboxFallback = true;
         try {
-          console.warn('[RailroadRadar] Mapbox tiles failing repeatedly; switching to OSM fallback');
+          console.warn('[RailroadRadar] Mapbox dark tiles failing; staying on the Mapbox dark style');
         } catch (_) {}
-        if (currentTheme === 'dark') {
-          if (map.hasLayer(currentBaseLayer)) map.removeLayer(currentBaseLayer);
-          currentBaseLayer = darkFallbackLayer.addTo(map);
-        }
       }
-      const darkFallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20, detectRetina: false
-      });
-      let darkFallbackErrors = 0;
-      darkFallbackLayer.on('tileerror', function () {
-        if (++darkFallbackErrors === 2) darkFallbackLayer.setUrl('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-      });
       mapboxDarkLayer.on('tileerror', onMapboxTileError);
       function layerForTheme(theme) {
-        const light = theme === 'light';
-        return light ? freeLightLayer : (usingMapboxFallback ? darkFallbackLayer : mapboxDarkLayer);
+        return theme === 'light' ? freeLightLayer : mapboxDarkLayer;
       }
       function setMapTheme(theme) {
         currentTheme = theme === 'light' ? 'light' : 'dark';

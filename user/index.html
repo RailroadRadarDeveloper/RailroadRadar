@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/assets/js/free-light-map.js?v=876bf321e8"></script>
+  <script src="/assets/js/free-light-map.js?v=4f1017a876"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <style>
@@ -384,8 +384,13 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
     }
     function rrTripMapTileLayer(opts) {
       if (window.RRFreeLightLayer) return window.RRFreeLightLayer(opts);
-      return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20, detectRetina: false
+      const o = opts || {};
+      const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev').replace(/\/+$/, '');
+      return L.tileLayer(base + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
+        attribution: '© Mapbox © OpenStreetMap contributors',
+        detectRetina: false,
+        maxZoom: o.maxZoom != null ? o.maxZoom : 20,
+        opacity: o.opacity != null ? o.opacity : 1
       });
     }
 

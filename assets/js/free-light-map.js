@@ -1,12 +1,13 @@
-/* Preview only. Shared free basemap factory; never fetches a Mapbox resource.
- * MapLibre GL JS 6.17.0 + maplibre-gl-leaflet 0.1.4 are vendored with licenses.
- * Noninteractive cards become snapshots, releasing their WebGL context; snapshots
- * are serialized so a long MyTrips list cannot exhaust mobile GPU contexts.
+/* Shared free basemap. MapLibre GL JS 6.17.0 + maplibre-gl-leaflet 0.1.4 are vendored.
+ * Noninteractive cards become snapshots so a long MyTrips list cannot exhaust GPU contexts.
+ * Mapbox raster is used only when OpenFreeMap itself fails to load.
  */
 (function () {
   'use strict';
   var root = '/assets/vendor/maplibre/';
   var credit = '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
+  var MAPBOX_LIGHT = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
+  var MAPBOX_ATTR = '© Mapbox © OpenStreetMap contributors';
   var resources, snapshotQueue = Promise.resolve();
   function script(url) {
     return new Promise(function (resolve, reject) {
@@ -36,6 +37,20 @@
     var prev = snapshotQueue;
     snapshotQueue = new Promise(function (resolve) { release = resolve; });
     return prev.then(function () { return release; });
+  }
+  function mapErrorUrl(err) {
+    return String(err && (err.url || '') || '');
+  }
+  function ignorableMapError(err) {
+    var msg = String(err && (err.message || err) || '');
+    var url = mapErrorUrl(err);
+    var status = err && err.status;
+    if (err && err.name === 'AbortError') return true;
+    if (/abort/i.test(msg)) return true;
+    if (status === 404) return true;
+    if (/\/fonts\/|glyph|sprite/i.test(url + ' ' + msg)) return true;
+    if (/\.pbf(\?|$)/i.test(url)) return true;
+    return false;
   }
   window.RRFreeLightLayer = function (options) {
     var L = window.L, opts = options || {};
@@ -91,17 +106,26 @@
             maxZoom: (opts.maxZoom || 20) - 1
           });
           vector.addTo(map);
-          var gl = vector.getMaplibreMap(), errors = 0, sourceOk = false;
-          var fail = function () { if (self._vector === vector) self._useFallback(); };
-          gl.on('error', function () { if (++errors >= 2) fail(); });
-          gl.on('sourcedata', function (ev) {
-            if (ev && ev.sourceDataType === 'metadata' && ev.isSourceLoaded) sourceOk = true;
+          var gl = vector.getMaplibreMap(), rendered = false;
+          var fail = function (why) {
+            try { console.warn('[RailroadRadar] Free map falling back', why || ''); } catch (_) {}
+            if (self._vector === vector) self._useFallback();
+          };
+          gl.on('error', function (ev) {
+            var err = ev && ev.error;
+            try { console.warn('[RailroadRadar] Free map error', err && err.message ? err.message : err); } catch (_) {}
+            if (ignorableMapError(err)) return;
+            fail(err && err.message);
           });
-          gl.on('webglcontextlost', fail);
-          this._timer = setTimeout(fail, 12000);
-          gl.once('idle', function () {
-            if (self._vector !== vector) return;
-            if (!sourceOk || errors > 0) { fail(); return; }
+          gl.on('sourcedata', function (ev) {
+            if (ev && ev.sourceDataType === 'content') rendered = true;
+          });
+          gl.on('webglcontextlost', function () { fail('webgl context lost'); });
+          this._timer = setTimeout(function () { if (!rendered) fail('no tiles rendered'); }, 20000);
+          function onIdle() {
+            if (self._vector !== vector) { gl.off('idle', onIdle); return; }
+            if (!rendered) return;
+            gl.off('idle', onIdle);
             clearTimeout(self._timer);
             if (!self._snapshot) { self.fire('load'); return; }
             try {
@@ -109,28 +133,22 @@
               if (self._image) map.removeLayer(self._image);
               image.addTo(map); self._image = image;
               self._clearVector();
-            } catch (_) { fail(); }
-          });
-        } catch (_) { if (this._mapRef === map && generation === this._generation) this._useFallback(); }
+            } catch (err) { fail(err && err.message); }
+          }
+          gl.on('idle', onIdle);
+        } catch (err) {
+          try { console.warn('[RailroadRadar] Free map library failed', err && err.message ? err.message : err); } catch (_) {}
+          if (this._mapRef === map && generation === this._generation) this._useFallback();
+        }
       },
       _useFallback: function () {
         var map = this._mapRef;
         if (!map || this._fallback) return;
         this._clearVector();
         if (this._image) { map.removeLayer(this._image); this._image = null; }
-        var fallback = this._fallback = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>',
+        var fallback = this._fallback = L.tileLayer(MAPBOX_LIGHT, {
+          attribution: MAPBOX_ATTR,
           maxZoom: opts.maxZoom || 20, detectRetina: false, opacity: opts.opacity == null ? 1 : opts.opacity
-        });
-        var errors = 0, self = this;
-        fallback.on('tileerror', function () {
-          if (++errors === 2 && self._mapRef === map) {
-            map.removeLayer(fallback);
-            self._fallback = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
-              maxNativeZoom: 19, maxZoom: opts.maxZoom || 20, detectRetina: false
-            }).addTo(map);
-          }
         });
         fallback.addTo(map);
         this.fire('fallback');
