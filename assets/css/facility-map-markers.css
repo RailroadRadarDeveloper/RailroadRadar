@@ -1,21 +1,42 @@
-/* Permanent railroad facility labels on the Live Map. */
-.rr-facility-marker-icon { background: transparent; border: 0; overflow: visible; }
+/* Small facility pins. Leaflet positions this box; the label hangs off it and must not move the anchor. */
+.leaflet-marker-icon.rr-facility-marker-icon {
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
 .rr-facility-marker {
-  position: absolute; left: 50%; top: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  min-height: 28px; padding: 4px 9px; border: 2px solid #fff; border-radius: 4px;
-  background: var(--rr-facility-color); box-shadow: 0 1px 5px rgba(0,0,0,.45);
-  white-space: nowrap;
-  transform: translate(-50%, -50%) scale(var(--rr-facility-marker-scale, 1));
-  transform-origin: center; transition: none; cursor: pointer;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.rr-facility-marker-pin {
+  display: block;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 0;
+  background: var(--rr-facility-color, #07093e);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .rr-facility-marker-label {
-  color: #fff; font-family: "Zing", sans-serif; font-size: 14px;
-  line-height: 1; font-weight: 400; text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  position: absolute;
+  left: 20px;
+  top: 8px;
+  transform: translateY(-50%);
+  color: #fff;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   pointer-events: none;
 }
-.rr-facility-popup { min-width: 190px; color: #172033; }
-.rr-facility-popup > strong { display: block; margin-bottom: 7px; }
-.rr-facility-popup p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; white-space: normal; }
-.rr-facility-popup-report { padding: 7px 0; border-top: 1px solid rgba(100,116,139,.25); }
-.rr-facility-popup-report strong { display: block; font-size: 13px; }
+/* Equipment rows reuse the station popup row. The bar and time chip use the facility agency color. */
+.rr-facility-popup li.rr-sp-row { cursor: default; }
+.rr-facility-popup .rr-sp-time img { width: 100%; height: 28px; object-fit: contain; display: block; }
+.rr-facility-popup .rr-sp-chip { background: var(--rr-sp-line, #07093e); }
+.rr-facility-popup .rr-facility-who { display: inline-flex; align-items: center; gap: 4px; }
+.rr-facility-popup .rr-facility-who .verified-badge-icon { width: 11px; height: 11px; }
