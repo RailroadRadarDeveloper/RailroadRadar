@@ -1,7 +1,7 @@
 {
   "updated": "2026-11-12",
   "source": "On Track On Line Amtrak Motive Power Roster (2026-11-01) and HeritageUnits Amtrak updates (2026-11-12)",
-  "scopeNote": "Includes Amtrak-owned/leased locomotives and state-owned locomotives listed as operating on Amtrak services. Number ranges reproduce published roster series; not every number in a range is necessarily active. Check individual disposition before treating a unit as in service.",
+  "scopeNote": "Includes Amtrak-owned/leased locomotives and state-owned locomotives listed as operating on Amtrak services. Number ranges reproduce published roster series; not every number in a range is necessarily active. Check individual disposition before treating a unit as in service. Airo ALC-42E power units are included separately from conventional road locomotives.",
   "series": [
     {
       "model": "ACS-64",
@@ -265,6 +265,16 @@
         "1776"
       ],
       "ownership": "NCDOT-owned; America 250 paint; renumbered from 1859"
+    },
+    {
+      "model": "Siemens ALC-42E (Airo trainset power)",
+      "ranges": [
+        [
+          7001,
+          7086
+        ]
+      ],
+      "note": "Airo trainset locomotives; deliveries and acceptance are ongoing"
     }
   ],
   "specialUnits": [
@@ -387,126 +397,6 @@
       "model": "Siemens ALC-42",
       "paint": "America 250 Years",
       "name": "ALC-42 · America 250"
-    },
-    {
-      "id": "500",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "501",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "502",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "503",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "504",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "505",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "506",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "507",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "508",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "509",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "510",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "511",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "512",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "513",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "514",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "515",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "516",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "517",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "518",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
-    },
-    {
-      "id": "519",
-      "model": "GE P32-8",
-      "paint": "B-32BWH fleet / heritage tracking",
-      "name": "P32-8 · B-32BWH"
     },
     {
       "id": "600",
@@ -699,6 +589,12 @@
       "model": "NRE 2GS12B genset",
       "paint": "Washington Terminal Company heritage",
       "name": "2GS12B · Washington Terminal Company"
+    },
+    {
+      "id": "1776",
+      "model": "NCDOT EMD F59PHI",
+      "paint": "America 250 Years",
+      "name": "NCDOT F59PHI · America 250"
     }
   ]
 }
