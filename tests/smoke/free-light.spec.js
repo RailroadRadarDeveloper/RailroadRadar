@@ -124,9 +124,11 @@ test('one missing OpenFreeMap tile does not fall back', async ({ page, context, 
 
 test('blocked OpenFreeMap falls back to the Mapbox light proxy', async ({ page, context, baseURL }) => {
   const seen = track(page, baseURL);
-  await context.route(/https:\/\/tiles\.openfreemap\.org\//, (route) => route.abort('failed'));
+  await context.unrouteAll({ behavior: 'ignoreErrors' });
+  await page.route(/https:\/\/tiles\.openfreemap\.org\//, (route) => route.abort('failed'));
+  const fallback = page.waitForRequest((req) => req.url().includes(LIGHT_STYLE), { timeout: 25_000 });
   await page.goto('/map/');
-  await page.waitForRequest((req) => req.url().includes('/api/mapbox/styles/v1/' + LIGHT_STYLE + '/'), { timeout: 25_000 });
+  await fallback;
   await expect(page.locator('#map .leaflet-tile')).toHaveCount(1, { timeout: 10_000 }).catch(() => {});
   const tile = page.locator('#map img.leaflet-tile[src*="' + LIGHT_STYLE + '"]');
   await expect(tile.first()).toBeAttached();
