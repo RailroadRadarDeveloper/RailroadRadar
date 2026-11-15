@@ -9867,7 +9867,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (mbtaRep) {
             const rep = mbtaRep;
             const locos = normalizeReportLocomotives(rep);
-            const first = locos[0] || null;
+            const first = pickReportedLoco('mbta', locos, rep) || locos[0] || null;
             const locoId = String((first && first.locomotiveId) || rep.locomotiveId || '').trim();
             const locoType = (first && first.locoType) || rep.locoType || null;
             const locoIconFromRep = (first && first.locoIconUrl) || rep.locoIconUrl || null;
@@ -9916,7 +9916,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           if (rep) {
             const locos = normalizeReportLocomotives(rep);
-            const first = locos[0] || null;
+            const first = pickReportedLoco(a, locos, rep) || locos[0] || null;
             const locoId = String((first && first.locomotiveId) || rep.locomotiveId || '').trim();
             const re = locoId ? rosterEntry(a, locoId) : null;
             return {
@@ -10052,6 +10052,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               if (!url && loco && loco.locoType && typeof resolveMbtaLocoIconUrl === 'function') url = resolveMbtaLocoIconUrl(null, loco.locoType) || '';
             }
             if (!url && a === 'njt' && loco && loco.locoType && typeof resolveNjtLocoIconUrl === 'function') url = resolveNjtLocoIconUrl(loco.locoType) || '';
+            if (!url && !locoIsSpecial(agency, loco, spec && spec.report)) url = rrAgencyDefaultIconUrl(a);
             if (!url) url = baseUrl || '';
             if (url) {
               if (/^assets\//i.test(url)) url = '/' + url.replace(/^\/+/, '');
@@ -10317,8 +10318,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           }
           const rep = (opts.report) || (spec && spec.report) || null;
           if (rep && rep.locoIconUrl) return rep.locoIconUrl;
-          if (rep && Array.isArray(rep.locomotives) && rep.locomotives[0] && rep.locomotives[0].locoIconUrl) {
-            return rep.locomotives[0].locoIconUrl;
+          if (rep && Array.isArray(rep.locomotives) && rep.locomotives.length) {
+            const locos = normalizeReportLocomotives(rep);
+            const chosen = pickReportedLoco(agency, locos, rep);
+            const icon = (chosen && chosen.locoIconUrl) || (locos[0] && locos[0].locoIconUrl) || null;
+            if (icon) return icon;
           }
         } catch (_) {}
         return null;
@@ -11587,6 +11591,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return new Date(ms).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
         } catch (_) { return ''; }
       }
+      function rrAgencyDefaultIconUrl(agency) {
+        const a = normalizeAgency(agency);
+        if (a === 'mbta') return (MBTA_LOCO_TYPES && MBTA_LOCO_TYPES['HSP-46']) || '/assets/hsp46.png';
+        if (a === 'amtrak') return AMTRAK_DEFAULT_ICON_URL;
+        if (a === 'mnr') return MNR_DEFAULT_ICON_URL;
+        if (a === 'lirr') return LIRR_ICON_URL;
+        if (a === 'njt') return NJT_LOCO_ICON;
+        return '';
+      }
+      // One reported unit keeps the existing lead-unit choice. With several units, an
+      // unlisted number is not on the roster and must not hide a special unit beside it.
+      function pickReportedLoco(agency, locos, rep) {
+        if (!locos || !locos.length) return null;
+        if (locos.length === 1) return locos[0];
+        for (let i = 0; i < locos.length; i++) {
+          if (locoIsSpecial(agency, locos[i], rep)) return locos[i];
+        }
+        return locos[0];
+      }
       function locoIsSpecial(agency, L, rep) {
         const id = String((L && L.locomotiveId) || '').trim();
         if (L && L.specialOverride) return true;
@@ -11637,12 +11660,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }).map(function(rep) {
           const agency = normalizeAgency(rep.agency);
           const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const lead = pickReportedLoco(agency, locos, rep) || locos[0] || null;
           const locoTxt = locos.length
             ? locos.map(function(L) { return reportLocoLabel(agency, L, rep); }).join(', ')
             : reportLocoLabel(agency, null, rep);
           return {
             agency: agency,
-            locoId: String((locos[0] && locos[0].locomotiveId) || rep.locomotiveId || '').trim(),
+            locoId: String((lead && lead.locomotiveId) || rep.locomotiveId || '').trim(),
             locoTxt: locoTxt,
             trainNumber: String(rep.trainNumber || '').trim(),
             vehicleId: String(rep.vehicleId || '').trim(),
@@ -11661,12 +11685,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }).map(function(rep) {
           const agency = normalizeAgency(rep.agency);
           const locos = typeof normalizeReportLocomotives === 'function' ? normalizeReportLocomotives(rep) : [];
+          const lead = pickReportedLoco(agency, locos, rep) || locos[0] || null;
           const locoTxt = locos.length
             ? locos.map(function(L) { return reportLocoLabel(agency, L, rep); }).join(', ')
             : reportLocoLabel(agency, null, rep);
           return {
             agency: agency,
-            locoId: String((locos[0] && locos[0].locomotiveId) || rep.locomotiveId || '').trim(),
+            locoId: String((lead && lead.locomotiveId) || rep.locomotiveId || '').trim(),
             locoTxt: locoTxt,
             trainNumber: String(rep.trainNumber || '').trim(),
             vehicleId: String(rep.vehicleId || '').trim(),
