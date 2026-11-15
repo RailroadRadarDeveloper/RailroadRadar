@@ -10,8 +10,23 @@
   ];
 
   function getMap() {
-    try { if (typeof map !== 'undefined' && map && typeof map.addLayer === 'function') return map; } catch (_) {}
-    return window.map && typeof window.map.addLayer === 'function' ? window.map : null;
+    var target = window.__rrLiveMap;
+    return target && typeof target.addLayer === 'function' ? target : null;
+  }
+
+  // Capture the actual Live Map instance when the app creates it. The app keeps
+  // its map in a private scope, so window.map is not a reliable integration point.
+  function hookLeafletMap() {
+    if (!window.L || !L.Map || L.Map.prototype.__rrFacilityMapHook) return;
+    L.Map.prototype.__rrFacilityMapHook = true;
+    var originalAddLayer = L.Map.prototype.addLayer;
+    L.Map.prototype.addLayer = function (layer) {
+      if (!window.__rrLiveMap && this.getContainer && this.getContainer().id === 'map') {
+        window.__rrLiveMap = this;
+        addMarkers(this);
+      }
+      return originalAddLayer.call(this, layer);
+    };
   }
 
   function addMarkers(target) {
@@ -38,6 +53,7 @@
   }
 
   function start() {
+    hookLeafletMap();
     var target = getMap();
     if (target) addMarkers(target);
   }
@@ -48,6 +64,6 @@
   var timer = window.setInterval(function () {
     start();
     attempts += 1;
-    if ((getMap() && getMap().__rrFacilityMarkersAdded) || attempts >= 80) window.clearInterval(timer);
+    if ((getMap() && getMap().__rrFacilityMarkersAdded) || attempts >= 240) window.clearInterval(timer);
   }, 250);
 })();
