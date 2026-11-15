@@ -5,7 +5,7 @@
 
   var FACILITIES = [
     { name: 'Southampton Street Yard', lat: 42.33293, lon: -71.06091, agency: 'amtrak', color: '#00529B' },
-    { name: 'Readville Yard', lat: 42.23232, lon: -71.13580, agency: 'mbta', color: '#003DA5' },
+    { name: 'Readville Layover', lat: 42.23232, lon: -71.13580, agency: 'mbta', color: '#003DA5' },
     { name: 'Boston Engine Terminal', lat: 42.37500, lon: -71.07583, agency: 'mbta', color: '#003DA5' }
   ];
 
