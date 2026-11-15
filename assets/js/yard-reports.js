@@ -34,7 +34,7 @@ function addMapFields(){
   document.getElementById('rr-report-shopped-fields').hidden=!sh;
   document.getElementById('rr-report-special-fields').hidden=!sp;
   shopped.disabled=sp;
-  var vehicleWrap=document.getElementById('report-mbta-vehicle-wrap');if(vehicleWrap)vehicleWrap.style.display=(sp||sh)?'none':'';
+  var vehicleWrap=document.getElementById('report-mbta-vehicle-wrap');if(vehicleWrap)vehicleWrap.style.display=(agency!=='mbta'||sp||sh)?'none':'';
   if(sp)shopped.checked=false;
  }
  shopped.addEventListener('change',sync);special.addEventListener('change',sync);if(agencySelect)agencySelect.addEventListener('change',sync);sync();
