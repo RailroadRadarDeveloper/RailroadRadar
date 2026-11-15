@@ -7,6 +7,7 @@
     { name: 'Readville Layover', lat: 42.23232, lon: -71.13580, agency: 'mbta', color: '#80276C' },
     { name: 'Boston Engine Terminal', lat: 42.37500, lon: -71.07583, agency: 'mbta', color: '#80276C' }
   ];
+  var PIN = 16;
   function getMap() { var m = window.__rrLiveMap; return m && typeof m.addLayer === 'function' ? m : null; }
   function hookLeafletMap() {
     if (!window.L || !L.Map || L.Map.prototype.__rrFacilityMapHook) return;
@@ -28,61 +29,111 @@
       if (!visible && marker.isPopupOpen()) marker.closePopup();
     });
   }
-  function updateMarkerScale(map) {
-    if (!map || !map.getContainer) return;
-    var z = map.getZoom();
-    var visible = z > MIN_MARKER_ZOOM;
-    map.getContainer().style.setProperty('--rr-facility-marker-scale', Math.max(0.72, Math.min(1, Math.pow(0.88, 12 - z))).toFixed(3));
-    setFacilityMarkersVisible(visible);
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
-  function message(title, text) {
-    var box = document.createElement('div'); box.className = 'rr-facility-popup';
-    var h = document.createElement('strong'); h.textContent = title; box.appendChild(h);
-    var p = document.createElement('p'); p.textContent = text; box.appendChild(p); return box;
+  function asDate(v) {
+    if (!v) return null;
+    var d = v.toDate ? v.toDate() : (v instanceof Date ? v : new Date(v));
+    return d && !isNaN(d.getTime()) ? d : null;
   }
-  function matches(r, name) {
+  function ago(v) {
+    var d = asDate(v);
+    if (!d) return '';
+    var min = Math.round((Date.now() - d.getTime()) / 60000);
+    if (min < 1) return 'Just Now';
+    if (min < 60) return min + ' Min Ago';
+    var hr = Math.round(min / 60);
+    if (hr < 24) return hr + ' Hr Ago';
+    var days = Math.round(hr / 24);
+    return days + (days === 1 ? ' Day Ago' : ' Days Ago');
+  }
+  function publicName(r) {
+    var label = String(r.reportedByLabel || '').trim();
+    var uid = String(r.reportedByUid || '');
+    if (!label || label.indexOf('@') !== -1 || (uid && label === uid)) return 'Anonymous';
+    if (/^[A-Za-z0-9_-]{20,128}$/.test(label)) return 'Anonymous';
+    return label.slice(0, 80);
+  }
+  function statusOf(r) {
+    return r.reportType === 'shopped' ? 'Shopped' : 'Stored';
+  }
+  function atFacility(r, name) {
     if (r.reportType === 'facility') return String(r.facility || '') === name;
     if (r.reportType === 'shopped') return String(r.location || '') === name;
-    if (r.reportType === 'special_move') {
-      var v = r.arrivalAt, d = v && v.toDate ? v.toDate() : new Date(v || 0);
-      return d && !isNaN(d.getTime()) && d.getTime() > Date.now() &&
-        (String(r.fromLocation || '') === name || String(r.toLocation || '') === name);
-    }
     return false;
   }
-  function equipment(r) {
-    var a = Array.isArray(r.locomotives) ? r.locomotives.slice() : [];
-    if (r.equipment && a.indexOf(String(r.equipment)) < 0) a.push(String(r.equipment));
-    return a.join(', ') || 'Equipment not specified';
+  function unitsOf(r) {
+    var out = [];
+    (Array.isArray(r.locomotives) ? r.locomotives : []).forEach(function (id) {
+      var n = String(id || '').trim();
+      if (n && out.indexOf(n) < 0) out.push(n);
+    });
+    return out;
+  }
+  function iconFor(facility, number) {
+    if (facility.agency !== 'mbta' || typeof window.rrMbtaLocoIconFor !== 'function') return '';
+    var url = String(window.rrMbtaLocoIconFor(number) || '');
+    return url.indexOf('/assets/') === 0 && url.indexOf('..') === -1 ? url : '';
+  }
+  function popupOpts() {
+    var vw = 520;
+    try { vw = window.innerWidth || 520; } catch (_) {}
+    var phone = vw <= 700;
+    var w = phone ? Math.min(336, Math.max(160, vw - 40)) : 350;
+    return {
+      maxWidth: w,
+      minWidth: Math.min(240, w),
+      closeButton: true,
+      autoPan: true,
+      autoPanPaddingTopLeft: L.point(phone ? 20 : 5, 84),
+      autoPanPaddingBottomRight: L.point(phone ? 20 : 5, 12)
+    };
+  }
+  function shell(title, body) {
+    return '<div class="station-popup rr-sp rr-facility-popup"><div class="rr-sp-head"><div class="rr-sp-title">' +
+      esc(title) + '</div><div class="rr-sp-sub">Equipment</div></div>' + body + '</div>';
+  }
+  function rowHtml(facility, r, number) {
+    var icon = iconFor(facility, number);
+    var img = icon ? '<img class="rr-facility-eq-icon" src="' + esc(icon) + '" alt="">' : '<span class="rr-facility-eq-icon rr-facility-eq-icon-empty"></span>';
+    return '<li class="rr-facility-eq"><span class="rr-facility-eq-main">' + img +
+      '<span class="rr-facility-eq-copy"><span class="rr-facility-eq-num">' + esc(number) + '</span>' +
+      '<span class="rr-facility-eq-meta"><span class="rr-facility-eq-status">' + statusOf(r) + '</span>' +
+      '<span class="rr-facility-eq-who">' + esc(publicName(r)) + '</span></span></span></span>' +
+      '<span class="rr-facility-eq-when">' + esc(ago(r.approvedAt || r.createdAt)) + '</span></li>';
+  }
+  function listHtml(facility, rows) {
+    if (!rows.length) return shell(facility.name, '<div class="rr-sp-empty">No Equipment Reported Here</div>');
+    var items = [];
+    rows.forEach(function (r) {
+      unitsOf(r).forEach(function (number) { items.push(rowHtml(facility, r, number)); });
+    });
+    if (!items.length) return shell(facility.name, '<div class="rr-sp-empty">No Equipment Reported Here</div>');
+    return shell(facility.name, '<ul class="rr-sp-list rr-facility-eq-list">' + items.join('') + '</ul>');
   }
   function loadPopup(marker, facility) {
-    var popup = marker.getPopup(); if (!popup || !marker.isPopupOpen()) return;
-    popup.setContent(message(facility.name, 'Loading reported equipment…'));
+    var popup = marker.getPopup();
+    if (!popup || !marker.isPopupOpen()) return;
+    popup.setContent(shell(facility.name, '<div class="rr-sp-empty">Loading Reported Equipment</div>'));
     var db = window.firebase && firebase.firestore ? firebase.firestore() : null;
-    if (!db) { popup.setContent(message(facility.name, 'Equipment reports are temporarily unavailable.')); return; }
+    if (!db) {
+      popup.setContent(shell(facility.name, '<div class="rr-sp-empty">Equipment Reports Are Temporarily Unavailable</div>'));
+      return;
+    }
     db.collection('yardReports').get().then(function (snap) {
       if (!marker.isPopupOpen()) return;
-      var rows = snap.docs.map(function (d) { return d.data() || {}; }).filter(function (r) { return matches(r, facility.name); });
+      var rows = snap.docs.map(function (d) { return d.data() || {}; }).filter(function (r) { return atFacility(r, facility.name); });
       rows.sort(function (a, b) {
-        function time(r) { var v = r.approvedAt || r.createdAt; return v && v.toDate ? v.toDate().getTime() : new Date(v || 0).getTime(); }
+        function time(r) { var d = asDate(r.approvedAt || r.createdAt); return d ? d.getTime() : 0; }
         return time(b) - time(a);
       });
-      var box = document.createElement('div'); box.className = 'rr-facility-popup';
-      var h = document.createElement('strong'); h.textContent = facility.name; box.appendChild(h);
-      if (!rows.length) {
-        var empty = document.createElement('p'); empty.textContent = 'No equipment has been reported at this location.'; box.appendChild(empty);
-      } else rows.forEach(function (r) {
-        var item = document.createElement('div'); item.className = 'rr-facility-popup-report';
-        var eq = document.createElement('strong'); eq.textContent = equipment(r); item.appendChild(eq);
-        var detail = document.createElement('p');
-        detail.textContent = r.reportType === 'shopped' ? 'Stored/Shopped' : r.reportType === 'special_move' ? 'Special move involving this location' : 'Facility report';
-        if (r.reason) detail.textContent += ' · ' + r.reason;
-        item.appendChild(detail); box.appendChild(item);
-      });
-      popup.setContent(box);
+      popup.setContent(listHtml(facility, rows));
     }).catch(function (err) {
       console.error('[facility markers] equipment lookup failed', err);
-      if (marker.isPopupOpen()) popup.setContent(message(facility.name, 'Could not load equipment reports.'));
+      if (marker.isPopupOpen()) popup.setContent(shell(facility.name, '<div class="rr-sp-empty">Could Not Load Equipment Reports</div>'));
     });
   }
   function addMarkers(map) {
@@ -90,23 +141,31 @@
     map.__rrFacilityMarkersAdded = true;
     var layer = L.layerGroup();
     FACILITIES.forEach(function (facility) {
-      var html = '<span class="rr-facility-marker" style="--rr-facility-color:' + facility.color + '"><span class="rr-facility-marker-label">' + facility.name + '</span></span>';
-      var icon = L.divIcon({ className: 'rr-facility-marker-icon', html: html, iconSize: [260, 36], iconAnchor: [130, 18] });
-      var marker = L.marker([facility.lat, facility.lon], {
-        icon: icon, title: facility.name + ' (' + (facility.agency === 'amtrak' ? 'Amtrak' : 'MBTA') + ')',
-        keyboard: true, zIndexOffset: 650
+      var html = '<span class="rr-facility-marker" style="--rr-facility-color:' + facility.color + '">' +
+        '<span class="rr-facility-marker-pin"></span><span class="rr-facility-marker-label">' + esc(facility.name) + '</span></span>';
+      var icon = L.divIcon({
+        className: 'rr-facility-marker-icon',
+        html: html,
+        iconSize: [PIN, PIN],
+        iconAnchor: [PIN / 2, PIN / 2],
+        popupAnchor: [0, -10]
       });
-      marker.bindPopup(message(facility.name, 'Click to load reported equipment.'), { maxWidth: 320 });
+      var marker = L.marker([facility.lat, facility.lon], {
+        icon: icon,
+        pane: 'markerPane',
+        title: facility.name,
+        keyboard: true,
+        zIndexOffset: 650
+      });
+      marker.bindPopup(shell(facility.name, '<div class="rr-sp-empty">Loading Reported Equipment</div>'), popupOpts());
       marker.on('popupopen', function () { loadPopup(marker, facility); });
       facilityMarkers.push(marker);
       marker.addTo(layer);
     });
     layer.addTo(map);
-    updateMarkerScale(map);
-    // Hide labels for the entire zoom animation so they never sweep across the map.
-    // They reappear at their correct geographic positions once the zoom settles.
-    map.on('zoomstart', function () { setFacilityMarkersVisible(false); });
-    map.on('zoomend', function () { updateMarkerScale(map); });
+    function onZoom() { setFacilityMarkersVisible(map.getZoom() > MIN_MARKER_ZOOM); }
+    onZoom();
+    map.on('zoom zoomend', onZoom);
   }
   function start() { hookLeafletMap(); var m = getMap(); if (m) addMarkers(m); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
