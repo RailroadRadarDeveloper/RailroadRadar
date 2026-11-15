@@ -5,11 +5,11 @@
   var URL='/assets/data/amtrak-locomotives.json?v=20261115a';
   var byKey=Object.create(null),list=[];
   function keys(raw){
-    var s=String(raw==null?'':raw).trim().toUpperCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+    var s=String(raw==null?'':raw).trim().toUpperCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
     if(!s)return [];
-    var out=[s],compact=s.replace(/\\s+/g,'');
+    var out=[s],compact=s.replace(/\s+/g,'');
     if(out.indexOf(compact)===-1)out.push(compact);
-    if(/^\\d+$/.test(compact)){var n=String(parseInt(compact,10));if(out.indexOf(n)===-1)out.push(n);}
+    if(/^\d+$/.test(compact)){var n=String(parseInt(compact,10));if(out.indexOf(n)===-1)out.push(n);}
     return out;
   }
   function add(row){
@@ -47,11 +47,11 @@
   function byNumber(raw){var ks=keys(raw);for(var i=0;i<ks.length;i++)if(byKey[ks[i]])return byKey[ks[i]];return null;}
   function iconFor(raw){var row=byNumber(raw);return row?row.iconUrl:'';}
   function search(query,limit){
-    var q=String(query||'').trim().toUpperCase().replace(/[\\s_-]+/g,'');
+    var q=String(query||'').trim().toUpperCase().replace(/[\s_-]+/g,'');
     if(!q)return [];
     var scored=[];
     list.forEach(function(row){
-      var n=row.number.toUpperCase().replace(/[\\s_-]+/g,''),bare=/^\\d+$/.test(n)?String(parseInt(n,10)):'';
+      var n=row.number.toUpperCase().replace(/[\s_-]+/g,''),bare=/^\d+$/.test(n)?String(parseInt(n,10)):'';
       var idx=n.indexOf(q),bi=bare?bare.indexOf(q):-1;
       if(idx<0&&bi<0)return;
       scored.push({row:row,rank:(n===q||bare===q)?0:((idx===0||bi===0)?1:2)});
