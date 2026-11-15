@@ -12357,6 +12357,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function leaderboardPath() {
         return /^\/leaderboard\/?$/.test(location.pathname);
       }
+      function leaderboardQuery() {
+        return /(?:^|[?&])leaderboard=1(?:&|$)/.test(location.search);
+      }
       function openWeeklyLeaderboard(opts) {
         opts = opts || {};
         const modal = document.getElementById('weekly-leaderboard-modal');
@@ -12398,7 +12401,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (leaderboardPath() && !open) openWeeklyLeaderboard({ fromHistory: true });
           else if (!leaderboardPath() && open) closeWeeklyLeaderboard({ fromHistory: true });
         });
-        if (leaderboardPath()) openWeeklyLeaderboard({ fromHistory: true });
+        if (leaderboardPath() || leaderboardQuery()) {
+          openWeeklyLeaderboard({ fromHistory: true });
+          if (leaderboardQuery()) {
+            try { history.replaceState({ rrLeaderboard: 1 }, '', '/leaderboard'); } catch (_) {}
+          }
+        }
       }
       function openSpecialsBoard() {
         renderSpecialsBoard();
