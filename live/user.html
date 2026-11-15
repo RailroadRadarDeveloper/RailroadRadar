@@ -183,7 +183,7 @@
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/assets/js/free-light-map.js?v=4f1017a876"></script>
+  <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -259,9 +259,9 @@
         if (map) return map;
         elMap.hidden = false;
         map = L.map('map', { zoomControl: true, attributionControl: true });
-        baseLayer = (isDark() ? L.tileLayer(TILE_DARK, {
+        baseLayer = (isDark() ? (window.RRFreeDarkLayer ? window.RRFreeDarkLayer({ maxZoom: 20 }) : L.tileLayer(TILE_DARK, {
           attribution: '© Mapbox © OpenStreetMap contributors', maxZoom: 20
-        }) : (window.RRFreeLightLayer ? window.RRFreeLightLayer({ maxZoom: 20 }) :
+        })) : (window.RRFreeLightLayer ? window.RRFreeLightLayer({ maxZoom: 20 }) :
           L.tileLayer(TILE_LIGHT, {
             attribution: '© Mapbox © OpenStreetMap contributors', maxZoom: 20
           }))).addTo(map);

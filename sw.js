@@ -1,7 +1,7 @@
 /* RailroadRadar service worker — home-screen notifications */
 /* Failsafe: cached "currently unavailable" page for failed / 5xx navigations. */
 var RR_SW_VERSION = 'rr-sw-v2';
-var RR_FAILSAFE_CACHE = 'rr-failsafe-v141';
+var RR_FAILSAFE_CACHE = 'rr-failsafe-v142';
 var RR_UNAVAILABLE_URL = '/unavailable.html';
 
 self.addEventListener('install', function (e) {
@@ -43,7 +43,7 @@ self.addEventListener('fetch', function (event) {
     event.respondWith(fetch(self.location.origin + '/assets/fonts/roboto.css', { credentials: 'omit' }));
     return;
   }
-  /* Only document navigations fail over. MapLibre modules, the free-light style,
+  /* Only document navigations fail over. MapLibre modules, the free light and dark styles,
      and OpenFreeMap tiles, glyphs, and sprites are ordinary fetches and are not rewritten. */
   if (req.mode !== 'navigate' || req.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;

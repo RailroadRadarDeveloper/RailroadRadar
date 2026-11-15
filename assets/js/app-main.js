@@ -9391,30 +9391,31 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return Object.assign({ maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true }, pad);
       }
 
-      // Free light vector map; dark remains Mapbox until separately approved.
+      // Free OpenFreeMap vector basemaps. Mapbox raster is only the fallback inside each layer.
       const freeLightLayer = rrTripMapTileLayer({ maxZoom: 20 });
-      const mapboxDarkLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}'), {
-        attribution: '© Mapbox © OpenStreetMap contributors',
-        detectRetina: false,
-        maxZoom: 20,
-        // Keep only a small tile buffer and wait until gestures settle before fetching more tiles.
-        keepBuffer: 2,
-        updateWhenIdle: true,
-        updateWhenZooming: false,
-        errorTileUrl: EMPTY_TILE
-      });
-      // Free light is the default; dark still uses Mapbox dark-v11
+      const mapboxDarkUrl = apiUrl('/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}');
+      const freeDarkLayer = window.RRFreeDarkLayer
+        ? window.RRFreeDarkLayer({ maxZoom: 20 })
+        : L.tileLayer(mapboxDarkUrl, {
+          attribution: '© Mapbox © OpenStreetMap contributors',
+          detectRetina: false,
+          maxZoom: 20,
+          keepBuffer: 2,
+          updateWhenIdle: true,
+          updateWhenZooming: false,
+          errorTileUrl: EMPTY_TILE
+        });
       let currentTheme = 'light';
       let usingMapboxFallback = false;
       let currentBaseLayer = freeLightLayer;
       currentBaseLayer.addTo(map);
       L.control.layers(
         {
-          "Dark": mapboxDarkLayer,
+          "Dark": freeDarkLayer,
           "Alt Light": freeLightLayer
         }
       ).addTo(map);
-      // Dark stays on Mapbox. The free light map falls back to Mapbox only if OpenFreeMap fails.
+      // Each free layer falls back to its Mapbox raster only if OpenFreeMap fails to load.
       let mapboxTileErrorTimes = [];
       let mapboxTileErrorLogged = false;
       function onMapboxTileError(e) {
@@ -9430,12 +9431,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (usingMapboxFallback || mapboxTileErrorTimes.length <= 1) return;
         usingMapboxFallback = true;
         try {
-          console.warn('[RailroadRadar] Mapbox dark tiles failing; staying on the Mapbox dark style');
+          console.warn('[RailroadRadar] Mapbox dark fallback tiles are failing');
         } catch (_) {}
       }
-      mapboxDarkLayer.on('tileerror', onMapboxTileError);
+      if (freeDarkLayer.on) freeDarkLayer.on('tileerror', onMapboxTileError);
       function layerForTheme(theme) {
-        return theme === 'light' ? freeLightLayer : mapboxDarkLayer;
+        return theme === 'light' ? freeLightLayer : freeDarkLayer;
       }
       function setMapTheme(theme) {
         currentTheme = theme === 'light' ? 'light' : 'dark';
