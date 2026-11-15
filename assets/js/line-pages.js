@@ -424,8 +424,8 @@
     M.el.innerHTML = '';
     var map = L.map(M.el, { scrollWheelZoom: false, zoomSnap: 0.5, attributionControl: true });
     (window.RRFreeLightLayer ? window.RRFreeLightLayer({ maxZoom: 18 }) :
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 18, detectRetina: false
+      L.tileLayer(API + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
+        attribution: '© Mapbox © OpenStreetMap contributors', maxZoom: 18, detectRetina: false
       })).addTo(map);
     var bounds = [];
     (d.lines || []).forEach(function (l) {

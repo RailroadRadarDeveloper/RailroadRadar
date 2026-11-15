@@ -106,12 +106,29 @@ test('public profile card map uses the free light layer', async ({ page, baseURL
   expect(seen.problems).toEqual([]);
 });
 
-test('blocked OpenFreeMap falls back without the Mapbox light style', async ({ page, context, baseURL }) => {
+test('one missing OpenFreeMap tile does not fall back', async ({ page, context, baseURL }) => {
   const seen = track(page, baseURL);
-  const tile = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-  await context.route(/https:\/\/tiles\.openfreemap\.org\//, (route) => route.abort('failed'));
-  await context.route(/https:\/\/[a-z]\.basemaps\.cartocdn\.com\//, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tile }));
+  let missed = 0;
+  await context.route(/https:\/\/tiles\.openfreemap\.org\/.*\.pbf/, async (route) => {
+    if (missed++ === 0) return route.fulfill({ status: 404, contentType: 'text/plain', body: 'missing' });
+    return route.fallback();
+  });
   await page.goto('/map/');
-  await page.waitForRequest((req) => req.url().includes('basemaps.cartocdn.com/light_all/'), { timeout: 20_000 });
-  expect(seen.urls.filter((url) => url.includes(LIGHT_STYLE) || url.includes('/api/mapbox/'))).toEqual([]);
+  await page.waitForRequest((req) => req.url().includes('tiles.openfreemap.org') && req.url().endsWith('.pbf'), { timeout: 30_000 });
+  await painted(page, '#map');
+  await page.waitForTimeout(1000);
+  expect(seen.urls.filter((url) => url.includes(LIGHT_STYLE))).toEqual([]);
+  await expect(page.locator('#map .maplibregl-canvas')).toHaveCount(1);
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenFreeMap');
+});
+
+test('blocked OpenFreeMap falls back to the Mapbox light proxy', async ({ page, context, baseURL }) => {
+  const seen = track(page, baseURL);
+  await context.route(/https:\/\/tiles\.openfreemap\.org\//, (route) => route.abort('failed'));
+  await page.goto('/map/');
+  await page.waitForRequest((req) => req.url().includes('/api/mapbox/styles/v1/' + LIGHT_STYLE + '/'), { timeout: 25_000 });
+  await expect(page.locator('#map .leaflet-tile')).toHaveCount(1, { timeout: 10_000 }).catch(() => {});
+  const tile = page.locator('#map img.leaflet-tile[src*="' + LIGHT_STYLE + '"]');
+  await expect(tile.first()).toBeAttached();
+  expect(seen.urls.some((url) => url.includes('basemaps.cartocdn.com') || url.includes('tile.openstreetmap.org'))).toBe(false);
 });
