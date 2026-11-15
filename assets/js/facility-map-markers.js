@@ -20,7 +20,7 @@
     };
   }
   var facilityMarkers = [];
-  var MIN_MARKER_ZOOM = 11;
+  var MIN_MARKER_ZOOM = 13;
   function setFacilityMarkersVisible(visible) {
     facilityMarkers.forEach(function (marker) {
       var el = marker.getElement();
