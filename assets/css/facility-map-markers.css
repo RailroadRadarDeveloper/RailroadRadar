@@ -7,7 +7,7 @@
   background: var(--rr-facility-color); box-shadow: 0 1px 5px rgba(0,0,0,.45);
   white-space: nowrap;
   transform: translate(-50%, -50%) scale(var(--rr-facility-marker-scale, 1));
-  transform-origin: center; transition: transform 120ms ease-out; cursor: pointer;
+  transform-origin: center; transition: none; cursor: pointer;
 }
 .rr-facility-marker-label {
   color: #fff; font-family: "Zing", sans-serif; font-size: 14px;
