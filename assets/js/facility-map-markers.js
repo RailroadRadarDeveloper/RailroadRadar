@@ -29,6 +29,15 @@
     };
   }
 
+  function updateMarkerScale(target, zoom) {
+    if (!target || !target.getContainer) return;
+    var currentZoom = typeof zoom === 'number' ? zoom : target.getZoom();
+    // Keep full-size labels at neighborhood zoom and progressively shrink them
+    // as the user zooms out, without ever making them too small to recognize.
+    var scale = Math.max(0.5, Math.min(1, Math.pow(0.82, 12 - currentZoom)));
+    target.getContainer().style.setProperty('--rr-facility-marker-scale', scale.toFixed(3));
+  }
+
   function addMarkers(target) {
     if (target.__rrFacilityMarkersAdded || !window.L) return;
     target.__rrFacilityMarkersAdded = true;
@@ -50,6 +59,10 @@
       }).addTo(layer);
     });
     layer.addTo(target);
+
+    updateMarkerScale(target);
+    target.on('zoom zoomend', function () { updateMarkerScale(target); });
+    target.on('zoomanim', function (event) { updateMarkerScale(target, event.zoom); });
   }
 
   function start() {
