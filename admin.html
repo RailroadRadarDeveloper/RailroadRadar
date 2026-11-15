@@ -645,6 +645,7 @@
         <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip Logs</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="survey" id="admin-tab-survey">Survey</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="facilities" id="admin-tab-facilities">Facilities</button>
       </div>
       <div class="rr-lightbox-body">
         <div class="rr-modal-error" id="admin-dashboard-error"></div>
@@ -899,6 +900,30 @@
           </div>
           <p class="rr-modal-hint" id="admin-survey-status">Loading...</p>
           <p class="rr-modal-hint">Shows the 500 most recent responses from /survey/. Read-only except Delete, which is for deletion requests and the 2-year retention in the Privacy Policy (Firestore TTL needs billing).</p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-facilities" data-admin-pane="facilities">
+          <form id="admin-facility-form" class="rr-admin-toolbar" style="flex-wrap:wrap;align-items:flex-end">
+            <input type="hidden" id="admin-facility-id">
+            <label>Name<br><input id="admin-facility-name" maxlength="80" required></label>
+            <label>Railroad<br>
+              <select id="admin-facility-agency">
+                <option value="mbta">MBTA</option>
+                <option value="amtrak">Amtrak</option>
+              </select>
+            </label>
+            <label>Color<br><input id="admin-facility-color" placeholder="#80276C" maxlength="7"></label>
+            <label>Latitude<br><input id="admin-facility-lat" inputmode="decimal" required></label>
+            <label>Longitude<br><input id="admin-facility-lng" inputmode="decimal" required></label>
+            <button type="submit" class="rr-btn" id="admin-facility-save">Save</button>
+          </form>
+          <p class="rr-modal-hint" id="admin-facilities-status">Loading Facilities</p>
+          <div class="rr-admin-table-wrap">
+            <table class="rr-admin-table">
+              <thead><tr><th>Name</th><th>Railroad</th><th>Color</th><th>Latitude, Longitude</th><th></th></tr></thead>
+              <tbody id="admin-facilities-list"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1303,7 +1328,7 @@
       err.textContent = msg;
       err.classList.add('visible');
     }
-    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'trips', 'survey'];
+    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'trips', 'survey', 'facilities'];
     function adminTabFromUrl(fallback) {
       const params = new URLSearchParams(window.location.search);
       const requested = String(params.get('section') || '').toLowerCase();
@@ -1360,6 +1385,91 @@
       } else if (tab === 'audit') {
         if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
         await loadAdminAuditLog();
+      } else if (tab === 'facilities') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminFacilities();
+      }
+    }
+    function facilityDocId(name) {
+      var slug = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+      return slug || 'facility';
+    }
+    function facilityColorValue(agency, raw) {
+      var color = String(raw || '').trim();
+      return /^#[0-9A-Fa-f]{6}$/.test(color) ? color : (agency === 'amtrak' ? '#00529B' : '#80276C');
+    }
+    async function loadAdminFacilities() {
+      var list = document.getElementById('admin-facilities-list');
+      var status = document.getElementById('admin-facilities-status');
+      if (!db) { if (status) status.textContent = 'Firestore Unavailable'; return; }
+      if (status) status.textContent = 'Loading Facilities';
+      try {
+        var snap = await db.collection('facilities').get();
+        var rows = snap.docs.map(function(doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
+        rows.sort(function(a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+        if (list) {
+          list.innerHTML = rows.map(function(row) {
+            return '<tr><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(String(row.agency || '').toUpperCase()) +
+              '</td><td>' + escapeHtmlLite(row.color || '') + '</td><td>' + escapeHtmlLite(String(row.lat)) + ', ' + escapeHtmlLite(String(row.lng)) +
+              '</td><td><button type="button" class="rr-btn secondary" data-facility-edit="' + escapeHtmlLite(row.id) + '">Edit</button> ' +
+              '<button type="button" class="rr-btn danger secondary" data-facility-remove="' + escapeHtmlLite(row.id) + '">Remove</button></td></tr>';
+          }).join('') || '<tr><td colspan="5">No Facilities Yet</td></tr>';
+          list.querySelectorAll('[data-facility-edit]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              var row = rows.filter(function(item) { return item.id === btn.getAttribute('data-facility-edit'); })[0];
+              if (!row) return;
+              document.getElementById('admin-facility-id').value = row.id;
+              document.getElementById('admin-facility-name').value = row.name || '';
+              document.getElementById('admin-facility-agency').value = row.agency === 'amtrak' ? 'amtrak' : 'mbta';
+              document.getElementById('admin-facility-color').value = row.color || '';
+              document.getElementById('admin-facility-lat').value = row.lat;
+              document.getElementById('admin-facility-lng').value = row.lng;
+            });
+          });
+          list.querySelectorAll('[data-facility-remove]').forEach(function(btn) {
+            btn.addEventListener('click', function() { removeAdminFacility(btn.getAttribute('data-facility-remove')); });
+          });
+        }
+        if (status) status.textContent = rows.length + ' Facilit' + (rows.length === 1 ? 'y' : 'ies');
+      } catch (e) {
+        if (status) status.textContent = 'Could Not Load Facilities';
+      }
+    }
+    async function saveAdminFacility() {
+      var user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user) || !(currentAdminPerms && currentAdminPerms.viewReports) || !db) return;
+      var name = String((document.getElementById('admin-facility-name') || {}).value || '').trim();
+      var agency = String((document.getElementById('admin-facility-agency') || {}).value || 'mbta');
+      var lat = Number((document.getElementById('admin-facility-lat') || {}).value);
+      var lng = Number((document.getElementById('admin-facility-lng') || {}).value);
+      var status = document.getElementById('admin-facilities-status');
+      if (!name || (agency !== 'amtrak' && agency !== 'mbta') || !isFinite(lat) || !isFinite(lng)) {
+        if (status) status.textContent = 'Enter A Name, Railroad, Latitude, And Longitude';
+        return;
+      }
+      var id = String((document.getElementById('admin-facility-id') || {}).value || '').trim() || facilityDocId(name);
+      var data = { name: name.slice(0, 80), agency: agency, color: facilityColorValue(agency, (document.getElementById('admin-facility-color') || {}).value), lat: lat, lng: lng };
+      try {
+        await db.collection('facilities').doc(id).set(data);
+        if (window.rrFsCache) window.rrFsCache.drop('facilities');
+        document.getElementById('admin-facility-id').value = '';
+        ['admin-facility-name', 'admin-facility-color', 'admin-facility-lat', 'admin-facility-lng'].forEach(function(fid) {
+          var el = document.getElementById(fid); if (el) el.value = '';
+        });
+        await loadAdminFacilities();
+      } catch (e) {
+        if (status) status.textContent = 'Could Not Save Facility';
+      }
+    }
+    async function removeAdminFacility(id) {
+      if (!id || !db || !window.confirm('Remove this facility?')) return;
+      var status = document.getElementById('admin-facilities-status');
+      try {
+        await db.collection('facilities').doc(id).delete();
+        if (window.rrFsCache) window.rrFsCache.drop('facilities');
+        await loadAdminFacilities();
+      } catch (e) {
+        if (status) status.textContent = 'Could Not Remove Facility';
       }
     }
     function formatTrainReportLocoLabelAdmin(rep) {
@@ -3741,6 +3851,8 @@
       if (reportsSearch) reportsSearch.addEventListener('input', renderAdminReports);
       if (bansRefresh) bansRefresh.addEventListener('click', loadAdminBans);
       if (banSubmit) banSubmit.addEventListener('click', adminBanUser);
+      const facilityForm = document.getElementById('admin-facility-form');
+      if (facilityForm) facilityForm.addEventListener('submit', function(ev) { ev.preventDefault(); saveAdminFacility(); });
       const verifiedRefresh = document.getElementById('admin-verified-refresh');
       const verifiedSubmit = document.getElementById('admin-verified-submit');
       if (verifiedRefresh) verifiedRefresh.addEventListener('click', loadAdminVerified);
@@ -4233,7 +4345,8 @@
       const ids = {
         reports: 'admin-tab-reports', pending: 'admin-tab-pending', audit: 'admin-tab-audit',
         bans: 'admin-tab-bans', admins: 'admin-tab-admins', roster: 'admin-tab-roster',
-        verified: 'admin-tab-verified', accounts: 'admin-tab-accounts', trips: 'admin-tab-trips'
+        verified: 'admin-tab-verified', accounts: 'admin-tab-accounts', trips: 'admin-tab-trips',
+        facilities: 'admin-tab-facilities'
       };
       const tabReports = document.getElementById(ids.reports);
       const tabPending = document.getElementById(ids.pending);
@@ -4253,6 +4366,8 @@
       if (tabVerified) tabVerified.style.display = '';
       if (tabAccounts) tabAccounts.style.display = '';
       if (tabTrips) tabTrips.style.display = '';
+      const tabFacilities = document.getElementById(ids.facilities);
+      if (tabFacilities) tabFacilities.style.display = perms.viewReports ? '' : 'none';
       let first = perms.viewReports ? 'reports' : (perms.banUsers ? 'bans' : (perms.manageAdmins ? 'admins' : 'roster'));
       const requested = adminTabFromUrl(first);
       const requestedButton = document.querySelector('.rr-admin-tab[data-admin-tab="' + requested + '"]');

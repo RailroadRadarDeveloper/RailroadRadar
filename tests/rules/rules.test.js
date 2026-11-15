@@ -802,3 +802,19 @@ describe('yard reports', () => {
     await ok(anon().doc('yardReports/public1').get());
   });
 });
+
+describe('facilities', () => {
+  const facilityDoc = { name: 'Readville Layover', agency: 'mbta', color: '#80276C', lat: 42.23, lng: -71.13 };
+  it('is public to read and only a reports admin can write', async () => {
+    await no(as('bob').doc('facilities/readville').set(facilityDoc));
+    await no(as('noperms').doc('facilities/readville').set(facilityDoc));
+    await ok(as('viewer').doc('facilities/readville').set(facilityDoc));
+    await ok(anon().doc('facilities/readville').get());
+    await no(as('bob').doc('facilities/readville').delete());
+    await ok(as('viewer').doc('facilities/readville').delete());
+  });
+  it('rejects a bad color or coordinate', async () => {
+    await no(as('viewer').doc('facilities/bad-color').set({ ...facilityDoc, color: 'purple' }));
+    await no(as('viewer').doc('facilities/bad-lat').set({ ...facilityDoc, lat: 120 }));
+  });
+});

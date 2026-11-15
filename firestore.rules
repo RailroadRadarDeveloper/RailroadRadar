@@ -423,6 +423,21 @@ service cloud.firestore {
       allow create, update, delete: if adminHasPerm('viewReports');
     }
 
+    function facilityValid(d) {
+      return d.keys().hasOnly(['name', 'agency', 'color', 'lat', 'lng'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.agency in ['amtrak', 'mbta']
+        && d.color is string && d.color.matches('^#[0-9A-Fa-f]{6}$')
+        && d.lat is number && d.lat >= -90 && d.lat <= 90
+        && d.lng is number && d.lng >= -180 && d.lng <= 180;
+    }
+
+    match /facilities/{id} {
+      allow read: if true;
+      allow create, update: if adminHasPerm('viewReports') && facilityValid(request.resource.data);
+      allow delete: if adminHasPerm('viewReports');
+    }
+
     match /reportHold/{uid} {
       allow read: if isAdmin()
         || (activeUser() && request.auth.uid == uid);

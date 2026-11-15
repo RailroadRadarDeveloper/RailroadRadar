@@ -8965,6 +8965,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       el.classList.add('open');
       el.setAttribute('aria-hidden', 'false');
     }
+    window.openSignupPrompt = openSignupPrompt;
     // "Continue with Google" under the "By continuing, you agree" line counts as accepting the terms.
     function beginGoogleSignInWithLegal() {
       markSessionLegalAgreed();

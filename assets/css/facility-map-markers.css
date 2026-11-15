@@ -39,3 +39,15 @@
 .rr-facility-popup .rr-sp-chip { background: var(--rr-sp-line, #07093e); }
 .rr-facility-popup .rr-facility-who { display: inline-flex; align-items: center; gap: 4px; }
 .rr-facility-popup .rr-facility-who .verified-badge-icon { width: 11px; height: 11px; }
+.rr-facility-popup .rr-sp-foot { display: flex; justify-content: flex-end; }
+.rr-facility-popup .rr-facility-report {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 0;
+  background: #07093e;
+  color: #fff;
+  font: 700 13px/1.2 "Segoe UI", system-ui, sans-serif;
+  cursor: pointer;
+}
+.rr-facility-popup .rr-facility-report:hover { background: #1c2170; }

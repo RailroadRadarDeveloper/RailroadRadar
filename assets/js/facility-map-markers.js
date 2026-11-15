@@ -2,11 +2,44 @@
   'use strict';
   if (window.__rrFacilityMapMarkers) return;
   window.__rrFacilityMapMarkers = true;
-  var FACILITIES = [
-    { name: 'Southampton Street Yard', lat: 42.33293, lon: -71.06091, agency: 'amtrak', color: '#00529B' },
-    { name: 'Readville Layover', lat: 42.23232, lon: -71.13580, agency: 'mbta', color: '#80276C' },
-    { name: 'Boston Engine Terminal', lat: 42.37500, lon: -71.07583, agency: 'mbta', color: '#80276C' }
+  var FALLBACK_FACILITIES = [
+    { id: 'southampton-street-yard', name: 'Southampton Street Yard', lat: 42.33293, lon: -71.06091, agency: 'amtrak', color: '#00529B' },
+    { id: 'readville-layover', name: 'Readville Layover', lat: 42.23232, lon: -71.13580, agency: 'mbta', color: '#80276C' },
+    { id: 'boston-engine-terminal', name: 'Boston Engine Terminal', lat: 42.37500, lon: -71.07583, agency: 'mbta', color: '#80276C' }
   ];
+  function facilityColor(agency, raw) {
+    var color = String(raw || '').trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(color)) return color;
+    return agency === 'amtrak' ? '#00529B' : '#80276C';
+  }
+  function normalizeFacility(id, data) {
+    var d = data || {};
+    var name = String(d.name || '').trim();
+    var agency = String(d.agency || '').toLowerCase();
+    var lat = Number(d.lat);
+    var lon = Number(d.lng != null ? d.lng : d.lon);
+    if (!name || (agency !== 'amtrak' && agency !== 'mbta') || !isFinite(lat) || !isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { id: String(id || ''), name: name, lat: lat, lon: lon, agency: agency, color: facilityColor(agency, d.color) };
+  }
+  function loadFacilities() {
+    var db = window.firebase && firebase.firestore ? firebase.firestore() : null;
+    var fallback = function () { return FALLBACK_FACILITIES.slice(); };
+    if (!db) return Promise.resolve(fallback());
+    var run = function () { return db.collection('facilities').get(); };
+    var read = (window.rrFsCache && window.rrFsCache.query)
+      ? window.rrFsCache.query('facilities', window.rrFsCache.ROSTER_TTL, run)
+      : run();
+    return read.then(function (snap) {
+      var rows = [];
+      snap.forEach(function (doc) {
+        var row = normalizeFacility(doc.id, doc.data());
+        if (row) rows.push(row);
+      });
+      return rows.length ? rows : fallback();
+    }).catch(function () { return fallback(); });
+  }
+  window.rrLoadFacilities = loadFacilities;
   function getMap() { var m = window.__rrLiveMap; return m && typeof m.addLayer === 'function' ? m : null; }
   function hookLeafletMap() {
     if (!window.L || !L.Map || L.Map.prototype.__rrFacilityMapHook) return;
@@ -74,10 +107,14 @@
   function statusOf(r) {
     return r.reportType === 'shopped' ? 'Shopped' : 'Stored';
   }
-  function atFacility(r, name) {
+  function samePlace(value, facility) {
+    var v = String(value || '');
+    return v === facility.name || (facility.id && v === facility.id);
+  }
+  function atFacility(r, facility) {
     if (!r || r.status === 'pending') return false;
-    if (r.reportType === 'facility') return String(r.facility || '') === name;
-    if (r.reportType === 'shopped') return String(r.location || '') === name;
+    if (r.reportType === 'facility') return samePlace(r.facility, facility);
+    if (r.reportType === 'shopped') return samePlace(r.location, facility);
     return false;
   }
   function unitsOf(r) {
@@ -112,8 +149,10 @@
   function shell(facility, body) {
     var refresh = '<button type="button" class="rr-sp-refresh" title="Refresh" aria-label="Refresh" data-facility="' +
       esc(facility.name) + '" onclick="window.__rrFacilityRefresh(this)">' + REFRESH_SVG + '</button>';
+    var report = '<div class="rr-sp-foot"><button type="button" class="rr-facility-report" data-facility="' +
+      esc(facility.name) + '" data-agency="' + esc(facility.agency) + '" onclick="window.__rrFacilityReport(this)">Report</button></div>';
     return '<div class="station-popup rr-sp rr-facility-popup"><div class="rr-sp-head"><div class="rr-sp-title">' +
-      esc(facility.name) + '</div><div class="rr-sp-sub">Equipment</div>' + refresh + '</div>' + body + '</div>';
+      esc(facility.name) + '</div><div class="rr-sp-sub">Equipment</div>' + refresh + '</div>' + body + report + '</div>';
   }
   function rowHtml(facility, r, number) {
     var icon = iconFor(facility, number);
@@ -146,7 +185,7 @@
       : db.collection('yardReports').get();
     yardRead.then(function (snap) {
       if (!marker.isPopupOpen()) return;
-      var rows = snap.docs.map(function (d) { return d.data() || {}; }).filter(function (r) { return atFacility(r, facility.name); });
+      var rows = snap.docs.map(function (d) { return d.data() || {}; }).filter(function (r) { return atFacility(r, facility); });
       rows.sort(function (a, b) {
         function time(r) { var d = asDate(r.approvedAt || r.createdAt); return d ? d.getTime() : 0; }
         return time(b) - time(a);
@@ -163,11 +202,27 @@
       if (marker.__rrFacility && marker.__rrFacility.name === name) loadPopup(marker, marker.__rrFacility);
     });
   };
+  window.__rrFacilityReport = function (btn) {
+    var name = btn && btn.getAttribute('data-facility');
+    var agency = btn && btn.getAttribute('data-agency');
+    var facility = null;
+    facilityMarkers.forEach(function (marker) {
+      if (marker.__rrFacility && marker.__rrFacility.name === name) facility = marker.__rrFacility;
+    });
+    if (!facility) facility = { name: name, agency: agency || 'mbta' };
+    if (typeof window.rrOpenFacilityReport === 'function') window.rrOpenFacilityReport(facility);
+  };
   function addMarkers(map) {
     if (map.__rrFacilityMarkersAdded || !window.L) return;
     map.__rrFacilityMarkersAdded = true;
+    loadFacilities().then(function (list) {
+      if (!map.getContainer || !map.getContainer()) return;
+      paintMarkers(map, list);
+    });
+  }
+  function paintMarkers(map, list) {
     var layer = L.layerGroup();
-    FACILITIES.forEach(function (facility) {
+    list.forEach(function (facility) {
       var html = '<span class="rr-facility-marker" style="--rr-facility-color:' + facility.color + '"><span class="rr-facility-marker-label">' + esc(facility.name) + '</span></span>';
       var icon = L.divIcon({
         className: 'rr-facility-marker-icon',
