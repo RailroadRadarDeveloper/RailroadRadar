@@ -279,6 +279,11 @@ document.getElementById('admin-form').addEventListener('submit',function(ev){
 document.getElementById('in').onclick=function(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());};
 document.getElementById('out').onclick=function(){auth.signOut();};
 document.getElementById('pfp').onclick=function(){var m=document.getElementById('acct-menu'); m.classList.toggle('open'); this.setAttribute('aria-expanded', m.classList.contains('open'));};
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') {
+    if (unsubscribe) { try { unsubscribe(); } catch (e) {} unsubscribe = null; }
+  } else if (!unsubscribe) load();
+});
 auth.onAuthStateChanged(function(user){
   document.getElementById('in').style.display=user?'none':'';
   document.getElementById('user').style.display=user?'flex':'none';
@@ -294,7 +299,7 @@ auth.onAuthStateChanged(function(user){
 });
 load();
 </script>
-<script src="/assets/js/site-nav.js?v=23f149ad98" defer></script>
+<script src="/assets/js/site-nav.js?v=79d01a5530" defer></script>
 <script src="/assets/js/survey-prompt.js?v=3daacf7dd8" defer></script>
 <script src="/assets/js/trip-notify.js?v=8a6cfdca0c"></script>
 </body>

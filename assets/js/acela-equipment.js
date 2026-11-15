@@ -82,7 +82,10 @@
         var fs = window.firebase && firebase.firestore ? firebase.firestore() : null;
         if (!fs) { loaded = true; resolve(reports); return; }
         // One range filter on `until`: reports that have not ended yet. No composite index needed.
-        fs.collection(COLLECTION).where('until', '>=', easternDate(new Date())).limit(500).get().then(function (snap) {
+        var day = easternDate(new Date());
+        var run = function () { return fs.collection(COLLECTION).where('until', '>=', day).limit(500).get(); };
+        var read = (window.rrFsCache && window.rrFsCache.query) ? window.rrFsCache.query('acelaEquipment:' + day, window.rrFsCache.PUBLIC_TTL, run) : run();
+        read.then(function (snap) {
           reports = snap.docs.map(function (d) { var x = d.data() || {}; x.id = d.id; return x; });
           loaded = true; resolve(reports);
         }).catch(function (e) { console.warn('[acela-equip] load failed', e); loaded = true; resolve(reports); });
@@ -333,7 +336,10 @@
       return { sample: sampleMode() };
     }
     if (sampleMode()) return Promise.resolve(done());
-    return firebase.firestore().collection(COLLECTION).add(Object.assign({}, doc, { createdAt: firebase.firestore.FieldValue.serverTimestamp() })).then(done);
+    return firebase.firestore().collection(COLLECTION).add(Object.assign({}, doc, { createdAt: firebase.firestore.FieldValue.serverTimestamp() })).then(function () {
+      if (window.rrFsCache) window.rrFsCache.dropPrefix('acelaEquipment:');
+      return done();
+    });
   }
 
   function wire() {

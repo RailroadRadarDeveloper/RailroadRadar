@@ -290,11 +290,12 @@ html.rr-theme-dark .pair-name,html.rr-theme-dark .pair-pfp.is-initials{color:var
     </div>
   </div>
 </div>
-<script src="/assets/js/mbta-locomotives.js?v=0cb68b2f6a"></script>
+<script src="/assets/js/rr-fs-cache.js?v=422375c9cd"></script>
+<script src="/assets/js/mbta-locomotives.js?v=1e33c319e2"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <script src="/assets/js/app-cookie-consent.js?v=ce091d5bf9"></script>
-<script src="/assets/js/site-nav.js?v=23f149ad98" defer></script>
+<script src="/assets/js/site-nav.js?v=79d01a5530" defer></script>
 <script src="/assets/js/survey-prompt.js?v=3daacf7dd8" defer></script>
 <script>
 /* Roster: reads /api/roster (last 4 service days, one cached call) and renders vehicles by MBTA vehicle id. */
@@ -524,7 +525,9 @@ html.rr-theme-dark .pair-name,html.rr-theme-dark .pair-pfp.is-initials{color:var
           appId: '1:896370923309:web:594b0a20d3b1c6822e65a4'
         });
       }
-      firebase.firestore().collection('trainReports').where('agency', '==', 'mbta').get().then(function (snap) {
+      var runPairings = function () { return firebase.firestore().collection('trainReports').where('agency', '==', 'mbta').get(); };
+      var pairingsRead = (window.rrFsCache && window.rrFsCache.query) ? window.rrFsCache.query('trainReports:mbta', window.rrFsCache.PUBLIC_TTL, runPairings) : runPairings();
+      pairingsRead.then(function (snap) {
         if (pairingsLocked) return;
         var rows = [];
         snap.forEach(function (doc) { var d = doc.data() || {}; d.id = doc.id; rows.push(d); });

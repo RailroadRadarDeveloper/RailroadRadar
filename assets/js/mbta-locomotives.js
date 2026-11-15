@@ -147,7 +147,11 @@
       // Read each source independently. The unified equipment roster is
       // authoritative; legacy collections are compatibility fallbacks only.
       function readCollection(name) {
-        return firestore.collection(name).get().then(function (snap) {
+        var run = function () { return firestore.collection(name).get(); };
+        var read = (root.rrFsCache && root.rrFsCache.query)
+          ? root.rrFsCache.query(name, root.rrFsCache.ROSTER_TTL, run)
+          : run();
+        return read.then(function (snap) {
           return snap;
         }).catch(function (err) {
           console.warn('[mbta locomotives] ' + name + ' fallback read unavailable', err);
