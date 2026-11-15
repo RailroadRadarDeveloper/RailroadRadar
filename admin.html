@@ -778,7 +778,7 @@
 
         <div class="rr-admin-pane" id="admin-pane-roster" data-admin-pane="roster">
   <div class="rr-lightbox-section">
-    <h3>Equipment Roster</h3><p class="rr-modal-hint">Select a railroad to view its equipment and edit locomotive icons.</p>
+    <h3>Equipment Roster</h3><p class="rr-modal-hint">Select a railroad to view its equipment and edit locomotive icons. Amtrak includes a built-in unit-number roster with known special paint schemes; published series ranges may include stored, retired, or not-yet-accepted numbers.</p>
     <label for="admin-equipment-railroad-filter">Railroad / Agency</label><select id="admin-equipment-railroad-filter"><option value="">Select a railroad…</option></select>
     <div class="rr-admin-toolbar" style="margin-top:10px;margin-bottom:8px;"><input type="search" id="admin-equipment-search" placeholder="Search number, name, model, type, or paint scheme…" aria-label="Search equipment roster" autocomplete="off"></div>
     <div id="admin-railroad-default-icon-panel" class="rr-admin-card" style="display:none;margin:10px 0 12px;background:#fff;"><strong id="admin-railroad-default-icon-title">Railroad default icon</strong><div class="rr-admin-toolbar" style="margin:8px 0 0;align-items:center;"><select id="admin-railroad-default-icon-select" aria-label="Railroad default icon" style="flex:1 1 220px;min-height:44px;padding:10px;border:1px solid var(--field);border-radius:4px;background:#fff;color:var(--text);font:400 15px/1.3 var(--font);"><option value="">No default icon</option></select><button type="button" class="rr-btn secondary" id="admin-railroad-default-icon-save">Save default icon</button></div><img id="admin-railroad-default-icon-preview" alt="Railroad default icon preview" hidden style="width:56px;height:56px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;"><p class="rr-modal-hint" id="admin-railroad-default-icon-status" role="status" aria-live="polite"></p></div>
@@ -786,7 +786,7 @@
     <div class="rr-lightbox-actions"><button type="button" class="rr-btn secondary" id="admin-equipment-migrate-legacy">Import legacy records</button><button type="button" class="rr-btn secondary" id="admin-equipment-bulk-open">Bulk Import</button></div><p class="rr-modal-hint" id="admin-equipment-migration-status" role="status" aria-live="polite">Legacy MBTA and special-unit records can be safely imported into this roster. Existing equipment entries are preserved; legacy collections are not deleted.</p>
     <div class="rr-lightbox-section" id="admin-equipment-bulk" hidden>
       <h3>Bulk Import</h3>
-      <p class="rr-modal-hint">Paste spreadsheet rows or choose a .csv file. Columns are Railroad, Equipment ID, Type, Name, Model, Paint, and Icon. A header row is detected automatically. Type defaults to Locomotive when that column is omitted. Unchanged rows are not written.</p>
+      <p class="rr-modal-hint">Paste spreadsheet rows or choose a .csv file. Columns are Railroad, Equipment ID, Type, Name, Model, Paint, and Icon. For locomotives, Icon accepts an existing icon URL or site-relative image path (for example, /assets/hsp46.png) and saves it as that unit's icon. A header row is detected automatically. Type defaults to Locomotive when that column is omitted. Unchanged rows are not written.</p>
       <label for="admin-equipment-bulk-text">Paste rows</label>
       <textarea id="admin-equipment-bulk-text" rows="8" spellcheck="false" placeholder="Railroad,Number,Name,Model,Paint&#10;MBTA,1030,F40PH-3C,F40PH-3C,New Paint"></textarea>
       <label for="admin-equipment-bulk-file">Or choose a .csv file</label>
@@ -3029,7 +3029,74 @@
         setAdminError((e&&e.message)||String(e));
       }finally{if(button)button.disabled=false;}
     }
-    async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();adminEquipmentByKey=new Map();snap.forEach(doc=>{const d=doc.data()||{},key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase(),row=Object.assign({docId:doc.id},d);if(!adminEquipmentByKey.has(key)||d.active!==false)adminEquipmentByKey.set(key,row);if(d.active===false){adminEquipmentInactiveKeys.add(key);return;}adminEquipmentRows.push(row);});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));adminEquipmentRosterLoaded=true;renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
+    async function loadAdminEquipmentRoster(){
+      const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');
+      if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';
+      if(status)status.textContent='Loading equipment roster…';
+      if(!db){if(status)status.textContent='Firestore unavailable.';return;}
+      try{
+        const snap=await db.collection('equipmentRoster').get();
+        adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();adminEquipmentByKey=new Map();
+        const keyFor=d=>String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase();
+        const firestoreRows=new Map();
+        snap.forEach(doc=>{
+          const d=doc.data()||{},key=keyFor(d),row=Object.assign({docId:doc.id},d);
+          if(d.active===false){adminEquipmentInactiveKeys.add(key);firestoreRows.delete(key);return;}
+          adminEquipmentInactiveKeys.delete(key);firestoreRows.set(key,row);
+        });
+        const builtinRows=[];
+        try{
+          const response=await fetch('/assets/data/amtrak-locomotives.json?v=20261112');
+          if(!response.ok)throw new Error('HTTP '+response.status);
+          const roster=await response.json(),specialById=new Map((roster.specialUnits||[]).map(x=>[String(x.id),x]));
+          function addAmtrakUnit(id,series){
+            id=String(id);
+            const special=specialById.get(id)||null;
+            const paint=special?String(special.paint||''):[series.ownership,series.note].filter(Boolean).join(' · ');
+            const model=(special&&special.model)||series.model||'Locomotive';
+            const ownership=series.ownership?String(series.ownership):'';
+            const name=(special&&special.name)||[model,ownership||series.note||''].filter(Boolean).join(' · ');
+            const row={
+              railroad:'Amtrak',type:'locomotive',id:id,
+              name:name+(special&&ownership?' · '+ownership:''),
+              locoType:model,paint:paint||null,iconUrl:null,active:true,
+              _builtinAmtrak:true
+            };
+            row.docId=adminEquipmentDocId('Amtrak','locomotive',id);
+            builtinRows.push(row);
+          }
+          (roster.series||[]).forEach(series=>{
+            (series.numbers||[]).forEach(id=>addAmtrakUnit(id,series));
+            (series.ranges||[]).forEach(range=>{
+              const start=Number(range[0]),end=Number(range[1]);
+              if(!Number.isInteger(start)||!Number.isInteger(end)||end<start||end-start>1000)return;
+              for(let n=start;n<=end;n++)addAmtrakUnit(n,series);
+            });
+          });
+          const included=new Set(builtinRows.map(x=>x.id));
+          (roster.specialUnits||[]).forEach(special=>{
+            if(included.has(String(special.id)))return;
+            addAmtrakUnit(special.id,{model:special.model||'Locomotive'});
+          });
+          window.rrAmtrakRosterUpdated=roster.updated||'';
+        }catch(rosterError){
+          console.warn('[admin] built-in Amtrak roster unavailable',rosterError);
+          if(status)status.textContent='Amtrak built-in roster could not be loaded; showing saved equipment only.';
+        }
+        const merged=new Map();
+        builtinRows.forEach(row=>{
+          const key=keyFor(row);
+          if(!adminEquipmentInactiveKeys.has(key))merged.set(key,row);
+        });
+        firestoreRows.forEach((row,key)=>merged.set(key,row));
+        adminEquipmentRows=Array.from(merged.values()).sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));
+        adminEquipmentRows.forEach(row=>adminEquipmentByKey.set(keyFor(row),row));
+        adminEquipmentRosterLoaded=true;renderAdminEquipmentRoster();
+      }catch(e){
+        console.error('[admin] equipment roster load failed',e);
+        if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);
+      }
+    }
     async function saveAdminEquipment(){
       const user=currentUser||(auth&&auth.currentUser);
       if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}
@@ -3099,7 +3166,7 @@
       { key: 'name', label: 'Name', aliases: ['name', 'description', 'name / description', 'name/description', 'unit name'] },
       { key: 'locoType', label: 'Model', aliases: ['locotype', 'loco type', 'model', 'locomotive model', 'subtype', 'locomotive model / subtype', 'equipment subtype'] },
       { key: 'paint', label: 'Paint', aliases: ['paint', 'paint scheme', 'livery', 'paint scheme / notes', 'notes'] },
-      { key: 'iconUrl', label: 'Icon', aliases: ['icon', 'iconurl', 'icon url'] }
+      { key: 'iconUrl', label: 'Locomotive Icon URL / Path', aliases: ['icon', 'iconurl', 'icon url', 'icon path', 'icon url / path', 'locomotive icon', 'locomotive icon url', 'locomotive icon path'] }
     ];
     const ADMIN_EQUIPMENT_TYPE_ALIASES = {
       locomotive: 'locomotive', loco: 'locomotive', engine: 'locomotive',
@@ -3177,7 +3244,7 @@
         else if (mapped.paint && paint.length > 160) reason = 'Paint is too long.';
         else if (mapped.iconUrl && iconUrl.length > 500) reason = 'Icon URL is too long.';
         if (reason) {
-          out.push({ status: 'invalid', reason: reason, line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, record: null, docId: '' });
+          out.push({ status: 'invalid', reason: reason, line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, iconUrl: iconUrl, record: null, docId: '' });
           return;
         }
         const key = railroad.toLowerCase() + '|' + type + '|' + id.toLowerCase();
@@ -3187,7 +3254,7 @@
         if (mapped.name) record.name = name;
         if (type === 'locomotive' && mapped.locoType) record.locoType = locoType || null;
         if (type === 'locomotive' && mapped.paint) record.paint = paint || null;
-        if (mapped.iconUrl) record.iconUrl = iconUrl || null;
+        if (type === 'locomotive' && mapped.iconUrl) record.iconUrl = iconUrl || null;
         let status = 'new';
         if (existing && existing.active !== false) {
           status = 'unchanged';
@@ -3196,7 +3263,7 @@
             if (adminEquipmentBulkBlank(existing[field]) !== adminEquipmentBulkBlank(record[field])) status = 'updated';
           });
         } else if (existing) status = 'updated';
-        out.push({ status: status, reason: '', line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, record: status === 'unchanged' ? null : record, docId: docId });
+        out.push({ status: status, reason: '', line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, iconUrl: type === 'locomotive' ? iconUrl : '', record: status === 'unchanged' ? null : record, docId: docId });
       });
       const seen = new Set();
       for (let i = out.length - 1; i >= 0; i--) {
@@ -3271,10 +3338,10 @@
       if (countsEl) countsEl.textContent = c.new + ' new, ' + c.updated + ' updated, ' + c.unchanged + ' unchanged, ' + c.invalid + ' invalid';
       const shown = plan.rows.slice(0, 100);
       if (table) {
-        table.innerHTML = shown.length ? '<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Status</th><th>Railroad</th><th>ID</th><th>Type</th><th>Name</th><th>Model</th><th>Paint</th><th>Note</th></tr></thead><tbody>' +
+        table.innerHTML = shown.length ? '<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Status</th><th>Railroad</th><th>ID</th><th>Type</th><th>Name</th><th>Model</th><th>Paint</th><th>Icon</th><th>Note</th></tr></thead><tbody>' +
           shown.map(function(row) {
             const label = row.status === 'new' ? 'New' : row.status === 'updated' ? 'Updated' : row.status === 'unchanged' ? 'Unchanged' : 'Invalid';
-            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr>';
+            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + (row.iconUrl ? '<a href="' + escapeHtmlLite(row.iconUrl) + '" target="_blank" rel="noopener">' + escapeHtmlLite(row.iconUrl.split('/').pop() || 'Icon') + '</a>' : '—') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr>';
           }).join('') + '</tbody></table></div>' + (plan.rows.length > shown.length ? '<p class="rr-modal-hint">Showing 100 of ' + plan.rows.length + ' rows.</p>' : '') : '';
       }
       if (save) save.disabled = !(c.new + c.updated);
