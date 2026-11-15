@@ -1,0 +1,704 @@
+{
+  "updated": "2026-11-12",
+  "source": "On Track On Line Amtrak Motive Power Roster (2026-11-01) and HeritageUnits Amtrak updates (2026-11-12)",
+  "scopeNote": "Includes Amtrak-owned/leased locomotives and state-owned locomotives listed as operating on Amtrak services. Number ranges reproduce published roster series; not every number in a range is necessarily active. Check individual disposition before treating a unit as in service.",
+  "series": [
+    {
+      "model": "ACS-64",
+      "ranges": [
+        [
+          600,
+          670
+        ]
+      ]
+    },
+    {
+      "model": "HHP-8",
+      "ranges": [
+        [
+          680,
+          694
+        ]
+      ],
+      "note": "Inactive fleet"
+    },
+    {
+      "model": "HHP-8C",
+      "numbers": [
+        "9750",
+        "9751",
+        "9752",
+        "9753"
+      ]
+    },
+    {
+      "model": "GE P42DC",
+      "ranges": [
+        [
+          1,
+          207
+        ]
+      ]
+    },
+    {
+      "model": "GE P42-C cab-control conversion",
+      "ranges": [
+        [
+          9700,
+          9709
+        ]
+      ]
+    },
+    {
+      "model": "Siemens Charger ALC-42 / ALC-43",
+      "ranges": [
+        [
+          300,
+          424
+        ]
+      ]
+    },
+    {
+      "model": "GE B32-8 / P32-8",
+      "ranges": [
+        [
+          500,
+          519
+        ]
+      ]
+    },
+    {
+      "model": "GP38H-3",
+      "ranges": [
+        [
+          520,
+          527
+        ]
+      ]
+    },
+    {
+      "model": "EMD F59PHI",
+      "ranges": [
+        [
+          2001,
+          2009
+        ],
+        [
+          2010,
+          2015
+        ]
+      ],
+      "ownership": "Caltrans-owned; Amtrak service"
+    },
+    {
+      "model": "GE P32-8",
+      "ranges": [
+        [
+          2051,
+          2052
+        ]
+      ],
+      "ownership": "Caltrans-owned; Amtrak service"
+    },
+    {
+      "model": "GE P32AC-DM",
+      "ranges": [
+        [
+          700,
+          717
+        ]
+      ]
+    },
+    {
+      "model": "GE P40DC",
+      "ranges": [
+        [
+          800,
+          843
+        ]
+      ],
+      "note": "Retired from Amtrak service"
+    },
+    {
+      "model": "EMD MP15",
+      "ranges": [
+        [
+          530,
+          539
+        ]
+      ]
+    },
+    {
+      "model": "EMD SW1500",
+      "numbers": [
+        "541"
+      ]
+    },
+    {
+      "model": "EMD SW1001",
+      "numbers": [
+        "569"
+      ],
+      "note": "Retired / converted"
+    },
+    {
+      "model": "MPI GP15D",
+      "ranges": [
+        [
+          570,
+          579
+        ]
+      ]
+    },
+    {
+      "model": "MPI MP14B",
+      "numbers": [
+        "590",
+        "592",
+        "593"
+      ]
+    },
+    {
+      "model": "MPI MP21B",
+      "numbers": [
+        "591"
+      ]
+    },
+    {
+      "model": "NRE 2GS12B genset",
+      "numbers": [
+        "597",
+        "599",
+        "790",
+        "791",
+        "792",
+        "793",
+        "798"
+      ]
+    },
+    {
+      "model": "EMD / Juniata GP38-3",
+      "ranges": [
+        [
+          720,
+          754
+        ]
+      ]
+    },
+    {
+      "model": "EMD SW1",
+      "numbers": [
+        "787"
+      ]
+    },
+    {
+      "model": "EMD / NRE SW1000R",
+      "numbers": [
+        "794",
+        "796"
+      ]
+    },
+    {
+      "model": "GE 80-ton",
+      "numbers": [
+        "1100"
+      ],
+      "note": "Inactive"
+    },
+    {
+      "model": "Siemens SC-44",
+      "ranges": [
+        [
+          4601,
+          4633
+        ]
+      ],
+      "ownership": "IDOT-owned Midwest state pool; Amtrak service"
+    },
+    {
+      "model": "Siemens SC-44",
+      "ranges": [
+        [
+          2101,
+          2124
+        ]
+      ],
+      "ownership": "Caltrans-owned; Amtrak service"
+    },
+    {
+      "model": "Siemens SC-44",
+      "numbers": [
+        "1400",
+        "1401",
+        "1403",
+        "1404",
+        "1405",
+        "1406",
+        "1407",
+        "1408"
+      ],
+      "ownership": "WSDOT-owned; Amtrak service"
+    },
+    {
+      "model": "EMD F59PHI",
+      "numbers": [
+        "1755",
+        "1797",
+        "1810",
+        "1859",
+        "1869",
+        "1871",
+        "1984"
+      ],
+      "ownership": "NCDOT-owned; Amtrak service"
+    },
+    {
+      "model": "EMD F59",
+      "numbers": [
+        "1893"
+      ],
+      "ownership": "NCDOT-owned; Amtrak service"
+    },
+    {
+      "model": "EMD F59PHI",
+      "numbers": [
+        "1776"
+      ],
+      "ownership": "NCDOT-owned; America 250 paint; renumbered from 1859"
+    }
+  ],
+  "specialUnits": [
+    {
+      "id": "42",
+      "model": "GE P42DC",
+      "paint": "Salutes Our Veterans",
+      "name": "P42DC · Veterans tribute"
+    },
+    {
+      "id": "46",
+      "model": "GE P42DC",
+      "paint": "Connecting America for 50 Years · Phase V",
+      "name": "P42DC · 50th Anniversary Phase V"
+    },
+    {
+      "id": "100",
+      "model": "GE P42DC",
+      "paint": "Midnight Blue · 50th Anniversary",
+      "name": "P42DC · Midnight Blue 50th Anniversary"
+    },
+    {
+      "id": "108",
+      "model": "GE P42DC",
+      "paint": "Phase VI · 50th Anniversary",
+      "name": "P42DC · Phase VI 50th Anniversary"
+    },
+    {
+      "id": "130",
+      "model": "GE P42DC",
+      "paint": "Phase II heritage scheme",
+      "name": "P42DC · Phase II heritage"
+    },
+    {
+      "id": "145",
+      "model": "GE P42DC",
+      "paint": "Phase III heritage scheme",
+      "name": "P42DC · Phase III heritage"
+    },
+    {
+      "id": "160",
+      "model": "GE P32-8",
+      "paint": "Dash 8 Phase III · 50th Anniversary",
+      "name": "P32-8 · Dash 8 Phase III anniversary"
+    },
+    {
+      "id": "164",
+      "model": "GE P42DC",
+      "paint": "Phase IV heritage scheme",
+      "name": "P42DC · Phase IV heritage"
+    },
+    {
+      "id": "174",
+      "model": "GE P42DC",
+      "paint": "Mark B. Kenny tribute / Phase VII",
+      "name": "P42DC · Mark B. Kenny tribute"
+    },
+    {
+      "id": "203",
+      "model": "GE P42DC",
+      "paint": "Operation Lifesaver",
+      "name": "P42DC · Operation Lifesaver"
+    },
+    {
+      "id": "301",
+      "model": "Siemens ALC-42",
+      "paint": "Day 1 · 50th Anniversary",
+      "name": "ALC-42 · Day 1 50th Anniversary"
+    },
+    {
+      "id": "309",
+      "model": "Siemens ALC-42",
+      "paint": "Freedom 250",
+      "name": "ALC-42 · Freedom 250"
+    },
+    {
+      "id": "310",
+      "model": "Siemens ALC-42",
+      "paint": "America 250 Years",
+      "name": "ALC-42 · America 250"
+    },
+    {
+      "id": "312",
+      "model": "Siemens ALC-42",
+      "paint": "Freedom 250",
+      "name": "ALC-42 · Freedom 250"
+    },
+    {
+      "id": "317",
+      "model": "Siemens ALC-42",
+      "paint": "Freedom 250",
+      "name": "ALC-42 · Freedom 250"
+    },
+    {
+      "id": "318",
+      "model": "Siemens ALC-42",
+      "paint": "America 250 Years",
+      "name": "ALC-42 · America 250"
+    },
+    {
+      "id": "346",
+      "model": "Siemens ALC-42",
+      "paint": "Freedom 250",
+      "name": "ALC-42 · Freedom 250"
+    },
+    {
+      "id": "350",
+      "model": "Siemens ALC-42",
+      "paint": "U.S. Department of Transportation 250",
+      "name": "ALC-42 · U.S. DOT 250"
+    },
+    {
+      "id": "366",
+      "model": "Siemens ALC-42",
+      "paint": "America 250 Years",
+      "name": "ALC-42 · America 250"
+    },
+    {
+      "id": "372",
+      "model": "Siemens ALC-42",
+      "paint": "America 250 Years",
+      "name": "ALC-42 · America 250"
+    },
+    {
+      "id": "500",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "501",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "502",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "503",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "504",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "505",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "506",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "507",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "508",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "509",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "510",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "511",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "512",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "513",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "514",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "515",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "516",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "517",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "518",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "519",
+      "model": "GE P32-8",
+      "paint": "B-32BWH fleet / heritage tracking",
+      "name": "P32-8 · B-32BWH"
+    },
+    {
+      "id": "600",
+      "model": "NRE 2GS12B genset",
+      "paint": "David L. Gunn tribute",
+      "name": "2GS12B · David L. Gunn"
+    },
+    {
+      "id": "607",
+      "model": "Siemens ACS-64",
+      "paint": "U.S. Department of Transportation 250",
+      "name": "ACS-64 · U.S. DOT 250"
+    },
+    {
+      "id": "618",
+      "model": "Siemens ACS-64",
+      "paint": "U.S. Department of Transportation 250",
+      "name": "ACS-64 · U.S. DOT 250"
+    },
+    {
+      "id": "625",
+      "model": "Siemens ACS-64",
+      "paint": "America 250 Years",
+      "name": "ACS-64 · America 250"
+    },
+    {
+      "id": "631",
+      "model": "Siemens ACS-64",
+      "paint": "America 250 Years",
+      "name": "ACS-64 · America 250"
+    },
+    {
+      "id": "637",
+      "model": "Siemens ACS-64",
+      "paint": "U.S. Department of Transportation 250",
+      "name": "ACS-64 · U.S. DOT 250"
+    },
+    {
+      "id": "639",
+      "model": "Siemens ACS-64",
+      "paint": "U.S. Department of Transportation 250",
+      "name": "ACS-64 · U.S. DOT 250"
+    },
+    {
+      "id": "642",
+      "model": "Siemens ACS-64",
+      "paint": "Salutes Our Veterans",
+      "name": "ACS-64 · Veterans tribute"
+    },
+    {
+      "id": "644",
+      "model": "Siemens ACS-64",
+      "paint": "America 250 Years",
+      "name": "ACS-64 · America 250"
+    },
+    {
+      "id": "649",
+      "model": "Siemens ACS-64",
+      "paint": "Freedom 250",
+      "name": "ACS-64 · Freedom 250"
+    },
+    {
+      "id": "657",
+      "model": "Siemens ACS-64",
+      "paint": "Freedom 250",
+      "name": "ACS-64 · Freedom 250"
+    },
+    {
+      "id": "662",
+      "model": "Siemens ACS-64",
+      "paint": "250 Years of Freedom",
+      "name": "ACS-64 · 250 Years of Freedom"
+    },
+    {
+      "id": "668",
+      "model": "Siemens ACS-64",
+      "paint": "Freedom 250",
+      "name": "ACS-64 · Freedom 250"
+    },
+    {
+      "id": "700",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "701",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "702",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "703",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "704",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "705",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "706",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "707",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "708",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "709",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "710",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "711",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "712",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "713",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "714",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "715",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "716",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "717",
+      "model": "GE P32AC-DM",
+      "paint": "Phase III Empire Service",
+      "name": "P32AC-DM · Phase III Empire Service"
+    },
+    {
+      "id": "790",
+      "model": "NRE 2GS12B genset",
+      "paint": "Washington Terminal Company heritage",
+      "name": "2GS12B · Washington Terminal Company"
+    }
+  ]
+}
