@@ -249,6 +249,26 @@
     onZoom();
     map.on('zoom zoomend', onZoom);
   }
+  window.rrFocusFacility = function (facility) {
+    var map = getMap();
+    if (!map || !facility) return;
+    var target = null;
+    facilityMarkers.forEach(function (marker) {
+      if (target) return;
+      var f = marker.__rrFacility;
+      if (!f) return;
+      if (facility.id && f.id === facility.id) target = marker;
+      else if (f.name === facility.name) target = marker;
+    });
+    var lat = target ? target.getLatLng().lat : facility.lat;
+    var lon = target ? target.getLatLng().lng : (facility.lng ?? facility.lon);
+    var zoom = map.getZoom() > MIN_MARKER_ZOOM ? map.getZoom() : 14;
+    map.flyTo([lat, lon], zoom);
+    map.once('moveend', function () {
+      setFacilityMarkersVisible(map.getZoom() > MIN_MARKER_ZOOM);
+      if (target) target.openPopup();
+    });
+  };
   function start() { hookLeafletMap(); var m = getMap(); if (m) addMarkers(m); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   var attempts = 0, timer = window.setInterval(function () {
