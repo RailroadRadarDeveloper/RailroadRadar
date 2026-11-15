@@ -3341,7 +3341,7 @@
         table.innerHTML = shown.length ? '<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Status</th><th>Railroad</th><th>ID</th><th>Type</th><th>Name</th><th>Model</th><th>Paint</th><th>Note</th></tr></thead><tbody>' +
           shown.map(function(row) {
             const label = row.status === 'new' ? 'New' : row.status === 'updated' ? 'Updated' : row.status === 'unchanged' ? 'Unchanged' : 'Invalid';
-            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr';
+            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr>';
           }).join('') + '</tbody></table></div>' + (plan.rows.length > shown.length ? '<p class="rr-modal-hint">Showing 100 of ' + plan.rows.length + ' rows.</p>' : '') : '';
       }
       if (save) save.disabled = !(c.new + c.updated);
