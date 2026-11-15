@@ -1,12 +1,21 @@
 /* Permanent railroad facility labels on the Live Map. */
 .rr-facility-marker-icon { background: transparent; border: 0; overflow: visible; }
 .rr-facility-marker {
+  position: absolute; left: 50%; top: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 28px; padding: 4px 9px; border: 2px solid #fff; border-radius: 4px;
   background: var(--rr-facility-color); box-shadow: 0 1px 5px rgba(0,0,0,.45);
-  white-space: nowrap; transform: translate(-50%, -50%);
+  white-space: nowrap;
+  transform: translate(-50%, -50%) scale(var(--rr-facility-marker-scale, 1));
+  transform-origin: center; transition: transform 120ms ease-out; cursor: pointer;
 }
 .rr-facility-marker-label {
   color: #fff; font-family: "Zing", sans-serif; font-size: 14px;
   line-height: 1; font-weight: 400; text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  pointer-events: none;
 }
+.rr-facility-popup { min-width: 190px; color: #172033; }
+.rr-facility-popup > strong { display: block; margin-bottom: 7px; }
+.rr-facility-popup p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; white-space: normal; }
+.rr-facility-popup-report { padding: 7px 0; border-top: 1px solid rgba(100,116,139,.25); }
+.rr-facility-popup-report strong { display: block; font-size: 13px; }
