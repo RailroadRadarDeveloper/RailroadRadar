@@ -21319,18 +21319,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               searchStations(q, results);
             }
           } catch (_) {}
-          askSeq += 1;
-          const noLocal = results.children.length === 0;
-          if (immediate) {
-            if (asking || noLocal) askRailroadRadar(raw, results);
-          } else if (noLocal) {
-            results.innerHTML = '<div class="search-no-results">No trains or stations match. Press Enter to ask.</div>';
-          } else if (asking) {
-            const hint = document.createElement('div');
-            hint.className = 'search-no-results';
-            hint.textContent = 'Press Enter to ask this question.';
-            results.appendChild(hint);
-          }
+          const facilities = searchMode === 'all' ? searchFacilities(q, results) : Promise.resolve(false);
+          facilities.then(function() {
+            if (searchInput.value.trim().toLowerCase() !== q) return;
+            askSeq += 1;
+            const noLocal = results.children.length === 0;
+            if (immediate) {
+              if (asking || noLocal) askRailroadRadar(raw, results);
+            } else if (noLocal) {
+              results.innerHTML = '<div class="search-no-results">No trains or stations match. Press Enter to ask.</div>';
+            } else if (asking) {
+              const hint = document.createElement('div');
+              hint.className = 'search-no-results';
+              hint.textContent = 'Press Enter to ask this question.';
+              results.appendChild(hint);
+            }
+          });
         }
         // Typing paints the character first; the result list (hundreds of trains to filter and render) is rebuilt in
         // the next task, once per frame, with whatever the box holds by then.
@@ -21378,6 +21382,43 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         header.textContent = 'Trains (' + res.length + ')';
         container.appendChild(header);
         res.forEach(function(r) { appendTrainResultCard(r, container); });
+      }
+      function searchFacilities(q, container) {
+        if (typeof window.rrLoadFacilities !== 'function') return Promise.resolve(false);
+        return window.rrLoadFacilities().then(function(list) {
+          if (searchInput.value.trim().toLowerCase() !== q) return false;
+          const res = (list || []).filter(function(f) {
+            const name = String(f.name || '').toLowerCase();
+            const id = String(f.id || '').toLowerCase();
+            return name.indexOf(q) !== -1 || (id && id.indexOf(q) !== -1);
+          });
+          if (!res.length) return false;
+          const header = document.createElement('div');
+          header.className = 'search-section-header';
+          header.textContent = 'Facilities (' + res.length + ')';
+          container.appendChild(header);
+          res.forEach(function(f) {
+            const agency = f.agency === 'amtrak' ? 'Amtrak' : 'MBTA';
+            const d = document.createElement('div');
+            d.className = 'search-result search-station-result';
+            d.innerHTML =
+              '<div class="search-result-header">' +
+                '<span class="route">' + escapeHtmlLite(f.name) + '</span>' +
+              '</div>' +
+              '<div class="search-result-body">' +
+                '<div class="search-result-meta"><span>Facility · ' + escapeHtmlLite(agency) + '</span></div>' +
+              '</div>';
+            d.onclick = function() {
+              if (typeof window.rrFocusFacility === 'function') window.rrFocusFacility(f);
+              container.classList.remove('active');
+              const panel = document.getElementById('control-panel');
+              if (panel) panel.classList.remove('open');
+              searchInput.blur();
+            };
+            container.appendChild(d);
+          });
+          return true;
+        }).catch(function() { return false; });
       }
       function searchStations(q, container) {
         const res = [];
