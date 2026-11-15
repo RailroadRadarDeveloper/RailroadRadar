@@ -2,7 +2,7 @@
    Expands the published series into searchable unit numbers and overlays named special-paint units. */
 (function(root){
   'use strict';
-  var URL='/assets/data/amtrak-locomotives.json?v=20261115a';
+  var URL='/assets/data/amtrak-locomotives.json?v=20261115b';
   var byKey=Object.create(null),list=[];
   function keys(raw){
     var s=String(raw==null?'':raw).trim().toUpperCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
