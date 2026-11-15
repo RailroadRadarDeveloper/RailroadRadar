@@ -12354,7 +12354,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           updatedEl.textContent = 'Updated at ' + whenStr + suffix;
         }
       }
-      function openWeeklyLeaderboard() {
+      function leaderboardPath() {
+        return /^\/leaderboard\/?$/.test(location.pathname);
+      }
+      function leaderboardQuery() {
+        return /(?:^|[?&])leaderboard=1(?:&|$)/.test(location.search);
+      }
+      function openWeeklyLeaderboard(opts) {
+        opts = opts || {};
         const modal = document.getElementById('weekly-leaderboard-modal');
         if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
         try {
@@ -12364,10 +12371,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (overlay) overlay.classList.remove('open');
         } catch (_) {}
         renderWeeklyLeaderboard();
+        if (!opts.fromHistory && !leaderboardPath()) {
+          try { history.pushState({ rrLeaderboard: 1 }, '', '/leaderboard'); } catch (_) {}
+        }
       }
-      function closeWeeklyLeaderboard() {
+      function closeWeeklyLeaderboard(opts) {
+        opts = opts || {};
         const modal = document.getElementById('weekly-leaderboard-modal');
         if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+        if (opts.fromHistory || !leaderboardPath()) return;
+        try {
+          if (history.state && history.state.rrLeaderboard) history.back();
+          else history.replaceState({}, '', '/map/');
+        } catch (_) {}
       }
       function wireWeeklyLeaderboardUI() {
         const btnH = document.getElementById('btn-leaderboard-header');
@@ -12375,11 +12391,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const btnC = document.getElementById('weekly-leaderboard-close');
         const btnR = document.getElementById('weekly-leaderboard-refresh');
         const modal = document.getElementById('weekly-leaderboard-modal');
-        if (btnH) btnH.addEventListener('click', openWeeklyLeaderboard);
-        if (btnP) btnP.addEventListener('click', openWeeklyLeaderboard);
-        if (btnC) btnC.addEventListener('click', closeWeeklyLeaderboard);
+        if (btnH) btnH.addEventListener('click', function() { openWeeklyLeaderboard(); });
+        if (btnP) btnP.addEventListener('click', function() { openWeeklyLeaderboard(); });
+        if (btnC) btnC.addEventListener('click', function() { closeWeeklyLeaderboard(); });
         if (btnR) btnR.addEventListener('click', function() { renderWeeklyLeaderboard(); });
         if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeWeeklyLeaderboard(); });
+        window.addEventListener('popstate', function() {
+          const open = modal && modal.classList.contains('open');
+          if (leaderboardPath() && !open) openWeeklyLeaderboard({ fromHistory: true });
+          else if (!leaderboardPath() && open) closeWeeklyLeaderboard({ fromHistory: true });
+        });
+        if (leaderboardPath() || leaderboardQuery()) {
+          openWeeklyLeaderboard({ fromHistory: true });
+          if (leaderboardQuery()) {
+            try { history.replaceState({ rrLeaderboard: 1 }, '', '/leaderboard'); } catch (_) {}
+          }
+        }
       }
       function openSpecialsBoard() {
         renderSpecialsBoard();
