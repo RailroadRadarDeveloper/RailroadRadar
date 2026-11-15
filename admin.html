@@ -248,7 +248,11 @@
     .rr-admin-pane { display: none; }
     .rr-admin-pane.active { display: block; }
     #admin-facility-form[hidden],
-    #admin-facility-save-builtin[hidden] { display: none !important; }
+    #admin-facility-save-builtin[hidden],
+    #admin-equipment-bulk[hidden] { display: none !important; }
+    #admin-equipment-bulk-map { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    #admin-equipment-bulk-map label { flex: 1 1 160px; min-width: 140px; margin: 0; }
+    #admin-equipment-bulk-text { min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
     .rr-lightbox-section {
       margin: 0 0 16px;
       padding: 18px 20px 20px;
@@ -779,7 +783,24 @@
     <div class="rr-admin-toolbar" style="margin-top:10px;margin-bottom:8px;"><input type="search" id="admin-equipment-search" placeholder="Search number, name, model, type, or paint scheme…" aria-label="Search equipment roster" autocomplete="off"></div>
     <div id="admin-railroad-default-icon-panel" class="rr-admin-card" style="display:none;margin:10px 0 12px;background:#fff;"><strong id="admin-railroad-default-icon-title">Railroad default icon</strong><div class="rr-admin-toolbar" style="margin:8px 0 0;align-items:center;"><select id="admin-railroad-default-icon-select" aria-label="Railroad default icon" style="flex:1 1 220px;min-height:44px;padding:10px;border:1px solid var(--field);border-radius:4px;background:#fff;color:var(--text);font:400 15px/1.3 var(--font);"><option value="">No default icon</option></select><button type="button" class="rr-btn secondary" id="admin-railroad-default-icon-save">Save default icon</button></div><img id="admin-railroad-default-icon-preview" alt="Railroad default icon preview" hidden style="width:56px;height:56px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;"><p class="rr-modal-hint" id="admin-railroad-default-icon-status" role="status" aria-live="polite"></p></div>
     <div id="admin-railroad-icon-rules-panel" class="rr-admin-card" style="display:none;margin:10px 0 12px;background:#fff;"><strong>Special Icon Rules</strong><p class="rr-modal-hint">Create railroad-specific rules for routes, locomotive numbers, models, paint schemes, or individual equipment. Lower priority numbers run first.</p><div class="rr-admin-toolbar" style="gap:8px;flex-wrap:wrap;"><select id="admin-icon-rule-kind" aria-label="Rule match type"><option value="route">Route name contains</option><option value="number">Locomotive number equals</option><option value="model">Model / type contains</option><option value="paint">Paint scheme contains</option><option value="equipment">Equipment ID equals</option></select><input id="admin-icon-rule-match" type="text" placeholder="Match value" aria-label="Rule match value" style="flex:1 1 160px;min-width:140px;"><select id="admin-icon-rule-icon" aria-label="Rule icon" style="flex:1 1 180px;min-width:160px;"></select><input id="admin-icon-rule-priority" type="number" min="1" max="999" value="10" aria-label="Rule priority" style="width:84px;"><button type="button" class="rr-btn secondary" id="admin-icon-rule-save">Add rule</button><button type="button" class="rr-btn secondary" id="admin-icon-rule-cancel" hidden>Cancel edit</button></div><div id="admin-icon-rules-list" style="margin-top:10px;"><p class="rr-modal-hint">Select a railroad to load its special rules.</p></div><p class="rr-modal-hint" id="admin-icon-rule-status" role="status" aria-live="polite"></p></div><p class="rr-modal-hint" id="admin-equipment-status" role="status" aria-live="polite">Loading equipment roster…</p>
-    <div class="rr-lightbox-actions"><button type="button" class="rr-btn secondary" id="admin-equipment-migrate-legacy">Import legacy records</button></div><p class="rr-modal-hint" id="admin-equipment-migration-status" role="status" aria-live="polite">Legacy MBTA and special-unit records can be safely imported into this roster. Existing equipment entries are preserved; legacy collections are not deleted.</p>
+    <div class="rr-lightbox-actions"><button type="button" class="rr-btn secondary" id="admin-equipment-migrate-legacy">Import legacy records</button><button type="button" class="rr-btn secondary" id="admin-equipment-bulk-open">Bulk Import</button></div><p class="rr-modal-hint" id="admin-equipment-migration-status" role="status" aria-live="polite">Legacy MBTA and special-unit records can be safely imported into this roster. Existing equipment entries are preserved; legacy collections are not deleted.</p>
+    <div class="rr-lightbox-section" id="admin-equipment-bulk" hidden>
+      <h3>Bulk Import</h3>
+      <p class="rr-modal-hint">Paste spreadsheet rows or choose a .csv file. Columns are Railroad, Equipment ID, Type, Name, Model, Paint, and Icon. A header row is detected automatically. Type defaults to Locomotive when that column is omitted. Unchanged rows are not written.</p>
+      <label for="admin-equipment-bulk-text">Paste rows</label>
+      <textarea id="admin-equipment-bulk-text" rows="8" spellcheck="false" placeholder="Railroad,Number,Name,Model,Paint&#10;MBTA,1030,F40PH-3C,F40PH-3C,New Paint"></textarea>
+      <label for="admin-equipment-bulk-file">Or choose a .csv file</label>
+      <input type="file" id="admin-equipment-bulk-file" accept=".csv,text/csv,text/plain">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;"><input type="checkbox" id="admin-equipment-bulk-header"> First row is a header</label>
+      <div id="admin-equipment-bulk-map"></div>
+      <div class="rr-lightbox-actions">
+        <button type="button" class="rr-btn secondary" id="admin-equipment-bulk-preview">Preview</button>
+        <button type="button" class="rr-btn" id="admin-equipment-bulk-save" disabled>Import</button>
+      </div>
+      <p class="rr-modal-hint" id="admin-equipment-bulk-counts" role="status" aria-live="polite"></p>
+      <div id="admin-equipment-bulk-preview-table"></div>
+      <p class="rr-modal-hint" id="admin-equipment-bulk-status" role="status" aria-live="polite"></p>
+    </div>
     <div id="admin-equipment-groups" style="margin-top:12px;"><p class="rr-admin-empty">Select a railroad to view its roster.</p></div>
   </div>
   <details class="rr-lightbox-section" id="admin-equipment-editor"><summary><strong>Add / Edit Equipment</strong></summary><button type="button" class="rr-btn secondary rr-equipment-popup-close" id="admin-equipment-popup-close" hidden>Close</button>
@@ -2863,6 +2884,8 @@
 
     let adminEquipmentRows=[];
     let adminEquipmentInactiveKeys=new Set();
+    let adminEquipmentByKey=new Map();
+    let adminEquipmentRosterLoaded=false;
     const ADMIN_EQUIPMENT_TYPES={locomotive:'Locomotive',passenger_car:'Passenger Car / Coach',cab_car:'Cab Car',freight_car:'Freight Car',dmu:'DMU',emu:'EMU',trainset:'Trainset',maintenance:'Maintenance of Way',other:'Other Equipment'};
     function adminEquipmentPopulateIconChoices(selected){const sel=document.getElementById('admin-equipment-icon-select');if(!sel)return;const cur=selected!=null?String(selected):String(sel.value||''),m=new Map(),legacy=document.getElementById('admin-roster-icon-select');if(legacy)Array.from(legacy.options).forEach(o=>{if(o.value)m.set(o.value,o.textContent||o.value);});adminEquipmentRows.forEach(x=>{const u=String(x.iconUrl||'').trim();if(u)m.set(u,x.name||x.id||u.split('/').pop());});(adminMasterLocoRows||[]).forEach(x=>{const u=typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(x.number):'';if(u)m.set(u,x.paint||x.type||('MBTA '+x.number));});if(typeof window.getSpecialUnitsRoster==='function')(window.getSpecialUnitsRoster()||[]).forEach(x=>{const u=String(x.iconUrl||'').trim();if(u)m.set(u,x.name||x.id||u.split('/').pop());});if(cur)m.set(cur,cur.split('/').pop());sel.innerHTML='<option value="">No icon</option>'+Array.from(m.entries()).sort((a,b)=>a[1].localeCompare(b[1])).map(p=>'<option value="'+escapeHtmlLite(p[0])+'">'+escapeHtmlLite(p[1])+'</option>').join('');sel.value=cur;}
     function adminEquipmentIconPreview(){const img=document.getElementById('admin-equipment-icon-preview'),sel=document.getElementById('admin-equipment-icon-select'),u=String((sel&&sel.value)||'').trim();if(!img)return;if(!u){img.hidden=true;img.style.display='none';img.removeAttribute('src');return;}img.hidden=false;img.style.display='block';img.src=u;}
@@ -3006,7 +3029,7 @@
         setAdminError((e&&e.message)||String(e));
       }finally{if(button)button.disabled=false;}
     }
-    async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();snap.forEach(doc=>{const d=doc.data()||{},key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase();if(d.active===false){adminEquipmentInactiveKeys.add(key);return;}adminEquipmentRows.push(Object.assign({docId:doc.id},d));});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
+    async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();adminEquipmentByKey=new Map();snap.forEach(doc=>{const d=doc.data()||{},key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase(),row=Object.assign({docId:doc.id},d);if(!adminEquipmentByKey.has(key)||d.active!==false)adminEquipmentByKey.set(key,row);if(d.active===false){adminEquipmentInactiveKeys.add(key);return;}adminEquipmentRows.push(row);});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));adminEquipmentRosterLoaded=true;renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
     async function saveAdminEquipment(){
       const user=currentUser||(auth&&auth.currentUser);
       if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}
@@ -3035,6 +3058,312 @@
     async function deleteAdminEquipment(docId){const user=currentUser||(auth&&auth.currentUser);if(!docId||!db||!isAdminUser(user))return;const row=adminEquipmentRows.find(x=>x.docId===docId);if(!window.confirm('Remove '+(row?((row.railroad||'')+' '+(row.id||'')):'this equipment entry')+' from the roster?'))return;try{await db.collection('equipmentRoster').doc(docId).set({active:false,deletedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid},{merge:true});await loadAdminEquipmentRoster();if(typeof window.loadSpecialUnitsFromFirestore==='function')await window.loadSpecialUnitsFromFirestore();if(typeof window.populateReportUnitSelect==='function'){try{window.populateReportUnitSelect();}catch(_){}}showNotification('Equipment removed from the roster.');try{await logUserAction('admin_delete_equipment','Removed equipment entry '+docId);}catch(_){}}catch(e){setAdminError((e&&e.message)||String(e));}}
     function editAdminEquipment(docId){const x=adminEquipmentRows.find(r=>r.docId===docId);if(!x)return;const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v||'';};set('admin-equipment-type',x.type||'other');adminEquipmentUpdateTypeFields();set('admin-equipment-railroad',x.railroad);set('admin-equipment-id',x.id);set('admin-equipment-name',x.name);set('admin-equipment-loco-type',x.locoType||x.equipmentSubtype);set('admin-equipment-paint',x.paint);adminEquipmentPopulateIconChoices(x.iconUrl||'');adminEquipmentIconPreview();const sec=document.getElementById('admin-equipment-editor');if(sec){sec.setAttribute('data-edit-id',docId);sec.classList.add('is-popup');sec.open=true;}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=false;const b=document.getElementById('admin-equipment-save');if(b)b.textContent='Save Changes';}
 
+    function adminEquipmentDocId(railroad, type, id) {
+      return encodeURIComponent((String(railroad) + '_' + String(type) + '_' + String(id)).toLowerCase()).replace(/%/g, '_').slice(0, 180);
+    }
+    function adminEquipmentParseDelimited(text) {
+      text = String(text || '').replace(/^\uFEFF/, '');
+      if (!text.trim()) return [];
+      const firstBreak = text.search(/\r|\n/);
+      const firstLine = firstBreak === -1 ? text : text.slice(0, firstBreak);
+      const delim = firstLine.indexOf('\t') !== -1 ? '\t' : ',';
+      const rows = [];
+      let row = [];
+      let cell = '';
+      let quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (quoted) {
+          if (c === '"') {
+            if (text[i + 1] === '"') { cell += '"'; i++; }
+            else quoted = false;
+          } else cell += c;
+        } else if (c === '"') quoted = true;
+        else if (c === delim) { row.push(cell.trim()); cell = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          row.push(cell.trim());
+          cell = '';
+          if (row.some(function(v) { return v !== ''; })) rows.push(row);
+          row = [];
+        } else cell += c;
+      }
+      row.push(cell.trim());
+      if (row.some(function(v) { return v !== ''; })) rows.push(row);
+      return rows;
+    }
+    const ADMIN_EQUIPMENT_BULK_FIELDS = [
+      { key: 'railroad', label: 'Railroad', aliases: ['railroad', 'agency', 'railroad / agency', 'railroad/agency', 'carrier', 'operator', 'road'] },
+      { key: 'id', label: 'Equipment ID', aliases: ['id', 'number', 'equipment id', 'equipment id / number', 'equipment number', 'unit', 'unit number', 'locomotive', 'locomotive number', 'road number', 'no', 'no.'] },
+      { key: 'type', label: 'Type', aliases: ['type', 'equipment type', 'kind', 'category'] },
+      { key: 'name', label: 'Name', aliases: ['name', 'description', 'name / description', 'name/description', 'unit name'] },
+      { key: 'locoType', label: 'Model', aliases: ['locotype', 'loco type', 'model', 'locomotive model', 'subtype', 'locomotive model / subtype', 'equipment subtype'] },
+      { key: 'paint', label: 'Paint', aliases: ['paint', 'paint scheme', 'livery', 'paint scheme / notes', 'notes'] },
+      { key: 'iconUrl', label: 'Icon', aliases: ['icon', 'iconurl', 'icon url'] }
+    ];
+    const ADMIN_EQUIPMENT_TYPE_ALIASES = {
+      locomotive: 'locomotive', loco: 'locomotive', engine: 'locomotive',
+      'passenger car': 'passenger_car', 'passenger car / coach': 'passenger_car', coach: 'passenger_car', passenger: 'passenger_car', passenger_car: 'passenger_car',
+      'cab car': 'cab_car', cab: 'cab_car', cab_car: 'cab_car',
+      'freight car': 'freight_car', freight: 'freight_car', freight_car: 'freight_car',
+      dmu: 'dmu', emu: 'emu', trainset: 'trainset', 'train set': 'trainset',
+      maintenance: 'maintenance', 'maintenance of way': 'maintenance', mow: 'maintenance',
+      other: 'other', 'other equipment': 'other'
+    };
+    function adminEquipmentBulkNormHeader(value) {
+      return String(value || '').toLowerCase().replace(/[_]+/g, ' ').replace(/[^a-z0-9/ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function adminEquipmentBulkFieldForHeader(value) {
+      const norm = adminEquipmentBulkNormHeader(value);
+      if (!norm) return '';
+      for (let i = 0; i < ADMIN_EQUIPMENT_BULK_FIELDS.length; i++) {
+        const field = ADMIN_EQUIPMENT_BULK_FIELDS[i];
+        if (field.aliases.indexOf(norm) !== -1) return field.key;
+      }
+      return '';
+    }
+    function adminEquipmentBulkGuessHeader(row) {
+      const used = new Set();
+      (row || []).forEach(function(cell) {
+        const key = adminEquipmentBulkFieldForHeader(cell);
+        if (key) used.add(key);
+      });
+      return used.size >= 2 && (used.has('railroad') || used.has('id'));
+    }
+    function adminEquipmentBulkGuessMapping(headerRow) {
+      const used = new Set();
+      return (headerRow || []).map(function(cell) {
+        const key = adminEquipmentBulkFieldForHeader(cell);
+        if (!key || used.has(key)) return '';
+        used.add(key);
+        return key;
+      });
+    }
+    function adminEquipmentNormalizeType(value) {
+      const withSlash = adminEquipmentBulkNormHeader(value);
+      const spaced = withSlash.replace(/\//g, ' ').replace(/\s+/g, ' ').trim();
+      const underscored = spaced.replace(/ /g, '_');
+      return ADMIN_EQUIPMENT_TYPE_ALIASES[withSlash] || ADMIN_EQUIPMENT_TYPE_ALIASES[spaced] || ADMIN_EQUIPMENT_TYPE_ALIASES[underscored] || '';
+    }
+    function adminEquipmentBulkBlank(value) {
+      return value == null ? '' : String(value).trim();
+    }
+    function adminEquipmentBulkBuild(rows, mapping, useHeader, existingByKey) {
+      const source = (rows || []).slice(useHeader ? 1 : 0);
+      const mapped = {};
+      (mapping || []).forEach(function(key) { if (key) mapped[key] = true; });
+      const out = [];
+      source.forEach(function(cells, index) {
+        const pick = function(key) {
+          const col = (mapping || []).indexOf(key);
+          return col < 0 ? '' : adminEquipmentBulkBlank(cells[col]);
+        };
+        const railroad = pick('railroad');
+        const id = pick('id');
+        let type = mapped.type ? adminEquipmentNormalizeType(pick('type')) : 'locomotive';
+        if (mapped.type && !pick('type')) type = 'locomotive';
+        const name = pick('name');
+        const locoType = pick('locoType');
+        const paint = pick('paint');
+        const iconUrl = pick('iconUrl');
+        let reason = '';
+        if (!railroad) reason = 'Railroad is required.';
+        else if (railroad.length > 80) reason = 'Railroad is too long.';
+        else if (!id) reason = 'Equipment ID is required.';
+        else if (id.length > 80) reason = 'Equipment ID is too long.';
+        else if (mapped.type && pick('type') && !type) reason = 'Could not read equipment type "' + pick('type') + '".';
+        else if (mapped.name && name.length > 160) reason = 'Name is too long.';
+        else if (mapped.locoType && locoType.length > 80) reason = 'Model is too long.';
+        else if (mapped.paint && paint.length > 160) reason = 'Paint is too long.';
+        else if (mapped.iconUrl && iconUrl.length > 500) reason = 'Icon URL is too long.';
+        if (reason) {
+          out.push({ status: 'invalid', reason: reason, line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, record: null, docId: '' });
+          return;
+        }
+        const key = railroad.toLowerCase() + '|' + type + '|' + id.toLowerCase();
+        const existing = existingByKey && existingByKey.get(key);
+        const docId = existing && existing.docId ? existing.docId : adminEquipmentDocId(railroad, type, id);
+        const record = { type: type, railroad: railroad, id: id, active: true };
+        if (mapped.name) record.name = name;
+        if (type === 'locomotive' && mapped.locoType) record.locoType = locoType || null;
+        if (type === 'locomotive' && mapped.paint) record.paint = paint || null;
+        if (mapped.iconUrl) record.iconUrl = iconUrl || null;
+        let status = 'new';
+        if (existing && existing.active !== false) {
+          status = 'unchanged';
+          Object.keys(record).forEach(function(field) {
+            if (field === 'active') return;
+            if (adminEquipmentBulkBlank(existing[field]) !== adminEquipmentBulkBlank(record[field])) status = 'updated';
+          });
+        } else if (existing) status = 'updated';
+        out.push({ status: status, reason: '', line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, record: status === 'unchanged' ? null : record, docId: docId });
+      });
+      const seen = new Set();
+      for (let i = out.length - 1; i >= 0; i--) {
+        const row = out[i];
+        if (row.status === 'invalid') continue;
+        if (seen.has(row.docId)) {
+          row.status = 'invalid';
+          row.reason = 'Duplicate of a later row';
+          row.record = null;
+        } else seen.add(row.docId);
+      }
+      const counts = { new: 0, updated: 0, unchanged: 0, invalid: 0 };
+      out.forEach(function(row) { counts[row.status] += 1; });
+      return { rows: out, counts: counts, mapped: mapped };
+    }
+    let adminEquipmentBulkRows = [];
+    let adminEquipmentBulkPlan = null;
+    function adminEquipmentBulkMapping() {
+      return Array.from(document.querySelectorAll('#admin-equipment-bulk-map select')).map(function(sel) { return sel.value || ''; });
+    }
+    function adminEquipmentBulkRenderMap() {
+      const host = document.getElementById('admin-equipment-bulk-map');
+      const useHeader = !!(document.getElementById('admin-equipment-bulk-header') || {}).checked;
+      if (!host) return;
+      const width = adminEquipmentBulkRows.reduce(function(max, row) { return Math.max(max, row.length); }, 0);
+      const header = useHeader ? (adminEquipmentBulkRows[0] || []) : [];
+      const current = adminEquipmentBulkMapping();
+      if (current.length === width && host.children.length) return;
+      const mapping = current.length === width ? current : (useHeader ? adminEquipmentBulkGuessMapping(header) : []);
+      let html = '';
+      for (let i = 0; i < width; i++) {
+        const label = header[i] || ('Column ' + (i + 1));
+        const selected = mapping[i] || '';
+        html += '<label>' + escapeHtmlLite(label) + '<select data-bulk-col="' + i + '" aria-label="Map ' + escapeHtmlLite(label) + '"><option value="">Ignore</option>' +
+          ADMIN_EQUIPMENT_BULK_FIELDS.map(function(field) {
+            return '<option value="' + field.key + '"' + (selected === field.key ? ' selected' : '') + '>' + escapeHtmlLite(field.label) + '</option>';
+          }).join('') + '</select></label>';
+      }
+      host.innerHTML = html;
+    }
+    function adminEquipmentBulkShowPlan() {
+      const countsEl = document.getElementById('admin-equipment-bulk-counts');
+      const table = document.getElementById('admin-equipment-bulk-preview-table');
+      const save = document.getElementById('admin-equipment-bulk-save');
+      const status = document.getElementById('admin-equipment-bulk-status');
+      const mapping = adminEquipmentBulkMapping();
+      const seen = {};
+      let duplicateField = '';
+      mapping.forEach(function(key) {
+        if (!key) return;
+        if (seen[key]) duplicateField = key;
+        seen[key] = true;
+      });
+      if (!mapping.includes('railroad') || !mapping.includes('id')) {
+        adminEquipmentBulkPlan = null;
+        if (countsEl) countsEl.textContent = 'Choose the Railroad and Equipment ID columns.';
+        if (table) table.innerHTML = '';
+        if (save) save.disabled = true;
+        return;
+      }
+      if (duplicateField) {
+        adminEquipmentBulkPlan = null;
+        if (countsEl) countsEl.textContent = 'Each field can only be mapped once.';
+        if (table) table.innerHTML = '';
+        if (save) save.disabled = true;
+        return;
+      }
+      const useHeader = !!(document.getElementById('admin-equipment-bulk-header') || {}).checked;
+      const plan = adminEquipmentBulkBuild(adminEquipmentBulkRows, mapping, useHeader, adminEquipmentByKey);
+      adminEquipmentBulkPlan = plan;
+      const c = plan.counts;
+      if (countsEl) countsEl.textContent = c.new + ' new, ' + c.updated + ' updated, ' + c.unchanged + ' unchanged, ' + c.invalid + ' invalid';
+      const shown = plan.rows.slice(0, 100);
+      if (table) {
+        table.innerHTML = shown.length ? '<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Status</th><th>Railroad</th><th>ID</th><th>Type</th><th>Name</th><th>Model</th><th>Paint</th><th>Note</th></tr></thead><tbody>' +
+          shown.map(function(row) {
+            const label = row.status === 'new' ? 'New' : row.status === 'updated' ? 'Updated' : row.status === 'unchanged' ? 'Unchanged' : 'Invalid';
+            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr>';
+          }).join('') + '</tbody></table></div>' + (plan.rows.length > shown.length ? '<p class="rr-modal-hint">Showing 100 of ' + plan.rows.length + ' rows.</p>' : '') : '';
+      }
+      if (save) save.disabled = !(c.new + c.updated);
+      if (status && status.textContent.indexOf('Saving') !== 0 && status.textContent.indexOf('Imported') !== 0) status.textContent = '';
+    }
+    async function previewAdminEquipmentBulk() {
+      const status = document.getElementById('admin-equipment-bulk-status');
+      const text = String((document.getElementById('admin-equipment-bulk-text') || {}).value || '');
+      const rows = adminEquipmentParseDelimited(text);
+      if (!rows.length) {
+        adminEquipmentBulkRows = [];
+        adminEquipmentBulkPlan = null;
+        const countsEl = document.getElementById('admin-equipment-bulk-counts');
+        const table = document.getElementById('admin-equipment-bulk-preview-table');
+        const save = document.getElementById('admin-equipment-bulk-save');
+        if (countsEl) countsEl.textContent = '';
+        if (table) table.innerHTML = '';
+        if (save) save.disabled = true;
+        if (status) status.textContent = 'Paste roster rows or choose a .csv file.';
+        return;
+      }
+      if (!adminEquipmentRosterLoaded) {
+        if (status) status.textContent = 'Loading the current roster…';
+        await loadAdminEquipmentRoster();
+      }
+      if (!adminEquipmentRosterLoaded) {
+        if (status) status.textContent = 'Could not load the current roster.';
+        return;
+      }
+      adminEquipmentBulkRows = rows;
+      const headerBox = document.getElementById('admin-equipment-bulk-header');
+      const guessed = adminEquipmentBulkGuessHeader(rows[0]);
+      if (headerBox) headerBox.checked = guessed;
+      const host = document.getElementById('admin-equipment-bulk-map');
+      if (host) host.innerHTML = '';
+      adminEquipmentBulkRenderMap();
+      if (status) status.textContent = '';
+      adminEquipmentBulkShowPlan();
+    }
+    async function importAdminEquipmentBulk() {
+      const status = document.getElementById('admin-equipment-bulk-status');
+      const button = document.getElementById('admin-equipment-bulk-save');
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !isAdminUser(user)) {
+        if (status) status.textContent = 'Admin access required.';
+        return;
+      }
+      if (!db) {
+        if (status) status.textContent = 'Firestore is unavailable.';
+        return;
+      }
+      const plan = adminEquipmentBulkPlan;
+      const writes = plan ? plan.rows.filter(function(row) { return row.record; }) : [];
+      if (!writes.length) {
+        if (status) status.textContent = 'Imported 0';
+        return;
+      }
+      if (button) button.disabled = true;
+      let done = 0;
+      try {
+        for (let i = 0; i < writes.length; i += 500) {
+          const chunk = writes.slice(i, i + 500);
+          if (status) status.textContent = 'Saving ' + (i + 1) + '-' + (i + chunk.length) + ' of ' + writes.length + '…';
+          const batch = db.batch();
+          chunk.forEach(function(row) {
+            const record = Object.assign({}, row.record, {
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedByUid: user.uid
+            });
+            batch.set(db.collection('equipmentRoster').doc(row.docId), record, { merge: true });
+          });
+          await batch.commit();
+          done += chunk.length;
+        }
+        try { if (window.rrFsCache && window.rrFsCache.drop) window.rrFsCache.drop('equipmentRoster'); } catch (_) {}
+        try { localStorage.removeItem('rrFs:equipmentRoster'); } catch (_) {}
+        await loadAdminEquipmentRoster();
+        adminEquipmentBulkShowPlan();
+        if (status) status.textContent = 'Imported ' + done;
+        showNotification('Imported ' + done);
+        try { await logUserAction('admin_bulk_import_equipment', 'Imported ' + done + ' equipment roster row(s).'); } catch (_) {}
+      } catch (e) {
+        const msg = (e && e.message) || String(e);
+        if (status) status.textContent = done ? ('Imported ' + done + ', then stopped: ' + msg) : msg;
+        setAdminError(msg);
+      } finally {
+        if (button) button.disabled = !(adminEquipmentBulkPlan && (adminEquipmentBulkPlan.counts.new + adminEquipmentBulkPlan.counts.updated));
+      }
+    }
     async function loadAdminRoster() {
       const status = document.getElementById('admin-roster-status');
       if (status) status.textContent = 'Loading special locomotives…';
@@ -4142,6 +4471,14 @@
       });
       const iconRuleSave=document.getElementById('admin-icon-rule-save'),iconRuleCancel=document.getElementById('admin-icon-rule-cancel'),iconRulesList=document.getElementById('admin-icon-rules-list');if(iconRuleSave)iconRuleSave.addEventListener('click',saveAdminIconRule);if(iconRuleCancel)iconRuleCancel.addEventListener('click',clearAdminIconRuleForm);if(iconRulesList)iconRulesList.addEventListener('click',function(e){const edit=e.target.closest('[data-icon-rule-edit]'),del=e.target.closest('[data-icon-rule-delete]');if(edit)editAdminIconRule(edit.getAttribute('data-icon-rule-edit'));if(del)deleteAdminIconRule(del.getAttribute('data-icon-rule-delete'));});      const defaultIconSave=document.getElementById('admin-railroad-default-icon-save'),defaultIconSelect=document.getElementById('admin-railroad-default-icon-select');if(defaultIconSave)defaultIconSave.addEventListener('click',saveAdminRailroadDefaultIcon);if(defaultIconSelect)defaultIconSelect.addEventListener('change',function(){const p=document.getElementById('admin-railroad-default-icon-preview'),u=String(defaultIconSelect.value||'');if(p){p.hidden=!u;if(u)p.src=u;else p.removeAttribute('src');}});const eqMigrate=document.getElementById('admin-equipment-migrate-legacy');if(eqMigrate)eqMigrate.addEventListener('click',migrateLegacyEquipmentRecords);const eqType=document.getElementById('admin-equipment-type');if(eqType){eqType.addEventListener('change',adminEquipmentUpdateTypeFields);adminEquipmentUpdateTypeFields();}const eqFilter=document.getElementById('admin-equipment-railroad-filter'),eqSearch=document.getElementById('admin-equipment-search');if(eqFilter)eqFilter.addEventListener('change',renderAdminEquipmentRoster);if(eqSearch)eqSearch.addEventListener('input',renderAdminEquipmentRoster);const eqRefresh=document.getElementById('admin-equipment-refresh'),eqSave=document.getElementById('admin-equipment-save'),eqClear=document.getElementById('admin-equipment-clear'),eqUpload=document.getElementById('admin-equipment-icon-upload'),eqIcon=document.getElementById('admin-equipment-icon-select'),eqBody=document.getElementById('admin-equipment-groups');
       if(eqRefresh)eqRefresh.addEventListener('click',loadAdminEquipmentRoster);if(eqSave)eqSave.addEventListener('click',saveAdminEquipment);if(eqClear)eqClear.addEventListener('click',clearAdminEquipmentForm);
+      const bulkOpen=document.getElementById('admin-equipment-bulk-open'),bulkPane=document.getElementById('admin-equipment-bulk'),bulkPreview=document.getElementById('admin-equipment-bulk-preview'),bulkSave=document.getElementById('admin-equipment-bulk-save'),bulkFile=document.getElementById('admin-equipment-bulk-file'),bulkText=document.getElementById('admin-equipment-bulk-text'),bulkHeader=document.getElementById('admin-equipment-bulk-header'),bulkMap=document.getElementById('admin-equipment-bulk-map');
+      if(bulkOpen&&bulkPane)bulkOpen.addEventListener('click',function(){bulkPane.hidden=!bulkPane.hidden;if(!bulkPane.hidden){try{bulkPane.scrollIntoView({block:'nearest'});}catch(_){}if(bulkText)bulkText.focus();}});
+      if(bulkPreview)bulkPreview.addEventListener('click',function(){previewAdminEquipmentBulk();});
+      if(bulkSave)bulkSave.addEventListener('click',function(){importAdminEquipmentBulk();});
+      if(bulkText)bulkText.addEventListener('input',function(){const save=document.getElementById('admin-equipment-bulk-save');if(save)save.disabled=true;const st=document.getElementById('admin-equipment-bulk-status');if(st&&st.textContent.indexOf('Saving')!==0)st.textContent='';});
+      if(bulkFile)bulkFile.addEventListener('change',function(){const file=bulkFile.files&&bulkFile.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(){if(bulkText)bulkText.value=String(reader.result||'');previewAdminEquipmentBulk();};reader.onerror=function(){const st=document.getElementById('admin-equipment-bulk-status');if(st)st.textContent='Could not read that file.';};reader.readAsText(file);});
+      if(bulkHeader)bulkHeader.addEventListener('change',function(){const host=document.getElementById('admin-equipment-bulk-map');if(host)host.innerHTML='';if(adminEquipmentBulkRows.length){adminEquipmentBulkRenderMap();adminEquipmentBulkShowPlan();}});
+      if(bulkMap)bulkMap.addEventListener('change',function(e){if(e.target&&e.target.matches('select')&&adminEquipmentBulkRows.length)adminEquipmentBulkShowPlan();});
       if(eqUpload)eqUpload.addEventListener('click',function(){adminUploadSpecialIcon({mode:'equipment',fileInputId:'admin-equipment-icon-file',buttonId:'admin-equipment-icon-upload',statusId:'admin-equipment-icon-upload-status'});});
       if(eqIcon)eqIcon.addEventListener('change',adminEquipmentIconPreview);const eqPopupClose=document.getElementById('admin-equipment-popup-close');if(eqPopupClose)eqPopupClose.addEventListener('click',function(){const ed=document.getElementById('admin-equipment-editor');if(ed){ed.open=false;ed.classList.remove('is-popup');ed.removeAttribute('data-edit-id');}eqPopupClose.hidden=true;clearAdminEquipmentForm();});if(eqBody)eqBody.addEventListener('click',function(e){const edit=e.target.closest('[data-equipment-edit]');if(edit){editAdminEquipment(edit.getAttribute('data-equipment-edit'));return;}const mbtaEdit=e.target.closest('[data-mbta-icon-edit]');if(mbtaEdit){const id=mbtaEdit.getAttribute('data-mbta-icon-edit'),row=(adminMasterLocoRows||[]).find(x=>String(x.number)===id),name=(row&&(row.paint||row.type))||('MBTA '+id),icon=typeof window.rrMbtaLocoIconFor==='function'?window.rrMbtaLocoIconFor(id):'';const set=(field,value)=>{const el=document.getElementById(field);if(el)el.value=value||'';};set('admin-equipment-type','locomotive');adminEquipmentUpdateTypeFields();set('admin-equipment-railroad','MBTA');set('admin-equipment-id',id);set('admin-equipment-name',name);set('admin-equipment-loco-type',row&&row.type);set('admin-equipment-paint',row&&row.paint);adminEquipmentPopulateIconChoices(icon);adminEquipmentIconPreview();const editor=document.getElementById('admin-equipment-editor');if(editor){editor.setAttribute('data-edit-id',encodeURIComponent(('MBTA_locomotive_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180));editor.removeAttribute('data-legacy-special');editor.classList.add('is-popup');editor.open=true;}const close=document.getElementById('admin-equipment-popup-close');if(close)close.hidden=false;const save=document.getElementById('admin-equipment-save');if(save)save.textContent='Save Changes';return;}const del=e.target.closest('[data-equipment-delete]');if(del)deleteAdminEquipment(del.getAttribute('data-equipment-delete'));});
       const rosterRefresh = document.getElementById('admin-roster-refresh');
