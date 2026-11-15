@@ -8,17 +8,6 @@
     { name: 'Boston Engine Terminal', lat: 42.37500, lon: -71.07583, agency: 'mbta', color: '#80276C' }
   ];
   function getMap() { var m = window.__rrLiveMap; return m && typeof m.addLayer === 'function' ? m : null; }
-  function pillSize(name, color) {
-    var probe = document.createElement('span');
-    probe.className = 'rr-facility-marker';
-    probe.style.setProperty('--rr-facility-color', color);
-    probe.style.cssText += 'position:absolute;left:-9999px;top:0;width:auto;height:auto;visibility:hidden;';
-    probe.innerHTML = '<span class="rr-facility-marker-label">' + esc(name) + '</span>';
-    document.body.appendChild(probe);
-    var rect = probe.getBoundingClientRect();
-    probe.remove();
-    return [Math.max(1, Math.ceil(rect.width)), Math.max(28, Math.ceil(rect.height))];
-  }
   function hookLeafletMap() {
     if (!window.L || !L.Map || L.Map.prototype.__rrFacilityMapHook) return;
     L.Map.prototype.__rrFacilityMapHook = true;
@@ -31,7 +20,7 @@
     };
   }
   var facilityMarkers = [];
-  var MIN_MARKER_ZOOM = 11;
+  var MIN_MARKER_ZOOM = 13;
   function setFacilityMarkersVisible(visible) {
     facilityMarkers.forEach(function (marker) {
       var el = marker.getElement();
@@ -173,24 +162,16 @@
   };
   function addMarkers(map) {
     if (map.__rrFacilityMarkersAdded || !window.L) return;
-    if (document.fonts && document.fonts.status !== 'loaded') {
-      if (!addMarkers._wait) {
-        addMarkers._wait = true;
-        document.fonts.ready.then(function () { addMarkers(map); });
-      }
-      return;
-    }
     map.__rrFacilityMarkersAdded = true;
     var layer = L.layerGroup();
     FACILITIES.forEach(function (facility) {
       var html = '<span class="rr-facility-marker" style="--rr-facility-color:' + facility.color + '"><span class="rr-facility-marker-label">' + esc(facility.name) + '</span></span>';
-      var size = pillSize(facility.name, facility.color);
       var icon = L.divIcon({
         className: 'rr-facility-marker-icon',
         html: html,
-        iconSize: size,
-        iconAnchor: [size[0] / 2, size[1] / 2],
-        popupAnchor: [0, -Math.round(size[1] / 2)]
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+        popupAnchor: [0, -16]
       });
       var marker = L.marker([facility.lat, facility.lon], {
         icon: icon,
