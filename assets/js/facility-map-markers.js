@@ -19,10 +19,18 @@
       return original.call(this, layer);
     };
   }
-  function updateMarkerScale(map, zoom) {
+  var facilityMarkers = [];
+  var MIN_MARKER_ZOOM = 11;
+  function updateMarkerScale(map) {
     if (!map || !map.getContainer) return;
-    var z = typeof zoom === 'number' ? zoom : map.getZoom();
-    map.getContainer().style.setProperty('--rr-facility-marker-scale', Math.max(0.5, Math.min(1, Math.pow(0.82, 12 - z))).toFixed(3));
+    var z = map.getZoom();
+    var visible = z > MIN_MARKER_ZOOM;
+    map.getContainer().style.setProperty('--rr-facility-marker-scale', Math.max(0.72, Math.min(1, Math.pow(0.88, 12 - z))).toFixed(3));
+    facilityMarkers.forEach(function (marker) {
+      var el = marker.getElement();
+      if (el) el.style.display = visible ? '' : 'none';
+      if (!visible && marker.isPopupOpen()) marker.closePopup();
+    });
   }
   function message(title, text) {
     var box = document.createElement('div'); box.className = 'rr-facility-popup';
@@ -87,12 +95,12 @@
       });
       marker.bindPopup(message(facility.name, 'Click to load reported equipment.'), { maxWidth: 320 });
       marker.on('popupopen', function () { loadPopup(marker, facility); });
+      facilityMarkers.push(marker);
       marker.addTo(layer);
     });
     layer.addTo(map);
     updateMarkerScale(map);
-    map.on('zoom zoomend', function () { updateMarkerScale(map); });
-    map.on('zoomanim', function (e) { updateMarkerScale(map, e.zoom); });
+    map.on('zoomend', function () { updateMarkerScale(map); });
   }
   function start() { hookLeafletMap(); var m = getMap(); if (m) addMarkers(m); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
