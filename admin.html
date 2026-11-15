@@ -247,6 +247,8 @@
     }
     .rr-admin-pane { display: none; }
     .rr-admin-pane.active { display: block; }
+    #admin-facility-form[hidden],
+    #admin-facility-save-builtin[hidden] { display: none !important; }
     .rr-lightbox-section {
       margin: 0 0 16px;
       padding: 18px 20px 20px;
@@ -903,19 +905,30 @@
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-facilities" data-admin-pane="facilities">
-          <form id="admin-facility-form" class="rr-admin-toolbar" style="flex-wrap:wrap;align-items:flex-end">
+          <div class="rr-lightbox-actions" style="margin-top:0">
+            <button type="button" class="rr-btn" id="admin-facility-add">Add Facility</button>
+            <button type="button" class="rr-btn secondary" id="admin-facility-save-builtin" hidden>Save Built-In Facilities</button>
+          </div>
+          <form id="admin-facility-form" class="rr-lightbox-section" hidden>
+            <h3 id="admin-facility-form-title">Add Facility</h3>
             <input type="hidden" id="admin-facility-id">
-            <label>Name<br><input id="admin-facility-name" maxlength="80" required></label>
-            <label>Railroad<br>
-              <select id="admin-facility-agency">
-                <option value="mbta">MBTA</option>
-                <option value="amtrak">Amtrak</option>
-              </select>
-            </label>
-            <label>Color<br><input id="admin-facility-color" placeholder="#80276C" maxlength="7"></label>
-            <label>Latitude<br><input id="admin-facility-lat" inputmode="decimal" required></label>
-            <label>Longitude<br><input id="admin-facility-lng" inputmode="decimal" required></label>
-            <button type="submit" class="rr-btn" id="admin-facility-save">Save</button>
+            <label for="admin-facility-name">Name</label>
+            <input type="text" id="admin-facility-name" maxlength="80" required autocomplete="off">
+            <label for="admin-facility-agency">Railroad</label>
+            <select id="admin-facility-agency">
+              <option value="mbta">MBTA</option>
+              <option value="amtrak">Amtrak</option>
+            </select>
+            <label for="admin-facility-color">Color</label>
+            <input type="text" id="admin-facility-color" placeholder="#80276C" maxlength="7" autocomplete="off">
+            <label for="admin-facility-lat">Latitude</label>
+            <input type="text" id="admin-facility-lat" inputmode="decimal" required autocomplete="off">
+            <label for="admin-facility-lng">Longitude</label>
+            <input type="text" id="admin-facility-lng" inputmode="decimal" required autocomplete="off">
+            <div class="rr-lightbox-actions">
+              <button type="submit" class="rr-btn" id="admin-facility-save">Save</button>
+              <button type="button" class="rr-btn secondary" id="admin-facility-cancel">Cancel</button>
+            </div>
           </form>
           <p class="rr-modal-hint" id="admin-facilities-status">Loading Facilities</p>
           <div class="rr-admin-table-wrap">
@@ -1390,9 +1403,47 @@
         await loadAdminFacilities();
       }
     }
+    var BUILTIN_FACILITIES = [
+      { id: 'southampton-street-yard', name: 'Southampton Street Yard', agency: 'amtrak', color: '#00529B', lat: 42.33293, lng: -71.06091 },
+      { id: 'readville-layover', name: 'Readville Layover', agency: 'mbta', color: '#80276C', lat: 42.23232, lng: -71.1358 },
+      { id: 'boston-engine-terminal', name: 'Boston Engine Terminal', agency: 'mbta', color: '#80276C', lat: 42.375, lng: -71.07583 }
+    ];
     function facilityDocId(name) {
       var slug = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
       return slug || 'facility';
+    }
+    function clearFacilityForm() {
+      var id = document.getElementById('admin-facility-id');
+      if (id) id.value = '';
+      ['admin-facility-name', 'admin-facility-color', 'admin-facility-lat', 'admin-facility-lng'].forEach(function(fid) {
+        var el = document.getElementById(fid); if (el) el.value = '';
+      });
+      var agency = document.getElementById('admin-facility-agency');
+      if (agency) agency.value = 'mbta';
+      var title = document.getElementById('admin-facility-form-title');
+      if (title) title.textContent = 'Add Facility';
+    }
+    function showFacilityForm(row) {
+      var form = document.getElementById('admin-facility-form');
+      if (!form) return;
+      if (row) {
+        document.getElementById('admin-facility-id').value = row.id || '';
+        document.getElementById('admin-facility-name').value = row.name || '';
+        document.getElementById('admin-facility-agency').value = row.agency === 'amtrak' ? 'amtrak' : 'mbta';
+        document.getElementById('admin-facility-color').value = row.color || '';
+        document.getElementById('admin-facility-lat').value = row.lat;
+        document.getElementById('admin-facility-lng').value = row.lng;
+        document.getElementById('admin-facility-form-title').textContent = 'Edit Facility';
+      } else {
+        clearFacilityForm();
+      }
+      form.hidden = false;
+      try { form.scrollIntoView({ block: 'nearest' }); } catch (_) {}
+    }
+    function hideFacilityForm() {
+      var form = document.getElementById('admin-facility-form');
+      if (form) form.hidden = true;
+      clearFacilityForm();
     }
     function facilityColorValue(agency, raw) {
       var color = String(raw || '').trim();
@@ -1407,30 +1458,29 @@
         var snap = await db.collection('facilities').get();
         var rows = snap.docs.map(function(doc) { return Object.assign({ id: doc.id }, doc.data() || {}); });
         rows.sort(function(a, b) { return String(a.name || '').localeCompare(String(b.name || '')); });
+        var builtin = !rows.length;
+        var shown = builtin ? BUILTIN_FACILITIES : rows;
+        var saveBuiltin = document.getElementById('admin-facility-save-builtin');
+        if (saveBuiltin) saveBuiltin.hidden = !builtin;
         if (list) {
-          list.innerHTML = rows.map(function(row) {
-            return '<tr><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(String(row.agency || '').toUpperCase()) +
+          list.innerHTML = shown.map(function(row) {
+            var actions = '<button type="button" class="rr-btn secondary" data-facility-edit="' + escapeHtmlLite(row.id) + '">Edit</button>';
+            if (!builtin) actions += ' <button type="button" class="rr-btn danger secondary" data-facility-remove="' + escapeHtmlLite(row.id) + '">Remove</button>';
+            return '<tr><td>' + escapeHtmlLite(row.name || '') + (builtin ? ' <span class="rr-badge">Built-In</span>' : '') + '</td><td>' + escapeHtmlLite(String(row.agency || '').toUpperCase()) +
               '</td><td>' + escapeHtmlLite(row.color || '') + '</td><td>' + escapeHtmlLite(String(row.lat)) + ', ' + escapeHtmlLite(String(row.lng)) +
-              '</td><td><button type="button" class="rr-btn secondary" data-facility-edit="' + escapeHtmlLite(row.id) + '">Edit</button> ' +
-              '<button type="button" class="rr-btn danger secondary" data-facility-remove="' + escapeHtmlLite(row.id) + '">Remove</button></td></tr>';
-          }).join('') || '<tr><td colspan="5">No Facilities Yet</td></tr>';
+              '</td><td>' + actions + '</td></tr>';
+          }).join('');
           list.querySelectorAll('[data-facility-edit]').forEach(function(btn) {
             btn.addEventListener('click', function() {
-              var row = rows.filter(function(item) { return item.id === btn.getAttribute('data-facility-edit'); })[0];
-              if (!row) return;
-              document.getElementById('admin-facility-id').value = row.id;
-              document.getElementById('admin-facility-name').value = row.name || '';
-              document.getElementById('admin-facility-agency').value = row.agency === 'amtrak' ? 'amtrak' : 'mbta';
-              document.getElementById('admin-facility-color').value = row.color || '';
-              document.getElementById('admin-facility-lat').value = row.lat;
-              document.getElementById('admin-facility-lng').value = row.lng;
+              var row = shown.filter(function(item) { return item.id === btn.getAttribute('data-facility-edit'); })[0];
+              if (row) showFacilityForm(row);
             });
           });
           list.querySelectorAll('[data-facility-remove]').forEach(function(btn) {
             btn.addEventListener('click', function() { removeAdminFacility(btn.getAttribute('data-facility-remove')); });
           });
         }
-        if (status) status.textContent = rows.length + ' Facilit' + (rows.length === 1 ? 'y' : 'ies');
+        if (status) status.textContent = builtin ? '3 Built-In Facilities' : (rows.length + ' Facilit' + (rows.length === 1 ? 'y' : 'ies'));
       } catch (e) {
         if (status) status.textContent = 'Could Not Load Facilities';
       }
@@ -1452,13 +1502,27 @@
       try {
         await db.collection('facilities').doc(id).set(data);
         if (window.rrFsCache) window.rrFsCache.drop('facilities');
-        document.getElementById('admin-facility-id').value = '';
-        ['admin-facility-name', 'admin-facility-color', 'admin-facility-lat', 'admin-facility-lng'].forEach(function(fid) {
-          var el = document.getElementById(fid); if (el) el.value = '';
-        });
+        hideFacilityForm();
         await loadAdminFacilities();
       } catch (e) {
         if (status) status.textContent = 'Could Not Save Facility';
+      }
+    }
+    async function saveBuiltinFacilities() {
+      if (!db) return;
+      var status = document.getElementById('admin-facilities-status');
+      try {
+        for (var i = 0; i < BUILTIN_FACILITIES.length; i++) {
+          var row = BUILTIN_FACILITIES[i];
+          await db.collection('facilities').doc(row.id).set({
+            name: row.name, agency: row.agency, color: row.color, lat: row.lat, lng: row.lng
+          });
+        }
+        if (window.rrFsCache) window.rrFsCache.drop('facilities');
+        hideFacilityForm();
+        await loadAdminFacilities();
+      } catch (e) {
+        if (status) status.textContent = 'Could Not Save Built-In Facilities';
       }
     }
     async function removeAdminFacility(id) {
@@ -3852,7 +3916,13 @@
       if (bansRefresh) bansRefresh.addEventListener('click', loadAdminBans);
       if (banSubmit) banSubmit.addEventListener('click', adminBanUser);
       const facilityForm = document.getElementById('admin-facility-form');
+      const facilityAdd = document.getElementById('admin-facility-add');
+      const facilityCancel = document.getElementById('admin-facility-cancel');
+      const facilityBuiltin = document.getElementById('admin-facility-save-builtin');
       if (facilityForm) facilityForm.addEventListener('submit', function(ev) { ev.preventDefault(); saveAdminFacility(); });
+      if (facilityAdd) facilityAdd.addEventListener('click', function() { showFacilityForm(null); });
+      if (facilityCancel) facilityCancel.addEventListener('click', hideFacilityForm);
+      if (facilityBuiltin) facilityBuiltin.addEventListener('click', saveBuiltinFacilities);
       const verifiedRefresh = document.getElementById('admin-verified-refresh');
       const verifiedSubmit = document.getElementById('admin-verified-submit');
       if (verifiedRefresh) verifiedRefresh.addEventListener('click', loadAdminVerified);
