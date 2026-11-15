@@ -786,7 +786,7 @@
     <div class="rr-lightbox-actions"><button type="button" class="rr-btn secondary" id="admin-equipment-migrate-legacy">Import legacy records</button><button type="button" class="rr-btn secondary" id="admin-equipment-bulk-open">Bulk Import</button></div><p class="rr-modal-hint" id="admin-equipment-migration-status" role="status" aria-live="polite">Legacy MBTA and special-unit records can be safely imported into this roster. Existing equipment entries are preserved; legacy collections are not deleted.</p>
     <div class="rr-lightbox-section" id="admin-equipment-bulk" hidden>
       <h3>Bulk Import</h3>
-      <p class="rr-modal-hint">Paste spreadsheet rows or choose a .csv file. Columns are Railroad, Equipment ID, Type, Name, Model, Paint, and Icon. A header row is detected automatically. Type defaults to Locomotive when that column is omitted. Unchanged rows are not written.</p>
+      <p class="rr-modal-hint">Paste spreadsheet rows or choose a .csv file. Columns are Railroad, Equipment ID, Type, Name, Model, Paint, and Icon. For locomotives, Icon accepts an existing icon URL or site-relative image path (for example, /assets/hsp46.png) and saves it as that unit's icon. A header row is detected automatically. Type defaults to Locomotive when that column is omitted. Unchanged rows are not written.</p>
       <label for="admin-equipment-bulk-text">Paste rows</label>
       <textarea id="admin-equipment-bulk-text" rows="8" spellcheck="false" placeholder="Railroad,Number,Name,Model,Paint&#10;MBTA,1030,F40PH-3C,F40PH-3C,New Paint"></textarea>
       <label for="admin-equipment-bulk-file">Or choose a .csv file</label>
@@ -3166,7 +3166,7 @@
       { key: 'name', label: 'Name', aliases: ['name', 'description', 'name / description', 'name/description', 'unit name'] },
       { key: 'locoType', label: 'Model', aliases: ['locotype', 'loco type', 'model', 'locomotive model', 'subtype', 'locomotive model / subtype', 'equipment subtype'] },
       { key: 'paint', label: 'Paint', aliases: ['paint', 'paint scheme', 'livery', 'paint scheme / notes', 'notes'] },
-      { key: 'iconUrl', label: 'Icon', aliases: ['icon', 'iconurl', 'icon url'] }
+      { key: 'iconUrl', label: 'Locomotive Icon URL / Path', aliases: ['icon', 'iconurl', 'icon url', 'icon path', 'icon url / path', 'locomotive icon', 'locomotive icon url', 'locomotive icon path'] }
     ];
     const ADMIN_EQUIPMENT_TYPE_ALIASES = {
       locomotive: 'locomotive', loco: 'locomotive', engine: 'locomotive',
@@ -3244,7 +3244,7 @@
         else if (mapped.paint && paint.length > 160) reason = 'Paint is too long.';
         else if (mapped.iconUrl && iconUrl.length > 500) reason = 'Icon URL is too long.';
         if (reason) {
-          out.push({ status: 'invalid', reason: reason, line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, record: null, docId: '' });
+          out.push({ status: 'invalid', reason: reason, line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, iconUrl: iconUrl, record: null, docId: '' });
           return;
         }
         const key = railroad.toLowerCase() + '|' + type + '|' + id.toLowerCase();
@@ -3254,7 +3254,7 @@
         if (mapped.name) record.name = name;
         if (type === 'locomotive' && mapped.locoType) record.locoType = locoType || null;
         if (type === 'locomotive' && mapped.paint) record.paint = paint || null;
-        if (mapped.iconUrl) record.iconUrl = iconUrl || null;
+        if (type === 'locomotive' && mapped.iconUrl) record.iconUrl = iconUrl || null;
         let status = 'new';
         if (existing && existing.active !== false) {
           status = 'unchanged';
@@ -3263,7 +3263,7 @@
             if (adminEquipmentBulkBlank(existing[field]) !== adminEquipmentBulkBlank(record[field])) status = 'updated';
           });
         } else if (existing) status = 'updated';
-        out.push({ status: status, reason: '', line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, record: status === 'unchanged' ? null : record, docId: docId });
+        out.push({ status: status, reason: '', line: index + 1, railroad: railroad, id: id, type: type, name: name, locoType: locoType, paint: paint, iconUrl: type === 'locomotive' ? iconUrl : '', record: status === 'unchanged' ? null : record, docId: docId });
       });
       const seen = new Set();
       for (let i = out.length - 1; i >= 0; i--) {
@@ -3338,10 +3338,10 @@
       if (countsEl) countsEl.textContent = c.new + ' new, ' + c.updated + ' updated, ' + c.unchanged + ' unchanged, ' + c.invalid + ' invalid';
       const shown = plan.rows.slice(0, 100);
       if (table) {
-        table.innerHTML = shown.length ? '<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Status</th><th>Railroad</th><th>ID</th><th>Type</th><th>Name</th><th>Model</th><th>Paint</th><th>Note</th></tr></thead><tbody>' +
+        table.innerHTML = shown.length ? '<div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>Status</th><th>Railroad</th><th>ID</th><th>Type</th><th>Name</th><th>Model</th><th>Paint</th><th>Icon</th><th>Note</th></tr></thead><tbody>' +
           shown.map(function(row) {
             const label = row.status === 'new' ? 'New' : row.status === 'updated' ? 'Updated' : row.status === 'unchanged' ? 'Unchanged' : 'Invalid';
-            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr>';
+            return '<tr><td>' + label + '</td><td>' + escapeHtmlLite(row.railroad || '') + '</td><td>' + escapeHtmlLite(row.id || '') + '</td><td>' + escapeHtmlLite(ADMIN_EQUIPMENT_TYPES[row.type] || row.type || '') + '</td><td>' + escapeHtmlLite(row.name || '') + '</td><td>' + escapeHtmlLite(row.locoType || '') + '</td><td>' + escapeHtmlLite(row.paint || '') + '</td><td>' + (row.iconUrl ? '<a href="' + escapeHtmlLite(row.iconUrl) + '" target="_blank" rel="noopener">' + escapeHtmlLite(row.iconUrl.split('/').pop() || 'Icon') + '</a>' : '—') + '</td><td>' + escapeHtmlLite(row.reason || '') + '</td></tr>';
           }).join('') + '</tbody></table></div>' + (plan.rows.length > shown.length ? '<p class="rr-modal-hint">Showing 100 of ' + plan.rows.length + ' rows.</p>' : '') : '';
       }
       if (save) save.disabled = !(c.new + c.updated);
