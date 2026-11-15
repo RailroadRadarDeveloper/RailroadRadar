@@ -11412,12 +11412,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agency === 'mbta') return (typeof rrMbtaLocoSearch === 'function') ? rrMbtaLocoSearch(query, limit) : [];
         if (agency !== 'amtrak') return [];
         let rows = (typeof rrAmtrakLocoSearch === 'function') ? rrAmtrakLocoSearch(query, limit) : [];
-        const q = String(query || '').trim().toUpperCase().replace(/[\\s_-]+/g, '');
+        const q = String(query || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
         if (q && Array.isArray(SPECIAL_UNITS_ROSTER)) {
           const seen = new Set(rows.map(function(row) { return String(row.number); }));
           SPECIAL_UNITS_ROSTER.forEach(function(unit) {
             const number = String(unit.id || '').trim();
-            const key = number.toUpperCase().replace(/[\\s_-]+/g, '');
+            const key = number.toUpperCase().replace(/[\s_-]+/g, '');
             if (unit.agency !== 'amtrak' || !number || seen.has(number) || key.indexOf(q) === -1) return;
             rows.push({ number: number, type: unit.locoType || '', paint: unit.name || '', iconUrl: unit.iconUrl || '' });
             seen.add(number);
