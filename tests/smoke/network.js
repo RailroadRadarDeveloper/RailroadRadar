@@ -80,6 +80,10 @@ export async function routeNetwork(context, siteOrigin) {
   await context.route(() => true, (route) => {
     const url = route.request().url();
     if (url.startsWith(siteOrigin + '/')) return route.fallback();
+    // Let the browser load these. A later route can block OpenFreeMap to test the raster fallback.
+    if (/^https:\/\/tiles\.openfreemap\.org\//.test(url)) return route.fallback();
+    if (/^https:\/\/[a-z]\.basemaps\.cartocdn\.com\//.test(url)) return route.fallback();
+    if (/^https:\/\/tile\.openstreetmap\.org\//.test(url)) return route.fallback();
     if (url.startsWith(WORKER_ORIGIN + '/')) return workerRoute(route);
     if (CDN.some((re) => re.test(url))) return cdnRoute(route);
     if (url.startsWith('https://fonts.googleapis.com/')) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });

@@ -2282,21 +2282,11 @@
     // ---- Trip list mini-maps (Leaflet under each MyTrips card) ----
     const tripLogMiniMaps = Object.create(null); // tripId -> { map, el, io }
     let tripLogMiniMapIO = null;
-    /* Trip map main-style tiles */
-    // Trip mini-maps + detail map use main-map default style (northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7) via Worker /api/mapbox proxy.
-    const TRIP_MAP_EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
-    function rrTripMapTileUrl() {
-      const base = String(window.RR_TRIP_API_BASE || 'https://railroadradar-proxy.railroadradar.workers.dev');
-      return base.replace(/\/+$/, '') + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
-    }
+    // All trip card/detail maps use the same free light style as the main map.
     function rrTripMapTileLayer(opts) {
-      const o = opts || {};
-      return L.tileLayer(rrTripMapTileUrl(), {
-        attribution: '© Mapbox © OpenStreetMap contributors',
-        detectRetina: false,
-        maxZoom: o.maxZoom != null ? o.maxZoom : 20,
-        opacity: o.opacity != null ? o.opacity : 1,
-        errorTileUrl: TRIP_MAP_EMPTY_TILE
+      if (window.RRFreeLightLayer) return window.RRFreeLightLayer(opts);
+      return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20, detectRetina: false
       });
     }
     const tripLogDataById = Object.create(null); // tripId -> trip data (for detail view)
@@ -2651,7 +2641,7 @@ function tripCardStationDotIcon() {
         const livePt = rrLiveTripPoint();
         if (data && data.specialMove && livePt) {
           try {
-            const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
+            const map = L.map(el, { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false });
             rrTripMapTileLayer({ maxZoom: 20, opacity: 1 }).addTo(map);
             L.marker(livePt, { icon: rrLiveTrainIcon(data.heading, data.icon) }).addTo(map);
             map.setView(livePt, 13);
@@ -2667,7 +2657,7 @@ function tripCardStationDotIcon() {
       try {
         map = L.map(el, {
           zoomControl: false,
-          attributionControl: false,
+          attributionControl: true,
           dragging: false,
           scrollWheelZoom: false,
           doubleClickZoom: false,
@@ -2878,7 +2868,7 @@ function tripCardStationDotIcon() {
       try {
         map = L.map(el, {
           zoomControl: true,
-          attributionControl: false,
+          attributionControl: true,
           dragging: true,
           scrollWheelZoom: true,
           doubleClickZoom: true,
@@ -4113,8 +4103,8 @@ function tripCardStationDotIcon() {
           skipFonts: false,
           filter: function(node) {
             if (!node || !node.classList) return true;
-            // Hide leaflet controls in export
-            if (node.classList.contains('leaflet-control-container')) return false;
+            // Hide map buttons in exports, but retain required map-data attribution.
+            if (node.classList.contains('leaflet-control') && !node.classList.contains('leaflet-control-attribution')) return false;
             return true;
           }
         });
@@ -9372,17 +9362,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return Object.assign({ maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true }, pad);
       }
 
-      // Mapbox via Worker (no {r}; detectRetina off to cut tile load ~50% and avoid @2x edge cases)
-      const mapboxAltLightLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}'), {
-        attribution: '© Mapbox © OpenStreetMap contributors',
-        detectRetina: false,
-        maxZoom: 20,
-        // Keep only a small tile buffer and wait until gestures settle before fetching more tiles.
-        keepBuffer: 2,
-        updateWhenIdle: true,
-        updateWhenZooming: false,
-        errorTileUrl: EMPTY_TILE
-      });
+      // Free light vector map; dark remains Mapbox until separately approved.
+      const freeLightLayer = rrTripMapTileLayer({ maxZoom: 20 });
       const mapboxDarkLayer = L.tileLayer(apiUrl('/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}'), {
         attribution: '© Mapbox © OpenStreetMap contributors',
         detectRetina: false,
@@ -9393,18 +9374,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         updateWhenZooming: false,
         errorTileUrl: EMPTY_TILE
       });
-      // Light map is the default; dark uses Mapbox dark-v11
+      // Free light is the default; dark still uses Mapbox dark-v11
       let currentTheme = 'light';
       let usingMapboxFallback = false;
-      let currentBaseLayer = mapboxAltLightLayer;
+      let currentBaseLayer = freeLightLayer;
       currentBaseLayer.addTo(map);
       L.control.layers(
         {
           "Dark": mapboxDarkLayer,
-          "Alt Light": mapboxAltLightLayer
+          "Alt Light": freeLightLayer
         }
       ).addTo(map);
-      // Auto-fallback: >5 Mapbox tileerrors within 10s → switch to Carto for current theme
+      // Dark raster failures fall back to CARTO, then OSM. Light handles its own fallback.
       let mapboxTileErrorTimes = [];
       let mapboxTileErrorLogged = false;
       function onMapboxTileError(e) {
@@ -9422,13 +9403,22 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         try {
           console.warn('[RailroadRadar] Mapbox tiles failing repeatedly; switching to OSM fallback');
         } catch (_) {}
-        return;
+        if (currentTheme === 'dark') {
+          if (map.hasLayer(currentBaseLayer)) map.removeLayer(currentBaseLayer);
+          currentBaseLayer = darkFallbackLayer.addTo(map);
+        }
       }
-      mapboxAltLightLayer.on('tileerror', onMapboxTileError);
+      const darkFallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20, detectRetina: false
+      });
+      let darkFallbackErrors = 0;
+      darkFallbackLayer.on('tileerror', function () {
+        if (++darkFallbackErrors === 2) darkFallbackLayer.setUrl('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+      });
       mapboxDarkLayer.on('tileerror', onMapboxTileError);
       function layerForTheme(theme) {
         const light = theme === 'light';
-        return light ? mapboxAltLightLayer : mapboxDarkLayer;
+        return light ? freeLightLayer : (usingMapboxFallback ? darkFallbackLayer : mapboxDarkLayer);
       }
       function setMapTheme(theme) {
         currentTheme = theme === 'light' ? 'light' : 'dark';

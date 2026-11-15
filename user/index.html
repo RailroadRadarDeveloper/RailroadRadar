@@ -10,6 +10,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/assets/js/free-light-map.js?v=876bf321e8"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
   <style>
@@ -94,7 +95,8 @@
       color: #9aa3b8; font-size: 12px; font-weight: 700; pointer-events: none; z-index: 3;
     }
     .trip-log-row-map .leaflet-container { height: 100%; width: 100%; background: #0b0d1a; }
-    .trip-log-row-map .leaflet-control-container { display: none !important; }
+    .trip-log-row-map .leaflet-control-container { display: block !important; }
+    .trip-log-row-map .leaflet-control-attribution { font-size: 10px; line-height: 12px; white-space: normal; }
     .trip-seg-chip {
       display: block; font-size: 11px; color: rgba(255,255,255,0.9); margin: 0 0 4px;
     }
@@ -380,17 +382,10 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
       if (!pack || !lid) return null;
       return pack[lid] || null;
     }
-    function rrTripMapTileUrl() {
-      return RR_API.replace(/\/+$/, '') + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
-    }
     function rrTripMapTileLayer(opts) {
-      const o = opts || {};
-      return L.tileLayer(rrTripMapTileUrl(), {
-        attribution: '© Mapbox © OpenStreetMap contributors',
-        detectRetina: false,
-        maxZoom: o.maxZoom != null ? o.maxZoom : 20,
-        opacity: o.opacity != null ? o.opacity : 1,
-        errorTileUrl: TRIP_MAP_EMPTY_TILE
+      if (window.RRFreeLightLayer) return window.RRFreeLightLayer(opts);
+      return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20, detectRetina: false
       });
     }
 
@@ -700,7 +695,7 @@ const MBTA_TRIP_CHILD_TO_PLACE = {"BNT-0000":"place-north","NEC-2287":"place-sst
       let map;
       try {
         map = L.map(el, {
-          zoomControl: false, attributionControl: false, dragging: false,
+          zoomControl: false, attributionControl: true, dragging: false,
           scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
           keyboard: false, tap: false, touchZoom: false, closePopupOnClick: false
         });

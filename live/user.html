@@ -183,6 +183,7 @@
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/assets/js/free-light-map.js?v=876bf321e8"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -194,7 +195,6 @@
       var HEARTBEAT_MS = 60 * 1000;
       var STALE_WARN_MS = 150 * 1000; // ~2.5 heartbeats
       var STALE_DROP_MS = 30 * 60 * 1000;
-      var TILE_LIGHT = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
       var TILE_DARK = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}';
       /* Halloween (Oct 31 by the visitor's own clock): the MBTA Newburyport/Rockport Line draws orange. Date only, so it reverts on Nov 1. */
       function rrHalloweenLineColor(agency, routeId, color) {
@@ -258,10 +258,12 @@
         if (map) return map;
         elMap.hidden = false;
         map = L.map('map', { zoomControl: true, attributionControl: true });
-        baseLayer = L.tileLayer(isDark() ? TILE_DARK : TILE_LIGHT, {
-          attribution: '© Mapbox © OpenStreetMap contributors',
-          maxZoom: 20
-        }).addTo(map);
+        baseLayer = (isDark() ? L.tileLayer(TILE_DARK, {
+          attribution: '© Mapbox © OpenStreetMap contributors', maxZoom: 20
+        }) : (window.RRFreeLightLayer ? window.RRFreeLightLayer({ maxZoom: 20 }) :
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20
+          }))).addTo(map);
         map.setView([42.36, -71.06], 8);
         loadRouteLines();
         return map;
