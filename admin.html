@@ -3059,7 +3059,7 @@
             const row={
               railroad:'Amtrak',type:'locomotive',id:id,
               name:name+(special&&ownership?' · '+ownership:''),
-              locoType:model,paint:paint||null,iconUrl:null,active:true,
+              locoType:model,paint:paint||null,iconUrl:(special&&special.iconUrl)||(!special?series.iconUrl:null)||null,active:true,
               _builtinAmtrak:true
             };
             row.docId=adminEquipmentDocId('Amtrak','locomotive',id);
@@ -3088,7 +3088,7 @@
           const key=keyFor(row);
           if(!adminEquipmentInactiveKeys.has(key))merged.set(key,row);
         });
-        firestoreRows.forEach((row,key)=>merged.set(key,row));
+        firestoreRows.forEach((row,key)=>{const builtin=merged.get(key);if(!String(row.iconUrl||'').trim()&&builtin&&builtin.iconUrl)row.iconUrl=builtin.iconUrl;merged.set(key,row);});
         adminEquipmentRows=Array.from(merged.values()).sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));
         adminEquipmentRows.forEach(row=>adminEquipmentByKey.set(keyFor(row),row));
         adminEquipmentRosterLoaded=true;renderAdminEquipmentRoster();
