@@ -2,7 +2,6 @@
 .leaflet-marker-icon.rr-facility-marker-icon {
   background: transparent;
   border: 0;
-  margin: 0;
   overflow: visible;
 }
 .rr-facility-marker {
