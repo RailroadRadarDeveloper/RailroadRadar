@@ -3029,7 +3029,72 @@
         setAdminError((e&&e.message)||String(e));
       }finally{if(button)button.disabled=false;}
     }
-    async function loadAdminEquipmentRoster(){const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';if(status)status.textContent='Loading equipment roster…';if(!db){if(status)status.textContent='Firestore unavailable.';return;}try{const snap=await db.collection('equipmentRoster').get();adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();adminEquipmentByKey=new Map();snap.forEach(doc=>{const d=doc.data()||{},key=String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase(),row=Object.assign({docId:doc.id},d);if(!adminEquipmentByKey.has(key)||d.active!==false)adminEquipmentByKey.set(key,row);if(d.active===false){adminEquipmentInactiveKeys.add(key);return;}adminEquipmentRows.push(row);});adminEquipmentRows.sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));adminEquipmentRosterLoaded=true;renderAdminEquipmentRoster();}catch(e){console.error('[admin] equipment roster load failed',e);if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);}}
+    async function loadAdminEquipmentRoster(){
+      const body=document.getElementById('admin-equipment-tbody'),status=document.getElementById('admin-equipment-status');
+      if(body)body.innerHTML='<tr><td colspan="6">Loading equipment…</td></tr>';
+      if(status)status.textContent='Loading equipment roster…';
+      if(!db){if(status)status.textContent='Firestore unavailable.';return;}
+      try{
+        const snap=await db.collection('equipmentRoster').get();
+        adminEquipmentRows=[];adminEquipmentInactiveKeys=new Set();adminEquipmentByKey=new Map();
+        const keyFor=d=>String(d.railroad||'').trim().toLowerCase()+'|'+String(d.type||'other').toLowerCase()+'|'+String(d.id||'').trim().toLowerCase();
+        const firestoreRows=new Map();
+        snap.forEach(doc=>{
+          const d=doc.data()||{},key=keyFor(d),row=Object.assign({docId:doc.id},d);
+          if(d.active===false){adminEquipmentInactiveKeys.add(key);firestoreRows.delete(key);return;}
+          adminEquipmentInactiveKeys.delete(key);firestoreRows.set(key,row);
+        });
+        const builtinRows=[];
+        try{
+          const response=await fetch('/assets/data/amtrak-locomotives.json?v=20261112');
+          if(!response.ok)throw new Error('HTTP '+response.status);
+          const roster=await response.json(),specialById=new Map((roster.specialUnits||[]).map(x=>[String(x.id),x]));
+          function addAmtrakUnit(id,series){
+            id=String(id);
+            const special=specialById.get(id)||null;
+            const paint=special?String(special.paint||''):[series.ownership,series.note].filter(Boolean).join(' · ');
+            const model=(special&&special.model)||series.model||'Locomotive';
+            const row={
+              railroad:'Amtrak',type:'locomotive',id:id,
+              name:(special&&special.name)||model,
+              locoType:model,paint:paint||null,iconUrl:null,active:true,
+              _builtinAmtrak:true
+            };
+            row.docId=adminEquipmentDocId('Amtrak','locomotive',id);
+            builtinRows.push(row);
+          }
+          (roster.series||[]).forEach(series=>{
+            (series.numbers||[]).forEach(id=>addAmtrakUnit(id,series));
+            (series.ranges||[]).forEach(range=>{
+              const start=Number(range[0]),end=Number(range[1]);
+              if(!Number.isInteger(start)||!Number.isInteger(end)||end<start||end-start>1000)return;
+              for(let n=start;n<=end;n++)addAmtrakUnit(n,series);
+            });
+          });
+          const included=new Set(builtinRows.map(x=>x.id));
+          (roster.specialUnits||[]).forEach(special=>{
+            if(included.has(String(special.id)))return;
+            addAmtrakUnit(special.id,{model:special.model||'Locomotive'});
+          });
+          window.rrAmtrakRosterUpdated=roster.updated||'';
+        }catch(rosterError){
+          console.warn('[admin] built-in Amtrak roster unavailable',rosterError);
+          if(status)status.textContent='Amtrak built-in roster could not be loaded; showing saved equipment only.';
+        }
+        const merged=new Map();
+        builtinRows.forEach(row=>{
+          const key=keyFor(row);
+          if(!adminEquipmentInactiveKeys.has(key))merged.set(key,row);
+        });
+        firestoreRows.forEach((row,key)=>merged.set(key,row));
+        adminEquipmentRows=Array.from(merged.values()).sort((a,b)=>String(a.railroad||'').localeCompare(String(b.railroad||''))||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true}));
+        adminEquipmentRows.forEach(row=>adminEquipmentByKey.set(keyFor(row),row));
+        adminEquipmentRosterLoaded=true;renderAdminEquipmentRoster();
+      }catch(e){
+        console.error('[admin] equipment roster load failed',e);
+        if(status)status.textContent='Could not load equipment: '+((e&&e.message)||e);
+      }
+    }
     async function saveAdminEquipment(){
       const user=currentUser||(auth&&auth.currentUser);
       if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}
