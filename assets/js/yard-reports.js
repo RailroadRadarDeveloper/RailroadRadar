@@ -13,7 +13,7 @@ function fmt(v){var d=asDate(v);return d?d.toLocaleString([],{dateStyle:'medium'
 function style(){
  if(document.getElementById('rr-yard-reports-style'))return;
  var s=document.createElement('style');s.id='rr-yard-reports-style';
- s.textContent='.rr-yard-report-fields{border-top:1px solid rgba(100,116,139,.25);margin-top:12px;padding-top:12px}.rr-yard-report-fields .rr-yard-field{margin:10px 0}.rr-yard-report-fields label{display:block;font-weight:600;margin:0 0 5px}.rr-yard-report-fields input,.rr-yard-report-fields select,.rr-yard-report-fields textarea{box-sizing:border-box;width:100%;min-height:40px;border:1px solid #aab3c2;border-radius:8px;padding:9px 10px;font:inherit;background:#fff;color:#172033}.rr-yard-report-fields textarea{min-height:72px;resize:vertical}.rr-yard-toggle{display:flex!important;align-items:center;gap:9px;margin:12px 0!important}.rr-yard-toggle input{width:18px!important;min-height:18px!important}.rr-yard-subfields{padding:10px 12px;border-left:3px solid #4263a5;background:rgba(100,116,139,.07);border-radius:5px}.rr-yard-help,.rr-yard-muted{font-size:12px;opacity:.72;margin:5px 0 0}.rr-yard-admin-card,.rr-yard-public-card{border:1px solid rgba(100,116,139,.3);border-radius:10px;padding:12px;margin:10px 0;background:var(--card-bg,#fff);color:var(--text-color,inherit)}.rr-yard-admin-card p,.rr-yard-public-card p{margin:5px 0;white-space:pre-wrap;overflow-wrap:anywhere}.rr-yard-admin-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.rr-yard-admin-actions button{padding:7px 12px}';
+ s.textContent='.rr-yard-report-fields{border-top:1px solid rgba(100,116,139,.25);margin-top:12px;padding-top:12px}.rr-yard-report-fields .rr-yard-field{margin:10px 0}.rr-yard-report-fields label{display:block;font-weight:600;margin:0 0 5px}.rr-yard-report-fields input,.rr-yard-report-fields select,.rr-yard-report-fields textarea{box-sizing:border-box;width:100%;min-height:40px;border:1px solid #aab3c2;border-radius:8px;padding:9px 10px;font:inherit;background:#fff;color:#172033}.rr-yard-report-fields textarea{min-height:72px;resize:vertical}.rr-yard-toggle{display:flex!important;align-items:center;gap:9px;margin:12px 0!important}.rr-yard-toggle input{width:18px!important;min-height:18px!important}.rr-yard-subfields{padding:10px 12px;border-left:3px solid #4263a5;background:rgba(100,116,139,.07);border-radius:5px}.rr-yard-help,.rr-yard-muted{font-size:12px;opacity:.72;margin:5px 0 0}.rr-yard-disclaimer{font-size:12px;line-height:1.45;margin:10px 0 8px;color:#5a6577}html.rr-theme-dark .rr-yard-disclaimer{color:#b7becc}.rr-yard-admin-card,.rr-yard-public-card{border:1px solid rgba(100,116,139,.3);border-radius:10px;padding:12px;margin:10px 0;background:var(--card-bg,#fff);color:var(--text-color,inherit)}.rr-yard-admin-card p,.rr-yard-public-card p{margin:5px 0;white-space:pre-wrap;overflow-wrap:anywhere}.rr-yard-admin-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.rr-yard-admin-actions button{padding:7px 12px}';
  document.head.appendChild(s);
 }
 function addMapFields(){
@@ -91,6 +91,16 @@ async function submitYard(button){
   ['rr-report-shopped','rr-report-special-move'].forEach(function(id){var el=document.getElementById(id);if(el)el.checked=false;});
   var sp=document.getElementById('rr-report-special-move');if(sp)sp.dispatchEvent(new Event('change'));
  }finally{button.disabled=false;}
+}
+var DISCLAIMER = 'Reports made by trespassing are never allowed. Sightings must be made onboard trains, from public property, or with explicit permission from the proper authority.';
+function addDisclaimer(){
+ var btn=document.getElementById('report-train-submit');
+ if(!btn||document.getElementById('rr-yard-disclaimer'))return;
+ var p=document.createElement('p');
+ p.id='rr-yard-disclaimer';
+ p.className='rr-yard-disclaimer';
+ p.textContent=DISCLAIMER;
+ btn.parentNode.insertBefore(p, btn);
 }
 function wireMap(){
  addMapFields();var btn=document.getElementById('report-train-submit');if(!btn||btn.dataset.rrYardHooked)return;btn.dataset.rrYardHooked='1';
@@ -215,7 +225,7 @@ window.rrOpenFacilityReport=function(facility){
  var loc=document.getElementById('rr-report-shopped-location');
  if(loc)loc.value=facility.name;
 };
-function boot(){style();wireMap();refreshFacilityLists();addPublicTab();addAdminQueue();}
+function boot(){style();addDisclaimer();wireMap();refreshFacilityLists();addPublicTab();addAdminQueue();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 if(window.firebase&&firebase.auth){try{firebase.auth().onAuthStateChanged(function(){addAdminQueue();});}catch(_){}}
 })();
