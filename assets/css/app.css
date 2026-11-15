@@ -4173,7 +4173,12 @@
       content: 'Loading map…';
     }
     html.rr-mytrips-page .trip-log-row-map .leaflet-control-container {
-      display: none !important;
+      display: block !important; /* Map data attribution must remain visible. */
+    }
+    html.rr-mytrips-page .trip-log-row-map .leaflet-control-attribution {
+      font-size: 10px;
+      line-height: 12px;
+      white-space: normal;
     }
 
     /* Trip cards easy-read: train chip + unlabeled when */

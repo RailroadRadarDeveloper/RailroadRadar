@@ -408,15 +408,25 @@
   }
   function mapTrains(list, rr) { M.trains[rr || RR] = list || []; drawTrains(); }
   function mapData() { try { return JSON.parse(($('lp-map-data') || {}).textContent || 'null'); } catch (_) { return null; } }
-  function buildMap() {
+  var freeLightFactory;
+  async function buildMap() {
     var d = mapData();
     if (!d || !window.L || !M.el) return;
+    if (!window.RRFreeLightLayer) {
+      if (!freeLightFactory) freeLightFactory = new Promise(function (resolve) {
+        var factory = document.createElement('script'); factory.src = '/assets/js/free-light-map.js';
+        var timer = setTimeout(resolve, 12000);
+        factory.onload = factory.onerror = function () { clearTimeout(timer); resolve(); };
+        document.head.appendChild(factory);
+      });
+      await freeLightFactory;
+    }
     M.el.innerHTML = '';
     var map = L.map(M.el, { scrollWheelZoom: false, zoomSnap: 0.5, attributionControl: true });
-    L.tileLayer(API + '/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}', {
-      attribution: '&copy; Mapbox &copy; OpenStreetMap contributors', maxZoom: 18, opacity: 1,
-      errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII='
-    }).addTo(map);
+    (window.RRFreeLightLayer ? window.RRFreeLightLayer({ maxZoom: 18 }) :
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> © <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 18, detectRetina: false
+      })).addTo(map);
     var bounds = [];
     (d.lines || []).forEach(function (l) {
       (l.paths || []).forEach(function (p) { L.polyline(p, { color: l.color, weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round', interactive: false }).addTo(map); bounds = bounds.concat(p); });
