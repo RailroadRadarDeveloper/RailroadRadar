@@ -922,13 +922,14 @@
             <label for="admin-facility-color">Color</label>
             <input type="text" id="admin-facility-color" placeholder="#80276C" maxlength="7" autocomplete="off">
             <label for="admin-facility-lat">Latitude</label>
-            <input type="text" id="admin-facility-lat" inputmode="decimal" required autocomplete="off">
+            <input type="text" id="admin-facility-lat" inputmode="decimal" autocomplete="off">
             <label for="admin-facility-lng">Longitude</label>
-            <input type="text" id="admin-facility-lng" inputmode="decimal" required autocomplete="off">
+            <input type="text" id="admin-facility-lng" inputmode="decimal" autocomplete="off">
             <div class="rr-lightbox-actions">
               <button type="submit" class="rr-btn" id="admin-facility-save">Save</button>
               <button type="button" class="rr-btn secondary" id="admin-facility-cancel">Cancel</button>
             </div>
+            <p class="rr-modal-hint" id="admin-facility-save-status" aria-live="polite"></p>
           </form>
           <p class="rr-modal-hint" id="admin-facilities-status">Loading Facilities</p>
           <div class="rr-admin-table-wrap">
@@ -1485,27 +1486,58 @@
         if (status) status.textContent = 'Could Not Load Facilities';
       }
     }
+    function parseFacilityCoords(latRaw, lngRaw) {
+      function pair(raw) {
+        var s = String(raw || '').replace(/[°º]/g, '').trim();
+        var m = s.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+        return m ? [m[1], m[2]] : null;
+      }
+      function one(raw) {
+        return String(raw || '').replace(/[°º]/g, '').replace(/\s+/g, '');
+      }
+      var split = pair(latRaw) || pair(lngRaw);
+      var latN = Number(split ? split[0] : one(latRaw));
+      var lngN = Number(split ? split[1] : one(lngRaw));
+      if (!isFinite(latN) || !isFinite(lngN) || latN < -90 || latN > 90 || lngN < -180 || lngN > 180) return null;
+      return { lat: latN, lng: lngN };
+    }
     async function saveAdminFacility() {
+      var statusEl = document.getElementById('admin-facility-save-status');
+      var button = document.getElementById('admin-facility-save');
+      function say(msg) { if (statusEl) statusEl.textContent = msg; }
       var user = currentUser || (auth && auth.currentUser);
-      if (!user || !isAdminUser(user) || !(currentAdminPerms && currentAdminPerms.viewReports) || !db) return;
-      var name = String((document.getElementById('admin-facility-name') || {}).value || '').trim();
-      var agency = String((document.getElementById('admin-facility-agency') || {}).value || 'mbta');
-      var lat = Number((document.getElementById('admin-facility-lat') || {}).value);
-      var lng = Number((document.getElementById('admin-facility-lng') || {}).value);
-      var status = document.getElementById('admin-facilities-status');
-      if (!name || (agency !== 'amtrak' && agency !== 'mbta') || !isFinite(lat) || !isFinite(lng)) {
-        if (status) status.textContent = 'Enter A Name, Railroad, Latitude, And Longitude';
+      if (!user) { say('Sign in to save a facility.'); return; }
+      if (!db) { say('Firestore is unavailable.'); return; }
+      if (currentAdminPerms && currentAdminPerms.viewReports === false && !isBootstrapAdmin(user.email)) {
+        say('You do not have permission to save facilities.');
         return;
       }
-      var id = String((document.getElementById('admin-facility-id') || {}).value || '').trim() || facilityDocId(name);
-      var data = { name: name.slice(0, 80), agency: agency, color: facilityColorValue(agency, (document.getElementById('admin-facility-color') || {}).value), lat: lat, lng: lng };
+      var name = String((document.getElementById('admin-facility-name') || {}).value || '').trim();
+      var agency = String((document.getElementById('admin-facility-agency') || {}).value || 'mbta');
+      if (!name) { say('Enter a facility name.'); return; }
+      if (agency !== 'amtrak' && agency !== 'mbta') { say('Choose Amtrak or MBTA.'); return; }
+      var coords = parseFacilityCoords((document.getElementById('admin-facility-lat') || {}).value, (document.getElementById('admin-facility-lng') || {}).value);
+      if (!coords) { say('Enter a valid latitude and longitude.'); return; }
+      document.getElementById('admin-facility-lat').value = String(coords.lat);
+      document.getElementById('admin-facility-lng').value = String(coords.lng);
+      var data = {
+        name: name.slice(0, 80),
+        agency: agency,
+        color: facilityColorValue(agency, (document.getElementById('admin-facility-color') || {}).value),
+        lat: coords.lat,
+        lng: coords.lng
+      };
+      if (button) button.disabled = true;
+      say('Saving…');
       try {
-        await db.collection('facilities').doc(id).set(data);
+        await db.collection('facilities').doc(facilityDocId(name)).set(data);
         if (window.rrFsCache) window.rrFsCache.drop('facilities');
-        hideFacilityForm();
+        say('Saved');
         await loadAdminFacilities();
       } catch (e) {
-        if (status) status.textContent = 'Could Not Save Facility';
+        say((e && e.message) ? String(e.message) : 'Could not save this facility.');
+      } finally {
+        if (button) button.disabled = false;
       }
     }
     async function saveBuiltinFacilities() {
