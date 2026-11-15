@@ -1487,19 +1487,111 @@
       }
     }
     function parseFacilityCoords(latRaw, lngRaw) {
-      function pair(raw) {
-        var s = String(raw || '').replace(/[°º]/g, '').trim();
-        var m = s.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
-        return m ? [m[1], m[2]] : null;
+      function quoted(raw) { return '"' + String(raw == null ? '' : raw).trim() + '"'; }
+      function normalizeDashes(s) {
+        return String(s || '').replace(/[\u2212\u2013\u2014\u2010\u2011]/g, '-');
       }
-      function one(raw) {
-        return String(raw || '').replace(/[°º]/g, '').replace(/\s+/g, '');
+      function parseSingle(raw) {
+        var original = String(raw == null ? '' : raw).trim();
+        if (!original) return { empty: true, raw: '' };
+        var s = normalizeDashes(original).replace(/^[(\[{]+|[)\]}]+$/g, '').trim();
+        s = s.replace(/[°º˚]/g, ' ');
+        var hemi = '';
+        var lead = s.match(/^([NSEW])(?=\s|\d)/i);
+        if (lead) { hemi = lead[1].toUpperCase(); s = s.slice(lead[0].length).trim(); }
+        var trail = s.match(/([NSEW])$/i);
+        if (trail) { hemi = trail[1].toUpperCase(); s = s.slice(0, -trail[0].length).trim(); }
+        s = s.replace(/['′’]/g, ' ').replace(/["″“”]/g, ' ').replace(/[;,]+$/g, '').replace(/\.+$/g, '').replace(/\s+/g, ' ').trim();
+        if (!s) return { error: true, raw: original };
+        var bits = s.split(/\s+/);
+        var nums = [];
+        for (var i = 0; i < bits.length; i++) {
+          var bit = bits[i];
+          if (/^-?\d+,\d+$/.test(bit)) bit = bit.replace(',', '.');
+          if (!/^-?\d+(?:\.\d+)?$/.test(bit)) return { error: true, raw: original };
+          nums.push(Number(bit));
+        }
+        if (!nums.length || nums.length > 3) return { error: true, raw: original };
+        var sign = nums[0] < 0 ? -1 : 1;
+        var value = Math.abs(nums[0]);
+        if (nums.length > 1) value += nums[1] / 60;
+        if (nums.length > 2) value += nums[2] / 3600;
+        value *= sign;
+        if (hemi === 'S' || hemi === 'W') value = -Math.abs(value);
+        if (hemi === 'N' || hemi === 'E') value = Math.abs(value);
+        if (!isFinite(value)) return { error: true, raw: original };
+        return { value: value, hemi: hemi, raw: original };
       }
-      var split = pair(latRaw) || pair(lngRaw);
-      var latN = Number(split ? split[0] : one(latRaw));
-      var lngN = Number(split ? split[1] : one(lngRaw));
-      if (!isFinite(latN) || !isFinite(lngN) || latN < -90 || latN > 90 || lngN < -180 || lngN > 180) return null;
-      return { lat: latN, lng: lngN };
+      function asPair(raw) {
+        var s = normalizeDashes(raw).trim();
+        if (!s) return null;
+        s = s.replace(/^[(\[{]+|[)\]}]+$/g, '').trim();
+        if (/^-?\d+,\d+$/.test(s.replace(/\s/g, ''))) return null;
+        var parts = null;
+        if (/\s*;\s*/.test(s)) {
+          var semi = s.split(/\s*;\s*/);
+          if (semi.length === 2) parts = semi;
+        }
+        if (!parts && /,\s+/.test(s)) {
+          var spaced = s.split(/\s*,\s+/);
+          if (spaced.length === 2) parts = spaced;
+        }
+        if (!parts && /,\s*-/.test(s)) {
+          var signed = s.split(/,\s*(?=-)/);
+          if (signed.length === 2) parts = signed;
+        }
+        if (!parts) {
+          var hemiSplit = s.match(/^(.*[NSEW])\s+(\d.*)$/i);
+          if (hemiSplit) parts = [hemiSplit[1], hemiSplit[2]];
+        }
+        if (!parts) {
+          var ws = s.match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);
+          if (ws) parts = [ws[1], ws[2]];
+        }
+        if (!parts) return null;
+        var a = parseSingle(parts[0]);
+        var b = parseSingle(parts[1]);
+        if (!a || !b || a.error || b.error || a.empty || b.empty) return null;
+        return [a, b];
+      }
+      var latText = String(latRaw == null ? '' : latRaw);
+      var lngText = String(lngRaw == null ? '' : lngRaw);
+      var latEmpty = !latText.trim();
+      var lngEmpty = !lngText.trim();
+      var lat, lng;
+      if (latEmpty && lngEmpty) return { error: 'Could not read latitude ' + quoted('') + '.' };
+      if (latEmpty || lngEmpty) {
+        var filled = latEmpty ? lngText : latText;
+        var pair = asPair(filled);
+        if (!pair) {
+          var single = parseSingle(filled);
+          if (single.error) return { error: 'Could not read ' + (latEmpty ? 'longitude ' : 'latitude ') + quoted(single.raw) + '.' };
+          return { error: 'Could not read ' + (latEmpty ? 'latitude ' : 'longitude ') + quoted('') + '.' };
+        }
+        lat = pair[0];
+        lng = pair[1];
+      } else {
+        lat = parseSingle(latText);
+        lng = parseSingle(lngText);
+        if (lat.error) return { error: 'Could not read latitude ' + quoted(lat.raw) + '.' };
+        if (lng.error) return { error: 'Could not read longitude ' + quoted(lng.raw) + '.' };
+      }
+      var latN = lat.value;
+      var lngN = lng.value;
+      var lngHemi = lng.hemi;
+      if (Math.abs(latN) > 60 && Math.abs(latN) <= 180 && Math.abs(lngN) <= 60) {
+        var swap = latN; latN = lngN; lngN = swap;
+        lngHemi = lat.hemi;
+      }
+      var west = false;
+      if (lngN >= 60 && lngN <= 180 && lngHemi !== 'E') {
+        lngN = -lngN;
+        west = true;
+      }
+      if (!isFinite(latN) || !isFinite(lngN) || latN < -90 || latN > 90 || lngN < -180 || lngN > 180) {
+        return { error: 'Could not read latitude ' + quoted(lat.raw) + '.' };
+      }
+      return { lat: latN, lng: lngN, west: west };
     }
     async function saveAdminFacility() {
       var statusEl = document.getElementById('admin-facility-save-status');
@@ -1517,7 +1609,7 @@
       if (!name) { say('Enter a facility name.'); return; }
       if (agency !== 'amtrak' && agency !== 'mbta') { say('Choose Amtrak or MBTA.'); return; }
       var coords = parseFacilityCoords((document.getElementById('admin-facility-lat') || {}).value, (document.getElementById('admin-facility-lng') || {}).value);
-      if (!coords) { say('Enter a valid latitude and longitude.'); return; }
+      if (!coords || coords.error) { say(coords && coords.error ? coords.error : 'Enter a valid latitude and longitude.'); return; }
       document.getElementById('admin-facility-lat').value = String(coords.lat);
       document.getElementById('admin-facility-lng').value = String(coords.lng);
       var data = {
@@ -1532,7 +1624,7 @@
       try {
         await db.collection('facilities').doc(facilityDocId(name)).set(data);
         if (window.rrFsCache) window.rrFsCache.drop('facilities');
-        say('Saved');
+        say(coords.west ? 'Saved (longitude set to west)' : 'Saved');
         await loadAdminFacilities();
       } catch (e) {
         say((e && e.message) ? String(e.message) : 'Could not save this facility.');
