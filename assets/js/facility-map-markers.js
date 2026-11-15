@@ -36,7 +36,10 @@
   }
   function asDate(v) {
     if (!v) return null;
-    var d = v.toDate ? v.toDate() : (v instanceof Date ? v : new Date(v));
+    var d = null;
+    if (typeof v.toDate === 'function') d = v.toDate();
+    else if (typeof v.seconds === 'number') d = new Date(v.seconds * 1000);
+    else d = v instanceof Date ? v : new Date(v);
     return d && !isNaN(d.getTime()) ? d : null;
   }
   function ago(v) {
@@ -50,17 +53,30 @@
     var days = Math.round(hr / 24);
     return days + (days === 1 ? ' Day Ago' : ' Days Ago');
   }
+  // Same public label Recent Reports stores on the report. Never an email or a user id.
   function publicName(r) {
+    var mode = String(r.reportedByDisplayMode || '');
     var label = String(r.reportedByLabel || '').trim();
     var uid = String(r.reportedByUid || '');
-    if (!label || label.indexOf('@') !== -1 || (uid && label === uid)) return 'Anonymous';
+    if (mode === 'anonymous' || /^anonymous$/i.test(label)) return 'Anonymous';
+    if (!label || label.indexOf('@') !== -1 || label.indexOf('<') !== -1 || label.indexOf('>') !== -1) return 'Anonymous';
+    if (uid && label === uid) return 'Anonymous';
     if (/^[A-Za-z0-9_-]{20,128}$/.test(label)) return 'Anonymous';
     return label.slice(0, 80);
+  }
+  function reporterHtml(r) {
+    var name = publicName(r);
+    var html = esc(name);
+    if (name !== 'Anonymous' && r.reportedByVerified === true) {
+      html += '<img class="admin-badge-icon verified-badge-icon is-visible" src="/assets/admin-badge.png" alt="Verified" width="11" height="11">';
+    }
+    return html;
   }
   function statusOf(r) {
     return r.reportType === 'shopped' ? 'Shopped' : 'Stored';
   }
   function atFacility(r, name) {
+    if (!r || r.status === 'pending') return false;
     if (r.reportType === 'facility') return String(r.facility || '') === name;
     if (r.reportType === 'shopped') return String(r.location || '') === name;
     return false;
@@ -79,48 +95,51 @@
     return url.indexOf('/assets/') === 0 && url.indexOf('..') === -1 ? url : '';
   }
   function popupOpts() {
-    var vw = 520;
-    try { vw = window.innerWidth || 520; } catch (_) {}
-    var phone = vw <= 700;
-    var w = phone ? Math.min(336, Math.max(160, vw - 40)) : 350;
+    var w = 520;
+    try { w = Math.min(window.innerWidth || 520, (window.screen && screen.width) || 520); } catch (_) {}
+    if (w <= 700) {
+      var boxW = Math.min(336, Math.max(160, w - 40));
+      return {
+        maxWidth: boxW, minWidth: Math.min(200, boxW), closeOnClick: true, autoClose: true, closeButton: true,
+        autoPan: true, autoPanPaddingTopLeft: L.point(20, 84), autoPanPaddingBottomRight: L.point(20, 12)
+      };
+    }
     return {
-      maxWidth: w,
-      minWidth: Math.min(240, w),
-      closeButton: true,
-      autoPan: true,
-      autoPanPaddingTopLeft: L.point(phone ? 20 : 5, 84),
-      autoPanPaddingBottomRight: L.point(phone ? 20 : 5, 12)
+      maxWidth: 350, minWidth: 240, closeOnClick: true, autoClose: true, closeButton: true,
+      autoPan: true, autoPanPaddingTopLeft: L.point(5, 84), autoPanPaddingBottomRight: L.point(5, 5)
     };
   }
-  function shell(title, body) {
+  var REFRESH_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>';
+  function shell(facility, body) {
+    var refresh = '<button type="button" class="rr-sp-refresh" title="Refresh" aria-label="Refresh" data-facility="' +
+      esc(facility.name) + '" onclick="window.__rrFacilityRefresh(this)">' + REFRESH_SVG + '</button>';
     return '<div class="station-popup rr-sp rr-facility-popup"><div class="rr-sp-head"><div class="rr-sp-title">' +
-      esc(title) + '</div><div class="rr-sp-sub">Equipment</div></div>' + body + '</div>';
+      esc(facility.name) + '</div><div class="rr-sp-sub">Equipment</div>' + refresh + '</div>' + body + '</div>';
   }
   function rowHtml(facility, r, number) {
     var icon = iconFor(facility, number);
-    var img = icon ? '<img class="rr-facility-eq-icon" src="' + esc(icon) + '" alt="">' : '<span class="rr-facility-eq-icon rr-facility-eq-icon-empty"></span>';
-    return '<li class="rr-facility-eq"><span class="rr-facility-eq-main">' + img +
-      '<span class="rr-facility-eq-copy"><span class="rr-facility-eq-num">' + esc(number) + '</span>' +
-      '<span class="rr-facility-eq-meta"><span class="rr-facility-eq-status">' + statusOf(r) + '</span>' +
-      '<span class="rr-facility-eq-who">' + esc(publicName(r)) + '</span></span></span></span>' +
-      '<span class="rr-facility-eq-when">' + esc(ago(r.approvedAt || r.createdAt)) + '</span></li>';
+    var iconHtml = icon ? '<img src="' + esc(icon) + '" alt="">' : '';
+    return '<li class="rr-sp-row" style="--rr-sp-line:' + facility.color + '"><span class="rr-sp-time">' + iconHtml + '</span>' +
+      '<span class="rr-sp-main"><span class="rr-sp-dest">' + esc(number) + '</span>' +
+      '<span class="rr-sp-track"><span class="rr-sp-status">' + statusOf(r) + '</span><span class="rr-facility-who">' + reporterHtml(r) + '</span></span></span>' +
+      '<span class="rr-sp-chip">' + esc(ago(r.approvedAt || r.createdAt)) + '</span></li>';
   }
   function listHtml(facility, rows) {
-    if (!rows.length) return shell(facility.name, '<div class="rr-sp-empty">No Equipment Reported Here</div>');
+    if (!rows.length) return shell(facility, '<div class="rr-sp-empty">No Equipment Reported Here</div>');
     var items = [];
     rows.forEach(function (r) {
       unitsOf(r).forEach(function (number) { items.push(rowHtml(facility, r, number)); });
     });
-    if (!items.length) return shell(facility.name, '<div class="rr-sp-empty">No Equipment Reported Here</div>');
-    return shell(facility.name, '<ul class="rr-sp-list rr-facility-eq-list">' + items.join('') + '</ul>');
+    if (!items.length) return shell(facility, '<div class="rr-sp-empty">No Equipment Reported Here</div>');
+    return shell(facility, '<ul class="rr-sp-list">' + items.join('') + '</ul>');
   }
   function loadPopup(marker, facility) {
     var popup = marker.getPopup();
     if (!popup || !marker.isPopupOpen()) return;
-    popup.setContent(shell(facility.name, '<div class="rr-sp-empty">Loading Reported Equipment</div>'));
+    popup.setContent(shell(facility, '<div class="rr-sp-empty"><span class="loading-spinner"></span> Loading Equipment</div>'));
     var db = window.firebase && firebase.firestore ? firebase.firestore() : null;
     if (!db) {
-      popup.setContent(shell(facility.name, '<div class="rr-sp-empty">Equipment Reports Are Temporarily Unavailable</div>'));
+      popup.setContent(shell(facility, '<div class="rr-sp-empty">Equipment Reports Are Temporarily Unavailable</div>'));
       return;
     }
     db.collection('yardReports').get().then(function (snap) {
@@ -132,10 +151,16 @@
       });
       popup.setContent(listHtml(facility, rows));
     }).catch(function (err) {
-      console.error('[facility markers] equipment lookup failed', err);
-      if (marker.isPopupOpen()) popup.setContent(shell(facility.name, '<div class="rr-sp-empty">Could Not Load Equipment Reports</div>'));
+      console.warn('[facility markers] equipment lookup failed', err);
+      if (marker.isPopupOpen()) popup.setContent(shell(facility, '<div class="rr-sp-empty">Could Not Load Equipment Reports</div>'));
     });
   }
+  window.__rrFacilityRefresh = function (btn) {
+    var name = btn && btn.getAttribute('data-facility');
+    facilityMarkers.forEach(function (marker) {
+      if (marker.__rrFacility && marker.__rrFacility.name === name) loadPopup(marker, marker.__rrFacility);
+    });
+  };
   function addMarkers(map) {
     if (map.__rrFacilityMarkersAdded || !window.L) return;
     map.__rrFacilityMarkersAdded = true;
@@ -157,7 +182,8 @@
         keyboard: true,
         zIndexOffset: 650
       });
-      marker.bindPopup(shell(facility.name, '<div class="rr-sp-empty">Loading Reported Equipment</div>'), popupOpts());
+      marker.__rrFacility = facility;
+      marker.bindPopup(shell(facility, '<div class="rr-sp-empty"><span class="loading-spinner"></span> Loading Equipment</div>'), popupOpts());
       marker.on('popupopen', function () { loadPopup(marker, facility); });
       facilityMarkers.push(marker);
       marker.addTo(layer);

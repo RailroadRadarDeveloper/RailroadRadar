@@ -34,26 +34,9 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   pointer-events: none;
 }
-.rr-facility-popup .rr-facility-eq-list { list-style: none; margin: 0; padding: 0; }
-.rr-facility-eq {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid #e6e9ef;
-  border-left: 8px solid #07093e;
-}
-.rr-facility-eq-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rr-facility-eq-icon { width: 36px; height: 22px; object-fit: contain; flex: 0 0 auto; }
-.rr-facility-eq-icon-empty { display: inline-block; }
-.rr-facility-eq-copy { display: flex; flex-direction: column; min-width: 0; }
-.rr-facility-eq-num { font-size: 13.5px; font-weight: 700; color: #07093e; }
-.rr-facility-eq-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11.5px; font-weight: 600; color: #3d4454; }
-.rr-facility-eq-status { font-weight: 700; color: #07093e; }
-.rr-facility-eq-when { font-size: 12px; font-weight: 700; color: #07093e; white-space: nowrap; }
-@media (max-width: 700px) {
-  .rr-facility-eq { padding: 6px 10px; border-left-width: 7px; }
-  .rr-facility-eq-num { font-size: 13px; }
-}
+/* Equipment rows reuse the station popup row. The bar and time chip use the facility agency color. */
+.rr-facility-popup li.rr-sp-row { cursor: default; }
+.rr-facility-popup .rr-sp-time img { width: 100%; height: 28px; object-fit: contain; display: block; }
+.rr-facility-popup .rr-sp-chip { background: var(--rr-sp-line, #07093e); }
+.rr-facility-popup .rr-facility-who { display: inline-flex; align-items: center; gap: 4px; }
+.rr-facility-popup .rr-facility-who .verified-badge-icon { width: 11px; height: 11px; }
