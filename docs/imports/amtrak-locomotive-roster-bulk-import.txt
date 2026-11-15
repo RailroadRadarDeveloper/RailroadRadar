@@ -3,777 +3,777 @@
 # Columns: Railroad, Equipment ID, Type, Name, Model, Paint
 # Includes published number series and listed state-owned units used in Amtrak service.
 # Series ranges may include stored, retired, or not-yet-accepted units; verify current status before operational use.
-Railroad,Equipment ID,Type,Name,Model,Paint,Icon
-Amtrak,1,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,2,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,3,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,4,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,5,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,6,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,7,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,8,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,9,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,10,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,11,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,12,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,13,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,14,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,15,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,16,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,17,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,18,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,19,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,20,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,21,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,22,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,23,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,24,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,25,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,26,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,27,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,28,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,29,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,30,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,31,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,32,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,33,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,34,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,35,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,36,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,37,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,38,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,39,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,40,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,41,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,42,Locomotive,P42DC · Veterans tribute,GE P42DC,Salutes Our Veterans,
-Amtrak,43,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,44,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,45,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,46,Locomotive,P42DC · 50th Anniversary Phase V,GE P42DC,Connecting America for 50 Years · Phase V,
-Amtrak,47,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,48,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,49,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,50,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,51,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,52,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,53,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,54,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,55,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,56,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,57,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,58,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,59,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,60,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,61,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,62,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,63,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,64,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,65,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,66,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,67,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,68,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,69,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,70,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,71,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,72,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,73,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,74,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,75,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,76,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,77,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,78,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,79,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,80,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,81,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,82,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,83,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,84,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,85,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,86,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,87,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,88,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,89,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,90,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,91,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,92,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,93,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,94,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,95,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,96,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,97,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,98,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,99,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,100,Locomotive,P42DC · Midnight Blue 50th Anniversary,GE P42DC,Midnight Blue · 50th Anniversary,
-Amtrak,101,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,102,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,103,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,104,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,105,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,106,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,107,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,108,Locomotive,P42DC · Phase VI 50th Anniversary,GE P42DC,Phase VI · 50th Anniversary,
-Amtrak,109,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,110,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,111,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,112,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,113,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,114,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,115,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,116,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,117,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,118,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,119,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,120,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,121,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,122,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,123,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,124,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,125,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,126,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,127,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,128,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,129,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,130,Locomotive,P42DC · Phase II heritage,GE P42DC,Phase II heritage scheme,
-Amtrak,131,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,132,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,133,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,134,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,135,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,136,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,137,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,138,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,139,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,140,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,141,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,142,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,143,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,144,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,145,Locomotive,P42DC · Phase III heritage,GE P42DC,Phase III heritage scheme,
-Amtrak,146,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,147,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,148,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,149,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,150,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,151,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,152,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,153,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,154,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,155,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,156,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,157,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,158,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,159,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,160,Locomotive,P32-8 · Dash 8 Phase III anniversary,GE P32-8,Dash 8 Phase III · 50th Anniversary,
-Amtrak,161,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,162,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,163,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,164,Locomotive,P42DC · Phase IV heritage,GE P42DC,Phase IV heritage scheme,
-Amtrak,165,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,166,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,167,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,168,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,169,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,170,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,171,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,172,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,173,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,174,Locomotive,P42DC · Mark B. Kenny tribute,GE P42DC,Mark B. Kenny tribute / Phase VII,
-Amtrak,175,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,176,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,177,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,178,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,179,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,180,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,181,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,182,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,183,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,184,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,185,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,186,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,187,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,188,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,189,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,190,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,191,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,192,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,193,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,194,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,195,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,196,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,197,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,198,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,199,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,200,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,201,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,202,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,203,Locomotive,P42DC · Operation Lifesaver,GE P42DC,Operation Lifesaver,
-Amtrak,204,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,205,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,206,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,207,Locomotive,GE P42DC,GE P42DC,,/assets/amtrak.png
-Amtrak,300,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,301,Locomotive,ALC-42 · Day 1 50th Anniversary,Siemens ALC-42,Day 1 · 50th Anniversary,
-Amtrak,302,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,303,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,304,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,305,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,306,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,307,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,308,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,309,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250,
-Amtrak,310,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years,
-Amtrak,311,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,312,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250,
-Amtrak,313,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,314,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,315,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,316,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,317,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250,
-Amtrak,318,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years,
-Amtrak,319,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,320,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,321,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,322,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,323,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,324,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,325,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,326,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,327,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,328,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,329,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,330,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,331,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,332,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,333,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,334,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,335,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,336,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,337,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,338,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,339,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,340,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,341,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,342,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,343,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,344,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,345,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,346,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250,
-Amtrak,347,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,348,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,349,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,350,Locomotive,ALC-42 · U.S. DOT 250,Siemens ALC-42,U.S. Department of Transportation 250,
-Amtrak,351,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,352,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,353,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,354,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,355,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,356,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,357,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,358,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,359,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,360,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,361,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,362,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,363,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,364,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,365,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,366,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years,
-Amtrak,367,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,368,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,369,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,370,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,371,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,372,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years,
-Amtrak,373,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,374,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,375,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,376,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,377,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,378,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,379,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,380,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,381,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,382,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,383,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,384,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,385,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,386,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,387,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,388,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,389,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,390,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,391,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,392,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,393,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,394,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,395,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,396,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,397,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,398,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,399,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,400,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,401,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,402,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,403,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,404,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,405,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,406,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,407,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,408,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,409,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,410,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,411,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,412,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,413,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,414,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,415,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,416,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,417,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,418,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,419,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,420,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,421,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,422,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,423,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,424,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,,
-Amtrak,500,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,501,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,502,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,503,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,504,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,505,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,506,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,507,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,508,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,509,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,510,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,511,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,512,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,513,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,514,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,515,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,516,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,517,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,518,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,519,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,,
-Amtrak,520,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,521,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,522,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,523,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,524,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,525,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,526,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,527,Locomotive,GP38H-3,GP38H-3,,
-Amtrak,530,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,531,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,532,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,533,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,534,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,535,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,536,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,537,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,538,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,539,Locomotive,EMD MP15,EMD MP15,,
-Amtrak,541,Locomotive,EMD SW1500,EMD SW1500,,
-Amtrak,569,Locomotive,EMD SW1001 · Retired / converted,EMD SW1001,Retired / converted,
-Amtrak,570,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,571,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,572,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,573,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,574,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,575,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,576,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,577,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,578,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,579,Locomotive,MPI GP15D,MPI GP15D,,
-Amtrak,590,Locomotive,MPI MP14B,MPI MP14B,,
-Amtrak,591,Locomotive,MPI MP21B,MPI MP21B,,
-Amtrak,592,Locomotive,MPI MP14B,MPI MP14B,,
-Amtrak,593,Locomotive,MPI MP14B,MPI MP14B,,
-Amtrak,597,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,,
-Amtrak,599,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,,
-Amtrak,600,Locomotive,ACS-64 · David L. Gunn tribute,Siemens ACS-64,David L. Gunn tribute,
-Amtrak,601,Locomotive,ACS-64,ACS-64,,
-Amtrak,602,Locomotive,ACS-64,ACS-64,,
-Amtrak,603,Locomotive,ACS-64,ACS-64,,
-Amtrak,604,Locomotive,ACS-64,ACS-64,,
-Amtrak,605,Locomotive,ACS-64,ACS-64,,
-Amtrak,606,Locomotive,ACS-64,ACS-64,,
-Amtrak,607,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250,
-Amtrak,608,Locomotive,ACS-64,ACS-64,,
-Amtrak,609,Locomotive,ACS-64,ACS-64,,
-Amtrak,610,Locomotive,ACS-64,ACS-64,,
-Amtrak,611,Locomotive,ACS-64,ACS-64,,
-Amtrak,612,Locomotive,ACS-64,ACS-64,,
-Amtrak,613,Locomotive,ACS-64,ACS-64,,
-Amtrak,614,Locomotive,ACS-64,ACS-64,,
-Amtrak,615,Locomotive,ACS-64,ACS-64,,
-Amtrak,616,Locomotive,ACS-64,ACS-64,,
-Amtrak,617,Locomotive,ACS-64,ACS-64,,
-Amtrak,618,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250,
-Amtrak,619,Locomotive,ACS-64,ACS-64,,
-Amtrak,620,Locomotive,ACS-64,ACS-64,,
-Amtrak,621,Locomotive,ACS-64,ACS-64,,
-Amtrak,622,Locomotive,ACS-64,ACS-64,,
-Amtrak,623,Locomotive,ACS-64,ACS-64,,
-Amtrak,624,Locomotive,ACS-64,ACS-64,,
-Amtrak,625,Locomotive,ACS-64 · America 250,Siemens ACS-64,America 250 Years,
-Amtrak,626,Locomotive,ACS-64,ACS-64,,
-Amtrak,627,Locomotive,ACS-64,ACS-64,,
-Amtrak,628,Locomotive,ACS-64,ACS-64,,
-Amtrak,629,Locomotive,ACS-64,ACS-64,,
-Amtrak,630,Locomotive,ACS-64,ACS-64,,
-Amtrak,631,Locomotive,ACS-64 · America 250,Siemens ACS-64,America 250 Years,
-Amtrak,632,Locomotive,ACS-64,ACS-64,,
-Amtrak,633,Locomotive,ACS-64,ACS-64,,
-Amtrak,634,Locomotive,ACS-64,ACS-64,,
-Amtrak,635,Locomotive,ACS-64,ACS-64,,
-Amtrak,636,Locomotive,ACS-64,ACS-64,,
-Amtrak,637,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250,
-Amtrak,638,Locomotive,ACS-64,ACS-64,,
-Amtrak,639,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250,
-Amtrak,640,Locomotive,ACS-64,ACS-64,,
-Amtrak,641,Locomotive,ACS-64,ACS-64,,
-Amtrak,642,Locomotive,ACS-64 · Veterans tribute,Siemens ACS-64,Salutes Our Veterans,
-Amtrak,643,Locomotive,ACS-64,ACS-64,,
-Amtrak,644,Locomotive,ACS-64 · America 250,Siemens ACS-64,America 250 Years,
-Amtrak,645,Locomotive,ACS-64,ACS-64,,
-Amtrak,646,Locomotive,ACS-64,ACS-64,,
-Amtrak,647,Locomotive,ACS-64,ACS-64,,
-Amtrak,648,Locomotive,ACS-64,ACS-64,,
-Amtrak,649,Locomotive,ACS-64 · Freedom 250,Siemens ACS-64,Freedom 250,
-Amtrak,650,Locomotive,ACS-64,ACS-64,,
-Amtrak,651,Locomotive,ACS-64,ACS-64,,
-Amtrak,652,Locomotive,ACS-64,ACS-64,,
-Amtrak,653,Locomotive,ACS-64,ACS-64,,
-Amtrak,654,Locomotive,ACS-64,ACS-64,,
-Amtrak,655,Locomotive,ACS-64,ACS-64,,
-Amtrak,656,Locomotive,ACS-64,ACS-64,,
-Amtrak,657,Locomotive,ACS-64 · Freedom 250,Siemens ACS-64,Freedom 250,
-Amtrak,658,Locomotive,ACS-64,ACS-64,,
-Amtrak,659,Locomotive,ACS-64,ACS-64,,
-Amtrak,660,Locomotive,ACS-64,ACS-64,,
-Amtrak,661,Locomotive,ACS-64,ACS-64,,
-Amtrak,662,Locomotive,ACS-64 · 250 Years of Freedom,Siemens ACS-64,250 Years of Freedom,
-Amtrak,663,Locomotive,ACS-64,ACS-64,,
-Amtrak,664,Locomotive,ACS-64,ACS-64,,
-Amtrak,665,Locomotive,ACS-64,ACS-64,,
-Amtrak,666,Locomotive,ACS-64,ACS-64,,
-Amtrak,667,Locomotive,ACS-64,ACS-64,,
-Amtrak,668,Locomotive,ACS-64 · Freedom 250,Siemens ACS-64,Freedom 250,
-Amtrak,669,Locomotive,ACS-64,ACS-64,,
-Amtrak,670,Locomotive,ACS-64,ACS-64,,
-Amtrak,680,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,681,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,682,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,683,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,684,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,685,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,686,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,687,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,688,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,689,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,690,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,691,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,692,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,693,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,694,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet,
-Amtrak,700,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,701,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,702,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,703,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,704,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,705,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,706,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,707,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,708,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,709,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,710,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,711,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,712,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,713,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,714,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,715,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,716,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,717,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service,
-Amtrak,720,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,721,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,722,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,723,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,724,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,725,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,726,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,727,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,728,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,729,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,730,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,731,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,732,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,733,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,734,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,735,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,736,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,737,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,738,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,739,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,740,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,741,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,742,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,743,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,744,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,745,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,746,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,747,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,748,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,749,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,750,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,751,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,752,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,753,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,754,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,,
-Amtrak,787,Locomotive,EMD SW1,EMD SW1,,
-Amtrak,790,Locomotive,2GS12B · Washington Terminal Company,NRE 2GS12B genset,Washington Terminal Company heritage,
-Amtrak,791,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,,
-Amtrak,792,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,,
-Amtrak,793,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,,
-Amtrak,794,Locomotive,EMD / NRE SW1000R,EMD / NRE SW1000R,,
-Amtrak,796,Locomotive,EMD / NRE SW1000R,EMD / NRE SW1000R,,
-Amtrak,798,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,,
-Amtrak,800,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,801,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,802,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,803,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,804,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,805,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,806,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,807,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,808,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,809,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,810,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,811,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,812,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,813,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,814,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,815,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,816,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,817,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,818,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,819,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,820,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,821,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,822,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,823,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,824,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,825,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,826,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,827,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,828,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,829,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,830,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,831,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,832,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,833,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,834,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,835,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,836,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,837,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,838,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,839,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,840,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,841,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,842,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,843,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service,
-Amtrak,1100,Locomotive,GE 80-ton · Inactive,GE 80-ton,Inactive,
-Amtrak,1400,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1401,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1403,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1404,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1405,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1406,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1407,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1408,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service,
-Amtrak,1755,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,1776,Locomotive,NCDOT F59PHI · America 250,NCDOT EMD F59PHI,America 250 Years,
-Amtrak,1797,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,1810,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,1859,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,1869,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,1871,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,1893,Locomotive,EMD F59 · NCDOT-owned; Amtrak service,EMD F59,NCDOT-owned; Amtrak service,
-Amtrak,1984,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service,
-Amtrak,2001,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2002,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2003,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2004,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2005,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2006,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2007,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2008,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2009,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2010,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2011,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2012,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2013,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2014,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2015,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service,
-Amtrak,2051,Locomotive,GE P32-8 · Caltrans-owned; Amtrak service,GE P32-8,Caltrans-owned; Amtrak service,
-Amtrak,2052,Locomotive,GE P32-8 · Caltrans-owned; Amtrak service,GE P32-8,Caltrans-owned; Amtrak service,
-Amtrak,2101,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2102,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2103,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2104,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2105,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2106,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2107,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2108,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2109,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2110,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2111,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2112,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2113,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2114,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2115,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2116,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2117,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2118,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2119,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2120,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2121,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2122,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2123,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2124,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service,
-Amtrak,2143,Locomotive,America 250 · model to verify,Amtrak locomotive (model not independently verified),America 250 Years,
-Amtrak,2147,Locomotive,America 250 · model to verify,Amtrak locomotive (model not independently verified),America 250 Years,
-Amtrak,4601,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4602,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4603,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4604,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4605,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4606,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4607,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4608,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4609,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4610,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4611,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4612,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4613,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4614,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4615,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4616,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4617,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4618,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4619,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4620,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4621,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4622,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4623,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4624,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4625,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4626,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4627,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4628,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4629,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4630,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4631,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4632,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,4633,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service,
-Amtrak,7001,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7002,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7003,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7004,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7005,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7006,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7007,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7008,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7009,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7010,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7011,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7012,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7013,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7014,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7015,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7016,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7017,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7018,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7019,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7020,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7021,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7022,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7023,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7024,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7025,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7026,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7027,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7028,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7029,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7030,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7031,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7032,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7033,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7034,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7035,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7036,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7037,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7038,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7039,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7040,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7041,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7042,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7043,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7044,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7045,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7046,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7047,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7048,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7049,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7050,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7051,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7052,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7053,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7054,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7055,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7056,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7057,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7058,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7059,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7060,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7061,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7062,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7063,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7064,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7065,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7066,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7067,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7068,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7069,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7070,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7071,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7072,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7073,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7074,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7075,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7076,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7077,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7078,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7079,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7080,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7081,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7082,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7083,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7084,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7085,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,7086,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing,
-Amtrak,9700,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9701,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9702,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9703,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9704,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9705,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9706,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9707,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9708,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9709,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,,
-Amtrak,9750,Locomotive,HHP-8C,HHP-8C,,
-Amtrak,9751,Locomotive,HHP-8C,HHP-8C,,
-Amtrak,9752,Locomotive,HHP-8C,HHP-8C,,
-Amtrak,9753,Locomotive,HHP-8C,HHP-8C,,
+Railroad,Equipment ID,Type,Name,Model,Paint
+Amtrak,1,Locomotive,GE P42DC,GE P42DC,
+Amtrak,2,Locomotive,GE P42DC,GE P42DC,
+Amtrak,3,Locomotive,GE P42DC,GE P42DC,
+Amtrak,4,Locomotive,GE P42DC,GE P42DC,
+Amtrak,5,Locomotive,GE P42DC,GE P42DC,
+Amtrak,6,Locomotive,GE P42DC,GE P42DC,
+Amtrak,7,Locomotive,GE P42DC,GE P42DC,
+Amtrak,8,Locomotive,GE P42DC,GE P42DC,
+Amtrak,9,Locomotive,GE P42DC,GE P42DC,
+Amtrak,10,Locomotive,GE P42DC,GE P42DC,
+Amtrak,11,Locomotive,GE P42DC,GE P42DC,
+Amtrak,12,Locomotive,GE P42DC,GE P42DC,
+Amtrak,13,Locomotive,GE P42DC,GE P42DC,
+Amtrak,14,Locomotive,GE P42DC,GE P42DC,
+Amtrak,15,Locomotive,GE P42DC,GE P42DC,
+Amtrak,16,Locomotive,GE P42DC,GE P42DC,
+Amtrak,17,Locomotive,GE P42DC,GE P42DC,
+Amtrak,18,Locomotive,GE P42DC,GE P42DC,
+Amtrak,19,Locomotive,GE P42DC,GE P42DC,
+Amtrak,20,Locomotive,GE P42DC,GE P42DC,
+Amtrak,21,Locomotive,GE P42DC,GE P42DC,
+Amtrak,22,Locomotive,GE P42DC,GE P42DC,
+Amtrak,23,Locomotive,GE P42DC,GE P42DC,
+Amtrak,24,Locomotive,GE P42DC,GE P42DC,
+Amtrak,25,Locomotive,GE P42DC,GE P42DC,
+Amtrak,26,Locomotive,GE P42DC,GE P42DC,
+Amtrak,27,Locomotive,GE P42DC,GE P42DC,
+Amtrak,28,Locomotive,GE P42DC,GE P42DC,
+Amtrak,29,Locomotive,GE P42DC,GE P42DC,
+Amtrak,30,Locomotive,GE P42DC,GE P42DC,
+Amtrak,31,Locomotive,GE P42DC,GE P42DC,
+Amtrak,32,Locomotive,GE P42DC,GE P42DC,
+Amtrak,33,Locomotive,GE P42DC,GE P42DC,
+Amtrak,34,Locomotive,GE P42DC,GE P42DC,
+Amtrak,35,Locomotive,GE P42DC,GE P42DC,
+Amtrak,36,Locomotive,GE P42DC,GE P42DC,
+Amtrak,37,Locomotive,GE P42DC,GE P42DC,
+Amtrak,38,Locomotive,GE P42DC,GE P42DC,
+Amtrak,39,Locomotive,GE P42DC,GE P42DC,
+Amtrak,40,Locomotive,GE P42DC,GE P42DC,
+Amtrak,41,Locomotive,GE P42DC,GE P42DC,
+Amtrak,42,Locomotive,P42DC · Veterans tribute,GE P42DC,Salutes Our Veterans
+Amtrak,43,Locomotive,GE P42DC,GE P42DC,
+Amtrak,44,Locomotive,GE P42DC,GE P42DC,
+Amtrak,45,Locomotive,GE P42DC,GE P42DC,
+Amtrak,46,Locomotive,P42DC · 50th Anniversary Phase V,GE P42DC,Connecting America for 50 Years · Phase V
+Amtrak,47,Locomotive,GE P42DC,GE P42DC,
+Amtrak,48,Locomotive,GE P42DC,GE P42DC,
+Amtrak,49,Locomotive,GE P42DC,GE P42DC,
+Amtrak,50,Locomotive,GE P42DC,GE P42DC,
+Amtrak,51,Locomotive,GE P42DC,GE P42DC,
+Amtrak,52,Locomotive,GE P42DC,GE P42DC,
+Amtrak,53,Locomotive,GE P42DC,GE P42DC,
+Amtrak,54,Locomotive,GE P42DC,GE P42DC,
+Amtrak,55,Locomotive,GE P42DC,GE P42DC,
+Amtrak,56,Locomotive,GE P42DC,GE P42DC,
+Amtrak,57,Locomotive,GE P42DC,GE P42DC,
+Amtrak,58,Locomotive,GE P42DC,GE P42DC,
+Amtrak,59,Locomotive,GE P42DC,GE P42DC,
+Amtrak,60,Locomotive,GE P42DC,GE P42DC,
+Amtrak,61,Locomotive,GE P42DC,GE P42DC,
+Amtrak,62,Locomotive,GE P42DC,GE P42DC,
+Amtrak,63,Locomotive,GE P42DC,GE P42DC,
+Amtrak,64,Locomotive,GE P42DC,GE P42DC,
+Amtrak,65,Locomotive,GE P42DC,GE P42DC,
+Amtrak,66,Locomotive,GE P42DC,GE P42DC,
+Amtrak,67,Locomotive,GE P42DC,GE P42DC,
+Amtrak,68,Locomotive,GE P42DC,GE P42DC,
+Amtrak,69,Locomotive,GE P42DC,GE P42DC,
+Amtrak,70,Locomotive,GE P42DC,GE P42DC,
+Amtrak,71,Locomotive,GE P42DC,GE P42DC,
+Amtrak,72,Locomotive,GE P42DC,GE P42DC,
+Amtrak,73,Locomotive,GE P42DC,GE P42DC,
+Amtrak,74,Locomotive,GE P42DC,GE P42DC,
+Amtrak,75,Locomotive,GE P42DC,GE P42DC,
+Amtrak,76,Locomotive,GE P42DC,GE P42DC,
+Amtrak,77,Locomotive,GE P42DC,GE P42DC,
+Amtrak,78,Locomotive,GE P42DC,GE P42DC,
+Amtrak,79,Locomotive,GE P42DC,GE P42DC,
+Amtrak,80,Locomotive,GE P42DC,GE P42DC,
+Amtrak,81,Locomotive,GE P42DC,GE P42DC,
+Amtrak,82,Locomotive,GE P42DC,GE P42DC,
+Amtrak,83,Locomotive,GE P42DC,GE P42DC,
+Amtrak,84,Locomotive,GE P42DC,GE P42DC,
+Amtrak,85,Locomotive,GE P42DC,GE P42DC,
+Amtrak,86,Locomotive,GE P42DC,GE P42DC,
+Amtrak,87,Locomotive,GE P42DC,GE P42DC,
+Amtrak,88,Locomotive,GE P42DC,GE P42DC,
+Amtrak,89,Locomotive,GE P42DC,GE P42DC,
+Amtrak,90,Locomotive,GE P42DC,GE P42DC,
+Amtrak,91,Locomotive,GE P42DC,GE P42DC,
+Amtrak,92,Locomotive,GE P42DC,GE P42DC,
+Amtrak,93,Locomotive,GE P42DC,GE P42DC,
+Amtrak,94,Locomotive,GE P42DC,GE P42DC,
+Amtrak,95,Locomotive,GE P42DC,GE P42DC,
+Amtrak,96,Locomotive,GE P42DC,GE P42DC,
+Amtrak,97,Locomotive,GE P42DC,GE P42DC,
+Amtrak,98,Locomotive,GE P42DC,GE P42DC,
+Amtrak,99,Locomotive,GE P42DC,GE P42DC,
+Amtrak,100,Locomotive,P42DC · Midnight Blue 50th Anniversary,GE P42DC,Midnight Blue · 50th Anniversary
+Amtrak,101,Locomotive,GE P42DC,GE P42DC,
+Amtrak,102,Locomotive,GE P42DC,GE P42DC,
+Amtrak,103,Locomotive,GE P42DC,GE P42DC,
+Amtrak,104,Locomotive,GE P42DC,GE P42DC,
+Amtrak,105,Locomotive,GE P42DC,GE P42DC,
+Amtrak,106,Locomotive,GE P42DC,GE P42DC,
+Amtrak,107,Locomotive,GE P42DC,GE P42DC,
+Amtrak,108,Locomotive,P42DC · Phase VI 50th Anniversary,GE P42DC,Phase VI · 50th Anniversary
+Amtrak,109,Locomotive,GE P42DC,GE P42DC,
+Amtrak,110,Locomotive,GE P42DC,GE P42DC,
+Amtrak,111,Locomotive,GE P42DC,GE P42DC,
+Amtrak,112,Locomotive,GE P42DC,GE P42DC,
+Amtrak,113,Locomotive,GE P42DC,GE P42DC,
+Amtrak,114,Locomotive,GE P42DC,GE P42DC,
+Amtrak,115,Locomotive,GE P42DC,GE P42DC,
+Amtrak,116,Locomotive,GE P42DC,GE P42DC,
+Amtrak,117,Locomotive,GE P42DC,GE P42DC,
+Amtrak,118,Locomotive,GE P42DC,GE P42DC,
+Amtrak,119,Locomotive,GE P42DC,GE P42DC,
+Amtrak,120,Locomotive,GE P42DC,GE P42DC,
+Amtrak,121,Locomotive,GE P42DC,GE P42DC,
+Amtrak,122,Locomotive,GE P42DC,GE P42DC,
+Amtrak,123,Locomotive,GE P42DC,GE P42DC,
+Amtrak,124,Locomotive,GE P42DC,GE P42DC,
+Amtrak,125,Locomotive,GE P42DC,GE P42DC,
+Amtrak,126,Locomotive,GE P42DC,GE P42DC,
+Amtrak,127,Locomotive,GE P42DC,GE P42DC,
+Amtrak,128,Locomotive,GE P42DC,GE P42DC,
+Amtrak,129,Locomotive,GE P42DC,GE P42DC,
+Amtrak,130,Locomotive,P42DC · Phase II heritage,GE P42DC,Phase II heritage scheme
+Amtrak,131,Locomotive,GE P42DC,GE P42DC,
+Amtrak,132,Locomotive,GE P42DC,GE P42DC,
+Amtrak,133,Locomotive,GE P42DC,GE P42DC,
+Amtrak,134,Locomotive,GE P42DC,GE P42DC,
+Amtrak,135,Locomotive,GE P42DC,GE P42DC,
+Amtrak,136,Locomotive,GE P42DC,GE P42DC,
+Amtrak,137,Locomotive,GE P42DC,GE P42DC,
+Amtrak,138,Locomotive,GE P42DC,GE P42DC,
+Amtrak,139,Locomotive,GE P42DC,GE P42DC,
+Amtrak,140,Locomotive,GE P42DC,GE P42DC,
+Amtrak,141,Locomotive,GE P42DC,GE P42DC,
+Amtrak,142,Locomotive,GE P42DC,GE P42DC,
+Amtrak,143,Locomotive,GE P42DC,GE P42DC,
+Amtrak,144,Locomotive,GE P42DC,GE P42DC,
+Amtrak,145,Locomotive,P42DC · Phase III heritage,GE P42DC,Phase III heritage scheme
+Amtrak,146,Locomotive,GE P42DC,GE P42DC,
+Amtrak,147,Locomotive,GE P42DC,GE P42DC,
+Amtrak,148,Locomotive,GE P42DC,GE P42DC,
+Amtrak,149,Locomotive,GE P42DC,GE P42DC,
+Amtrak,150,Locomotive,GE P42DC,GE P42DC,
+Amtrak,151,Locomotive,GE P42DC,GE P42DC,
+Amtrak,152,Locomotive,GE P42DC,GE P42DC,
+Amtrak,153,Locomotive,GE P42DC,GE P42DC,
+Amtrak,154,Locomotive,GE P42DC,GE P42DC,
+Amtrak,155,Locomotive,GE P42DC,GE P42DC,
+Amtrak,156,Locomotive,GE P42DC,GE P42DC,
+Amtrak,157,Locomotive,GE P42DC,GE P42DC,
+Amtrak,158,Locomotive,GE P42DC,GE P42DC,
+Amtrak,159,Locomotive,GE P42DC,GE P42DC,
+Amtrak,160,Locomotive,P32-8 · Dash 8 Phase III anniversary,GE P32-8,Dash 8 Phase III · 50th Anniversary
+Amtrak,161,Locomotive,GE P42DC,GE P42DC,
+Amtrak,162,Locomotive,GE P42DC,GE P42DC,
+Amtrak,163,Locomotive,GE P42DC,GE P42DC,
+Amtrak,164,Locomotive,P42DC · Phase IV heritage,GE P42DC,Phase IV heritage scheme
+Amtrak,165,Locomotive,GE P42DC,GE P42DC,
+Amtrak,166,Locomotive,GE P42DC,GE P42DC,
+Amtrak,167,Locomotive,GE P42DC,GE P42DC,
+Amtrak,168,Locomotive,GE P42DC,GE P42DC,
+Amtrak,169,Locomotive,GE P42DC,GE P42DC,
+Amtrak,170,Locomotive,GE P42DC,GE P42DC,
+Amtrak,171,Locomotive,GE P42DC,GE P42DC,
+Amtrak,172,Locomotive,GE P42DC,GE P42DC,
+Amtrak,173,Locomotive,GE P42DC,GE P42DC,
+Amtrak,174,Locomotive,P42DC · Mark B. Kenny tribute,GE P42DC,Mark B. Kenny tribute / Phase VII
+Amtrak,175,Locomotive,GE P42DC,GE P42DC,
+Amtrak,176,Locomotive,GE P42DC,GE P42DC,
+Amtrak,177,Locomotive,GE P42DC,GE P42DC,
+Amtrak,178,Locomotive,GE P42DC,GE P42DC,
+Amtrak,179,Locomotive,GE P42DC,GE P42DC,
+Amtrak,180,Locomotive,GE P42DC,GE P42DC,
+Amtrak,181,Locomotive,GE P42DC,GE P42DC,
+Amtrak,182,Locomotive,GE P42DC,GE P42DC,
+Amtrak,183,Locomotive,GE P42DC,GE P42DC,
+Amtrak,184,Locomotive,GE P42DC,GE P42DC,
+Amtrak,185,Locomotive,GE P42DC,GE P42DC,
+Amtrak,186,Locomotive,GE P42DC,GE P42DC,
+Amtrak,187,Locomotive,GE P42DC,GE P42DC,
+Amtrak,188,Locomotive,GE P42DC,GE P42DC,
+Amtrak,189,Locomotive,GE P42DC,GE P42DC,
+Amtrak,190,Locomotive,GE P42DC,GE P42DC,
+Amtrak,191,Locomotive,GE P42DC,GE P42DC,
+Amtrak,192,Locomotive,GE P42DC,GE P42DC,
+Amtrak,193,Locomotive,GE P42DC,GE P42DC,
+Amtrak,194,Locomotive,GE P42DC,GE P42DC,
+Amtrak,195,Locomotive,GE P42DC,GE P42DC,
+Amtrak,196,Locomotive,GE P42DC,GE P42DC,
+Amtrak,197,Locomotive,GE P42DC,GE P42DC,
+Amtrak,198,Locomotive,GE P42DC,GE P42DC,
+Amtrak,199,Locomotive,GE P42DC,GE P42DC,
+Amtrak,200,Locomotive,GE P42DC,GE P42DC,
+Amtrak,201,Locomotive,GE P42DC,GE P42DC,
+Amtrak,202,Locomotive,GE P42DC,GE P42DC,
+Amtrak,203,Locomotive,P42DC · Operation Lifesaver,GE P42DC,Operation Lifesaver
+Amtrak,204,Locomotive,GE P42DC,GE P42DC,
+Amtrak,205,Locomotive,GE P42DC,GE P42DC,
+Amtrak,206,Locomotive,GE P42DC,GE P42DC,
+Amtrak,207,Locomotive,GE P42DC,GE P42DC,
+Amtrak,300,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,301,Locomotive,ALC-42 · Day 1 50th Anniversary,Siemens ALC-42,Day 1 · 50th Anniversary
+Amtrak,302,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,303,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,304,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,305,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,306,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,307,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,308,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,309,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250
+Amtrak,310,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years
+Amtrak,311,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,312,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250
+Amtrak,313,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,314,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,315,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,316,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,317,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250
+Amtrak,318,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years
+Amtrak,319,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,320,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,321,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,322,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,323,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,324,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,325,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,326,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,327,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,328,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,329,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,330,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,331,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,332,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,333,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,334,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,335,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,336,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,337,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,338,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,339,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,340,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,341,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,342,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,343,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,344,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,345,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,346,Locomotive,ALC-42 · Freedom 250,Siemens ALC-42,Freedom 250
+Amtrak,347,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,348,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,349,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,350,Locomotive,ALC-42 · U.S. DOT 250,Siemens ALC-42,U.S. Department of Transportation 250
+Amtrak,351,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,352,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,353,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,354,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,355,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,356,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,357,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,358,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,359,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,360,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,361,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,362,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,363,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,364,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,365,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,366,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years
+Amtrak,367,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,368,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,369,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,370,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,371,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,372,Locomotive,ALC-42 · America 250,Siemens ALC-42,America 250 Years
+Amtrak,373,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,374,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,375,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,376,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,377,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,378,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,379,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,380,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,381,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,382,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,383,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,384,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,385,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,386,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,387,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,388,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,389,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,390,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,391,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,392,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,393,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,394,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,395,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,396,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,397,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,398,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,399,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,400,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,401,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,402,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,403,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,404,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,405,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,406,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,407,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,408,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,409,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,410,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,411,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,412,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,413,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,414,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,415,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,416,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,417,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,418,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,419,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,420,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,421,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,422,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,423,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,424,Locomotive,Siemens Charger ALC-42 / ALC-43,Siemens Charger ALC-42 / ALC-43,
+Amtrak,500,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,501,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,502,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,503,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,504,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,505,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,506,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,507,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,508,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,509,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,510,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,511,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,512,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,513,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,514,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,515,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,516,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,517,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,518,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,519,Locomotive,GE B32-8 / P32-8,GE B32-8 / P32-8,
+Amtrak,520,Locomotive,GP38H-3,GP38H-3,
+Amtrak,521,Locomotive,GP38H-3,GP38H-3,
+Amtrak,522,Locomotive,GP38H-3,GP38H-3,
+Amtrak,523,Locomotive,GP38H-3,GP38H-3,
+Amtrak,524,Locomotive,GP38H-3,GP38H-3,
+Amtrak,525,Locomotive,GP38H-3,GP38H-3,
+Amtrak,526,Locomotive,GP38H-3,GP38H-3,
+Amtrak,527,Locomotive,GP38H-3,GP38H-3,
+Amtrak,530,Locomotive,EMD MP15,EMD MP15,
+Amtrak,531,Locomotive,EMD MP15,EMD MP15,
+Amtrak,532,Locomotive,EMD MP15,EMD MP15,
+Amtrak,533,Locomotive,EMD MP15,EMD MP15,
+Amtrak,534,Locomotive,EMD MP15,EMD MP15,
+Amtrak,535,Locomotive,EMD MP15,EMD MP15,
+Amtrak,536,Locomotive,EMD MP15,EMD MP15,
+Amtrak,537,Locomotive,EMD MP15,EMD MP15,
+Amtrak,538,Locomotive,EMD MP15,EMD MP15,
+Amtrak,539,Locomotive,EMD MP15,EMD MP15,
+Amtrak,541,Locomotive,EMD SW1500,EMD SW1500,
+Amtrak,569,Locomotive,EMD SW1001 · Retired / converted,EMD SW1001,Retired / converted
+Amtrak,570,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,571,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,572,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,573,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,574,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,575,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,576,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,577,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,578,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,579,Locomotive,MPI GP15D,MPI GP15D,
+Amtrak,590,Locomotive,MPI MP14B,MPI MP14B,
+Amtrak,591,Locomotive,MPI MP21B,MPI MP21B,
+Amtrak,592,Locomotive,MPI MP14B,MPI MP14B,
+Amtrak,593,Locomotive,MPI MP14B,MPI MP14B,
+Amtrak,597,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,
+Amtrak,599,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,
+Amtrak,600,Locomotive,ACS-64 · David L. Gunn tribute,Siemens ACS-64,David L. Gunn tribute
+Amtrak,601,Locomotive,ACS-64,ACS-64,
+Amtrak,602,Locomotive,ACS-64,ACS-64,
+Amtrak,603,Locomotive,ACS-64,ACS-64,
+Amtrak,604,Locomotive,ACS-64,ACS-64,
+Amtrak,605,Locomotive,ACS-64,ACS-64,
+Amtrak,606,Locomotive,ACS-64,ACS-64,
+Amtrak,607,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250
+Amtrak,608,Locomotive,ACS-64,ACS-64,
+Amtrak,609,Locomotive,ACS-64,ACS-64,
+Amtrak,610,Locomotive,ACS-64,ACS-64,
+Amtrak,611,Locomotive,ACS-64,ACS-64,
+Amtrak,612,Locomotive,ACS-64,ACS-64,
+Amtrak,613,Locomotive,ACS-64,ACS-64,
+Amtrak,614,Locomotive,ACS-64,ACS-64,
+Amtrak,615,Locomotive,ACS-64,ACS-64,
+Amtrak,616,Locomotive,ACS-64,ACS-64,
+Amtrak,617,Locomotive,ACS-64,ACS-64,
+Amtrak,618,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250
+Amtrak,619,Locomotive,ACS-64,ACS-64,
+Amtrak,620,Locomotive,ACS-64,ACS-64,
+Amtrak,621,Locomotive,ACS-64,ACS-64,
+Amtrak,622,Locomotive,ACS-64,ACS-64,
+Amtrak,623,Locomotive,ACS-64,ACS-64,
+Amtrak,624,Locomotive,ACS-64,ACS-64,
+Amtrak,625,Locomotive,ACS-64 · America 250,Siemens ACS-64,America 250 Years
+Amtrak,626,Locomotive,ACS-64,ACS-64,
+Amtrak,627,Locomotive,ACS-64,ACS-64,
+Amtrak,628,Locomotive,ACS-64,ACS-64,
+Amtrak,629,Locomotive,ACS-64,ACS-64,
+Amtrak,630,Locomotive,ACS-64,ACS-64,
+Amtrak,631,Locomotive,ACS-64 · America 250,Siemens ACS-64,America 250 Years
+Amtrak,632,Locomotive,ACS-64,ACS-64,
+Amtrak,633,Locomotive,ACS-64,ACS-64,
+Amtrak,634,Locomotive,ACS-64,ACS-64,
+Amtrak,635,Locomotive,ACS-64,ACS-64,
+Amtrak,636,Locomotive,ACS-64,ACS-64,
+Amtrak,637,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250
+Amtrak,638,Locomotive,ACS-64,ACS-64,
+Amtrak,639,Locomotive,ACS-64 · U.S. DOT 250,Siemens ACS-64,U.S. Department of Transportation 250
+Amtrak,640,Locomotive,ACS-64,ACS-64,
+Amtrak,641,Locomotive,ACS-64,ACS-64,
+Amtrak,642,Locomotive,ACS-64 · Veterans tribute,Siemens ACS-64,Salutes Our Veterans
+Amtrak,643,Locomotive,ACS-64,ACS-64,
+Amtrak,644,Locomotive,ACS-64 · America 250,Siemens ACS-64,America 250 Years
+Amtrak,645,Locomotive,ACS-64,ACS-64,
+Amtrak,646,Locomotive,ACS-64,ACS-64,
+Amtrak,647,Locomotive,ACS-64,ACS-64,
+Amtrak,648,Locomotive,ACS-64,ACS-64,
+Amtrak,649,Locomotive,ACS-64 · Freedom 250,Siemens ACS-64,Freedom 250
+Amtrak,650,Locomotive,ACS-64,ACS-64,
+Amtrak,651,Locomotive,ACS-64,ACS-64,
+Amtrak,652,Locomotive,ACS-64,ACS-64,
+Amtrak,653,Locomotive,ACS-64,ACS-64,
+Amtrak,654,Locomotive,ACS-64,ACS-64,
+Amtrak,655,Locomotive,ACS-64,ACS-64,
+Amtrak,656,Locomotive,ACS-64,ACS-64,
+Amtrak,657,Locomotive,ACS-64 · Freedom 250,Siemens ACS-64,Freedom 250
+Amtrak,658,Locomotive,ACS-64,ACS-64,
+Amtrak,659,Locomotive,ACS-64,ACS-64,
+Amtrak,660,Locomotive,ACS-64,ACS-64,
+Amtrak,661,Locomotive,ACS-64,ACS-64,
+Amtrak,662,Locomotive,ACS-64 · 250 Years of Freedom,Siemens ACS-64,250 Years of Freedom
+Amtrak,663,Locomotive,ACS-64,ACS-64,
+Amtrak,664,Locomotive,ACS-64,ACS-64,
+Amtrak,665,Locomotive,ACS-64,ACS-64,
+Amtrak,666,Locomotive,ACS-64,ACS-64,
+Amtrak,667,Locomotive,ACS-64,ACS-64,
+Amtrak,668,Locomotive,ACS-64 · Freedom 250,Siemens ACS-64,Freedom 250
+Amtrak,669,Locomotive,ACS-64,ACS-64,
+Amtrak,670,Locomotive,ACS-64,ACS-64,
+Amtrak,680,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,681,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,682,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,683,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,684,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,685,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,686,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,687,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,688,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,689,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,690,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,691,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,692,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,693,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,694,Locomotive,HHP-8 · Inactive fleet,HHP-8,Inactive fleet
+Amtrak,700,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,701,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,702,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,703,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,704,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,705,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,706,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,707,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,708,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,709,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,710,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,711,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,712,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,713,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,714,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,715,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,716,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,717,Locomotive,P32AC-DM · Phase III Empire Service,GE P32AC-DM,Phase III Empire Service
+Amtrak,720,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,721,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,722,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,723,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,724,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,725,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,726,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,727,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,728,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,729,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,730,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,731,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,732,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,733,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,734,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,735,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,736,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,737,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,738,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,739,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,740,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,741,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,742,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,743,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,744,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,745,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,746,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,747,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,748,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,749,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,750,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,751,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,752,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,753,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,754,Locomotive,EMD / Juniata GP38-3,EMD / Juniata GP38-3,
+Amtrak,787,Locomotive,EMD SW1,EMD SW1,
+Amtrak,790,Locomotive,2GS12B · Washington Terminal Company,NRE 2GS12B genset,Washington Terminal Company heritage
+Amtrak,791,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,
+Amtrak,792,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,
+Amtrak,793,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,
+Amtrak,794,Locomotive,EMD / NRE SW1000R,EMD / NRE SW1000R,
+Amtrak,796,Locomotive,EMD / NRE SW1000R,EMD / NRE SW1000R,
+Amtrak,798,Locomotive,NRE 2GS12B genset,NRE 2GS12B genset,
+Amtrak,800,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,801,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,802,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,803,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,804,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,805,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,806,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,807,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,808,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,809,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,810,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,811,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,812,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,813,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,814,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,815,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,816,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,817,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,818,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,819,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,820,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,821,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,822,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,823,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,824,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,825,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,826,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,827,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,828,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,829,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,830,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,831,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,832,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,833,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,834,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,835,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,836,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,837,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,838,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,839,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,840,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,841,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,842,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,843,Locomotive,GE P40DC · Retired from Amtrak service,GE P40DC,Retired from Amtrak service
+Amtrak,1100,Locomotive,GE 80-ton · Inactive,GE 80-ton,Inactive
+Amtrak,1400,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1401,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1403,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1404,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1405,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1406,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1407,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1408,Locomotive,Siemens SC-44 · WSDOT-owned; Amtrak service,Siemens SC-44,WSDOT-owned; Amtrak service
+Amtrak,1755,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,1776,Locomotive,NCDOT F59PHI · America 250,NCDOT EMD F59PHI,America 250 Years
+Amtrak,1797,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,1810,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,1859,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,1869,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,1871,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,1893,Locomotive,EMD F59 · NCDOT-owned; Amtrak service,EMD F59,NCDOT-owned; Amtrak service
+Amtrak,1984,Locomotive,EMD F59PHI · NCDOT-owned; Amtrak service,EMD F59PHI,NCDOT-owned; Amtrak service
+Amtrak,2001,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2002,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2003,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2004,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2005,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2006,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2007,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2008,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2009,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2010,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2011,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2012,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2013,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2014,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2015,Locomotive,EMD F59PHI · Caltrans-owned; Amtrak service,EMD F59PHI,Caltrans-owned; Amtrak service
+Amtrak,2051,Locomotive,GE P32-8 · Caltrans-owned; Amtrak service,GE P32-8,Caltrans-owned; Amtrak service
+Amtrak,2052,Locomotive,GE P32-8 · Caltrans-owned; Amtrak service,GE P32-8,Caltrans-owned; Amtrak service
+Amtrak,2101,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2102,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2103,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2104,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2105,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2106,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2107,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2108,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2109,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2110,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2111,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2112,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2113,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2114,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2115,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2116,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2117,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2118,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2119,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2120,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2121,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2122,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2123,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2124,Locomotive,Siemens SC-44 · Caltrans-owned; Amtrak service,Siemens SC-44,Caltrans-owned; Amtrak service
+Amtrak,2143,Locomotive,America 250 · model to verify,Amtrak locomotive (model not independently verified),America 250 Years
+Amtrak,2147,Locomotive,America 250 · model to verify,Amtrak locomotive (model not independently verified),America 250 Years
+Amtrak,4601,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4602,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4603,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4604,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4605,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4606,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4607,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4608,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4609,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4610,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4611,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4612,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4613,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4614,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4615,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4616,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4617,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4618,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4619,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4620,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4621,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4622,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4623,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4624,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4625,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4626,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4627,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4628,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4629,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4630,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4631,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4632,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,4633,Locomotive,Siemens SC-44 · IDOT-owned Midwest state pool; Amtrak service,Siemens SC-44,IDOT-owned Midwest state pool; Amtrak service
+Amtrak,7001,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7002,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7003,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7004,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7005,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7006,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7007,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7008,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7009,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7010,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7011,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7012,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7013,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7014,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7015,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7016,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7017,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7018,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7019,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7020,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7021,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7022,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7023,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7024,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7025,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7026,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7027,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7028,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7029,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7030,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7031,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7032,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7033,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7034,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7035,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7036,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7037,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7038,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7039,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7040,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7041,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7042,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7043,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7044,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7045,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7046,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7047,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7048,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7049,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7050,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7051,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7052,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7053,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7054,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7055,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7056,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7057,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7058,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7059,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7060,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7061,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7062,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7063,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7064,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7065,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7066,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7067,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7068,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7069,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7070,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7071,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7072,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7073,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7074,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7075,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7076,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7077,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7078,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7079,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7080,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7081,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7082,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7083,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7084,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7085,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,7086,Locomotive,Siemens ALC-42E (Airo trainset power) · Airo trainset locomotives; deliveries and acceptance are ongoing,Siemens ALC-42E (Airo trainset power),Airo trainset locomotives; deliveries and acceptance are ongoing
+Amtrak,9700,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9701,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9702,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9703,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9704,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9705,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9706,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9707,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9708,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9709,Locomotive,GE P42-C cab-control conversion,GE P42-C cab-control conversion,
+Amtrak,9750,Locomotive,HHP-8C,HHP-8C,
+Amtrak,9751,Locomotive,HHP-8C,HHP-8C,
+Amtrak,9752,Locomotive,HHP-8C,HHP-8C,
+Amtrak,9753,Locomotive,HHP-8C,HHP-8C,
