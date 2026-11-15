@@ -2315,18 +2315,29 @@ async function isPressAdmin(token, claims) {
   return r.ok;
 }
 
-// Icon uploads require an active admin permission, not merely an existing admins document.
+// Match the Admin Dashboard's isAdminUser() permission contract exactly.
+// Firestore REST represents booleans as { booleanValue: true }; accept native
+// booleans as well so this check remains compatible with normalized responses.
 async function isIconUploadAdmin(token, claims) {
-  const email = String(claims.email || '').toLowerCase();
+  const email = String(claims.email || '').trim().toLowerCase();
   if (!email || claims.email_verified !== true) return false;
   if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return true;
-  const r = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, {
+
+  const response = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (!r.ok) return false;
-  const doc = await r.json();
-  const perms = doc && doc.fields && doc.fields.perms && doc.fields.perms.mapValue && doc.fields.perms.mapValue.fields;
-  return !!(perms && Object.keys(perms).some((key) => perms[key] && perms[key].booleanValue === true));
+  if (!response.ok) return false;
+
+  const doc = await response.json();
+  const perms = doc && doc.fields && doc.fields.perms;
+  const fields = perms && perms.mapValue && perms.mapValue.fields;
+  if (!fields) return false;
+
+  // These are the only permissions that make an account an admin in admin.html.
+  return ['viewReports', 'banUsers', 'manageAdmins', 'deleteReports'].some((key) => {
+    const value = fields[key];
+    return value === true || !!(value && value.booleanValue === true);
+  });
 }
 
 const ICON_UPLOAD_ALLOWED_ORIGINS = ['https://railroadradar.com', 'https://www.railroadradar.com'];
