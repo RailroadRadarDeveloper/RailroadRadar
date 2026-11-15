@@ -1,37 +1,32 @@
-/* Small facility pins. Leaflet positions this box; the label hangs off it and must not move the anchor. */
+/* Facility name plates. Leaflet positions the icon box; the plate fills that box so its center stays on the lat/lng. */
 .leaflet-marker-icon.rr-facility-marker-icon {
   background: transparent;
   border: 0;
   overflow: visible;
 }
 .rr-facility-marker {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: block;
-}
-.rr-facility-marker-pin {
-  display: block;
-  width: 16px;
-  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 28px;
+  padding: 4px 9px;
   border: 2px solid #fff;
-  border-radius: 0;
-  background: var(--rr-facility-color, #07093e);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+  background: var(--rr-facility-color);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  cursor: pointer;
 }
 .rr-facility-marker-label {
-  position: absolute;
-  left: 20px;
-  top: 8px;
-  transform: translateY(-50%);
   color: #fff;
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 11px;
+  font-family: "Zing", sans-serif;
+  font-size: 14px;
   line-height: 1;
-  font-weight: 700;
-  white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  font-weight: 400;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
 /* Equipment rows reuse the station popup row. The bar and time chip use the facility agency color. */
