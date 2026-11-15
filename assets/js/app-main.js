@@ -10919,6 +10919,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!list) return;
         const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
         const isMbta = agency === 'mbta';
+        const isAmtrak = agency === 'amtrak';
+        const isRosterSearch = isMbta || isAmtrak;
         if (!reportLocoSlots.length) reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
         if (reportLocoSlots.length > REPORT_LOCO_MAX) reportLocoSlots = reportLocoSlots.slice(0, REPORT_LOCO_MAX);
         list.innerHTML = reportLocoSlots.map(function(slot, i) {
@@ -10926,8 +10928,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             ? ('Locomotive 1 (used for map icon)')
             : ('Locomotive ' + (i + 1));
           const unitLabel = 'Special Unit (Roster)';
-          const customLabel = isMbta ? 'Locomotive Number' : 'Or Custom Vehicle ID';
-          const customPh = isMbta ? 'e.g. 1030 or RSTX' : 'Optional — custom vehicle ID';
+          const customLabel = isRosterSearch ? 'Locomotive Number' : 'Or Custom Vehicle ID';
+          const customPh = isMbta ? 'e.g. 1030 or RSTX' : (isAmtrak ? 'Search Amtrak roster by number' : 'Optional — custom vehicle ID');
           const canUp = i > 0;
           const canDown = i < reportLocoSlots.length - 1;
           const canRemove = reportLocoSlots.length > 1;
@@ -10941,12 +10943,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   '<button type="button" class="report-loco-remove" data-loco-act="remove" data-idx="' + i + '"' + (canRemove ? '' : ' disabled') + '>Remove</button>' +
                 '</div>' +
               '</div>' +
-              (isMbta ? '' : (
+              (isRosterSearch ? '' : (
                 '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
                 '<select id="report-unit-select-' + i + '">' + reportRosterOptionsHtml(agency, slot.rosterId || '') + '</select>'
               )) +
               '<label for="report-custom-vehicle-' + i + '">' + customLabel + '</label>' +
-              (isMbta
+              (isRosterSearch
                 ? ('<div class="rr-report-combo">' +
                     '<input type="text" id="report-custom-vehicle-' + i + '" placeholder="' + customPh + '" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="report-loco-suggest-' + i + '" aria-haspopup="listbox" value="' + String(slot.customId || '').replace(/"/g, '&quot;') + '">' +
                     '<ul class="rr-report-suggest" id="report-loco-suggest-' + i + '" role="listbox" hidden></ul>' +
@@ -11043,6 +11045,34 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
         const id = customId || rosterId;
         const re = rosterEntry(agency, id);
+        if (agency === 'amtrak' && customId) {
+          const row = (typeof rrAmtrakLocoByNumber === 'function') ? rrAmtrakLocoByNumber(customId) : null;
+          if (row) {
+            const type = String(row.type || (re && re.locoType) || '').trim();
+            const number = String(row.number || customId).trim();
+            const paint = (re && re._fromFirestore && re.name) ? String(re.name) : String(row.paint || (re && re.name) || '');
+            const label = type ? (type + ' #' + number) : number;
+            const icon = (re && re._fromFirestore && re.iconUrl) || row.iconUrl || (re && re.iconUrl) || null;
+            return {
+              locomotiveId: number,
+              locoType: type.slice(0, 32) || null,
+              unitName: (paint ? (label + ' · ' + paint) : label).slice(0, 120),
+              locoIconUrl: icon,
+              specialOverride: !!(row.special || re),
+              customLoco: false
+            };
+          }
+          if (re) {
+            return {
+              locomotiveId: id,
+              locoType: re.locoType || null,
+              unitName: re.name || id,
+              locoIconUrl: re.iconUrl || null,
+              specialOverride: true,
+              customLoco: false
+            };
+          }
+        }
         let icon = (re && re.iconUrl) ? String(re.iconUrl).trim() : null;
         if (!icon && agency === 'njt' && locoType && typeof resolveNjtLocoIconUrl === 'function') {
           icon = resolveNjtLocoIconUrl(locoType);
@@ -11378,7 +11408,25 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       }
       const reportLocoSuggestState = {};
-      function reportLocoSuggestIcon(number) {
+      function reportLocoSearch(agency, query, limit) {
+        if (agency === 'mbta') return (typeof rrMbtaLocoSearch === 'function') ? rrMbtaLocoSearch(query, limit) : [];
+        if (agency !== 'amtrak') return [];
+        let rows = (typeof rrAmtrakLocoSearch === 'function') ? rrAmtrakLocoSearch(query, limit) : [];
+        const q = String(query || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+        if (q && Array.isArray(SPECIAL_UNITS_ROSTER)) {
+          const seen = new Set(rows.map(function(row) { return String(row.number); }));
+          SPECIAL_UNITS_ROSTER.forEach(function(unit) {
+            const number = String(unit.id || '').trim();
+            const key = number.toUpperCase().replace(/[\s_-]+/g, '');
+            if (unit.agency !== 'amtrak' || !number || seen.has(number) || key.indexOf(q) === -1) return;
+            rows.push({ number: number, type: unit.locoType || '', paint: unit.name || '', iconUrl: unit.iconUrl || '' });
+            seen.add(number);
+          });
+        }
+        return rows.slice(0, limit || 8);
+      }
+      function reportLocoSuggestIcon(number, agency) {
+        if (agency === 'amtrak') return (typeof rrAmtrakLocoIconFor === 'function') ? rrAmtrakLocoIconFor(number) : '';
         const icon = (typeof rrMbtaLocoIconFor === 'function') ? rrMbtaLocoIconFor(number) : '';
         return icon || '/assets/hsp46.png';
       }
@@ -11396,12 +11444,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const input = document.getElementById('report-custom-vehicle-' + idx);
         const list = document.getElementById('report-loco-suggest-' + idx);
         const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
-        if (!input || !list || agency !== 'mbta' || typeof rrMbtaLocoSearch !== 'function') {
+        if (!input || !list || (agency !== 'mbta' && agency !== 'amtrak')) {
           closeReportLocoSuggest(idx);
           return;
         }
         const q = String(input.value || '').trim();
-        const rows = q ? rrMbtaLocoSearch(q, 8) : [];
+        const rows = q ? reportLocoSearch(agency, q, 8) : [];
         if (!rows.length) {
           closeReportLocoSuggest(idx);
           return;
@@ -11414,7 +11462,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const meta = row.paint ? (row.type + ' · ' + row.paint) : row.type;
           const active = i === state.active;
           return '<li role="presentation"><button type="button" class="rr-report-opt' + (active ? ' is-active' : '') + '" role="option" id="report-loco-opt-' + idx + '-' + i + '" data-suggest-idx="' + idx + '" data-suggest-row="' + i + '" aria-selected="' + (active ? 'true' : 'false') + '">' +
-            '<img src="' + escapeHtmlLite(reportLocoSuggestIcon(row.number)) + '" alt="">' +
+            (reportLocoSuggestIcon(row.number, agency)
+              ? '<img src="' + escapeHtmlLite(reportLocoSuggestIcon(row.number, agency)) + '" alt="">'
+              : '<span aria-hidden="true" style="display:block;width:34px;height:20px;flex:0 0 34px;"></span>') +
             '<span class="rr-report-opt-text"><span class="rr-report-opt-num">' + escapeHtmlLite(row.number) + '</span>' +
             '<span class="rr-report-opt-meta">' + escapeHtmlLite(meta) + '</span></span></button></li>';
         }).join('');
