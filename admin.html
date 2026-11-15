@@ -3254,7 +3254,7 @@
         if (mapped.name) record.name = name;
         if (type === 'locomotive' && mapped.locoType) record.locoType = locoType || null;
         if (type === 'locomotive' && mapped.paint) record.paint = paint || null;
-        if (mapped.iconUrl) record.iconUrl = iconUrl || null;
+        if (mapped.iconUrl && iconUrl) record.iconUrl = iconUrl;
         let status = 'new';
         if (existing && existing.active !== false) {
           status = 'unchanged';
