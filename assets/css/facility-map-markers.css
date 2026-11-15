@@ -1,16 +1,19 @@
-/* Facility name plates. Leaflet positions the icon box; the plate fills that box so its center stays on the lat/lng. */
+/* Facility name plates. The Leaflet icon is a point; this plate is centered on it and sizes to the name. */
 .leaflet-marker-icon.rr-facility-marker-icon {
   background: transparent;
   border: 0;
   overflow: visible;
 }
 .rr-facility-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
   min-height: 28px;
   padding: 4px 9px;
   border: 2px solid #fff;
@@ -18,6 +21,7 @@
   background: var(--rr-facility-color);
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
   white-space: nowrap;
+  transform: translate(-50%, -50%);
   cursor: pointer;
 }
 .rr-facility-marker-label {
