@@ -752,15 +752,19 @@ const yardPending = (uid, extra) => ({
 });
 
 describe('yard reports', () => {
-  it('allows Amtrak Southampton Street Yard facility reports but not MBTA/Amtrak mismatches', async () => {
-    const amtrak = yardPending('bob', { agency: 'amtrak', facility: 'Southampton Street Yard', reason: 'Inspection' });
-    await ok(as('bob').doc('pendingYardReports/amtrak-yard').set(amtrak));
-    await no(as('bob').doc('pendingYardReports/wrong-amtrak-yard').set(yardPending('bob', {
-      agency: 'amtrak', facility: 'Boston Engine Terminal'
+  it('allows any Amtrak or MBTA facility name, including ones added later', async () => {
+    await ok(as('bob').doc('pendingYardReports/amtrak-yard').set(yardPending('bob', {
+      agency: 'amtrak', facility: 'Southampton Street Yard', reason: 'Inspection'
     })));
-    await no(as('bob').doc('pendingYardReports/wrong-mbta-yard').set(yardPending('bob', {
-      agency: 'mbta', facility: 'Southampton Street Yard'
+    await ok(as('bob').doc('pendingYardReports/readville').set(yardPending('bob', {
+      agency: 'mbta', facility: 'Readville Layover', reason: 'Layover'
     })));
+    await ok(as('bob').doc('pendingYardReports/cross-agency').set(yardPending('bob', {
+      agency: 'amtrak', facility: 'Boston Engine Terminal', reason: 'Inspection'
+    })));
+    await no(as('bob').doc('pendingYardReports/empty-facility').set(yardPending('bob', { facility: '' })));
+    await no(as('bob').doc('pendingYardReports/long-facility').set(yardPending('bob', { facility: 'x'.repeat(81) })));
+    await no(as('bob').doc('pendingYardReports/bad-agency').set(yardPending('bob', { agency: 'via', facility: 'Readville Layover' })));
   });
   it('lets a verified user submit a facility report to the pending queue', async () => {
     await ok(as('bob').doc('pendingYardReports/facility1').set(yardPending('bob')));

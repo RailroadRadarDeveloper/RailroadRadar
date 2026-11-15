@@ -2,7 +2,7 @@
 'use strict';
 if (window.__rrYardReportsLoaded) return;
 window.__rrYardReportsLoaded = true;
-var FACILITY_AGENCIES = {'MBTA Rochester Maintenance Facility':'mbta','Boston Engine Terminal':'mbta','Southampton Street Yard':'amtrak'};
+var FACILITY_AGENCIES = {'Southampton Street Yard':'amtrak','Readville Layover':'mbta','Boston Engine Terminal':'mbta'};
 var FACILITIES = Object.keys(FACILITY_AGENCIES);
 var LOCATIONS = ['South Station','Back Bay','North Station','Ruggles','Forest Hills','Readville','Braintree','Worcester','Framingham','Providence','Pawtucket/Central Falls','Newburyport','Rockport','Lowell','Haverhill','Fitchburg','Wickford Junction','Hyannis','Middleborough/Lakeville'];
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
