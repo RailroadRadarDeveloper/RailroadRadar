@@ -397,8 +397,8 @@ service cloud.firestore {
         && d.createdAt == request.time
         && d.status == 'pending'
         && (d.reportType == 'facility'
-          ? (((d.agency == 'mbta' && d.facility in ['MBTA Rochester Maintenance Facility', 'Boston Engine Terminal'])
-              || (d.agency == 'amtrak' && d.facility == 'Southampton Street Yard'))
+          ? (d.agency in ['amtrak', 'mbta']
+             && d.facility is string && d.facility.size() >= 1 && d.facility.size() <= 80
              && d.reason is string && d.reason.size() >= 1 && d.reason.size() <= 500)
           : d.agency == 'mbta' && (d.reportType == 'shopped'
             ? (d.location is string && d.location.size() >= 1 && d.location.size() <= 160
@@ -421,6 +421,21 @@ service cloud.firestore {
     match /yardReports/{id} {
       allow read: if true;
       allow create, update, delete: if adminHasPerm('viewReports');
+    }
+
+    function facilityValid(d) {
+      return d.keys().hasOnly(['name', 'agency', 'color', 'lat', 'lng'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.agency in ['amtrak', 'mbta']
+        && d.color is string && d.color.matches('^#[0-9A-Fa-f]{6}$')
+        && d.lat is number && d.lat >= -90 && d.lat <= 90
+        && d.lng is number && d.lng >= -180 && d.lng <= 180;
+    }
+
+    match /facilities/{id} {
+      allow read: if true;
+      allow create, update: if adminHasPerm('viewReports') && facilityValid(request.resource.data);
+      allow delete: if adminHasPerm('viewReports');
     }
 
     match /reportHold/{uid} {

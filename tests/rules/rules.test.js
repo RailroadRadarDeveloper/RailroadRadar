@@ -752,15 +752,19 @@ const yardPending = (uid, extra) => ({
 });
 
 describe('yard reports', () => {
-  it('allows Amtrak Southampton Street Yard facility reports but not MBTA/Amtrak mismatches', async () => {
-    const amtrak = yardPending('bob', { agency: 'amtrak', facility: 'Southampton Street Yard', reason: 'Inspection' });
-    await ok(as('bob').doc('pendingYardReports/amtrak-yard').set(amtrak));
-    await no(as('bob').doc('pendingYardReports/wrong-amtrak-yard').set(yardPending('bob', {
-      agency: 'amtrak', facility: 'Boston Engine Terminal'
+  it('allows any Amtrak or MBTA facility name, including ones added later', async () => {
+    await ok(as('bob').doc('pendingYardReports/amtrak-yard').set(yardPending('bob', {
+      agency: 'amtrak', facility: 'Southampton Street Yard', reason: 'Inspection'
     })));
-    await no(as('bob').doc('pendingYardReports/wrong-mbta-yard').set(yardPending('bob', {
-      agency: 'mbta', facility: 'Southampton Street Yard'
+    await ok(as('bob').doc('pendingYardReports/readville').set(yardPending('bob', {
+      agency: 'mbta', facility: 'Readville Layover', reason: 'Layover'
     })));
+    await ok(as('bob').doc('pendingYardReports/cross-agency').set(yardPending('bob', {
+      agency: 'amtrak', facility: 'Boston Engine Terminal', reason: 'Inspection'
+    })));
+    await no(as('bob').doc('pendingYardReports/empty-facility').set(yardPending('bob', { facility: '' })));
+    await no(as('bob').doc('pendingYardReports/long-facility').set(yardPending('bob', { facility: 'x'.repeat(81) })));
+    await no(as('bob').doc('pendingYardReports/bad-agency').set(yardPending('bob', { agency: 'via', facility: 'Readville Layover' })));
   });
   it('lets a verified user submit a facility report to the pending queue', async () => {
     await ok(as('bob').doc('pendingYardReports/facility1').set(yardPending('bob')));
@@ -800,5 +804,21 @@ describe('yard reports', () => {
     await no(as('bob').doc('yardReports/public1').set(published));
     await ok(as('viewer').doc('yardReports/public1').set(published));
     await ok(anon().doc('yardReports/public1').get());
+  });
+});
+
+describe('facilities', () => {
+  const facilityDoc = { name: 'Readville Layover', agency: 'mbta', color: '#80276C', lat: 42.23, lng: -71.13 };
+  it('is public to read and only a reports admin can write', async () => {
+    await no(as('bob').doc('facilities/readville').set(facilityDoc));
+    await no(as('noperms').doc('facilities/readville').set(facilityDoc));
+    await ok(as('viewer').doc('facilities/readville').set(facilityDoc));
+    await ok(anon().doc('facilities/readville').get());
+    await no(as('bob').doc('facilities/readville').delete());
+    await ok(as('viewer').doc('facilities/readville').delete());
+  });
+  it('rejects a bad color or coordinate', async () => {
+    await no(as('viewer').doc('facilities/bad-color').set({ ...facilityDoc, color: 'purple' }));
+    await no(as('viewer').doc('facilities/bad-lat').set({ ...facilityDoc, lat: 120 }));
   });
 });

@@ -2,7 +2,7 @@
 'use strict';
 if (window.__rrYardReportsLoaded) return;
 window.__rrYardReportsLoaded = true;
-var FACILITY_AGENCIES = {'MBTA Rochester Maintenance Facility':'mbta','Boston Engine Terminal':'mbta','Southampton Street Yard':'amtrak'};
+var FACILITY_AGENCIES = {'Southampton Street Yard':'amtrak','Readville Layover':'mbta','Boston Engine Terminal':'mbta'};
 var FACILITIES = Object.keys(FACILITY_AGENCIES);
 var LOCATIONS = ['South Station','Back Bay','North Station','Ruggles','Forest Hills','Readville','Braintree','Worcester','Framingham','Providence','Pawtucket/Central Falls','Newburyport','Rockport','Lowell','Haverhill','Fitchburg','Wickford Junction','Hyannis','Middleborough/Lakeville'];
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -180,7 +180,42 @@ async function review(id,approve){
   await loadAdmin();if(approve)await loadPublic();
  }catch(e){console.error('[yard reports] review failed',e);if(typeof window.showNotification==='function')window.showNotification('Could not review report: '+(e.message||e),'error');}
 }
-function boot(){style();wireMap();addPublicTab();addAdminQueue();}
+function facilityNames(list){
+ return (list||[]).map(function(f){return String(f&&f.name||'').trim();}).filter(Boolean);
+}
+function fillFacilityLists(list){
+ var names=facilityNames(list);if(!names.length)names=FACILITIES.slice();
+ function options(values){return values.map(function(v){return '<option value="'+esc(v)+'"></option>';}).join('');}
+ var facilities=document.getElementById('rr-yard-facility-options');
+ if(facilities)facilities.innerHTML=options(names);
+ var special=document.getElementById('rr-yard-special-location-options');
+ if(special)special.innerHTML=options(LOCATIONS.concat(names));
+}
+function refreshFacilityLists(){
+ var load=typeof window.rrLoadFacilities==='function'?window.rrLoadFacilities():Promise.resolve(FACILITIES.map(function(name){return {name:name,agency:FACILITY_AGENCIES[name]||'mbta'};}));
+ return load.then(fillFacilityLists).catch(function(){fillFacilityLists([]);});
+}
+window.rrOpenFacilityReport=function(facility){
+ if(!facility||!facility.name)return;
+ var user=auth()&&auth().currentUser;
+ if(!user){
+  if(typeof window.openSignupPrompt==='function')window.openSignupPrompt();
+  return;
+ }
+ var agency=String(facility.agency||'mbta').toLowerCase()==='amtrak'?'amtrak':'mbta';
+ if(typeof window.openReportTrainModal==='function')window.openReportTrainModal({agency:agency});
+ addMapFields();
+ refreshFacilityLists();
+ var agencyEl=document.getElementById('report-agency');
+ if(agencyEl){agencyEl.value=agency;agencyEl.dispatchEvent(new Event('change'));}
+ var special=document.getElementById('rr-report-special-move');
+ if(special&&special.checked){special.checked=false;special.dispatchEvent(new Event('change'));}
+ var shopped=document.getElementById('rr-report-shopped');
+ if(shopped){shopped.disabled=false;shopped.checked=true;shopped.dispatchEvent(new Event('change'));}
+ var loc=document.getElementById('rr-report-shopped-location');
+ if(loc)loc.value=facility.name;
+};
+function boot(){style();wireMap();refreshFacilityLists();addPublicTab();addAdminQueue();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 if(window.firebase&&firebase.auth){try{firebase.auth().onAuthStateChanged(function(){addAdminQueue();});}catch(_){}}
 })();
