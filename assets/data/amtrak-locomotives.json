@@ -609,6 +609,13 @@
       "model": "Amtrak locomotive (model not independently verified)",
       "paint": "America 250 Years",
       "name": "America 250 · model to verify"
+    },
+    {
+      "id": "90224",
+      "model": "EMD F40PH NPCU",
+      "paint": "Phase V · Downeaster",
+      "name": "F40PH NPCU · Downeaster",
+      "note": "Non-powered cab/baggage unit; Amtrak equipment plan lists it as bad ordered to back shops"
     }
   ]
 }
