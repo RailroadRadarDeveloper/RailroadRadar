@@ -63,9 +63,10 @@ test('main map uses the free light tiles', async ({ page, baseURL }, info) => {
   }
   const menu = page.locator('#menu-button');
   if (await menu.isVisible()) await menu.click();
-  const darkTiles = page.waitForRequest((req) => req.url().includes('/api/mapbox/styles/v1/mapbox/dark-v11/'), { timeout: 20_000 });
+  const darkTiles = page.waitForRequest((req) => req.url().includes('/assets/maps/free-dark.json'), { timeout: 20_000 });
   await page.evaluate(() => document.getElementById('map-theme-dark').click());
   await darkTiles;
+  expect(seen.urls.filter((url) => url.includes('/api/mapbox/styles/v1/mapbox/dark-v11/'))).toEqual([]);
   expect(seen.urls.some((url) => url.includes(LIGHT_STYLE))).toBe(false);
   await expect(page.locator('#map-theme-dark')).toBeChecked();
   const back = page.waitForFunction(() => document.querySelector('#map .maplibregl-canvas'));

@@ -1,12 +1,13 @@
 /* Shared free basemap. MapLibre GL JS 6.17.0 + maplibre-gl-leaflet 0.1.4 are vendored.
- * Noninteractive cards become snapshots so a long MyTrips list cannot exhaust GPU contexts.
- * Mapbox raster is used only when OpenFreeMap itself fails to load.
+ * Light and dark both use OpenFreeMap. Noninteractive cards become snapshots so a long
+ * MyTrips list cannot exhaust GPU contexts. Mapbox raster is used only when OpenFreeMap fails.
  */
 (function () {
   'use strict';
   var root = '/assets/vendor/maplibre/';
   var credit = '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
   var MAPBOX_LIGHT = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/northeastamtrakrailfanalt/ckyq285h5219a14mpql9jt2r7/tiles/256/{z}/{x}/{y}';
+  var MAPBOX_DARK = 'https://railroadradar-proxy.railroadradar.workers.dev/api/mapbox/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}';
   var MAPBOX_ATTR = '© Mapbox © OpenStreetMap contributors';
   var resources, snapshotQueue = Promise.resolve();
   function script(url) {
@@ -52,11 +53,12 @@
     if (/\.pbf(\?|$)/i.test(url)) return true;
     return false;
   }
-  window.RRFreeLightLayer = function (options) {
+  function makeFreeLayer(styleUrl, fallbackTiles) {
+    return function (options) {
     var L = window.L, opts = options || {};
-    var FreeLight = L.Layer.extend({
+    var FreeLayer = L.Layer.extend({
       options: { attribution: credit, minZoom: 0, maxZoom: 20 },
-      initialize: function () { L.setOptions(this, opts); this._generation = 0; },
+      initialize: function () { L.setOptions(this, opts); this._generation = 0; this._styleUrl = styleUrl; this._fallbackTiles = fallbackTiles; },
       getAttribution: function () { return credit; },
       onAdd: function (map) {
         this._snapshot = opts.snapshot === true || map.options.dragging === false;
@@ -100,7 +102,7 @@
           }
           if (this._mapRef !== map || generation !== this._generation) return;
           var vector = this._vector = L.maplibreGL({
-            style: '/assets/maps/free-light.json', padding: 0,
+            style: this._styleUrl, padding: 0,
             interactive: false, attributionControl: false, pixelRatio: 1,
             canvasContextAttributes: { preserveDrawingBuffer: true },
             maxZoom: (opts.maxZoom || 20) - 1
@@ -146,7 +148,7 @@
         if (!map || this._fallback) return;
         this._clearVector();
         if (this._image) { map.removeLayer(this._image); this._image = null; }
-        var fallback = this._fallback = L.tileLayer(MAPBOX_LIGHT, {
+        var fallback = this._fallback = L.tileLayer(this._fallbackTiles, {
           attribution: MAPBOX_ATTR,
           maxZoom: opts.maxZoom || 20, detectRetina: false, opacity: opts.opacity == null ? 1 : opts.opacity
         });
@@ -154,6 +156,9 @@
         this.fire('fallback');
       }
     });
-    return new FreeLight();
-  };
+    return new FreeLayer();
+    };
+  }
+  window.RRFreeLightLayer = makeFreeLayer('/assets/maps/free-light.json', MAPBOX_LIGHT);
+  window.RRFreeDarkLayer = makeFreeLayer('/assets/maps/free-dark.json', MAPBOX_DARK);
 })();
