@@ -10,7 +10,7 @@
 
   function normalized(value) {
     var s = String(value == null ? '' : value).trim();
-    return /^\\d+$/.test(s) ? (s.replace(/^0+(?=\\d)/, '') || '0') : s.toLowerCase();
+    return /^\d+$/.test(s) ? (s.replace(/^0+(?=\d)/, '') || '0') : s.toLowerCase();
   }
 
   window.openReportTrainModal = function (opts) {
