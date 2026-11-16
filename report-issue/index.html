@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07093e">
+<title>Report an Issue | RailroadRadar</title>
+<link rel="stylesheet" href="/assets/fonts/roboto.css">
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<style>
+:root{--navy:#07093e;--bg:#f5f6f8;--line:#e3e6eb;--ink:#07093e;--muted:#5b6275;--font:"Google Sans",Roboto,Arial,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font)}a{color:inherit}.header{height:60px;background:var(--navy);display:flex;align-items:center;padding:0 18px}.header img{height:38px}.main{max-width:720px;margin:34px auto;padding:0 16px 40px}.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:24px;box-shadow:0 8px 26px rgba(7,9,62,.06)}h1{font-size:25px;margin:0 0 8px}.lead{color:var(--muted);margin:0 0 20px}.field{margin:16px 0}.field label{display:block;font-weight:700;margin:0 0 6px}.field select,.field textarea,.field input{width:100%;min-height:44px;padding:10px 12px;border:1px solid #aab2c0;border-radius:4px;background:#fff;color:#172033;font:15px/1.4 var(--font)}.field textarea{min-height:160px;resize:vertical}.hint{font-size:12px;color:var(--muted);margin:6px 0 0}.notice{padding:12px 14px;background:#f0f2fa;border-left:3px solid var(--navy);border-radius:4px;margin:16px 0}.check{display:flex;gap:9px;align-items:flex-start;margin:12px 0}.btn{min-height:42px;padding:0 18px;border:1px solid var(--navy);border-radius:4px;background:var(--navy);color:#fff;font:700 14px var(--font);cursor:pointer}.btn:disabled{opacity:.55}.status{margin:14px 0 0;font-weight:600}.error{color:#b3261e}.ok{color:#137333}.foot{padding:18px;text-align:center;color:var(--muted);font-size:12px}.foot a{margin:0 8px}.hp{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}@media(max-width:560px){.main{margin:18px auto}.card{padding:18px 16px}}
+</style>
+</head>
+<body>
+<header class="header"><a href="/" aria-label="RailroadRadar home"><img src="/assets/logo.png" alt="RailroadRadar"></a></header>
+<main class="main"><section class="card">
+<h1>Report an Issue</h1>
+<p class="lead">Tell us what happened. Reports are private and reviewed by authorized RailroadRadar administrators.</p>
+<div class="notice"><strong>If you or someone else is in immediate danger, call 911.</strong></div>
+<div id="rr-auth-note" class="notice" hidden></div>
+<form id="rr-issue-form" novalidate>
+<div class="field"><label for="rr-issue-category">What is this about?</label><select id="rr-issue-category" required>
+<option value="train_map">Train information or map issue</option><option value="account">Account problem</option><option value="feature">Other feature issue</option><option value="safety_privacy">Safety or privacy concern</option>
+</select></div>
+<div id="rr-anon-wrap" hidden><label class="check"><input type="checkbox" id="rr-issue-anonymous" checked><span><strong>Submit anonymously</strong><br><span class="hint">Do not attach your RailroadRadar account to this report.</span></span></label></div>
+<div class="field"><label for="rr-issue-description">Issue description</label><textarea id="rr-issue-description" maxlength="4000" required placeholder="Describe what happened, where you saw it, and any steps to reproduce it."></textarea><p class="hint">Please do not include passwords, payment details, or other sensitive information.</p></div>
+<div class="field"><label for="rr-issue-contact">Contact information (optional)</label><input id="rr-issue-contact" type="text" maxlength="254" autocomplete="email" placeholder="Email address if you would like a reply"><p class="hint">Only provide contact details if you want us to be able to respond.</p></div>
+<label class="hp" aria-hidden="true">Leave this field empty<input id="rr-issue-website" type="text" tabindex="-1" autocomplete="off"></label>
+<button class="btn" id="rr-issue-submit" type="submit">Submit report</button><p class="status" id="rr-issue-status" role="status" aria-live="polite"></p>
+</form>
+<p class="hint" id="rr-anon-privacy" hidden>For anonymous reports, RailroadRadar does not add your name, email, or account ID to the submission. Firebase and hosting providers may process technical connection data under their own policies. If you enter contact information above, it will be included so we can reply.</p>
+<p class="hint" id="rr-signin-hint" hidden>To report a train/map issue, account problem, or feature issue, please <a href="/map/">sign in to RailroadRadar</a>. Safety and privacy concerns can be submitted anonymously.</p>
+</section></main>
+<footer class="foot"><a href="/">Home</a><a href="/policies/privacy/">Privacy Policy</a><a href="/policies/terms-of-use/">Terms of Use</a></footer>
+<script>
+(function(){
+'use strict';
+var cfg={apiKey:'AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs',authDomain:'railroadradar-accounts.firebaseapp.com',projectId:'railroadradar-accounts',storageBucket:'railroadradar-accounts.firebasestorage.app',messagingSenderId:'896370923309',appId:'1:896370923309:web:594b0a20d3b1c6822e65a4'};
+if(!firebase.apps.length)firebase.initializeApp(cfg);
+var auth=firebase.auth(),db=firebase.firestore(),form=document.getElementById('rr-issue-form'),cat=document.getElementById('rr-issue-category'),anon=document.getElementById('rr-issue-anonymous'),anonWrap=document.getElementById('rr-anon-wrap'),anonPrivacy=document.getElementById('rr-anon-privacy'),signinHint=document.getElementById('rr-signin-hint'),authNote=document.getElementById('rr-auth-note'),submit=document.getElementById('rr-issue-submit'),status=document.getElementById('rr-issue-status'),user=null,started=Date.now();
+function isSafety(){return cat.value==='safety_privacy'}
+function update(){var safe=isSafety(),signed=!!user;anonWrap.hidden=!safe||!signed;anonPrivacy.hidden=!safe||(signed&&!anon.checked);signinHint.hidden=signed;Array.prototype.forEach.call(cat.options,function(o){o.disabled=!signed&&o.value!=='safety_privacy'});if(!signed&&!safe){cat.value='safety_privacy';safe=true}if(!signed){anon.checked=true;anonPrivacy.hidden=false}authNote.hidden=signed;authNote.textContent=signed?'':'You are not signed in. You can submit a safety or privacy concern anonymously.';submit.disabled=!signed&&!safe}
+cat.addEventListener('change',update);anon.addEventListener('change',update);auth.onAuthStateChanged(function(u){user=u||null;update()});
+var preset=new URLSearchParams(location.search).get('category');if(['train_map','account','feature','safety_privacy'].indexOf(preset)!==-1)cat.value=preset;update();
+form.addEventListener('submit',async function(ev){ev.preventDefault();status.className='status';status.textContent='';var anonymous=isSafety()&&(!user||anon.checked),description=document.getElementById('rr-issue-description').value.trim(),contact=document.getElementById('rr-issue-contact').value.trim();
+if(document.getElementById('rr-issue-website').value)return;
+if(Date.now()-started<2500){status.className='status error';status.textContent='Please take a moment to review your report before submitting.';return}
+if(!description||description.length>4000){status.className='status error';status.textContent='Please enter a description (up to 4,000 characters).';return}
+if(!anonymous&&!user){status.className='status error';status.textContent='Please sign in to submit this type of issue.';return}
+if(contact.length>254){status.className='status error';status.textContent='Contact information is too long.';return}
+try{var last=Number(sessionStorage.getItem('rrIssueLastSubmit')||0);if(Date.now()-last<60000)throw new Error('Please wait one minute before submitting another report.')}catch(e){if(e.message&&e.message.indexOf('Please wait')===0){status.className='status error';status.textContent=e.message;return}}
+submit.disabled=true;submit.textContent='Submitting…';
+try{var data={category:cat.value,description:description,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:'open',anonymous:!!anonymous,source:'website'};if(contact)data.contact=contact;if(!anonymous&&user)data.uid=user.uid;await db.collection('issueReports').add(data);try{sessionStorage.setItem('rrIssueLastSubmit',String(Date.now()))}catch(_){}form.reset();cat.value='train_map';status.className='status ok';status.textContent='Thank you. Your report has been submitted.';started=Date.now();update()}
+catch(e){status.className='status error';status.textContent=e.message||'We could not submit your report. Please try again later.'}
+finally{submit.disabled=false;submit.textContent='Submit report';update()}
+});
+})();
+</script>
+</body></html>
