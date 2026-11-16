@@ -318,6 +318,7 @@
         <div class="note">
           <p><strong>Last updated November 16, 2026.</strong> What changed:</p>
           <ul>
+            <li><a href="#collect">Issue reporting</a>: the Report an Issue form accepts signed-in reports and anonymous safety or privacy concerns, with optional contact information.</li>
             <li><a href="#collect">Technical and log data</a>: the 24-Hour Train Replay on the map loads past train positions from a third RailroadRadar Worker, railroadradar-replay.railroadradar.workers.dev. It stores only public train positions and speeds from railroad feeds for about a day and holds no personal information.</li>
           </ul>
           <p>Earlier changes, October 31, 2026:</p>
@@ -379,6 +380,7 @@
           <li><strong>Live location sharing (special moves).</strong> Logging a new special move asks for location access, and you can’t log one without it, because Go live starts a live share. While the share is active, your device sends its precise location, heading, and speed to our database repeatedly, with your first name, trip title, and account ID. Each share gets its own random link code, so a link from an earlier share does not show a later one. Your location is not saved with the trip itself. Anyone viewing the map or your live link can see your current position while the share is active. A share ends when you stop it or after 5 hours at most; when it ends we delete it, and any copy left behind after it expires is removed in our next cleanup.</li>
           <li><strong>Town names on live viewer pages.</strong> When someone opens your live link, their browser may ask OpenStreetMap’s Nominatim service for a town or city name near your shared position. The request uses approximate coordinates (rounded to about three decimal places, roughly city-block scale), is rate-limited, and is cached by that rounded cell in the viewer’s browser. RailroadRadar does not send those reverse-geocode requests itself; the viewer’s browser does. See also <a href="#share">When we share</a> and <a href="#third">Third-party services</a>.</li>
           <li><strong>Press-release comments.</strong> Comments on press releases are public and show your Google display name or username (never your email), with the text and time.</li>
+          <li><strong>Issue reports.</strong> The Report an Issue form stores the category you select and the description you submit. Train/map, account, and other feature reports require sign-in and are linked to your account ID for review. Safety or privacy concerns may be submitted anonymously; when you choose anonymous submission, we do not add your RailroadRadar account ID, name, or email to that report. You may optionally provide contact information if you want a reply. Reports are private and accessible only to authorized administrators. Firebase and hosting providers may process technical connection data under their own policies.</li>
           <li><strong>Ban appeals.</strong> If your account is disabled and you appeal, we store your appeal message, account ID, email, the ban reason, and the time, so administrators can review it. Only administrators can read appeals.</li>
           <li><strong>Survey responses.</strong> If you take our optional survey at <a href="/survey/">railroadradar.com/survey</a>, we store your answers: your overall rating, how likely you are to recommend RailroadRadar, how often you use it, how you heard about RailroadRadar, which features and railroads you use, what you want us to build next, any text you type (such as your favorite part, a feature you could not figure out, or what we could do better), whether you started from the survey invitation, and the time you sent it. We do not store your IP address with your answers. If you are signed in, we also store your account ID. Your email is optional, and we use it only to reply to you about your answers. Only administrators can read survey responses.</li>
           <li><strong>Messages you send us.</strong> If you email us, we keep the contents of that correspondence.</li>
@@ -404,7 +406,7 @@
         <ul>
           <li>Operate the live map, station boards, search, trip pages, and shareable train links.</li>
           <li>Authenticate you with Google, keep you signed in, and remember your settings.</li>
-          <li>Accept, display, moderate, and audit train and locomotive reports.</li>
+          <li>Accept, display, moderate, and audit train and locomotive reports, and review private issue reports and safety or privacy concerns.</li>
           <li>Enforce community rules, including holding reports for review, verifying trusted reporters, and suspending or banning accounts that abuse the Service.</li>
           <li>Send in-app or browser notifications you have enabled.</li>
           <li>Answer “Ask” questions using live train context you can already see on the map, or text from RailroadRadar’s public pages.</li>
@@ -471,6 +473,7 @@
           <li>Public train-report documents store your user ID, the label you chose, whether you are a verified reporter, and the pairing or comment itself. They are written so that email and raw Google name are not published on the map.</li>
           <li>Acela equipment details submitted through Report a Train are public. They store your user ID, the label you chose, whether you are a verified reporter, and the train, dates, and equipment you reported, not your email or raw Google name. You can ask us to remove one at railroadradar@gmail.com.</li>
           <li>A separate admin-only audit record may keep fuller contributor identity (including email and Google display name) so we can investigate abuse, duplicate reports, or mistakes.</li>
+          <li>Issue reports are available only to authorized administrators for review, response, moderation, and security. Anonymous reports do not contain a RailroadRadar account ID unless you choose to provide contact information in the form.</li>
           <li>Pending reports, report holds, ban records, verified-reporter flags, and an action log may be stored for safety and operations. The action log records your account ID, email, and the action, and is kept for 7 days.</li>
           <li>You may delete your account from the account menu. Deleting removes your sign-in account, account and settings records, public profile and username, trip logs, any live location share, pending reports, and your press-release comments. Public train reports you already submitted stay on trains with the label they were posted under, and the admin-only audit copy of your reports and any ban or appeal records are kept for moderation; email railroadradar@gmail.com and we will delete or anonymize those on request where we can.</li>
         </ul>
@@ -518,6 +521,7 @@
           <li><strong>Trip logs, public profile, and username:</strong> until you delete them or your account.</li>
           <li><strong>Live location shares:</strong> deleted when the share ends (when you stop it, or after at most 5 hours); copies left behind after they expire are removed in our next cleanup.</li>
           <li><strong>Action log:</strong> 7 days.</li>
+          <li><strong>Issue reports:</strong> kept while needed to review and respond, and for a reasonable period afterward for moderation, security, and recordkeeping; we may delete them when no longer needed.</li>
           <li><strong>Survey responses:</strong> up to 2 years, then deleted. Deleting your account does not remove them; email us and we will delete yours sooner.</li>
           <li><strong>Ban appeals:</strong> while the ban and its review are relevant, and as long as needed to protect the Service.</li>
           <li><strong>Cookie consent and local preferences:</strong> until you clear site data or change the setting.</li>
@@ -543,6 +547,7 @@
           <li>Change how your name appears on reports, or switch to Anonymous.</li>
           <li>Turn notifications off.</li>
           <li>Sign out, or delete your account from the account menu.</li>
+          <li>Submit safety or privacy concerns anonymously, or include optional contact information if you want a reply.</li>
           <li>Email us to request access to, correction of, or deletion of personal information we hold about you, including a copy of your data (we do not yet offer a self-service export).</li>
         </ul>
         <p>Depending on where you live (including California and other U.S. states with privacy laws, and the EEA/UK if GDPR applies to a particular request), you may also have the right to know what we collect, request a copy, request correction or deletion, opt out of “sale” or “sharing” of personal information, and appeal a denied request where the law provides an appeal.</p>
