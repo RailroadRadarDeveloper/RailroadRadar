@@ -1318,7 +1318,7 @@ async function handlePushTrips(request, env, cors) {
   let body;
   try { body = JSON.parse(raw); } catch (_) { body = null; }
   const sub = body && body.subscription;
-  if (!sub || !pushEndpointOk(sub.endpoint) || !pushKeysOk(sub.keys))
+  if (!sub || !pushEndpointOk(sub.endpoint))
     return jsonResponse({ error: "Invalid push subscription" }, 400, cors);
   const id = tripSubId(sub.endpoint);
   const key = "trips:" + id;
@@ -1334,6 +1334,8 @@ async function handlePushTrips(request, env, cors) {
     }
     return jsonResponse({ ok: true, trips: 0 }, 200, cors);
   }
+  if (!pushKeysOk(sub.keys))
+    return jsonResponse({ error: "Invalid push subscription keys" }, 400, cors);
   trips.sort((a, b) => a.dep - b.dep);
   const first = trips[0].dep;
   const last = trips.reduce((m, t) => Math.max(m, tripEnd(t)), 0);
