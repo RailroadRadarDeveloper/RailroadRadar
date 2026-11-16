@@ -2316,28 +2316,50 @@ async function isPressAdmin(token, claims) {
 }
 
 // Match the Admin Dashboard's isAdminUser() permission contract exactly.
-// Firestore REST represents booleans as { booleanValue: true }; accept native
-// booleans as well so this check remains compatible with normalized responses.
-async function isIconUploadAdmin(token, claims) {
+// Return a safe diagnostic reason so a denied upload can distinguish a missing
+// admin record, a Firestore rules denial, and permissions that are all disabled.
+async function checkIconUploadAdmin(token, claims) {
   const email = String(claims.email || '').trim().toLowerCase();
-  if (!email || claims.email_verified !== true) return false;
-  if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return true;
+  if (!email || claims.email_verified !== true) {
+    return { allowed: false, reason: 'The Firebase account does not have a verified email.' };
+  }
+  if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return { allowed: true };
 
-  const response = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!response.ok) return false;
+  let response;
+  try {
+    response = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch (_) {
+    return { allowed: false, reason: 'The Worker could not reach Firestore while checking admin access.' };
+  }
+  if (response.status === 404) {
+    return { allowed: false, reason: 'Firestore did not find an admins record for the signed-in account.' };
+  }
+  if (!response.ok) {
+    return { allowed: false, reason: `Firestore denied the admin-record check (HTTP ${response.status}). Check the deployed Firestore rules.` };
+  }
 
-  const doc = await response.json();
+  let doc;
+  try {
+    doc = await response.json();
+  } catch (_) {
+    return { allowed: false, reason: 'Firestore returned an unreadable admin record.' };
+  }
   const perms = doc && doc.fields && doc.fields.perms;
   const fields = perms && perms.mapValue && perms.mapValue.fields;
-  if (!fields) return false;
+  if (!fields) {
+    return { allowed: false, reason: 'The admin record has no readable perms map.' };
+  }
 
-  // These are the only permissions that make an account an admin in admin.html.
-  return ['viewReports', 'banUsers', 'manageAdmins', 'deleteReports'].some((key) => {
+  // Firestore REST represents booleans as { booleanValue: true }.
+  const allowed = ['viewReports', 'banUsers', 'manageAdmins', 'deleteReports'].some((key) => {
     const value = fields[key];
     return value === true || !!(value && value.booleanValue === true);
   });
+  return allowed
+    ? { allowed: true }
+    : { allowed: false, reason: 'The admin record was found, but all four recognized permission flags evaluated to false.' };
 }
 
 const ICON_UPLOAD_ALLOWED_ORIGINS = ['https://railroadradar.com', 'https://www.railroadradar.com'];
@@ -2368,7 +2390,13 @@ async function handleSpecialIconUpload(request, env) {
   const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   const claims = await verifyFirebaseIdToken(idToken).catch(() => null);
   if (!claims) return reply(401, { ok: false, error: 'Sign in again.' });
-  if (!(await isIconUploadAdmin(idToken, claims))) return reply(403, { ok: false, error: 'Admin permission required.' });
+  const adminCheck = await checkIconUploadAdmin(idToken, claims);
+  if (!adminCheck.allowed) {
+    return reply(403, {
+      ok: false,
+      error: 'Admin permission required. ' + adminCheck.reason
+    });
+  }
   if (!env.GITHUB_CONTENTS_TOKEN) return reply(503, { ok: false, error: 'GitHub upload is not configured on the proxy Worker.' });
 
   let body;
