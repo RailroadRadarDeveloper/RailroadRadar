@@ -51,6 +51,8 @@
       }
 
       function saveFromUi(clarity) {
+        var previousPrefs = readPrefs();
+        var shouldReloadToStopBetterStack = !clarity && !!(previousPrefs && previousPrefs.clarity) && !!window.__rrBsLoaded;
         var prefs = {
           decided: true,
           clarity: !!clarity,
@@ -65,13 +67,19 @@
         var applyOnce = function () { if (!applied) { applied = true; applyClarity(prefs.clarity); } };
         try { requestAnimationFrame(function () { setTimeout(applyOnce, 0); }); } catch (_) { setTimeout(applyOnce, 0); }
         setTimeout(applyOnce, 250);
+        var persistResult;
         try {
           if (typeof window.persistCookieConsentToAccount === 'function') {
-            window.persistCookieConsentToAccount(prefs);
+            persistResult = window.persistCookieConsentToAccount(prefs);
           } else {
             window.__rrCookiePrefsPending = prefs;
           }
         } catch (_) {}
+        // The current Better Stack integration has no documented in-page stop API.
+        // Unload this page after saving the preference so its SDK cannot keep running.
+        if (shouldReloadToStopBetterStack) {
+          Promise.resolve(persistResult).catch(function () {}).then(function () { window.location.reload(); });
+        }
       }
 
       var existing = readPrefs();
