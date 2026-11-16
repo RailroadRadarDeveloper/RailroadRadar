@@ -1336,6 +1336,27 @@ async function handlePushTrips(request, env, cors) {
   }
   if (!pushKeysOk(sub.keys))
     return jsonResponse({ error: "Invalid push subscription keys" }, 400, cors);
+  // Keep delivery state for trips the device sends again, so a re-sync never re-notifies.
+  let prevByKey = {};
+  try {
+    const prev = JSON.parse(await env.PUSH_SUBS.get(key) || "null");
+    (prev && prev.trips || []).forEach((t) => {
+      prevByKey[t.k] = t;
+    });
+  } catch (_) {
+  }
+  trips.forEach((t) => {
+    const p = prevByKey[t.k] || {};
+    ["sent", "hs", "late", "cx"].forEach((field) => {
+      const value = Math.max(Number(t[field]) || 0, Number(p[field]) || 0);
+      if (value) t[field] = value; else delete t[field];
+    });
+    if (p.al) t.al = p.al;
+    if (p.tid) t.tid = p.tid;
+    if (!t.rid && p.rid) t.rid = p.rid;
+    if (!t.arr) delete t.arr;
+    if (!t.rid) delete t.rid;
+  });
   trips.sort((a, b) => a.dep - b.dep);
   const first = trips[0].dep;
   const last = trips.reduce((m, t) => Math.max(m, tripEnd(t)), 0);
