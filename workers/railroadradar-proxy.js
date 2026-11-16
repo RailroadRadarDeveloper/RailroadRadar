@@ -798,7 +798,8 @@ async function encryptWebPush(subscription, payload) {
 }
 __name(encryptWebPush, "encryptWebPush");
 async function sendWebPush(env, subscription, data) {
-  const endpoint = subscription.endpoint;
+  const endpoint = subscription && subscription.endpoint;
+  if (!pushEndpointOk(endpoint) || !pushKeysOk(subscription.keys)) throw new Error("Invalid stored push subscription");
   const origin = new URL(endpoint).origin;
   const jwt = await vapidJwt(env, origin);
   const body = await encryptWebPush(subscription, JSON.stringify(data));
@@ -815,21 +816,25 @@ __name(sendWebPush, "sendWebPush");
 async function handlePushSubscribe(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (raw.length > 16384)
+    return jsonResponse({ error: "Subscription request is too large" }, 413, cors);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { body = null; }
   const sub = body && body.subscription;
-  if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
-    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
+  if (!sub || !pushEndpointOk(sub.endpoint) || !pushKeysOk(sub.keys)) {
+    return jsonResponse({ error: "Invalid push subscription" }, 400, cors);
   }
   const id = bytesToB64url(new TextEncoder().encode(sub.endpoint)).slice(0, 88);
-  const prefs = body.prefs || {};
+  const prefs = body.prefs && typeof body.prefs === "object" ? body.prefs : {};
   const rec = {
     endpoint: sub.endpoint,
-    keys: sub.keys,
+    keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth },
     prefs: {
       specialActive: prefs.specialActive !== false,
       specialReport: prefs.specialReport !== false,
-      railroads: Array.isArray(prefs.railroads) ? prefs.railroads.map((x) => String(x || "").toLowerCase()).filter(Boolean).slice(0, 12) : [],
-      trains: Array.isArray(prefs.trains) ? prefs.trains.map((x) => String(x || "").toLowerCase()).filter(Boolean).slice(0, 80) : []
+      railroads: Array.isArray(prefs.railroads) ? prefs.railroads.map((x) => String(x || "").trim().toLowerCase().slice(0, 32)).filter(Boolean).slice(0, 12) : [],
+      trains: Array.isArray(prefs.trains) ? prefs.trains.map((x) => String(x || "").trim().toLowerCase().slice(0, 12)).filter(Boolean).slice(0, 80) : []
     },
     updatedAt: Date.now()
   };
@@ -842,7 +847,6 @@ async function handlePushSubscribe(request, env, cors) {
   await env.PUSH_SUBS.put(key, JSON.stringify(rec));
   index.subs[key] = rec;
   await subsIndexSave(env, index);
-  // The special-move scan is skipped while nobody is subscribed, so its saved state is stale; drop it so the next run re-seeds instead of sending a backlog.
   if (wasEmpty)
     await env.PUSH_SUBS.delete("notify:state").catch(() => {});
   return jsonResponse({ ok: true }, 200, cors);
@@ -851,10 +855,14 @@ __name(handlePushSubscribe, "handlePushSubscribe");
 async function handlePushUnsubscribe(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (raw.length > 4096)
+    return jsonResponse({ error: "Unsubscribe request is too large" }, 413, cors);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { body = null; }
   const endpoint = body && body.endpoint;
-  if (!endpoint)
-    return jsonResponse({ error: "endpoint required" }, 400, cors);
+  if (!pushEndpointOk(endpoint))
+    return jsonResponse({ error: "Invalid endpoint" }, 400, cors);
   const id = bytesToB64url(new TextEncoder().encode(endpoint)).slice(0, 88);
   await env.PUSH_SUBS.delete("sub:" + id);
   const index = await subsIndexLoad(env);
@@ -1229,6 +1237,20 @@ var TRIP_WATCH_BEFORE_MS = 35 * 60 * 1e3;
 var TRIP_WATCH_AFTER_MS = 20 * 60 * 1e3;
 var TRIP_MAX = 20;
 var PUSH_HOST_RE = /(^|\.)(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|push\.services\.mozilla\.com|web\.push\.apple\.com|notify\.windows\.com|push\.apple\.com)$/i;
+function pushEndpointOk(endpoint) {
+  if (typeof endpoint !== "string" || endpoint.length > 2048) return false;
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" && !url.username && !url.password && !url.port && PUSH_HOST_RE.test(url.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+function pushKeysOk(keys) {
+  return !!keys && typeof keys.p256dh === "string" && typeof keys.auth === "string"
+    && /^[A-Za-z0-9_-]{40,256}$/.test(keys.p256dh)
+    && /^[A-Za-z0-9_-]{16,128}$/.test(keys.auth);
+}
 function tripSubId(endpoint) {
   return bytesToB64url(new TextEncoder().encode(endpoint)).slice(0, 88);
 }
@@ -1290,20 +1312,14 @@ __name(tripCleanList, "tripCleanList");
 async function handlePushTrips(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (raw.length > 32768)
+    return jsonResponse({ error: "Trip subscription request is too large" }, 413, cors);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { body = null; }
   const sub = body && body.subscription;
-  if (!sub || !sub.endpoint)
-    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
-  let host = "";
-  try {
-    const u = new URL(sub.endpoint);
-    if (u.protocol !== "https:") throw new Error("https");
-    host = u.hostname;
-  } catch (_) {
-    return jsonResponse({ error: "Invalid endpoint" }, 400, cors);
-  }
-  if (!PUSH_HOST_RE.test(host))
-    return jsonResponse({ error: "Unsupported push service" }, 400, cors);
+  if (!sub || !pushEndpointOk(sub.endpoint))
+    return jsonResponse({ error: "Invalid push subscription" }, 400, cors);
   const id = tripSubId(sub.endpoint);
   const key = "trips:" + id;
   const now = Date.now();
@@ -1318,9 +1334,9 @@ async function handlePushTrips(request, env, cors) {
     }
     return jsonResponse({ ok: true, trips: 0 }, 200, cors);
   }
-  if (!sub.keys || !sub.keys.p256dh || !sub.keys.auth)
-    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
-  // Keep "sent" flags for trips the device sends again, so a re-sync never re-notifies.
+  if (!pushKeysOk(sub.keys))
+    return jsonResponse({ error: "Invalid push subscription keys" }, 400, cors);
+  // Keep delivery state for trips the device sends again, so a re-sync never re-notifies.
   let prevByKey = {};
   try {
     const prev = JSON.parse(await env.PUSH_SUBS.get(key) || "null");
@@ -1331,9 +1347,9 @@ async function handlePushTrips(request, env, cors) {
   }
   trips.forEach((t) => {
     const p = prevByKey[t.k] || {};
-    ["sent", "hs", "late", "cx"].forEach((f) => {
-      const v = Math.max(Number(t[f]) || 0, Number(p[f]) || 0);
-      if (v) t[f] = v; else delete t[f];
+    ["sent", "hs", "late", "cx"].forEach((field) => {
+      const value = Math.max(Number(t[field]) || 0, Number(p[field]) || 0);
+      if (value) t[field] = value; else delete t[field];
     });
     if (p.al) t.al = p.al;
     if (p.tid) t.tid = p.tid;
@@ -2276,11 +2292,18 @@ const BOOTSTRAP_ADMIN_EMAILS = ['turokerr@gmail.com', 'railroadradar@gmail.com']
 const FIRESTORE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const GOOGLE_JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 
-const PRESS_CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-};
+const PRESS_ALLOWED_ORIGINS = ['https://railroadradar.com', 'https://www.railroadradar.com'];
+function pressCors(request) {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = PRESS_ALLOWED_ORIGINS.includes(origin);
+  return {
+    'Access-Control-Allow-Origin': allowed ? origin : 'null',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
+}
 
 function b64urlBytes(s) {
   const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
@@ -2291,68 +2314,73 @@ function b64urlBytes(s) {
 async function verifyFirebaseIdToken(token) {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) return null;
-  const [h, p, sig] = parts;
-  const header = JSON.parse(new TextDecoder().decode(b64urlBytes(h)));
-  const claims = JSON.parse(new TextDecoder().decode(b64urlBytes(p)));
-  const now = Date.now() / 1000;
-  if (header.alg !== 'RS256' || claims.aud !== PROJECT_ID
-    || claims.iss !== `https://securetoken.google.com/${PROJECT_ID}`
-    || !claims.sub || claims.exp < now || claims.iat > now + 300) return null;
-  const { keys } = await (await fetch(GOOGLE_JWKS, { cf: { cacheTtl: 3600 } })).json();
-  const jwk = keys.find((k) => k.kid === header.kid);
-  if (!jwk) return null;
-  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
-  const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(sig), new TextEncoder().encode(`${h}.${p}`));
-  return ok ? claims : null;
+  try {
+    const [h, p, sig] = parts;
+    const header = JSON.parse(new TextDecoder().decode(b64urlBytes(h)));
+    const claims = JSON.parse(new TextDecoder().decode(b64urlBytes(p)));
+    const now = Date.now() / 1000;
+    if (!header || header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid
+      || !claims || claims.aud !== PROJECT_ID
+      || claims.iss !== `https://securetoken.google.com/${PROJECT_ID}`
+      || typeof claims.sub !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(claims.sub)
+      || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp) || claims.exp <= now
+      || typeof claims.iat !== 'number' || !Number.isFinite(claims.iat) || claims.iat > now + 300) return null;
+    const keyResponse = await fetch(GOOGLE_JWKS, { cf: { cacheTtl: 3600 } });
+    if (!keyResponse.ok) return null;
+    const keySet = await keyResponse.json();
+    const jwk = (keySet.keys || []).find((k) => k.kid === header.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(sig), new TextEncoder().encode(`${h}.${p}`));
+    return ok ? claims : null;
+  } catch (_) {
+    return null;
+  }
 }
 
-async function isPressAdmin(token, claims) {
-  const email = String(claims.email || '').toLowerCase();
-  if (!email || claims.email_verified !== true) return false;
-  if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return true;
-  // Firestore rules let a signed-in user read their own admins/{email} doc.
-  const r = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, { headers: { Authorization: `Bearer ${token}` } });
-  return r.ok;
-}
-
-// Match the Admin Dashboard's isAdminUser() permission contract exactly.
-// Return a safe diagnostic reason so a denied upload can distinguish a missing
-// admin record, a Firestore rules denial, and permissions that are all disabled.
+// Admin-only Worker actions use the same recognized permission flags as Firestore.
+// Check ban records before the bootstrap-admin exception so a banned account cannot
+// continue using privileged Worker endpoints.
 async function checkIconUploadAdmin(token, claims) {
   const email = String(claims.email || '').trim().toLowerCase();
-  if (!email || claims.email_verified !== true) {
+  const uid = String(claims.sub || '');
+  if (!email || claims.email_verified !== true || !uid) {
     return { allowed: false, reason: 'The Firebase account does not have a verified email.' };
   }
+
+  const authHeaders = { Authorization: `Bearer ${token}` };
+  try {
+    const [userBan, emailBan] = await Promise.all([
+      fetch(`${FIRESTORE}/bannedUsers/${encodeURIComponent(uid)}`, { headers: authHeaders }),
+      fetch(`${FIRESTORE}/bannedEmails/${encodeURIComponent(email)}`, { headers: authHeaders })
+    ]);
+    if (userBan.ok || emailBan.ok) return { allowed: false, reason: 'This account is banned.' };
+    if (userBan.status !== 404 || emailBan.status !== 404) {
+      return { allowed: false, reason: 'The Worker could not verify the account ban status.' };
+    }
+  } catch (_) {
+    return { allowed: false, reason: 'The Worker could not reach Firestore while checking account status.' };
+  }
+
   if (BOOTSTRAP_ADMIN_EMAILS.includes(email)) return { allowed: true };
 
   let response;
   try {
-    response = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    response = await fetch(`${FIRESTORE}/admins/${encodeURIComponent(email)}`, { headers: authHeaders });
   } catch (_) {
     return { allowed: false, reason: 'The Worker could not reach Firestore while checking admin access.' };
   }
-  if (response.status === 404) {
-    return { allowed: false, reason: 'Firestore did not find an admins record for the signed-in account.' };
-  }
+  if (response.status === 404) return { allowed: false, reason: 'Firestore did not find an admins record for the signed-in account.' };
   if (!response.ok) {
     return { allowed: false, reason: `Firestore denied the admin-record check (HTTP ${response.status}). Check the deployed Firestore rules.` };
   }
 
   let doc;
-  try {
-    doc = await response.json();
-  } catch (_) {
-    return { allowed: false, reason: 'Firestore returned an unreadable admin record.' };
-  }
+  try { doc = await response.json(); }
+  catch (_) { return { allowed: false, reason: 'Firestore returned an unreadable admin record.' }; }
   const perms = doc && doc.fields && doc.fields.perms;
   const fields = perms && perms.mapValue && perms.mapValue.fields;
-  if (!fields) {
-    return { allowed: false, reason: 'The admin record has no readable perms map.' };
-  }
-
-  // Firestore REST represents booleans as { booleanValue: true }.
+  if (!fields) return { allowed: false, reason: 'The admin record has no readable perms map.' };
   const allowed = ['viewReports', 'banUsers', 'manageAdmins', 'deleteReports'].some((key) => {
     const value = fields[key];
     return value === true || !!(value && value.booleanValue === true);
@@ -2360,6 +2388,11 @@ async function checkIconUploadAdmin(token, claims) {
   return allowed
     ? { allowed: true }
     : { allowed: false, reason: 'The admin record was found, but all four recognized permission flags evaluated to false.' };
+}
+
+async function isPressAdmin(token, claims) {
+  const result = await checkIconUploadAdmin(token, claims);
+  return result.allowed;
 }
 
 const ICON_UPLOAD_ALLOWED_ORIGINS = ['https://railroadradar.com', 'https://www.railroadradar.com'];
@@ -2505,17 +2538,32 @@ async function handleSpecialIconUpload(request, env) {
 }
 
 async function handlePressNotify(request, env) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: PRESS_CORS });
-  const reply = (status, msg) => new Response(msg, { status, headers: PRESS_CORS });
+  const cors = pressCors(request);
+  const origin = request.headers.get('Origin') || '';
+  const allowedOrigin = PRESS_ALLOWED_ORIGINS.includes(origin);
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: allowedOrigin ? 204 : 403, headers: cors });
+  }
+  const reply = (status, msg) => new Response(msg, {
+    status, headers: { ...cors, 'Cache-Control': 'no-store' }
+  });
+  if (!allowedOrigin) return reply(403, 'Origin not allowed');
   if (request.method !== 'POST') return reply(405, 'POST only');
 
-  const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-  const claims = await verifyFirebaseIdToken(token).catch(() => null);
+  const auth = request.headers.get('Authorization') || '';
+  const match = auth.match(/^Bearer\s+(\S+)$/i);
+  const token = match ? match[1] : '';
+  const claims = await verifyFirebaseIdToken(token);
   if (!claims) return reply(401, 'Sign in again');
-  if (!(await isPressAdmin(token, claims))) return reply(403, 'Admins only');
+  if (!(await isPressAdmin(token, claims))) return reply(403, 'Admin permission required');
 
-  const { slug } = await request.json().catch(() => ({}));
-  if (!slug || typeof slug !== 'string') return reply(400, 'Missing slug');
+  const rawBody = await request.text();
+  if (rawBody.length > 8192) return reply(413, 'Request is too large');
+  let parsedBody;
+  try { parsedBody = JSON.parse(rawBody); } catch (_) { return reply(400, 'Invalid JSON'); }
+  const slug = parsedBody && parsedBody.slug;
+  if (typeof slug !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(slug)) return reply(400, 'Invalid press release id');
+
   const doc = await fetch(`${FIRESTORE}/pressReleases/${encodeURIComponent(slug)}`);
   if (!doc.ok) return reply(404, 'No such press release');
   const f = (await doc.json()).fields || {};
