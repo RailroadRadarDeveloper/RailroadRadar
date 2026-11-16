@@ -23,12 +23,12 @@ service firebase.storage {
       return /databases/(default)/documents/admins/$(authEmailLower());
     }
 
+    // Storage rules allow at most two Firestore document lookups per request.
+    // The admin ban workflow always writes bannedUsers/{uid}; use that canonical
+    // record here and avoid a third lookup for bannedEmails/{email}.
     function isBanned() {
-      return signedIn() && (
-        firestore.exists(/databases/(default)/documents/bannedUsers/$(request.auth.uid))
-        || (authEmailLower() != ''
-          && firestore.exists(/databases/(default)/documents/bannedEmails/$(authEmailLower())))
-      );
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/bannedUsers/$(request.auth.uid));
     }
 
     // Match Firestore's admin definition: bootstrap admins or an enabled permission.
