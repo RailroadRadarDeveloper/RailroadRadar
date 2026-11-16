@@ -650,12 +650,19 @@
         <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip Logs</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="issues" id="admin-tab-issues">Issue Reports</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="survey" id="admin-tab-survey">Survey</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="facilities" id="admin-tab-facilities">Facilities</button>
       </div>
       <div class="rr-lightbox-body">
         <div class="rr-modal-error" id="admin-dashboard-error"></div>
 
+        <div class="rr-admin-pane" id="admin-pane-issues" data-admin-pane="issues">
+          <p class="rr-modal-hint" style="margin-top:0;">Private reports submitted through the Report an Issue form. Anonymous reports do not include a RailroadRadar account ID.</p>
+          <div class="rr-admin-toolbar"><input type="search" id="admin-issues-search" placeholder="Filter category, description, or contact…" aria-label="Filter issue reports"><button type="button" class="rr-btn secondary" id="admin-issues-refresh">Refresh</button></div>
+          <div class="rr-admin-table-wrap"><table class="rr-admin-table"><thead><tr><th>When</th><th>Category</th><th>Description / Contact</th><th>Reporter</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-issues-tbody"></tbody></table></div>
+          <p class="rr-modal-hint" id="admin-issues-status"></p>
+        </div>
         <div class="rr-admin-pane active" id="admin-pane-reports" data-admin-pane="reports">
           <div class="rr-admin-toolbar">
             <input type="search" id="admin-reports-search" placeholder="Filter by Email, Vehicle, Agency…" aria-label="Filter Reports">
@@ -1364,7 +1371,7 @@
       err.textContent = msg;
       err.classList.add('visible');
     }
-    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'trips', 'survey', 'facilities'];
+    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'trips', 'survey', 'facilities', 'issues'];
     function adminTabFromUrl(fallback) {
       const params = new URLSearchParams(window.location.search);
       const requested = String(params.get('section') || '').toLowerCase();
@@ -1424,6 +1431,9 @@
       } else if (tab === 'facilities') {
         if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
         await loadAdminFacilities();
+      } else if (tab === 'issues') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminIssueReports();
       }
     }
     var BUILTIN_FACILITIES = [
@@ -4090,6 +4100,61 @@
         setAdminError((e && e.message) || String(e));
       }
     }
+    let adminIssueReportsCache = [];
+    function issueReportWhen(r) {
+      try { return r.createdAt && r.createdAt.toDate ? r.createdAt.toDate().toLocaleString() : '—'; }
+      catch (_) { return '—'; }
+    }
+    async function loadAdminIssueReports() {
+      const status = document.getElementById('admin-issues-status');
+      if (status) status.textContent = 'Loading issue reports…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        const snap = await db.collection('issueReports').orderBy('createdAt', 'desc').limit(300).get();
+        adminIssueReportsCache = [];
+        snap.forEach(function(doc) { adminIssueReportsCache.push(Object.assign({ id: doc.id }, doc.data() || {})); });
+        renderAdminIssueReports();
+        if (status) status.textContent = adminIssueReportsCache.length + ' issue report(s)';
+      } catch (e) {
+        console.error('[admin] issue reports load failed', e);
+        if (status) status.textContent = 'Could not load issue reports.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    function renderAdminIssueReports() {
+      const tbody = document.getElementById('admin-issues-tbody');
+      if (!tbody) return;
+      const q = String((document.getElementById('admin-issues-search') || {}).value || '').trim().toLowerCase();
+      const canDelete = !!(currentAdminPerms && currentAdminPerms.deleteReports);
+      const rows = adminIssueReportsCache.filter(function(r) {
+        return !q || [r.category, r.description, r.contact, r.uid, r.status].join(' ').toLowerCase().indexOf(q) !== -1;
+      });
+      tbody.innerHTML = rows.map(function(r) {
+        const cat = {train_map:'Train information or map issue',account:'Account problem',feature:'Other feature issue',safety_privacy:'Safety or privacy concern'}[r.category] || r.category || '—';
+        const who = r.anonymous ? 'Anonymous' : (r.uid ? 'Signed-in user' : '—');
+        const desc = escapeHtmlLite(r.description || '');
+        const contact = r.contact ? '<div class="meta">Reply contact: ' + escapeHtmlLite(r.contact) + '</div>' : '';
+        const reviewed = r.status === 'reviewed';
+        return '<tr><td>' + escapeHtmlLite(issueReportWhen(r)) + '</td><td>' + escapeHtmlLite(cat) + '</td><td style="min-width:260px;white-space:pre-wrap;">' + desc + contact + '</td><td>' + who + '</td><td>' + escapeHtmlLite(r.status || 'open') + '</td><td style="white-space:nowrap;">' +
+          (reviewed ? '' : '<button type="button" class="rr-btn secondary" data-issue-reviewed="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;">Mark reviewed</button> ') +
+          (canDelete ? '<button type="button" class="rr-btn danger secondary" data-issue-delete="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;">Delete</button>' : '') + '</td></tr>';
+      }).join('');
+      const status = document.getElementById('admin-issues-status');
+      if (status) status.textContent = rows.length + ' of ' + adminIssueReportsCache.length + ' issue report(s)';
+    }
+    async function updateIssueReport(id, remove) {
+      if (!id || !db) return;
+      try {
+        const ref = db.collection('issueReports').doc(id);
+        if (remove) {
+          if (!(currentAdminPerms && currentAdminPerms.deleteReports) || !confirm('Delete this issue report?')) return;
+          await ref.delete();
+        } else {
+          await ref.update({ status: 'reviewed', updatedAt: firebase.firestore.FieldValue.serverTimestamp(), reviewedByUid: (currentUser || auth.currentUser).uid });
+        }
+        await loadAdminIssueReports();
+      } catch (e) { setAdminError((e && e.message) || 'Could not update issue report.'); }
+    }
     function formatAuditAction(action) {
       const map = {
         sign_up: 'Signed up',
@@ -4425,6 +4490,17 @@
         if (!btn || btn.style.display === 'none') return;
         switchAdminTab(tab, { fromPopState: true });
         await loadAdminTab(tab);
+      });
+      const issuesRefresh = document.getElementById('admin-issues-refresh');
+      const issuesSearch = document.getElementById('admin-issues-search');
+      const issuesBody = document.getElementById('admin-issues-tbody');
+      if (issuesRefresh) issuesRefresh.addEventListener('click', loadAdminIssueReports);
+      if (issuesSearch) issuesSearch.addEventListener('input', renderAdminIssueReports);
+      if (issuesBody) issuesBody.addEventListener('click', function(ev) {
+        const review = ev.target.closest('[data-issue-reviewed]');
+        if (review) { updateIssueReport(review.getAttribute('data-issue-reviewed'), false); return; }
+        const del = ev.target.closest('[data-issue-delete]');
+        if (del) updateIssueReport(del.getAttribute('data-issue-delete'), true);
       });
       const reportsRefresh = document.getElementById('admin-reports-refresh');
       const reportsSearch = document.getElementById('admin-reports-search');
