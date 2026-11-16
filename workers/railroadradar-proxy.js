@@ -2535,7 +2535,7 @@ async function handlePressNotify(request, env) {
   if (request.method !== 'POST') return reply(405, 'POST only');
 
   const auth = request.headers.get('Authorization') || '';
-  const match = auth.match(/^Bearer\\s+(\\S+)$/i);
+  const match = auth.match(/^Bearer\s+(\S+)$/i);
   const token = match ? match[1] : '';
   const claims = await verifyFirebaseIdToken(token);
   if (!claims) return reply(401, 'Sign in again');
@@ -2543,9 +2543,9 @@ async function handlePressNotify(request, env) {
 
   const rawBody = await request.text();
   if (rawBody.length > 8192) return reply(413, 'Request is too large');
-  let body;
-  try { body = JSON.parse(rawBody); } catch (_) { return reply(400, 'Invalid JSON'); }
-  const slug = body && body.slug;
+  let parsedBody;
+  try { parsedBody = JSON.parse(rawBody); } catch (_) { return reply(400, 'Invalid JSON'); }
+  const slug = parsedBody && parsedBody.slug;
   if (typeof slug !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(slug)) return reply(400, 'Invalid press release id');
 
   const doc = await fetch(`${FIRESTORE}/pressReleases/${encodeURIComponent(slug)}`);
