@@ -841,6 +841,36 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Private issue reports. Anonymous submissions are allowed only for safety/privacy concerns.
+    // Anonymous reports omit the account UID; contact is optional and user-supplied.
+    match /issueReports/{id} {
+      function issueText(d, key, max, required) {
+        return required ? (key in d && d[key] is string && d[key].size() > 0 && d[key].size() <= max)
+          : (!(key in d) || (d[key] is string && d[key].size() <= max));
+      }
+      function issueReportValid(d) {
+        return d.keys().hasOnly(['category', 'description', 'contact', 'createdAt', 'status', 'anonymous', 'source', 'uid'])
+          && d.keys().hasAll(['category', 'description', 'createdAt', 'status', 'anonymous', 'source'])
+          && d.category in ['train_map', 'account', 'feature', 'safety_privacy']
+          && issueText(d, 'description', 4000, true)
+          && issueText(d, 'contact', 254, false)
+          && d.createdAt == request.time && d.status == 'open' && d.source == 'website'
+          && d.anonymous is bool
+          && (d.category == 'safety_privacy'
+            ? (d.anonymous ? !('uid' in d)
+              : (signedIn() && !isBanned() && 'uid' in d && d.uid == request.auth.uid))
+            : (!d.anonymous && signedIn() && !isBanned() && 'uid' in d && d.uid == request.auth.uid));
+      }
+      allow create: if issueReportValid(request.resource.data);
+      allow read: if adminHasPerm('viewReports');
+      allow update: if adminHasPerm('viewReports')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'reviewedByUid'])
+        && request.resource.data.status in ['open', 'reviewed']
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.reviewedByUid == request.auth.uid;
+      allow delete: if adminHasPerm('deleteReports');
+    }
+
     // Unban markers: lets a signed-out, formerly banned browser learn it may clear its lock.
     // Keyed by a random status token (>= 32 chars) stored only in the admin-only ban doc
     // and the banned user's browser, so ban history can't be looked up by uid.
