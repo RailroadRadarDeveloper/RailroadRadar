@@ -798,7 +798,8 @@ async function encryptWebPush(subscription, payload) {
 }
 __name(encryptWebPush, "encryptWebPush");
 async function sendWebPush(env, subscription, data) {
-  const endpoint = subscription.endpoint;
+  const endpoint = subscription && subscription.endpoint;
+  if (!pushEndpointOk(endpoint) || !pushKeysOk(subscription.keys)) throw new Error("Invalid stored push subscription");
   const origin = new URL(endpoint).origin;
   const jwt = await vapidJwt(env, origin);
   const body = await encryptWebPush(subscription, JSON.stringify(data));
@@ -815,21 +816,25 @@ __name(sendWebPush, "sendWebPush");
 async function handlePushSubscribe(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (raw.length > 16384)
+    return jsonResponse({ error: "Subscription request is too large" }, 413, cors);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { body = null; }
   const sub = body && body.subscription;
-  if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
-    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
+  if (!sub || !pushEndpointOk(sub.endpoint) || !pushKeysOk(sub.keys)) {
+    return jsonResponse({ error: "Invalid push subscription" }, 400, cors);
   }
   const id = bytesToB64url(new TextEncoder().encode(sub.endpoint)).slice(0, 88);
-  const prefs = body.prefs || {};
+  const prefs = body.prefs && typeof body.prefs === "object" ? body.prefs : {};
   const rec = {
     endpoint: sub.endpoint,
-    keys: sub.keys,
+    keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth },
     prefs: {
       specialActive: prefs.specialActive !== false,
       specialReport: prefs.specialReport !== false,
-      railroads: Array.isArray(prefs.railroads) ? prefs.railroads.map((x) => String(x || "").toLowerCase()).filter(Boolean).slice(0, 12) : [],
-      trains: Array.isArray(prefs.trains) ? prefs.trains.map((x) => String(x || "").toLowerCase()).filter(Boolean).slice(0, 80) : []
+      railroads: Array.isArray(prefs.railroads) ? prefs.railroads.map((x) => String(x || "").trim().toLowerCase().slice(0, 32)).filter(Boolean).slice(0, 12) : [],
+      trains: Array.isArray(prefs.trains) ? prefs.trains.map((x) => String(x || "").trim().toLowerCase().slice(0, 12)).filter(Boolean).slice(0, 80) : []
     },
     updatedAt: Date.now()
   };
@@ -842,7 +847,6 @@ async function handlePushSubscribe(request, env, cors) {
   await env.PUSH_SUBS.put(key, JSON.stringify(rec));
   index.subs[key] = rec;
   await subsIndexSave(env, index);
-  // The special-move scan is skipped while nobody is subscribed, so its saved state is stale; drop it so the next run re-seeds instead of sending a backlog.
   if (wasEmpty)
     await env.PUSH_SUBS.delete("notify:state").catch(() => {});
   return jsonResponse({ ok: true }, 200, cors);
@@ -851,10 +855,14 @@ __name(handlePushSubscribe, "handlePushSubscribe");
 async function handlePushUnsubscribe(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (raw.length > 4096)
+    return jsonResponse({ error: "Unsubscribe request is too large" }, 413, cors);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { body = null; }
   const endpoint = body && body.endpoint;
-  if (!endpoint)
-    return jsonResponse({ error: "endpoint required" }, 400, cors);
+  if (!pushEndpointOk(endpoint))
+    return jsonResponse({ error: "Invalid endpoint" }, 400, cors);
   const id = bytesToB64url(new TextEncoder().encode(endpoint)).slice(0, 88);
   await env.PUSH_SUBS.delete("sub:" + id);
   const index = await subsIndexLoad(env);
@@ -1229,6 +1237,20 @@ var TRIP_WATCH_BEFORE_MS = 35 * 60 * 1e3;
 var TRIP_WATCH_AFTER_MS = 20 * 60 * 1e3;
 var TRIP_MAX = 20;
 var PUSH_HOST_RE = /(^|\.)(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|push\.services\.mozilla\.com|web\.push\.apple\.com|notify\.windows\.com|push\.apple\.com)$/i;
+function pushEndpointOk(endpoint) {
+  if (typeof endpoint !== "string" || endpoint.length > 2048) return false;
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" && !url.username && !url.password && !url.port && PUSH_HOST_RE.test(url.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+function pushKeysOk(keys) {
+  return !!keys && typeof keys.p256dh === "string" && typeof keys.auth === "string"
+    && /^[A-Za-z0-9_-]{40,256}$/.test(keys.p256dh)
+    && /^[A-Za-z0-9_-]{16,128}$/.test(keys.auth);
+}
 function tripSubId(endpoint) {
   return bytesToB64url(new TextEncoder().encode(endpoint)).slice(0, 88);
 }
@@ -1290,20 +1312,14 @@ __name(tripCleanList, "tripCleanList");
 async function handlePushTrips(request, env, cors) {
   if (!env.PUSH_SUBS)
     return jsonResponse({ error: "Push store missing" }, 500, cors);
-  const body = await request.json().catch(() => null);
+  const raw = await request.text();
+  if (raw.length > 32768)
+    return jsonResponse({ error: "Trip subscription request is too large" }, 413, cors);
+  let body;
+  try { body = JSON.parse(raw); } catch (_) { body = null; }
   const sub = body && body.subscription;
-  if (!sub || !sub.endpoint)
-    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
-  let host = "";
-  try {
-    const u = new URL(sub.endpoint);
-    if (u.protocol !== "https:") throw new Error("https");
-    host = u.hostname;
-  } catch (_) {
-    return jsonResponse({ error: "Invalid endpoint" }, 400, cors);
-  }
-  if (!PUSH_HOST_RE.test(host))
-    return jsonResponse({ error: "Unsupported push service" }, 400, cors);
+  if (!sub || !pushEndpointOk(sub.endpoint) || !pushKeysOk(sub.keys))
+    return jsonResponse({ error: "Invalid push subscription" }, 400, cors);
   const id = tripSubId(sub.endpoint);
   const key = "trips:" + id;
   const now = Date.now();
@@ -1318,29 +1334,6 @@ async function handlePushTrips(request, env, cors) {
     }
     return jsonResponse({ ok: true, trips: 0 }, 200, cors);
   }
-  if (!sub.keys || !sub.keys.p256dh || !sub.keys.auth)
-    return jsonResponse({ error: "Invalid subscription" }, 400, cors);
-  // Keep "sent" flags for trips the device sends again, so a re-sync never re-notifies.
-  let prevByKey = {};
-  try {
-    const prev = JSON.parse(await env.PUSH_SUBS.get(key) || "null");
-    (prev && prev.trips || []).forEach((t) => {
-      prevByKey[t.k] = t;
-    });
-  } catch (_) {
-  }
-  trips.forEach((t) => {
-    const p = prevByKey[t.k] || {};
-    ["sent", "hs", "late", "cx"].forEach((f) => {
-      const v = Math.max(Number(t[f]) || 0, Number(p[f]) || 0);
-      if (v) t[f] = v; else delete t[f];
-    });
-    if (p.al) t.al = p.al;
-    if (p.tid) t.tid = p.tid;
-    if (!t.rid && p.rid) t.rid = p.rid;
-    if (!t.arr) delete t.arr;
-    if (!t.rid) delete t.rid;
-  });
   trips.sort((a, b) => a.dep - b.dep);
   const first = trips[0].dep;
   const last = trips.reduce((m, t) => Math.max(m, tripEnd(t)), 0);
