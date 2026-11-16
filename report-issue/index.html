@@ -53,7 +53,13 @@ if(!anonymous&&!user){status.className='status error';status.textContent='Please
 if(contact.length>254){status.className='status error';status.textContent='Contact information is too long.';return}
 try{var last=Number(sessionStorage.getItem('rrIssueLastSubmit')||0);if(Date.now()-last<60000)throw new Error('Please wait one minute before submitting another report.')}catch(e){if(e.message&&e.message.indexOf('Please wait')===0){status.className='status error';status.textContent=e.message;return}}
 submit.disabled=true;submit.textContent='Submitting…';
-try{var data={category:cat.value,description:description,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:'open',anonymous:!!anonymous,source:'website'};if(contact)data.contact=contact;if(!anonymous&&user)data.uid=user.uid;await db.collection('issueReports').add(data);try{sessionStorage.setItem('rrIssueLastSubmit',String(Date.now()))}catch(_){}form.reset();cat.value='train_map';status.className='status ok';status.textContent='Thank you. Your report has been submitted.';started=Date.now();update()}
+try{var data={category:cat.value,description:description,createdAt:firebase.firestore.FieldValue.serverTimestamp(),status:'open',anonymous:!!anonymous,source:'website'};if(contact)data.contact=contact;if(!anonymous&&user)data.uid=user.uid;if(anonymous){
+var issueId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID().replace(/-/g,''):Date.now().toString(36)+Math.random().toString(36).slice(2);
+var fields={category:{stringValue:data.category},description:{stringValue:data.description},status:{stringValue:'open'},anonymous:{booleanValue:true},source:{stringValue:'website'}};
+if(data.contact)fields.contact={stringValue:data.contact};
+var response=await fetch('https://firestore.googleapis.com/v1/projects/railroadradar-accounts/databases/(default)/documents:commit?key='+encodeURIComponent(cfg.apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({writes:[{update:{name:'projects/railroadradar-accounts/databases/(default)/documents/issueReports/'+issueId,fields:fields},updateTransforms:[{fieldPath:'createdAt',setToServerValue:'REQUEST_TIME'}]}]})});
+if(!response.ok){var problem=await response.json().catch(function(){return {};});throw new Error(problem.error&&problem.error.message||'We could not submit your anonymous report.');}
+}else{await db.collection('issueReports').add(data);}try{sessionStorage.setItem('rrIssueLastSubmit',String(Date.now()))}catch(_){}form.reset();cat.value='train_map';status.className='status ok';status.textContent='Thank you. Your report has been submitted.';started=Date.now();update()}
 catch(e){status.className='status error';status.textContent=e.message||'We could not submit your report. Please try again later.'}
 finally{submit.disabled=false;submit.textContent='Submit report';update()}
 });
