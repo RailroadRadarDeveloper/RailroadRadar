@@ -309,6 +309,8 @@
 
   function mount() {
     ensureStyle();
+    var footer = document.querySelector('.footer-inner') || document.querySelector('.footer');
+    if (footer && !footer.querySelector('a[href^="/report-issue/"]')) { var issue = document.createElement('a'); issue.href = '/report-issue/'; issue.textContent = 'Report an Issue'; footer.appendChild(issue); }
     ensureGlobalAccountActions();
     applyTheme(getTheme());
     // Temporarily hide Trackside Favorites from every header navigation variant.
