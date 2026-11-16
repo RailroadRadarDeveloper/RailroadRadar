@@ -1,17 +1,59 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function verifiedEmail() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
+    function authEmailLower() {
+      return verifiedEmail() ? request.auth.token.email.lower() : '';
+    }
+
+    function isBootstrapAdmin() {
+      return authEmailLower() in ['turokerr@gmail.com', 'railroadradar@gmail.com'];
+    }
+
+    function adminDocPath() {
+      return /databases/(default)/documents/admins/$(authEmailLower());
+    }
+
+    function isBanned() {
+      return signedIn() && (
+        firestore.exists(/databases/(default)/documents/bannedUsers/$(request.auth.uid))
+        || (authEmailLower() != ''
+          && firestore.exists(/databases/(default)/documents/bannedEmails/$(authEmailLower())))
+      );
+    }
+
+    // Match Firestore's admin definition: bootstrap admins or an enabled permission.
+    function hasAdminPermission() {
+      return isBootstrapAdmin()
+        || (firestore.exists(adminDocPath())
+          && (
+            firestore.get(adminDocPath()).data.get('perms', {}).get('viewReports', false) == true
+            || firestore.get(adminDocPath()).data.get('perms', {}).get('banUsers', false) == true
+            || firestore.get(adminDocPath()).data.get('perms', {}).get('manageAdmins', false) == true
+            || firestore.get(adminDocPath()).data.get('perms', {}).get('deleteReports', false) == true
+          ));
+    }
+
+    function activeAdmin() {
+      return verifiedEmail() && !isBanned() && hasAdminPermission();
+    }
+
     // Press release images
     match /press/{slug}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null
-      && request.auth.token.email_verified == true
-      && (
-        request.auth.token.email.lower() in ['turokerr@gmail.com', 'railroadradar@gmail.com']
-        || firestore.exists(/databases/(default)/documents/admins/$(request.auth.token.email.lower()))
-      )
-      && request.resource.size < 8 * 1024 * 1024
-      && request.resource.contentType.matches('image/.*');
+      allow write: if activeAdmin()
+        && request.resource.size < 8 * 1024 * 1024
+        // Only raster formats are accepted; SVG can contain active script content.
+        && request.resource.contentType.matches('image/(png|jpeg|webp|gif)');
     }
   }
 }
