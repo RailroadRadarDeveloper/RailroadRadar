@@ -857,7 +857,7 @@ service cloud.firestore {
           && d.createdAt == request.time && d.status == 'open' && d.source == 'website'
           && d.anonymous is bool
           && (d.category == 'safety_privacy'
-            ? (d.anonymous ? ((!signedIn() || !isBanned()) && !('uid' in d))
+            ? (d.anonymous ? (!signedIn() && !('uid' in d))
               : (signedIn() && !isBanned() && 'uid' in d && d.uid == request.auth.uid))
             : (!d.anonymous && signedIn() && !isBanned() && 'uid' in d && d.uid == request.auth.uid));
       }
