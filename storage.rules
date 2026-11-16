@@ -32,19 +32,19 @@ service firebase.storage {
     }
 
     // Match Firestore's admin definition: bootstrap admins or an enabled permission.
+    // Read the admin document once; Storage permits at most two Firestore document
+    // lookups per request (the other lookup is the UID ban record).
     function hasAdminPermission() {
-      return isBootstrapAdmin()
-        || (firestore.exists(adminDocPath())
-          && (
-            firestore.get(adminDocPath()).data.get('perms', {}).get('viewReports', false) == true
-            || firestore.get(adminDocPath()).data.get('perms', {}).get('banUsers', false) == true
-            || firestore.get(adminDocPath()).data.get('perms', {}).get('manageAdmins', false) == true
-            || firestore.get(adminDocPath()).data.get('perms', {}).get('deleteReports', false) == true
-          ));
+      let admin = firestore.get(adminDocPath()).data;
+      let perms = admin.get('perms', {});
+      return perms.get('viewReports', false) == true
+        || perms.get('banUsers', false) == true
+        || perms.get('manageAdmins', false) == true
+        || perms.get('deleteReports', false) == true;
     }
 
     function activeAdmin() {
-      return verifiedEmail() && !isBanned() && hasAdminPermission();
+      return verifiedEmail() && !isBanned() && (isBootstrapAdmin() || hasAdminPermission());
     }
 
     // Press release images
