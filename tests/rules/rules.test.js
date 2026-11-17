@@ -162,8 +162,17 @@ describe('trainReports', () => {
     await ok(as('ver').doc('trainReports/mbta_1700').set(report('ver', { reportedByVerified: true, contributors: [entry('ver', { verified: true })] })));
   });
   it('a held user cannot write reports directly', () => no(as('alice').doc('trainReports/mbta_1700').set(report('alice'))));
+  it('blocks repeated updates to the same train for 30 seconds', async () => {
+    const ref = as('bob').doc('trainReports/mbta_1700');
+    await ok(ref.set(report('bob')));
+    const { createdAt, ...update } = report('bob', { updatedAt: now() });
+    await no(ref.set(update, { merge: true }));
+  });
   it('a second reporter appends to contributors and cannot rewrite them', async () => {
     await ok(as('bob').doc('trainReports/mbta_1700').set(report('bob')));
+    await env.withSecurityRulesDisabled(async (c) => {
+      await c.firestore().doc('trainReports/mbta_1700').update({ updatedAt: Timestamp.fromMillis(Date.now() - 31_000) });
+    });
     const { createdAt, firstReportedByUid, firstReportedByLabel, firstReportedByDisplayMode, ...base } = report('ver');
     let first;
     await env.withSecurityRulesDisabled(async (c) => { first = (await c.firestore().doc('trainReports/mbta_1700').get()).data().contributors; });
