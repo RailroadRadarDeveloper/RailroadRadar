@@ -131,6 +131,7 @@
       '.header-tools-panel .rr-menu-legal{gap:3px;padding-top:8px;margin-top:4px;border-top:1px solid rgba(255,255,255,.16)}',
       '.header-tools-panel #btn-report-train-menu{background:#fff;color:#07093e;justify-content:center;font-weight:700}',
       '.header-tools-panel #btn-report-train-menu:hover{background:#e8eaf0}',
+      '.header-tools-panel #btn-specials-header{color:#fff!important}',
       '.rr-page-menu-btn,.header-tools #btn-header-tools{min-height:36px;padding:8px 13px;border:1px solid rgba(255,255,255,.38);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font:650 12px/1 "Google Sans",Roboto,Arial,sans-serif;transition:background .15s ease}',
       '.rr-page-menu-btn:hover,.header-tools #btn-header-tools:hover{background:rgba(255,255,255,.2)}',
       '.rr-page-menu-btn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 11px;border:0;border-radius:8px;background:#fff;color:#07093e;font:700 11px/1 "Google Sans",Roboto,Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.16);transition:background .15s ease}',
