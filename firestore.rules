@@ -213,6 +213,8 @@ service cloud.firestore {
 
     function reportUpdateChecks(d, o, changed) {
       return reportFieldsOk(d)
+        && o.updatedAt is timestamp
+        && o.updatedAt <= request.time - duration.value(30, 's')
         && changed.hasOnly(reportWritableKeys())
         && d.agency == o.agency
         && d.updatedAt == request.time
@@ -367,6 +369,8 @@ service cloud.firestore {
             && !isBanned() && verifiedEmail()
             && resource.data.reportedByUid == request.auth.uid
             && isReportHeld()
+            && resource.data.updatedAt is timestamp
+            && resource.data.updatedAt <= request.time - duration.value(30, 's')
             && pendingWriteOk(id));
       allow delete: if adminHasPerm('viewReports')
         || (activeUser() && resource.data.reportedByUid == request.auth.uid);
