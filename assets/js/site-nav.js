@@ -10,6 +10,7 @@
   ];
   function current() {
     var path = location.pathname.replace(/\/index\.html$/, '/');
+    if (path.indexOf('/getting-started') === 0) return 'guide';
     if (path.indexOf('/mytrips') === 0 || document.documentElement.classList.contains('rr-mytrips-page')) return 'mytrips';
     if (path.indexOf('/favorites') === 0) return 'favorites';
     if (path.indexOf('/roster') === 0) return 'roster';
@@ -314,6 +315,14 @@
     var footer = document.querySelector('.footer-inner') || document.querySelector('.footer');
     if (footer && !footer.querySelector('a[href^="/report-issue/"]')) { var issue = document.createElement('a'); issue.href = '/report-issue/'; issue.textContent = 'Report an Issue'; footer.appendChild(issue); }
     ensureGlobalAccountActions();
+    document.querySelectorAll('.rr-mobile-nav,.header-tools-panel').forEach(function (panel) {
+      if (panel.querySelector('a[href="/getting-started/"]')) return;
+      var guide = document.createElement('a');
+      guide.className = 'header-auth-btn';
+      guide.href = '/getting-started/';
+      guide.textContent = 'Getting Started';
+      panel.insertBefore(guide, panel.firstChild);
+    });
     applyTheme(getTheme());
     // Temporarily hide Trackside Favorites from every header navigation variant.
     document.querySelectorAll('header a[href="/favorites/"], .header a[href="/favorites/"]').forEach(function (a) { a.remove(); });
