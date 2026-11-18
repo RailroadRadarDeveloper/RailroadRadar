@@ -1,6 +1,7 @@
 (function () {
   var links = [
     { id: 'map', href: '/map/', label: 'Live Map' },
+    { id: 'guide', href: '/getting-started/', label: 'Getting Started' },
     { id: 'timetables', href: '/timetables/', label: 'Timetables' },
     { id: 'mytrips', href: '/mytrips/', label: 'MyTrips' },
     { id: 'roster', href: '/roster/', label: 'Roster' },
