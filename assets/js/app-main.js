@@ -21498,7 +21498,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             return;
           }
           const matched = filterAskRows(raw, rows).slice(0, 8);
-          const fact = formatAskFactAnswer(raw, matched);
           if (seq !== askSeq) return;
           if (!matched.length) {
             let index = null, near = [];
@@ -21511,10 +21510,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               renderAskCard(results, 'ok', site.answer, site.ai ? { links: site.links } : { data: true, links: site.links, note: "These are RailroadRadar's closest pages." });
               return;
             }
+            renderAskCard(results, 'ok', "I couldn't find an answer in the current live-train data or RailroadRadar's help pages. Try adding the railroad, train number, or feature you're asking about.");
+            return;
           }
+          const fact = formatAskFactAnswer(raw, matched);
           renderAskCard(results, 'ok', fact, { data: true });
           renderAskTrainCards(results, matched);
-          if (!matched.length) return;
           try { await polishAskAnswer(raw, matched, results, seq); } catch (_) {}
         } catch (_) {
           if (seq !== askSeq) return;
