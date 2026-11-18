@@ -21353,36 +21353,55 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const q = String(raw || '');
         const reportIntent = /\b(report|reported|reports|reporting|consist|pairing|locomotive|locos|equipment|unit|roster)\b/i.test(q);
         if (!reportIntent || typeof db === 'undefined' || !db || !db.collection) return null;
-        const match = q.match(/\b(?:train\s*(?:number\s*)?)?([A-Z]{0,4}\s*\d{2,6}[A-Z]?)\b/i);
+        const trainMatch = q.match(/\btrain(?:\s+number)?\s*#?\s*([A-Z]{0,4}\s*\d{2,6}[A-Z]?)\b/i);
+        const unitMatch = q.match(/\b(?:locomotive|locos?|unit|equipment)\s*#?\s*([A-Z]{0,4}\s*\d{2,6}[A-Z]?)\b/i);
+        const match = trainMatch || unitMatch || q.match(/\b([A-Z]{0,4}\s*\d{2,6}[A-Z]?)\b/i);
         const number = match ? match[1].replace(/\s+/g, '').toUpperCase() : '';
-        const trainQuestion = !!number && /\b(train|service|trip)\b/i.test(q);
+        const unitQuestion = !!number && !!unitMatch;
+        const trainQuestion = !!number && (!!trainMatch || (!unitQuestion && /\b(train|service|trip|consist|pairing)\b/i.test(q)));
+        const wantsReports = /\b(report|reported|reports|reporting|consist|pairing)\b/i.test(q)
+          || (unitQuestion && /\b(been|seen|on|where|which|trains?)\b/i.test(q));
         const evidence = { reports: [], roster: [] };
         try {
-          if (/\b(report|reported|reports|reporting|consist|pairing)\b/i.test(q)) {
-            const key = number && trainQuestion ? 'train:' + number : 'recent';
+          if (wantsReports) {
+            const key = number && trainQuestion ? 'train:' + number : (number && unitQuestion ? 'unit:' + number : 'recent');
             evidence.reports = await rrAskCached('community-reports:' + key, 3 * 60 * 1000, async function() {
-              let query = db.collection('trainReports');
-              if (number && trainQuestion) query = query.where('trainNumber', '==', number);
-              else query = query.orderBy('updatedAt', 'desc');
-              const snap = await query.limit(number && trainQuestion ? 20 : 12).get();
-              return snap.docs.map(function(doc) {
-                const d = doc.data() || {};
-                let updated = '';
-                try { updated = d.updatedAt && d.updatedAt.toDate ? d.updatedAt.toDate().toISOString() : ''; } catch (_) {}
-                return {
-                  railroad: d.agency || '',
-                  trainNumber: d.trainNumber || '',
-                  vehicle: d.vehicleId || '',
-                  serviceDate: d.serviceDate || '',
-                  locomotives: Array.isArray(d.locomotives) ? d.locomotives.slice(0, 5) : [],
-                  locomotiveId: d.locomotiveId || '',
-                  locomotiveId2: d.locomotiveId2 || '',
-                  unitName: d.unitName || '',
-                  unitName2: d.unitName2 || '',
-                  comment: String(d.comment || '').slice(0, 280),
-                  updatedAt: updated
-                };
+              let snaps = [];
+              if (number && trainQuestion) {
+                snaps = [await db.collection('trainReports').where('trainNumber', '==', number).limit(20).get()];
+              } else if (number && unitQuestion) {
+                snaps = await Promise.all([
+                  db.collection('trainReports').where('locomotiveId', '==', number).limit(15).get(),
+                  db.collection('trainReports').where('locomotiveId2', '==', number).limit(15).get()
+                ]);
+              } else {
+                snaps = [await db.collection('trainReports').orderBy('updatedAt', 'desc').limit(12).get()];
+              }
+              const seen = {};
+              const rows = [];
+              snaps.forEach(function(snap) {
+                snap.docs.forEach(function(doc) {
+                  if (seen[doc.id]) return;
+                  seen[doc.id] = true;
+                  const d = doc.data() || {};
+                  let updated = '';
+                  try { updated = d.updatedAt && d.updatedAt.toDate ? d.updatedAt.toDate().toISOString() : ''; } catch (_) {}
+                  rows.push({
+                    railroad: d.agency || '',
+                    trainNumber: d.trainNumber || '',
+                    vehicle: d.vehicleId || '',
+                    serviceDate: d.serviceDate || '',
+                    locomotives: Array.isArray(d.locomotives) ? d.locomotives.slice(0, 5) : [],
+                    locomotiveId: d.locomotiveId || '',
+                    locomotiveId2: d.locomotiveId2 || '',
+                    unitName: d.unitName || '',
+                    unitName2: d.unitName2 || '',
+                    comment: String(d.comment || '').slice(0, 280),
+                    updatedAt: updated
+                  });
+                });
               });
+              return rows;
             });
           }
           if (number && /\b(locomotive|locos|equipment|unit|roster)\b/i.test(q)) {
