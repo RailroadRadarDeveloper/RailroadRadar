@@ -2097,6 +2097,10 @@ var worker_default = {
       return new Response(null, { status: 204, headers: cors });
     }
     if (request.method === "POST" && (path === "/api/ask" || path === "/ask")) {
+      // Ask is paused by default. Set ASK_AI_ENABLED=true to intentionally restore it.
+      if (env.ASK_AI_ENABLED !== "true") {
+        return jsonResponse({ error: "Ask is temporarily unavailable" }, 404, cors);
+      }
       try {
         return await handleAsk(request, env, cors);
       } catch (err) {
