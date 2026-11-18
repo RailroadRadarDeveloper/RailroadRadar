@@ -9694,6 +9694,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const display = number ? rrMbtaLocoDisplay(number, locoType) : null;
         const typeHint = (display && display.type) || locoType || '';
         if (re && re._fromFirestore && re.iconUrl) return resolveMbtaLocoIconUrl(re.iconUrl, typeHint);
+        if (explicitUrl) return resolveMbtaLocoIconUrl(explicitUrl, typeHint);
         if (number && typeof rrMbtaLocoIconFor === 'function') {
           const icon = rrMbtaLocoIconFor(number);
           if (icon) return resolveMbtaLocoIconUrl(icon, typeHint);
@@ -10530,7 +10531,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const today = nyServiceDateToday();
           const snaps = await Promise.all([
             rrFsQuery('trainReports:day:' + today, RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '==', today).get(); }, !!force),
-            rrFsQuery('trainReports:undated', RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '==', null).get(); }, !!force),
+            rrFsQuery('trainReports:mbta', RR_FS_PUBLIC_TTL, function() { return col.where('agency', '==', 'mbta').get(); }, !!force),
             rrFsQuery('trainReports:future:' + today, RR_FS_PUBLIC_TTL, function() { return col.where('serviceDate', '>', today).get(); }, !!force)
           ]);
           trainReportsBaseRows = trainReportRows(snaps);
@@ -12994,7 +12995,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 });
               }
               const typeHint = rep.locoType || specialRep.locoType || null;
-              const typeUrl = resolveMbtaLocoIconUrl(
+              const reportIcon = mbtaResolvedIcon(locoId || specialRep.vehicleId, specialRep.locoIconUrl || rep.locoIconUrl || null, typeHint);
+              const typeUrl = reportIcon || resolveMbtaLocoIconUrl(
                 specialRep.locoIconUrl || rep.locoIconUrl || null,
                 typeHint
               );
@@ -13002,7 +13004,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             }
             // 3. Different-loco / reported type: remap stale postimg → local asset
             const typeHint2 = rep.locoType || specialRep.locoType || null;
-            const locoUrl = resolveMbtaLocoIconUrl(
+            const reportIcon = mbtaResolvedIcon(locoId || specialRep.vehicleId, specialRep.locoIconUrl || rep.locoIconUrl || null, typeHint2);
+            const locoUrl = reportIcon || resolveMbtaLocoIconUrl(
               specialRep.locoIconUrl || rep.locoIconUrl || null,
               typeHint2
             );
