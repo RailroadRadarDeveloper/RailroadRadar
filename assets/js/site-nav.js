@@ -333,6 +333,11 @@
         if (a.getAttribute('data-nav') === here) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');
       });
+      if (!existing.querySelector('a[href="/getting-started/"]')) {
+        var guideLink = document.createElement('a'); guideLink.href = '/getting-started/'; guideLink.textContent = 'Getting Started';
+        if (here === 'guide') guideLink.setAttribute('aria-current', 'page');
+        existing.appendChild(guideLink);
+      }
     }
     if (!existing) {
       var header = document.querySelector('.header') || document.querySelector('header');
