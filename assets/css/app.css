@@ -2129,6 +2129,15 @@
      min-width: 140px;
    }
    .rr-board-toolbar input[type="search"] { flex: 1; min-width: 160px; }
+   #board-pane-reports .rr-board-toolbar select {
+     color-scheme: dark;
+     background: #090d48;
+     color: #fff;
+   }
+   #board-pane-reports .rr-board-toolbar select option {
+     background: #090d48;
+     color: #fff;
+   }
    .rr-board-list { display: flex; flex-direction: column; gap: 8px; }
    .rr-board-group {
      margin: 14px 0 6px;
