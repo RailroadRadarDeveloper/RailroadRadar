@@ -21455,6 +21455,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             renderAskCard(results, 'ok', history.answer, { data: true, note: history.note });
             return;
           }
+          let community = null;
+          try { community = await rrAskCommunityLookup(raw); } catch (_) { community = null; }
+          if (community && community.answer) {
+            if (seq !== askSeq) return;
+            renderAskCard(results, 'ok', community.answer, { data: true, note: community.note, links: community.links });
+            return;
+          }
           const rows = collectLiveTrainRows();
           let direct = null;
           try { direct = await rrAskDirect(raw, rows); } catch (_) { direct = null; }
@@ -21462,13 +21469,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (seq !== askSeq) return;
             renderAskCard(results, 'ok', direct.answer, { data: true, link: direct.link, links: direct.links, note: direct.note });
             renderAskTrainCards(results, direct.rows || []);
-            return;
-          }
-          let community = null;
-          try { community = await rrAskCommunityLookup(raw); } catch (_) { community = null; }
-          if (community && community.answer) {
-            if (seq !== askSeq) return;
-            renderAskCard(results, 'ok', community.answer, { data: true, note: community.note, links: community.links });
             return;
           }
           const fromTo = await answerAskFromTo(raw, rows);
