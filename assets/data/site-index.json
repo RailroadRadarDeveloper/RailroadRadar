@@ -170,7 +170,7 @@
       "id": "terms", "title": "Terms of Use", "url": "/policies/terms-of-use/", "src": ["policies/terms-of-use/index.html"],
       "k": ["terms", "terms of use", "terms of service", "rules", "allowed", "acceptable use", "banned", "ban", "suspended", "accurate", "accuracy", "official", "affiliated", "free"],
       "s": [
-        { "t": "RailroadRadar is not a ticket seller, dispatcher, or official passenger-information system. Positions, delays, tracks, alerts, history, Ask answers, and community pairings can be late, incomplete, or wrong.", "a": "accuracy", "k": ["accurate", "accuracy", "official", "wrong", "rely"] },
+        { "t": "RailroadRadar is not a ticket seller, dispatcher, or official passenger-information system. Positions, delays, tracks, alerts, history, and community pairings can be late, incomplete, or wrong.", "a": "accuracy", "k": ["accurate", "accuracy", "official", "wrong", "rely"] },
         { "t": "It is not affiliated with, endorsed by, or operated by MassDOT, the MBTA, Amtrak, MTA Metro-North, the Long Island Rail Road, NJ Transit, CTrail, or any other railroad or public agency.", "a": "agreement", "k": ["affiliated", "official", "mbta", "amtrak", "owned"] },
         { "t": "We may refuse, hold, suspend, or ban accounts that violate these Terms, submit false or abusive reports, evade a prior ban, or threaten the Service or other users.", "a": "accounts", "k": ["ban", "banned", "suspended", "suspend"] },
         { "t": "The Service is offered as a free beta product. Features can change, break, or be removed without notice.", "a": "agreement", "k": ["free", "cost", "price", "beta"] }
