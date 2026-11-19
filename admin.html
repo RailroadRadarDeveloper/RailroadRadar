@@ -3608,6 +3608,8 @@
       } catch (_) {}
       return 0;
     }
+    // Shared cache used by the Accounts and Points admin tabs.
+    let adminAccountsCache = [];
     function accountRowUid(a) {
       return String((a && (a.uid || a.id)) || '').trim();
     }
