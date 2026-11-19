@@ -4087,12 +4087,23 @@
       try {
         const snap = await db.collection('pendingReports').get();
         adminPendingCache = [];
+        adminPendingExistingCache = {};
         snap.forEach(function(doc) {
           adminPendingCache.push(Object.assign({ id: doc.id }, doc.data() || {}));
         });
         adminPendingCache.sort(function(a, b) {
           return adminTsSeconds(b.submittedAt || b.updatedAt || b.createdAt) - adminTsSeconds(a.submittedAt || a.updatedAt || a.createdAt);
         });
+        const comparisons = await Promise.all(adminPendingCache.map(async function(row) {
+          try {
+            const current = await db.collection('trainReports').doc(row.id).get();
+            return [row.id, current.exists ? (current.data() || {}) : null];
+          } catch (comparisonError) {
+            console.warn('[admin] pending comparison unavailable for ' + row.id, comparisonError);
+            return [row.id, null];
+          }
+        }));
+        comparisons.forEach(function(pair) { if (pair[1]) adminPendingExistingCache[pair[0]] = pair[1]; });
         renderAdminPendingReports();
       } catch (e) {
         console.error('[admin] pending load failed', e);
@@ -4313,6 +4324,47 @@
       }).join('');
       if (status) status.textContent = rows.length + ' of ' + (window._adminAuditCache || []).length + ' actions (kept 7 days; purge at midnight ET)';
     }
+    function adminPendingLocoIds(r) {
+      const ids = [];
+      if (Array.isArray(r && r.locomotives)) {
+        r.locomotives.forEach(function(l) {
+          const id = String((l && (l.locomotiveId || l.id)) || '').trim();
+          if (id && ids.indexOf(id) === -1) ids.push(id);
+        });
+      }
+      [r && r.locomotiveId, r && r.locomotiveId2, r && r.vehicleId].forEach(function(v) {
+        const id = String(v || '').trim();
+        if (id && ids.indexOf(id) === -1) ids.push(id);
+      });
+      return ids.sort();
+    }
+    function adminPendingComparison(r) {
+      const existing = adminPendingExistingCache[r.id] || null;
+      if (!existing) return { label: 'New information', detail: 'No current public report exists for this report record.' };
+      const incomingIds = adminPendingLocoIds(r);
+      const existingIds = adminPendingLocoIds(existing);
+      const sameIds = incomingIds.length === existingIds.length &&
+        incomingIds.every(function(id, i) { return id === existingIds[i]; });
+      const incomingNote = String(r.comment || '').trim();
+      const existingNote = String(existing.comment || '').trim();
+      if (sameIds && incomingNote === existingNote) {
+        return { label: 'Duplicate information', detail: 'The same equipment and report note are already on the public report. Approval would refresh the held reporter/contributor information, not add a new equipment sighting.' };
+      }
+      const differences = [];
+      if (!sameIds) {
+        const added = incomingIds.filter(function(id) { return existingIds.indexOf(id) === -1; });
+        const repeated = incomingIds.filter(function(id) { return existingIds.indexOf(id) !== -1; });
+        if (added.length) differences.push('Additional equipment: ' + added.join(', '));
+        if (repeated.length) differences.push('Already listed: ' + repeated.join(', '));
+        if (!added.length && !repeated.length) differences.push('Equipment list differs');
+      }
+      if (incomingNote !== existingNote) differences.push(incomingNote ? 'Report note differs from the current note' : 'No new note; current note will be retained unless replaced');
+      return {
+        label: 'Overlaps existing report',
+        detail: 'A public report for this same record already exists. ' + (differences.join('; ') || 'The submitted details differ.') + ' Approval updates the report rather than creating a second map entry.'
+      };
+    }
+    let adminPendingExistingCache = {};
     function renderAdminPendingReports() {
       const tbody = document.getElementById('admin-pending-tbody');
       const status = document.getElementById('admin-pending-status');
@@ -4322,12 +4374,13 @@
           ? (r.vehicleId || '—')
           : ((r.trainNumber || r.vehicleId || '—') + (r.serviceDate ? ' · ' + r.serviceDate : ''));
         const note = String(r.comment || '').trim();
+        const comparison = adminPendingComparison(r);
         return '<tr>' +
           '<td>' + escapeHtmlLite(formatAdminWhen(r.submittedAt || r.updatedAt || r.createdAt)) + '</td>' +
           '<td>' + escapeHtmlLite(r.agency || '') + '</td>' +
           '<td>' + escapeHtmlLite(vehicle) + '</td>' +
           '<td>' + escapeHtmlLite(formatTrainReportLocoLabelAdmin(r)) + '</td>' +
-          '<td>' + escapeHtmlLite(note || '—') + '</td>' +
+          '<td>' + escapeHtmlLite(note || '—') + '<div class="meta"><strong>' + escapeHtmlLite(comparison.label) + ':</strong> ' + escapeHtmlLite(comparison.detail) + '</div></td>' +
           '<td>' + escapeHtmlLite(r.reportedByLabel || r.reportedByEmail || r.reportedByUid || '—') + '</td>' +
           '<td style="white-space:nowrap;">' +
             '<button type="button" class="rr-btn" data-admin-pending-approve="' + escapeHtmlLite(r.id) + '" style="padding:6px 8px;font-size:11px;margin:2px;">Approve</button>' +
@@ -4335,7 +4388,7 @@
           '</td>' +
           '</tr>';
       }).join('');
-      if (status) status.textContent = adminPendingCache.length + ' pending report(s)';
+      if (status) status.textContent = adminPendingCache.length + ' pending report(s) · comparison is against the current public report';
     }
     async function adminApprovePendingReport(docId) {
       if (!docId || !db) return;
