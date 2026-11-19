@@ -1801,12 +1801,10 @@
       }
       if (!window.confirm('Delete report "' + docId + '"? This cannot be undone.')) return;
       try {
+        // Remove the live report so its contributor entries no longer count toward
+        // report points or the weekly leaderboard. Keep reportAudit as the permanent
+        // admin-only record of who contributed to the deleted report.
         await db.collection('trainReports').doc(docId).delete();
-        try {
-          await db.collection('reportAudit').doc(docId).delete();
-        } catch (auditDelErr) {
-          console.warn('[admin] reportAudit delete best-effort failed', auditDelErr);
-        }
         showNotification('Report deleted');
         try { await logUserAction('admin_delete_report', 'Deleted report ' + docId); } catch (_) {}
         await loadAdminReports();
