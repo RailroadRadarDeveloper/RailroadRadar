@@ -4097,13 +4097,13 @@
         const comparisons = await Promise.all(adminPendingCache.map(async function(row) {
           try {
             const current = await db.collection('trainReports').doc(row.id).get();
-            return [row.id, current.exists ? (current.data() || {}) : null];
+            return [row.id, { checked: true, data: current.exists ? (current.data() || {}) : null }];
           } catch (comparisonError) {
             console.warn('[admin] pending comparison unavailable for ' + row.id, comparisonError);
-            return [row.id, null];
+            return [row.id, { checked: false, data: null }];
           }
         }));
-        comparisons.forEach(function(pair) { if (pair[1]) adminPendingExistingCache[pair[0]] = pair[1]; });
+        comparisons.forEach(function(pair) { adminPendingExistingCache[pair[0]] = pair[1]; });
         renderAdminPendingReports();
       } catch (e) {
         console.error('[admin] pending load failed', e);
@@ -4339,7 +4339,9 @@
       return ids.sort();
     }
     function adminPendingComparison(r) {
-      const existing = adminPendingExistingCache[r.id] || null;
+      const comparison = adminPendingExistingCache[r.id];
+      if (!comparison || comparison.checked !== true) return { label: 'Comparison unavailable', detail: 'The current public report could not be checked. Review it manually before approving; this is not being classified as new or duplicate.' };
+      const existing = comparison.data || null;
       if (!existing) return { label: 'New information', detail: 'No current public report exists for this report record.' };
       const incomingIds = adminPendingLocoIds(r);
       const existingIds = adminPendingLocoIds(existing);
