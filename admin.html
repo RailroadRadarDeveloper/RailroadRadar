@@ -649,6 +649,7 @@
         <button type="button" class="rr-admin-tab" data-admin-tab="roster" id="admin-tab-roster">Equipment Roster</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="verified" id="admin-tab-verified">Verified</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="accounts" id="admin-tab-accounts">Accounts</button>
+        <button type="button" class="rr-admin-tab" data-admin-tab="points" id="admin-tab-points">Points</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="trips" id="admin-tab-trips">Trip Logs</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="issues" id="admin-tab-issues">Issue Reports</button>
         <button type="button" class="rr-admin-tab" data-admin-tab="survey" id="admin-tab-survey">Survey</button>
@@ -869,6 +870,38 @@
           </div>
           <p class="rr-modal-hint" id="admin-accounts-status">Loading…</p>
           <p class="rr-modal-hint">Only users who have signed in since the Accounts mirror shipped appear here (Auth cannot be listed from the client).</p>
+        </div>
+
+        <div class="rr-admin-pane" id="admin-pane-points" data-admin-pane="points">
+          <div class="rr-lightbox-section">
+            <h3>Points Management</h3>
+            <p class="rr-modal-hint">Report-earned points are calculated from live report contributor records. Manual adjustments are stored separately and never rewrite report or contributor history. The adjusted total shown here is an admin ledger total; the weekly leaderboard remains based on reports submitted that week.</p>
+            <div class="rr-admin-toolbar">
+              <input type="search" id="admin-points-search" placeholder="Filter accounts by name, email, or UID…" aria-label="Filter points accounts">
+              <button type="button" class="rr-btn secondary" id="admin-points-refresh">Refresh</button>
+            </div>
+            <label for="admin-points-user">Account</label>
+            <select id="admin-points-user"><option value="">Select an account…</option></select>
+            <div id="admin-points-summary" class="rr-admin-card" style="margin-top:12px;background:#fff;">Select an account to view its points.</div>
+            <h3 style="margin-top:18px;">Manual Adjustment</h3>
+            <p class="rr-modal-hint">Enter a positive number to add points or a negative number to deduct points. A reason is required for every adjustment.</p>
+            <div class="rr-admin-toolbar">
+              <input type="number" id="admin-points-delta" min="-10000" max="10000" step="1" placeholder="e.g. 5 or -2" aria-label="Points to add or deduct">
+              <input type="text" id="admin-points-reason" maxlength="500" placeholder="Reason for adjustment" aria-label="Reason for points adjustment">
+              <button type="button" class="rr-btn" id="admin-points-submit">Save Adjustment</button>
+            </div>
+            <p class="rr-modal-hint" id="admin-points-status" role="status" aria-live="polite"></p>
+          </div>
+          <div class="rr-lightbox-section">
+            <h3>Adjustment History</h3>
+            <div class="rr-admin-table-wrap">
+              <table class="rr-admin-table">
+                <thead><tr><th>When</th><th>Adjustment</th><th>Reason</th><th>Admin</th></tr></thead>
+                <tbody id="admin-points-history"><tr><td colspan="4" class="rr-admin-empty">Select an account.</td></tr></tbody>
+              </table>
+            </div>
+            <p class="rr-modal-hint">Adjustment records are permanent and cannot be edited or deleted from this console.</p>
+          </div>
         </div>
 
         <div class="rr-admin-pane" id="admin-pane-trips" data-admin-pane="trips">
@@ -1371,7 +1404,7 @@
       err.textContent = msg;
       err.classList.add('visible');
     }
-    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'trips', 'survey', 'facilities', 'issues'];
+    const ADMIN_TAB_KEYS = ['reports', 'pending', 'audit', 'bans', 'admins', 'roster', 'verified', 'accounts', 'points', 'trips', 'survey', 'facilities', 'issues'];
     function adminTabFromUrl(fallback) {
       const params = new URLSearchParams(window.location.search);
       const requested = String(params.get('section') || '').toLowerCase();
@@ -1418,6 +1451,9 @@
         await loadAdminVerified();
       } else if (tab === 'accounts') {
         await loadAdminAccounts();
+      } else if (tab === 'points') {
+        if (!perms.viewReports) { setAdminError('Missing viewReports permission.'); return; }
+        await loadAdminPoints();
       } else if (tab === 'trips') {
         await loadAdminTrips();
       } else if (tab === 'survey') {
@@ -3792,6 +3828,127 @@
       const status = document.getElementById('admin-accounts-status');
       if (status) status.textContent = filtered.length + ' of ' + adminAccountsCache.length + ' account(s)';
     }
+    /* Admin points ledger: live report credits stay on trainReports; manual adjustments are immutable. */
+    let adminPointReports = [];
+    let adminPointAdjustments = [];
+    let adminPointAccounts = [];
+    function adminPointUid(a) { return String((a && (a.uid || a.id)) || '').trim(); }
+    function adminPointReportCount(uid) {
+      return adminPointReports.reduce(function(total, report) {
+        const contributors = Array.isArray(report.contributors) ? report.contributors : [];
+        return total + (contributors.some(function(c) { return c && String(c.uid || '') === uid; }) ? 1 : 0);
+      }, 0);
+    }
+    function renderAdminPoints() {
+      const select = document.getElementById('admin-points-user');
+      const summary = document.getElementById('admin-points-summary');
+      const history = document.getElementById('admin-points-history');
+      const search = String(((document.getElementById('admin-points-search') || {}).value || '')).trim().toLowerCase();
+      if (!select) return;
+      const selected = select.value;
+      const rows = adminPointAccounts.filter(function(a) {
+        const blob = [a.displayName, a.email, a.uid, a.id].join(' ').toLowerCase();
+        return !search || blob.indexOf(search) !== -1;
+      });
+      select.innerHTML = '<option value="">Select an account…</option>' + rows.map(function(a) {
+        const uid = adminPointUid(a);
+        const label = String(a.displayName || a.email || uid);
+        return '<option value="' + escapeHtmlLite(uid) + '">' + escapeHtmlLite(label) + ' · ' + escapeHtmlLite(uid) + '</option>';
+      }).join('');
+      if (rows.some(function(a) { return adminPointUid(a) === selected; })) select.value = selected;
+      const uid = select.value;
+      if (!uid) {
+        if (summary) summary.textContent = rows.length ? 'Select an account to view its points.' : 'No matching accounts.';
+        if (history) history.innerHTML = '<tr><td colspan="4" class="rr-admin-empty">Select an account.</td></tr>';
+        return;
+      }
+      const acct = adminPointAccounts.find(function(a) { return adminPointUid(a) === uid; }) || {};
+      const earned = adminPointReportCount(uid);
+      const adjustments = adminPointAdjustments.filter(function(a) { return String(a.uid || '') === uid; });
+      const manual = adjustments.reduce(function(n, a) { return n + Number(a.pointsDelta || 0); }, 0);
+      if (summary) summary.innerHTML = '<strong>' + escapeHtmlLite(acct.displayName || acct.email || uid) + '</strong>' +
+        '<div class="meta">Report-earned points: <strong>' + earned.toLocaleString() + '</strong> · Manual adjustments: <strong>' + (manual > 0 ? '+' : '') + manual.toLocaleString() + '</strong></div>' +
+        '<div style="margin-top:6px;font-size:18px;font-weight:700;color:var(--ink);">Adjusted total: ' + (earned + manual).toLocaleString() + ' points</div>' +
+        '<div class="meta"><code>' + escapeHtmlLite(uid) + '</code></div>';
+      adjustments.sort(function(a, b) { return adminTsSeconds(b.createdAt) - adminTsSeconds(a.createdAt); });
+      if (history) history.innerHTML = adjustments.length ? adjustments.map(function(a) {
+        const delta = Number(a.pointsDelta || 0);
+        return '<tr><td>' + escapeHtmlLite(formatAdminWhen(a.createdAt)) + '</td><td><strong>' + (delta > 0 ? '+' : '') + delta.toLocaleString() + '</strong></td><td>' + escapeHtmlLite(a.reason || '') + '</td><td>' + escapeHtmlLite(a.adminEmail || a.adminUid || '—') + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="rr-admin-empty">No manual adjustments for this account.</td></tr>';
+      const status = document.getElementById('admin-points-status');
+      if (status) status.textContent = adjustments.length + ' permanent adjustment record(s) for this account.';
+    }
+    async function loadAdminPoints() {
+      const status = document.getElementById('admin-points-status');
+      if (status) status.textContent = 'Loading points…';
+      if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
+      try {
+        if (!adminAccountsCache.length) await loadAdminAccounts();
+        const [reportsSnap, adjustmentsSnap] = await Promise.all([
+          db.collection('trainReports').get(),
+          db.collection('reportPointAdjustments').get()
+        ]);
+        adminPointReports = [];
+        reportsSnap.forEach(function(doc) { adminPointReports.push(doc.data() || {}); });
+        adminPointAdjustments = [];
+        adjustmentsSnap.forEach(function(doc) { adminPointAdjustments.push(Object.assign({ id: doc.id }, doc.data() || {})); });
+        const accounts = new Map();
+        adminAccountsCache.forEach(function(a) {
+          const uid = adminPointUid(a);
+          if (uid) accounts.set(uid, Object.assign({}, a, { uid: uid }));
+        });
+        adminPointReports.forEach(function(report) {
+          (Array.isArray(report.contributors) ? report.contributors : []).forEach(function(c) {
+            const uid = String((c && c.uid) || '');
+            if (uid && !accounts.has(uid)) accounts.set(uid, { uid: uid, displayName: c.label || uid });
+          });
+        });
+        adminPointAccounts = Array.from(accounts.values()).sort(function(a, b) {
+          return String(a.displayName || a.email || a.uid).localeCompare(String(b.displayName || b.email || b.uid));
+        });
+        renderAdminPoints();
+        if (status) status.textContent = adminPointAccounts.length + ' account(s) · ' + adminPointReports.length + ' live report(s) · ' + adminPointAdjustments.length + ' adjustment(s)';
+      } catch (e) {
+        console.error('[admin] points load failed', e);
+        if (status) status.textContent = 'Failed to load points.';
+        setAdminError((e && e.message) || String(e));
+      }
+    }
+    async function adminAdjustPoints() {
+      const user = currentUser || (auth && auth.currentUser);
+      if (!user || !db || !(currentAdminPerms && currentAdminPerms.viewReports)) {
+        setAdminError('Missing viewReports permission.');
+        return;
+      }
+      const uid = String(((document.getElementById('admin-points-user') || {}).value || '')).trim();
+      const delta = Number(((document.getElementById('admin-points-delta') || {}).value || ''));
+      const reason = String(((document.getElementById('admin-points-reason') || {}).value || '')).trim();
+      if (!uid) { setAdminError('Select an account first.'); return; }
+      if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 10000) { setAdminError('Enter a whole-number adjustment between -10,000 and 10,000, excluding zero.'); return; }
+      if (!reason || reason.length > 500) { setAdminError('Enter a reason (up to 500 characters).'); return; }
+      const acct = adminPointAccounts.find(function(a) { return adminPointUid(a) === uid; }) || {};
+      if (!window.confirm((delta > 0 ? 'Add ' : 'Deduct ') + Math.abs(delta) + ' points ' + (delta > 0 ? 'to ' : 'from ') + (acct.displayName || acct.email || uid) + '? This creates a permanent adjustment record.')) return;
+      try {
+        await db.collection('reportPointAdjustments').add({
+          uid: uid,
+          pointsDelta: delta,
+          reason: reason,
+          adminUid: user.uid,
+          adminEmail: normalizeEmail(user.email) || null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        try { await logUserAction('admin_adjust_points', (delta > 0 ? 'Added ' : 'Deducted ') + Math.abs(delta) + ' points for ' + uid + ': ' + reason); } catch (_) {}
+        const deltaEl = document.getElementById('admin-points-delta');
+        const reasonEl = document.getElementById('admin-points-reason');
+        if (deltaEl) deltaEl.value = '';
+        if (reasonEl) reasonEl.value = '';
+        showNotification('Points adjustment saved');
+        await loadAdminPoints();
+      } catch (e) {
+        console.error('[admin] points adjustment failed', e);
+        setAdminError((e && e.message) || String(e));
+      }
+    }
     /* Admin trip logs viewer */
     let adminTripsCache = [];
     let adminTripsEmailByUid = {};
@@ -4092,16 +4249,49 @@
         adminPendingCache.sort(function(a, b) {
           return adminTsSeconds(b.submittedAt || b.updatedAt || b.createdAt) - adminTsSeconds(a.submittedAt || a.updatedAt || a.createdAt);
         });
-        const comparisons = await Promise.all(adminPendingCache.map(async function(row) {
-          try {
-            const current = await db.collection('trainReports').doc(row.id).get();
-            return [row.id, { checked: true, data: current.exists ? (current.data() || {}) : null }];
-          } catch (comparisonError) {
-            console.warn('[admin] pending comparison unavailable for ' + row.id, comparisonError);
-            return [row.id, { checked: false, data: null }];
+        const publicRows = [];
+        let publicReportsReadable = true;
+        try {
+          const publicSnap = await db.collection('trainReports').get();
+          publicSnap.forEach(function(doc) { publicRows.push(Object.assign({ id: doc.id }, doc.data() || {})); });
+        } catch (comparisonError) {
+          publicReportsReadable = false;
+          console.warn('[admin] public reports unavailable for pending comparison', comparisonError);
+        }
+        adminPendingCache.forEach(function(row) {
+          if (!publicReportsReadable) {
+            adminPendingExistingCache[row.id] = { checked: false, data: null };
+            return;
           }
-        }));
-        comparisons.forEach(function(pair) { adminPendingExistingCache[pair[0]] = pair[1]; });
+          const sameRecord = publicRows.find(function(p) { return p.id === row.id; }) || null;
+          if (sameRecord) {
+            adminPendingExistingCache[row.id] = { checked: true, data: sameRecord, matchType: 'same-record' };
+            return;
+          }
+          const incomingIds = adminPendingLocoIds(row);
+          const equipmentMatches = incomingIds.length ? publicRows.filter(function(p) {
+            if (String(p.agency || '').toLowerCase() !== String(row.agency || '').toLowerCase()) return false;
+            const oldIds = adminPendingLocoIds(p);
+            return incomingIds.some(function(id) { return oldIds.indexOf(id) !== -1; });
+          }) : [];
+          equipmentMatches.sort(function(a, b) {
+            return adminTsSeconds(b.updatedAt || b.createdAt) - adminTsSeconds(a.updatedAt || a.createdAt);
+          });
+          if (equipmentMatches.length) {
+            adminPendingExistingCache[row.id] = { checked: true, data: equipmentMatches[0], matchType: 'same-equipment' };
+            return;
+          }
+          const sameTrain = publicRows.filter(function(p) {
+            if (String(p.agency || '').toLowerCase() !== String(row.agency || '').toLowerCase()) return false;
+            const a = String(row.trainNumber || '').trim(), b = String(p.trainNumber || '').trim();
+            return !!a && a === b && String(row.serviceDate || '') === String(p.serviceDate || '');
+          }).sort(function(a, b) {
+            return adminTsSeconds(b.updatedAt || b.createdAt) - adminTsSeconds(a.updatedAt || a.createdAt);
+          });
+          adminPendingExistingCache[row.id] = sameTrain.length
+            ? { checked: true, data: sameTrain[0], matchType: 'same-train' }
+            : { checked: true, data: null, matchType: 'none' };
+        });
         renderAdminPendingReports();
       } catch (e) {
         console.error('[admin] pending load failed', e);
@@ -4340,7 +4530,7 @@
       const comparison = adminPendingExistingCache[r.id];
       if (!comparison || comparison.checked !== true) return { label: 'Comparison unavailable', detail: 'The current public report could not be checked. Review it manually before approving; this is not being classified as new or duplicate.' };
       const existing = comparison.data || null;
-      if (!existing) return { label: 'New information', detail: 'No current public report exists for this report record.' };
+      if (!existing) return { label: 'New information', detail: 'No earlier public report for this railroad and equipment was found.' };
       const incomingIds = adminPendingLocoIds(r);
       const existingIds = adminPendingLocoIds(existing);
       const sameIds = incomingIds.length === existingIds.length &&
@@ -4348,7 +4538,7 @@
       const incomingNote = String(r.comment || '').trim();
       const existingNote = String(existing.comment || '').trim();
       if (sameIds && incomingNote === existingNote) {
-        return { label: 'Duplicate information', detail: 'The same equipment and report note are already on the public report. Approval would refresh the held reporter/contributor information, not add a new equipment sighting.' };
+        return { label: 'Duplicate information', detail: (comparison.matchType === 'same-record' ? 'The same equipment and report note are already on this report record.' : 'An earlier public report already lists this same equipment with the same note.') + ' Approval adds no new equipment information; it only updates the report/contributor history.' };
       }
       const differences = [];
       if (!sameIds) {
@@ -4361,7 +4551,7 @@
       if (incomingNote !== existingNote) differences.push(incomingNote ? 'Report note differs from the current note' : 'No new note; current note will be retained unless replaced');
       return {
         label: 'Overlaps existing report',
-        detail: 'A public report for this same record already exists. ' + (differences.join('; ') || 'The submitted details differ.') + ' Approval updates the report rather than creating a second map entry.'
+        detail: (comparison.matchType === 'same-record' ? 'A public report for this same record already exists. ' : 'An earlier public report for this equipment already exists. ') + (differences.join('; ') || 'The submitted details differ.') + ' Review the differences before approval; approval may update an existing map record rather than create a second sighting.'
       };
     }
     let adminPendingExistingCache = {};
@@ -4581,6 +4771,14 @@
       const accountsSearch = document.getElementById('admin-accounts-search');
       if (accountsRefresh) accountsRefresh.addEventListener('click', loadAdminAccounts);
       if (accountsSearch) accountsSearch.addEventListener('input', renderAdminAccounts);
+      const pointsRefresh = document.getElementById('admin-points-refresh');
+      const pointsSearch = document.getElementById('admin-points-search');
+      const pointsUser = document.getElementById('admin-points-user');
+      const pointsSubmit = document.getElementById('admin-points-submit');
+      if (pointsRefresh) pointsRefresh.addEventListener('click', loadAdminPoints);
+      if (pointsSearch) pointsSearch.addEventListener('input', renderAdminPoints);
+      if (pointsUser) pointsUser.addEventListener('change', renderAdminPoints);
+      if (pointsSubmit) pointsSubmit.addEventListener('click', adminAdjustPoints);
       const tripsRefresh = document.getElementById('admin-trips-refresh');
       const tripsSearch = document.getElementById('admin-trips-search');
       if (tripsRefresh) tripsRefresh.addEventListener('click', loadAdminTrips);

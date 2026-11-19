@@ -759,6 +759,25 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isBootstrapAdmin() || isAdmin();
     }
+    // Immutable admin-only point adjustments. Report-earned credits remain derived from live reports.
+    match /reportPointAdjustments/{id} {
+      allow read: if adminHasPerm('viewReports');
+      allow create: if adminHasPerm('viewReports')
+        && request.resource.data.keys().hasOnly(['uid', 'pointsDelta', 'reason', 'adminUid', 'adminEmail', 'createdAt'])
+        && request.resource.data.keys().hasAll(['uid', 'pointsDelta', 'reason', 'adminUid', 'createdAt'])
+        && request.resource.data.uid is string && request.resource.data.uid.size() > 0
+        && request.resource.data.pointsDelta is int
+        && request.resource.data.pointsDelta != 0
+        && request.resource.data.pointsDelta >= -10000 && request.resource.data.pointsDelta <= 10000
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0 && request.resource.data.reason.size() <= 500
+        && request.resource.data.adminUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && (!('adminEmail' in request.resource.data)
+            || request.resource.data.adminEmail == authEmailLower());
+      allow update, delete: if false;
+    }
+
     match /accounts/{uid} {
       // Admins list all; each user may read/write only their own mirror doc
       allow read: if isAdmin()
