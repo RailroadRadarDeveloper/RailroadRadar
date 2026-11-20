@@ -653,7 +653,7 @@
       }
       if (db) {
         try {
-          const hearts = await db.collectionGroup('hearts').where('ownerUid', '==', uid).get();
+          const hearts = await db.collection('reportHearts').where('ownerUid', '==', uid).get();
           stats.heartCount = hearts.size;
           if (currentUserSettings) currentUserSettings.reportStats = stats;
         } catch (e) { console.warn('[report-hearts] Could not refresh earned heart points', e); }
@@ -10375,9 +10375,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (old.loading || (!force && old.loaded && Date.now() - (old.at || 0) < 30000)) return;
         rrReportHeartCache[reportId] = Object.assign({}, old, { loading: true });
         try {
-          const snap = await db.collection('trainReports').doc(reportId).collection('hearts').get();
+          const snap = await db.collection('reportHearts').where('reportId', '==', reportId).get();
           const user = currentUser || (auth && auth.currentUser) || null;
-          rrReportHeartCache[reportId] = { count: snap.size, mine: !!(user && snap.docs.some(function(d) { return d.id === user.uid; })), loaded: true, loading: false, at: Date.now() };
+          rrReportHeartCache[reportId] = { count: snap.size, mine: !!(user && snap.docs.some(function(d) { return (d.data() || {}).uid === user.uid; })), loaded: true, loading: false, at: Date.now() };
           rrUpdateHeartButtons(reportId);
         } catch (e) { rrReportHeartCache[reportId] = Object.assign({}, old, { loading: false }); console.warn('[report-hearts] load failed', e); }
       }
@@ -10389,7 +10389,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!reportId || !ownerUid || ownerUid === user.uid || button.dataset.busy === '1') return;
         button.dataset.busy = '1'; button.disabled = true;
         try {
-          const ref = db.collection('trainReports').doc(reportId).collection('hearts').doc(user.uid);
+          const ref = db.collection('reportHearts').doc(reportId + '_' + user.uid);
           const existing = await ref.get();
           if (existing.exists) await ref.delete();
           else await ref.set({ uid: user.uid, ownerUid: ownerUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
