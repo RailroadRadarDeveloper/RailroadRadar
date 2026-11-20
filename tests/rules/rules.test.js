@@ -200,6 +200,49 @@ describe('trainReports', () => {
   });
 });
 
+describe('train report appreciation hearts', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('trainReports/heartable').set(report('alice'));
+    });
+  });
+  it('lets an eligible user add one heart credited to the original reporter', async () => {
+    await ok(as('bob').doc('trainReports/heartable/hearts/bob').set({
+      uid: 'bob', ownerUid: 'alice', createdAt: now()
+    }));
+  });
+  it('prevents self-hearts and forged recipients', async () => {
+    await no(as('alice').doc('trainReports/heartable/hearts/alice').set({
+      uid: 'alice', ownerUid: 'alice', createdAt: now()
+    }));
+    await no(as('bob').doc('trainReports/heartable/hearts/bob').set({
+      uid: 'bob', ownerUid: 'bob', createdAt: now()
+    }));
+  });
+  it('prevents anonymous, unverified, banned and report-held users', async () => {
+    const heart = (uid) => ({ uid, ownerUid: 'alice', createdAt: now() });
+    await no(anon().doc('trainReports/heartable/hearts/guest').set(heart('guest')));
+    await no(as('unverified').doc('trainReports/heartable/hearts/unverified').set(heart('unverified')));
+    await no(as('banned').doc('trainReports/heartable/hearts/banned').set(heart('banned')));
+    await no(as('bannedMail').doc('trainReports/heartable/hearts/bannedMail').set(heart('bannedMail')));
+    await no(as('alice').doc('trainReports/heartable/hearts/alice').set(heart('alice')));
+  });
+  it('allows a user to remove their own heart but not update or remove another user\'s', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('trainReports/heartable/hearts/bob').set({ uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
+    });
+    await no(as('bob').doc('trainReports/heartable/hearts/bob').update({ ownerUid: 'bob' }));
+    await no(as('alice').doc('trainReports/heartable/hearts/bob').delete());
+    await ok(as('bob').doc('trainReports/heartable/hearts/bob').delete());
+  });
+  it('allows a deleteReports admin to clean up hearts when deleting a report', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('trainReports/heartable/hearts/bob').set({ uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
+    });
+    await ok(as('admin').doc('trainReports/heartable/hearts/bob').delete());
+  });
+});
+
 describe('acelaEquipment', () => {
   it('anyone can read', () => ok(anon().doc('acelaEquipment/e1').get()));
   it('verified user creates a report in the site\'s shape', async () => {
