@@ -322,21 +322,23 @@ service cloud.firestore {
 
 
     // One appreciation heart per eligible account. Credit always belongs to the original reporter.
-    match /trainReports/{reportId}/hearts/{uid} {
+    // Top-level collection keeps count queries simple and lets report deletion clean up all related hearts.
+    match /reportHearts/{heartId} {
       allow read: if true;
       allow create: if signedIn() && verifiedEmail() && !isBanned()
-        && uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid', 'ownerUid', 'createdAt'])
-        && request.resource.data.keys().hasAll(['uid', 'ownerUid', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['reportId', 'uid', 'ownerUid', 'createdAt'])
+        && request.resource.data.keys().hasAll(['reportId', 'uid', 'ownerUid', 'createdAt'])
+        && request.resource.data.reportId is string
+        && heartId == request.resource.data.reportId + '_' + request.auth.uid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.ownerUid is string
         && request.resource.data.ownerUid != request.auth.uid
-        && exists(/databases/$(database)/documents/trainReports/$(reportId))
-        && request.resource.data.ownerUid == get(/databases/$(database)/documents/trainReports/$(reportId)).data.get('firstReportedByUid',
-             get(/databases/$(database)/documents/trainReports/$(reportId)).data.get('reportedByUid', ''))
+        && exists(/databases/$(database)/documents/trainReports/$(request.resource.data.reportId))
+        && request.resource.data.ownerUid == get(/databases/$(database)/documents/trainReports/$(request.resource.data.reportId)).data.get('firstReportedByUid',
+             get(/databases/$(database)/documents/trainReports/$(request.resource.data.reportId)).data.get('reportedByUid', ''))
         && request.resource.data.createdAt == request.time;
       allow update: if false;
-      allow delete: if (signedIn() && uid == request.auth.uid) || adminHasPerm('deleteReports');
+      allow delete: if (signedIn() && resource.data.uid == request.auth.uid) || adminHasPerm('deleteReports');
     }
 
     // Acela equipment (NextGen or Legacy) that riders report ahead of time for a date range.
