@@ -133,8 +133,9 @@ service cloud.firestore {
     // customLoco and specialOverride are not type-checked: for five locomotives that would go
     // over the expression limit on the longest report path.
     function locomotiveOk(l) {
-      return l.keys().hasOnly(['locomotiveId', 'unitName', 'locoType', 'locoIconUrl', 'specialOverride', 'customLoco'])
+      return l.keys().hasOnly(['locomotiveId', 'unitName', 'locoType', 'locoIconUrl', 'specialOverride', 'customLoco', 'consistPosition'])
         && l.locomotiveId.matches('.{0,64}') && l.unitName.matches('.{0,120}') && l.locoType.matches('.{0,32}')
+        && l.consistPosition in ['leading', 'middle', 'trailing', 'unknown']
         && iconUrlOk(l.locoIconUrl);
     }
 
