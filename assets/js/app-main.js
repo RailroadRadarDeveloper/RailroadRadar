@@ -10736,7 +10736,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               locoType: L.locoType ? String(L.locoType) : '',
               locoIconUrl: assetIconOrNull(L.locoIconUrl),
               specialOverride: !!L.specialOverride,
-              customLoco: !!L.customLoco
+              customLoco: !!L.customLoco,
+              consistPosition: ['leading', 'middle', 'trailing', 'unknown'].indexOf(L.consistPosition) >= 0 ? L.consistPosition : 'unknown'
             };
           });
           // Keep legacy single/dual fields in sync with first/second for older readers
