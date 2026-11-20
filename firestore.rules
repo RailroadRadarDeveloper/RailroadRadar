@@ -325,7 +325,7 @@ service cloud.firestore {
     // Top-level collection keeps count queries simple and lets report deletion clean up all related hearts.
     match /reportHearts/{heartId} {
       allow read: if true;
-      allow create: if signedIn() && verifiedEmail() && !isBanned()
+      allow create: if signedIn() && verifiedEmail() && !isBanned() && !isReportHeld()
         && request.resource.data.keys().hasOnly(['reportId', 'uid', 'ownerUid', 'createdAt'])
         && request.resource.data.keys().hasAll(['reportId', 'uid', 'ownerUid', 'createdAt'])
         && request.resource.data.reportId is string
