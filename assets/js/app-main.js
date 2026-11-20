@@ -10944,13 +10944,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   '<button type="button" data-loco-act="down" data-idx="' + i + '"' + (canDown ? '' : ' disabled') + ' title="Move down">↓</button>' +
                   '<button type="button" class="report-loco-remove" data-loco-act="remove" data-idx="' + i + '"' + (canRemove ? '' : ' disabled') + '>Remove</button>' +
                 '</div>' +
-                '<label for="report-loco-position-' + i + '">Position in consist</label>' +
-              '<select class="report-loco-position" id="report-loco-position-' + i + '">' +
-                '<option value="leading"' + (position === 'leading' ? ' selected' : '') + '>Leading End</option>' +
-                '<option value="middle"' + (position === 'middle' ? ' selected' : '') + '>Middle of Consist</option>' +
-                '<option value="trailing"' + (position === 'trailing' ? ' selected' : '') + '>Trailing End</option>' +
-                '<option value="unknown"' + (position === 'unknown' ? ' selected' : '') + '>Unknown Position</option>' +
-              '</select>' +
             '</div>' +
               (isRosterSearch ? '' : (
                 '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
