@@ -1841,7 +1841,7 @@
         // report points or the weekly leaderboard. Keep reportAudit as the permanent
         // admin-only record of who contributed to the deleted report.
         const reportRef = db.collection('trainReports').doc(docId);
-        const heartsSnap = await reportRef.collection('hearts').get();
+        const heartsSnap = await db.collection('reportHearts').where('reportId', '==', docId).get();
         for (let i = 0; i < heartsSnap.docs.length; i += 450) {
           const batch = db.batch();
           heartsSnap.docs.slice(i, i + 450).forEach(function(doc) { batch.delete(doc.ref); });
@@ -3898,7 +3898,7 @@
         const [reportsSnap, adjustmentsSnap, heartsSnap] = await Promise.all([
           db.collection('trainReports').get(),
           db.collection('reportPointAdjustments').get(),
-          db.collectionGroup('hearts').get()
+          db.collection('reportHearts').get()
         ]);
         adminPointReports = [];
         reportsSnap.forEach(function(doc) { adminPointReports.push(doc.data() || {}); });
