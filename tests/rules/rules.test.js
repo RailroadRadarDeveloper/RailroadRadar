@@ -207,43 +207,43 @@ describe('train report appreciation hearts', () => {
     });
   });
   it('lets an eligible user add one heart credited to the original reporter', async () => {
-    const ref = as('bob').doc('trainReports/heartable/hearts/bob');
-    await ok(ref.set({ uid: 'bob', ownerUid: 'alice', createdAt: now() }));
+    const ref = as('bob').doc('reportHearts/heartable_bob');
+    await ok(ref.set({ reportId: 'heartable', uid: 'bob', ownerUid: 'alice', createdAt: now() }));
     await no(ref.set({ uid: 'bob', ownerUid: 'alice', createdAt: now() }));
   });
   it('prevents self-hearts and forged recipients', async () => {
-    await no(as('alice').doc('trainReports/heartable/hearts/alice').set({
+    await no(as('alice').doc('reportHearts/heartable_alice').set({
       uid: 'alice', ownerUid: 'alice', createdAt: now()
     }));
-    await no(as('bob').doc('trainReports/heartable/hearts/bob').set({
+    await no(as('bob').doc('reportHearts/heartable_bob').set({
       uid: 'bob', ownerUid: 'bob', createdAt: now()
     }));
   });
   it('prevents anonymous, unverified, banned and report-held users', async () => {
-    const heart = (uid) => ({ uid, ownerUid: 'alice', createdAt: now() });
-    await no(anon().doc('trainReports/heartable/hearts/guest').set(heart('guest')));
-    await no(as('unverified').doc('trainReports/heartable/hearts/unverified').set(heart('unverified')));
-    await no(as('banned').doc('trainReports/heartable/hearts/banned').set(heart('banned')));
-    await no(as('bannedMail').doc('trainReports/heartable/hearts/bannedMail').set(heart('bannedMail')));
+    const heart = (uid) => ({ reportId: 'heartable', uid, ownerUid: 'alice', createdAt: now() });
+    await no(anon().doc('reportHearts/heartable_guest').set(heart('guest')));
+    await no(as('unverified').doc('reportHearts/heartable_unverified').set(heart('unverified')));
+    await no(as('banned').doc('reportHearts/heartable_banned').set(heart('banned')));
+    await no(as('bannedMail').doc('reportHearts/heartable_bannedMail').set(heart('bannedMail')));
     await env.withSecurityRulesDisabled(async (ctx) => {
       await ctx.firestore().doc('reportHold/ver').set({ required: true });
     });
-    await no(as('ver').doc('trainReports/heartable/hearts/ver').set(heart('ver')));
-    await no(as('alice').doc('trainReports/heartable/hearts/alice').set(heart('alice')));
+    await no(as('ver').doc('reportHearts/heartable_ver').set(heart('ver')));
+    await no(as('alice').doc('reportHearts/heartable_alice').set(heart('alice')));
   });
   it('allows a user to remove their own heart but not update or remove another user\'s', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await ctx.firestore().doc('trainReports/heartable/hearts/bob').set({ uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
+      await ctx.firestore().doc('reportHearts/heartable_bob').set({ reportId: 'heartable', uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
     });
-    await no(as('bob').doc('trainReports/heartable/hearts/bob').update({ ownerUid: 'bob' }));
-    await no(as('alice').doc('trainReports/heartable/hearts/bob').delete());
-    await ok(as('bob').doc('trainReports/heartable/hearts/bob').delete());
+    await no(as('bob').doc('reportHearts/heartable_bob').update({ ownerUid: 'bob' }));
+    await no(as('alice').doc('reportHearts/heartable_bob').delete());
+    await ok(as('bob').doc('reportHearts/heartable_bob').delete());
   });
   it('allows a deleteReports admin to clean up hearts when deleting a report', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await ctx.firestore().doc('trainReports/heartable/hearts/bob').set({ uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
+      await ctx.firestore().doc('reportHearts/heartable_bob').set({ uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
     });
-    await ok(as('admin').doc('trainReports/heartable/hearts/bob').delete());
+    await ok(as('admin').doc('reportHearts/heartable_bob').delete());
   });
 });
 
