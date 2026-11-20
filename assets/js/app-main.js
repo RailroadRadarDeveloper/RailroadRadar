@@ -10960,6 +10960,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                     '<label for="report-loco-type-' + i + '">Locomotive Type</label>' +
                     '<select id="report-loco-type-' + i + '">' + reportLocoTypeOptionsHtml(slot.locoType || '') + '</select>' +
                   '</div>')) +
+              '<div class="report-loco-position-wrap">' +
+                '<label for="report-loco-position-' + i + '">Position in consist</label>' +
+                '<select class="report-loco-position" id="report-loco-position-' + i + '">' +
+                  '<option value="leading"' + (position === 'leading' ? ' selected' : '') + '>Leading End</option>' +
+                  '<option value="middle"' + (position === 'middle' ? ' selected' : '') + '>Middle of Consist</option>' +
+                  '<option value="trailing"' + (position === 'trailing' ? ' selected' : '') + '>Trailing End</option>' +
+                  '<option value="unknown"' + (position === 'unknown' ? ' selected' : '') + '>Unknown Position</option>' +
+                '</select>' +
+              '</div>' +
             '</div>'
           );
         }).join('');
