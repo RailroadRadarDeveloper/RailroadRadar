@@ -209,14 +209,14 @@ describe('train report appreciation hearts', () => {
   it('lets an eligible user add one heart credited to the original reporter', async () => {
     const ref = as('bob').doc('reportHearts/heartable_bob');
     await ok(ref.set({ reportId: 'heartable', uid: 'bob', ownerUid: 'alice', createdAt: now() }));
-    await no(ref.set({ uid: 'bob', ownerUid: 'alice', createdAt: now() }));
+    await no(ref.set({ reportId: 'heartable', uid: 'bob', ownerUid: 'alice', createdAt: now() }));
   });
   it('prevents self-hearts and forged recipients', async () => {
     await no(as('alice').doc('reportHearts/heartable_alice').set({
-      uid: 'alice', ownerUid: 'alice', createdAt: now()
+      reportId: 'heartable', uid: 'alice', ownerUid: 'alice', createdAt: now()
     }));
     await no(as('bob').doc('reportHearts/heartable_bob').set({
-      uid: 'bob', ownerUid: 'bob', createdAt: now()
+      reportId: 'heartable', uid: 'bob', ownerUid: 'bob', createdAt: now()
     }));
   });
   it('prevents anonymous, unverified, banned and report-held users', async () => {
@@ -241,7 +241,7 @@ describe('train report appreciation hearts', () => {
   });
   it('allows a deleteReports admin to clean up hearts when deleting a report', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await ctx.firestore().doc('reportHearts/heartable_bob').set({ uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
+      await ctx.firestore().doc('reportHearts/heartable_bob').set({ reportId: 'heartable', uid: 'bob', ownerUid: 'alice', createdAt: Timestamp.now() });
     });
     await ok(as('admin').doc('reportHearts/heartable_bob').delete());
   });
