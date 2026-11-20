@@ -7510,3 +7510,12 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
     max-width: 320px;
   }
 }
+
+/* Report appreciation */
+.rr-report-heart-row{display:flex;align-items:center;margin-top:7px;}
+.rr-report-heart{display:inline-flex;align-items:center;gap:5px;border:1px solid #d9dce7;border-radius:999px;background:#fff;color:#07093e;padding:5px 10px;font:inherit;font-size:12px;font-weight:600;line-height:1.2;cursor:pointer;}
+.rr-report-heart:hover:not(:disabled){border-color:#c34b69;background:#fff7f9;}
+.rr-report-heart.is-active{color:#b4234d;border-color:#e7a8b8;background:#fff4f6;}
+.rr-report-heart:disabled{opacity:.65;cursor:default;}
+.rr-report-heart-icon{font-size:15px;line-height:1;color:#b4234d;}
+.rr-report-heart-count{font-variant-numeric:tabular-nums;min-width:1ch;}

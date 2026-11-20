@@ -1840,7 +1840,14 @@
         // Remove the live report so its contributor entries no longer count toward
         // report points or the weekly leaderboard. Keep reportAudit as the permanent
         // admin-only record of who contributed to the deleted report.
-        await db.collection('trainReports').doc(docId).delete();
+        const reportRef = db.collection('trainReports').doc(docId);
+        const heartsSnap = await db.collection('reportHearts').where('reportId', '==', docId).get();
+        for (let i = 0; i < heartsSnap.docs.length; i += 450) {
+          const batch = db.batch();
+          heartsSnap.docs.slice(i, i + 450).forEach(function(doc) { batch.delete(doc.ref); });
+          await batch.commit();
+        }
+        await reportRef.delete();
         showNotification('Report deleted');
         try { await logUserAction('admin_delete_report', 'Deleted report ' + docId); } catch (_) {}
         await loadAdminReports();
@@ -3832,6 +3839,7 @@
     }
     /* Admin points ledger: live report credits stay on trainReports; manual adjustments are immutable. */
     let adminPointReports = [];
+    let adminPointHearts = Object.create(null);
     let adminPointAdjustments = [];
     let adminPointAccounts = [];
     function adminPointUid(a) { return String((a && (a.uid || a.id)) || '').trim(); }
@@ -3865,12 +3873,13 @@
         return;
       }
       const acct = adminPointAccounts.find(function(a) { return adminPointUid(a) === uid; }) || {};
-      const earned = adminPointReportCount(uid);
+      const earned = adminPointReportCount(uid) * 5;
+      const heartPoints = (Number(adminPointHearts[uid]) || 0) * 2;
       const adjustments = adminPointAdjustments.filter(function(a) { return String(a.uid || '') === uid; });
       const manual = adjustments.reduce(function(n, a) { return n + Number(a.pointsDelta || 0); }, 0);
       if (summary) summary.innerHTML = '<strong>' + escapeHtmlLite(acct.displayName || acct.email || uid) + '</strong>' +
-        '<div class="meta">Report-earned points: <strong>' + earned.toLocaleString() + '</strong> · Manual adjustments: <strong>' + (manual > 0 ? '+' : '') + manual.toLocaleString() + '</strong></div>' +
-        '<div style="margin-top:6px;font-size:18px;font-weight:700;color:var(--ink);">Adjusted total: ' + (earned + manual).toLocaleString() + ' points</div>' +
+        '<div class="meta">Report-earned points: <strong>' + earned.toLocaleString() + '</strong> · Appreciation points: <strong>' + heartPoints.toLocaleString() + '</strong> · Manual adjustments: <strong>' + (manual > 0 ? '+' : '') + manual.toLocaleString() + '</strong></div>' +
+        '<div style="margin-top:6px;font-size:18px;font-weight:700;color:var(--ink);">Adjusted total: ' + (earned + heartPoints + manual).toLocaleString() + ' points</div>' +
         '<div class="meta"><code>' + escapeHtmlLite(uid) + '</code></div>';
       adjustments.sort(function(a, b) { return adminTsSeconds(b.createdAt) - adminTsSeconds(a.createdAt); });
       if (history) history.innerHTML = adjustments.length ? adjustments.map(function(a) {
@@ -3886,12 +3895,18 @@
       if (!db) { if (status) status.textContent = 'Firestore unavailable.'; return; }
       try {
         if (!adminAccountsCache.length) await loadAdminAccounts();
-        const [reportsSnap, adjustmentsSnap] = await Promise.all([
+        const [reportsSnap, adjustmentsSnap, heartsSnap] = await Promise.all([
           db.collection('trainReports').get(),
-          db.collection('reportPointAdjustments').get()
+          db.collection('reportPointAdjustments').get(),
+          db.collection('reportHearts').get()
         ]);
         adminPointReports = [];
         reportsSnap.forEach(function(doc) { adminPointReports.push(doc.data() || {}); });
+        adminPointHearts = Object.create(null);
+        heartsSnap.forEach(function(doc) {
+          const ownerUid = String((doc.data() || {}).ownerUid || '');
+          if (ownerUid) adminPointHearts[ownerUid] = (adminPointHearts[ownerUid] || 0) + 1;
+        });
         adminPointAdjustments = [];
         adjustmentsSnap.forEach(function(doc) { adminPointAdjustments.push(Object.assign({ id: doc.id }, doc.data() || {})); });
         const accounts = new Map();
@@ -3904,6 +3919,9 @@
             const uid = String((c && c.uid) || '');
             if (uid && !accounts.has(uid)) accounts.set(uid, { uid: uid, displayName: c.label || uid });
           });
+        });
+        Object.keys(adminPointHearts).forEach(function(uid) {
+          if (!accounts.has(uid)) accounts.set(uid, { uid: uid, displayName: uid });
         });
         adminPointAccounts = Array.from(accounts.values()).sort(function(a, b) {
           return String(a.displayName || a.email || a.uid).localeCompare(String(b.displayName || b.email || b.uid));
