@@ -582,7 +582,9 @@
       return n * RR_POINTS_PER_REPORT + s.heartCount * RR_POINTS_PER_HEART;
     }
     function paintHeaderReportPoints(stats) {
-      const pts = reportPointsFromStats(stats);
+      const normalized = normalizeReportStats(stats);
+      const reportCount = Math.max(Number(normalized.reportCount) || 0, Object.keys(normalized.trainIds || {}).length);
+      const pts = reportPointsFromStats(normalized);
       const el = document.getElementById('header-report-points');
       if (el) {
         el.textContent = String(pts);
@@ -592,7 +594,7 @@
       }
       const acctPts = document.getElementById('account-report-points');
       if (acctPts) {
-        acctPts.textContent = pts + ' points (' + (n * RR_POINTS_PER_REPORT) + ' reports + ' + (s.heartCount * RR_POINTS_PER_HEART) + ' appreciation)';
+        acctPts.textContent = pts + ' points (' + (reportCount * RR_POINTS_PER_REPORT) + ' reports + ' + (normalized.heartCount * RR_POINTS_PER_HEART) + ' appreciation)';
       }
     }
     function paintAccountReportStats(stats) {
@@ -10341,6 +10343,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function rrRenderHeartAction(rep) {
         if (!rep || !rep.id || !db) return '';
         const reportId = String(rep.id), ownerUid = rrHeartOwnerUid(rep);
+        if (!ownerUid) return '';
         const safeId = escapeHtmlLite(reportId), safeOwner = escapeHtmlLite(ownerUid);
         const cached = rrReportHeartCache[reportId] || { count: 0, mine: false, loaded: false, loading: false };
         const user = currentUser || (auth && auth.currentUser) || null;
