@@ -10338,7 +10338,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
 
       // Report appreciation: one heart per eligible account; points belong to the original reporter.
       const rrReportHeartCache = Object.create(null);
-      var RR_POINTS_PER_HEART = 2;
       function rrHeartOwnerUid(rep) { return String((rep && (rep.firstReportedByUid || rep.reportedByUid)) || '').trim(); }
       function rrRenderHeartAction(rep) {
         if (!rep || !rep.id || !db) return '';
@@ -10394,10 +10393,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (existing.exists) await ref.delete();
           else await ref.set({ reportId: reportId, uid: user.uid, ownerUid: ownerUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
           await rrLoadReportHeartState(reportId, true);
-          if (currentUserSettings && currentUserSettings.reportStats) {
-            currentUserSettings.reportStats.heartCount = Math.max(0, Number(currentUserSettings.reportStats.heartCount || 0) + (existing.exists ? -1 : 1));
-            paintAccountReportStats(currentUserSettings.reportStats);
-          }
         } catch (e) {
           console.error('[report-hearts] update failed', e);
           showNotification((e && e.code === 'permission-denied') ? 'You cannot appreciate your own report, or your account is not eligible.' : 'Could not update appreciation. Please try again.', 'error');
