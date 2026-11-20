@@ -3873,7 +3873,7 @@
         return;
       }
       const acct = adminPointAccounts.find(function(a) { return adminPointUid(a) === uid; }) || {};
-      const earned = adminPointReportCount(uid);
+      const earned = adminPointReportCount(uid) * 5;
       const heartPoints = (Number(adminPointHearts[uid]) || 0) * 2;
       const adjustments = adminPointAdjustments.filter(function(a) { return String(a.uid || '') === uid; });
       const manual = adjustments.reduce(function(n, a) { return n + Number(a.pointsDelta || 0); }, 0);
