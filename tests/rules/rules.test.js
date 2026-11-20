@@ -207,9 +207,9 @@ describe('train report appreciation hearts', () => {
     });
   });
   it('lets an eligible user add one heart credited to the original reporter', async () => {
-    await ok(as('bob').doc('trainReports/heartable/hearts/bob').set({
-      uid: 'bob', ownerUid: 'alice', createdAt: now()
-    }));
+    const ref = as('bob').doc('trainReports/heartable/hearts/bob');
+    await ok(ref.set({ uid: 'bob', ownerUid: 'alice', createdAt: now() }));
+    await no(ref.set({ uid: 'bob', ownerUid: 'alice', createdAt: now() }));
   });
   it('prevents self-hearts and forged recipients', async () => {
     await no(as('alice').doc('trainReports/heartable/hearts/alice').set({
@@ -225,6 +225,10 @@ describe('train report appreciation hearts', () => {
     await no(as('unverified').doc('trainReports/heartable/hearts/unverified').set(heart('unverified')));
     await no(as('banned').doc('trainReports/heartable/hearts/banned').set(heart('banned')));
     await no(as('bannedMail').doc('trainReports/heartable/hearts/bannedMail').set(heart('bannedMail')));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('reportHold/ver').set({ required: true });
+    });
+    await no(as('ver').doc('trainReports/heartable/hearts/ver').set(heart('ver')));
     await no(as('alice').doc('trainReports/heartable/hearts/alice').set(heart('alice')));
   });
   it('allows a user to remove their own heart but not update or remove another user\'s', async () => {
