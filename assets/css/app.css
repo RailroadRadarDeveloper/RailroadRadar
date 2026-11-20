@@ -5548,7 +5548,7 @@
     .header-right .header-auth { flex-shrink: 0; margin-left: 8px; }
     .rr-mobile-nav{display:none;flex-direction:column;gap:4px}
     .rr-mobile-nav a{text-decoration:none}
-    #btn-report-train-menu{display:none}
+    #btn-report-train-menu{display:block}
     @media (max-width: 980px){
       .rr-site-nav,#btn-report-train-header{display:none !important}
       .rr-mobile-nav{display:flex}
