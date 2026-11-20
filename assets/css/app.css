@@ -7491,3 +7491,22 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .rr-multi-loco-marker .rr-multi-loco-marker__units {
   display: none !important;
 }
+
+
+
+
+/* Consist editor: use the available desktop width without changing the compact phone layout. */
+@media (min-width: 760px) {
+  #report-train-modal .rr-modal {
+    width: min(780px, calc(100vw - 64px));
+  }
+  #report-train-modal .rr-modal-body {
+    padding: 20px 24px;
+  }
+  #report-train-modal .report-loco-row {
+    padding: 14px 16px;
+  }
+  #report-train-modal .report-loco-position-wrap {
+    max-width: 320px;
+  }
+}

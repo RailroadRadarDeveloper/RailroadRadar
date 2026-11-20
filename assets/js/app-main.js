@@ -10736,7 +10736,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               locoType: L.locoType ? String(L.locoType) : '',
               locoIconUrl: assetIconOrNull(L.locoIconUrl),
               specialOverride: !!L.specialOverride,
-              customLoco: !!L.customLoco
+              customLoco: !!L.customLoco,
+              consistPosition: ['leading', 'middle', 'trailing', 'unknown'].indexOf(L.consistPosition) >= 0 ? L.consistPosition : 'unknown'
             };
           });
           // Keep legacy single/dual fields in sync with first/second for older readers
@@ -10865,7 +10866,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         return docId;
       }
       const REPORT_LOCO_MAX = 5;
-      let reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
+      let reportLocoSlots = [{ rosterId: '', customId: '', locoType: '', position: 'unknown' }];
 
       function reportLocoTypeOptionsHtml(selected, agency) {
         const a = normalizeAgency(agency || ((document.getElementById('report-agency') || {}).value) || 'mbta');
@@ -10895,7 +10896,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const roster = ((document.getElementById('report-unit-select-' + idx) || {}).value || '').trim();
           const custom = ((document.getElementById('report-custom-vehicle-' + idx) || {}).value || '').trim();
           const type = ((document.getElementById('report-loco-type-' + idx) || {}).value || '').trim();
-          next.push({ rosterId: roster, customId: custom, locoType: type });
+          const position = ((document.getElementById('report-loco-position-' + idx) || {}).value || 'unknown').trim();
+          next.push({ rosterId: roster, customId: custom, locoType: type, position: position });
         });
         if (next.length) reportLocoSlots = next;
       }
@@ -10926,9 +10928,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!reportLocoSlots.length) reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
         if (reportLocoSlots.length > REPORT_LOCO_MAX) reportLocoSlots = reportLocoSlots.slice(0, REPORT_LOCO_MAX);
         list.innerHTML = reportLocoSlots.map(function(slot, i) {
-          const title = (i === 0)
-            ? ('Locomotive 1 (used for map icon)')
-            : ('Locomotive ' + (i + 1));
+          const title = 'Equipment ' + (i + 1);
+          const position = slot.position || 'unknown';
           const unitLabel = 'Special Unit (Roster)';
           const customLabel = isRosterSearch ? 'Locomotive Number' : 'Or Custom Vehicle ID';
           const customPh = isMbta ? 'e.g. 1030 or RSTX' : (isAmtrak ? 'Search Amtrak roster by number' : (isLirr ? 'Search LIRR diesel roster by number' : 'Optional — custom vehicle ID'));
@@ -10944,7 +10945,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   '<button type="button" data-loco-act="down" data-idx="' + i + '"' + (canDown ? '' : ' disabled') + ' title="Move down">↓</button>' +
                   '<button type="button" class="report-loco-remove" data-loco-act="remove" data-idx="' + i + '"' + (canRemove ? '' : ' disabled') + '>Remove</button>' +
                 '</div>' +
-              '</div>' +
+            '</div>' +
               (isRosterSearch ? '' : (
                 '<label for="report-unit-select-' + i + '">' + unitLabel + '</label>' +
                 '<select id="report-unit-select-' + i + '">' + reportRosterOptionsHtml(agency, slot.rosterId || '') + '</select>'
@@ -10960,6 +10961,15 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                     '<label for="report-loco-type-' + i + '">Locomotive Type</label>' +
                     '<select id="report-loco-type-' + i + '">' + reportLocoTypeOptionsHtml(slot.locoType || '') + '</select>' +
                   '</div>')) +
+              '<div class="report-loco-position-wrap">' +
+                '<label for="report-loco-position-' + i + '">Position in consist</label>' +
+                '<select class="report-loco-position" id="report-loco-position-' + i + '">' +
+                  '<option value="leading"' + (position === 'leading' ? ' selected' : '') + '>Leading End</option>' +
+                  '<option value="middle"' + (position === 'middle' ? ' selected' : '') + '>Middle of Consist</option>' +
+                  '<option value="trailing"' + (position === 'trailing' ? ' selected' : '') + '>Trailing End</option>' +
+                  '<option value="unknown"' + (position === 'unknown' ? ' selected' : '') + '>Unknown Position</option>' +
+                '</select>' +
+              '</div>' +
             '</div>'
           );
         }).join('');
@@ -10967,14 +10977,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           addBtn.style.display = reportLocoSlots.length >= REPORT_LOCO_MAX ? 'none' : '';
           addBtn.textContent = reportLocoSlots.length >= REPORT_LOCO_MAX
             ? ''
-            : ('+ Add another locomotive (' + reportLocoSlots.length + '/' + REPORT_LOCO_MAX + ')');
+            : ('+ Add equipment (' + reportLocoSlots.length + '/' + REPORT_LOCO_MAX + ')');
         }
         updateReportLocoTypeVisibility();
       }
       function addReportLocoSlot() {
         syncReportLocoSlotsFromDom();
         if (reportLocoSlots.length >= REPORT_LOCO_MAX) return;
-        reportLocoSlots.push({ rosterId: '', customId: '', locoType: '' });
+        reportLocoSlots.push({ rosterId: '', customId: '', locoType: '', position: 'unknown' });
         renderReportLocosList();
       }
       function moveReportLocoSlot(idx, dir) {
@@ -11224,7 +11234,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (tnWrap) tnWrap.style.display = 'none';
           if (mbtaVehWrap) mbtaVehWrap.style.display = '';
           if (hint) {
-            hint.textContent = 'Type a locomotive number. The type comes from the roster when it is listed. The first locomotive sets the map icon.';
+            hint.textContent = 'Add the equipment you can identify, then choose where it is in the consist. You do not need to know which end has the locomotive.';
           }
           syncReportLocoSlotsFromDom();
           renderReportLocosList();
@@ -11247,9 +11257,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const future = isFutureServiceDate(sd);
         if (hint) {
           if (future) {
-            hint.textContent = "We'll show this pairing under Recent Reports until that service day. First locomotive sets the icon.";
+            hint.textContent = 'Add the equipment you can identify and mark each position as Leading End, Middle, Trailing End, or Unknown.';
           } else {
-            hint.textContent = 'These units are linked to that trip on the selected date. First locomotive sets the map icon.';
+            hint.textContent = 'Add the equipment you can identify and mark each position as Leading End, Middle, Trailing End, or Unknown.';
           }
         }
         syncReportLocoSlotsFromDom();
@@ -11360,6 +11370,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const r = resolveSlotToLoco(agency, reportLocoSlots[i]);
           if (!r) continue;
           if (r.error) { setErr(r.error); return; }
+          r.consistPosition = reportLocoSlots[i].position || 'unknown';
           resolved.push(r);
         }
         if (!resolved.length && !acelaEquipment) {
