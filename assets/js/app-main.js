@@ -559,6 +559,7 @@
       s.trainIds = (raw.trainIds && typeof raw.trainIds === 'object') ? Object.assign({}, raw.trainIds) : {};
       s.locoCounts = (raw.locoCounts && typeof raw.locoCounts === 'object') ? Object.assign({}, raw.locoCounts) : {};
       s.reportCount = Number(raw.reportCount) || 0;
+      s.heartCount = Math.max(0, Number(raw.heartCount) || 0);
       s.seeded = raw.seeded === true;
       return s;
     }
@@ -571,26 +572,27 @@
       return best ? { id: best, n: n } : null;
     }
     var RR_POINTS_PER_REPORT = 5;
+    var RR_POINTS_PER_HEART = 2;
     function reportPointsFromStats(stats) {
       const s = normalizeReportStats(stats);
       const n = Math.max(
         Number(s.reportCount) || 0,
         Object.keys(s.trainIds || {}).length || 0
       );
-      return n * RR_POINTS_PER_REPORT;
+      return n * RR_POINTS_PER_REPORT + s.heartCount * RR_POINTS_PER_HEART;
     }
     function paintHeaderReportPoints(stats) {
       const pts = reportPointsFromStats(stats);
       const el = document.getElementById('header-report-points');
       if (el) {
         el.textContent = String(pts);
-        el.title = pts + ' report points (' + RR_POINTS_PER_REPORT + ' per report)';
+        el.title = pts + ' total points (' + RR_POINTS_PER_REPORT + ' per report; ' + RR_POINTS_PER_HEART + ' per heart)';
         if (pts > 0) el.hidden = false;
         else el.hidden = true;
       }
       const acctPts = document.getElementById('account-report-points');
       if (acctPts) {
-        acctPts.textContent = pts + ' report points';
+        acctPts.textContent = pts + ' points (' + (n * RR_POINTS_PER_REPORT) + ' reports + ' + (s.heartCount * RR_POINTS_PER_HEART) + ' appreciation)';
       }
     }
     function paintAccountReportStats(stats) {
@@ -646,6 +648,13 @@
         stats.seeded = true;
         if (currentUserSettings) currentUserSettings.reportStats = stats;
         await persistReportStats(uid, stats);
+      }
+      if (db) {
+        try {
+          const hearts = await db.collectionGroup('hearts').where('ownerUid', '==', uid).get();
+          stats.heartCount = hearts.size;
+          if (currentUserSettings) currentUserSettings.reportStats = stats;
+        } catch (e) { console.warn('[report-hearts] Could not refresh earned heart points', e); }
       }
       paintAccountReportStats(stats);
       return stats;
@@ -10324,6 +10333,77 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         } catch (_) {}
         return null;
       }
+
+      // Report appreciation: one heart per eligible account; points belong to the original reporter.
+      const rrReportHeartCache = Object.create(null);
+      var RR_POINTS_PER_HEART = 2;
+      function rrHeartOwnerUid(rep) { return String((rep && (rep.firstReportedByUid || rep.reportedByUid)) || '').trim(); }
+      function rrRenderHeartAction(rep) {
+        if (!rep || !rep.id || !db) return '';
+        const reportId = String(rep.id), ownerUid = rrHeartOwnerUid(rep);
+        const safeId = escapeHtmlLite(reportId), safeOwner = escapeHtmlLite(ownerUid);
+        const cached = rrReportHeartCache[reportId] || { count: 0, mine: false, loaded: false, loading: false };
+        const user = currentUser || (auth && auth.currentUser) || null;
+        const self = !!(user && ownerUid && user.uid === ownerUid);
+        const html = '<div class="rr-report-heart-row"><button type="button" class="rr-report-heart' + (cached.mine ? ' is-active' : '') + '"' +
+          ' data-rr-heart="' + safeId + '" data-owner-uid="' + safeOwner + '"' + (self ? ' disabled aria-disabled="true"' : '') +
+          ' onclick="rrToggleReportHeart(this)"><span class="rr-report-heart-icon" aria-hidden="true">' + (cached.mine ? '♥' : '♡') + '</span> ' +
+          '<span class="rr-report-heart-label">' + (cached.mine ? 'Appreciated' : 'Appreciate') + '</span> <span class="rr-report-heart-count">' + Number(cached.count || 0) + '</span></button></div>';
+        if (!cached.loaded && !cached.loading) rrLoadReportHeartState(reportId);
+        return html;
+      }
+      function rrUpdateHeartButtons(reportId) {
+        const state = rrReportHeartCache[reportId] || { count: 0, mine: false };
+        document.querySelectorAll('[data-rr-heart]').forEach(function(btn) {
+          if (btn.getAttribute('data-rr-heart') !== reportId) return;
+          const user = currentUser || (auth && auth.currentUser) || null, owner = btn.getAttribute('data-owner-uid') || '';
+          const self = !!(user && owner && user.uid === owner);
+          btn.classList.toggle('is-active', !!state.mine); btn.disabled = self;
+          btn.setAttribute('aria-disabled', self ? 'true' : 'false');
+          const icon = btn.querySelector('.rr-report-heart-icon'), label = btn.querySelector('.rr-report-heart-label'), count = btn.querySelector('.rr-report-heart-count');
+          if (icon) icon.textContent = state.mine ? '♥' : '♡';
+          if (label) label.textContent = state.mine ? 'Appreciated' : 'Appreciate';
+          if (count) count.textContent = String(Number(state.count || 0));
+        });
+      }
+      async function rrLoadReportHeartState(reportId, force) {
+        if (!db || !reportId) return;
+        const old = rrReportHeartCache[reportId] || {};
+        if (old.loading || (!force && old.loaded && Date.now() - (old.at || 0) < 30000)) return;
+        rrReportHeartCache[reportId] = Object.assign({}, old, { loading: true });
+        try {
+          const snap = await db.collection('trainReports').doc(reportId).collection('hearts').get();
+          const user = currentUser || (auth && auth.currentUser) || null;
+          rrReportHeartCache[reportId] = { count: snap.size, mine: !!(user && snap.docs.some(function(d) { return d.id === user.uid; })), loaded: true, loading: false, at: Date.now() };
+          rrUpdateHeartButtons(reportId);
+        } catch (e) { rrReportHeartCache[reportId] = Object.assign({}, old, { loading: false }); console.warn('[report-hearts] load failed', e); }
+      }
+      async function rrToggleReportHeart(button) {
+        if (!button || !db) return;
+        const user = currentUser || (auth && auth.currentUser) || null;
+        if (!user) { if (typeof openSignupPrompt === 'function') openSignupPrompt(); else showNotification('Sign in to appreciate a report.', 'error'); return; }
+        const reportId = button.getAttribute('data-rr-heart') || '', ownerUid = button.getAttribute('data-owner-uid') || '';
+        if (!reportId || !ownerUid || ownerUid === user.uid || button.dataset.busy === '1') return;
+        button.dataset.busy = '1'; button.disabled = true;
+        try {
+          const ref = db.collection('trainReports').doc(reportId).collection('hearts').doc(user.uid);
+          const existing = await ref.get();
+          if (existing.exists) await ref.delete();
+          else await ref.set({ uid: user.uid, ownerUid: ownerUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          await rrLoadReportHeartState(reportId, true);
+          if (currentUserSettings && currentUserSettings.reportStats) {
+            currentUserSettings.reportStats.heartCount = Math.max(0, Number(currentUserSettings.reportStats.heartCount || 0) + (existing.exists ? -1 : 1));
+            paintAccountReportStats(currentUserSettings.reportStats);
+          }
+        } catch (e) {
+          console.error('[report-hearts] update failed', e);
+          showNotification((e && e.code === 'permission-denied') ? 'You cannot appreciate your own report, or your account is not eligible.' : 'Could not update appreciation. Please try again.', 'error');
+        } finally {
+          button.dataset.busy = '0'; button.disabled = ownerUid === user.uid;
+        }
+      }
+      window.rrToggleReportHeart = rrToggleReportHeart;
+
       function buildLocoReportPairingBlockHtml(agency, opts) {
         opts = opts || {};
         const a = normalizeAgency(agency || 'mbta');
@@ -10405,7 +10485,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             '<div class="loco-report-unit">' + escFn(unit) + '</div>' +
             (paintLine ? ('<div class="loco-report-meta">' + escFn(paintLine) + '</div>') : '') +
             (meta ? ('<div class="loco-report-meta">' + meta + '</div>') : '') +
-            (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '');
+            (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '') +
+            rrRenderHeartAction(rep);
         }
         // Acela popups fold the unit into the one Reported Equipment box (assets/js/acela-equipment.js).
         if (opts.acelaMerge) {
@@ -10419,7 +10500,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const comment = String(rep.comment || '').trim();
             unitHtml = '<div class="acela-equip-pop-unit">Unit ' + escFn(formatTrainReportLocoLabel(rep)) + '</div>' +
               (meta ? ('<div class="loco-report-meta">' + meta + '</div>') : '') +
-              (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '');
+              (comment ? ('<div class="loco-report-comment">“' + escFn(comment) + '”</div>') : '') +
+              rrRenderHeartAction(rep);
           }
           return { hasUnit: !!(hasUnit && !trainReportsLoadFailed), unitHtml: unitHtml, onclick: onclick };
         }
