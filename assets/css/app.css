@@ -7493,6 +7493,8 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 }
 
 
+
+
 /* Consist editor: use the available desktop width without changing the compact phone layout. */
 @media (min-width: 760px) {
   #report-train-modal .rr-modal {
@@ -7502,28 +7504,9 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
     padding: 20px 24px;
   }
   #report-train-modal .report-loco-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(190px, 240px);
-    column-gap: 20px;
-    align-items: end;
     padding: 14px 16px;
   }
-  #report-train-modal .report-loco-row-head {
-    grid-column: 1 / -1;
-  }
-  #report-train-modal .report-loco-row > label[for^="report-custom-vehicle-"] {
-    grid-column: 1;
-  }
-  #report-train-modal .report-loco-row > .rr-report-combo,
-  #report-train-modal .report-loco-row > input[id^="report-custom-vehicle-"] {
-    grid-column: 1;
-  }
-  #report-train-modal .report-loco-row > label[for^="report-loco-position-"] {
-    grid-column: 2;
-    grid-row: 2;
-  }
-  #report-train-modal .report-loco-row > select[id^="report-loco-position-"] {
-    grid-column: 2;
-    grid-row: 3;
+  #report-train-modal .report-loco-position-wrap {
+    max-width: 320px;
   }
 }
