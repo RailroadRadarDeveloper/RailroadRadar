@@ -10392,7 +10392,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const ref = db.collection('reportHearts').doc(reportId + '_' + user.uid);
           const existing = await ref.get();
           if (existing.exists) await ref.delete();
-          else await ref.set({ uid: user.uid, ownerUid: ownerUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          else await ref.set({ reportId: reportId, uid: user.uid, ownerUid: ownerUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
           await rrLoadReportHeartState(reportId, true);
           if (currentUserSettings && currentUserSettings.reportStats) {
             currentUserSettings.reportStats.heartCount = Math.max(0, Number(currentUserSettings.reportStats.heartCount || 0) + (existing.exists ? -1 : 1));
