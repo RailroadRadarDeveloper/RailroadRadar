@@ -7519,20 +7519,3 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .rr-report-heart:disabled{opacity:.65;cursor:default;}
 .rr-report-heart-icon{font-size:15px;line-height:1;color:#b4234d;}
 .rr-report-heart-count{font-variant-numeric:tabular-nums;min-width:1ch;}
-
-/* RailroadRadar appreciation icon supplied by the project owner. */
-.rr-report-heart-icon{
-  display:inline-block;
-  width:19px;
-  height:19px;
-  flex:0 0 19px;
-  overflow:hidden;
-  color:transparent !important;
-  font-size:0 !important;
-  line-height:0;
-  vertical-align:middle;
-  background-image:url("https://i.postimg.cc/rm9qScMC/My-Trips-%2813%29.png");
-  background-repeat:no-repeat;
-  background-position:center;
-  background-size:contain;
-}

@@ -2086,6 +2086,68 @@ async function warmLiveCaches(env) {
   await Promise.allSettled(jobs);
 }
 __name(warmLiveCaches, "warmLiveCaches");
+
+async function collectRosterHistory(env) {
+  if (!env.PUSH_SUBS || !env.MBTA_API_KEY) return;
+  const url = new URL(MBTA_BASE + "/vehicles");
+  url.searchParams.set("filter[route_type]", "2");
+  url.searchParams.set("include", "trip,route");
+  url.searchParams.set("fields[vehicle]", "label,updated_at");
+  url.searchParams.set("fields[trip]", "name,headsign");
+  url.searchParams.set("fields[route]", "long_name,short_name");
+  const res = await fetch(url.toString(), { headers: { "x-api-key": env.MBTA_API_KEY } });
+  if (!res.ok) throw new Error("MBTA vehicle feed " + res.status);
+  const feed = await res.json();
+  const included = {};
+  (feed.included || []).forEach(x => { included[x.type + ":" + x.id] = x; });
+  const now = Math.floor(Date.now() / 1000);
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
+  const today = p.year + "-" + p.month + "-" + p.day;
+  const days = [];
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  let data = {};
+  try { data = JSON.parse(await env.PUSH_SUBS.get("public-roster:v1") || "{}") || {}; } catch (_) {}
+  const vehicles = data.vehicles || {};
+  (feed.data || []).forEach(v => {
+    const id = String(v.id || "").trim();
+    if (!id) return;
+    const a = v.attributes || {};
+    const tripId = v.relationships && v.relationships.trip && v.relationships.trip.data && v.relationships.trip.data.id;
+    const routeId = v.relationships && v.relationships.route && v.relationships.route.data && v.relationships.route.data.id;
+    const trip = tripId && included["trip:" + tripId];
+    const route = routeId && included["route:" + routeId];
+    const ta = trip && trip.attributes || {}, ra = route && route.attributes || {};
+    const train = String(ta.name || "").trim();
+    if (!train) return;
+    const updated = a.updated_at ? Math.floor(Date.parse(a.updated_at) / 1000) : now;
+    const seen = Number.isFinite(updated) ? Math.min(now, updated) : now;
+    const vehicle = vehicles[id] || { label: a.label || id, lastSeen: seen, days: {} };
+    vehicle.label = a.label || vehicle.label || id;
+    vehicle.lastSeen = Math.max(vehicle.lastSeen || 0, seen);
+    const day = today;
+    const list = vehicle.days[day] || (vehicle.days[day] = []);
+    const old = list.find(x => x.tripId === tripId || x.train === train);
+    if (old) old.lastSeen = Math.max(old.lastSeen || 0, seen);
+    else list.push({ tripId: tripId || "", train, route: routeId || "", headsign: ta.headsign || "", firstSeen: seen, lastSeen: seen });
+    vehicles[id] = vehicle;
+  });
+  Object.keys(vehicles).forEach(id => {
+    Object.keys(vehicles[id].days || {}).forEach(day => { if (days.indexOf(day) < 0) delete vehicles[id].days[day]; });
+    if (!Object.keys(vehicles[id].days || {}).length) delete vehicles[id];
+  });
+  await env.PUSH_SUBS.put("public-roster:v1", JSON.stringify({ generatedAt: now, days, vehicles }), { expirationTtl: 432000 });
+}
+async function readRoster(env, cors) {
+  if (!env.PUSH_SUBS) return jsonResponse({ error: "Roster storage is not configured" }, 503, cors);
+  const raw = await env.PUSH_SUBS.get("public-roster:v1");
+  if (!raw) return jsonResponse({ generatedAt: Math.floor(Date.now() / 1000), days: [], vehicles: {} }, 200, { ...cors, "Cache-Control": "public, max-age=60" });
+  return new Response(raw, { status: 200, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=60" } });
+}
+
 var worker_default = {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -2131,7 +2193,7 @@ var worker_default = {
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405, headers: cors });
     }
-    if (path === "/health" || path === "/") {
+    if (path === "/api/roster") {\n      try { return await readRoster(env, cors); } catch (_) { return jsonResponse({ error: "Roster unavailable" }, 503, cors); }\n    }\n    if (path === "/health" || path === "/") {
       return jsonResponse(
         {
           ok: true,
