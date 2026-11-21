@@ -2193,13 +2193,21 @@ var worker_default = {
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405, headers: cors });
     }
-    if (path === "/api/roster") {\n      try { return await readRoster(env, cors); } catch (_) { return jsonResponse({ error: "Roster unavailable" }, 503, cors); }\n    }\n    if (path === "/health" || path === "/") {
+    if (path === "/api/roster") {
+      try {
+        return await readRoster(env, cors);
+      } catch (_) {
+        return jsonResponse({ error: "Roster unavailable" }, 503, cors);
+      }
+    }
+    if (path === "/health" || path === "/") {
       return jsonResponse(
         {
           ok: true,
           service: "railroadradar-proxy",
           routes: [
             "/health",
+            "/api/roster",
             "/api/mbta/*",
             "/api/mta/mnr",
             "/api/mta/lirr",
@@ -2357,6 +2365,10 @@ var worker_default = {
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
+      try {
+        await collectRosterHistory(env);
+      } catch (_) {
+      }
       try {
         await warmLiveCaches(env);
       } catch (_) {
