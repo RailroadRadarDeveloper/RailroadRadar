@@ -4379,6 +4379,7 @@
         sign_up: 'Signed up',
         sign_in: 'Signed in',
         sign_out: 'Signed out',
+        appreciation: 'Appreciated a report',
         delete_account: 'Deleted account',
         save_settings: 'Saved settings',
         submit_report: 'Submitted report',
@@ -4502,6 +4503,34 @@
           else if (row.at && row.at.seconds) atMs = row.at.seconds * 1000;
           else if (row.at) atMs = Date.parse(row.at) || 0;
           if (!atMs || atMs >= cutMs) window._adminAuditCache.push(row);
+        });
+        // Appreciation hearts are stored separately from actionLog so they remain
+        // discoverable in the admin audit view without exposing extra public UI.
+        try {
+          const heartsSnap = await db.collection('reportHearts')
+            .where('createdAt', '>=', cutoff).orderBy('createdAt', 'desc').limit(500).get();
+          heartsSnap.forEach(function(doc) {
+            const heart = doc.data() || {};
+            const createdAt = heart.createdAt || null;
+            let atMs = 0;
+            if (createdAt && typeof createdAt.toMillis === 'function') atMs = createdAt.toMillis();
+            else if (createdAt && createdAt.seconds) atMs = createdAt.seconds * 1000;
+            else if (createdAt) atMs = Date.parse(createdAt) || 0;
+            if (atMs && atMs < cutMs) return;
+            window._adminAuditCache.push({
+              id: 'appreciation_' + doc.id,
+              action: 'appreciation',
+              uid: heart.uid || '',
+              at: createdAt,
+              detail: 'Appreciated report ' + (heart.reportId || 'unknown') +
+                '; recipient ' + (heart.ownerUid || 'unknown') + ' received 2 points'
+            });
+          });
+        } catch (heartErr) {
+          console.warn('[admin] appreciation audit load failed', heartErr);
+        }
+        window._adminAuditCache.sort(function(a, b) {
+          return adminTsSeconds(b.at) - adminTsSeconds(a.at);
         });
         renderAdminAuditLog();
       } catch (e) {
