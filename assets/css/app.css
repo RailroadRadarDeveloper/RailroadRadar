@@ -7536,3 +7536,10 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
   background-position:center;
   background-size:contain;
 }
+
+
+/* MyTrips quick-log guidance: keep the first trip action clear without hiding existing advanced controls. */
+html.rr-mytrips-page .trip-log-quick-hint{margin:0 0 10px;padding:9px 11px;border-left:3px solid var(--mt-navy,#07093e);background:var(--mt-bg,#f5f6f8);color:var(--mt-muted,#5b6275);font-size:13px;line-height:1.45;border-radius:0 4px 4px 0}
+html.rr-mytrips-page #trip-log-add-segment{margin:2px 0 8px;min-height:38px}
+html.rr-mytrips-page #trip-log-save{min-width:132px}
+@media(max-width:560px){html.rr-mytrips-page .trip-log-quick-hint{font-size:12px}html.rr-mytrips-page #trip-log-add-segment{width:100%;justify-content:center}}
