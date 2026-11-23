@@ -17155,7 +17155,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           { id: 'mbta', file: rrAssetUrl('/assets/shapes/mbta.json'), fallback: '#800080' },
           { id: 'mnr', file: rrAssetUrl('/assets/shapes/mnr.json'), fallback: '#EE0034' },
           { id: 'lirr', file: rrAssetUrl('/assets/shapes/lirr.json'), fallback: '#0055A4' },
-          { id: 'amtrak', file: rrAssetUrl('/assets/shapes/amtrak.json'), fallback: AMTRAK_LINE_COLOR },
+          { id: 'amtrak', file: rrAssetUrl('/assets/shapes/amtrak.json?v=188f753'), fallback: AMTRAK_LINE_COLOR },
           { id: 'njt', file: rrAssetUrl('/assets/shapes/njt.json'), fallback: '#FF671F' },
           { id: 'ctrail', file: rrAssetUrl('/assets/shapes/ctrail.json'), fallback: CTRAIL_LINE_COLOR },
           { id: 'marc', file: rrAssetUrl('/assets/shapes/marc.json'), fallback: '#FF8000' },
