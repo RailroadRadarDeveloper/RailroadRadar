@@ -13214,7 +13214,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (prov === 'via' || prov === 'via rail' || ps === 'VIA') return true;
         return /^v\d/i.test(String(t.trainNum || '')) || /^v\d/i.test(String(t.trainID || ''));
       }
+      function rrIsBrightlineTrain(t) {
+        if (!t) return false;
+        if (t.isBrightline === true) return true;
+        const hay = [t.provider, t.providerShort, t.routeName, t.route, t.trainName, t.name, t.trainNum, t.trainNumRaw, t.trainID].join(' ');
+        return /brightline/i.test(hay);
+      }
+      function rrAmtrakFeedShown(info) {
+        if (rrIsViaTrain(info)) return !!showVia;
+        if (rrIsBrightlineTrain(info)) return !!showBrightline;
+        return !!showAmtrak;
+      }
       try { window.rrIsViaTrain = rrIsViaTrain; } catch (_) {}
+      try { window.rrIsBrightlineTrain = rrIsBrightlineTrain; } catch (_) {}
       function rrViaDisplayNum(t) {
         const raw = String((t && (t.trainNumRaw || t.trainNum)) || '').replace(/^v/i, '');
         return raw || String((t && t.trainNum) || '');
@@ -14881,14 +14893,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const isVia = rrIsViaTrain(info);
           const special = isVia ? null : getSpecialForVehicle('amtrak', (info.specialUnit && info.specialUnit.vehicleId) || null, info.trainNum);
           const okSpecial = !showOnlySpecial || !!special;
-          if ((isVia ? showVia : showAmtrak) && okSpecial) map.addLayer(m);
+          if (rrAmtrakFeedShown(info) && okSpecial) map.addLayer(m);
           else if (map.hasLayer(m)) map.removeLayer(m);
         });
         if (typeof updateTrainLabelsVisibility === 'function') updateTrainLabelsVisibility();
       }
       // Amtrak: show every live train. Still gated by the Show Amtrak checkbox.
       async function fetchAmtrakTrains() {
-        if (!showAmtrak && !showVia) return;
+        if (!showAmtrak && !showVia && !showBrightline) return;
         const stat = FetchStats.start('Amtrak');
         try {
           const officialAlertsP = fetchAmtrakAlertsByTrain();
@@ -14930,7 +14942,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 hasAlert: amtrakAlert.hasAlert,
                 alertHeader: amtrakAlert.header,
                 officialAlert: officialMsg || '',
-                isVia: isVia
+                isVia: isVia,
+                isBrightline: rrIsBrightlineTrain(t)
               });
               amtrakTrainInfo[vid] = info;
               const icon = rrMultiLocoMarkerIcon('amtrak', null, trainNum, createAmtrakIcon(trainNum, t.statusMsg || t.trainState || '', t));
@@ -14963,7 +14976,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                 }
                 amtrakMarkers[vid] = m;
                 const _as = isVia ? null : (specialUnit || getSpecialForVehicle('amtrak', null, trainNum));
-                if ((isVia ? showVia : showAmtrak) && (!showOnlySpecial || _as) && rrOnlyTrainAllows(amtrakMarkers, vid)) m.addTo(map);
+                if (rrAmtrakFeedShown(info) && (!showOnlySpecial || _as) && rrOnlyTrainAllows(amtrakMarkers, vid)) m.addTo(map);
                 created++;
               }
               amtrakLastSeen[vid] = rrSeenMs(t.updatedAt || t.lastUpdated || t.updated || t.lastVal || t.timestamp, now);
@@ -17839,11 +17852,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (showOnlySpecial && !isSpecialVehicle(vid) && !getSpecialForVehicle('mbta', vid, null)) return;
           pushItem(vid, m);
         });
-        if (showAmtrak || showVia) {
+        if (showAmtrak || showVia || showBrightline) {
           Object.keys(amtrakMarkers).forEach(function(vid) {
             const m = amtrakMarkers[vid];
             const info = amtrakTrainInfo[vid] || {};
-            if (rrIsViaTrain(info) ? !showVia : !showAmtrak) return;
+            if (!rrAmtrakFeedShown(info)) return;
             const special = getSpecialForVehicle('amtrak', (info.specialUnit && info.specialUnit.vehicleId) || null, info.trainNum);
             if (showOnlySpecial && !special) return;
             pushItem(vid, m);
@@ -18264,9 +18277,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             else if (/predeparture|scheduled|not yet/i.test(statusRaw)) statusClass = 'status-scheduled';
             const hasAlert = (typeof amtrakAlertFromTrain === 'function') ? amtrakAlertFromTrain(t).hasAlert : !!t.hasAlert;
             const rowVia = rrIsViaTrain(t);
-            if (rowVia ? !showVia : false) continue;
+            const rowBrightline = rrIsBrightlineTrain(t);
+            if (!rrAmtrakFeedShown(t)) continue;
             res.push({
-              agency: rowVia ? 'VIA Rail' : 'Amtrak', agencyColor: rowVia ? VIA_COLOR : '#003087', id: vid, markerMap: amtrakMarkers,
+              agency: rowVia ? 'VIA Rail' : (rowBrightline ? 'Brightline' : 'Amtrak'), agencyColor: rowVia ? VIA_COLOR : (rowBrightline ? '#FFD100' : '#003087'), id: vid, markerMap: amtrakMarkers,
               routeName: t.routeName || (rowVia ? 'VIA Rail' : 'Amtrak'), trainNum: rowVia ? ('VIA ' + rrViaDisplayNum(t)) : num, dest: rowVia ? (t.destName || t.destCode || '—') : (rrAmtrakCityDest(t.destName, t.destCode) || t.destCode || '—'),
               vehicleLabel: t.trainID || num, shareNum: num, speedMph: t.velocity, stopLabel: 'Next', stopName: t.eventName || t.eventCode || '—',
               statusClass: statusClass, statusText: statusRaw,
@@ -22129,7 +22143,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function startEnabledRailPolls() {
         if (showMbta) startRailPoll('mbta', fetchTrains, RR_MBTA_POLL_MS);
         else stopRailPoll('mbta');
-        if (showAmtrak || showVia) startRailPoll('amtrak', fetchAmtrakTrains, 60000);
+        if (showAmtrak || showVia || showBrightline) startRailPoll('amtrak', fetchAmtrakTrains, 60000);
         else stopRailPoll('amtrak');
         if (showMnr) startRailPoll('mnr', fetchMnrTrains, 25000);
         else stopRailPoll('mnr');
@@ -22162,20 +22176,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           loadEnabledRailStatic();
           try {
             if (agency === 'mbta') { startRailPoll('mbta', fetchTrains, RR_MBTA_POLL_MS); fetchTrains(); }
-            else if (agency === 'amtrak') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
+            else if (agency === 'amtrak' || agency === 'brightline') { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
             else if (agency === 'mnr') { startRailPoll('mnr', fetchMnrTrains, 25000); fetchMnrTrains(); }
             else if (agency === 'lirr') { startRailPoll('lirr', fetchLirrTrains, 25000); fetchLirrTrains(); }
             else if (agency === 'njt') { startRailPoll('njt', fetchNjtTrains, 30000); fetchNjtTrains(); }
             else if (agency === 'marc') { startRailPoll('marc', fetchMarcTrains, 30000); fetchMarcTrains(); }
             else if (agency === 'ctrail') {
               // No dedicated vehicle feed — station/shape visibility only
-            } else if (agency === 'brightline') {
-              // Brightline: route shapes only (no live vehicle feed here)
             }
           } catch (_) {}
         } else {
           if (agency === 'mbta') stopRailPoll('mbta');
-          else if (agency === 'amtrak') { if (!showVia) stopRailPoll('amtrak'); }
+          else if (agency === 'amtrak') { if (!showVia && !showBrightline) stopRailPoll('amtrak'); }
+          else if (agency === 'brightline') { if (!showAmtrak && !showVia) stopRailPoll('amtrak'); }
           else if (agency === 'mnr') stopRailPoll('mnr');
           else if (agency === 'lirr') stopRailPoll('lirr');
           else if (agency === 'njt') stopRailPoll('njt');
@@ -22190,7 +22203,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           lirr: !!showLirr,
           njt: !!showNjt,
           ctrail: !!showCtrail,
-          marc: !!showMarc
+          marc: !!showMarc,
+          brightline: !!showBrightline
         };
         syncPickerDom(current);
         const go = document.getElementById('rr-rail-picker-go');
@@ -22346,7 +22360,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // Lazy: VIA lines are fetched only once VIA is switched on
           if (showVia) loadStaticGtfsShapes();
           if (showVia) { startRailPoll('amtrak', fetchAmtrakTrains, 60000); fetchAmtrakTrains(); }
-          else if (!showAmtrak) stopRailPoll('amtrak');
+          else if (!showAmtrak && !showBrightline) stopRailPoll('amtrak');
         });
       })();
       document.getElementById('show-mnr').addEventListener('change', e => {
@@ -22383,6 +22397,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         blCb.addEventListener('change', e => {
           showBrightline = e.target.checked;
           try { localStorage.setItem('rr_showBrightline', showBrightline ? '1' : '0'); } catch (_) {}
+          try { if (typeof updateAmtrakVisibility === 'function') updateAmtrakVisibility(); } catch (_) {}
           try { if (typeof updateGtfsShapeVisibility === 'function') updateGtfsShapeVisibility(); } catch (_) {}
           if (showBrightline) loadStaticGtfsShapes();
           onMapRailToggle('brightline', showBrightline);
