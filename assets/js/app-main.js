@@ -17149,6 +17149,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           else { if (map.hasLayer(grp)) map.removeLayer(grp); }
         });
       }
+      // Display-only offset to make shared MBTA/Amtrak corridors legible.
+      function rrOffsetSharedRailShape(points, sideMeters) {
+        if (!Array.isArray(points) || points.length < 2 || !sideMeters) return points;
+        const normals = points.map(function(p, i) {
+          const a = points[Math.max(0, i - 1)];
+          const b = points[Math.min(points.length - 1, i + 1)];
+          const midLat = ((Number(a[0]) + Number(b[0])) / 2) * Math.PI / 180;
+          let east = (Number(b[1]) - Number(a[1])) * 111320 * Math.cos(midLat);
+          let north = (Number(b[0]) - Number(a[0])) * 111320;
+          const reverse = Math.abs(east) >= Math.abs(north) ? east < 0 : north < 0;
+          if (reverse) { east = -east; north = -north; }
+          const len = Math.hypot(east, north) || 1;
+          return { east: -north / len, north: east / len };
+        });
+        return points.map(function(p, i) {
+          const a = normals[Math.max(0, i - 1)];
+          const b = normals[Math.min(normals.length - 1, i + 1)];
+          let east = a.east + b.east, north = a.north + b.north;
+          const len = Math.hypot(east, north) || 1;
+          east = east / len * sideMeters; north = north / len * sideMeters;
+          const lat = Number(p[0]);
+          return [lat + north / 111320, Number(p[1]) + east / (111320 * Math.max(0.01, Math.cos(lat * Math.PI / 180)))];
+        });
+      }
       const gtfsShapesRequested = {};
       async function loadStaticGtfsShapes() {
         const agencies = [
@@ -17206,7 +17230,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               const grp = L.layerGroup();
               (rt.polylines || []).forEach(function(pl) {
                 if (!pl || pl.length < 2) return;
-                grp.addLayer(L.polyline(pl, {
+                const displayLine = ag.id === 'mbta' ? rrOffsetSharedRailShape(pl, 2.5) : (ag.id === 'amtrak' ? rrOffsetSharedRailShape(pl, -2.5) : pl);
+                grp.addLayer(L.polyline(displayLine, {
                   color: color,
                   weight: 3,
                   opacity: 1,
