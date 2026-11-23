@@ -715,7 +715,18 @@
         <div class="rr-admin-pane" id="admin-pane-audit" data-admin-pane="audit">
           <p class="rr-modal-hint" style="margin-top:0;">Actions users take on RailroadRadar — sign-in, reports, settings, and admin decisions. Stored for 7 days; older entries are deleted at midnight Eastern.</p>
           <div class="rr-admin-toolbar">
-            <input type="search" id="admin-audit-search" placeholder="Filter by Email, Action, Detail…" aria-label="Filter Audit Log">
+            <input type="search" id="admin-audit-search" placeholder="Search user, email, UID, report, or detail…" aria-label="Search Audit Log">
+            <select id="admin-audit-action-filter" aria-label="Filter by audit action">
+              <option value="">All actions</option>
+            </select>
+            <select id="admin-audit-sort" aria-label="Sort audit log">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="user-asc">User A–Z</option>
+              <option value="user-desc">User Z–A</option>
+              <option value="action-asc">Action A–Z</option>
+              <option value="action-desc">Action Z–A</option>
+            </select>
             <button type="button" class="rr-btn secondary" id="admin-audit-refresh">Refresh</button>
           </div>
           <div class="rr-admin-table-wrap">
@@ -4543,15 +4554,39 @@
       const tbody = document.getElementById('admin-audit-tbody');
       const status = document.getElementById('admin-audit-status');
       const q = String(((document.getElementById('admin-audit-search') || {}).value || '')).trim().toLowerCase();
-      const rows = (window._adminAuditCache || []).filter(function(r) {
+      const actionFilter = String(((document.getElementById('admin-audit-action-filter') || {}).value || ''));
+      const sortMode = String(((document.getElementById('admin-audit-sort') || {}).value || 'newest'));
+      const cache = window._adminAuditCache || [];
+      const actionSelect = document.getElementById('admin-audit-action-filter');
+      if (actionSelect) {
+        const selected = actionFilter;
+        const actions = Array.from(new Set(cache.map(function(r) { return String(r.action || 'unknown'); })))
+          .sort(function(a, b) { return formatAuditAction(a).localeCompare(formatAuditAction(b)); });
+        const options = '<option value="">All actions</option>' + actions.map(function(action) {
+          return '<option value="' + escapeHtmlLite(action) + '">' + escapeHtmlLite(formatAuditAction(action)) + '</option>';
+        }).join('');
+        if (actionSelect.innerHTML !== options) actionSelect.innerHTML = options;
+        actionSelect.value = selected;
+      }
+      const rows = cache.filter(function(r) {
+        if (actionFilter && String(r.action || 'unknown') !== actionFilter) return false;
         if (!q) return true;
         const blob = [r.email, r.label, r.uid, r.action, r.detail, formatAuditAction(r.action)].join(' ').toLowerCase();
         return blob.indexOf(q) !== -1;
       });
+      const userOf = function(r) { return String(r.email || r.label || r.uid || 'Unknown').toLowerCase(); };
+      rows.sort(function(a, b) {
+        if (sortMode === 'oldest') return adminTsSeconds(a.at) - adminTsSeconds(b.at);
+        if (sortMode === 'user-asc') return userOf(a).localeCompare(userOf(b));
+        if (sortMode === 'user-desc') return userOf(b).localeCompare(userOf(a));
+        if (sortMode === 'action-asc') return formatAuditAction(a.action).localeCompare(formatAuditAction(b.action));
+        if (sortMode === 'action-desc') return formatAuditAction(b.action).localeCompare(formatAuditAction(a.action));
+        return adminTsSeconds(b.at) - adminTsSeconds(a.at);
+      });
       if (!tbody) return;
       if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="4" class="rr-admin-empty">No matching actions.</td></tr>';
-        if (status) status.textContent = (window._adminAuditCache || []).length ? '0 shown' : 'No actions logged yet.';
+        if (status) status.textContent = cache.length ? '0 shown — adjust your search or filters.' : 'No actions logged yet.';
         return;
       }
       tbody.innerHTML = rows.map(function(r) {
@@ -4559,7 +4594,7 @@
         const who = r.email || r.label || r.uid || 'Unknown';
         return '<tr><td>' + escapeHtmlLite(when) + '</td><td>' + escapeHtmlLite(who) + '</td><td>' + escapeHtmlLite(formatAuditAction(r.action)) + '</td><td>' + escapeHtmlLite(r.detail || '') + '</td></tr>';
       }).join('');
-      if (status) status.textContent = rows.length + ' of ' + (window._adminAuditCache || []).length + ' actions (kept 7 days; purge at midnight ET)';
+      if (status) status.textContent = rows.length + ' of ' + cache.length + ' actions shown (7-day retention; purge at midnight ET)';
     }
     function adminPendingLocoIds(r) {
       const ids = [];
@@ -4882,6 +4917,10 @@
       if (auditRefresh) auditRefresh.addEventListener('click', loadAdminAuditLog);
       const auditSearch = document.getElementById('admin-audit-search');
       if (auditSearch) auditSearch.addEventListener('input', renderAdminAuditLog);
+      const auditActionFilter = document.getElementById('admin-audit-action-filter');
+      if (auditActionFilter) auditActionFilter.addEventListener('change', renderAdminAuditLog);
+      const auditSort = document.getElementById('admin-audit-sort');
+      if (auditSort) auditSort.addEventListener('change', renderAdminAuditLog);
       const pendingTbody = document.getElementById('admin-pending-tbody');
       if (pendingTbody) {
         pendingTbody.addEventListener('click', function(e) {
