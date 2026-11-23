@@ -660,7 +660,8 @@ var SPECIAL_ROSTER = [
   ["mnr", "250"],
   ["lirr", "521"]
 ];
-var SPECIAL_IDS = new Set(SPECIAL_ROSTER.map((x) => x[1]));
+// Keep equipment IDs railroad-scoped. The same numeric identifier can be a
+// train number or equipment number on another railroad.
 var SPECIAL_KEYS = new Set(SPECIAL_ROSTER.map((x) => x[0] + "|" + x[1]));
 function b64urlToBytes(s) {
   s = String(s || "").replace(/-/g, "+").replace(/_/g, "/");
@@ -986,11 +987,16 @@ function notifyPrefsMatchEvent(prefs, event) {
     return false;
   if (trains.length) {
     const key = (agency + "|" + unitId).toLowerCase();
-    const idLower = unitId.toLowerCase();
     let ok = false;
     for (let i = 0; i < trains.length; i++) {
-      const t = String(trains[i] || "").toLowerCase();
-      if (t === key || t === idLower) {
+      const t = String(trains[i] || "").toLowerCase().trim();
+      if (t === key) {
+        ok = true;
+        break;
+      }
+      // Backward compatibility for old unqualified entries is safe only when
+      // exactly one railroad is selected; otherwise the number is ambiguous.
+      if (rails.length === 1 && rails[0] === agency && t === unitId.toLowerCase()) {
         ok = true;
         break;
       }
@@ -1002,25 +1008,25 @@ function notifyPrefsMatchEvent(prefs, event) {
 }
 __name(notifyPrefsMatchEvent, "notifyPrefsMatchEvent");
 function collectExtraWatched(subs) {
-  const ids = /* @__PURE__ */ new Set();
   const keys = /* @__PURE__ */ new Set();
   (subs || []).forEach((row) => {
-    const trains = row.sub && row.sub.prefs && row.sub.prefs.trains || [];
+    const prefs = row.sub && row.sub.prefs || {};
+    const trains = Array.isArray(prefs.trains) ? prefs.trains : [];
+    const rails = Array.isArray(prefs.railroads) ? prefs.railroads : [];
     trains.forEach((t) => {
       const s = String(t || "").toLowerCase().trim();
       if (!s)
         return;
       if (s.indexOf("|") !== -1) {
         keys.add(s);
-        const id = s.split("|").slice(1).join("|");
-        if (id)
-          ids.add(id);
-      } else {
-        ids.add(s);
+      } else if (rails.length === 1) {
+        // Older preferences stored only a number. Scope it to the sole
+        // selected railroad rather than treating it as a global unit ID.
+        keys.add(rails[0] + "|" + s);
       }
     });
   });
-  return { ids, keys };
+  return { keys };
 }
 __name(collectExtraWatched, "collectExtraWatched");
 function isWatchedUnit(agency, id, extra) {
@@ -1028,12 +1034,10 @@ function isWatchedUnit(agency, id, extra) {
   const raw = String(id == null ? "" : id).trim();
   if (!raw)
     return false;
-  if (SPECIAL_IDS.has(raw) || SPECIAL_KEYS.has(a + "|" + raw))
+  const key = a + "|" + raw.toLowerCase();
+  if (SPECIAL_KEYS.has(key))
     return true;
-  if (!extra)
-    return false;
-  const idL = raw.toLowerCase();
-  return !!(extra.ids.has(idL) || extra.keys.has(a + "|" + idL));
+  return !!(extra && extra.keys && extra.keys.has(key));
 }
 __name(isWatchedUnit, "isWatchedUnit");
 async function fanout(env, event, subs, dead) {
