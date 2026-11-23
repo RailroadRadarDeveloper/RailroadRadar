@@ -183,6 +183,7 @@
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/assets/js/rr-shared-rails.js?v=7102cefb1d"></script>
   <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
@@ -273,21 +274,29 @@
       function loadRouteLines() {
         if (shapesLoaded || !map) return;
         shapesLoaded = true;
-        SHAPE_FILES.forEach(function (ag) {
-          fetch(ag.file).then(function (r) {
+        var jobs = SHAPE_FILES.map(function (ag) {
+          return fetch(ag.file).then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
           }).then(function (data) {
+            var pieces = [];
             (data.routes || []).forEach(function (rt) {
               var color = rrHalloweenLineColor(ag.id, rt.id, rt.color || ag.fallback);
               (rt.polylines || []).forEach(function (pl) {
                 if (!pl || pl.length < 2) return;
-                L.polyline(pl, {
-                  color: color, weight: 3, opacity: 1, interactive: false, className: 'gtfs-shape-line'
-                }).addTo(map);
+                pieces.push({ agency: ag.id, routeId: String(rt.id), name: rt.name || String(rt.id), color: color, pts: pl });
               });
             });
-          }).catch(function () {});
+            return pieces;
+          }).catch(function () { return []; });
+        });
+        Promise.all(jobs).then(function (groups) {
+          var pieces = [];
+          groups.forEach(function (list) { pieces = pieces.concat(list); });
+          if (!window.rrBuildSharedRailRuns || !window.rrPaintSharedRailLines) return;
+          var runs = window.rrBuildSharedRailRuns(pieces);
+          var layer = window.rrPaintSharedRailLines(runs, function () { return true; });
+          if (layer) layer.addTo(map);
         });
       }
 

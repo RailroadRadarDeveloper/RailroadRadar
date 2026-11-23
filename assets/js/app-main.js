@@ -17166,15 +17166,24 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agency === 'brightline') return !!showBrightline;
         return true;
       }
-      function updateGtfsShapeVisibility() {
-        Object.keys(routeLines).forEach(function(key) {
-          if (key.indexOf('gtfs-') !== 0) return;
-          const grp = routeLines[key];
-          const agency = key.split('-')[1];
-          const show = shouldShowGtfsShape(agency);
-          if (show) { if (!map.hasLayer(grp)) map.addLayer(grp); }
-          else { if (map.hasLayer(grp)) map.removeLayer(grp); }
+      let rrSharedRailRuns = null;
+      let rrSharedRailLayer = null;
+      const rrRailPieces = [];
+      function rrRepaintSharedRails() {
+        if (!map || typeof L === 'undefined') return;
+        if (rrSharedRailLayer) {
+          try { map.removeLayer(rrSharedRailLayer); } catch (_) {}
+          rrSharedRailLayer = null;
+        }
+        if (!showRoutes || !rrSharedRailRuns || (rrOnlyTrain && rrOnlyTrain.id)) return;
+        if (typeof window.rrPaintSharedRailLines !== 'function') return;
+        rrSharedRailLayer = window.rrPaintSharedRailLines(rrSharedRailRuns, function(agency) {
+          return shouldShowGtfsShape(agency);
         });
+        if (rrSharedRailLayer) rrSharedRailLayer.addTo(map);
+      }
+      function updateGtfsShapeVisibility() {
+        rrRepaintSharedRails();
       }
       const gtfsShapesRequested = {};
       async function loadStaticGtfsShapes() {
@@ -17240,6 +17249,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
                   interactive: false,
                   className: 'gtfs-shape-line'
                 }));
+                rrRailPieces.push({
+                  agency: ag.id,
+                  routeId: String(rt.id),
+                  name: rt.name || String(rt.id),
+                  color: color,
+                  pts: pl
+                });
                 agencyPolys++;
               });
               const key = gtfsShapeKey(ag.id, rt.id);
@@ -17247,7 +17263,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               grp._rrRouteId = rt.id;
               grp._rrName = rt.name || '';
               routeLines[key] = grp;
-              if (shouldShowGtfsShape(ag.id) && grp.getLayers().length > 0) grp.addTo(map);
             });
             totalRoutes += routes.length;
             totalPolys += agencyPolys;
@@ -17257,6 +17272,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             console.warn('%c[Shapes] Failed to load ' + ag.id, 'color:#f39c12', e && e.message ? e.message : e);
           }
         });
+        try {
+          if (typeof window.rrBuildSharedRailRuns === 'function' && rrRailPieces.length) {
+            rrSharedRailRuns = window.rrBuildSharedRailRuns(rrRailPieces);
+            rrRepaintSharedRails();
+          }
+        } catch (mergeErr) {
+          console.warn('[Shapes] shared line merge failed', mergeErr);
+        }
         try { if (window.rrGlide) window.rrGlide.retry(); } catch (_) {}
         if (agencies.length) console.log('%c[Shapes] Static GTFS shapes loaded: ' + totalRoutes + ' routes / ' + totalPolys + ' polylines', 'color:#2980b9;font-weight:bold');
         return { routes: totalRoutes, polylines: totalPolys };
@@ -17736,15 +17759,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function toggleRoutes(show) {
         showRoutes = show;
         Object.keys(routeLines).forEach(function(key) {
+          if (key.indexOf('gtfs-') === 0) return;
           const l = routeLines[key];
-          let showThis = show;
-          if (show && key.indexOf('gtfs-') === 0) {
-            const agency = key.split('-')[1];
-            showThis = shouldShowGtfsShape(agency);
-          }
-          if (showThis) { if (!map.hasLayer(l)) map.addLayer(l); }
-          else { if (map.hasLayer(l)) map.removeLayer(l); }
+          if (!l) return;
+          if (show) { if (!map.hasLayer(l)) map.addLayer(l); }
+          else if (map.hasLayer(l)) map.removeLayer(l);
         });
+        rrRepaintSharedRails();
       }
       function toggleTrainLabels(show) {
         showTrainLabels = show;
@@ -18654,12 +18675,13 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         Object.keys(routeLines || {}).forEach(function(key) {
           const l = routeLines[key];
           if (!l) return;
-          const keep = rrRouteLineMatchesTrain(key, l, row);
+          const keep = rrOnlyTrain && rrOnlyTrain.id && rrRouteLineMatchesTrain(key, l, row);
           try {
             if (keep) { if (!map.hasLayer(l)) map.addLayer(l); }
             else if (map.hasLayer(l)) map.removeLayer(l);
           } catch (_) {}
         });
+        try { rrRepaintSharedRails(); } catch (_) {}
         const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
         if (isFinite(lat) && isFinite(lng) && !rrTrainPageCentered) {
           map.setView([lat, lng], 11, { animate: false });
