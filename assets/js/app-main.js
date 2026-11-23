@@ -17150,15 +17150,19 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
       }
       // Display-only offset to make shared MBTA/Amtrak corridors legible.
+      // Canonicalize each source polyline once so the offset stays on the same
+      // side through bends instead of flipping when its heading crosses 45 degrees.
       function rrOffsetSharedRailShape(points, sideMeters) {
         if (!Array.isArray(points) || points.length < 2 || !sideMeters) return points;
+        const first = points[0], last = points[points.length - 1];
+        const reverse = Number(first[0]) > Number(last[0]) ||
+          (Number(first[0]) === Number(last[0]) && Number(first[1]) > Number(last[1]));
         const normals = points.map(function(p, i) {
           const a = points[Math.max(0, i - 1)];
           const b = points[Math.min(points.length - 1, i + 1)];
           const midLat = ((Number(a[0]) + Number(b[0])) / 2) * Math.PI / 180;
           let east = (Number(b[1]) - Number(a[1])) * 111320 * Math.cos(midLat);
           let north = (Number(b[0]) - Number(a[0])) * 111320;
-          const reverse = Math.abs(east) >= Math.abs(north) ? east < 0 : north < 0;
           if (reverse) { east = -east; north = -north; }
           const len = Math.hypot(east, north) || 1;
           return { east: -north / len, north: east / len };
