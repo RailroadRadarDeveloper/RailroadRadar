@@ -13343,6 +13343,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       setLoadingProgress(18, 'Ready for reports...');
       wireAuthUI();
       wireReportTrainUI();
+      // Deep link from Railside Live: open the equipment reporting form on the map.
+      if (new URLSearchParams(location.search).get('report') === 'equipment') {
+        const openRequestedReport = function() {
+          try { openReportTrainModal(); } catch (e) { console.warn('[Report] Could not open requested equipment form', e); }
+        };
+        if (auth && typeof auth.onAuthStateChanged === 'function') {
+          let stop = null;
+          stop = auth.onAuthStateChanged(function() {
+            if (stop) stop();
+            openRequestedReport();
+          });
+        } else {
+          openRequestedReport();
+        }
+      }
       wireSpecialsBoardUI();
       wireWeeklyLeaderboardUI();
       // Train fetches don't wait for these. Markers built before they finish are rebuilt by refetching, which the browser usually serves from cache (the Worker sends max-age 15 to 30 s on feeds).
