@@ -7517,6 +7517,77 @@ html.rr-mytrips-page.rr-theme-dark .trip-detail-overlay .trip-detail-special-tit
 .rr-report-heart:hover:not(:disabled){border-color:#c34b69;background:#fff7f9;}
 .rr-report-heart.is-active{color:#b4234d;border-color:#e7a8b8;background:#fff4f6;}
 .rr-report-heart:disabled{opacity:.65;cursor:default;}
+
+/* Full Screen: map only. Attribution stays for OpenFreeMap / OpenStreetMap. */
+html.rr-map-clean {
+  --rr-footer-h: 0px !important;
+  --rr-live-bar-h: 0px !important;
+}
+html.rr-map-clean #map {
+  top: 0 !important;
+  bottom: 0 !important;
+}
+html.rr-map-clean .header,
+html.rr-map-clean .footer,
+html.rr-map-clean #offline-banner,
+html.rr-map-clean #rr-live-bar,
+html.rr-map-clean #rr-cookie-bar,
+html.rr-map-clean #rr-cookie-modal,
+html.rr-map-clean #notification,
+html.rr-map-clean #control-panel,
+html.rr-map-clean #overlay,
+html.rr-map-clean #rr-rail-picker,
+html.rr-map-clean .rr-modal-backdrop,
+html.rr-map-clean #loading-screen,
+html.rr-map-clean .rr-replay-open,
+html.rr-map-clean .rr-replay-bar,
+html.rr-map-clean .leaflet-control-zoom,
+html.rr-map-clean .leaflet-control-layers,
+html.rr-map-clean .maplibregl-ctrl-top-left,
+html.rr-map-clean .maplibregl-ctrl-top-right,
+html.rr-map-clean .maplibregl-ctrl-bottom-right {
+  display: none !important;
+}
+html.rr-map-clean #map .leaflet-bottom { bottom: 0; }
+html.rr-map-clean .leaflet-control-attribution {
+  margin: 0 0 2px 2px !important;
+  padding: 0 4px;
+  max-width: min(52vw, 280px);
+  background: rgba(255, 255, 255, 0.78);
+  color: #243056;
+  font-size: 9px;
+  line-height: 1.25;
+  white-space: normal;
+}
+html.rr-map-clean .leaflet-control-attribution a { color: #1a3a6b; }
+.rr-clean-exit { display: none; }
+html.rr-map-clean .rr-clean-exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  z-index: 1100;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 10px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(7, 9, 62, 0.88);
+  color: #fff;
+  font: 700 13px/1 system-ui, "Segoe UI", sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+html.rr-map-clean.rr-clean-chrome .rr-clean-exit {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (max-width: 600px) {
+  html.rr-map-clean .leaflet-control-attribution { font-size: 8px; max-width: 48vw; }
+}
 .rr-report-heart-icon{font-size:15px;line-height:1;color:#b4234d;}
 .rr-report-heart-count{font-variant-numeric:tabular-nums;min-width:1ch;}
 
