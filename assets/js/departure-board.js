@@ -4,6 +4,7 @@
 (function () {
   'use strict';
   var REFRESH_MS = 60 * 1000;
+  var PAGE_MS = 10 * 1000;
   var REPORTS_TTL_MS = 30 * 60 * 1000;
   var HORIZON_MS = 8 * 60 * 60 * 1000;
   var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
@@ -14,7 +15,11 @@
   var hubs = [];
   var current = null;
   var timer = 0;
+  var pageTimer = 0;
   var loading = false;
+  var boardList = [];
+  var pageIndex = 0;
+  var fading = false;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -241,26 +246,34 @@
     })).then(function () { return list; });
   }
 
+  function expectedTime(row) {
+    return row.predicted || row.scheduled;
+  }
+  function delayMinutes(row) {
+    if (!row.predicted || !row.scheduled) return 0;
+    return Math.round((row.predicted.getTime() - row.scheduled.getTime()) / 60000);
+  }
   function toneOf(row) {
     var text = String(row.status || '');
     if (/cancel/i.test(text)) return { label: 'Cancelled', tone: 'late' };
-    if (row.departed) return { label: 'Departed', tone: 'gone' };
     if (!row.predicted) return { label: 'Scheduled', tone: 'sched' };
-    var delay = row.delay;
-    if (delay != null && delay > 5) return { label: 'Delayed ' + fmtDelay(delay), tone: delay >= 15 ? 'late' : 'warn' };
+    var delay = delayMinutes(row);
+    if (delay >= 1) return { label: 'Delayed ' + fmtDelay(delay), tone: delay >= 15 ? 'late' : 'warn' };
     return { label: 'On Time', tone: 'ok' };
   }
   function soonText(when) {
     if (!when) return '';
-    var mins = Math.floor((when.getTime() - Date.now()) / 60000);
-    if (mins > 0 && mins < 60) return mins + ' min';
-    if (mins === 0) return 'Now';
+    var sec = (when.getTime() - Date.now()) / 1000;
+    if (sec < 120) return 'Now';
+    var mins = Math.floor(sec / 60);
+    if (mins < 60) return mins + ' min';
     return '';
   }
   function keep(when) {
     if (!when || isNaN(when.getTime())) return false;
     var dt = when.getTime() - Date.now();
-    return dt > -2 * 60 * 1000 && dt < HORIZON_MS;
+    if (dt < -30 * 1000) return false;
+    return dt < HORIZON_MS;
   }
   function row(partial) {
     var when = partial.predicted || partial.scheduled;
@@ -604,6 +617,7 @@
   var nameBtn = document.getElementById('station-name');
   var rowsEl = document.getElementById('rows');
   var foot = document.getElementById('updated');
+  var pageInd = document.getElementById('page-ind');
   var selectedIndex = 0;
 
   function showPick(on) {
@@ -633,30 +647,51 @@
       results.appendChild(li);
     });
   }
-  function paint(hub, list) {
-    nameBtn.textContent = hub.name;
-    if (!list.length) {
-      rowsEl.innerHTML = '<div class="empty">No Upcoming Departures</div>';
+  function rowHtml(r) {
+    var info = toneOf(r);
+    var when = expectedTime(r);
+    var late = delayMinutes(r) >= 1;
+    var route = titleCase(r.routeName);
+    var num = String(r.trainNum || '').trim();
+    if (num && route && new RegExp('\\b' + num.replace(/[^\w]/g, '') + '$').test(route)) num = '';
+    var title = (route + ' ' + num).trim();
+    return '<div class="cols row" style="--rr-sp-line:' + esc(r.lineColor || '#07093E') + '">' +
+      '<span class="time"><span class="time-exp">' + esc(clock(when)) + '</span>' +
+      (late ? '<span class="time-sch">' + esc(clock(r.scheduled)) + '</span>' : '') + '</span>' +
+      '<span class="mins">' + esc(soonText(when)) + '</span>' +
+      '<span class="train">' + esc(title) + '</span>' +
+      '<span class="dest">' + esc(r.destination || '') + '</span>' +
+      '<span class="col-track">' + esc(r.track || '') + '</span>' +
+      '<span class="status st-' + info.tone + '">' + esc(info.label) + '</span>' +
+      '<span class="col-equip">' + esc(r.equipment || '') + '</span></div>';
+  }
+  function pageCount() {
+    return boardList.length > 2 ? 2 : 1;
+  }
+  function drawPage() {
+    var pages = pageCount();
+    if (pageIndex >= pages) pageIndex = 0;
+    var slice = boardList.slice(pageIndex * 2, pageIndex * 2 + 2);
+    if (!slice.length) rowsEl.innerHTML = '<div class="empty">No Upcoming Departures</div>';
+    else rowsEl.innerHTML = slice.map(rowHtml).join('');
+    if (pages > 1) {
+      pageInd.hidden = false;
+      pageInd.textContent = (pageIndex + 1) + '/2';
     } else {
-      rowsEl.innerHTML = list.map(function (r) {
-        var info = toneOf(r);
-        var when = r.predicted || r.scheduled;
-        var mins = r.departed ? '' : soonText(when);
-        var route = titleCase(r.routeName);
-        var num = String(r.trainNum || '').trim();
-        if (num && route && new RegExp('\\b' + num.replace(/[^\w]/g, '') + '$').test(route)) num = '';
-        var title = (route + ' ' + num).trim();
-        return '<div class="cols row" style="--rr-sp-line:' + esc(r.lineColor || '#07093E') + '">' +
-          '<span class="time">' + esc(clock(r.scheduled || when)) + '</span>' +
-          '<span class="mins">' + esc(mins) + '</span>' +
-          '<span class="train">' + esc(title) + '</span>' +
-          '<span class="dest">' + esc(r.destination || '') + '</span>' +
-          '<span class="col-track">' + esc(r.track || '') + '</span>' +
-          '<span class="status st-' + info.tone + '">' + esc(info.label) + '</span>' +
-          '<span class="col-equip">' + esc(r.equipment || '') + '</span></div>';
-      }).join('');
+      pageInd.hidden = true;
     }
     foot.textContent = 'Updated ' + clock(new Date());
+  }
+  function flipPage() {
+    if (fading || pageCount() < 2 || document.hidden) return;
+    fading = true;
+    rowsEl.classList.add('is-fading');
+    setTimeout(function () {
+      pageIndex = pageIndex === 0 ? 1 : 0;
+      drawPage();
+      rowsEl.classList.remove('is-fading');
+      fading = false;
+    }, 420);
   }
   function refresh() {
     if (!current || loading || document.hidden) return;
@@ -664,22 +699,32 @@
     loadHub(current).then(function (list) {
       return attachEquipment(list);
     }).then(function (list) {
-      if (current) paint(current, list);
+      if (!current) return;
+      boardList = list;
+      if (boardList.length <= 2) pageIndex = 0;
+      if (!fading) drawPage();
     }).catch(function () {
       if (current) foot.textContent = 'Updated ' + clock(new Date());
     }).then(function () { loading = false; });
   }
   function choose(hub) {
     current = hub;
+    pageIndex = 0;
+    boardList = [];
+    fading = false;
+    rowsEl.classList.remove('is-fading');
     var primary = hub.key;
     var param = primary.agency + ':' + primary.id;
     try { history.replaceState(null, '', location.pathname + '?station=' + encodeURIComponent(param)); } catch (_) {}
     showPick(false);
     rowsEl.innerHTML = '<div class="empty">Loading Departures</div>';
+    pageInd.hidden = true;
     nameBtn.textContent = hub.name;
     refresh();
     if (timer) clearInterval(timer);
+    if (pageTimer) clearInterval(pageTimer);
     timer = setInterval(refresh, REFRESH_MS);
+    pageTimer = setInterval(flipPage, PAGE_MS);
   }
   input.addEventListener('input', function () { renderMatches(input.value); });
   input.addEventListener('keydown', function (e) {
