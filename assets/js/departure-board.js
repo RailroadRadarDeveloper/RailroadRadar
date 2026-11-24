@@ -614,9 +614,8 @@
   var board = document.getElementById('board');
   var input = document.getElementById('station-q');
   var results = document.getElementById('station-results');
-  var nameBtn = document.getElementById('station-name');
+  var changeBtn = document.getElementById('change-station');
   var rowsEl = document.getElementById('rows');
-  var foot = document.getElementById('updated');
   var pageInd = document.getElementById('page-ind');
   var selectedIndex = 0;
 
@@ -680,7 +679,6 @@
     } else {
       pageInd.hidden = true;
     }
-    foot.textContent = 'Updated ' + clock(new Date());
   }
   function flipPage() {
     if (fading || pageCount() < 2 || document.hidden) return;
@@ -704,7 +702,7 @@
       if (boardList.length <= 2) pageIndex = 0;
       if (!fading) drawPage();
     }).catch(function () {
-      if (current) foot.textContent = 'Updated ' + clock(new Date());
+      if (current) pageInd.hidden = pageCount() < 2;
     }).then(function () { loading = false; });
   }
   function choose(hub) {
@@ -719,7 +717,7 @@
     showPick(false);
     rowsEl.innerHTML = '<div class="empty">Loading Departures</div>';
     pageInd.hidden = true;
-    nameBtn.textContent = hub.name;
+    changeBtn.setAttribute('data-station', hub.name);
     refresh();
     if (timer) clearInterval(timer);
     if (pageTimer) clearInterval(pageTimer);
@@ -740,7 +738,7 @@
       buttons[selectedIndex].click();
     }
   });
-  nameBtn.addEventListener('click', function () { showPick(true); });
+  changeBtn.addEventListener('click', function () { showPick(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
 
   hubs = buildHubs(buildStations());
