@@ -228,34 +228,6 @@ button, input { font: inherit; color: inherit; }
   white-space: nowrap;
   overflow: hidden;
 }
-.collab {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.collab-rr {
-  display: flex;
-  align-items: center;
-  height: 22px;
-  padding: 2px 5px;
-  background: var(--primary-color);
-}
-.collab-rr img { height: 16px; width: auto; display: block; }
-.collab-rule {
-  width: 1px;
-  align-self: stretch;
-  margin: 2px 0;
-  background: var(--primary-color);
-}
-.collab-mark {
-  display: flex;
-  align-items: center;
-  height: 1.3em;
-  background: var(--primary-color);
-}
-.collab-mark img { height: 1.3em; width: auto; display: block; }
 .banner-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #page-ind[hidden] { display: none; }
 @media (max-width: 900px), (orientation: portrait) {
@@ -295,9 +267,6 @@ button, input { font: inherit; color: inherit; }
   .status { font-size: clamp(16px, min(4.6vw, 3.2vh), 42px); }
   .line-extra { align-items: center; }
   .banner { gap: 6px; padding-left: 6px; padding-right: 6px; font-size: 11px; }
-  .collab { gap: 4px; }
-  .collab-rr { height: 1.3em; padding: 1px 3px; }
-  .collab-rr img { height: 1.1em; }
 }
 @media (prefers-reduced-motion: reduce) {
   .rows { transition: none; }
