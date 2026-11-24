@@ -241,26 +241,34 @@
     })).then(function () { return list; });
   }
 
+  function expectedTime(row) {
+    return row.predicted || row.scheduled;
+  }
+  function delayMinutes(row) {
+    if (!row.predicted || !row.scheduled) return 0;
+    return Math.round((row.predicted.getTime() - row.scheduled.getTime()) / 60000);
+  }
   function toneOf(row) {
     var text = String(row.status || '');
     if (/cancel/i.test(text)) return { label: 'Cancelled', tone: 'late' };
-    if (row.departed) return { label: 'Departed', tone: 'gone' };
     if (!row.predicted) return { label: 'Scheduled', tone: 'sched' };
-    var delay = row.delay;
-    if (delay != null && delay > 5) return { label: 'Delayed ' + fmtDelay(delay), tone: delay >= 15 ? 'late' : 'warn' };
+    var delay = delayMinutes(row);
+    if (delay >= 1) return { label: 'Delayed ' + fmtDelay(delay), tone: delay >= 15 ? 'late' : 'warn' };
     return { label: 'On Time', tone: 'ok' };
   }
   function soonText(when) {
     if (!when) return '';
-    var mins = Math.floor((when.getTime() - Date.now()) / 60000);
-    if (mins > 0 && mins < 60) return mins + ' min';
-    if (mins === 0) return 'Now';
+    var sec = (when.getTime() - Date.now()) / 1000;
+    if (sec < 120) return 'Now';
+    var mins = Math.floor(sec / 60);
+    if (mins < 60) return mins + ' min';
     return '';
   }
   function keep(when) {
     if (!when || isNaN(when.getTime())) return false;
     var dt = when.getTime() - Date.now();
-    return dt > -2 * 60 * 1000 && dt < HORIZON_MS;
+    if (dt < -30 * 1000) return false;
+    return dt < HORIZON_MS;
   }
   function row(partial) {
     var when = partial.predicted || partial.scheduled;
@@ -640,14 +648,16 @@
     } else {
       rowsEl.innerHTML = list.map(function (r) {
         var info = toneOf(r);
-        var when = r.predicted || r.scheduled;
-        var mins = r.departed ? '' : soonText(when);
+        var when = expectedTime(r);
+        var late = delayMinutes(r) >= 1;
+        var mins = soonText(when);
         var route = titleCase(r.routeName);
         var num = String(r.trainNum || '').trim();
         if (num && route && new RegExp('\\b' + num.replace(/[^\w]/g, '') + '$').test(route)) num = '';
         var title = (route + ' ' + num).trim();
         return '<div class="cols row" style="--rr-sp-line:' + esc(r.lineColor || '#07093E') + '">' +
-          '<span class="time">' + esc(clock(r.scheduled || when)) + '</span>' +
+          '<span class="time"><span class="time-exp">' + esc(clock(when)) + '</span>' +
+          (late ? '<span class="time-sch">' + esc(clock(r.scheduled)) + '</span>' : '') + '</span>' +
           '<span class="mins">' + esc(mins) + '</span>' +
           '<span class="train">' + esc(title) + '</span>' +
           '<span class="dest">' + esc(r.destination || '') + '</span>' +

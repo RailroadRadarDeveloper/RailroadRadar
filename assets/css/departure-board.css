@@ -72,7 +72,7 @@ button, input { font: inherit; color: inherit; }
 .board-sub { margin: 0; font-size: 13px; font-weight: 700; opacity: 0.9; }
 .cols {
   display: grid;
-  grid-template-columns: 7.2rem 4.6rem minmax(0, 1.5fr) minmax(0, 1.15fr) 5.2rem max-content minmax(0, 1.35fr);
+  grid-template-columns: 1.15fr 0.75fr 1.5fr 1.3fr 0.8fr 1.05fr 1.45fr;
   align-items: center;
   column-gap: 12px;
   padding: 0 12px 0 0;
@@ -82,9 +82,12 @@ button, input { font: inherit; color: inherit; }
   padding-bottom: 7px;
   border-bottom: 1px solid #e6e9ef;
   color: #3d4454;
+}
+.cols.head > span {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 .cols.head span:first-child, .time { padding-left: 12px; }
@@ -92,6 +95,16 @@ button, input { font: inherit; color: inherit; }
 .time, .mins, .train, .dest, .col-track, .col-equip { font-weight: 800; }
 .time, .mins { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .time { font-size: clamp(18px, 2vw, 28px); }
+.time-exp { display: block; }
+.time-sch {
+  display: block;
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: line-through;
+  opacity: 0.55;
+}
 .mins { font-size: clamp(15px, 1.6vw, 22px); }
 .train {
   min-width: 0;
