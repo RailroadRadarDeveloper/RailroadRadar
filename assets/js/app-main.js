@@ -22818,51 +22818,135 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       function isAppFullscreen() {
         return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
       }
+      function isCleanMap() {
+        return document.documentElement.classList.contains('rr-map-clean');
+      }
+      let rrCleanHideTimer = 0;
+      let rrCleanWanted = false;
+      function revealCleanExit() {
+        if (!isCleanMap()) return;
+        document.documentElement.classList.add('rr-clean-chrome');
+        clearTimeout(rrCleanHideTimer);
+        rrCleanHideTimer = setTimeout(function() {
+          document.documentElement.classList.remove('rr-clean-chrome');
+        }, 2200);
+      }
+      function ensureCleanChrome() {
+        const root = map && map.getContainer ? map.getContainer() : null;
+        if (!root || root.querySelector('#rr-clean-exit')) return;
+        const exit = document.createElement('button');
+        exit.type = 'button';
+        exit.id = 'rr-clean-exit';
+        exit.className = 'rr-clean-exit';
+        exit.textContent = 'Exit';
+        exit.setAttribute('aria-label', 'Exit full screen');
+        exit.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          exitCleanMap();
+        });
+        exit.addEventListener('focus', revealCleanExit);
+        exit.addEventListener('mouseenter', function() {
+          clearTimeout(rrCleanHideTimer);
+          document.documentElement.classList.add('rr-clean-chrome');
+        });
+        exit.addEventListener('mouseleave', revealCleanExit);
+        try { L.DomEvent.disableClickPropagation(exit); } catch (_) {}
+        root.appendChild(exit);
+      }
       function syncFullscreenButton() {
         const btn = document.getElementById('btn-fullscreen');
         if (!btn) return;
-        const on = isAppFullscreen();
+        const on = isCleanMap() || isAppFullscreen();
         btn.textContent = on ? 'Exit Full Screen' : 'Full Screen';
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       }
-      async function toggleAppFullscreen() {
-        const el = document.documentElement;
+      function applyCleanMap(on) {
+        document.documentElement.classList.toggle('rr-map-clean', !!on);
+        if (!on) {
+          document.documentElement.classList.remove('rr-clean-chrome');
+          clearTimeout(rrCleanHideTimer);
+        }
+        syncFullscreenButton();
+        try { rrSyncFooterHeight(); } catch (_) {}
+        const fit = function() {
+          if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+        };
+        requestAnimationFrame(fit);
+        setTimeout(fit, 80);
+        if (on) revealCleanExit();
+      }
+      function closeChromeForCleanMap() {
+        try { if (controlPanel.classList.contains('open')) toggleMenu(); } catch (_) {}
         try {
-          if (isAppFullscreen()) {
-            if (document.exitFullscreen) await document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if (document.msExitFullscreen) document.msExitFullscreen();
-          } else {
-            if (el.requestFullscreen) await el.requestFullscreen();
-            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-            else if (el.msRequestFullscreen) el.msRequestFullscreen();
-          }
-        } catch (err) {
+          const tools = document.getElementById('header-tools-panel');
+          if (tools) tools.hidden = true;
+          const toolsBtn = document.getElementById('btn-header-tools');
+          if (toolsBtn) toolsBtn.setAttribute('aria-expanded', 'false');
+        } catch (_) {}
+        try {
+          if (document.querySelector('.rr-replay-open') && window.rrReplay && window.rrReplay.stop) window.rrReplay.stop();
+        } catch (_) {}
+      }
+      async function requestNativeFullscreen() {
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+      }
+      async function exitNativeFullscreen() {
+        if (!isAppFullscreen()) return;
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+      }
+      async function enterCleanMap() {
+        rrCleanWanted = true;
+        closeChromeForCleanMap();
+        ensureCleanChrome();
+        applyCleanMap(true);
+        try { await requestNativeFullscreen(); } catch (err) {
           console.warn('[fullscreen]', err && err.message ? err.message : err);
         }
-        setTimeout(function() {
-          syncFullscreenButton();
-          if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
-        }, 120);
+        if (!rrCleanWanted) applyCleanMap(false);
+      }
+      async function exitCleanMap() {
+        rrCleanWanted = false;
+        try { await exitNativeFullscreen(); } catch (_) {}
+        applyCleanMap(false);
+      }
+      async function toggleAppFullscreen() {
+        if (isCleanMap() || isAppFullscreen()) await exitCleanMap();
+        else await enterCleanMap();
       }
       const fsBtn = document.getElementById('btn-fullscreen');
       if (fsBtn) fsBtn.addEventListener('click', function(e) {
         e.preventDefault();
         toggleAppFullscreen();
       });
-      document.addEventListener('fullscreenchange', function() {
+      function onNativeFullscreenChange() {
+        if (!isAppFullscreen() && rrCleanWanted) {
+          rrCleanWanted = false;
+          applyCleanMap(false);
+          return;
+        }
         syncFullscreenButton();
         if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
-      });
-      document.addEventListener('webkitfullscreenchange', function() {
-        syncFullscreenButton();
-        if (typeof map !== 'undefined' && map && map.invalidateSize) map.invalidateSize();
+      }
+      document.addEventListener('fullscreenchange', onNativeFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', onNativeFullscreenChange);
+      ['pointerdown', 'touchstart', 'mousemove', 'keydown'].forEach(function(type) {
+        document.addEventListener(type, revealCleanExit, { passive: true });
       });
       syncFullscreenButton();
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && controlPanel.classList.contains('open')) {
-          toggleMenu();
+        if (e.key !== 'Escape') return;
+        if (isCleanMap() || isAppFullscreen()) {
+          e.preventDefault();
+          exitCleanMap();
+          return;
         }
+        if (controlPanel.classList.contains('open')) toggleMenu();
       });
       console.log('%cRailroadRadar v4.5 ready (NEC icon by position)', 'color:#07093e');
       // Loading screen already hidden after core MBTA load (failsafe + finally)
