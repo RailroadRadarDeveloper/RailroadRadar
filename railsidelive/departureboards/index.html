@@ -7,7 +7,8 @@
   <meta name="description" content="Full-screen live departure board for any station on RailroadRadar.">
   <meta name="theme-color" content="#07093e">
   <link rel="icon" href="/favicon.ico">
-  <link rel="stylesheet" href="/assets/css/departure-board.css?v=e8578cb6cd">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/assets/css/departure-board.css?v=1da2229a57">
 </head>
 <body>
   <div class="pick" id="pick" hidden>
@@ -17,13 +18,18 @@
   </div>
   <main class="board" id="board" hidden>
     <button type="button" id="change-station" class="change-station" aria-label="Change station"></button>
-    <div class="rows" id="rows"></div>
+    <div class="stage">
+      <div class="map-pane"><div id="station-map" class="station-map"></div></div>
+      <div class="list-pane"><div class="rows" id="rows"></div></div>
+    </div>
     <div class="banner"><span>Report equipment at railroadradar.com/railsidelive</span><span id="page-ind" hidden>1/2</span></div>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
   <script src="/assets/js/rr-fs-cache.js?v=422375c9cd"></script>
   <script src="/assets/js/trip-stations.js"></script>
   <script src="/assets/js/board-stations.js?v=9fb4856a53"></script>
-  <script src="/assets/js/departure-board.js?v=b0d32aed13"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
+  <script src="/assets/js/departure-board.js?v=33817e16fe"></script>
 </body>
 </html>
