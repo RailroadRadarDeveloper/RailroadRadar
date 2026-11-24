@@ -9223,6 +9223,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Leaflet only draws lines a little past the screen edge and fills in the rest when a drag ends,
       // so route lines cover a full screen past each edge to stay drawn while dragging.
       const map = L.map('map', { renderer: L.svg({ padding: 1 }) }).setView([43.0, -71.5], 7);
+      function rrIsBoardEmbed() {
+        try { return new URLSearchParams(location.search).get('embed') === 'board'; } catch (_) { return false; }
+      }
+      if (rrIsBoardEmbed()) {
+        document.documentElement.classList.add('rr-map-clean', 'rr-board-embed');
+        ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard'].forEach(function (name) {
+          if (map[name] && map[name].disable) map[name].disable();
+        });
+        if (map.tap && map.tap.disable) map.tap.disable();
+      }
       // Scale only the multi-locomotive artwork with zoom; keep Leaflet's geographic anchor fixed.
       function rrUpdateMultiLocoMarkerScale() {
         const zoom = map.getZoom();
@@ -9291,11 +9301,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       // Reopen where the map was left, unless the link points at a train.
       try {
         const q = new URLSearchParams(location.search);
-        const view = JSON.parse(localStorage.getItem('rr_mapView') || 'null');
-        if (view && !q.get('train') && !q.get('t') && !q.get('focus')) map.setView([view.lat, view.lng], view.zoom, { animate: false });
+        if (q.get('embed') === 'board') {
+          const lat = Number(q.get('lat')), lng = Number(q.get('lng')), z = Number(q.get('z'));
+          if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], isFinite(z) && z > 0 ? z : 12, { animate: false });
+        } else {
+          const view = JSON.parse(localStorage.getItem('rr_mapView') || 'null');
+          if (view && !q.get('train') && !q.get('t') && !q.get('focus')) map.setView([view.lat, view.lng], view.zoom, { animate: false });
+        }
       } catch (_) {}
       map.on('moveend', function() {
-        if (rrIsShareDeepLink()) return;
+        if (rrIsShareDeepLink() || rrIsBoardEmbed()) return;
         const c = map.getCenter();
         try { localStorage.setItem('rr_mapView', JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })); } catch (_) {}
       });

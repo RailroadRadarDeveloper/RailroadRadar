@@ -640,10 +640,6 @@
     });
   }
 
-  var boardMap = null;
-  var stationLayer = null;
-  var trainLayer = null;
-  var COMPASS = { N: 0, NNE: 22.5, NE: 45, ENE: 67.5, E: 90, ESE: 112.5, SE: 135, SSE: 157.5, S: 180, SSW: 202.5, SW: 225, WSW: 247.5, W: 270, WNW: 292.5, NW: 315, NNW: 337.5 };
   function hubPoint(hub) {
     var pts = (hub.members || []).filter(function (m) { return m && isFinite(m.lat) && isFinite(m.lon); });
     if (!pts.length) return null;
@@ -651,113 +647,13 @@
     pts.forEach(function (m) { lat += m.lat; lon += m.lon; });
     return [lat / pts.length, lon / pts.length];
   }
-  function milesBetween(lat1, lon1, lat2, lon2) {
-    var r = 3958.8;
-    var p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
-    var dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
-    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-  function bearingDeg(h) {
-    if (h == null || h === '') return 90;
-    var n = Number(h);
-    if (isFinite(n)) return ((n % 360) + 360) % 360;
-    var c = COMPASS[String(h).trim().toUpperCase()];
-    return c == null ? 90 : c;
-  }
-  function iconFor(kind, routeName) {
-    var route = String(routeName || '');
-    if (kind === 'mbta') return '/assets/hsp46.png';
-    if (kind === 'mnr') return '/assets/mnr.png';
-    if (kind === 'lirr') return '/assets/lirr.png';
-    if (kind === 'njt') return '/assets/njt-alp.png';
-    if (/acela/i.test(route)) return '/assets/amtrak-acela.png';
-    if (/empire|maple leaf|lake\s*shore/i.test(route)) return '/assets/amtrak-empire.png';
-    return '/assets/amtrak.png';
-  }
-  function liveIcon(t) {
-    var src = iconFor(t.kind, t.routeName);
-    var rot = bearingDeg(t.heading);
-    return L.divIcon({
-      className: 'board-train',
-      html: '<img src="' + src + '" alt="" style="width:40px;height:18px;object-fit:contain;transform:rotate(' + rot + 'deg);display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));">',
-      iconSize: [40, 18],
-      iconAnchor: [20, 9]
-    });
-  }
-  function ensureMap(latlng) {
-    var el = document.getElementById('station-map');
-    if (!el || !window.L || !window.RRFreeLightLayer) return;
-    if (!boardMap) {
-      boardMap = L.map(el, {
-        zoomControl: false,
-        attributionControl: true,
-        dragging: false,
-        scrollWheelZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-        touchZoom: false
-      });
-      ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard'].forEach(function (name) {
-        if (boardMap[name] && boardMap[name].disable) boardMap[name].disable();
-      });
-      RRFreeLightLayer().addTo(boardMap);
-      stationLayer = L.layerGroup().addTo(boardMap);
-      trainLayer = L.layerGroup().addTo(boardMap);
-    }
-    boardMap.setView(latlng, 12, { animate: false });
-    setTimeout(function () { if (boardMap) boardMap.invalidateSize(); }, 60);
-  }
-  function nearbyTrains(hub) {
-    var jobs = [];
-    jobs.push(jsonGet(API + '/api/amtrak/trains').then(function (body) {
-      var out = [];
-      Object.keys(body || {}).forEach(function (k) {
-        var bucket = body[k];
-        var t = Array.isArray(bucket) ? bucket[0] : bucket;
-        if (!t || !isFinite(Number(t.lat)) || !isFinite(Number(t.lon))) return;
-        out.push({ lat: Number(t.lat), lon: Number(t.lon), heading: t.heading, routeName: t.routeName, kind: amtrakFamily(t) });
-      });
-      return out;
-    }).catch(function () { return []; }));
-    if ((hub.members || []).some(function (m) { return m.agency === 'mbta'; })) {
-      jobs.push(jsonGet(API + '/api/mbta/vehicles?filter[route_type]=2').then(function (body) {
-        return ((body && body.data) || []).map(function (v) {
-          var a = v.attributes || {};
-          return { lat: Number(a.latitude), lon: Number(a.longitude), heading: a.bearing, routeName: '', kind: 'mbta' };
-        }).filter(function (p) { return isFinite(p.lat) && isFinite(p.lon); });
-      }).catch(function () { return []; }));
-    }
-    return Promise.all(jobs).then(function (lists) {
-      var all = [];
-      lists.forEach(function (list) { all = all.concat(list); });
-      return all;
-    });
-  }
   function paintMap(hub) {
     var pt = hub && hubPoint(hub);
-    if (!pt) return;
-    ensureMap(pt);
-    if (!boardMap || !stationLayer || !trainLayer) return;
-    stationLayer.clearLayers();
-    L.marker(pt, {
-      interactive: false,
-      keyboard: false,
-      icon: L.icon({ iconUrl: '/assets/station.png', iconSize: [22, 22], iconAnchor: [11, 11] })
-    }).addTo(stationLayer);
-    nearbyTrains(hub).then(function (list) {
-      if (!trainLayer || current !== hub) return;
-      trainLayer.clearLayers();
-      list.map(function (t) {
-        t.d = milesBetween(pt[0], pt[1], t.lat, t.lon);
-        return t;
-      }).filter(function (t) { return t.d <= 18; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 24).forEach(function (t) {
-        L.marker([t.lat, t.lon], { icon: liveIcon(t), interactive: false, keyboard: false }).addTo(trainLayer);
-      });
-    });
+    var frame = document.getElementById('station-map');
+    if (!frame || !pt) return;
+    var url = '/map/?embed=board&lat=' + encodeURIComponent(pt[0].toFixed(5)) + '&lng=' + encodeURIComponent(pt[1].toFixed(5)) + '&z=12';
+    if (frame.getAttribute('src') !== url) frame.setAttribute('src', url);
   }
-  window.addEventListener('resize', function () { if (boardMap) boardMap.invalidateSize(); });
 
   var pick = document.getElementById('pick');
   var board = document.getElementById('board');

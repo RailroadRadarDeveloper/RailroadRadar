@@ -21,24 +21,15 @@
       z-index: 2;
     }
     .collab { display: flex; align-items: center; gap: 12px; min-width: 0; height: 100%; }
-    .wordmark { height: 36px; width: auto; display: block; }
-    .rule { width: 1px; align-self: stretch; margin: 10px 0; background: rgba(255, 255, 255, 0.72); }
-    .tile {
-      display: flex;
-      align-items: center;
-      height: 44px;
-      padding: 3px 5px;
-      background: #fff;
-      border-radius: 6px;
-    }
-    .tile img { height: 38px; width: auto; display: block; }
+    .wordmark { height: 40px; width: auto; display: block; }
+    .rule { width: 1px; align-self: stretch; margin: 8px 0; background: rgba(255, 255, 255, 0.35); }
+    .mark { height: 46px; width: auto; display: block; }
     main { padding: 92px 20px 32px; max-width: 720px; }
     h1 { margin: 0 0 12px; font-size: 28px; }
     p { margin: 0; font-size: 18px; line-height: 1.4; }
     @media (max-width: 700px) {
-      .wordmark { height: 28px; }
-      .tile { height: 36px; }
-      .tile img { height: 30px; }
+      .wordmark { height: 32px; }
+      .mark { height: 40px; }
       .collab { gap: 8px; }
     }
   </style>
@@ -48,7 +39,7 @@
     <div class="collab">
       <a href="/" aria-label="RailroadRadar home"><img class="wordmark" src="/assets/brand/railroadradar-wordmark.png" alt="RailroadRadar"></a>
       <span class="rule" aria-hidden="true"></span>
-      <span class="tile"><img src="/assets/railsidelive-logo.png" alt="Railside Live"></span>
+      <img class="mark" src="/assets/railsidelive-logo.png" alt="Railside Live">
     </div>
   </header>
   <main>
