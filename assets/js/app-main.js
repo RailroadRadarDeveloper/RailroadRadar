@@ -14932,19 +14932,27 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           amtrakAllTrains = [];
           let created = 0, updated = 0, skipped = 0, filtered = 0;
           const seen = new Set();
-          // Top-level object keyed by train number; each value is an array of train objects
+          const seenServices = new Set();
+          // Top-level object keyed by train number; each value is an array of train objects.
+          // Deduplicate by railroad + service number: upstream trainID values can change or
+          // appear more than once for the same active train, leaving ghost markers behind.
           Object.keys(data).forEach(function(k) {
             if (k === 'error' || (k === 'v1' && !Array.isArray(data[k]))) return;
             const arr = data[k];
             if (!Array.isArray(arr) || !arr.length) { skipped++; return; }
             arr.forEach(function(t) {
+              if (!t) { skipped++; return; }
               if (!amtrakAllTrains) amtrakAllTrains = [];
               const isVia = rrIsViaTrain(t);
-              // VIA trains stay out of Amtrak lookups (My Trips, station dots, actuals)
-              if (!isVia) amtrakAllTrains.push(t);
-              if (!t || t.lat == null || t.lon == null) { skipped++; return; }
               const trainNum = t.trainNum || t.trainNumRaw || k;
-              const vid = 'amtrak-' + (t.trainID || trainNum);
+              const family = isVia ? 'via' : (rrIsBrightlineTrain(t) ? 'brightline' : 'amtrak');
+              const serviceKey = family + ':' + String(trainNum || t.trainID || k).trim().toUpperCase();
+              if (seenServices.has(serviceKey)) { skipped++; return; }
+              seenServices.add(serviceKey);
+              // VIA trains stay out of Amtrak lookups (My Trips, station dots, actuals).
+              if (!isVia) amtrakAllTrains.push(t);
+              if (t.lat == null || t.lon == null) { skipped++; return; }
+              const vid = 'amtrak-' + (family === 'amtrak' ? '' : family + '-') + (trainNum || t.trainID || k);
               const lat = parseFloat(t.lat);
               const lng = parseFloat(t.lon);
               if (isNaN(lat) || isNaN(lng)) { skipped++; return; }
