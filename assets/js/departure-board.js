@@ -687,7 +687,7 @@
   }
   function ensureMap(latlng) {
     var el = document.getElementById('station-map');
-    if (!el || !window.L || !window.RRFreeDarkLayer) return;
+    if (!el || !window.L || !window.RRFreeLightLayer) return;
     if (!boardMap) {
       boardMap = L.map(el, {
         zoomControl: false,
@@ -702,7 +702,7 @@
       ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard'].forEach(function (name) {
         if (boardMap[name] && boardMap[name].disable) boardMap[name].disable();
       });
-      RRFreeDarkLayer().addTo(boardMap);
+      RRFreeLightLayer().addTo(boardMap);
       stationLayer = L.layerGroup().addTo(boardMap);
       trainLayer = L.layerGroup().addTo(boardMap);
     }
