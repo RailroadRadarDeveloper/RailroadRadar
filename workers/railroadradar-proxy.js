@@ -1199,7 +1199,7 @@ async function scanAndNotify(env) {
   const now = Date.now();
   // Watched units come from subscriber prefs, so a prefs change also forces a fresh report scan.
   const reportSig = await fetchReportsSignature().catch(() => null);
-  const sig = reportSig ? reportSig + "|" + tripHash(JSON.stringify([Array.from(extra.ids).sort(), Array.from(extra.keys).sort()])) : null;
+  const sig = reportSig ? reportSig + "|" + tripHash(JSON.stringify([Array.from(extra.ids || []).sort(), Array.from(extra.keys).sort()])) : null;
   const needFull = !sig || sig !== prev.reportsSig || !(now - Number(prev.reportsFullAt || 0) < REPORTS_FULL_SCAN_MS) || !prev.reportsFullAt;
   let reports = null;
   if (needFull)
@@ -2091,6 +2091,8 @@ async function warmLiveCaches(env) {
 }
 __name(warmLiveCaches, "warmLiveCaches");
 
+var ROSTER_CACHE_URL = "https://railroadradar.internal/public-roster-v1";
+var ROSTER_KV_WRITE_EVERY_S = 15 * 60;
 async function collectRosterHistory(env) {
   if (!env.PUSH_SUBS || !env.MBTA_API_KEY) return;
   const url = new URL(MBTA_BASE + "/vehicles");
@@ -2113,8 +2115,18 @@ async function collectRosterHistory(env) {
     const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - i);
     days.push(d.toISOString().slice(0, 10));
   }
+  // Free-plan KV allows 1,000 writes/day and this runs every 2 minutes (720x/day), so the working copy
+  // lives in the Cache API (free) and KV is only written every ROSTER_KV_WRITE_EVERY_S (~96 writes/day).
   let data = {};
   try { data = JSON.parse(await env.PUSH_SUBS.get("public-roster:v1") || "{}") || {}; } catch (_) {}
+  try {
+    const hit = await caches.default.match(ROSTER_CACHE_URL);
+    if (hit) {
+      const cached = await hit.json();
+      if (cached && cached.vehicles && Number(cached.generatedAt || 0) >= Number(data.generatedAt || 0)) data = cached;
+    }
+  } catch (_) {}
+  const lastSavedAt = Number(data.savedAt || data.generatedAt || 0);
   const vehicles = data.vehicles || {};
   (feed.data || []).forEach(v => {
     const id = String(v.id || "").trim();
@@ -2143,7 +2155,13 @@ async function collectRosterHistory(env) {
     Object.keys(vehicles[id].days || {}).forEach(day => { if (days.indexOf(day) < 0) delete vehicles[id].days[day]; });
     if (!Object.keys(vehicles[id].days || {}).length) delete vehicles[id];
   });
-  await env.PUSH_SUBS.put("public-roster:v1", JSON.stringify({ generatedAt: now, days, vehicles }), { expirationTtl: 432000 });
+  const due = !(now - lastSavedAt < ROSTER_KV_WRITE_EVERY_S);
+  const savedAt = due ? now : lastSavedAt;
+  const body = JSON.stringify({ generatedAt: now, savedAt, days, vehicles });
+  try {
+    await caches.default.put(ROSTER_CACHE_URL, new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=3600" } }));
+  } catch (_) {}
+  if (due) await env.PUSH_SUBS.put("public-roster:v1", body, { expirationTtl: 432000 });
 }
 async function readRoster(env, cors) {
   if (!env.PUSH_SUBS) return jsonResponse({ error: "Roster storage is not configured" }, 503, cors);
