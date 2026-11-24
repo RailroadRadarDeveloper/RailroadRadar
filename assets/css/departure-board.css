@@ -58,6 +58,42 @@ button, input { font: inherit; color: inherit; }
   overflow: hidden;
   background: var(--primary-color);
 }
+.stage {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.map-pane {
+  flex: 0 0 45%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--primary-color);
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+}
+.station-map { position: absolute; inset: 0; background: var(--primary-color); }
+.station-map .leaflet-container { width: 100%; height: 100%; background: var(--primary-color); }
+.map-pane .leaflet-control-attribution {
+  max-width: 78%;
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 1.2;
+  background: rgba(7, 9, 62, 0.78);
+  color: #d7dbeb;
+}
+.map-pane .leaflet-control-attribution a { color: #fff; }
+.board-train { background: none; border: 0; }
+.list-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
 .change-station {
   position: fixed;
   z-index: 5;
@@ -119,7 +155,7 @@ button, input { font: inherit; color: inherit; }
 .dest:empty, .col-track:empty, .col-equip:empty { display: none; }
 .time, .mins { font-variant-numeric: tabular-nums; }
 .time {
-  font-size: clamp(40px, min(5.6vw, 8.6vh), 170px);
+  font-size: clamp(18px, min(1.7vw, 3.2vh), 48px);
   line-height: 0.95;
   white-space: normal;
 }
@@ -132,19 +168,36 @@ button, input { font: inherit; color: inherit; }
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.62);
 }
-.mins { font-size: clamp(24px, min(2.8vw, 4.6vh), 100px); }
+.mins { font-size: clamp(16px, min(1.4vw, 2.6vh), 40px); }
 .train {
-  flex: 0 0 auto;
-  min-width: auto;
+  flex: 1.5 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
   overflow: visible;
-  border-left: clamp(8px, 0.7vh, 18px) solid var(--rr-sp-line, #07093e);
-  padding: 0 0 0 0.35em;
-  font-size: clamp(26px, min(2.8vw, 4.8vh), 96px);
-  line-height: 1.05;
-  white-space: nowrap;
-  text-overflow: unset;
+  border-left: clamp(6px, 0.55vh, 14px) solid var(--rr-sp-line, #07093e);
+  padding: 0 0 0 0.4em;
+  line-height: 1.1;
+  white-space: normal;
 }
-.dest { flex: 1 1 0; font-size: clamp(20px, min(2.2vw, 3.8vh), 80px); white-space: nowrap; text-overflow: ellipsis; }
+.train-name {
+  max-width: 100%;
+  font-size: clamp(18px, min(1.7vw, 3.2vh), 48px);
+  line-height: 1.1;
+  white-space: normal;
+}
+.train-sub {
+  max-width: 100%;
+  margin-top: 0.28em;
+  font-size: clamp(13px, min(1.15vw, 1.9vh), 24px);
+  font-weight: 700;
+  line-height: 1.25;
+  color: #d7dbeb;
+  white-space: normal;
+}
+.dest { flex: 1 1 0; font-size: clamp(16px, min(1.35vw, 2.4vh), 36px); white-space: normal; }
 .col-track, .col-equip { font-size: clamp(20px, min(1.8vw, 3.2vh), 68px); font-weight: 700; }
 .col-equip { white-space: nowrap; text-overflow: ellipsis; }
 .col-track { flex: none; }
@@ -182,7 +235,7 @@ button, input { font: inherit; color: inherit; }
 }
 .banner span:first-child { overflow: hidden; text-overflow: ellipsis; }
 #page-ind[hidden] { display: none; }
-@media (max-width: 700px), (orientation: portrait) {
+@media (max-width: 900px), (orientation: portrait) {
   .line {
     display: flex;
     flex-wrap: wrap;
@@ -209,9 +262,11 @@ button, input { font: inherit; color: inherit; }
     overflow: visible;
     text-overflow: unset;
   }
-  .time { font-size: clamp(36px, min(13vw, 8vh), 96px); }
-  .mins { font-size: clamp(22px, min(7.5vw, 4.6vh), 64px); }
-  .train { font-size: clamp(24px, min(7.2vw, 4.8vh), 64px); }
+  .stage { flex-direction: column; }
+  .map-pane { flex: 0 0 35%; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
+  .time, .train-name { font-size: clamp(20px, min(6.4vw, 3.4vh), 40px); }
+  .mins { font-size: clamp(16px, min(4.6vw, 2.6vh), 28px); }
+  .train-sub { font-size: clamp(13px, min(3.6vw, 1.8vh), 20px); }
   .dest { font-size: clamp(20px, min(6vw, 4vh), 52px); }
   .col-track, .col-equip { font-size: clamp(18px, min(5vw, 3.4vh), 44px); }
   .status { font-size: clamp(16px, min(4.6vw, 3.2vh), 42px); }
