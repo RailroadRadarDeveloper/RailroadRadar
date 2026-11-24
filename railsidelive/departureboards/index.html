@@ -7,8 +7,7 @@
   <meta name="description" content="Full-screen live departure board for any station on RailroadRadar.">
   <meta name="theme-color" content="#07093e">
   <link rel="icon" href="/favicon.ico">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/assets/css/departure-board.css?v=a2b9ab1596">
+  <link rel="stylesheet" href="/assets/css/departure-board.css?v=ca6324282f">
 </head>
 <body>
   <div class="pick" id="pick" hidden>
@@ -19,14 +18,14 @@
   <main class="board" id="board" hidden>
     <button type="button" id="change-station" class="change-station" aria-label="Change station"></button>
     <div class="stage">
-      <div class="map-pane"><div id="station-map" class="station-map"></div></div>
+      <div class="map-pane"><iframe id="station-map" class="station-map" title="Live map"></iframe></div>
       <div class="list-pane"><div class="rows" id="rows"></div></div>
     </div>
     <div class="banner">
       <span class="collab" aria-label="RailroadRadar and Railside Live">
         <span class="collab-rr"><img src="/assets/brand/railroadradar-wordmark.png" alt=""></span>
         <span class="collab-rule" aria-hidden="true"></span>
-        <span class="collab-tile"><img src="/assets/railsidelive-logo.png" alt=""></span>
+        <span class="collab-mark"><img src="/assets/railsidelive-logo.png" alt=""></span>
       </span>
       <span class="banner-text">Report equipment at railroadradar.com/railsidelive</span>
       <span id="page-ind" hidden>1/2</span>
@@ -36,8 +35,6 @@
   <script src="/assets/js/rr-fs-cache.js?v=422375c9cd"></script>
   <script src="/assets/js/trip-stations.js"></script>
   <script src="/assets/js/board-stations.js?v=9fb4856a53"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
-  <script src="/assets/js/departure-board.js?v=43486a92f6"></script>
+  <script src="/assets/js/departure-board.js?v=499113080b"></script>
 </body>
 </html>
