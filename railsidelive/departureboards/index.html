@@ -7,7 +7,7 @@
   <meta name="description" content="Full-screen live departure board for any station on RailroadRadar.">
   <meta name="theme-color" content="#07093e">
   <link rel="icon" href="/favicon.ico">
-  <link rel="stylesheet" href="/assets/css/departure-board.css?v=f72e3f9c0f">
+  <link rel="stylesheet" href="/assets/css/departure-board.css?v=250d0ae5ed">
 </head>
 <body>
   <div class="pick" id="pick" hidden>
@@ -20,13 +20,22 @@
       <button type="button" class="board-name" id="station-name"></button>
       <div class="board-sub">Departures</div>
     </header>
-    <ul class="rows" id="rows"></ul>
+    <div class="cols head">
+      <span>Time</span>
+      <span>Min</span>
+      <span>Train</span>
+      <span class="dest">Destination</span>
+      <span class="col-track">Track</span>
+      <span>Status</span>
+      <span class="col-equip">Equipment</span>
+    </div>
+    <div class="rows" id="rows"></div>
     <div class="foot" id="updated"></div>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
   <script src="/assets/js/rr-fs-cache.js?v=422375c9cd"></script>
   <script src="/assets/js/trip-stations.js"></script>
   <script src="/assets/js/board-stations.js?v=9fb4856a53"></script>
-  <script src="/assets/js/departure-board.js?v=e355e888f6"></script>
+  <script src="/assets/js/departure-board.js?v=4de71d9d0c"></script>
 </body>
 </html>
