@@ -15009,6 +15009,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           // train on the map, held still at its last fix, for AMTRAK_MISSING_HOLD_MS before removing it.
           Object.keys(amtrakMarkers).forEach(function(vid) {
             if (seen.has(vid)) { delete amtrakMissingSince[vid]; return; }
+            // A service can briefly change its upstream key (or train-number casing) while
+            // remaining the same train. If its canonical service is present under a new key,
+            // remove the obsolete marker immediately instead of holding a stationary ghost.
+            const oldInfo = amtrakTrainInfo[vid] || {};
+            const oldFamily = rrIsViaTrain(oldInfo) ? 'via' : (rrIsBrightlineTrain(oldInfo) ? 'brightline' : 'amtrak');
+            const oldNum = String(oldInfo.trainNum || oldInfo.trainNumRaw || String(vid).replace(/^amtrak-(?:via-|brightline-)?/, '')).trim();
+            const oldServiceKey = oldFamily + ':' + oldNum.toUpperCase();
+            if (oldNum && seenServices.has(oldServiceKey)) {
+              delete amtrakMissingSince[vid];
+              try { amtrakMarkers[vid].remove(); } catch (_) { try { map.removeLayer(amtrakMarkers[vid]); } catch (_) {} }
+              delete amtrakMarkers[vid];
+              delete amtrakTrainInfo[vid];
+              delete amtrakLastSeen[vid];
+              return;
+            }
             if (!amtrakMissingSince[vid]) {
               amtrakMissingSince[vid] = now;
               try {
