@@ -628,7 +628,7 @@
       lists.forEach(function (list) { all = all.concat(list); });
       var seen = Object.create(null);
       all = all.filter(function (r) {
-        var train = String(r.trainNum || '').trim().toUpperCase().replace(/\\s+/g, ' ');
+        var train = String(r.trainNum || '').trim().toUpperCase().replace(/\s+/g, ' ');
         var route = String(r.routeName || '').trim().toLowerCase();
         var departure = r.scheduled || r.predicted;
         var minute = departure && isFinite(departure.getTime())
