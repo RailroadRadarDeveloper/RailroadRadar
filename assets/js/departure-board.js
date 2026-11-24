@@ -5,7 +5,7 @@
   'use strict';
   var REFRESH_MS = 60 * 1000;
   var PAGE_MS = 10 * 1000;
-  var REPORTS_TTL_MS = 30 * 60 * 1000;
+  var REPORTS_TTL_MS = 60 * 1000;
   var HORIZON_MS = 8 * 60 * 60 * 1000;
   var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
   var AGENCY_LABEL = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', njt: 'NJ Transit', marc: 'MARC', ctrail: 'CTrail', via: 'VIA', brightline: 'Brightline' };
@@ -621,16 +621,21 @@
     if (codes.length) jobs.push(amtrakRows(codes));
     if (by.mnr) jobs.push(gtfsRows('mnr', by.mnr.map(function (m) { return m.id; }), API + '/api/mta/mnr'));
     if (by.lirr) jobs.push(gtfsRows('lirr', by.lirr.map(function (m) { return m.id; }), API + '/api/mta/lirr'));
-    if (by.marc) jobs.push(cached('marc-board', 10 * 60 * 1000, function () {
-      return gtfsRows('marc', by.marc.map(function (m) { return m.id; }), 'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-tu.pb').catch(function () { return []; });
-    }));
+    if (by.marc) jobs.push(gtfsRows('marc', by.marc.map(function (m) { return m.id; }), 'https://raw.githubusercontent.com/RailroadRadarDeveloper/RailroadRadar/main/feeds/marc-tu.pb'));
     if (by.njt) jobs.push(njtRows(by.njt.map(function (m) { return m.name; })).catch(function () { return []; }));
     return Promise.all(jobs.map(function (p) { return p.catch(function () { return []; }); })).then(function (lists) {
       var all = [];
       lists.forEach(function (list) { all = all.concat(list); });
       var seen = Object.create(null);
       all = all.filter(function (r) {
-        var k = r.agency + ':' + r.tripId + ':' + r.sort;
+        var train = String(r.trainNum || '').trim().toUpperCase().replace(/\\s+/g, ' ');
+        var route = String(r.routeName || '').trim().toLowerCase();
+        var departure = r.scheduled || r.predicted;
+        var minute = departure && isFinite(departure.getTime())
+          ? Math.floor(departure.getTime() / 60000)
+          : Math.floor(Number(r.sort || 0) / 60000);
+        var identity = train ? train + ':' + route : String(r.tripId || '');
+        var k = String(r.agency || '') + ':' + identity + ':' + minute;
         if (seen[k]) return false;
         seen[k] = 1;
         return true;
