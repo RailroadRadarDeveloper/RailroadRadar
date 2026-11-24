@@ -655,14 +655,17 @@
     if (num && route && new RegExp('\\b' + num.replace(/[^\w]/g, '') + '$').test(route)) num = '';
     var title = (route + ' ' + num).trim();
     return '<div class="cols row" style="--rr-sp-line:' + esc(r.lineColor || '#07093E') + '">' +
+      '<div class="line line-when">' +
       '<span class="time"><span class="time-exp">' + esc(clock(when)) + '</span>' +
       (late ? '<span class="time-sch">' + esc(clock(r.scheduled)) + '</span>' : '') + '</span>' +
-      '<span class="mins">' + esc(soonText(when)) + '</span>' +
+      '<span class="mins">' + esc(soonText(when)) + '</span></div>' +
+      '<div class="line line-route">' +
       '<span class="train">' + esc(title) + '</span>' +
-      '<span class="dest">' + esc(r.destination || '') + '</span>' +
+      '<span class="dest">' + esc(r.destination || '') + '</span></div>' +
+      '<div class="line line-extra">' +
       '<span class="col-track">' + esc(r.track || '') + '</span>' +
       '<span class="status st-' + info.tone + '">' + esc(info.label) + '</span>' +
-      '<span class="col-equip">' + esc(r.equipment || '') + '</span></div>';
+      '<span class="col-equip">' + esc(r.equipment || '') + '</span></div></div>';
   }
   function pageCount() {
     return boardList.length > 2 ? 2 : 1;
