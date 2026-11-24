@@ -7,12 +7,10 @@
   var REPORTS_TTL_MS = 30 * 60 * 1000;
   var HORIZON_MS = 8 * 60 * 60 * 1000;
   var API = 'https://railroadradar-proxy.railroadradar.workers.dev';
-  var REPORTS_URL = 'https://firestore.googleapis.com/v1/projects/railroadradar-accounts/databases/(default)/documents/trainReports?pageSize=300&key=AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs';
   var AGENCY_LABEL = { mbta: 'MBTA', amtrak: 'Amtrak', mnr: 'Metro-North', lirr: 'LIRR', njt: 'NJ Transit', marc: 'MARC', ctrail: 'CTrail', via: 'VIA', brightline: 'Brightline' };
   var RANK = { mbta: 0, lirr: 1, mnr: 2, njt: 3, marc: 4, ctrail: 5, brightline: 6, via: 7, amtrak: 8 };
   var extra = window.RR_BOARD_EXTRA || { lirr: { stops: [], routes: {} }, marc: { stops: [], routes: {} }, mnrRoutes: {} };
   var feedCache = Object.create(null);
-  var reports = Object.create(null);
   var hubs = [];
   var current = null;
   var timer = 0;
@@ -191,48 +189,56 @@
     }
     return parts.join(' + ');
   }
-  function indexReports(snap) {
-    var today = nyDate();
-    var map = Object.create(null);
-    snap.forEach(function (doc) {
-      var rep = doc.data() || {};
-      var agency = String(rep.agency || '').toLowerCase();
-      var tn = String(rep.trainNumber || '').replace(/^0+/, '') || String(rep.trainNumber || '');
-      var sd = String(rep.serviceDate || '');
-      if (agency !== 'mbta' && sd && sd !== today) return;
-      var label = equipLabel(rep);
-      if (!label) return;
-      if (tn) map[agency + ':' + tn] = label;
-      if (agency === 'mbta' && rep.vehicleId) map['mbta:v:' + String(rep.vehicleId)] = label;
-    });
-    reports = map;
+  var FS_DOC = 'https://firestore.googleapis.com/v1/projects/railroadradar-accounts/databases/(default)/documents/trainReports/';
+  function decodeFields(fields) {
+    var data = {};
+    Object.keys(fields || {}).forEach(function (k) { data[k] = fsVal(fields[k]); });
+    return data;
   }
-  function loadReports() {
-    if (!window.rrFsCache) return Promise.resolve();
-    return window.rrFsCache.query('trainReports:board', REPORTS_TTL_MS, function () {
-      return fetch(REPORTS_URL).then(function (res) {
-        if (!res.ok) throw new Error('reports ' + res.status);
-        return res.json();
-      }).then(function (body) {
-        var docs = (body.documents || []).map(function (doc) {
-          var data = {};
-          var fields = doc.fields || {};
-          Object.keys(fields).forEach(function (k) { data[k] = fsVal(fields[k]); });
-          var id = String(doc.name || '').split('/').pop();
-          return { id: id, data: function () { return data; } };
+  function reportDoc(id) {
+    if (!window.rrFsCache || !id) return Promise.resolve('');
+    return window.rrFsCache.doc('trainReports:doc:' + id, REPORTS_TTL_MS, function () {
+      return fetch(FS_DOC + encodeURIComponent(id) + '?key=AIzaSyBCXgIwkKHBrNfs4-0T0L9LQNb6GP-37Qs').then(function (res) {
+        if (res.status === 404) return { id: id, exists: false, data: function () { return {}; } };
+        if (!res.ok) throw new Error('report ' + res.status);
+        return res.json().then(function (body) {
+          return { id: id, exists: true, data: function () { return decodeFields(body.fields); } };
         });
-        return { empty: !docs.length, size: docs.length, docs: docs, forEach: function (fn) { docs.forEach(fn); } };
       });
-    }).then(indexReports).catch(function () {});
+    }).then(function (snap) {
+      if (!snap || snap.exists === false) return '';
+      var rep = snap.data() || {};
+      var agency = String(rep.agency || '').toLowerCase();
+      var sd = String(rep.serviceDate || '');
+      if (agency !== 'mbta' && sd && sd !== nyDate()) return '';
+      return equipLabel(rep);
+    }).catch(function () { return ''; });
   }
-  function equipFor(row) {
-    var tn = String(row.trainNum || '').replace(/^0+/, '') || String(row.trainNum || '');
-    var keys = [row.agency + ':' + tn];
-    if (row.agency === 'ctrail' || row.agency === 'via' || row.agency === 'brightline') keys.push('amtrak:' + tn);
-    if (row.agency === 'amtrak') keys.push('ctrail:' + tn, 'via:' + tn);
-    if (row.vehicleId) keys.push('mbta:v:' + row.vehicleId);
-    for (var i = 0; i < keys.length; i++) if (reports[keys[i]]) return reports[keys[i]];
-    return '';
+  function reportIds(r) {
+    var ids = [];
+    var today = nyDate();
+    var tn = String(r.trainNum || '').trim();
+    var alt = tn.replace(/^0+/, '') || tn;
+    var agencies = [r.agency];
+    if (r.agency === 'amtrak' || r.agency === 'ctrail' || r.agency === 'via' || r.agency === 'brightline') {
+      ['amtrak', 'ctrail', 'via'].forEach(function (a) { if (agencies.indexOf(a) < 0) agencies.push(a); });
+    }
+    agencies.forEach(function (a) {
+      if (a === 'mbta') {
+        if (r.vehicleId) ids.push('mbta_' + r.vehicleId);
+      } else if (tn) {
+        ids.push(a + '_' + today + '_' + tn);
+        if (alt !== tn) ids.push(a + '_' + today + '_' + alt);
+      }
+    });
+    return ids;
+  }
+  function attachEquipment(list) {
+    return Promise.all(list.map(function (r) {
+      return Promise.all(reportIds(r).map(reportDoc)).then(function (labels) {
+        r.equipment = labels.filter(Boolean)[0] || '';
+      });
+    })).then(function () { return list; });
   }
 
   function toneOf(row) {
@@ -359,7 +365,15 @@
         });
         if (made) out.push(made);
       });
-      return out;
+      return jsonGet(API + '/api/mbta/vehicles?filter[route_type]=2').then(function (body) {
+        var byTrip = Object.create(null);
+        ((body && body.data) || []).forEach(function (v) {
+          var trip = v.relationships && v.relationships.trip && v.relationships.trip.data && v.relationships.trip.data.id;
+          if (trip) byTrip[trip] = String(v.id);
+        });
+        out.forEach(function (r) { if (byTrip[r.tripId]) r.vehicleId = byTrip[r.tripId]; });
+        return out;
+      }).catch(function () { return out; });
     });
   }
 
@@ -579,7 +593,7 @@
         return true;
       });
       all.sort(function (a, b) { return a.sort - b.sort; });
-      return all;
+      return all.slice(0, 4);
     });
   }
 
@@ -622,7 +636,7 @@
   function paint(hub, list) {
     nameBtn.textContent = hub.name;
     if (!list.length) {
-      rowsEl.innerHTML = '<li class="empty">No Upcoming Departures</li>';
+      rowsEl.innerHTML = '<div class="empty">No Upcoming Departures</div>';
     } else {
       rowsEl.innerHTML = list.map(function (r) {
         var info = toneOf(r);
@@ -632,15 +646,14 @@
         var num = String(r.trainNum || '').trim();
         if (num && route && new RegExp('\\b' + num.replace(/[^\w]/g, '') + '$').test(route)) num = '';
         var title = (route + ' ' + num).trim();
-        var equip = equipFor(r);
-        var track = r.track ? 'Track ' + r.track : '';
-        return '<li class="row" style="--rr-sp-line:' + esc(r.lineColor || '#07093E') + '">' +
+        return '<div class="cols row" style="--rr-sp-line:' + esc(r.lineColor || '#07093E') + '">' +
           '<span class="time">' + esc(clock(r.scheduled || when)) + '</span>' +
           '<span class="mins">' + esc(mins) + '</span>' +
+          '<span class="train">' + esc(title) + '</span>' +
+          '<span class="dest">' + esc(r.destination || '') + '</span>' +
+          '<span class="col-track">' + esc(r.track || '') + '</span>' +
           '<span class="status st-' + info.tone + '">' + esc(info.label) + '</span>' +
-          '<span class="service"><span class="service-name">' + esc(title) + '</span>' +
-          '<span class="service-dest">' + esc([r.destination, track].filter(Boolean).join(' · ')) + '</span></span>' +
-          '<span class="equip">' + esc(equip) + '</span></li>';
+          '<span class="col-equip">' + esc(r.equipment || '') + '</span></div>';
       }).join('');
     }
     foot.textContent = 'Updated ' + clock(new Date());
@@ -648,8 +661,10 @@
   function refresh() {
     if (!current || loading || document.hidden) return;
     loading = true;
-    Promise.all([loadHub(current), loadReports()]).then(function (out) {
-      if (current) paint(current, out[0]);
+    loadHub(current).then(function (list) {
+      return attachEquipment(list);
+    }).then(function (list) {
+      if (current) paint(current, list);
     }).catch(function () {
       if (current) foot.textContent = 'Updated ' + clock(new Date());
     }).then(function () { loading = false; });
@@ -660,7 +675,7 @@
     var param = primary.agency + ':' + primary.id;
     try { history.replaceState(null, '', location.pathname + '?station=' + encodeURIComponent(param)); } catch (_) {}
     showPick(false);
-    rowsEl.innerHTML = '<li class="empty">Loading Departures</li>';
+    rowsEl.innerHTML = '<div class="empty">Loading Departures</div>';
     nameBtn.textContent = hub.name;
     refresh();
     if (timer) clearInterval(timer);
