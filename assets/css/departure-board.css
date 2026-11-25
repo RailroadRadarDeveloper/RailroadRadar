@@ -63,13 +63,13 @@ button, input { font: inherit; color: inherit; }
 .stage {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   min-height: 0;
   min-width: 0;
 }
 .map-pane {
-  flex: 0 0 clamp(110px, 20vh, 220px);
-  width: 100%;
+  flex: 0 0 clamp(280px, 36vw, 560px);
+  width: auto;
   min-width: 0;
   min-height: 0;
   box-sizing: border-box;
@@ -77,8 +77,8 @@ button, input { font: inherit; color: inherit; }
   overflow: hidden;
   touch-action: none;
   background: var(--primary-color);
-  border-right: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom: 0;
 }
 .station-map {
   position: absolute;
