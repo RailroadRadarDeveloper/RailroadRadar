@@ -9759,6 +9759,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
       let reportTrainSubmitting = false;
       let reportTrainSelectToken = 0;
       let reportTrainPreferNumber = '';
+      let reportTrainSuggestRows = [];
+      let reportTrainSuggestActive = -1;
 
       // toLocaleDateString builds a new formatter on every call; this one is shared (same en-CA YYYY-MM-DD output).
       var RR_NY_DATE_FORMAT = null; // var: hoisted, so a call before this line runs still works
@@ -11021,7 +11023,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const list = document.getElementById('report-locos-list');
         const addBtn = document.getElementById('report-add-loco-btn');
         if (!list) return;
-        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || '');
+        if (!agency) {
+          list.innerHTML = '';
+          if (addBtn) addBtn.style.display = 'none';
+          return;
+        }
         const isMbta = agency === 'mbta';
         const isAmtrak = agency === 'amtrak';
         const isLirr = agency === 'lirr';
@@ -11263,14 +11270,85 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (!Array.isArray(data)) return [];
         return data.filter(function(r) { return r && r.trainNumber; });
       }
+      function closeReportTrainSuggest() {
+        const list = document.getElementById('report-train-number-options');
+        const input = document.getElementById('report-train-number');
+        reportTrainSuggestActive = -1;
+        if (list) { list.hidden = true; list.innerHTML = ''; }
+        if (input) {
+          input.setAttribute('aria-expanded', 'false');
+          input.removeAttribute('aria-activedescendant');
+        }
+      }
+      function renderReportTrainSuggest() {
+        const input = document.getElementById('report-train-number');
+        const list = document.getElementById('report-train-number-options');
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || '');
+        if (!input || !list || !agency || agency === 'mbta') {
+          closeReportTrainSuggest();
+          return;
+        }
+        const q = String(input.value || '').trim().toLowerCase();
+        const rows = q ? reportTrainSuggestRows.filter(function(row) {
+          return row.number.toLowerCase().includes(q) || String(row.label || '').toLowerCase().includes(q);
+        }).slice(0, 8) : [];
+        if (!rows.length) {
+          closeReportTrainSuggest();
+          return;
+        }
+        if (reportTrainSuggestActive >= rows.length) reportTrainSuggestActive = -1;
+        list.innerHTML = rows.map(function(row, i) {
+          const active = i === reportTrainSuggestActive;
+          return '<li role="presentation"><button type="button" class="rr-report-opt' + (active ? ' is-active' : '') + '" role="option" id="report-train-opt-' + i + '" data-train-suggest-row="' + i + '" aria-selected="' + (active ? 'true' : 'false') + '">' +
+            '<span aria-hidden="true" style="display:block;width:36px;height:36px;flex:0 0 36px;"></span>' +
+            '<span class="rr-report-opt-text"><span class="rr-report-opt-num">' + escapeHtmlLite(row.number) + '</span>' +
+            '<span class="rr-report-opt-meta">' + escapeHtmlLite(row.label || 'Scheduled train') + '</span></span></button></li>';
+        }).join('');
+        list.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+        if (reportTrainSuggestActive >= 0) input.setAttribute('aria-activedescendant', 'report-train-opt-' + reportTrainSuggestActive);
+        else input.removeAttribute('aria-activedescendant');
+      }
+      function moveReportTrainSuggest(dir) {
+        const input = document.getElementById('report-train-number');
+        if (!input) return;
+        const q = String(input.value || '').trim().toLowerCase();
+        const rows = q ? reportTrainSuggestRows.filter(function(row) {
+          return row.number.toLowerCase().includes(q) || String(row.label || '').toLowerCase().includes(q);
+        }).slice(0, 8) : [];
+        if (!rows.length) return;
+        reportTrainSuggestActive = reportTrainSuggestActive < 0 ? (dir > 0 ? 0 : rows.length - 1) : (reportTrainSuggestActive + dir + rows.length) % rows.length;
+        renderReportTrainSuggest();
+        const option = document.getElementById('report-train-opt-' + reportTrainSuggestActive);
+        if (option && option.scrollIntoView) option.scrollIntoView({ block: 'nearest' });
+      }
+      function pickReportTrainSuggest(index) {
+        const input = document.getElementById('report-train-number');
+        if (!input) return;
+        const q = String(input.value || '').trim().toLowerCase();
+        const rows = q ? reportTrainSuggestRows.filter(function(row) {
+          return row.number.toLowerCase().includes(q) || String(row.label || '').toLowerCase().includes(q);
+        }).slice(0, 8) : [];
+        const row = rows[index];
+        if (!row) return;
+        input.value = row.number;
+        reportTrainPreferNumber = row.number;
+        const sel = document.getElementById('report-train-select');
+        if (sel) sel.value = row.number;
+        closeReportTrainSuggest();
+      }
       async function populateReportTrainSelect(preferTrainNumber) {
-        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
-        if (agency === 'mbta') return; // MBTA uses vehicle-ID form; do not fetch /api/schedules
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || '');
+        const resultsList = document.getElementById('report-train-number-options');
+        if (!agency || agency === 'mbta') {
+          reportTrainSuggestRows = [];
+          closeReportTrainSuggest();
+          return; // MBTA uses vehicle-ID form; schedules are railroad-specific.
+        }
         const dateEl = document.getElementById('report-service-date');
         const sel = document.getElementById('report-train-select');
         const searchInput = document.getElementById('report-train-number');
-        const datalist = document.getElementById('report-train-number-options');
-        if (!sel || !dateEl || !searchInput || !datalist) return;
+        if (!sel || !dateEl || !searchInput || !resultsList) return;
         const today = nyServiceDateToday();
         let serviceDate = String(dateEl.value || '').trim() || today;
         if (serviceDate < today) {
@@ -11286,19 +11364,18 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const token = ++reportTrainSelectToken;
         sel.innerHTML = '<option value="">Loading trains…</option>';
         sel.disabled = true;
-        datalist.innerHTML = '';
+        resultsList.innerHTML = '';
+        reportTrainSuggestRows = [];
+        reportTrainSuggestActive = -1;
         try {
           const rows = await fetchAgencyScheduleTrains(agency, serviceDate);
           if (token !== reportTrainSelectToken) return;
+          reportTrainSuggestRows = rows.map(function(r) {
+            return { number: String(r.trainNumber).trim(), label: formatReportTrainOptionLabel(r) };
+          }).filter(function(r) { return r.number; });
           let options = '';
-          rows.forEach(function(r) {
-            const num = String(r.trainNumber).trim();
-            const label = formatReportTrainOptionLabel(r);
-            const option = document.createElement('option');
-            option.value = num;
-            option.label = label;
-            datalist.appendChild(option);
-            options += '<option value="' + num.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
+          reportTrainSuggestRows.forEach(function(r) {
+            options += '<option value="' + r.number.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + r.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
           });
           sel.innerHTML = options || '<option value="">No scheduled trains for this date</option>';
           if (prefer) {
@@ -11306,9 +11383,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             const hit = Array.prototype.slice.call(sel.options || []).find(function(o) { return o.value === prefer; });
             if (hit) sel.value = prefer;
           }
+          renderReportTrainSuggest();
         } catch (e) {
           if (token !== reportTrainSelectToken) return;
           console.warn('[report] schedule fetch failed', e);
+          reportTrainSuggestRows = [];
+          closeReportTrainSuggest();
           sel.innerHTML = '<option value="">Schedule unavailable — enter train number manually</option>';
         } finally {
           if (token === reportTrainSelectToken) {
@@ -11318,9 +11398,30 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         }
       }
       function populateReportUnitSelect() {
-        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || 'mbta');
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || '');
         const isMbta = agency === 'mbta';
         const mbtaVehWrap = document.getElementById('report-mbta-vehicle-wrap');
+        if (!agency) {
+          reportTrainSelectToken++;
+          reportTrainSuggestRows = [];
+          closeReportTrainSuggest();
+          const dateWrap = document.getElementById('report-service-date-wrap');
+          const trainRow = document.getElementById('report-train-pick-row');
+          const trainWrap = document.getElementById('report-train-number-wrap');
+          const locoList = document.getElementById('report-locos-list');
+          const hint = document.getElementById('report-train-hint');
+          if (dateWrap) dateWrap.style.display = 'none';
+          if (trainRow) trainRow.style.display = 'none';
+          if (trainWrap) trainWrap.style.display = 'none';
+          if (mbtaVehWrap) mbtaVehWrap.style.display = 'none';
+          if (locoList) locoList.innerHTML = '';
+          const add = document.getElementById('report-add-loco-btn');
+          if (add) add.style.display = 'none';
+          if (hint) hint.textContent = 'Select a railroad to begin your report.';
+          return;
+        }
+        const addBtn = document.getElementById('report-add-loco-btn');
+        if (addBtn) addBtn.style.display = '';
         const dtWrap = document.getElementById('report-service-date-wrap');
         const trainPickRow = document.getElementById('report-train-pick-row');
         const tnWrap = document.getElementById('report-train-number-wrap');
@@ -11377,7 +11478,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           if (btnIn) btnIn.click();
           return;
         }
-        const agency = normalizeAgency(opts.agency || 'mbta');
+        const agency = normalizeAgency(opts.agency || '');
         const agencyEl = document.getElementById('report-agency');
         if (agencyEl) agencyEl.value = agency;
         const mbtaVidEl = document.getElementById('report-mbta-vehicle-id');
@@ -11435,7 +11536,8 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           setErr('Sign in required to submit a report.');
           return;
         }
-        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value);
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || '');
+        if (!agency) { setErr('Select a railroad before submitting your report.'); return; }
         const isMbta = agency === 'mbta';
         let serviceDate = ((document.getElementById('report-service-date') || {}).value || '').trim() || nyServiceDateToday();
         if (isMbta) serviceDate = null; // live pairing; omit dated schedule field
@@ -11661,10 +11763,33 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           populateReportUnitSelect();
         });
         const trainNumberInput = document.getElementById('report-train-number');
-        if (trainNumberInput) trainNumberInput.addEventListener('input', function() {
-          reportTrainPreferNumber = String(trainNumberInput.value || '').trim();
-          const trainSelect = document.getElementById('report-train-select');
-          if (trainSelect) trainSelect.value = Array.prototype.slice.call(trainSelect.options || []).some(function(o) { return o.value === reportTrainPreferNumber; }) ? reportTrainPreferNumber : '';
+        if (trainNumberInput) {
+          trainNumberInput.addEventListener('input', function() {
+            reportTrainPreferNumber = String(trainNumberInput.value || '').trim();
+            reportTrainSuggestActive = -1;
+            const trainSelect = document.getElementById('report-train-select');
+            if (trainSelect) trainSelect.value = Array.prototype.slice.call(trainSelect.options || []).some(function(o) { return o.value === reportTrainPreferNumber; }) ? reportTrainPreferNumber : '';
+            renderReportTrainSuggest();
+          });
+          trainNumberInput.addEventListener('keydown', function(e) {
+            const listEl = document.getElementById('report-train-number-options');
+            const isOpen = listEl && !listEl.hidden;
+            if (e.key === 'ArrowDown' && reportTrainSuggestRows.length) {
+              e.preventDefault(); moveReportTrainSuggest(1);
+            } else if (e.key === 'ArrowUp' && isOpen) {
+              e.preventDefault(); moveReportTrainSuggest(-1);
+            } else if (e.key === 'Enter' && isOpen && reportTrainSuggestActive >= 0) {
+              e.preventDefault(); pickReportTrainSuggest(reportTrainSuggestActive);
+            } else if (e.key === 'Escape' && isOpen) {
+              e.preventDefault(); closeReportTrainSuggest();
+            }
+          });
+        }
+        const trainSuggestList = document.getElementById('report-train-number-options');
+        if (trainSuggestList) trainSuggestList.addEventListener('click', function(e) {
+          const btn = e.target.closest('[data-train-suggest-row]');
+          if (!btn) return;
+          pickReportTrainSuggest(parseInt(btn.getAttribute('data-train-suggest-row'), 10));
         });
         const extraBtn = document.getElementById('report-train-extra-btn');
         if (extraBtn) extraBtn.addEventListener('click', function() {
