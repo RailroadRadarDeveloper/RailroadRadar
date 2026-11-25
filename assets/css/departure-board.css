@@ -2,6 +2,8 @@
 :root {
   --primary-color: #07093e;
   --rr-green: #0ac700;
+  /* Typography grows smoothly with the available screen size without overflowing compact displays. */
+  --rr-board-type-scale: clamp(0.9, calc(0.82 + 0.38vmin), 1.18);
 }
 html, body {
   height: 100%;
