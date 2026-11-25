@@ -2,8 +2,8 @@
 :root {
   --primary-color: #07093e;
   --rr-green: #0ac700;
-  /* Typography grows smoothly with the available screen size without overflowing compact displays. */
-  --rr-board-type-scale: clamp(0.9, 1.05, 1.18);
+  /* A consistent text scale multiplier; the existing clamp() sizes remain responsive to screen dimensions. */
+  --rr-board-type-scale: 1.05;
 }
 html, body {
   height: 100%;
@@ -195,13 +195,13 @@ button, input { font: inherit; color: inherit; }
   white-space: normal;
 }
 .dest { flex: 1 1 0; font-size: calc(clamp(16px, min(1.35vw, 2.4vh), 36px) * var(--rr-board-type-scale)); white-space: normal; }
-.col-track, .col-equip { font-size: clamp(20px, min(1.8vw, 3.2vh), 68px); font-weight: 700; }
+.col-track, .col-equip { font-size: calc(clamp(20px, min(1.8vw, 3.2vh), 68px) * var(--rr-board-type-scale)); font-weight: 700; }
 .col-equip { white-space: nowrap; text-overflow: ellipsis; }
 .col-track { flex: none; }
 .status {
   flex: none;
   max-width: 100%;
-  font-size: clamp(16px, min(1.6vw, 3vh), 60px);
+  font-size: calc(clamp(16px, min(1.6vw, 3vh), 60px) * var(--rr-board-type-scale));
   font-weight: 800;
   color: #fff;
   padding: 0.28em 0.5em;
