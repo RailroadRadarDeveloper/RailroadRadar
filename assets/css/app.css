@@ -7552,12 +7552,12 @@ html.rr-map-clean #map .leaflet-bottom { bottom: 0; }
 html.rr-map-clean .leaflet-control-attribution {
   margin: 0 0 2px 2px !important;
   padding: 0 4px;
-  max-width: min(52vw, 280px);
+  max-width: none;
   background: rgba(255, 255, 255, 0.78);
   color: #243056;
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1.25;
-  white-space: normal;
+  white-space: nowrap;
 }
 html.rr-map-clean .leaflet-control-attribution a { color: #1a3a6b; }
 .rr-clean-exit { display: none; }
@@ -7586,7 +7586,7 @@ html.rr-map-clean.rr-clean-chrome .rr-clean-exit {
   pointer-events: auto;
 }
 @media (max-width: 600px) {
-  html.rr-map-clean .leaflet-control-attribution { font-size: 8px; max-width: 48vw; }
+  html.rr-map-clean .leaflet-control-attribution { font-size: 6px; max-width: none; white-space: nowrap; }
 }
 .rr-report-heart-icon{font-size:15px;line-height:1;color:#b4234d;}
 .rr-report-heart-count{font-variant-numeric:tabular-nums;min-width:1ch;}
