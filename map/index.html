@@ -793,17 +793,18 @@
           <input type="date" id="report-service-date">
         </div>
         <div id="report-train-pick-row">
-          <div id="report-train-select-wrap">
-            <label for="report-train-select">Train</label>
-            <select id="report-train-select">
+          <div id="report-train-select-wrap" hidden>
+            <select id="report-train-select" aria-hidden="true" tabindex="-1">
               <option value="">Loading trains…</option>
             </select>
           </div>
-          <button type="button" id="report-train-extra-btn" aria-pressed="false">Extra / Not listed</button>
+          <button type="button" id="report-train-extra-btn" hidden aria-pressed="false">Extra / Not listed</button>
         </div>
         <div id="report-train-number-wrap" style="display:none;">
-          <label for="report-train-number">Train number</label>
-          <input type="text" id="report-train-number" placeholder="e.g. 2150" autocomplete="off">
+          <label for="report-train-number">Search train number</label>
+          <input type="search" id="report-train-number" list="report-train-number-options" placeholder="Type a train number…" autocomplete="off">
+          <datalist id="report-train-number-options"></datalist>
+          <p class="rr-modal-hint" style="margin:5px 0 0;">Start typing to find a scheduled train, or enter a number manually.</p>
         </div>
         <div id="report-mbta-vehicle-wrap" style="display:none;">
           <label for="report-mbta-vehicle-id">Vehicle ID (from MBTA)</label>
@@ -1058,7 +1059,7 @@
   <script src="/assets/js/facility-map-markers.js?v=5774b1acbc"></script>
   <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
   <script src="/assets/js/rr-shared-rails.js?v=7102cefb1d"></script>
-  <script src="/assets/js/app-main.js?v=railsidelivereport7de9d090"></script>
+  <script src="/assets/js/app-main.js?v=searchtrainnumber1"></script>
   <script src="/assets/js/live-popup-report-prefill.js?v=1"></script>
   <script src="/assets/js/yard-reports.js?v=20261115b"></script>
   <script src="/assets/js/main-live-trip-marker.js?v=b314f7a694"></script>
