@@ -11226,10 +11226,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         const sel = document.getElementById('report-train-select');
         const tnWrap = document.getElementById('report-train-number-wrap');
         if (btn) {
-          btn.classList.toggle('active', reportTrainExtraMode);
-          btn.setAttribute('aria-pressed', reportTrainExtraMode ? 'true' : 'false');
+          btn.hidden = true;
+          btn.classList.remove('active');
+          btn.setAttribute('aria-pressed', 'false');
         }
-        if (sel) sel.disabled = reportTrainExtraMode;
+        if (sel) sel.disabled = true;
         if (tnWrap) tnWrap.style.display = reportTrainExtraMode ? '' : 'none';
         if (!reportTrainExtraMode) {
           const tnEl = document.getElementById('report-train-number');
@@ -11267,7 +11268,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agency === 'mbta') return; // MBTA uses vehicle-ID form; do not fetch /api/schedules
         const dateEl = document.getElementById('report-service-date');
         const sel = document.getElementById('report-train-select');
-        if (!sel || !dateEl) return;
+        const searchInput = document.getElementById('report-train-number');
+        const datalist = document.getElementById('report-train-number-options');
+        if (!sel || !dateEl || !searchInput || !datalist) return;
         const today = nyServiceDateToday();
         let serviceDate = String(dateEl.value || '').trim() || today;
         if (serviceDate < today) {
@@ -11279,40 +11282,37 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           serviceDate = max;
           dateEl.value = max;
         }
-        const prefer = String(preferTrainNumber != null ? preferTrainNumber : reportTrainPreferNumber || '').trim();
+        const prefer = String(preferTrainNumber != null ? preferTrainNumber : reportTrainPreferNumber || searchInput.value || '').trim();
         const token = ++reportTrainSelectToken;
         sel.innerHTML = '<option value="">Loading trains…</option>';
         sel.disabled = true;
+        datalist.innerHTML = '';
         try {
           const rows = await fetchAgencyScheduleTrains(agency, serviceDate);
           if (token !== reportTrainSelectToken) return;
-          let html = '<option value="">Select a train…</option>';
+          let options = '';
           rows.forEach(function(r) {
             const num = String(r.trainNumber).trim();
-            const label = formatReportTrainOptionLabel(r).replace(/</g, '&lt;').replace(/"/g, '&quot;');
-            html += '<option value="' + num.replace(/"/g, '&quot;') + '">' + label + '</option>';
+            const label = formatReportTrainOptionLabel(r);
+            const option = document.createElement('option');
+            option.value = num;
+            option.label = label;
+            datalist.appendChild(option);
+            options += '<option value="' + num.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>';
           });
-          if (!rows.length) {
-            html = '<option value="">No scheduled trains for this date</option>';
-          }
-          sel.innerHTML = html;
+          sel.innerHTML = options || '<option value="">No scheduled trains for this date</option>';
           if (prefer) {
-            const opts = Array.prototype.slice.call(sel.options || []);
-            const hit = opts.find(function(o) { return o.value === prefer; });
+            searchInput.value = prefer;
+            const hit = Array.prototype.slice.call(sel.options || []).find(function(o) { return o.value === prefer; });
             if (hit) sel.value = prefer;
-            else {
-              setReportTrainExtraMode(true);
-              const tnEl = document.getElementById('report-train-number');
-              if (tnEl) tnEl.value = prefer;
-            }
           }
         } catch (e) {
           if (token !== reportTrainSelectToken) return;
           console.warn('[report] schedule fetch failed', e);
-          sel.innerHTML = '<option value="">Could not load schedule — use Extra / Not listed</option>';
+          sel.innerHTML = '<option value="">Schedule unavailable — enter train number manually</option>';
         } finally {
           if (token === reportTrainSelectToken) {
-            sel.disabled = reportTrainExtraMode;
+            sel.disabled = true;
             if (typeof window.rrAcelaEquipRefreshForm === 'function') window.rrAcelaEquipRefreshForm();
           }
         }
@@ -11342,6 +11342,7 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           return;
         }
         // Schedule-style form for Amtrak / MNR / LIRR / NJT / CTrail
+        setReportTrainExtraMode(true);
         if (dtWrap) dtWrap.style.display = '';
         if (trainPickRow) trainPickRow.style.display = '';
         if (mbtaVehWrap) {
@@ -11656,8 +11657,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         });
         const dateSel = document.getElementById('report-service-date');
         if (dateSel) dateSel.addEventListener('change', function() {
-          reportTrainPreferNumber = ((document.getElementById('report-train-select') || {}).value || reportTrainPreferNumber || '').trim();
+          reportTrainPreferNumber = ((document.getElementById('report-train-number') || {}).value || reportTrainPreferNumber || '').trim();
           populateReportUnitSelect();
+        });
+        const trainNumberInput = document.getElementById('report-train-number');
+        if (trainNumberInput) trainNumberInput.addEventListener('input', function() {
+          reportTrainPreferNumber = String(trainNumberInput.value || '').trim();
+          const trainSelect = document.getElementById('report-train-select');
+          if (trainSelect) trainSelect.value = Array.prototype.slice.call(trainSelect.options || []).some(function(o) { return o.value === reportTrainPreferNumber; }) ? reportTrainPreferNumber : '';
         });
         const extraBtn = document.getElementById('report-train-extra-btn');
         if (extraBtn) extraBtn.addEventListener('click', function() {
