@@ -779,7 +779,8 @@
       </div>
       <div class="rr-modal-body">
         <label for="report-agency">Agency</label>
-        <select id="report-agency">
+        <select id="report-agency" required>
+          <option value="" selected disabled>Select a Railroad</option>
           <option value="mbta">MBTA</option>
           <option value="amtrak">Amtrak</option>
           <option value="mnr">Metro-North</option>
@@ -802,8 +803,10 @@
         </div>
         <div id="report-train-number-wrap" style="display:none;">
           <label for="report-train-number">Search train number</label>
-          <input type="search" id="report-train-number" list="report-train-number-options" placeholder="Type a train number…" autocomplete="off">
-          <datalist id="report-train-number-options"></datalist>
+          <div class="rr-report-combo">
+            <input type="text" id="report-train-number" placeholder="Search train number…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="report-train-number-options" aria-haspopup="listbox">
+            <ul class="rr-report-suggest" id="report-train-number-options" role="listbox" hidden></ul>
+          </div>
           <p class="rr-modal-hint" style="margin:5px 0 0;">Start typing to find a scheduled train, or enter a number manually.</p>
         </div>
         <div id="report-mbta-vehicle-wrap" style="display:none;">
@@ -1059,7 +1062,7 @@
   <script src="/assets/js/facility-map-markers.js?v=5774b1acbc"></script>
   <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
   <script src="/assets/js/rr-shared-rails.js?v=7102cefb1d"></script>
-  <script src="/assets/js/app-main.js?v=searchtrainnumber1"></script>
+  <script src="/assets/js/app-main.js?v=reportsearchstyle1"></script>
   <script src="/assets/js/live-popup-report-prefill.js?v=1"></script>
   <script src="/assets/js/yard-reports.js?v=20261115b"></script>
   <script src="/assets/js/main-live-trip-marker.js?v=b314f7a694"></script>
