@@ -11280,6 +11280,21 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           input.removeAttribute('aria-activedescendant');
         }
       }
+      function reportTrainSuggestionLineColor(row) {
+        if (!row) return '';
+        let color = row.lineColor || row.routeColor || row.route_color || row.color || '';
+        const agency = normalizeAgency((document.getElementById('report-agency') || {}).value || '');
+        const routeId = String(row.routeId || row.route_id || '').trim();
+        try {
+          if (!color && agency === 'mbta' && routeId && typeof routeColors === 'object') color = routeColors[routeId] || '';
+          if (!color && agency === 'mnr' && routeId && typeof MNR_STATIC === 'object' && MNR_STATIC.routes) color = (MNR_STATIC.routes[routeId] || {}).color || '';
+          if (!color && agency === 'lirr' && routeId && typeof LIRR_STATIC === 'object' && LIRR_STATIC.routes) color = (LIRR_STATIC.routes[routeId] || {}).color || '';
+          if (!color && agency === 'marc' && routeId && typeof MARC_STATIC === 'object' && MARC_STATIC.routes) color = (MARC_STATIC.routes[routeId] || {}).color || '';
+        } catch (_) {}
+        color = String(color || '').trim();
+        if (/^[0-9a-f]{6}$/i.test(color)) color = '#' + color;
+        return /^#[0-9a-f]{6}$/i.test(color) ? color : '';
+      }
       function renderReportTrainSuggest() {
         const input = document.getElementById('report-train-number');
         const list = document.getElementById('report-train-number-options');
@@ -11299,10 +11314,14 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (reportTrainSuggestActive >= rows.length) reportTrainSuggestActive = -1;
         list.innerHTML = rows.map(function(row, i) {
           const active = i === reportTrainSuggestActive;
-          return '<li role="presentation"><button type="button" class="rr-report-opt' + (active ? ' is-active' : '') + '" role="option" id="report-train-opt-' + i + '" data-train-suggest-row="' + i + '" aria-selected="' + (active ? 'true' : 'false') + '">' +
+          const lineColor = row.lineColor || '';
+          const colorStyle = lineColor ? ' style="background-color:' + lineColor + ';color:#fff;"' : '';
+          const textStyle = lineColor ? ' style="color:#fff;"' : '';
+          const metaStyle = lineColor ? ' style="color:rgba(255,255,255,.88);"' : '';
+          return '<li role="presentation"><button type="button" class="rr-report-opt' + (active ? ' is-active' : '') + '"' + colorStyle + ' role="option" id="report-train-opt-' + i + '" data-train-suggest-row="' + i + '" aria-selected="' + (active ? 'true' : 'false') + '">' +
             '<span aria-hidden="true" style="display:block;width:36px;height:36px;flex:0 0 36px;"></span>' +
-            '<span class="rr-report-opt-text"><span class="rr-report-opt-num">' + escapeHtmlLite(row.number) + '</span>' +
-            '<span class="rr-report-opt-meta">' + escapeHtmlLite(row.label || 'Scheduled train') + '</span></span></button></li>';
+            '<span class="rr-report-opt-text"><span class="rr-report-opt-num"' + textStyle + '>' + escapeHtmlLite(row.number) + '</span>' +
+            '<span class="rr-report-opt-meta"' + metaStyle + '>' + escapeHtmlLite(row.label || 'Scheduled train') + '</span></span></button></li>';
         }).join('');
         list.hidden = false;
         input.setAttribute('aria-expanded', 'true');
@@ -11371,7 +11390,11 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           const rows = await fetchAgencyScheduleTrains(agency, serviceDate);
           if (token !== reportTrainSelectToken) return;
           reportTrainSuggestRows = rows.map(function(r) {
-            return { number: String(r.trainNumber).trim(), label: formatReportTrainOptionLabel(r) };
+            return {
+              number: String(r.trainNumber).trim(),
+              label: formatReportTrainOptionLabel(r),
+              lineColor: reportTrainSuggestionLineColor(r)
+            };
           }).filter(function(r) { return r.number; });
           let options = '';
           reportTrainSuggestRows.forEach(function(r) {
