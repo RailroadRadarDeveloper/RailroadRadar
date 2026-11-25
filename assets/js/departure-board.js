@@ -656,7 +656,7 @@
     var pt = hub && hubPoint(hub);
     var frame = document.getElementById('station-map');
     if (!frame || !pt) return;
-    var url = '/map/?embed=board&lat=' + encodeURIComponent(pt[0].toFixed(5)) + '&lng=' + encodeURIComponent(pt[1].toFixed(5)) + '&z=12';
+    var url = '/map/?embed=board&lat=' + encodeURIComponent(pt[0].toFixed(5)) + '&lng=' + encodeURIComponent(pt[1].toFixed(5)) + '&z=11';
     if (frame.getAttribute('src') !== url) frame.setAttribute('src', url);
   }
 

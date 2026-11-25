@@ -2,6 +2,8 @@
 :root {
   --primary-color: #07093e;
   --rr-green: #0ac700;
+  /* A consistent text scale multiplier; the existing clamp() sizes remain responsive to screen dimensions. */
+  --rr-board-type-scale: 1.05;
 }
 html, body {
   height: 100%;
@@ -18,7 +20,7 @@ button, input { font: inherit; color: inherit; }
 .pick[hidden], .board[hidden] { display: none; }
 .pick-label {
   margin: 0 0 12px;
-  font-size: clamp(22px, 3vw, 40px);
+  font-size: calc(clamp(22px, 3vw, 40px) * var(--rr-board-type-scale));
   font-weight: 800;
 }
 .pick-input {
@@ -28,7 +30,7 @@ button, input { font: inherit; color: inherit; }
   border-bottom: 3px solid #fff;
   background: transparent;
   padding: 10px 2px 12px;
-  font-size: clamp(20px, 2.6vw, 36px);
+  font-size: calc(clamp(20px, 2.6vw, 36px) * var(--rr-board-type-scale));
   font-weight: 700;
   border-radius: 0;
 }
@@ -49,8 +51,8 @@ button, input { font: inherit; color: inherit; }
   border-radius: 0;
 }
 .pick-list button:hover, .pick-list button[aria-selected="true"] { background: rgba(255, 255, 255, 0.1); }
-.pick-name { font-size: clamp(18px, 2.2vw, 28px); font-weight: 800; }
-.pick-agency { font-size: clamp(13px, 1.4vw, 18px); font-weight: 700; color: #d5d8ea; }
+.pick-name { font-size: calc(clamp(18px, 2.2vw, 28px) * var(--rr-board-type-scale)); font-weight: 800; }
+.pick-agency { font-size: calc(clamp(13px, 1.4vw, 18px) * var(--rr-board-type-scale)); font-weight: 700; color: #d5d8ea; }
 .board {
   display: flex;
   flex-direction: column;
@@ -110,7 +112,7 @@ button, input { font: inherit; color: inherit; }
   padding: 6px 10px;
   background: var(--rr-green);
   color: var(--primary-color);
-  font-size: 13px;
+  font-size: calc(13px * var(--rr-board-type-scale));
   font-weight: 700;
 }
 .change-station:hover::after { content: "Change station"; }
@@ -150,7 +152,7 @@ button, input { font: inherit; color: inherit; }
 .dest:empty, .col-track:empty, .col-equip:empty { display: none; }
 .time, .mins { font-variant-numeric: tabular-nums; }
 .time {
-  font-size: clamp(18px, min(1.7vw, 3.2vh), 48px);
+  font-size: calc(clamp(18px, min(1.7vw, 3.2vh), 48px) * var(--rr-board-type-scale));
   line-height: 0.95;
   white-space: normal;
 }
@@ -163,7 +165,7 @@ button, input { font: inherit; color: inherit; }
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.62);
 }
-.mins { font-size: clamp(16px, min(1.4vw, 2.6vh), 40px); }
+.mins { font-size: calc(clamp(16px, min(1.4vw, 2.6vh), 40px) * var(--rr-board-type-scale)); }
 .train {
   flex: 1.5 1 0;
   min-width: 0;
@@ -179,27 +181,27 @@ button, input { font: inherit; color: inherit; }
 }
 .train-name {
   max-width: 100%;
-  font-size: clamp(18px, min(1.7vw, 3.2vh), 48px);
+  font-size: calc(clamp(18px, min(1.7vw, 3.2vh), 48px) * var(--rr-board-type-scale));
   line-height: 1.1;
   white-space: normal;
 }
 .train-sub {
   max-width: 100%;
   margin-top: 0.28em;
-  font-size: clamp(13px, min(1.15vw, 1.9vh), 24px);
+  font-size: calc(clamp(13px, min(1.15vw, 1.9vh), 24px) * var(--rr-board-type-scale));
   font-weight: 700;
   line-height: 1.25;
   color: #d7dbeb;
   white-space: normal;
 }
-.dest { flex: 1 1 0; font-size: clamp(16px, min(1.35vw, 2.4vh), 36px); white-space: normal; }
-.col-track, .col-equip { font-size: clamp(20px, min(1.8vw, 3.2vh), 68px); font-weight: 700; }
+.dest { flex: 1 1 0; font-size: calc(clamp(16px, min(1.35vw, 2.4vh), 36px) * var(--rr-board-type-scale)); white-space: normal; }
+.col-track, .col-equip { font-size: calc(clamp(20px, min(1.8vw, 3.2vh), 68px) * var(--rr-board-type-scale)); font-weight: 700; }
 .col-equip { white-space: nowrap; text-overflow: ellipsis; }
 .col-track { flex: none; }
 .status {
   flex: none;
   max-width: 100%;
-  font-size: clamp(16px, min(1.6vw, 3vh), 60px);
+  font-size: calc(clamp(16px, min(1.6vw, 3vh), 60px) * var(--rr-board-type-scale));
   font-weight: 800;
   color: #fff;
   padding: 0.28em 0.5em;
@@ -222,7 +224,7 @@ button, input { font: inherit; color: inherit; }
   padding: clamp(4px, 0.6vmin, 8px) clamp(8px, 1.2vw, 14px);
   background: var(--rr-green);
   color: var(--primary-color);
-  font-size: clamp(11px, 1.6vmin, 16px);
+  font-size: calc(clamp(11px, 1.6vmin, 16px) * var(--rr-board-type-scale));
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
@@ -259,19 +261,19 @@ button, input { font: inherit; color: inherit; }
   }
   .stage { flex-direction: column; }
   .map-pane { flex: 0 0 35%; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
-  .time, .train-name { font-size: clamp(20px, min(6.4vw, 3.4vh), 40px); }
-  .mins { font-size: clamp(16px, min(4.6vw, 2.6vh), 28px); }
-  .train-sub { font-size: clamp(13px, min(3.6vw, 1.8vh), 20px); }
-  .dest { font-size: clamp(20px, min(6vw, 4vh), 52px); }
-  .col-track, .col-equip { font-size: clamp(18px, min(5vw, 3.4vh), 44px); }
-  .status { font-size: clamp(16px, min(4.6vw, 3.2vh), 42px); }
+  .time, .train-name { font-size: calc(clamp(20px, min(6.4vw, 3.4vh), 40px) * var(--rr-board-type-scale)); }
+  .mins { font-size: calc(clamp(16px, min(4.6vw, 2.6vh), 28px) * var(--rr-board-type-scale)); }
+  .train-sub { font-size: calc(clamp(13px, min(3.6vw, 1.8vh), 20px) * var(--rr-board-type-scale)); }
+  .dest { font-size: calc(clamp(20px, min(6vw, 4vh), 52px) * var(--rr-board-type-scale)); }
+  .col-track, .col-equip { font-size: calc(clamp(18px, min(5vw, 3.4vh), 44px) * var(--rr-board-type-scale)); }
+  .status { font-size: calc(clamp(16px, min(4.6vw, 3.2vh), 42px) * var(--rr-board-type-scale)); }
   .line-extra { align-items: center; }
-  .banner { gap: 6px; padding-left: 6px; padding-right: 6px; font-size: 11px; }
+  .banner { gap: 6px; padding-left: 6px; padding-right: 6px; font-size: calc(11px * var(--rr-board-type-scale)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .rows { transition: none; }
 }
-.empty { padding: 4vh 18px; font-size: clamp(16px, 3vmin, 32px); font-weight: 800; }
+.empty { padding: 4vh 18px; font-size: calc(clamp(16px, 3vmin, 32px) * var(--rr-board-type-scale)); font-weight: 800; }
 @media (prefers-color-scheme: dark) {
   html, body, .board { background: var(--primary-color); color: #fff; }
   .banner { background: var(--rr-green); color: var(--primary-color); }
