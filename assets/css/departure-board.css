@@ -63,18 +63,22 @@ button, input { font: inherit; color: inherit; }
 .stage {
   flex: 1;
   display: flex;
+  flex-direction: column;
   min-height: 0;
   min-width: 0;
 }
 .map-pane {
-  flex: 0 0 45%;
+  flex: 0 0 clamp(110px, 20vh, 220px);
+  width: 100%;
   min-width: 0;
   min-height: 0;
+  box-sizing: border-box;
   position: relative;
   overflow: hidden;
   touch-action: none;
   background: var(--primary-color);
-  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  border-right: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
 }
 .station-map {
   position: absolute;
@@ -260,7 +264,7 @@ button, input { font: inherit; color: inherit; }
     text-overflow: unset;
   }
   .stage { flex-direction: column; }
-  .map-pane { flex: 0 0 35%; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
+  .map-pane { flex: 0 0 clamp(90px, 18vh, 160px); width: 100%; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
   .time, .train-name { font-size: calc(clamp(20px, min(6.4vw, 3.4vh), 40px) * var(--rr-board-type-scale)); }
   .mins { font-size: calc(clamp(16px, min(4.6vw, 2.6vh), 28px) * var(--rr-board-type-scale)); }
   .train-sub { font-size: calc(clamp(13px, min(3.6vw, 1.8vh), 20px) * var(--rr-board-type-scale)); }
