@@ -11754,6 +11754,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (agencySel) agencySel.addEventListener('change', function() {
           reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
           reportTrainPreferNumber = '';
+          const trainNumberEl = document.getElementById('report-train-number');
+          if (trainNumberEl) trainNumberEl.value = '';
+          reportTrainSuggestRows = [];
+          closeReportTrainSuggest();
           setReportTrainExtraMode(false);
           populateReportUnitSelect();
         });
