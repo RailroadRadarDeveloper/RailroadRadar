@@ -145,7 +145,7 @@ button, input { font: inherit; color: inherit; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.22);
   overflow: hidden;
 }
-.time, .mins, .train, .dest, .col-track, .col-equip { font-weight: 800; }
+.time, .train, .dest, .col-track, .col-equip { font-weight: 800; }
 .time, .mins, .col-track, .status { flex: none; }
 .train, .dest, .col-equip {
   flex: 1 1 0;
@@ -177,7 +177,7 @@ button, input { font: inherit; color: inherit; }
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.62);
 }
-.mins { font-size: calc(clamp(16px, min(1.4vw, 2.6vh), 40px) * var(--rr-board-type-scale)); }
+.mins { font-size: calc(clamp(16px, min(1.4vw, 2.6vh), 40px) * var(--rr-board-type-scale)); font-weight: 400; }
 .train {
   flex: 1.5 1 0;
   min-width: 0;
