@@ -160,6 +160,10 @@ service cloud.firestore {
         && strOk(d.serviceDate, 10)
         && d.unitName.matches('.{0,120}')
         && d.comment.matches('(?s).{0,280}')
+        && strOk(d.get('sightingMethod', ''), 20)
+        && d.get('sightingMethod', '') in ['', 'in_person', 'webcam', 'other']
+        && strOk(d.get('sightingOther', ''), 120)
+        && strOk(d.get('sightingLocation', ''), 120)
         && d.reportedByLabel.matches('.{0,120}')
         && displayModeOk(d.reportedByDisplayMode)
         && d.locomotiveId2.matches('.{0,64}')
@@ -183,6 +187,7 @@ service cloud.firestore {
         'agency', 'trainNumber', 'vehicleId', 'unitName', 'serviceDate',
         'reportedByUid', 'reportedByDisplayMode', 'reportedByLabel', 'reportedByPhotoURL',
         'reportedByVerified', 'contributors', 'updatedAt', 'comment',
+        'sightingMethod', 'sightingOther', 'sightingLocation',
         'reportedByEmail', 'reportedByName', 'firstReportedByEmail', 'firstReportedByName',
         'firstReportedByUid', 'firstReportedByDisplayMode', 'firstReportedByLabel',
         'locomotives', 'locomotiveId', 'locomotiveId2', 'unitName2',
