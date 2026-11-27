@@ -10818,9 +10818,6 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           reportedByVerified: !!reporterVerified,
           updatedAt: now,
           comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
-          sightingMethod: payload.sightingMethod ? String(payload.sightingMethod).slice(0, 20) : '',
-          sightingOther: payload.sightingOther ? String(payload.sightingOther).trim().slice(0, 120) : '',
-          sightingLocation: payload.sightingLocation ? String(payload.sightingLocation).trim().slice(0, 120) : '',
           // Scrub legacy PII from public trainReports on every republish
           reportedByEmail: fvDelete,
           reportedByName: fvDelete,
@@ -10960,8 +10957,12 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             vehicleId: vehicleId,
             trainNumber: agency === 'mbta' ? null : trainNumber,
             serviceDate: serviceDate,
+            sightingMethod: payload.sightingMethod ? String(payload.sightingMethod).slice(0, 20) : '',
+            sightingOther: payload.sightingOther ? String(payload.sightingOther).trim().slice(0, 120) : '',
+            sightingLocation: payload.sightingLocation ? String(payload.sightingLocation).trim().slice(0, 120) : '',
             updatedAt: now
           };
+          // Sighting details live only in reportAudit, which is admin-readable.
           // arrayUnion appends without reading the doc, which non-admins cannot do.
           if (auditAddsEntry) auditPayload.contributors = firebase.firestore.FieldValue.arrayUnion(currentContributorFull);
           if (!existing.exists) auditPayload.createdAt = now;
