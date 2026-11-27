@@ -152,6 +152,13 @@ service cloud.firestore {
     // fields read without get() on every submission; a missing or mistyped one denies the write.
     // The verified badge is drawn from reportedByVerified and contributors[].verified, so both
     // need a verifiedReporters doc. Emails are not allowed at all: an admin's email shows the admin badge.
+    function sightingFieldsOk(d) {
+      return strOk(d.get('sightingMethod', ''), 20)
+        && d.get('sightingMethod', '') in ['', 'in_person', 'webcam', 'other']
+        && strOk(d.get('sightingOther', ''), 120)
+        && strOk(d.get('sightingLocation', ''), 120);
+    }
+
     function reportFieldsOk(d) {
       return d.reportedByUid == request.auth.uid
         && d.agency.matches('[a-z]{2,16}')
@@ -160,10 +167,6 @@ service cloud.firestore {
         && strOk(d.serviceDate, 10)
         && d.unitName.matches('.{0,120}')
         && d.comment.matches('(?s).{0,280}')
-        && strOk(d.get('sightingMethod', ''), 20)
-        && d.get('sightingMethod', '') in ['', 'in_person', 'webcam', 'other']
-        && strOk(d.get('sightingOther', ''), 120)
-        && strOk(d.get('sightingLocation', ''), 120)
         && d.reportedByLabel.matches('.{0,120}')
         && displayModeOk(d.reportedByDisplayMode)
         && d.locomotiveId2.matches('.{0,64}')
@@ -202,6 +205,7 @@ service cloud.firestore {
     function reportCreateChecks(id, d) {
       return reportFieldsOk(d)
         && d.keys().hasOnly(reportWritableKeys().concat(['createdAt']))
+        && !d.keys().hasAny(['sightingMethod', 'sightingOther', 'sightingLocation'])
         && id.matches(d.agency + '_.*')
         && d.createdAt == request.time
         && d.updatedAt == request.time
@@ -222,6 +226,8 @@ service cloud.firestore {
         && o.updatedAt is timestamp
         && o.updatedAt <= request.time - duration.value(30, 's')
         && changed.hasOnly(reportWritableKeys())
+        && (!changed.hasAny(['sightingMethod', 'sightingOther', 'sightingLocation'])
+            || !d.keys().hasAny(['sightingMethod', 'sightingOther', 'sightingLocation']))
         && d.agency == o.agency
         && d.updatedAt == request.time
         && (!changed.hasAny(['firstReportedByUid', 'firstReportedByLabel', 'firstReportedByDisplayMode'])
@@ -251,6 +257,7 @@ service cloud.firestore {
     function pendingWriteChecks(id, d) {
       return reportFieldsOk(d)
         && d.keys().hasOnly(reportWritableKeys().concat(['createdAt', 'status', 'submittedAt']))
+        && sightingFieldsOk(d)
         && id.matches(d.agency + '_.*')
         && d.status == 'pending'
         && d.submittedAt == request.time
@@ -278,13 +285,15 @@ service cloud.firestore {
         && textOk(d.get('vehicleId', null), 64)
         && textOk(d.get('trainNumber', null), 64)
         && textOk(d.get('serviceDate', null), 10)
+        && sightingFieldsOk(d)
         && d.updatedAt == request.time;
     }
 
     function auditWritableKeys() {
       return [
         'reportedByUid', 'reportedByEmail', 'reportedByName', 'reportedByLabel', 'reportedByDisplayMode',
-        'agency', 'vehicleId', 'trainNumber', 'serviceDate', 'contributors', 'updatedAt', 'createdAt'
+        'agency', 'vehicleId', 'trainNumber', 'serviceDate', 'sightingMethod', 'sightingOther', 'sightingLocation',
+        'contributors', 'updatedAt', 'createdAt'
       ];
     }
 
