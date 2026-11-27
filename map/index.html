@@ -166,7 +166,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="/assets/css/app.css?v=e296ea53f7">
+  <link rel="stylesheet" href="/assets/css/app.css?v=sightingtown1">
   <!-- Load fonts and feature-panel styles without blocking the map's first paint. -->
   <link rel="stylesheet" href="/assets/fonts/roboto.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="/assets/css/google-signin.css?v=dbf59b629e" media="print" onload="this.media='all'">
@@ -841,7 +841,7 @@
           <input type="text" id="report-sighting-other" maxlength="120" placeholder="Describe how you saw it">
         </div>
         <label for="report-sighting-location">Sighting location (town)</label>
-        <input type="text" id="report-sighting-location" maxlength="120" placeholder="Search or enter a town…" autocomplete="address-level2">
+        <div class="rr-sighting-location-field"><input type="text" id="report-sighting-location" maxlength="120" placeholder="Search or enter a town…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="report-sighting-location-suggestions"><div id="report-sighting-location-suggestions" class="rr-sighting-location-suggestions" role="listbox" hidden></div></div>
         <label for="report-comment">Comment (optional)</label>
         <textarea id="report-comment" maxlength="280" placeholder="Anything else about this train…"></textarea>
         <div class="rr-modal-error" id="report-train-error"></div>
@@ -1075,7 +1075,7 @@
   <script src="/assets/js/facility-map-markers.js?v=5774b1acbc"></script>
   <script src="/assets/js/free-light-map.js?v=35404fc781"></script>
   <script src="/assets/js/rr-shared-rails.js?v=7102cefb1d"></script>
-  <script src="/assets/js/app-main.js?v=reportlinecolors1"></script>
+  <script src="/assets/js/app-main.js?v=sightingtown1"></script>
   <script src="/assets/js/live-popup-report-prefill.js?v=1"></script>
   <script src="/assets/js/yard-reports.js?v=20261115b"></script>
   <script src="/assets/js/main-live-trip-marker.js?v=b314f7a694"></script>

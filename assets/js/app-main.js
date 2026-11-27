@@ -11790,6 +11790,103 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
             if (otherInput) otherInput.value = '';
           }
         });
+
+        // Town autocomplete uses Photon geocoding. Requests are debounced, abortable,
+        // limited to six results, and restricted to US localities.
+        (function initSightingTownAutocomplete() {
+          const townInput = document.getElementById('report-sighting-location');
+          const list = document.getElementById('report-sighting-location-suggestions');
+          if (!townInput || !list) return;
+          let timer = null;
+          let controller = null;
+          let activeIndex = -1;
+          let requestId = 0;
+          let choices = [];
+          function closeList() {
+            list.hidden = true;
+            list.replaceChildren();
+            townInput.setAttribute('aria-expanded', 'false');
+            townInput.removeAttribute('aria-activedescendant');
+            activeIndex = -1;
+            choices = [];
+          }
+          function chooseTown(item) {
+            townInput.value = item.label;
+            closeList();
+          }
+          function render(items) {
+            choices = items;
+            activeIndex = -1;
+            list.replaceChildren();
+            items.forEach(function(item, index) {
+              const option = document.createElement('button');
+              option.type = 'button';
+              option.className = 'rr-sighting-location-option';
+              option.id = 'rr-sighting-town-option-' + index;
+              option.setAttribute('role', 'option');
+              option.setAttribute('aria-selected', 'false');
+              option.textContent = item.label;
+              option.addEventListener('pointerdown', function(e) { e.preventDefault(); chooseTown(item); });
+              list.appendChild(option);
+            });
+            list.hidden = !items.length;
+            townInput.setAttribute('aria-expanded', items.length ? 'true' : 'false');
+          }
+          function activate(index) {
+            const options = list.querySelectorAll('.rr-sighting-location-option');
+            if (!options.length) return;
+            activeIndex = (index + options.length) % options.length;
+            options.forEach(function(option, i) {
+              option.setAttribute('aria-selected', i === activeIndex ? 'true' : 'false');
+            });
+            townInput.setAttribute('aria-activedescendant', options[activeIndex].id);
+          }
+          townInput.addEventListener('input', function() {
+            clearTimeout(timer);
+            if (controller) controller.abort();
+            const query = townInput.value.trim();
+            if (query.length < 3) { closeList(); return; }
+            const thisRequest = ++requestId;
+            timer = setTimeout(async function() {
+              controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+              try {
+                const url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(query) + '&limit=8&lang=en';
+                const response = await fetch(url, controller ? { signal: controller.signal } : {});
+                if (!response.ok) throw new Error('Town search unavailable');
+                const data = await response.json();
+                if (thisRequest !== requestId || townInput.value.trim() !== query) return;
+                const seen = new Set();
+                const items = (data.features || []).map(function(feature) {
+                  const p = feature && feature.properties || {};
+                  const name = String(p.name || '').trim();
+                  const country = String(p.country || '').trim();
+                  if (!name || (country && !/^(united states|usa)$/i.test(country))) return null;
+                  if (p.type && !/^(city|town|village|hamlet|locality|municipality|suburb|borough)$/i.test(p.type)) return null;
+                  const state = String(p.state || '').trim();
+                  const label = name + (state ? ', ' + state : '');
+                  const key = label.toLowerCase();
+                  if (seen.has(key)) return null;
+                  seen.add(key);
+                  return { label: label };
+                }).filter(Boolean).slice(0, 6);
+                render(items);
+              } catch (error) {
+                if (error && error.name === 'AbortError') return;
+                closeList();
+              }
+            }, 350);
+          });
+          townInput.addEventListener('keydown', function(e) {
+            if (list.hidden) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); activate(activeIndex + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activate(activeIndex < 0 ? choices.length - 1 : activeIndex - 1); }
+            else if (e.key === 'Enter' && activeIndex >= 0 && choices[activeIndex]) { e.preventDefault(); chooseTown(choices[activeIndex]); }
+            else if (e.key === 'Escape') closeList();
+          });
+          townInput.addEventListener('blur', function() {
+            setTimeout(closeList, 120);
+          });
+        })();
         if (agencySel) agencySel.addEventListener('change', function() {
           reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
           reportTrainPreferNumber = '';
