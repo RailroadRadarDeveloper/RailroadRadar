@@ -10818,6 +10818,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           reportedByVerified: !!reporterVerified,
           updatedAt: now,
           comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
+          sightingMethod: payload.sightingMethod ? String(payload.sightingMethod).slice(0, 20) : '',
+          sightingOther: payload.sightingOther ? String(payload.sightingOther).trim().slice(0, 120) : '',
+          sightingLocation: payload.sightingLocation ? String(payload.sightingLocation).trim().slice(0, 120) : '',
           // Scrub legacy PII from public trainReports on every republish
           reportedByEmail: fvDelete,
           reportedByName: fvDelete,
@@ -11621,7 +11624,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               locomotiveId: first.locomotiveId, unitName: first.unitName, serviceDate: serviceDate,
               locoType: first.locoType, locoIconUrl: first.locoIconUrl,
               specialOverride: first.specialOverride, customLoco: first.customLoco,
-              locomotives: resolved, comment: comment
+              locomotives: resolved, comment: comment,
+              sightingMethod: ((document.getElementById('report-sighting-method') || {}).value || ''),
+              sightingOther: ((document.getElementById('report-sighting-other') || {}).value || ''),
+              sightingLocation: ((document.getElementById('report-sighting-location') || {}).value || '')
             });
           }
           if (acelaEquipment && !(saved && saved.pending)) {
@@ -11774,6 +11780,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (btnPanel) btnPanel.addEventListener('click', openReportTrainModal);
         if (btnClose) btnClose.addEventListener('click', closeReportTrainModal);
         if (btnSubmit) btnSubmit.addEventListener('click', handleReportTrainSubmit);
+        const sightingMethodSel = document.getElementById('report-sighting-method');
+        const sightingOtherWrap = document.getElementById('report-sighting-other-wrap');
+        if (sightingMethodSel && sightingOtherWrap) sightingMethodSel.addEventListener('change', function() {
+          const showOther = sightingMethodSel.value === 'other';
+          sightingOtherWrap.hidden = !showOther;
+          if (!showOther) {
+            const otherInput = document.getElementById('report-sighting-other');
+            if (otherInput) otherInput.value = '';
+          }
+        });
         if (agencySel) agencySel.addEventListener('change', function() {
           reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
           reportTrainPreferNumber = '';
