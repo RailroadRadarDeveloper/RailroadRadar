@@ -827,7 +827,7 @@
     <label for="admin-equipment-type">Equipment Type</label><select id="admin-equipment-type"><option value="locomotive">Locomotive</option><option value="passenger_car">Passenger Car / Coach</option><option value="cab_car">Cab Car</option><option value="freight_car">Freight Car</option><option value="dmu">DMU</option><option value="emu">EMU</option><option value="trainset">Trainset</option><option value="maintenance">Maintenance of Way</option><option value="other">Other Equipment</option></select>
     <label for="admin-equipment-railroad">Railroad / Agency</label><input type="text" id="admin-equipment-railroad" placeholder="e.g. MBTA, Amtrak, Metro-North, CSX" autocomplete="off">
     <label for="admin-equipment-id">Equipment ID / Number</label><input type="text" id="admin-equipment-id" placeholder="e.g. 1030, 6100, 90215" autocomplete="off">
-    <label for="admin-equipment-name">Name / Description</label><input type="text" id="admin-equipment-name" placeholder="e.g. B&amp;M Minuteman, Kawasaki coach" autocomplete="off"><div id="admin-equipment-locomotive-fields"><label for="admin-equipment-loco-type">Locomotive Model / Subtype (Optional)</label><input type="text" id="admin-equipment-loco-type" placeholder="e.g. F40PH-3C, HSP46" autocomplete="off"><label for="admin-equipment-paint">Paint Scheme / Notes (Optional)</label><input type="text" id="admin-equipment-paint" placeholder="e.g. New Haven McGinnis" autocomplete="off"></div>
+    <label for="admin-equipment-name">Name / Description</label><input type="text" id="admin-equipment-name" placeholder="e.g. 2026 HOLIDAY TRAIN | F40PH-3C" autocomplete="off">
     <label for="admin-equipment-icon-select">Icon</label><select id="admin-equipment-icon-select"><option value="">No icon</option></select>
     <img id="admin-equipment-icon-preview" alt="Equipment icon preview" width="48" height="48" hidden style="display:none;width:48px;height:48px;object-fit:contain;margin-top:8px;background:#f4f6f9;border-radius:4px;">
     <label for="admin-equipment-icon-file">Or Upload a New PNG Icon</label><div class="rr-admin-toolbar" style="align-items:center;"><input type="file" id="admin-equipment-icon-file" accept="image/png,.png" style="min-width:0;flex:1;"><button type="button" class="rr-btn secondary" id="admin-equipment-icon-upload">Upload PNG</button></div>
@@ -3165,14 +3165,14 @@
       if(!user||!isAdminUser(user)){setAdminError('Admin access required.');return;}
       if(!db){setAdminError('Firestore unavailable.');return;}
       const val=id=>String((document.getElementById(id)||{}).value||'').trim();
-      const type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),locoType=val('admin-equipment-loco-type'),paint=val('admin-equipment-paint'),iconUrl=val('admin-equipment-icon-select')||null;
+      const type=val('admin-equipment-type'),railroad=val('admin-equipment-railroad'),id=val('admin-equipment-id'),name=val('admin-equipment-name'),iconUrl=val('admin-equipment-icon-select')||null;
       if(!ADMIN_EQUIPMENT_TYPES[type]){setAdminError('Choose an equipment type.');return;}
       if(!railroad||railroad.length>80){setAdminError('Railroad / agency is required (80 characters max).');return;}
       if(!id||id.length>80){setAdminError('Equipment ID is required (80 characters max).');return;}
-      if(name.length>160||locoType.length>80||paint.length>160){setAdminError('Please shorten the equipment details.');return;}
+      if(name.length>160){setAdminError('Please shorten the equipment description (160 characters max).');return;}
       const sec=document.getElementById('admin-equipment-editor'),editing=sec&&sec.getAttribute('data-edit-id'),docId=editing||encodeURIComponent((railroad+'_'+type+'_'+id).toLowerCase()).replace(/%/g,'_').slice(0,180);
       const record={type,railroad,id,name,iconUrl,active:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedByUid:user.uid};
-      if(type==='locomotive'){record.locoType=locoType||null;record.paint=paint||null;}
+      // Legacy locoType/paint metadata is left untouched on existing records; new entries use Name / Description.
       try{
         await db.collection('equipmentRoster').doc(docId).set(record,{merge:true});
         await loadAdminEquipmentRoster();
