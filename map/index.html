@@ -841,7 +841,7 @@
           <input type="text" id="report-sighting-other" maxlength="120" placeholder="Describe how you saw it">
         </div>
         <label for="report-sighting-location">Sighting location (town)</label>
-        <input type="text" id="report-sighting-location" maxlength="120" placeholder="Search or enter a town…" autocomplete="address-level2">
+        <div class="rr-sighting-location-field"><input type="text" id="report-sighting-location" maxlength="120" placeholder="Search or enter a town…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="report-sighting-location-suggestions"><div id="report-sighting-location-suggestions" class="rr-sighting-location-suggestions" role="listbox" hidden></div></div>
         <label for="report-comment">Comment (optional)</label>
         <textarea id="report-comment" maxlength="280" placeholder="Anything else about this train…"></textarea>
         <div class="rr-modal-error" id="report-train-error"></div>
