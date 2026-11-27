@@ -10818,6 +10818,9 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
           reportedByVerified: !!reporterVerified,
           updatedAt: now,
           comment: payload.comment ? String(payload.comment).trim().slice(0, 280) : '',
+          sightingMethod: payload.sightingMethod ? String(payload.sightingMethod).slice(0, 20) : '',
+          sightingOther: payload.sightingOther ? String(payload.sightingOther).trim().slice(0, 120) : '',
+          sightingLocation: payload.sightingLocation ? String(payload.sightingLocation).trim().slice(0, 120) : '',
           // Scrub legacy PII from public trainReports on every republish
           reportedByEmail: fvDelete,
           reportedByName: fvDelete,
@@ -11621,7 +11624,10 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
               locomotiveId: first.locomotiveId, unitName: first.unitName, serviceDate: serviceDate,
               locoType: first.locoType, locoIconUrl: first.locoIconUrl,
               specialOverride: first.specialOverride, customLoco: first.customLoco,
-              locomotives: resolved, comment: comment
+              locomotives: resolved, comment: comment,
+              sightingMethod: ((document.getElementById('report-sighting-method') || {}).value || ''),
+              sightingOther: ((document.getElementById('report-sighting-other') || {}).value || ''),
+              sightingLocation: ((document.getElementById('report-sighting-location') || {}).value || '')
             });
           }
           if (acelaEquipment && !(saved && saved.pending)) {
