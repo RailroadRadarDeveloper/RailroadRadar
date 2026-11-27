@@ -829,6 +829,19 @@
         <div id="report-locos-list"></div>
         <button type="button" class="rr-link-btn" id="report-add-loco-btn" style="margin:8px 0 4px; background:none; border:none; color:#07093e; text-decoration:underline; cursor:pointer; padding:0; font-size:13px;">+ Add another locomotive</button>
         <p class="rr-modal-hint" id="report-train-hint">Pairs a locomotive to this vehicle ID until reported differently.</p>
+        <label for="report-sighting-method">Sighting method</label>
+        <select id="report-sighting-method">
+          <option value="">Select a method (optional)</option>
+          <option value="in_person">In person</option>
+          <option value="webcam">Webcam</option>
+          <option value="other">Other</option>
+        </select>
+        <div id="report-sighting-other-wrap" hidden>
+          <label for="report-sighting-other">Other method</label>
+          <input type="text" id="report-sighting-other" maxlength="120" placeholder="Describe how you saw it">
+        </div>
+        <label for="report-sighting-location">Sighting location (town)</label>
+        <input type="text" id="report-sighting-location" maxlength="120" placeholder="Search or enter a town…" autocomplete="address-level2">
         <label for="report-comment">Comment (optional)</label>
         <textarea id="report-comment" maxlength="280" placeholder="Anything else about this train…"></textarea>
         <div class="rr-modal-error" id="report-train-error"></div>
