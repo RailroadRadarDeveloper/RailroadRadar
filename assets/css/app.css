@@ -7614,3 +7614,40 @@ html.rr-mytrips-page .trip-log-quick-hint{margin:0 0 10px;padding:9px 11px;borde
 html.rr-mytrips-page #trip-log-add-segment{margin:2px 0 8px;min-height:38px}
 html.rr-mytrips-page #trip-log-save{min-width:132px}
 @media(max-width:560px){html.rr-mytrips-page .trip-log-quick-hint{font-size:12px}html.rr-mytrips-page #trip-log-add-segment{width:100%;justify-content:center}}
+
+
+/* Sighting-town autocomplete: match the existing report form controls and keep
+   suggestions anchored to the town field on desktop and mobile. */
+.rr-sighting-location-field { position: relative; width: 100%; }
+.rr-sighting-location-field > input { width: 100%; box-sizing: border-box; }
+.rr-sighting-location-suggestions {
+  position: absolute;
+  z-index: 12000;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #cbd1df;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(7,9,62,.16);
+}
+.rr-sighting-location-suggestions[hidden] { display: none !important; }
+.rr-sighting-location-option {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #edf0f5;
+  background: #fff;
+  color: #07093e;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.rr-sighting-location-option:last-child { border-bottom: 0; }
+.rr-sighting-location-option:hover,
+.rr-sighting-location-option[aria-selected="true"] { background: #f0f2f8; }
