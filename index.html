@@ -423,6 +423,12 @@ html.is-halloween .banner-lead{display:none}
 html.is-halloween .banner h1{text-shadow:0 2px 18px rgba(0,0,0,.55)}
 /* Soft dark shadow only on the avatar (no ring or border) */
 html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[data-sky=dusk]) .home-user-avatar{box-shadow:0 1px 6px rgba(7,9,62,.5)}
+
+/* Lightweight homepag
+<canvas class="rr-snow" id="rr-home-snow" aria-hidden="true"></canvas>
+e snowfall; decorative only and never intercepts interaction. */
+.rr-snow{position:fixed;inset:0;width:100%;height:100%;z-index:35;pointer-events:none;opacity:.72}
+@media (prefers-reduced-motion:reduce){.rr-snow{display:none}}
 </style>
 </head>
 <body>
@@ -875,5 +881,38 @@ html:is([data-sky=dawn],[data-sky=morning],[data-sky=day],[data-sky=sunset],[dat
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js" defer></script>
 <script src="/assets/js/home-auth.js?v=72a8189411" defer></script>
+
+<script>
+/* Homepage snowfall: small canvas workload, pauses in background tabs, and respects reduced motion. */
+(function(){
+  var canvas=document.getElementById('rr-home-snow');
+  if(!canvas||!canvas.getContext)return;
+  var media=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)');
+  if(media&&media.matches){canvas.hidden=true;return;}
+  var ctx;try{ctx=canvas.getContext('2d',{alpha:true});}catch(_){return;}if(!ctx)return;
+  var w=0,h=0,dpr=1,flakes=[],raf=0,last=0;
+  var count=Math.min(64,Math.max(28,Math.round((window.innerWidth||900)/18)));
+  function rand(a,b){return a+Math.random()*(b-a);}
+  function make(y){return{x:rand(0,w||1),y:y==null?rand(-h,0):y,r:rand(.7,2),v:rand(.45,1.35),drift:rand(-.32,.32),phase:rand(0,Math.PI*2),alpha:rand(.38,.82)};}
+  function resize(){
+    w=Math.max(1,window.innerWidth||1);h=Math.max(1,window.innerHeight||1);dpr=Math.min(1.5,window.devicePixelRatio||1);
+    canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+    count=Math.min(64,Math.max(28,Math.round(w/18)));flakes=Array.from({length:count},function(){return make();});
+  }
+  function draw(now){
+    raf=0;if(document.hidden)return;var dt=last?Math.min(2,(now-last)/16.67):1;last=now;ctx.clearRect(0,0,w,h);
+    for(var i=0;i<flakes.length;i++){var f=flakes[i];f.phase+=.012*dt;f.x+=(f.drift+Math.sin(f.phase)*.34)*dt;f.y+=f.v*dt;
+      if(f.y>h+5){flakes[i]=make(-5);continue;}if(f.x<-8)f.x=w+5;else if(f.x>w+8)f.x=-5;
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,'+f.alpha+')';ctx.fill();}
+    raf=requestAnimationFrame(draw);
+  }
+  function start(){if(!document.hidden&&!raf){last=0;raf=requestAnimationFrame(draw);}}
+  function stop(){if(raf){cancelAnimationFrame(raf);raf=0;}last=0;ctx.clearRect(0,0,w,h);}
+  resize();start();window.addEventListener('resize',resize,{passive:true});
+  document.addEventListener('visibilitychange',function(){if(document.hidden)stop();else start();});
+  if(media&&media.addEventListener)media.addEventListener('change',function(e){if(e.matches){stop();canvas.hidden=true;}else{canvas.hidden=false;start();}});
+})();
+</script>
+
 </body>
 </html>
