@@ -11780,6 +11780,16 @@ if (primaryLog) primaryLog.addEventListener('click', openRegularTripForm);
         if (btnPanel) btnPanel.addEventListener('click', openReportTrainModal);
         if (btnClose) btnClose.addEventListener('click', closeReportTrainModal);
         if (btnSubmit) btnSubmit.addEventListener('click', handleReportTrainSubmit);
+        const sightingMethodSel = document.getElementById('report-sighting-method');
+        const sightingOtherWrap = document.getElementById('report-sighting-other-wrap');
+        if (sightingMethodSel && sightingOtherWrap) sightingMethodSel.addEventListener('change', function() {
+          const showOther = sightingMethodSel.value === 'other';
+          sightingOtherWrap.hidden = !showOther;
+          if (!showOther) {
+            const otherInput = document.getElementById('report-sighting-other');
+            if (otherInput) otherInput.value = '';
+          }
+        });
         if (agencySel) agencySel.addEventListener('change', function() {
           reportLocoSlots = [{ rosterId: '', customId: '', locoType: '' }];
           reportTrainPreferNumber = '';
