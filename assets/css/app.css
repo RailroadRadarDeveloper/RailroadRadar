@@ -2057,7 +2057,7 @@
      }
    }
    .header-logo {
-     height: 40px !important;
+     height: 34px !important;
    }
    .alert-signup-section {
      margin: 20px 0;
@@ -5700,7 +5700,7 @@
         gap: 6px;
       }
       .header-logo {
-        height: 29px !important;
+        height: 26px !important;
         margin-right: 4px;
         flex-shrink: 0;
       }
