@@ -1,3 +1,20 @@
+  /* Seasonal brand mark: show the supplied holiday logo during the winter holiday window. */
+  (function () {
+    var now = new Date(), month = now.getMonth(), day = now.getDate();
+    var holiday = (month === 10 && day >= 20) || month === 11 || (month === 0 && day <= 2);
+    if (!holiday) return;
+    var src = 'https://i.postimg.cc/Zn0pW0CS/Railroad-Radar-Holiday-Logo.png';
+    function apply() {
+      document.querySelectorAll('.header-logo, .header-logo-link img, .header-brand img, header img[src="/assets/logo.png"]').forEach(function (img) {
+        if (img.dataset.rrHolidayLogo === '1') return;
+        img.dataset.rrHolidayLogo = '1';
+        img.src = src;
+        img.alt = 'RailroadRadar Holiday Logo';
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+    else apply();
+  })();
 (function () {
   var links = [
     { id: 'map', href: '/map/', label: 'Live Map' },
