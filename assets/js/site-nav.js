@@ -1,27 +1,27 @@
-  /* Seasonal brand mark: show the supplied holiday logo during the winter holiday window. */
-  (function () {
-    var now = new Date(), month = now.getMonth(), day = now.getDate();
-    var holiday = (month === 10 && day >= 20) || month === 11 || (month === 0 && day <= 2);
-    if (!holiday) return;
-    var src = 'https://i.postimg.cc/Zn0pW0CS/Railroad-Radar-Holiday-Logo.png';
-    function apply() {
-      document.querySelectorAll('.header-logo, .header-logo-link img, .header-brand img, header img[src="/assets/logo.png"]').forEach(function (img) {
-        if (img.dataset.rrHolidayLogo === '1') return;
-        img.dataset.rrHolidayLogo = '1';
-        img.classList.add('rr-holiday-logo');
-        img.src = src;
-        img.alt = 'RailroadRadar Holiday Logo';
-      });
-      if (!document.getElementById('rr-holiday-logo-size')) {
-        var sizeStyle = document.createElement('style');
-        sizeStyle.id = 'rr-holiday-logo-size';
-        sizeStyle.textContent = '.header-logo.rr-holiday-logo{height:36px;max-width:min(240px,48vw)}@media(max-width:560px){.header-logo.rr-holiday-logo{height:29px;max-width:min(220px,48vw)}}';
-        document.head.appendChild(sizeStyle);
-      }
-      return;
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
-    else apply();
-  })();
+/* Seasonal brand mark: show the supplied holiday logo during the winter holiday window. */
+(function () {
+  var now = new Date(), month = now.getMonth(), day = now.getDate();
+  var holiday = (month === 10 && day >= 20) || month === 11 || (month === 0 && day <= 2);
+  if (!holiday) return;
+  var src = 'https://i.postimg.cc/Zn0pW0CS/Railroad-Radar-Holiday-Logo.png';
+  function apply() {
+    document.querySelectorAll('.header-logo, .header-logo-link img, .header-brand img, header img[src="/assets/logo.png"]').forEach(function (img) {
+      if (img.dataset.rrHolidayLogo === '1') return;
+      img.dataset.rrHolidayLogo = '1';
+      img.classList.add('rr-holiday-logo');
+      img.src = src;
+      img.alt = 'RailroadRadar Holiday Logo';
+    });
+    if (!document.getElementById('rr-holiday-logo-size')) {
+      var sizeStyle = document.createElement('style');
+      sizeStyle.id = 'rr-holiday-logo-size';
+      sizeStyle.textContent = '.header-logo.rr-holiday-logo{height:36px;max-width:min(240px,48vw)}@media(max-width:560px){.header-logo.rr-holiday-logo{height:29px;max-width:min(220px,48vw)}}';
+      document.head.appendChild(sizeStyle);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+  else apply();
+})();
 (function () {
   var links = [
     { id: 'map', href: '/map/', label: 'Live Map' },
