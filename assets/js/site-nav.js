@@ -8,6 +8,23 @@
       document.querySelectorAll('.header-logo, .header-logo-link img, .header-brand img, header img[src="/assets/logo.png"]').forEach(function (img) {
         if (img.dataset.rrHolidayLogo === '1') return;
         img.dataset.rrHolidayLogo = '1';
+        img.classList.add('rr-holiday-logo');
+        img.src = src;
+        img.alt = 'RailroadRadar Holiday Logo';
+      });
+      if (!document.getElementById('rr-holiday-logo-size')) {
+        var sizeStyle = document.createElement('style');
+        sizeStyle.id = 'rr-holiday-logo-size';
+        sizeStyle.textContent = '.header-logo.rr-holiday-logo{height:36px;max-width:min(240px,48vw)}@media(max-width:560px){.header-logo.rr-holiday-logo{height:29px;max-width:min(220px,48vw)}}';
+        document.head.appendChild(sizeStyle);
+      }
+      /* Keep the original logo dimensions unchanged outside the seasonal window. */
+      return;
+    }
+    function unused() {
+      document.querySelectorAll('.header-logo, .header-logo-link img, .header-brand img, header img[src="/assets/logo.png"]').forEach(function (img) {
+        if (img.dataset.rrHolidayLogo === '1') return;
+        img.dataset.rrHolidayLogo = '1';
         img.src = src;
         img.alt = 'RailroadRadar Holiday Logo';
       });
